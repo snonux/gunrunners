@@ -25,6 +25,8 @@ constexpr int kDeadZoneBottom = 20;
 constexpr int kTightTop = 8;
 constexpr int kTightBottom = 15;
 constexpr int kMaxAdjust = 2;
+// Fraction of the remaining distance the view covers per 60 Hz tick.
+constexpr float kEase = 0.3f;
 
 } // namespace
 
@@ -35,6 +37,7 @@ void Camera::centerOn(const Target& t, int worldW, int worldH)
   clampToWorld(worldW, worldH);
   mPrevX = mX;
   mPrevY = mY;
+  mSnap = true;
 }
 
 void Camera::update(const Target& t, int manualScroll, int worldW, int worldH)
@@ -71,29 +74,37 @@ void Camera::clampToWorld(int worldW, int worldH)
   mY = clampTo(mY, 0, std::max(0, worldH - int(std::ceil(mViewH))));
 }
 
-float Camera::renderX(float alpha) const
-{
-  return (float(mPrevX) + float(mX - mPrevX) * alpha) * float(kCellSize) + mShakeX;
-}
-
-float Camera::renderY(float alpha) const
-{
-  return (float(mPrevY) + float(mY - mPrevY) * alpha) * float(kCellSize) + mShakeY;
-}
-
 void Camera::shake(int ticks, float strength)
 {
+  if (ticks >= mShakeTicks)
+    mShakeTotal = ticks;
   mShakeTicks = std::max(mShakeTicks, ticks);
   mShakeStrength = std::max(mShakeStrength, strength);
 }
 
-void Camera::tick()
+void Camera::tick(float alpha)
 {
+  const float targetX = (float(mPrevX) + float(mX - mPrevX) * alpha) * float(kCellSize);
+  const float targetY = (float(mPrevY) + float(mY - mPrevY) * alpha) * float(kCellSize);
+  if (mSnap)
+  {
+    mSmoothX = targetX;
+    mSmoothY = targetY;
+    mSnap = false;
+  }
+  else
+  {
+    mSmoothX += (targetX - mSmoothX) * kEase;
+    mSmoothY += (targetY - mSmoothY) * kEase;
+  }
+
   if (mShakeTicks > 0)
   {
+    // Fades out over its length so it reads as one jolt, not a jitter.
+    const float a = mShakeStrength * float(mShakeTicks) / float(std::max(1, mShakeTotal));
     --mShakeTicks;
-    mShakeX = mRng.range(-mShakeStrength, mShakeStrength);
-    mShakeY = mRng.range(-mShakeStrength, mShakeStrength);
+    mShakeX = mRng.range(-a, a);
+    mShakeY = mRng.range(-a, a);
     if (mShakeTicks == 0)
       mShakeStrength = 0.0f;
   }

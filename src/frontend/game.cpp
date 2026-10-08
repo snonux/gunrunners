@@ -203,8 +203,8 @@ void Game::tickPlay(const Input& raw)
         frameInput.down ? "D" : "", frameInput.jump.pressed ? "J" : "", frameInput.fire.pressed ? "F" : "");
     }
   }
-  mWorld->tickEffects();
   mSubTick = (mSubTick + 1) % kTicksPerLogicFrame;
+  mWorld->tickEffects(renderAlpha());
 
   if (mWorld->state() == WorldState::Done)
   {
@@ -246,11 +246,22 @@ void Game::buildPanels()
   mBonusPanel = makePanel(mRenderer, 860, 560, rgba(8, 6, 22, 220), t.accentA, 28);
 }
 
+float Game::renderAlpha() const
+{
+  // render() runs after tick(), and the logic frame ran on the tick that
+  // left mSubTick at 1. So 1, 2, 3 are a quarter, half and three quarters of
+  // the way to the newest logic state, and 0 means we have reached it.
+  // (Treating 0 as "at the previous state" made everything snap back once
+  // per logic frame, which showed up as a constant judder.)
+  const int sinceUpdate = mSubTick == 0 ? kTicksPerLogicFrame : mSubTick;
+  return float(sinceUpdate) / float(kTicksPerLogicFrame);
+}
+
 void Game::render()
 {
   mRenderer.beginFrame();
   mRenderer.clear(rgb(0, 0, 0));
-  const float alpha = float(mSubTick) / float(kTicksPerLogicFrame);
+  const float alpha = renderAlpha();
   switch (mMode)
   {
     case Mode::Select:

@@ -8,8 +8,9 @@ namespace gr
 // Dead-zone camera ported from RigelEngine's game_logic/camera.cpp. It works
 // on the 8 px cell grid at the 15 Hz logic rate: it only scrolls once the
 // player leaves a box around the middle of the screen, at most 2 cells per
-// frame, and the renderer interpolates between frames. Screen shake runs at
-// the 60 Hz render rate on top of that.
+// frame. At the 60 Hz render rate the view eases towards that position, so
+// it starts and stops scrolling smoothly instead of jumping to full speed,
+// and a short, fading screen shake can be added on top.
 class Camera
 {
 public:
@@ -26,11 +27,13 @@ public:
   // One logic frame. manualScroll is -1 (look up), 0 or 1 (look down).
   void update(const Target& t, int manualScroll, int worldW, int worldH);
   void shake(int ticks, float strength);
-  void tick(); // 60 Hz
+  // 60 Hz. alpha is how far the next rendered frame is between the previous
+  // and the current logic frame.
+  void tick(float alpha);
 
-  // Interpolated position in world pixels, including shake.
-  float renderX(float alpha) const;
-  float renderY(float alpha) const;
+  // Smoothed position in world pixels, including shake.
+  float renderX() const { return mSmoothX + mShakeX; }
+  float renderY() const { return mSmoothY + mShakeY; }
   int x() const { return mX; }
   int y() const { return mY; }
   float viewW() const { return mViewW; }
@@ -45,7 +48,11 @@ private:
   int mY = 0;
   int mPrevX = 0;
   int mPrevY = 0;
+  float mSmoothX = 0.0f;
+  float mSmoothY = 0.0f;
+  bool mSnap = true;
   int mShakeTicks = 0;
+  int mShakeTotal = 0;
   float mShakeStrength = 0.0f;
   Rng mRng{777u};
   float mShakeX = 0.0f;

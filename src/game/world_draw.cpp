@@ -70,8 +70,8 @@ int weaponIcon(Weapon w)
 
 void World::draw(Renderer& r, int frame, float alpha) const
 {
-  const float camX = mCamera.renderX(alpha) * S;
-  const float camY = mCamera.renderY(alpha) * S;
+  const float camX = mCamera.renderX() * S;
+  const float camY = mCamera.renderY() * S;
   drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx);
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
@@ -132,8 +132,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   {
     if (!e.alive)
       continue;
-    const float x = lerpCells(e.prevX, e.x, alpha) + float(e.w) * kCellPx * 0.5f - camX;
-    const float y = lerpCells(e.prevY + 1, e.y + 1, alpha) - camY;
+    const float x = e.drawX * kCellPx + float(e.w) * kCellPx * 0.5f - camX;
+    const float y = (e.drawY + 1.0f) * kCellPx - camY;
     if (x < -160.0f || x > float(kScreenW) + 160.0f)
       continue;
     const Texture* tex = nullptr;
@@ -323,11 +323,12 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
   const auto& p = mPlayer;
   if (p.hidden)
     return;
-  // Mercy frames: blink, then flash white for the last few (like Duke).
-  const bool blink = p.mercy > 10 && (p.mercy % 2) != 0;
-  const bool flashWhite = p.mercy > 0 && p.mercy <= 10 && (p.mercy % 2) != 0;
-  if (blink)
-    return;
+  // Mercy frames: Duke blinks the sprite on and off, then flashes it white.
+  // Strobing at the logic rate looks harsh in HD, so the runner turns
+  // see-through with a gentle pulse instead, and glows white at the end.
+  const bool ghost = p.mercy > 10;
+  const bool flashWhite = p.mercy > 0 && p.mercy <= 10;
+  const float pulse = 0.5f + 0.5f * std::sin(float(frame) * 0.35f);
 
   const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
   const Sprite* spr = &ca.idle[std::size_t((frame / 30) % 2)];
@@ -412,11 +413,14 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     return;
   }
 
+  if (ghost)
+    o.alpha = 0.45f + 0.3f * pulse;
   r.draw(tex, x, y, o);
   if (flashWhite)
   {
     DrawOpts w = o;
     w.blend = Blend::Add;
+    w.alpha = 0.25f + 0.35f * pulse;
     r.draw(tex, x, y, w);
   }
 
