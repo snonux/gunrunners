@@ -1,19 +1,23 @@
 // TurboDudes - proof of concept.
 //
-// Runs either in a window (SDL2) or fully headless, in which case every
-// frame can be streamed as raw BGRA pixels to a file or stdout (e.g. into
-// ffmpeg) to record gameplay clips without a display.
+// Runs either in a GPU-accelerated window (SDL2) or fully headless with SDL's
+// software renderer, in which case every 1280x720 frame can be streamed as
+// raw BGRA pixels to a file or stdout (e.g. into ffmpeg) to record gameplay
+// clips without a display.
 
 #include "frontend/game.hpp"
 
 #include <SDL.h>
+#include <cairo.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <vector>
 
 using namespace td;
 
@@ -26,7 +30,9 @@ struct CliOptions
   bool headless = false;
   long maxFrames = -1;
   std::string rawOut;
-  int scale = 3;
+  std::string screenshotPrefix;
+  std::vector<long> screenshotFrames;
+  bool fullscreen = false;
 };
 
 void printUsage()
@@ -40,9 +46,11 @@ void printUsage()
     "  --autoplay           let the bot play (menu + level)\n"
     "  --quit-after-clear   exit after the results screen\n"
     "  --headless           no window; use with --raw-out to record\n"
-    "  --raw-out PATH       write raw 320x180 BGRA frames at 60 fps ('-' = stdout)\n"
+    "  --raw-out PATH       write raw 1280x720 BGRA frames at 60 fps ('-' = stdout)\n"
+    "  --screenshots LIST   headless: save PNGs of these ticks, e.g. 100,250\n"
+    "  --screenshot-prefix P  path prefix for those PNGs (default shot_)\n"
     "  --frames N           stop after N ticks\n"
-    "  --scale N            window scale (default 3)\n"
+    "  --fullscreen         start in fullscreen\n"
     "\n"
     "Keys: arrows/WASD move, Z/Space jump, X/Ctrl fire, Enter confirm,\n"
     "      T cycle theme, Esc quit");
@@ -93,8 +101,17 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.rawOut = next();
     else if (a == "--frames")
       o.maxFrames = std::atol(next());
-    else if (a == "--scale")
-      o.scale = std::max(1, std::atoi(next()));
+    else if (a == "--screenshots")
+    {
+      std::stringstream ss(next());
+      std::string item;
+      while (std::getline(ss, item, ','))
+        o.screenshotFrames.push_back(std::atol(item.c_str()));
+    }
+    else if (a == "--screenshot-prefix")
+      o.screenshotPrefix = next();
+    else if (a == "--fullscreen")
+      o.fullscreen = true;
     else if (a == "--help" || a == "-h")
     {
       printUsage();
@@ -112,37 +129,75 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
   return true;
 }
 
+void savePng(SDL_Surface* surface, const std::string& path)
+{
+  cairo_surface_t* cs = cairo_image_surface_create_for_data(
+    static_cast<unsigned char*>(surface->pixels),
+    CAIRO_FORMAT_RGB24,
+    surface->w,
+    surface->h,
+    surface->pitch);
+  cairo_surface_write_to_png(cs, path.c_str());
+  cairo_surface_destroy(cs);
+}
+
 int runHeadless(const CliOptions& o)
 {
-  Game game(o.game);
-  Canvas canvas(kViewW, kViewH);
-  std::FILE* out = nullptr;
-  if (o.rawOut == "-")
-    out = stdout;
-  else if (!o.rawOut.empty())
-    out = std::fopen(o.rawOut.c_str(), "wb");
-
-  long frames = 0;
-  while (o.maxFrames < 0 || frames < o.maxFrames)
+  SDL_Init(0);
+  SDL_Surface* surface =
+    SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Renderer* sdlRenderer = SDL_CreateSoftwareRenderer(surface);
+  if (!surface || !sdlRenderer)
   {
-    if (!game.tick(Input{}))
-      break;
-    ++frames;
-    if (out)
-    {
-      game.render(canvas);
-      std::fwrite(canvas.px.data(), sizeof(Color), canvas.px.size(), out);
-    }
-    if (o.maxFrames < 0 && frames > 60L * 60L * 10L)
-    {
-      std::fprintf(stderr, "giving up after 10 minutes of game time\n");
-      break;
-    }
+    std::fprintf(stderr, "cannot create software renderer: %s\n", SDL_GetError());
+    return 1;
   }
-  if (out && out != stdout)
-    std::fclose(out);
-  std::fprintf(stderr, "ran %ld frames\n", frames);
-  return 0;
+  int result = 0;
+  {
+    Renderer renderer(sdlRenderer);
+    Game game(o.game, renderer);
+    std::FILE* out = nullptr;
+    if (o.rawOut == "-")
+      out = stdout;
+    else if (!o.rawOut.empty())
+      out = std::fopen(o.rawOut.c_str(), "wb");
+    const std::string prefix = o.screenshotPrefix.empty() ? "shot_" : o.screenshotPrefix;
+
+    long frames = 0;
+    while (o.maxFrames < 0 || frames < o.maxFrames)
+    {
+      if (!game.tick(Input{}))
+        break;
+      ++frames;
+      const bool shot = std::find(o.screenshotFrames.begin(), o.screenshotFrames.end(), frames) !=
+        o.screenshotFrames.end();
+      if (out || shot)
+      {
+        game.render();
+        SDL_RenderPresent(sdlRenderer);
+        if (shot)
+          savePng(surface, prefix + std::to_string(frames) + ".png");
+        if (out)
+        {
+          for (int y = 0; y < kScreenH; ++y)
+            std::fwrite(static_cast<const char*>(surface->pixels) + y * surface->pitch, 4, kScreenW, out);
+        }
+      }
+      if (o.maxFrames < 0 && frames > 60L * 60L * 10L)
+      {
+        std::fprintf(stderr, "giving up after 10 minutes of game time\n");
+        result = 1;
+        break;
+      }
+    }
+    if (out && out != stdout)
+      std::fclose(out);
+    std::fprintf(stderr, "ran %ld frames\n", frames);
+  }
+  SDL_DestroyRenderer(sdlRenderer);
+  SDL_FreeSurface(surface);
+  SDL_Quit();
+  return result;
 }
 
 Input readKeyboard()
@@ -166,23 +221,23 @@ int runWindowed(const CliOptions& o)
     std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
     return 1;
   }
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
   SDL_Window* window = SDL_CreateWindow(
     "TurboDudes PoC",
     SDL_WINDOWPOS_CENTERED,
     SDL_WINDOWPOS_CENTERED,
-    kViewW * o.scale,
-    kViewH * o.scale,
-    SDL_WINDOW_RESIZABLE);
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
-  if (!renderer)
-    renderer = SDL_CreateRenderer(window, -1, 0);
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-  SDL_RenderSetLogicalSize(renderer, kViewW, kViewH);
-  SDL_Texture* texture = SDL_CreateTexture(
-    renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, kViewW, kViewH);
+    kScreenW,
+    kScreenH,
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (o.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+  SDL_Renderer* sdlRenderer =
+    SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (!sdlRenderer)
+    sdlRenderer = SDL_CreateRenderer(window, -1, 0);
+  SDL_RenderSetLogicalSize(sdlRenderer, kScreenW, kScreenH);
 
-  Game game(o.game);
-  Canvas canvas(kViewW, kViewH);
+  {
+  Renderer renderer(sdlRenderer);
+  Game game(o.game, renderer);
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
   Uint64 last = SDL_GetPerformanceCounter();
@@ -219,15 +274,12 @@ int runWindowed(const CliOptions& o)
         running = false;
     }
 
-    game.render(canvas);
-    SDL_UpdateTexture(texture, nullptr, canvas.px.data(), kViewW * int(sizeof(Color)));
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-    SDL_RenderPresent(renderer);
+    game.render();
+    SDL_RenderPresent(sdlRenderer);
+  }
   }
 
-  SDL_DestroyTexture(texture);
-  SDL_DestroyRenderer(renderer);
+  SDL_DestroyRenderer(sdlRenderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
   return 0;

@@ -8,10 +8,13 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 find_package(SDL2 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(CAIRO REQUIRED IMPORTED_TARGET cairo)
 
 add_library(turbodudes_core STATIC
-  src/gfx/canvas.cpp
-  src/gfx/font.cpp
+  src/render/color.cpp
+  src/render/renderer.cpp
+  src/render/vector.cpp
   src/assets/art.cpp
   src/data/level.cpp
   src/data/theme.cpp
@@ -22,6 +25,7 @@ add_library(turbodudes_core STATIC
   src/frontend/game.cpp
 )
 target_include_directories(turbodudes_core PUBLIC src)
+target_link_libraries(turbodudes_core PUBLIC SDL2::SDL2 PkgConfig::CAIRO)
 target_compile_definitions(turbodudes_core PUBLIC TD_DATA_DIR="${CMAKE_SOURCE_DIR}")
 if(NOT MSVC)
   target_compile_options(turbodudes_core PRIVATE -Wall -Wextra)

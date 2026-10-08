@@ -1,6 +1,7 @@
 #pragma once
 
 #include "assets/art.hpp"
+#include "render/renderer.hpp"
 #include "base/math.hpp"
 #include "data/characters.hpp"
 #include "data/level.hpp"
@@ -97,6 +98,7 @@ struct Particle
   Color color = 0;
   int size = 1;
   bool gravity = true;
+  bool glow = true;
 };
 
 enum class WorldState
@@ -125,7 +127,7 @@ public:
   World(const Level& level, int characterIndex, const Theme& theme, const Art& art);
 
   void update(const Input& input);
-  void draw(Canvas& canvas, int frame) const;
+  void draw(Renderer& r, int frame) const;
 
   WorldState state() const { return mState; }
   int stateTicks() const { return mStateTicks; }
@@ -146,7 +148,7 @@ private:
   void updateParticles();
   void killEnemy(Enemy& e);
   void damageCrate(int tx, int ty);
-  void explode(Vec2 at, Color a, Color b, int count, float speed);
+  void explode(Vec2 at, Color a, Color b, int count, float speed, bool glow = true);
   void moveBody(Vec2& pos, Vec2& vel, const Rect& boxOffset, bool& onGround);
   bool overlapsTile(const Rect& r, Tile t) const;
   bool isActive(const Rect& r) const;

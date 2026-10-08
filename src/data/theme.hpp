@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gfx/canvas.hpp"
+#include "render/color.hpp"
 
 namespace td
 {

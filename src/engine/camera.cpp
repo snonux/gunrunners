@@ -64,18 +64,16 @@ void Camera::tick()
   if (mShakeTicks > 0)
   {
     --mShakeTicks;
-    mShakeX = int(mRng.range(-mShakeStrength, mShakeStrength));
-    mShakeY = int(mRng.range(-mShakeStrength, mShakeStrength));
+    mShakeX = mRng.range(-mShakeStrength, mShakeStrength);
+    mShakeY = mRng.range(-mShakeStrength, mShakeStrength);
     if (mShakeTicks == 0)
       mShakeStrength = 0.0f;
   }
   else
   {
-    mShakeX = mShakeY = 0;
+    mShakeX = mShakeY = 0.0f;
   }
 }
 
-int Camera::renderX() const { return int(mX) + mShakeX; }
-int Camera::renderY() const { return int(mY) + mShakeY; }
 
 } // namespace td
