@@ -38,7 +38,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   , mAudio(audio)
   , mThemeIndex(options.theme)
   , mArt(std::make_unique<Art>(Art::build(themeByIndex(options.theme), renderer)))
-  , mLevel(Level::loadFile(options.levelPath))
+  , mLevel(std::make_shared<const Level>(Level::loadFile(options.levelPath)))
   , mCursor(options.autoplay ? 0 : options.character)
 {
   buildPanels();
@@ -403,7 +403,7 @@ void Game::renderPlayOverlay()
     DrawOpts o;
     o.alpha = a;
     r.draw(mBannerPanel, 260, y, o);
-    std::string label = mLevel.name.empty() ? "STAGE 1" : mLevel.name;
+    std::string label = mLevel->name.empty() ? "STAGE 1" : mLevel->name;
     r.drawText(label, 640, y + 16, {22.0f, t.hudText}, Align::Center, a);
     r.drawText(t.name, 640, y + 46, {56.0f, t.accentA, kInk, true}, Align::Center, a);
     r.drawText(t.tagline, 640, y + 122, {20.0f, rgb(200, 200, 216)}, Align::Center, a);

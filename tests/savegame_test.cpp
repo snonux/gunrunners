@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     Renderer renderer(sdl);
     const Theme& theme = themeByIndex(0);
     const Art art = Art::build(theme, renderer);
-    const Level level = Level::loadFile(levelPath);
+    const auto level = std::make_shared<const Level>(Level::loadFile(levelPath));
 
     for (int character = 0; character < kCharacterCount; ++character)
     {

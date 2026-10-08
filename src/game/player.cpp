@@ -786,7 +786,7 @@ void World::updatePlayerInteractions()
     flashAt({(float(cp.x) + 1.0f) * kCellSize, (float(cp.y) - 3.0f) * kCellSize}, 90.0f, mTheme.accentB, 30);
   }
 
-  const CellBox exitZone{mLevel.exitTx * kCellsPerTile, (mLevel.exitTy + 1) * kCellsPerTile - 6, 2, 6};
+  const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
   if (exitZone.intersects(p.box()) && p.state == PlayerState::OnGround)
   {
     p.state = PlayerState::Teleporting;

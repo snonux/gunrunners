@@ -18,9 +18,37 @@ int sgn(int v) { return (v > 0) - (v < 0); }
 
 } // namespace
 
+CollisionMap::CollisionMap(const Level& level) : mW(level.width), mH(level.height), mTiles(level.tiles) {}
+
+Tile CollisionMap::block(int tx, int ty) const
+{
+  if (tx < 0 || tx >= mW)
+    return Tile::Solid;
+  if (ty < 0 || ty >= mH)
+    return Tile::Empty;
+  return mTiles[std::size_t(ty * mW + tx)];
+}
+
+void CollisionMap::setBlock(int tx, int ty, Tile t)
+{
+  if (tx >= 0 && ty >= 0 && tx < mW && ty < mH)
+    mTiles[std::size_t(ty * mW + tx)] = t;
+}
+
+int CollisionMap::platformAt(int cx, int cy) const
+{
+  for (std::size_t i = 0; i < mPlatforms.size(); ++i)
+  {
+    const auto& p = mPlatforms[i];
+    if (cy == p.top() && cx >= p.left() && cx <= p.right())
+      return int(i);
+  }
+  return -1;
+}
+
 Tile CollisionMap::tileAt(int cx, int cy) const
 {
-  return mLevel->at(floorDiv(cx, kCellsPerTile), floorDiv(cy, kCellsPerTile));
+  return block(floorDiv(cx, kCellsPerTile), floorDiv(cy, kCellsPerTile));
 }
 
 bool CollisionMap::solid(int cx, int cy) const
@@ -45,6 +73,8 @@ bool CollisionMap::solid(int cx, int cy) const
 bool CollisionMap::solidTop(int cx, int cy) const
 {
   if (solid(cx, cy))
+    return true;
+  if (!mPlatforms.empty() && platformAt(cx, cy) >= 0)
     return true;
   return tileAt(cx, cy) == Tile::Platform && (cy & 1) == 0;
 }

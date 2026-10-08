@@ -13,6 +13,7 @@
 #include "render/renderer.hpp"
 
 #include <array>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -291,7 +292,7 @@ struct Bonus
 class World
 {
 public:
-  World(const Level& level, int characterIndex, const Theme& theme, const Art& art);
+  World(std::shared_ptr<const Level> level, int characterIndex, const Theme& theme, const Art& art);
 
   // One 15 Hz logic frame.
   void update(const PlayerInput& input);
@@ -311,7 +312,7 @@ public:
   const std::vector<ItemBox>& boxes() const { return mBoxes; }
   const std::vector<Item>& items() const { return mItems; }
   const std::vector<Projectile>& projectiles() const { return mProjectiles; }
-  const Level& level() const { return mLevel; }
+  const Level& level() const { return *mLevel; }
   const CollisionMap& map() const { return mMap; }
   const Camera& camera() const { return mCamera; }
 
@@ -387,7 +388,7 @@ private:
   void drawPlayer(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawHud(Renderer& r, int frame) const;
 
-  Level mLevel;
+  std::shared_ptr<const Level> mLevel; // immutable; copies of the world share it
   CollisionMap mMap;
   const CharacterDef* mCharacter;
   int mCharacterIndex;

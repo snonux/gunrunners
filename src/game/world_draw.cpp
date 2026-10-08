@@ -79,12 +79,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx);
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
-  const int tx1 = std::min(mLevel.width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
-  for (const auto& d : mLevel.decorations)
+  const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
+  for (const auto& d : mLevel->decorations)
     if (d.first >= tx0 - 1 && d.first <= tx1 + 1)
       drawDecoration(r, mArt, mTheme, float(d.first) * kTilePx - camX, float(d.second) * kTilePx - camY, d.first * 31 + d.second, frame);
 
-  drawExit(r, mArt, mTheme, float(mLevel.exitTx) * kTilePx - 32.0f - camX, float(mLevel.exitTy + 1) * kTilePx - camY, frame);
+  drawExit(r, mArt, mTheme, float(mLevel->exitTx) * kTilePx - 32.0f - camX, float(mLevel->exitTy + 1) * kTilePx - camY, frame);
 
   for (const auto& cp : mCheckpoints)
   {
@@ -248,8 +248,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
 {
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int ty0 = std::max(0, int(camY / kTilePx) - 1);
-  const int tx1 = std::min(mLevel.width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
-  const int ty1 = std::min(mLevel.height - 1, int((camY + float(kScreenH)) / kTilePx) + 1);
+  const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
+  const int ty1 = std::min(mLevel->height - 1, int((camY + float(kScreenH)) / kTilePx) + 1);
 
   // Climbables first, so platforms and walls overlap their ends.
   for (int ty = ty0; ty <= ty1; ++ty)
@@ -258,7 +258,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
     {
       const float x = float(tx) * kTilePx - camX;
       const float y = float(ty) * kTilePx - camY;
-      const Tile t = mLevel.at(tx, ty);
+      const Tile t = mMap.block(tx, ty);
       if (t == Tile::Ladder)
         r.draw(mArt.ladder, x, y);
       else if (t == Tile::Pipe)
@@ -272,13 +272,13 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
     {
       const float x = float(tx) * kTilePx - camX;
       const float y = float(ty) * kTilePx - camY;
-      switch (mLevel.at(tx, ty))
+      switch (mMap.block(tx, ty))
       {
         case Tile::Solid:
         {
           // Shade blocks darker the deeper they sit below the surface.
           int depth = 0;
-          while (depth < 3 && mLevel.isSolid(tx, ty - depth - 1))
+          while (depth < 3 && (mMap.block(tx, ty - depth - 1) == Tile::Solid))
             ++depth;
           static constexpr int kShade[4] = {255, 210, 175, 145};
           const auto h = (hash2(tx, ty) >> 8) % 10u;
@@ -313,9 +313,9 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
             beam.alpha = float(mFieldFlash) / 40.0f;
             r.draw(mArt.fieldBeam, x, y, beam);
           }
-          if (mLevel.at(tx, ty - 1) != Tile::ForceField)
+          if (mMap.block(tx, ty - 1) != Tile::ForceField)
             r.draw(mArt.fieldEmitter, x, y - 4);
-          if (mLevel.at(tx, ty + 1) != Tile::ForceField)
+          if (mMap.block(tx, ty + 1) != Tile::ForceField)
             r.draw(mArt.fieldEmitter, x, y + 48);
           break;
         }
@@ -327,7 +327,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
   // Surface trims go on top so their glow/grass can overlap neighbours.
   for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
     for (int tx = tx0; tx <= tx1; ++tx)
-      if (mLevel.at(tx, ty) == Tile::Solid && !mLevel.isSolid(tx, ty - 1) && mLevel.at(tx, ty - 1) != Tile::Spikes)
+      if (mMap.block(tx, ty) == Tile::Solid && mMap.block(tx, ty - 1) != Tile::Solid && mMap.block(tx, ty - 1) != Tile::Spikes)
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
 }
 

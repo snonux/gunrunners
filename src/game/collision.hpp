@@ -2,6 +2,8 @@
 
 #include "data/level.hpp"
 
+#include <vector>
+
 namespace gr
 {
 
@@ -40,10 +42,25 @@ enum class MoveResult
 class CollisionMap
 {
 public:
-  explicit CollisionMap(const Level& level) : mLevel(&level) {}
+  // Copies the level's tiles: switchable layers change them at run time,
+  // and a copied World (the bot plans on copies) gets its own.
+  explicit CollisionMap(const Level& level);
 
-  int width() const { return mLevel->widthCells(); }
-  int height() const { return mLevel->heightCells(); }
+  int width() const { return mW * kCellsPerTile; }
+  int height() const { return mH * kCellsPerTile; }
+  int widthBlocks() const { return mW; }
+  int heightBlocks() const { return mH; }
+
+  // Block (16 px) access, same edge rules as Level::at.
+  Tile block(int tx, int ty) const;
+  void setBlock(int tx, int ty, Tile t);
+
+  // Moving platforms: boxes whose top row can be stood on, rebuilt by the
+  // world every frame.
+  void clearPlatforms() { mPlatforms.clear(); }
+  void addPlatform(const CellBox& b) { mPlatforms.push_back(b); }
+  // Index of the platform whose top row is (cx, cy), -1 if none.
+  int platformAt(int cx, int cy) const;
 
   bool solid(int cx, int cy) const;    // blocks from every side
   bool solidTop(int cx, int cy) const; // can be stood on
@@ -70,7 +87,9 @@ public:
 private:
   Tile tileAt(int cx, int cy) const;
 
-  const Level* mLevel;
+  int mW = 0, mH = 0;
+  std::vector<Tile> mTiles;
+  std::vector<CellBox> mPlatforms;
   bool mForceFieldsOn = true;
 };
 
