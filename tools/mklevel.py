@@ -6,7 +6,8 @@ layout can be tweaked by moving numbers around. Coordinates are in 16 px
 blocks (2x2 cells); row 0 is the top.
 
 Route: start -> steps -> spike pit -> ladder up a tall wall -> hang bar over
-a second spike pit -> access card and checkpoint -> force field door ->
+a second spike pit, past a virus -> checkpoint, access card and turbo box ->
+force field door ->
 rockets and turrets -> flamethrower jetpack up a shaft -> exit.
 """
 
@@ -80,11 +81,13 @@ fill(74, 74, 12, 19, "H")
 put(64, 16, "g")
 put(68, 16, "g")
 put(70, 2, "f")
+put(67, 6, "V")  # a virus drifting under the hang bar: shoot it or get sick
 
 # 7. Access card and checkpoint, then the force field door.
 ground(75, 100, 12)
 on(77, 12, "c")
 on(81, 12, "k")
+on(82, 12, "T")  # turbo box: maxed stats for a while (and cures the virus)
 on(83, 12, "m")
 fill(79, 92, 0, 6, "#")
 fill(87, 87, 7, 11, "D")

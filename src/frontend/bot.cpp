@@ -10,10 +10,15 @@ namespace gr
 namespace
 {
 
-int jumpHeight(const CharacterDef& c)
+int jumpHeight(const World& w)
 {
+  // Turbo and the virus change the jump arc (see World::jumpArc).
+  if (w.player().turbo > 0)
+    return 11;
+  if (w.player().virus > 0)
+    return 5;
   int h = 0;
-  for (int v : c.jumpArc)
+  for (int v : w.character().jumpArc)
     h += v;
   return h;
 }
@@ -106,6 +111,52 @@ Input Bot::play(const World& world)
       in.right = true;
       mFiredLast = true;
       return in;
+    }
+  }
+
+  // --- Going back for a flamethrower we skipped -----------------------------
+  if (mSeekFlamer)
+  {
+    if (p.weapon == Weapon::Flame)
+    {
+      mSeekFlamer = false;
+    }
+    else
+    {
+      int targetX = -1;
+      bool isBox = false;
+      for (const auto& it : world.items())
+        if (it.kind == ItemKind::Flame)
+          targetX = it.x;
+      if (targetX < 0)
+        for (const auto& box : world.boxes())
+          if (box.alive && box.content == ItemKind::Flame)
+          {
+            targetX = box.x;
+            isBox = true;
+          }
+      if (targetX < 0)
+      {
+        mSeekFlamer = false; // nothing left to fetch
+      }
+      else if (p.state == PlayerState::OnGround)
+      {
+        const int dx = targetX - b.left();
+        const bool facingIt = (dx < 0) == (p.facing < 0);
+        if (isBox && std::abs(dx) <= 10 && facingIt)
+        {
+          in.down = true; // boxes sit on the floor: crouch to hit them
+          in.fire = !mFiredLast;
+          mFiredLast = in.fire;
+          return in;
+        }
+        if (dx < 0)
+          in.left = true;
+        else if (dx > 0)
+          in.right = true;
+        mFiredLast = false;
+        return in;
+      }
     }
   }
 
@@ -210,9 +261,13 @@ Input Bot::play(const World& world)
     for (int x = b.left(); x <= b.right(); ++x)
       ladderHere = ladderHere || map.ladder(x, b.top());
 
-    if (wall > jumpHeight(world.character()))
+    if (wall > jumpHeight(world))
     {
-      if (ladderHere)
+      if (p.weapon != Weapon::Flame && !ladderHere && !map.forceField(ahead, b.bottom()))
+      {
+        mSeekFlamer = true;
+      }
+      else if (ladderHere)
       {
         in.right = false;
         in.up = true;

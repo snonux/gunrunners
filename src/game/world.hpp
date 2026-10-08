@@ -12,6 +12,7 @@
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,8 @@ namespace gr
 // runs at 60 and interpolates in between, like RigelEngine's motion
 // smoothing.
 constexpr int kTicksPerLogicFrame = 4;
+constexpr int kTurboFramesTotal = 15 * 15; // Turbo Mode: 15 seconds of logic frames
+constexpr int kVirusFramesTotal = 15 * 8;  // Virus: 8 seconds
 constexpr float kViewCellsW = float(kScreenW) / (kPixelScale * float(kCellSize));
 constexpr float kViewCellsH = float(kScreenH) / (kPixelScale * float(kCellSize));
 
@@ -96,6 +99,8 @@ struct Player
   Weapon weapon = Weapon::Normal;
   int ammo = 0;
   int rapidFire = 0; // frames left
+  int turbo = 0;     // frames of Turbo Mode left: every stat maxed
+  int virus = 0;     // frames of infection left: slower and weaker
   bool hasKey = false;
 
   int walkFrame = 0;
@@ -180,6 +185,8 @@ enum class ItemKind
   LetterG,
   LetterU,
   LetterN,
+  Turbo,
+  Virus, // a hazard, not a reward: touching it infects you
 };
 
 // Shootable crate that releases an item, Duke Nukem II style. White boxes
@@ -347,6 +354,10 @@ private:
   void switchOrientationWithPositionChange();
   void setVisual(PlayerVisual v) { mPlayer.visual = v; }
   void hurtPlayer(int amount);
+  void startTurbo();
+  void infect();
+  const std::array<int, 8>& jumpArc() const;
+  int horizontalSteps() const; // cells per frame: 2 in turbo, 0 or 1 when infected
   void killPlayer();
   void respawnPlayer();
   void updatePlayerInteractions();
@@ -406,6 +417,8 @@ private:
   std::string mMessage;
   int mMessageTicks = 0;
   int mFieldFlash = 0;
+  int mTickCount = 0;
+  std::array<Vec2, 5> mTrail{}; // recent player draw positions, for Turbo afterimages
 };
 
 } // namespace gr

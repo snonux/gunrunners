@@ -198,8 +198,8 @@ void Game::tickPlay(const Input& raw)
     if (mOptions.trace)
     {
       const auto& p = mWorld->player();
-      std::fprintf(stderr, "f%d pos %d,%d %s hp %d w%d/%d in %s%s%s%s%s%s\n", mWorld->stats().frames, p.x, p.y,
-        stateName(p.state), p.hp, int(p.weapon), p.ammo, frameInput.left ? "L" : "", frameInput.right ? "R" : "", frameInput.up ? "U" : "",
+      std::fprintf(stderr, "f%d pos %d,%d %s hp %d w%d/%d turbo %d virus %d in %s%s%s%s%s%s\n", mWorld->stats().frames, p.x, p.y,
+        stateName(p.state), p.hp, int(p.weapon), p.ammo, p.turbo, p.virus, frameInput.left ? "L" : "", frameInput.right ? "R" : "", frameInput.up ? "U" : "",
         frameInput.down ? "D" : "", frameInput.jump.pressed ? "J" : "", frameInput.fire.pressed ? "F" : "");
     }
   }

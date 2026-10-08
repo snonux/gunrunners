@@ -34,6 +34,9 @@ enum class Sfx
   MenuMove,
   MenuSelect,
   Tally,
+  TurboOn,
+  VirusOn,
+  EffectEnd,
   Count,
 };
 

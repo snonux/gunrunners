@@ -25,6 +25,8 @@ SaveGame World::snapshot() const
   s.weapon = int(p.weapon);
   s.ammo = p.ammo;
   s.rapidFire = p.rapidFire;
+  s.turbo = p.turbo;
+  s.virus = p.virus;
   s.hasKey = p.hasKey;
   s.respawnX = mRespawnX;
   s.respawnY = mRespawnY;
@@ -82,7 +84,7 @@ bool World::restore(const SaveGame& s)
       s.weapon < 0 || s.weapon > int(Weapon::Flame))
     return false;
   for (const auto& it : s.items)
-    if (it.kind < 0 || it.kind > int(ItemKind::LetterN))
+    if (it.kind < 0 || it.kind > int(ItemKind::Virus))
       return false;
 
   mCharacter = &characterByIndex(std::clamp(s.character, 0, kCharacterCount - 1));
@@ -97,6 +99,8 @@ bool World::restore(const SaveGame& s)
   p.weapon = Weapon(s.weapon);
   p.ammo = s.ammo;
   p.rapidFire = s.rapidFire;
+  p.turbo = std::max(0, s.turbo);
+  p.virus = std::max(0, s.virus);
   p.hasKey = s.hasKey;
   p.mercy = 20; // a moment to get your bearings
   if (!mMap.onSolidGround(p.box()))
