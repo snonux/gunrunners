@@ -157,6 +157,12 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
     p.frames = 0;
   }
 
+  // Bonus rule "airjump": every press in mid-air starts a fresh jump.
+  if (mAirJump && jumpButton.triggered &&
+      ((p.state == PlayerState::Jumping && p.frames > 0) || p.state == PlayerState::Falling) &&
+      !mMap.touchingCeiling(p.box()))
+    jump();
+
   switch (p.state)
   {
     case PlayerState::OnGround:
@@ -195,10 +201,21 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
         }
       }
 
-      if (p.jumpRequested && !mMap.touchingCeiling(p.box()))
+      // A held jump waits for 2 cells of headroom (so it fires the moment
+      // a sign overhead goes dark), and still works for a moment after the
+      // ground goes away ("coyote time"): beat signs are fair that way.
+      const CellBox b = p.box();
+      const bool headroom = !mMap.touchingCeiling(b) && !mMap.touchingCeiling({b.x, b.y - 1, b.w, b.h});
+      if (p.jumpRequested && headroom)
+      {
         jump();
+      }
       else if (!mMap.onSolidGround(p.box()))
+      {
         startFalling();
+        if (p.state == PlayerState::Falling)
+          p.coyote = 2;
+      }
       break;
     }
 
@@ -208,6 +225,15 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
 
     case PlayerState::Falling:
     {
+      if (p.coyote > 0)
+      {
+        --p.coyote;
+        if (p.jumpRequested && !mMap.touchingCeiling(p.box()))
+        {
+          jump();
+          break;
+        }
+      }
       const bool terminalVelocity = p.frames >= 2;
       if (terminalVelocity)
       {
@@ -427,7 +453,7 @@ void World::updateJumpMovement(int mvX, bool jumpPressed)
       setVisual(PlayerVisual::Jumping);
     }
   }
-  if (p.frames == 1 && p.somersault < 0 && mvX != 0 && mRng.next() % 6 == 0)
+  if (p.frames == 1 && p.somersault < 0 && mvX != 0 && mLogicRng.next() % 6 == 0)
   {
     p.somersault = 0;
     setVisual(PlayerVisual::Somersault);
@@ -481,6 +507,11 @@ bool World::tryAttachToClimbable()
 void World::updateShooting(const Button& fire)
 {
   auto& p = mPlayer;
+  if (p.weapon == Weapon::Proto)
+  {
+    updateProtoShooting(fire);
+    return;
+  }
   // Turbo fires every frame while held; the virus takes rapid fire away.
   const bool hasRapidFire = p.virus == 0 && (p.rapidFire > 0 || p.weapon == Weapon::Flame || p.turbo > 0);
   if (!canFire())
@@ -536,9 +567,18 @@ void World::fireShot()
       sound = Sfx::FlameShot;
       break;
     case Weapon::Normal:
+    case Weapon::Proto:
       break;
   }
-  spawnProjectile(kind, p.x + off[0], p.y + off[1], dx, dy);
+  if (p.weapon == Weapon::Proto)
+  {
+    fireProto(p.x + off[0], p.y + off[1], dx, dy);
+    sound = protoDef(p.proto).speed >= 3 ? Sfx::LaserShot : Sfx::Shot;
+  }
+  else
+  {
+    spawnProjectile(kind, p.x + off[0], p.y + off[1], dx, dy);
+  }
   playSound(sound);
   p.recoil = 1;
   p.muzzleTicks = 6;
@@ -548,6 +588,7 @@ void World::fireShot()
   {
     p.ammo = 0;
     p.weapon = Weapon::Normal;
+    p.proto = -1;
     showMessage("OUT OF AMMO - BACK TO THE BLASTER");
   }
 }
@@ -559,6 +600,7 @@ void World::jump()
   p.frames = 0;
   p.fromLadder = false;
   p.somersault = -1;
+  p.coyote = 0;
   setVisual(PlayerVisual::Coiling);
   playSound(Sfx::Jump);
   p.jumpRequested = false;

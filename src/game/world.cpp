@@ -43,8 +43,9 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   p.hp = p.maxHp = mCharacter->maxHp;
   p.weapon = mCharacter->startWeapon;
   p.ammo = mCharacter->startAmmo;
+  mLevelProto = protoIndex(mLevel->weapon);
+  mLayerMask.assign(std::size_t(mLevel->width * mLevel->height), 0);
 
-  int enemyId = 0;
   int merchCount = 0;
   for (const auto& s : mLevel->spawns)
   {
@@ -67,18 +68,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
       it.floating = true;
       mItems.push_back(it);
     };
-    auto addEnemy = [&](EnemyKind kind, int w, int h, int hp) {
-      Enemy e;
-      e.kind = kind;
-      e.x = e.prevX = x;
-      e.y = e.prevY = y;
-      e.w = w;
-      e.h = h;
-      e.hp = hp;
-      e.id = enemyId++;
-      e.timer = s.tx * 7;
-      mEnemies.push_back(e);
-    };
+    auto addEnemy = [&](const char* key) { spawnEnemy(enemyIndex(key), x, y); };
     switch (s.kind)
     {
       case 'g':
@@ -129,19 +119,55 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
         mCheckpoints.push_back({x, y, false});
         break;
       case 'w':
-        addEnemy(EnemyKind::Walker, 3, 3, 3);
+        addEnemy("walker");
         break;
       case 'f':
-        addEnemy(EnemyKind::Flyer, 3, 3, 2);
+        addEnemy("flyer");
         break;
       case 't':
-        addEnemy(EnemyKind::Turret, 3, 2, 4);
+        addEnemy("turret");
         break;
+      case 'C':
+        addEnemy("candid_camera");
+        break;
+      case 'W':
+        addBox(ItemKind::Proto, 0);
+        break;
+      case 'Q':
+        addLoose(ItemKind::Duck, 0);
+        break;
+      case '$':
+      {
+        Prop pr;
+        pr.kind = PropKind::GemCache;
+        pr.x = x;
+        pr.y = y - 1;
+        mProps.push_back(pr);
+        mStats.gemsTotal += 5;
+        break;
+      }
+      case 'B':
+      {
+        // Given by its top-left block; a 2 x 3 block patch of static.
+        Prop pr;
+        pr.kind = PropKind::BonusDoor;
+        pr.x = s.tx * kCellsPerTile;
+        pr.y = s.ty * kCellsPerTile;
+        pr.w = 4;
+        pr.h = 6;
+        mProps.push_back(pr);
+        break;
+      }
       default:
         break;
     }
   }
-  mStats.enemiesTotal = int(mEnemies.size());
+  setupEntities();
+  mStats.enemiesTotal = 0;
+  for (const auto& e : mEnemies)
+    if (!(enemyDef(e.def).flags & kEnemyNoTally))
+      ++mStats.enemiesTotal;
+  updateLayers(true);
 
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   mBaseCamY = mCamera.y();
@@ -205,7 +231,12 @@ void World::update(const PlayerInput& input)
   {
     case WorldState::Playing:
       ++mStats.frames;
+      updateLayers(false);
+      updateBonusRules(input);
+      if (mState != WorldState::Playing)
+        break;
       updatePlayer(input);
+      updateProps(input);
       updatePlayerInteractions();
       if (mPlayer.state == PlayerState::OnGround && !mMap.overlapsHazard(mPlayer.box()))
       {
@@ -255,6 +286,7 @@ void World::updateEnemies()
     if (!e.active)
       continue;
     ++e.timer;
+    const EnemyDef& def = enemyDef(e.def);
 
     switch (e.kind)
     {
@@ -263,9 +295,11 @@ void World::updateEnemies()
         if (!mMap.onSolidGround(e.box()))
         {
           mMap.moveVertically(e.x, e.y, e.w, e.h, 1);
+          if (e.y > mMap.height() + 4)
+            e.alive = false; // fell off the map
           break;
         }
-        if (e.timer % 2 != 0)
+        if (e.timer % std::max(1, def.stepEvery) != 0)
           break;
         const CellBox b = e.box();
         const int aheadX = e.dir > 0 ? b.right() + 1 : b.left() - 1;
@@ -312,8 +346,24 @@ void World::updateEnemies()
         const int dy = targetBottom - e.y;
         if (dy != 0 && e.timer % 2 == 0)
           tryMove(0, sgn(dy));
-        if (std::abs(dx) <= 1 && std::abs(dy) <= 1 && e.timer % 24 == 0 && playerVulnerable)
+        if (def.flags & kEnemyBeatDive)
+        {
+          // Shakes through beat 4, then dives on beat 1, once per bar.
+          const int bar = mStats.frames / 30;
+          const int inBar = mStats.frames % 30;
+          const bool overhead = std::abs(dx) <= 2 && std::abs(dy) <= 2;
+          e.tell = (overhead && inBar >= 22 && e.lastDive != bar + 1) ? 30 - inBar : 0;
+          if (overhead && inBar == 0 && e.lastDive != bar && playerVulnerable)
+          {
+            e.dive = 4;
+            e.lastDive = bar;
+          }
+        }
+        else if (std::abs(dx) <= 1 && std::abs(dy) <= 1 && e.timer % std::max(1, def.cooldown) == 0 &&
+                 playerVulnerable)
+        {
           e.dive = 4;
+        }
         break;
       }
 
@@ -323,8 +373,11 @@ void World::updateEnemies()
         const int dxc = (pbox.x + 1) - (b.x + 1);
         const int dyc = (pbox.y + 2) - b.y;
         e.dir = dxc < 0 ? -1 : 1;
-        if (e.timer % 20 == 0 && std::abs(dxc) < 22 && std::abs(dyc) < 12 && playerVulnerable &&
-            isOnScreen(b, 0))
+        const bool inRange = std::abs(dxc) < def.range && std::abs(dyc) < 12 && playerVulnerable && isOnScreen(b, 0);
+        const int cd = std::max(1, def.cooldown);
+        // The lens glows for `tell` frames before each shot.
+        e.tell = (inRange && def.tell > 0 && cd - e.timer % cd <= def.tell) ? cd - e.timer % cd : 0;
+        if (e.timer % cd == 0 && inRange)
         {
           // Aim in one of eight directions, like the original wall guns.
           int sx = sgn(dxc), sy = 0;
@@ -337,9 +390,12 @@ void World::updateEnemies()
         }
         break;
       }
+
+      case EnemyKind::Camera:
+        break;
     }
 
-    if (playerVulnerable && e.box().intersects(p.hitBox()))
+    if (playerVulnerable && !(def.flags & kEnemyHarmless) && e.box().intersects(p.hitBox()))
       hurtPlayer(1);
   }
 }
@@ -379,8 +435,11 @@ void World::spawnProjectile(ShotKind kind, int ax, int ay, int dx, int dy)
       pr.damage = 1;
       len = 1;
       break;
+    case ShotKind::Proto:
+      len = 2; // speed and damage come from the prototype (fireProto)
+      break;
   }
-  if (kind != ShotKind::Enemy)
+  if (kind != ShotKind::Enemy && kind != ShotKind::Proto)
   {
     // Turbo doubles your firepower; the virus halves it.
     if (mPlayer.turbo > 0)
@@ -460,8 +519,10 @@ void World::updateProjectiles()
       }
       damageEnemy(e, pr.damage);
       burst(cellCenter(b), rgb(255, 255, 255), mTheme.enemyLight, 5, 1.2f);
-      if (!pr.pierce)
+      if (!pr.pierce && pr.pierceLeft <= 0)
         return true;
+      if (!pr.pierce)
+        --pr.pierceLeft;
       pr.hit.push_back(e.id);
     }
     return false;
@@ -525,23 +586,19 @@ void World::damageEnemy(Enemy& e, int damage)
 void World::killEnemy(Enemy& e)
 {
   e.alive = false;
-  ++mStats.kills;
+  const EnemyDef& def = enemyDef(e.def);
+  if (!(def.flags & kEnemyNoTally))
+    ++mStats.kills;
   const Vec2 c = cellCenter(e.box());
   burst(c, mTheme.enemyBody, rgb(255, 200, 60), 22, 2.4f);
   burst(c, mTheme.enemyEye, rgb(255, 255, 255), 10, 1.4f);
   flashAt(c, 110.0f, rgb(255, 170, 70), 18);
   playSound(Sfx::Explosion);
-  switch (e.kind)
+  addScore(def.score, c);
+  if (e.kind == EnemyKind::Camera)
   {
-    case EnemyKind::Walker:
-      addScore(250, c);
-      break;
-    case EnemyKind::Flyer:
-      addScore(500, c);
-      break;
-    case EnemyKind::Turret:
-      addScore(1000, c);
-      break;
+    mStats.camera = true;
+    showMessage("SMILE! YOU'RE ON CANDID CAMERA");
   }
 }
 
@@ -555,6 +612,7 @@ int boxColor(ItemKind content)
     case ItemKind::Laser:
     case ItemKind::Rocket:
     case ItemKind::Flame:
+    case ItemKind::Proto:
       return 2; // green
     default:
       return 0; // white
@@ -577,6 +635,11 @@ void World::destroyBox(ItemBox& b)
   it.y = it.prevY = b.y;
   it.variant = b.variant;
   it.pickupDelay = kItemPickupDelay;
+  // Boxes resting on a switchable layer (a neon sign) are anchored: what
+  // they release stays put instead of dropping when the sign goes dark.
+  const int below = (b.y + 1) / kCellsPerTile, bx = b.x / kCellsPerTile;
+  if (below < mLevel->height && mLayerMask[std::size_t(below * mLevel->width + bx)])
+    it.floating = true;
   mItems.push_back(it);
 }
 
@@ -592,6 +655,8 @@ void World::updateItems()
     if (!it.floating)
     {
       // Released items hop out of their box, then drop to the floor.
+      if (it.vx != 0 && it.frames <= 6)
+        mMap.moveHorizontally(it.x, it.y, 2, 2, it.vx);
       if (it.frames <= 2)
         mMap.moveVertically(it.x, it.y, 2, 2, -1);
       else
@@ -682,6 +747,16 @@ void World::collectItem(Item& it)
     case ItemKind::Virus:
       infect();
       break;
+    case ItemKind::Proto:
+      takeProto(c);
+      break;
+    case ItemKind::Duck:
+      mStats.duck = true;
+      addScore(1000, c);
+      showMessage("RUBBER DUCK! SQUEAK");
+      playSound(Sfx::Item);
+      burst(c, rgb(255, 230, 60), rgb(255, 255, 255), 14, 1.4f);
+      break;
     case ItemKind::Gem:
       ++mStats.gems;
       addScore(500, c);
@@ -755,6 +830,8 @@ void World::infect()
 void World::addScore(int points, Vec2 at)
 {
   mStats.score += points;
+  if (mSimulation)
+    return;
   FloatingText t;
   t.pos = at;
   t.text = std::to_string(points);
@@ -773,6 +850,8 @@ void World::showMessage(const std::string& text)
 
 void World::burst(Vec2 at, Color a, Color b, int count, float speed, bool glow)
 {
+  if (mSimulation)
+    return;
   for (int i = 0; i < count; ++i)
   {
     Particle p;
@@ -791,6 +870,8 @@ void World::burst(Vec2 at, Color a, Color b, int count, float speed, bool glow)
 
 void World::flashAt(Vec2 at, float radius, Color c, int life)
 {
+  if (mSimulation)
+    return;
   mFlashes.push_back({at, radius, c, life, life});
 }
 

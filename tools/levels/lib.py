@@ -66,7 +66,7 @@ class Level:
         self.fill(x, x, y0, y1, c)
 
     # --- entities ----------------------------------------------------------
-    def at(self, kind, x=None, y=None, *ids, **keys):
+    def at(self, kind, x=None, y=None, /, *ids, **keys):
         """Adds an `@ kind [id...] [x y] key=value` line."""
         parts = ["@", kind]
         parts += [str(i) for i in ids]

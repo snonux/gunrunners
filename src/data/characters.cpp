@@ -25,6 +25,8 @@ const char* weaponName(Weapon w)
       return "ROCKETS";
     case Weapon::Flame:
       return "FLAMER";
+    case Weapon::Proto:
+      return "PROTOTYPE";
     case Weapon::Normal:
     default:
       return "BLASTER";

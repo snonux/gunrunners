@@ -48,6 +48,10 @@ int itemIcon(ItemKind kind, int variant)
       return kIconTurbo;
     case ItemKind::Virus:
       return kIconVirus;
+    case ItemKind::Proto:
+      return kIconProto;
+    case ItemKind::Duck:
+      return kIconDuck;
     case ItemKind::LetterN:
     default:
       return kIconLetterN;
@@ -101,7 +105,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
     }
   }
 
+  drawProps(r, camX, camY, frame, false);
   drawTiles(r, camX, camY, frame);
+  drawLayers(r, camX, camY, frame);
 
   // Item boxes and items.
   for (const auto& b : mBoxes)
@@ -135,6 +141,17 @@ void World::draw(Renderer& r, int frame, float alpha) const
       y += std::sin(float(frame) * 0.31f) * 2.0f;
       drawGlow(r, mArt, x + 32, y + 32, 70, rgb(120, 255, 60), 0.4f + 0.2f * std::sin(float(frame) * 0.13f));
     }
+    else if (it.kind == ItemKind::Proto)
+    {
+      const Color c = mLevelProto >= 0 ? protoDef(mLevelProto).color : mTheme.accentA;
+      drawGlow(r, mArt, x + 32, y + 32, 72, c, 0.6f + 0.2f * std::sin(float(frame) * 0.2f));
+      DrawOpts po;
+      po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
+      r.draw(mArt.items[std::size_t(icon)], x, y, po);
+      continue;
+    }
+    else if (it.kind == ItemKind::Duck)
+      drawGlow(r, mArt, x + 32, y + 36, 56, rgb(255, 230, 60), 0.35f);
     else if (it.kind >= ItemKind::LetterG)
       drawGlow(r, mArt, x + 32, y + 32, 64, mTheme.accentA, 0.45f + 0.15f * std::sin(float(frame) * 0.1f));
     r.draw(mArt.items[std::size_t(icon)], x, y);
@@ -145,25 +162,50 @@ void World::draw(Renderer& r, int frame, float alpha) const
   {
     if (!e.alive)
       continue;
-    const float x = e.drawX * kCellPx + float(e.w) * kCellPx * 0.5f - camX;
+    float x = e.drawX * kCellPx + float(e.w) * kCellPx * 0.5f - camX;
     const float y = (e.drawY + 1.0f) * kCellPx - camY;
     if (x < -160.0f || x > float(kScreenW) + 160.0f)
       continue;
+    const EnemyDef& def = enemyDef(e.def);
+    if (e.tell > 0 && e.kind == EnemyKind::Flyer)
+      x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives
     const Texture* tex = nullptr;
-    switch (e.kind)
+    DrawOpts eo;
+    if (def.tint != 0)
+      eo.tint = def.tint;
+    switch (def.look)
     {
-      case EnemyKind::Walker:
+      case EnemyLook::Walker:
         tex = &mArt.walker[std::size_t((e.x & 2) >> 1)].get(e.dir);
         break;
-      case EnemyKind::Flyer:
+      case EnemyLook::Flyer:
         tex = &mArt.flyer[std::size_t((frame / 3) % 2)].get(e.dir);
-        drawGlow(r, mArt, x, y - 30, 36, mTheme.enemyEye, 0.35f + (e.dive > 0 ? 0.4f : 0.0f));
+        drawGlow(r, mArt, x, y - 30, 36, mTheme.enemyEye, 0.35f + (e.dive > 0 || e.tell > 0 ? 0.4f : 0.0f));
         break;
-      case EnemyKind::Turret:
+      case EnemyLook::Turret:
         tex = &mArt.turret.get(e.dir);
+        if (e.tell > 0)
+          drawGlow(r, mArt, x + float(e.dir) * 30.0f, y - 40, 50, mTheme.enemyEye, 0.9f - float(e.tell) * 0.05f);
         break;
+      case EnemyLook::Camera:
+      {
+        tex = &mArt.items[kIconCamera];
+        DrawOpts co = eo;
+        r.draw(*tex, x - 32, y - 64, co);
+        if ((frame / 20) % 2 == 0)
+          drawGlow(r, mArt, x - 17, y - 48, 16, rgb(255, 40, 50), 0.8f);
+        if (e.flash > 0)
+        {
+          co.blend = Blend::Add;
+          co.alpha = float(e.flash) / 8.0f;
+          r.draw(*tex, x - 32, y - 64, co);
+        }
+        continue;
+      }
     }
-    r.draw(*tex, x, y);
+    if (e.flags() & kEnemyCarrier)
+      eo.tint = lerpColor(eo.tint, rgb(120, 255, 80), 0.5f);
+    r.draw(*tex, x, y, eo);
     if (e.flash > 0)
     {
       DrawOpts o;
@@ -210,6 +252,18 @@ void World::draw(Renderer& r, int frame, float alpha) const
         glow = mTheme.enemyEye;
         o.angle = 0.0f;
         break;
+      case ShotKind::Proto:
+      {
+        tex = &mArt.shotLaser;
+        glow = pr.proto >= 0 ? protoDef(pr.proto).color : mTheme.accentA;
+        o.tint = lerpColor(glow, rgb(255, 255, 255), 0.4f);
+        if (pr.strong)
+        {
+          o.scale = 1.5f;
+          drawGlow(r, mArt, cx, cy - 6.0f, 70, rgb(255, 255, 255), 0.5f);
+        }
+        break;
+      }
     }
     if (pr.kind != ShotKind::Enemy && pr.dy == 0)
       cy -= 6.0f; // line up with the gun barrel
@@ -240,8 +294,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
     r.drawText(t.text, t.pos.x * S - camX, t.pos.y * S - camY - 40.0f, {22.0f, t.color, kHudInk}, Align::Center, a);
   }
 
+  drawProps(r, camX, camY, frame, true);
+
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
+  drawBeatHud(r, frame);
 }
 
 void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
@@ -272,6 +329,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
     {
       const float x = float(tx) * kTilePx - camX;
       const float y = float(ty) * kTilePx - camY;
+      if (mLayerMask[std::size_t(ty * mLevel->width + tx)])
+        continue; // drawn by its layer
       switch (mMap.block(tx, ty))
       {
         case Tile::Solid:
@@ -327,7 +386,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
   // Surface trims go on top so their glow/grass can overlap neighbours.
   for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
     for (int tx = tx0; tx <= tx1; ++tx)
-      if (mMap.block(tx, ty) == Tile::Solid && mMap.block(tx, ty - 1) != Tile::Solid && mMap.block(tx, ty - 1) != Tile::Spikes)
+      if (mMap.block(tx, ty) == Tile::Solid && mMap.block(tx, ty - 1) != Tile::Solid &&
+          mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)])
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
 }
 
@@ -502,7 +562,15 @@ void World::drawHud(Renderer& r, int frame) const
   r.draw(mArt.hudPanels[1], x, top);
   r.drawText("WEAPON", x + 16, top + 6, label);
   const int icon = weaponIcon(p.weapon);
-  if (icon >= 0)
+  const bool proto = p.weapon == Weapon::Proto && p.proto >= 0;
+  if (proto)
+  {
+    DrawOpts io;
+    io.scale = 0.62f;
+    io.tint = lerpColor(protoDef(p.proto).color, rgb(255, 255, 255), 0.3f);
+    r.draw(mArt.items[kIconProto], x + 18, top + 20, io);
+  }
+  else if (icon >= 0)
   {
     DrawOpts io;
     io.scale = 0.62f;
@@ -514,7 +582,10 @@ void World::drawHud(Renderer& r, int frame) const
     so.scale = 0.75f;
     r.draw(mArt.shotNormal, x + 40, top + 44, so);
   }
-  r.drawText(weaponName(p.weapon), x + 74, top + 24, {22.0f, mTheme.hudText, kHudInk});
+  if (proto)
+    r.drawText(protoDef(p.proto).name, x + 74, top + 26, {17.0f, mTheme.hudText, kHudInk});
+  else
+    r.drawText(weaponName(p.weapon), x + 74, top + 24, {22.0f, mTheme.hudText, kHudInk});
   if (p.weapon == Weapon::Normal)
   {
     r.drawText("INF", x + kHudWeaponW - 16, top + 24, {22.0f, mTheme.accentB, kHudInk}, Align::Right);
@@ -523,7 +594,7 @@ void World::drawHud(Renderer& r, int frame) const
   {
     std::snprintf(buf, sizeof(buf), "%d", p.ammo);
     r.drawText(buf, x + kHudWeaponW - 16, top + 24, {22.0f, mTheme.accentB, kHudInk}, Align::Right);
-    const float frac = float(p.ammo) / float(maxAmmo(p.weapon));
+    const float frac = float(p.ammo) / float(proto ? protoDef(p.proto).maxAmmo : maxAmmo(p.weapon));
     r.fillRect(x + 74, top + 52, float(kHudWeaponW - 90), 4, rgba(255, 255, 255, 40));
     r.fillRect(x + 74, top + 52, float(kHudWeaponW - 90) * frac, 4, mTheme.accentB);
   }
@@ -586,6 +657,15 @@ void World::drawHud(Renderer& r, int frame) const
   }
   if (p.virus > 0)
     effectBar("VIRUS", p.virus, kVirusFramesTotal, rgb(130, 255, 70), ey);
+
+  // Bonus level countdown.
+  if (mBonusLevel && mLevel->timer > 0)
+  {
+    std::snprintf(buf, sizeof(buf), "%d", (mBonusFramesLeft + 14) / 15);
+    const bool hurry = mBonusFramesLeft < 150 && (frame / 10) % 2 == 0;
+    r.fillRect(float(kScreenW) / 2.0f - 70.0f, 84, 140, 52, rgba(8, 6, 22, 190));
+    r.drawText(buf, float(kScreenW) / 2.0f, 88, {40.0f, hurry ? rgb(255, 80, 80) : mTheme.accentA, kHudInk, true}, Align::Center);
+  }
 
   // Pickup and tutorial messages, like Duke's message line.
   if (mMessageTicks > 0)

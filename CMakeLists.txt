@@ -27,8 +27,13 @@ add_library(gunrunners_core STATIC
   src/game/world.cpp
   src/game/world_draw.cpp
   src/game/world_save.cpp
+  src/game/world_level.cpp
+  src/game/world_proto.cpp
+  src/data/weapons.cpp
+  src/data/enemies.cpp
   src/game/savegame.cpp
   src/frontend/bot.cpp
+  src/frontend/planner.cpp
   src/frontend/controls.cpp
   src/frontend/game.cpp
   src/frontend/menus.cpp
