@@ -43,7 +43,8 @@ std::string trim(const std::string& s)
   return s.substr(b, e - b + 1);
 }
 
-// Drops a `;` comment that is not inside quotes.
+// Drops a `;` comment that is not inside quotes. A comment starts a line or
+// follows a space, so `path=1,2;3,4` keeps its point separators.
 std::string stripComment(const std::string& s)
 {
   bool quoted = false;
@@ -51,7 +52,7 @@ std::string stripComment(const std::string& s)
   {
     if (s[i] == '"')
       quoted = !quoted;
-    else if (s[i] == ';' && !quoted)
+    else if (s[i] == ';' && !quoted && (i == 0 || s[i - 1] == ' ' || s[i - 1] == '\t'))
       return s.substr(0, i);
   }
   return s;

@@ -146,6 +146,19 @@ void Audio::playMusicNamed(const std::string& id)
   mMusicPos = 0;
 }
 
+void Audio::preloadMusic(const std::string& id)
+{
+  if (id.empty() || mNamedTracks.count(id))
+    return;
+  auto t = synth::makeNamedMusic(id);
+  auto tr = std::make_unique<Track>();
+  tr->left = std::move(t.left);
+  tr->right = std::move(t.right);
+  tr->loops = t.loops;
+  std::lock_guard<std::mutex> lock(mMutex);
+  mNamedTracks[id] = std::move(tr);
+}
+
 void Audio::seekMusic(double seconds)
 {
   std::lock_guard<std::mutex> lock(mMutex);

@@ -515,7 +515,42 @@ void briefing(ClipKit& k, const std::string& clip, int frame, int ticks, float o
     drawGlow(k.r, k.art, x0 + w * 0.5f, y0 + 50, 26, rgb(255, 255, 255), 0.5f + 0.3f * float(frame % 2));
     k.r.fillRect(x0 + w * 0.5f - 1, y0, 2, 30, rgba(150, 240, 255, 160), Blend::Add);
   }
+  // Level 4: a street map in four sectors, each pulsing in turn.
+  if (clip == "max_holo_district")
+  {
+    const float x0 = 850 + ox, y0 = 190 + oy;
+    for (int i = 0; i < 4; ++i)
+    {
+      const float x = x0 + float(i) * 58.0f;
+      const bool hot = (frame / 4) % 4 == i;
+      k.r.fillRect(x, y0, 52, 220, rgba(120, 230, 255, hot ? 120 : 50), Blend::Add);
+      k.r.fillRect(x, y0, 52, 3, rgba(180, 250, 255, 200), Blend::Add);
+      k.r.drawText(std::string(1, char('A' + i)), x + 26, y0 + 90, {28.0f, rgb(200, 250, 255), kInk, true}, Align::Center);
+    }
+    k.r.fillRect(x0 - 10, y0 + 230, 252, 4, rgba(180, 250, 255, 180), Blend::Add); // the street
+  }
   (void)t;
+}
+
+// Level 4: the briefing in a power cut. Only the hologram, the window's dim
+// outline and three pairs of eyes show; the eyes blink on frames 6 and 9.
+void blackoutTable(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(2, 2, 8));
+  const Color edge = rgba(60, 80, 140, 90);
+  k.r.fillRect(140 + ox, 80 + oy, 1000, 3, edge);
+  k.r.fillRect(140 + ox, 440 + oy, 1000, 3, edge);
+  k.r.fillRect(140 + ox, 80 + oy, 3, 360, edge);
+  k.r.fillRect(1137 + ox, 80 + oy, 3, 360, edge);
+  k.r.fillRect(640 + ox, 80 + oy, 3, 360, edge);
+  drawMax(k, 640 + ox, 330 + oy, 0.95f, ticks, 0.0f);
+  const bool blink = frame == 6 || frame == 9;
+  for (int who = 0; who < 3; ++who)
+  {
+    const float cx = 300.0f + float(who) * 340.0f + (who == 1 ? 0.0f : 40.0f) + ox, cy = 492.0f + oy;
+    for (int s : {-1, 1})
+      k.r.fillRect(cx + float(s) * 16.0f - 6.0f, cy - (blink ? 1.0f : 5.0f), 12, blink ? 2.0f : 10.0f, rgb(240, 240, 255));
+  }
 }
 
 // Level 3: the three runners in their courier jackets under a disco ball
@@ -683,6 +718,8 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return towerTilt(k, frame, ticks, ox, oy);
   if (clip == "crew_outfits")
     return crewOutfits(k, frame, ticks, ox, oy);
+  if (clip == "blackout_table")
+    return blackoutTable(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "wreck")

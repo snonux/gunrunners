@@ -220,6 +220,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the club's tells
         else if (e.kind == EnemyKind::Stepper)
           variant = 0;
+        else if (e.kind == EnemyKind::Stalker)
+          variant = e.attach == 1 ? 1 : (e.tell > 0 || e.dive > 0 ? 2 : 0); // frozen in light, lunging
+        else if (e.kind == EnemyKind::Looter)
+          variant = e.dive > 0 ? 1 : 0; // the sack is full
+        else if (e.kind == EnemyKind::Leech)
+          variant = e.tell > 0 ? 1 : 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, (frame / 8) % 2, e.w, e.h).get(dirForArt);
         if (e.kind == EnemyKind::Raver && e.dive > 0)
@@ -280,6 +286,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     }
   }
 
+  // Power cuts: the dark goes over the level but under the runner.
+  drawDark(r, camX, camY, frame, alpha);
   drawPlayer(r, camX, camY, frame, alpha);
 
   // Projectiles.

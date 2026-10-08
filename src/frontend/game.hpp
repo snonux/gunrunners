@@ -188,6 +188,7 @@ private:
   int mRunnerCursor = 0;
   std::array<std::optional<SaveGame>, kSaveSlots> mSlots;
   std::string mNotice;
+  std::string mPlayingOverride; // the world's music override now playing
   int mNoticeTicks = 0;
   bool mQuit = false;
 

@@ -603,6 +603,7 @@ void World::fireShot()
     spawnProjectile(kind, p.x + off[0], p.y + off[1], dx, dy);
   }
   playSound(sound);
+  sonarPing(p.x + off[0], p.y + off[1]);
   p.recoil = 1;
   p.muzzleTicks = 6;
   p.muzzleStance = p.stance;
@@ -854,7 +855,7 @@ void World::updatePlayerInteractions()
   }
 
   const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
-  if (exitZone.intersects(p.box()) && p.state == PlayerState::OnGround)
+  if (exitZone.intersects(p.box()) && p.state == PlayerState::OnGround && exitPowered())
   {
     p.state = PlayerState::Teleporting;
     setVisual(PlayerVisual::Standing);

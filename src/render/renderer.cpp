@@ -80,6 +80,43 @@ Texture Renderer::createTexture(
   return Texture(tex, w, h, mirrorX ? float(w) - anchorX : anchorX, anchorY);
 }
 
+void Renderer::drawAlphaGrid(const std::vector<float>& alpha, int cols, int rows, float x, float y, float cellW,
+  float cellH, Color c)
+{
+  if (cols <= 0 || rows <= 0 || alpha.size() < std::size_t(cols * rows))
+    return;
+  if (!mGrid || mGridW != cols || mGridH != rows)
+  {
+    if (mGrid)
+      SDL_DestroyTexture(mGrid);
+    mGrid = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, cols, rows);
+    if (!mGrid)
+      return;
+    SDL_SetTextureBlendMode(mGrid, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(mGrid, SDL_ScaleModeLinear);
+    mGridW = cols;
+    mGridH = rows;
+  }
+  void* pixels = nullptr;
+  int pitch = 0;
+  if (SDL_LockTexture(mGrid, nullptr, &pixels, &pitch) != 0)
+    return;
+  const Uint32 rgbBits = (Uint32(redOf(c)) << 16) | (Uint32(greenOf(c)) << 8) | Uint32(blueOf(c));
+  for (int j = 0; j < rows; ++j)
+  {
+    auto* row = reinterpret_cast<Uint32*>(static_cast<unsigned char*>(pixels) + j * pitch);
+    for (int i = 0; i < cols; ++i)
+    {
+      const float a = std::clamp(alpha[std::size_t(j * cols + i)], 0.0f, 1.0f);
+      row[i] = (Uint32(a * 255.0f + 0.5f) << 24) | rgbBits;
+    }
+  }
+  SDL_UnlockTexture(mGrid);
+  // Texel centres sit on cell centres; the outer half cells clamp.
+  const SDL_FRect dst{x, y, float(cols) * cellW, float(rows) * cellH};
+  SDL_RenderCopyF(mRenderer, mGrid, nullptr, &dst);
+}
+
 void Renderer::beginFrame()
 {
   // Score and timer strings change constantly; keep the cache bounded.

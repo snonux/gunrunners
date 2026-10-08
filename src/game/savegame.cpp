@@ -73,7 +73,7 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     o << "prop " << int(p) << '\n';
   for (const auto& e : s.enemies)
     o << "enemy " << int(e.alive) << ' ' << e.hp << ' ' << e.x << ' ' << e.y << ' ' << e.dir << ' ' << e.timer << ' '
-      << int(e.active) << ' ' << e.def << ' ' << e.platform << '\n';
+      << int(e.active) << ' ' << e.def << ' ' << e.platform << ' ' << e.attach << '\n';
   for (bool b : s.boxes)
     o << "box " << int(b) << '\n';
   for (const auto& it : s.items)
@@ -87,6 +87,12 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     o << "hatch " << int(h) << '\n';
   for (int b : s.breakables)
     o << "breakable " << b << '\n';
+  for (const auto& b : s.breakers)
+    o << "breaker " << int(b.on) << ' ' << b.thrownAt << ' ' << int(b.leechKilled) << ' ' << b.leechIn << '\n';
+  for (int d : s.doors)
+    o << "door " << d << '\n';
+  if (s.allLitAt >= 0)
+    o << "alllit " << s.allLitAt << '\n';
   o << "end\n";
 
   const std::string tmp = path + ".tmp";
@@ -178,6 +184,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       {
         es.def = k;
         in >> es.platform;
+        in >> es.attach;
       }
       s.enemies.push_back(es);
     }
@@ -194,6 +201,12 @@ std::optional<SaveGame> readSave(const std::string& path)
       s.hatches.push_back(a != 0);
     else if (key == "breakable" && in >> a)
       s.breakables.push_back(a);
+    else if (key == "breaker" && in >> a >> b >> c >> d)
+      s.breakers.push_back({a != 0, c != 0, b, d});
+    else if (key == "door" && in >> a)
+      s.doors.push_back(a);
+    else if (key == "alllit")
+      in >> s.allLitAt;
     else if (key == "box" && in >> a)
       s.boxes.push_back(a != 0);
     else if (key == "item" && in >> a >> b >> c >> d >> k)

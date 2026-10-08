@@ -23,6 +23,9 @@ enum class EnemyKind
   Disco,   // static: eight light shards on beat 1 of every bar
   Raver,   // static: lobs glowsticks that leave a puddle
   Stepper, // moves only on the beat (Step on the Beat's cardboard Bouncers)
+  Stalker, // chases in the dark, freezes in any light; shots pass through it in the dark
+  Looter,  // grabs a loose pick-up and runs off to the stash
+  Leech,   // crawls along a power cable to pull its breaker
 };
 
 enum EnemyFlag : unsigned

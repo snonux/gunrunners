@@ -123,6 +123,9 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       if (pr.dy < 0)
         pr.y = oy - 1;
       break;
+    case ProtoId::FlareGun:
+      pr.flare = true; // sticks and lights up (world_dark.cpp)
+      break;
     default:
       break;
   }

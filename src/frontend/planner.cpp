@@ -58,7 +58,12 @@ constexpr int kWaitVerse = 17;
 int macroFrames(int m, const World& w)
 {
   if (m == kLongWait)
-    return w.platforms().empty() ? 0 : 24;
+  {
+    bool opening = false;
+    for (const auto& d : w.doors())
+      opening = opening || (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on);
+    return w.platforms().empty() && !opening ? 0 : 24;
+  }
   if (m == kWaitLaunch)
   {
     const int f = w.framesToNextLaunch();
@@ -222,6 +227,33 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         }
         return {3, pr.x, pr.y, pr.w, pr.h};
       }
+  // Power cuts: a Grid Leech heading for a breaker comes first, then the
+  // breakers in order, skipping any behind a shutter that is down.
+  const auto& p = w.player();
+  for (std::size_t i = 0; i < w.enemies().size(); ++i)
+  {
+    const auto& e = w.enemies()[i];
+    if (e.alive && e.kind == EnemyKind::Leech && std::abs(e.x - p.x) < 120)
+      return {5, e.x / 4 * 4, e.y / 4 * 4, 0, 0, int(i)};
+  }
+  for (std::size_t i = 0; i < w.breakers().size(); ++i)
+  {
+    const auto& b = w.breakers()[i];
+    if (b.on || b.throwing > 0)
+      continue;
+    bool behind = false;
+    for (const auto& d : w.doors())
+    {
+      const int dx = d.x0 * kCellsPerTile;
+      const bool power = d.breaker >= 0 &&
+        (w.breakers()[std::size_t(d.breaker)].on || w.breakers()[std::size_t(d.breaker)].throwing > 0);
+      if (d.solid && d.h > d.w && !power &&
+          dx > std::min(p.x, b.x) && dx < std::max(p.x, b.x))
+        behind = true;
+    }
+    if (!behind)
+      return {4, b.x, b.y, 2, 4, int(i)};
+  }
   return g;
 }
 
@@ -250,6 +282,13 @@ void Planner::buildField(const World& w, const Goal& goal)
       blocked[std::size_t(y * W + x)] = b;
       top[std::size_t(y * W + x)] = b || map.solidTop(x, y);
     }
+  // Shutters whose breaker is on are rolling up: the search waits for them.
+  for (const auto& d : w.doors())
+    if (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on)
+      for (int y = d.y0 * kCellsPerTile; y < (d.y0 + d.h) * kCellsPerTile; ++y)
+        for (int x = d.x0 * kCellsPerTile; x < (d.x0 + d.w) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   // Breakables the current weapon can shatter: the search shoots them.
   const auto& pl0 = w.player();
   const bool sound = pl0.weapon == Weapon::Proto && pl0.proto == int(ProtoId::BassCannon);
@@ -297,6 +336,10 @@ void Planner::buildField(const World& w, const Goal& goal)
     {
       y0 = pl.homeY - pl.travel;
       y1 = pl.homeY + pl.travel;
+    }
+    else if (pl.powered >= 0 && !w.breakers()[std::size_t(pl.powered)].on)
+    {
+      // A lift with no power stays where it is.
     }
     else
       for (const auto& [px, py] : pl.path)
@@ -440,6 +483,8 @@ void Planner::buildField(const World& w, const Goal& goal)
   std::priority_queue<QE, std::vector<QE>, std::greater<QE>> q;
   const CellBox goalBox = goal.kind == 0 ? CellBox{goal.x, goal.y - 5, 2, 6}
     : goal.kind == 3                      ? CellBox{goal.x, goal.y, goal.w, goal.h}
+    : goal.kind == 4                      ? boxAt(goal.x, goal.y, 2, 4)
+    : goal.kind == 5                      ? CellBox{goal.x - 14, goal.y - 3, 30, 6} // in range for a level shot
                                           : CellBox{goal.x, goal.y - 1, 2, 2};
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -449,7 +494,7 @@ void Planner::buildField(const World& w, const Goal& goal)
         continue;
       if (!boxAt(x, y, 3, 5).intersects(goalBox))
         continue;
-      if ((goal.kind == 0 || goal.kind == 3) && support[i] != 0)
+      if ((goal.kind == 0 || goal.kind == 3 || goal.kind == 4 || goal.kind == 5) && support[i] != 0)
         continue;
       for (int a = 0; a < A; ++a)
       {
@@ -523,6 +568,14 @@ int Planner::heuristic(const World& w) const
     for (const auto& b : w.boxes())
       if (b.alive && b.content == (mGoalKind == 1 ? ItemKind::Key : ItemKind::Proto))
         extra = 40;
+  // A Leech: every hit on it is progress.
+  if (mGoalKind == 5 && mGoalIndex >= 0 && std::size_t(mGoalIndex) < w.enemies().size())
+    extra += 20 * std::max(0, w.enemies()[std::size_t(mGoalIndex)].hp);
+  // A shutter rolling up close by: waiting for it is progress.
+  for (const auto& d : w.doors())
+    if (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on &&
+        std::abs(d.x0 * kCellsPerTile - p.x) < 40)
+      extra += std::max(0, d.opentime - d.open);
   for (int bi : mWalls)
     if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
       extra += 12 * std::max(0, w.breakables()[std::size_t(bi)].hp);
@@ -602,13 +655,17 @@ void Planner::plan(const World& world)
     for (const auto& b : world.breakables())
       broken += b.broken;
     const bool sound = world.player().weapon == Weapon::Proto && world.player().proto == int(ProtoId::BassCannon);
+    int powered = 0;
+    for (const auto& b : world.breakers())
+      powered = powered * 2 + b.on;
     const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
-      (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000;
+      (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
     if (mDist.empty() || keyHash != mGoalKeyHash)
     {
       buildField(world, goal);
       mGoalKeyHash = keyHash;
       mGoalKind = goal.kind;
+      mGoalIndex = goal.index;
     }
     if ((goal.kind != 2 && goal.kind != 3) || heuristic(world) < kInf)
       break;
@@ -661,6 +718,13 @@ void Planner::plan(const World& world)
     k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
     for (const auto& pl : w.platforms())
       k = mix(k, std::uint64_t(pl.y) | (std::uint64_t(pl.x) << 16) | (std::uint64_t(pl.braked) << 32));
+    for (const auto& b : w.breakers())
+      k = mix(k, std::uint64_t(b.on) | (std::uint64_t(b.throwing) << 1));
+    for (const auto& d : w.doors())
+      k = mix(k, std::uint64_t(d.open) | (std::uint64_t(d.solid) << 16));
+    for (const auto& e : w.enemies())
+      if (e.alive && e.kind == EnemyKind::Leech)
+        k = mix(k, std::uint64_t(e.aimX) | (std::uint64_t(e.hp) << 16));
     return k;
   };
   const int h0 = heuristic(world);
@@ -683,8 +747,12 @@ void Planner::plan(const World& world)
     const auto& np = nw.player();
     const bool gotProto = nw.stats().protoFound &&
       (!world.stats().protoFound || (np.weapon == Weapon::Proto && (p0.weapon != Weapon::Proto || np.ammo > p0.ammo)));
+    const bool thrown = goal.kind == 4 && std::size_t(goal.index) < nw.breakers().size() &&
+      (nw.breakers()[std::size_t(goal.index)].on || nw.breakers()[std::size_t(goal.index)].throwing > 0);
+    const bool leechGone = goal.kind == 5 && std::size_t(goal.index) < nw.enemies().size() &&
+      !nw.enemies()[std::size_t(goal.index)].alive;
     const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) ||
-      (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested());
+      (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
     if (ni != 0 && success)
     {
       found = ni;

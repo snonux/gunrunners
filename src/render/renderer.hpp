@@ -6,6 +6,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace gr
 {
@@ -98,6 +99,12 @@ public:
   // A line of any angle, `width` px thick (laser sights, cables).
   void drawLine(float x0, float y0, float x1, float y1, float width, Color c, Blend b = Blend::Alpha);
 
+  // A cols x rows grid of alpha values (0..1) in colour c, stretched over
+  // the rectangle at (x, y) with smooth filtering between cell centres: soft
+  // darkness and light pools without visible squares.
+  void drawAlphaGrid(const std::vector<float>& alpha, int cols, int rows, float x, float y, float cellW, float cellH,
+    Color c);
+
   const Texture& text(const std::string& s, const TextStyle& style);
   float drawText(
     const std::string& s,
@@ -110,6 +117,8 @@ public:
 private:
   SDL_Renderer* mRenderer;
   std::unordered_map<std::string, Texture> mTextCache;
+  SDL_Texture* mGrid = nullptr; // drawAlphaGrid's streaming texture
+  int mGridW = 0, mGridH = 0;
 };
 
 } // namespace gr

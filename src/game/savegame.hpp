@@ -23,6 +23,12 @@ struct SaveGame
     // Enemies a spawner brought in (after the level's own): their kind and
     // the platform they came onto. -1 for the level's enemies.
     int def = -1, platform = -1;
+    int attach = 0; // a Grid Leech's cable, a clinger's wall
+  };
+  struct BreakerState
+  {
+    bool on = false, leechKilled = false;
+    int thrownAt = -100000, leechIn = -1;
   };
   struct PlatformState
   {
@@ -69,6 +75,10 @@ struct SaveGame
   std::vector<PlatformState> platforms;
   std::vector<bool> hatches;
   std::vector<int> breakables; // hp left; 0 = broken
+  // Power cuts (level 4): breakers, shutter progress, the all-lit moment.
+  std::vector<BreakerState> breakers;
+  std::vector<int> doors;
+  int allLitAt = -1;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

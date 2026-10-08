@@ -271,8 +271,14 @@ void Game::playLevelMusic()
     return;
   }
   // The beat signs run on the level's clock; the music follows it.
-  mAudio->playMusicNamed(mWorld && !mWorld->musicOverride().empty() ? mWorld->musicOverride() : mLevel->music);
+  mPlayingOverride = mWorld ? mWorld->musicOverride() : std::string();
+  const std::string track = !mPlayingOverride.empty() ? mPlayingOverride : mLevel->music;
+  mAudio->playMusicNamed(track);
   mAudio->seekMusic(mWorld ? double(mWorld->clock()) / 15.0 : 0.0);
+  // A layered score: have every layer ready so a breaker never stalls a frame.
+  if (const auto at = track.find('@'); at != std::string::npos)
+    for (int k = 0; k <= 4; ++k)
+      mAudio->preloadMusic(track.substr(0, at + 1) + std::to_string(k));
 }
 
 void Game::beginCampaignLevel(int number, bool fromNewGame)
