@@ -489,7 +489,60 @@ void briefing(ClipKit& k, const std::string& clip, int frame, int ticks, float o
     k.r.fillRect(cx - 1, top - 40, 2, 40, rgba(180, 250, 255, 160), Blend::Add);
     drawGlow(k.r, k.art, cx, top - 40, 16, rgb(255, 80, 80), 0.6f + 0.3f * float(frame % 2));
   }
+  // Level 3: a tiny club, its dance floor changing colour on every beat.
+  if (clip == "max_holo_club")
+  {
+    const float x0 = 860 + ox, y0 = 170 + oy, w = 220, h = 250;
+    k.r.fillRect(x0, y0, w, 4, rgba(120, 230, 255, 160), Blend::Add);
+    k.r.fillRect(x0, y0, 4, h, rgba(120, 230, 255, 160), Blend::Add);
+    k.r.fillRect(x0 + w - 4, y0, 4, h, rgba(120, 230, 255, 160), Blend::Add);
+    static const Color kTiles[4] = {rgb(255, 60, 200), rgb(0, 230, 255), rgb(255, 230, 60), rgb(160, 90, 255)};
+    for (int i = 0; i < 5; ++i)
+      for (int j = 0; j < 2; ++j)
+      {
+        const unsigned hsh = hash2(i * 3 + j, frame / 4);
+        k.r.fillRect(x0 + 10 + float(i) * 41.0f, y0 + h - 40 + float(j) * 18.0f, 37, 15, withAlpha(kTiles[hsh % 4u], 170),
+          Blend::Add);
+      }
+    // Dancers hop on the beat; a mirror ball turns above them.
+    for (int d = 0; d < 4; ++d)
+    {
+      const float hop = (frame / 4 + d) % 2 ? 8.0f : 0.0f;
+      const float dx = x0 + 34 + float(d) * 48.0f, dy = y0 + h - 82 - hop;
+      k.r.fillRect(dx, dy, 14, 34, rgba(150, 240, 255, 130), Blend::Add);
+      k.r.fillRect(dx + 2, dy - 14, 10, 10, rgba(150, 240, 255, 150), Blend::Add);
+    }
+    drawGlow(k.r, k.art, x0 + w * 0.5f, y0 + 50, 26, rgb(255, 255, 255), 0.5f + 0.3f * float(frame % 2));
+    k.r.fillRect(x0 + w * 0.5f - 1, y0, 2, 30, rgba(150, 240, 255, 160), Blend::Add);
+  }
   (void)t;
+}
+
+// Level 3: the three runners in their courier jackets under a disco ball
+// whose reflections sweep across them; Rocco looks down at himself.
+void crewOutfits(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.5f + ox, oy, 0.0f);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 110));
+  k.r.draw(runner(k, 0, 0, 3.0f), 400 + ox, 680 + oy);
+  k.r.draw(runner(k, 1, frame >= 10 ? 9 : 0, 3.0f), 640 + ox, 690 + oy);
+  k.r.draw(runner(k, 2, 0, 3.0f, true), 880 + ox, 680 + oy);
+  // Mud and road dust on the jackets.
+  for (int i = 0; i < 18; ++i)
+  {
+    const float x = 330.0f + float(hash2(i, 41) % 620u), y = 420.0f + float(hash2(i, 42) % 160u);
+    k.r.fillRect(x + ox, y + oy, 6, 4, rgba(70, 50, 30, 120));
+  }
+  // The reflections: spots of light drifting left to right, 8 px a frame.
+  const float sweep = float(ticks) * 8.0f / 7.2f;
+  for (int i = 0; i < 26; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 7) % 1400u) + sweep, 1400.0f) - 60.0f;
+    const float y = 120.0f + float(hash2(i, 8) % 520u);
+    const Color c = i % 3 == 0 ? rgb(255, 255, 255) : (i % 3 == 1 ? rgb(255, 120, 220) : rgb(120, 220, 255));
+    drawGlow(k.r, k.art, x + ox, y + oy, 16, c, 0.55f);
+  }
+  drawGlow(k.r, k.art, 640 + ox, 40 + oy, 60, rgb(255, 255, 255), 0.6f);
 }
 
 // Level 2: Dash from behind at the foot of the Halcyon tower. The mirrored
@@ -628,6 +681,8 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")
     return towerTilt(k, frame, ticks, ox, oy);
+  if (clip == "crew_outfits")
+    return crewOutfits(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "wreck")

@@ -32,6 +32,7 @@ add_library(gunrunners_core STATIC
   src/game/world_level.cpp
   src/game/world_proto.cpp
   src/game/world_platforms.cpp
+  src/game/world_club.cpp
   src/game/world_actors.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
@@ -67,3 +68,5 @@ add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.t
 add_test(NAME savegame_rooftop_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
 # Far enough up the tower for gondolas to have moved and hatches to be open.
 add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/02_glass_canyon.txt 700)
+# Past the coat check's drop launch, with the Bass Cannon in hand.
+add_test(NAME savegame_club_laserdisc COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/03_club_laserdisc.txt 700)

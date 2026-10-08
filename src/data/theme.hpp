@@ -28,6 +28,7 @@ struct Theme
   Color farLayer, nearLayer;
   Color enemyBody, enemyLight, enemyDark, enemyEye;
   Color hudText;
+  const char* look = ""; // a level's own backdrop set ("club"), else the family's
 };
 
 // The three families the T key cycles through.

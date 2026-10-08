@@ -90,8 +90,10 @@ void World::setupEntities()
   mBonusLevel = !lv.rules.empty() || lv.timer > 0;
   mAirJump = lv.rules.find("airjump") != std::string::npos;
   mFreeFall = lv.rules.find("freefall") != std::string::npos;
+  mBeatStep = lv.rules.find("beatstep") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
-  mHasBeat = mLevelProto == int(ProtoId::PulsePistol);
+  // The equalizer: the Pulse Pistol's beat, and when the next step lands.
+  mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
 
   for (const auto& e : lv.entities)
   {
@@ -159,6 +161,9 @@ void World::setupEntities()
         case EnemyKind::Crawler:
           placeClinger(en);
           break;
+        case EnemyKind::Bouncer:
+          en.railX0 = en.x; // his post
+          break;
         case EnemyKind::Rider:
           // rect= is the rail: the drone's rows, x0..x1 its ends.
           en.railX0 = rectCells.x;
@@ -174,6 +179,49 @@ void World::setupEntities()
     if (e.kind == "platform" && e.hasPos)
     {
       setupPlatform(e);
+      continue;
+    }
+    if (e.kind == "pad" && e.hasPos)
+    {
+      // A subwoofer in the floor: its top row is the floor the rider stands on.
+      Pad pad;
+      pad.id = e.id;
+      pad.x = cx;
+      pad.y = e.y * kCellsPerTile;
+      pad.w = e.num("w", 3) * kCellsPerTile;
+      pad.bump = e.num("bump", 2); // cells
+      // launch=2.5j: two and a half times the rider's own jump.
+      const std::string launch = e.str("launch", "2.5j");
+      pad.launchX10 = std::max(0, int(std::lround(std::atof(launch.c_str()) * 10.0)));
+      pad.fire = std::clamp(e.num("fire", 1), 0, 3);
+      mPads.push_back(pad);
+      mHasBeat = true;
+      continue;
+    }
+    if (e.kind == "laserfan" && e.hasPos)
+    {
+      LaserFan f;
+      f.x = cx;
+      f.y = e.y * kCellsPerTile;
+      const auto arc = e.list("arc");
+      if (arc.size() == 2)
+      {
+        f.a0 = arc[0];
+        f.a1 = arc[1];
+      }
+      f.len = e.num("len", 10) * kCellsPerTile;
+      mFans.push_back(f);
+      continue;
+    }
+    if (e.kind == "virus" && e.hasPos)
+    {
+      Item it;
+      it.kind = ItemKind::Virus;
+      it.x = it.prevX = cx;
+      it.y = it.prevY = cy;
+      it.variant = e.str("skin") == "spiked_drink" ? 1 : 0;
+      it.floating = true;
+      mItems.push_back(it);
       continue;
     }
     if (e.kind == "rope" && e.hasPos)
@@ -195,7 +243,9 @@ void World::setupEntities()
       b.y1 = y1;
       b.hp = e.num("hp", 1);
       const std::string by = e.str("by", "any");
-      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : 0);
+      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : 0));
+      const std::string look = e.str("look", "glass");
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : 0);
       mBreakables.push_back(b);
       continue;
     }
@@ -239,6 +289,10 @@ void World::setupEntities()
         pr.kind = PropKind::UfoFlyby;
       else if (kind == "reflection")
         pr.kind = PropKind::Reflection;
+      else if (kind == "decks")
+        pr.kind = PropKind::Decks;
+      else if (kind == "dancefloor")
+        pr.kind = PropKind::DanceFloor;
       else
         pr.kind = PropKind::TextSign;
       mProps.push_back(pr);
@@ -421,6 +475,33 @@ void World::updateProps(const PlayerInput& input)
           }
         }
         break;
+
+      case PropKind::Decks:
+        if (pr.timer > 0)
+          --pr.timer;
+        break;
+
+      case PropKind::DanceFloor:
+      {
+        // Easter egg: hold crouch on the floor for 16 seconds and break out
+        // the windmills until you stand up.
+        const bool crouched = p.state == PlayerState::OnGround && p.visual == PlayerVisual::Crouching &&
+          pr.box().intersects(boxAt(pbox.x, pbox.bottom() + 1, pbox.w, 1));
+        pr.hold = crouched ? pr.hold + 1 : 0;
+        if (pr.hold >= 240 && !mBreakdance)
+        {
+          mBreakdance = true;
+          showMessage("BREAKDANCE!");
+          if (!pr.used)
+          {
+            pr.used = true;
+            addScore(4200, cellCenter(pbox));
+          }
+        }
+        if (!crouched)
+          mBreakdance = false;
+        break;
+      }
 
       default:
         break;
@@ -649,6 +730,29 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
             drawGlow(r, mArt, x + w * 0.5f, y + h * 0.5f, 110, rgb(200, 220, 255), 0.35f);
         }
         break;
+      case PropKind::Decks:
+        if (!foreground && onScreen)
+        {
+          // A turntable on a flight case; the record spins with the music
+          // and jumps when a shot scratches it.
+          const float topY = y + h * 0.45f;
+          r.fillRect(x, topY, w, h - (topY - y), rgb(30, 28, 40));
+          r.fillRect(x + 4, topY + 6, w - 8, 6, rgb(90, 80, 120));
+          r.fillRect(x - 4, topY - 10, w + 8, 14, rgb(52, 48, 66));
+          const float cx = x + w * 0.5f, cy = topY - 12.0f, rad = std::min(w, h) * 0.38f;
+          drawGlow(r, mArt, cx, cy, rad * 1.6f, rgb(190, 90, 255), pr.timer > 0 ? 0.9f : 0.25f);
+          r.fillRect(cx - rad, cy - 6.0f, rad * 2.0f, 10.0f, rgb(16, 14, 20));
+          const float spin = (float(frame) * 0.2f) + (pr.timer > 0 ? float(pr.timer % 2) * 1.4f : 0.0f);
+          for (int k = 0; k < 3; ++k)
+          {
+            const float a = spin + float(k) * 2.094f;
+            r.drawLine(cx, cy - 1.0f, cx + std::cos(a) * rad, cy - 1.0f + std::sin(a) * 4.0f, 2.0f, rgb(120, 110, 150));
+          }
+          r.fillRect(cx - 5.0f, cy - 4.0f, 10.0f, 6.0f, rgb(255, 80, 180));
+          r.drawLine(x + w - 8.0f, topY - 20.0f, cx + rad * 0.4f, cy - 2.0f, 3.0f, rgb(200, 200, 210)); // tone arm
+        }
+        break;
+      case PropKind::DanceFloor: // world_club.cpp draws the lit tiles
       case PropKind::GemCache:
         break;
     }

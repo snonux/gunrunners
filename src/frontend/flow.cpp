@@ -271,7 +271,7 @@ void Game::playLevelMusic()
     return;
   }
   // The beat signs run on the level's clock; the music follows it.
-  mAudio->playMusicNamed(mLevel->music);
+  mAudio->playMusicNamed(mWorld && !mWorld->musicOverride().empty() ? mWorld->musicOverride() : mLevel->music);
   mAudio->seekMusic(mWorld ? double(mWorld->clock()) / 15.0 : 0.0);
 }
 

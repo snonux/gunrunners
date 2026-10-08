@@ -111,6 +111,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
+  drawClub(r, camX, camY, frame);
 
   // Item boxes and items.
   for (const auto& b : mBoxes)
@@ -130,13 +131,27 @@ void World::draw(Renderer& r, int frame, float alpha) const
     float y = lerpCells(it.prevY - 1, it.y - 1, alpha) - camY;
     if (x < -128.0f || x > float(kScreenW) + 64.0f)
       continue;
-    if (it.floating)
+    if (it.floating && !(it.kind == ItemKind::Virus && it.variant == 1))
       y += std::sin(float(frame + int(i) * 9) * 0.08f) * 6.0f;
     const int icon = itemIcon(it.kind, it.variant);
     if (it.kind == ItemKind::Gem)
       drawGlow(r, mArt, x + 32, y + 34, 50, mArt.gemColor[std::size_t(it.variant % 4)], 0.45f + 0.2f * std::sin(float(frame) * 0.15f + float(i)));
     else if (it.kind == ItemKind::Turbo)
       drawGlow(r, mArt, x + 32, y + 32, 72, rgb(255, 170, 40), 0.55f + 0.2f * std::sin(float(frame) * 0.2f));
+    else if (it.kind == ItemKind::Virus && it.variant == 1)
+    {
+      // The spiked drink: a health box at first glance, but its underside
+      // glows green and it wears a cocktail umbrella.
+      drawGlow(r, mArt, x + 32, y + 58, 40, rgb(120, 255, 60), 0.45f + 0.15f * std::sin(float(frame) * 0.13f));
+      DrawOpts dop;
+      dop.tint = rgb(150, 190, 255);
+      r.draw(mArt.items[std::size_t(itemIcon(ItemKind::Health, 0))], x, y, dop);
+      r.fillRect(x + 8, y + 52, 48, 8, rgba(110, 255, 70, 220));
+      r.drawLine(x + 44, y + 14, x + 52, y - 10, 3.0f, rgb(240, 220, 170));
+      r.drawLine(x + 36, y - 8, x + 66, y - 14, 7.0f, rgb(255, 90, 160));
+      r.drawLine(x + 42, y - 13, x + 60, y - 16, 4.0f, rgb(255, 210, 90));
+      continue;
+    }
     else if (it.kind == ItemKind::Virus)
     {
       // Drifts and twitches so it reads as alive, and dangerous.
@@ -170,9 +185,17 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (x < -160.0f || x > float(kScreenW) + 160.0f)
       continue;
     const EnemyDef& def = enemyDef(e.def);
+    // Hidden inside something breakable (the camera in the mirror ball).
+    bool inside = false;
+    for (const auto& b : mBreakables)
+      inside = inside || (!b.broken && e.x / kCellsPerTile >= b.x0 && e.x / kCellsPerTile <= b.x1 &&
+                           e.y / kCellsPerTile >= b.y0 && e.y / kCellsPerTile <= b.y1);
+    if (inside)
+      continue;
     if (e.tell > 0 && e.kind == EnemyKind::Flyer)
       x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives
     const Texture* tex = nullptr;
+    float hop = 0.0f;
     DrawOpts eo;
     if (def.tint != 0)
       eo.tint = def.tint;
@@ -192,9 +215,17 @@ void World::draw(Renderer& r, int frame, float alpha) const
         break;
       case EnemyLook::Styled:
       {
-        const int variant = (e.kind == EnemyKind::Crawler && (e.attach == -1 || e.attach == 1)) ? 0 : 1;
+        int variant = (e.kind == EnemyKind::Crawler && (e.attach == -1 || e.attach == 1)) ? 0 : 1;
+        if (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Disco || e.kind == EnemyKind::Raver)
+          variant = e.tell > 0 ? 1 : 0; // the club's tells
+        else if (e.kind == EnemyKind::Stepper)
+          variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, (frame / 8) % 2, e.w, e.h).get(dirForArt);
+        if (e.kind == EnemyKind::Raver && e.dive > 0)
+          hop = 14.0f; // hops on the beat
+        if (e.kind == EnemyKind::Bouncer && e.dive < 0)
+          x += ((frame / 2) % 2 ? 3.0f : -3.0f); // staggered
         if (e.kind == EnemyKind::Crawler && e.tell > 0)
           drawGlow(r, mArt, x, y - float(e.h) * kCellPx * 0.5f, 40, mTheme.enemyEye, 0.9f - float(e.tell) * 0.06f);
         if (e.kind == EnemyKind::Rider && e.tell > 0)
@@ -239,13 +270,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
     }
     if (e.flags() & kEnemyCarrier)
       eo.tint = lerpColor(eo.tint, rgb(120, 255, 80), 0.5f);
-    r.draw(*tex, x, y, eo);
+    r.draw(*tex, x, y - hop, eo);
     if (e.flash > 0)
     {
       DrawOpts o;
       o.blend = Blend::Add;
       o.alpha = float(e.flash) / 8.0f;
-      r.draw(*tex, x, y, o);
+      r.draw(*tex, x, y - hop, o);
     }
   }
 
@@ -347,6 +378,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
   drawBeatHud(r, frame);
+  drawClubHud(r, frame);
 }
 
 void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
@@ -380,6 +412,11 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
       const float y = float(ty) * kTilePx - camY;
       if (mLayerMask[std::size_t(ty * mLevel->width + tx)])
         continue; // drawn by its layer
+      bool prop = false; // a mirror ball or speaker draws itself
+      for (const auto& b : mBreakables)
+        prop = prop || (b.look != 0 && !b.broken && tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1);
+      if (prop)
+        continue;
       switch (mMap.block(tx, ty))
       {
         case Tile::Solid:
@@ -468,6 +505,13 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
       break;
     case PlayerVisual::Crouching:
       spr = &ca.crouch;
+      if (mBreakdance)
+      {
+        // Windmills: a 24-frame spin on the floor.
+        spr = &ca.tuck;
+        lift = 30.0f * 1.65f;
+        o.angle = float(p.facing) * float(frame % 96) * 3.75f;
+      }
       break;
     case PlayerVisual::Coiling:
       spr = &ca.coil;

@@ -4,6 +4,7 @@
 #include "render/vector.hpp"
 
 #include <cmath>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -621,6 +622,12 @@ Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bo
     case 5: P = hurtPose(); break;
     case 6: P = coilPose(); break;
     case 7: P = fallPose(true); break;
+    case 9: // slumped, looking down at your own clothes
+      P = idlePose(0);
+      P.lean = 5.0;
+      P.bob = 3.0;
+      P.aim = kPi / 3.0;
+      break;
     default: P = idlePose(pose == 8 ? 1 : 0); break;
   }
   const int w = int(128 * scale), h = int(130 * scale);
@@ -1725,8 +1732,140 @@ void verticalGradient(cairo_t* cr, double w, double h, std::initializer_list<std
   cairo_pattern_destroy(p);
 }
 
+// --- Club Laserdisc's interior (theme look "club") -----------------------------
+
+bool isClub(const Theme& t) { return std::string_view(t.look) == "club"; }
+
+// The room itself: a black ceiling with a lighting rig, haze and frozen
+// beams of light.
+Texture bakeClubSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, rgb(4, 2, 10)}, {0.45, t.skyTop}, {1.0, t.skyMid}});
+  Rng rng(4242u);
+  // Beams fanning down from the rig.
+  for (int i = 0; i < 9; ++i)
+  {
+    const double x0 = 80 + i * 140.0 + rng.range(-30, 30);
+    const double spread = rng.range(60, 160), lean = rng.range(-260, 260);
+    const Color c = i % 3 == 0 ? t.trim : (i % 3 == 1 ? t.platform : t.hazard);
+    cairo_move_to(cr, x0, 60);
+    cairo_line_to(cr, x0 + lean - spread, kScreenH);
+    cairo_line_to(cr, x0 + lean + spread, kScreenH);
+    cairo_close_path(cr);
+    cairo_pattern_t* p = cairo_pattern_create_linear(0, 60, 0, kScreenH);
+    cairo_pattern_add_color_stop_rgba(p, 0, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, 0.22);
+    cairo_pattern_add_color_stop_rgba(p, 1, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, 0.0);
+    cairo_set_source(cr, p);
+    cairo_fill(cr);
+    cairo_pattern_destroy(p);
+  }
+  // Haze.
+  for (int i = 0; i < 14; ++i)
+    radialGlow(cr, rng.range(0, kScreenW), rng.range(200, kScreenH), rng.range(120, 260), t.skyBottom, 0.12);
+  // The rig: a truss with cans.
+  cairo_rectangle(cr, 0, 40, kScreenW, 14);
+  setColor(cr, rgb(40, 36, 52));
+  cairo_fill(cr);
+  for (int x = 0; x < kScreenW; x += 28)
+  {
+    strokeLimb(cr, {{double(x), 40}, {double(x) + 14, 54}}, 2, rgb(70, 64, 90), kInk, 0.0);
+    strokeLimb(cr, {{double(x) + 14, 54}, {double(x) + 28, 40}}, 2, rgb(70, 64, 90), kInk, 0.0);
+  }
+  for (int i = 0; i < 9; ++i)
+  {
+    const double x = 80 + i * 140.0;
+    roundedRect(cr, x - 12, 52, 24, 20, 4);
+    setColor(cr, rgb(20, 18, 28));
+    cairo_fill(cr);
+    radialGlow(cr, x, 70, 22, i % 2 ? t.trim : t.platform, 0.9);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far wall: stacks of speakers and acoustic panels.
+Texture bakeClubFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(77u);
+  for (int px = 0; px < kLayerW; px += 160)
+  {
+    // Acoustic foam panels.
+    for (int py = 120; py < kScreenH; py += 80)
+    {
+      roundedRect(cr, px + 6, py + 6, 148, 68, 6);
+      setColor(cr, lerpColor(t.farLayer, rgb(0, 0, 0), 0.35f + 0.2f * float((px / 160 + py / 80) % 2)));
+      cairo_fill(cr);
+    }
+  }
+  double x = 40;
+  while (x < kLayerW - 200)
+  {
+    const int cabs = rng.irange(2, 5);
+    const double w = rng.range(110, 150);
+    for (int k = 0; k < cabs; ++k)
+    {
+      const double h = w * 0.8, y = kScreenH - (k + 1) * h;
+      roundedRect(cr, x, y, w, h - 4, 6);
+      setColor(cr, rgb(16, 14, 24));
+      cairo_fill(cr);
+      for (int cone = 0; cone < 2; ++cone)
+      {
+        const double cx = x + w * 0.5, cy = y + h * (cone ? 0.68 : 0.3), rad = h * (cone ? 0.26 : 0.16);
+        cairo_arc(cr, cx, cy, rad, 0, 2 * kPi);
+        setColor(cr, rgb(40, 36, 56));
+        cairo_fill(cr);
+        cairo_arc(cr, cx, cy, rad * 0.4, 0, 2 * kPi);
+        setColor(cr, withAlpha(t.trim, 90));
+        cairo_fill(cr);
+      }
+    }
+    x += w + rng.range(140, 320);
+  }
+  // A neon strip along the wall.
+  cairo_rectangle(cr, 0, 300, kLayerW, 4);
+  setColor(cr, withAlpha(t.platform, 120));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: the crowd, arms up, as silhouettes against the floor lights.
+Texture bakeClubNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(31u);
+  const Color body = rgb(10, 6, 20);
+  for (double x = 10; x < kLayerW - 30; x += rng.range(34, 60))
+  {
+    const double h = rng.range(150, 210), base = kScreenH;
+    const double head = base - h;
+    roundedRect(cr, x - 16, head + 26, 32, h, 12);
+    setColor(cr, body);
+    cairo_fill(cr);
+    cairo_arc(cr, x, head + 12, 14, 0, 2 * kPi);
+    cairo_fill(cr);
+    if (rng.uniform() < 0.55f)
+    {
+      const double side = rng.uniform() < 0.5f ? -1 : 1;
+      strokeLimb(cr, {{x + side * 12, head + 34}, {x + side * 26, head - 4}, {x + side * 20, head - 40}}, 9, body, body, 0.0);
+      if (rng.uniform() < 0.4f)
+      {
+        strokeLimb(cr, {{x + side * 20, head - 40}, {x + side * 24, head - 64}}, 5, rgb(120, 255, 90), rgb(120, 255, 90), 0.0);
+        radialGlow(cr, x + side * 22, head - 52, 20, rgb(120, 255, 90), 0.6);
+      }
+    }
+  }
+  verticalGradient(cr, kLayerW, kScreenH, {{0.0, rgba(0, 0, 0, 0)}, {0.8, rgba(0, 0, 0, 0)}, {1.0, withAlpha(t.trim, 50)}});
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isClub(t))
+    return bakeClubSky(r, t);
   VectorImage img(kScreenW, kScreenH);
   cairo_t* cr = img.cr();
   verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.58, t.skyMid}, {1.0, t.skyBottom}});
@@ -1860,6 +1999,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isClub(t))
+    return bakeClubFar(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(1234u + std::uint32_t(t.id));
@@ -1968,6 +2109,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isClub(t))
+    return bakeClubNear(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(9876u + std::uint32_t(t.id));

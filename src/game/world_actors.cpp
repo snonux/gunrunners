@@ -32,7 +32,17 @@ void World::touchPlayer(const Enemy& e)
     p.mercy = 20;
     return;
   }
+  const bool fresh = p.mercy == 0 && p.turbo == 0;
   hurtPlayer(1);
+  if (fresh && e.kind == EnemyKind::Bouncer)
+  {
+    // Shoved three blocks away from him.
+    const CellBox pb = p.box(), b = e.box();
+    const int dir = pb.x + 1 < b.x + b.w / 2 ? -1 : 1;
+    mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir * 6);
+    if (p.state == PlayerState::OnGround && !mMap.onSolidGround(p.box()))
+      startFalling();
+  }
 }
 
 bool World::lineOfFire(int x0, int y0, int x1, int y1, int& hitX, int& hitY) const

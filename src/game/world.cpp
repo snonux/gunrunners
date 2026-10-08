@@ -238,6 +238,7 @@ void World::update(const PlayerInput& input)
         break;
       updatePlatforms();
       updatePlayer(input);
+      updateClub();
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -406,6 +407,18 @@ void World::updateEnemies()
       case EnemyKind::Sniper:
         updateSniper(e, def);
         break;
+      case EnemyKind::Bouncer:
+        updateBouncer(e, def);
+        break;
+      case EnemyKind::Disco:
+        updateDisco(e, def);
+        break;
+      case EnemyKind::Raver:
+        updateRaver(e, def);
+        break;
+      case EnemyKind::Stepper:
+        updateStepper(e, def);
+        break;
     }
 
     if (playerVulnerable && !(def.flags & kEnemyHarmless) && e.box().intersects(p.hitBox()))
@@ -483,6 +496,8 @@ void World::updateProjectiles()
       burst(c, rgb(255, 255, 210), pr.kind == ShotKind::Enemy ? mTheme.enemyEye : mTheme.accentA, 5, 1.0f);
       if (pr.kind == ShotKind::Rocket)
         explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
+      if (pr.lob && pr.vy > 0.0f && !mMap.solid(pr.x, pr.y - 1))
+        mPuddles.push_back({pr.x - 3, pr.y, 6, 30}); // a glowstick splashes
       return true;
     }
     if (pr.kind == ShotKind::Enemy)
@@ -505,6 +520,7 @@ void World::updateProjectiles()
       }
       return false;
     }
+    shotAtProps(b);
     for (auto& box : mBoxes)
     {
       if (!box.alive || !box.box().intersects(b))
@@ -544,7 +560,8 @@ void World::updateProjectiles()
         return true;
       }
       const bool wasAlive = e.alive;
-      damageEnemy(e, pr.damage);
+      if (!shotHitsEnemy(e, pr.dx, pr.damage))
+        return true; // a Bouncer took it on the chest
       if (wasAlive && !e.alive && pr.kind == ShotKind::Proto)
         ++mStats.protoKills;
       burst(cellCenter(b), rgb(255, 255, 255), mTheme.enemyLight, 5, 1.2f);
@@ -568,6 +585,8 @@ void World::updateProjectiles()
         pr.alive = false;
       continue;
     }
+    if (pr.gy != 0.0f)
+      pr.vy = std::min(1.5f, pr.vy + pr.gy);
     for (int i = 0; i < pr.speed && pr.alive; ++i)
     {
       if (pr.precise)
@@ -600,7 +619,7 @@ void World::updateProjectiles()
     }
     if (pr.ride > 0 && --pr.ride == 0)
       pr.alive = false;
-    if (pr.alive && !isOnScreen(pr.box(), 2))
+    if (pr.alive && !isOnScreen(pr.box(), pr.lob ? 12 : 2))
       pr.alive = false;
   }
   mProjectiles.erase(

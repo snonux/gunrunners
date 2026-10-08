@@ -108,7 +108,7 @@ void World::updatePlayer(const PlayerInput& raw)
   p.oddFrame = !p.oddFrame;
 
   // Conflicting directions cancel out, like in the original.
-  PlayerInput in = raw;
+  PlayerInput in = mBeatStep ? beatStepInput(raw) : raw;
   if (in.left && in.right)
     in.left = in.right = false;
   if (in.up && in.down)
@@ -123,8 +123,25 @@ void World::updatePlayer(const PlayerInput& raw)
   }
 
   const int previousY = p.y;
-  updateLadderAttachment(mvX, mvY);
-  updatePlayerMovement(mvX, mvY, in.jump, in.fire);
+  // Subwoofers: a jump started on the beat from a pad goes 2 cells higher,
+  // also out of a pad's bump.
+  if (!mPads.empty() && in.jump.triggered && onTheBeat())
+  {
+    const bool grounded = p.state == PlayerState::OnGround && padUnder(p.box()) >= 0;
+    if (grounded || (mLaunch > 0 && mLaunchBump > 0))
+    {
+      const int risen = grounded ? 0 : mLaunchBump - mLaunch;
+      startLaunch(std::max(1, jumpHeight() + 2 - risen));
+      playSound(Sfx::Jump);
+    }
+  }
+  if (mLaunch > 0)
+    updateLaunch(mvX);
+  else
+  {
+    updateLadderAttachment(mvX, mvY);
+    updatePlayerMovement(mvX, mvY, in.jump, in.fire);
+  }
   updateShooting(in.fire);
 
   if (p.visual == PlayerVisual::ClimbingLadder && p.y != previousY)
@@ -784,6 +801,8 @@ void World::respawnPlayer()
   p.deathPhase = 0;
   p.somersault = -1;
   p.hidden = false;
+  mLaunch = mLaunchBump = 0;
+  mBreakdance = false;
   p.hp = p.maxHp;
   p.mercy = kInitialMercyFrames;
   p.jumpRequested = false;

@@ -242,6 +242,12 @@ bool World::restore(const SaveGame& s)
   }
 
   mProjectiles.clear();
+  mPuddles.clear();
+  mCones.clear();
+  mLaunch = mLaunchBump = 0;
+  mBreakdance = false;
+  mQueued = mQueuedJump = false;
+  mQueuedDx = mBeatDx = mBeatMove = mBeatJump = 0;
   mParticles.clear();
   mTexts.clear();
   mFlashes.clear();
