@@ -4,6 +4,8 @@
 #include "render/renderer.hpp"
 
 #include <array>
+#include <map>
+#include <string>
 
 namespace gr
 {
@@ -101,6 +103,8 @@ struct Art
   Texture solidTop;
   Texture platform;
   Texture cloud; // one-way platforms in levels with flags=clouds
+  // Styled enemies, baked the first time they are drawn (enemy_art.cpp).
+  mutable std::map<std::string, Sprite> styled;
   Texture spikes;
   Texture ladder;
   Texture pipe;

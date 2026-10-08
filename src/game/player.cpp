@@ -116,6 +116,12 @@ void World::updatePlayer(const PlayerInput& raw)
   const int mvX = in.left ? -1 : (in.right ? 1 : 0);
   const int mvY = in.up ? -1 : (in.down ? 1 : 0);
 
+  if (mFreeFall)
+  {
+    updateFreeFall(mvX, mvY);
+    return;
+  }
+
   const int previousY = p.y;
   updateLadderAttachment(mvX, mvY);
   updatePlayerMovement(mvX, mvY, in.jump, in.fire);

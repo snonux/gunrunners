@@ -128,6 +128,35 @@ void Renderer::fillRect(float x, float y, float w, float h, Color c, Blend b)
   SDL_RenderFillRect(mRenderer, &r);
 }
 
+void Renderer::drawLine(float x0, float y0, float x1, float y1, float width, Color c, Blend b)
+{
+  const float dx = x1 - x0, dy = y1 - y0;
+  const float len = std::sqrt(dx * dx + dy * dy);
+  if (len < 0.5f)
+    return;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  const float nx = -dy / len * width * 0.5f, ny = dx / len * width * 0.5f;
+  const SDL_Color col{Uint8(redOf(c)), Uint8(greenOf(c)), Uint8(blueOf(c)), Uint8(alphaOf(c))};
+  const SDL_Vertex v[4] = {
+    {{x0 + nx, y0 + ny}, col, {0, 0}},
+    {{x1 + nx, y1 + ny}, col, {0, 0}},
+    {{x1 - nx, y1 - ny}, col, {0, 0}},
+    {{x0 - nx, y0 - ny}, col, {0, 0}},
+  };
+  const int idx[6] = {0, 1, 2, 0, 2, 3};
+  SDL_SetRenderDrawBlendMode(mRenderer, b == Blend::Add ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
+  SDL_RenderGeometry(mRenderer, nullptr, v, 4, idx, 6);
+#else
+  // Older SDL: a run of small squares.
+  const int steps = int(len / std::max(1.0f, width * 0.5f)) + 1;
+  for (int i = 0; i <= steps; ++i)
+  {
+    const float t = float(i) / float(steps);
+    fillRect(x0 + dx * t - width * 0.5f, y0 + dy * t - width * 0.5f, width, width, c, b);
+  }
+#endif
+}
+
 const Texture& Renderer::text(const std::string& s, const TextStyle& st)
 {
   std::string key = s;

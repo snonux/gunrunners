@@ -20,6 +20,14 @@ struct SaveGame
     bool alive = true;
     int hp = 0, x = 0, y = 0, dir = -1, timer = 0;
     bool active = false;
+    // Enemies a spawner brought in (after the level's own): their kind and
+    // the platform they came onto. -1 for the level's enemies.
+    int def = -1, platform = -1;
+  };
+  struct PlatformState
+  {
+    int x = 0, y = 0, balance = 0, slackLeft = 0, idle = 0, moveTick = 0, target = 1, step = 1;
+    bool braked = false;
   };
   struct ItemState
   {
@@ -58,6 +66,9 @@ struct SaveGame
   std::vector<bool> boxes; // alive flags, in level order
   std::vector<ItemState> items;
   std::vector<bool> checkpoints;
+  std::vector<PlatformState> platforms;
+  std::vector<bool> hatches;
+  std::vector<int> breakables; // hp left; 0 = broken
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

@@ -149,7 +149,7 @@ bool Game::loadFromSlot(int slot)
     return false;
   }
   const SaveGame s = *save; // setTheme below rebuilds things; keep a copy
-  if (s.theme >= 0 && s.theme < themeCount() && s.theme != mThemeIndex)
+  if (s.theme >= 0 && s.theme < themeTotal() && s.theme != mThemeIndex)
   {
     // A fresh world comes next, so only the art needs rebuilding (the
     // world holds references into it).

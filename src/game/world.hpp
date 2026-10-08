@@ -142,14 +142,21 @@ struct Enemy
   int tell = 0;     // frames left of the attack telegraph
   int lastDive = -1; // bar of the last beat dive
   int id = 0;
+  // Clingers: the side their surface is on (-1 left wall, 1 right wall,
+  // 2 ceiling, 0 floor). Riders: their rail. Snipers: where the laser aims.
+  int attach = 0;
+  int railX0 = 0, railX1 = 0;
+  int aimX = 0, aimY = 0;
+  int platform = -1; // spawned onto this platform (a spawner's cop)
   // Eased draw position in cells. Walkers step a cell every other logic
   // frame; easing turns that stop-and-go into a steady glide.
   float drawX = 0.0f, drawY = 0.0f;
   bool drawSnap = true;
   bool alive = true;
   bool active = false;
+  bool carrier = false; // carrier=1: spreads the Virus
   CellBox box() const { return boxAt(x, y, w, h); }
-  unsigned flags() const { return enemyDef(def).flags; }
+  unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
 
 enum class ShotKind
@@ -175,6 +182,14 @@ struct Projectile
   int pierceLeft = 0; // enemies it still passes through (pierce-one shots)
   int proto = -1;     // ProtoId for ShotKind::Proto
   bool strong = false; // on-the-beat and other powered-up shots look bigger
+  bool carrier = false; // an infected enemy's shot: infects instead of hurting
+  int range = -1;       // cells left before it fizzles, -1 unlimited
+  int sx = 0, sy = 0;   // surface riders: the side the surface is on
+  int ride = -1;        // surface riders: frames of riding left
+  // Shots along any angle (snipers, crawler sparks): float position and a
+  // unit step, `speed` steps per frame.
+  bool precise = false;
+  float fx = 0.0f, fy = 0.0f, vx = 0.0f, vy = 0.0f;
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -268,6 +283,7 @@ enum class PropKind
   UfoFlyby,      // a tiny UFO crossing the sky when triggered
   BonusDoor,     // B: a patch of TV static leading to the bonus level
   GemCache,      // $: five gems burst out when touched
+  Reflection,    // the backdrop glass mirrors you; stand still in the box and it waves
 };
 
 struct Prop
@@ -293,6 +309,67 @@ struct Zone
   CellBox box;
   int dx = 0, dy = 0;
   int num = 1, den = 1;
+};
+
+// Moving and weighted platforms (SPEC 3.2): one-way tops the player and
+// walkers ride.
+enum class PlatformMode
+{
+  Path,   // follows `path` (loop or ping-pong)
+  Pulley, // two gondolas on one cable: the heavier side sinks
+};
+
+struct Platform
+{
+  std::string id;
+  PlatformMode mode = PlatformMode::Path;
+  int x = 0, y = 0, w = 6, h = 2; // cells, top-left; y is the top surface
+  int prevX = 0, prevY = 0;
+  int startY = 0; // where it rests (pulley: rehome target)
+  int homeY = 0;  // pulley: the centre of its travel
+  int travel = 4; // pulley: cells either way of home
+  int pair = -1;  // pulley: the other gondola
+  bool sideA = true;
+  int slack = 8, slackLeft = 0, balance = 0;
+  int rehome = 30, idle = 0;
+  bool brake = false, braked = false;
+  int moveTick = 0;
+  int shudder = 0; // frames left of the creak telegraph
+  // Path mode, in cells.
+  std::vector<std::pair<int, int>> path;
+  int target = 1;
+  bool pingpong = false;
+  int step = 1;
+  int speedNum = 1, speedDen = 1;
+  CellBox box() const { return {x, y, w, h}; }
+};
+
+// A trapdoor in a slab that turns into ladder once you have stood on the
+// slab (level 2's spine).
+struct Hatch
+{
+  int tx = 0, ty = 0; // block
+  bool open = false;
+  Tile tile = Tile::Ladder; // what it turns into (`tile==`: a one-way top)
+};
+
+// Terrain that breaks when shot (SPEC 3.7).
+struct Breakable
+{
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // blocks, inclusive
+  int hp = 1;
+  int by = 0; // 0 any, 1 explosion, 2 heavy
+  bool broken = false;
+};
+
+// Brings a new enemy in when its condition holds (level 2's cop door).
+struct Spawner
+{
+  int def = -1;
+  int x = 0, y = 0; // cells, bottom-left
+  int platform = -1; // only while this platform is at rest and empty
+  std::string onto;  // the platform's id
+  int cooldown = 0;
 };
 
 struct Checkpoint
@@ -373,6 +450,12 @@ struct Bonus
   int points;
 };
 
+// Centre of a cell box in world pixels (effects positions).
+inline Vec2 cellCenter(const CellBox& b)
+{
+  return {(float(b.x) + float(b.w) * 0.5f) * kCellSize, (float(b.y) + float(b.h) * 0.5f) * kCellSize};
+}
+
 // Owns the running level: player, enemies, projectiles, items and effects.
 // Plays the role of RigelEngine's GameWorld (game_logic/game_world.cpp),
 // with plain entity lists instead of entityx components.
@@ -432,6 +515,8 @@ public:
   bool bonusStar() const { return mBonusStar; }
   const std::vector<Layer>& layers() const { return mLayers; }
   const std::vector<Prop>& props() const { return mProps; }
+  const std::vector<Platform>& platforms() const { return mPlatforms; }
+  const std::vector<Hatch>& hatches() const { return mHatches; }
   int clock() const { return mStats.frames; }
   // The planner bot simulates copies of the world: no effects or sounds.
   std::unique_ptr<World> cloneForSim() const;
@@ -478,8 +563,32 @@ private:
   void drawProps(Renderer& r, float camX, float camY, int frame, bool foreground) const;
   void drawBeatHud(Renderer& r, int frame) const;
 
+  // world_platforms.cpp: moving platforms, hatches, breakables, spawners
+  void setupPlatform(const EntityDef& e);
+  void linkPlatforms();
+  void updatePlatforms();
+  bool standsOn(const CellBox& feet, const Platform& pl) const;
+  int platformWeight(const Platform& pl, bool& player) const;
+  bool movePlatform(Platform& pl, int dx, int dy);
+  void syncPlatformCollision();
+  void updateHatches();
+  bool hitBreakable(const CellBox& shot, int damage, int kind);
+  void updateSpawners();
+  void drawPlatforms(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void updateFreeFall(int mvX, int mvY);
+
+  // world_actors.cpp: the campaign's enemy behaviours
+  void placeClinger(Enemy& e);
+  void updateCrawler(Enemy& e, const EnemyDef& def);
+  void updateRider(Enemy& e, const EnemyDef& def);
+  void updateSniper(Enemy& e, const EnemyDef& def);
+  bool lineOfFire(int x0, int y0, int x1, int y1, int& hitX, int& hitY) const;
+  void shootAt(Enemy& e, int fromX, int fromY, int speed, int range);
+  void touchPlayer(const Enemy& e);
+
   // world_proto.cpp: prototype weapons
   void fireProto(int ox, int oy, int dx, int dy);
+  bool stepSurfaceShot(Projectile& pr);
   void takeProto(const Vec2& at);
   void updateProtoShooting(const Button& fire);
   bool onTheBeat() const;
@@ -532,6 +641,15 @@ private:
   std::vector<std::uint8_t> mLayerMask; // per block: 1 if a layer draws it
   std::vector<Prop> mProps;
   std::vector<Zone> mZones;
+  std::vector<Platform> mPlatforms;
+  std::vector<std::string> mPlatformPairs; // setup only: each platform's pair=
+  std::vector<Hatch> mHatches;
+  std::vector<Breakable> mBreakables;
+  std::vector<Spawner> mSpawners;
+  std::size_t mLevelEnemyCount = 0; // the level's own; spawned ones follow
+  bool mFreeFall = false; // bonus rule: no ground until the net
+  std::vector<CellBox> mRopes; // free fall: window-cleaner ropes that bounce you
+  int mStall = 0;         // free fall: frames the fall is stalled after a bounce
   int mLevelProto = -1; // the header's weapon=
   bool mHasBeat = false; // level uses the music clock: show the equalizer
   bool mBonusRequested = false;

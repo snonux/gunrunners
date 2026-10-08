@@ -16,6 +16,7 @@ add_library(gunrunners_core STATIC
   src/render/renderer.cpp
   src/render/vector.cpp
   src/assets/art.cpp
+  src/assets/enemy_art.cpp
   src/data/level.cpp
   src/data/theme.cpp
   src/data/characters.cpp
@@ -30,6 +31,8 @@ add_library(gunrunners_core STATIC
   src/game/world_save.cpp
   src/game/world_level.cpp
   src/game/world_proto.cpp
+  src/game/world_platforms.cpp
+  src/game/world_actors.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
@@ -62,3 +65,5 @@ add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)
 add_test(NAME savegame_rooftop_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
+# Far enough up the tower for gondolas to have moved and hatches to be open.
+add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/02_glass_canyon.txt 700)

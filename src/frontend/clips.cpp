@@ -475,7 +475,75 @@ void briefing(ClipKit& k, const std::string& clip, int frame, int ticks, float o
     k.r.fillRect(880 + ox, 200 + oy, 140, 50, lit ? rgba(255, 60, 200, 200) : rgba(80, 40, 80, 120));
     k.r.drawText("OPEN", 950 + ox, 210 + oy, {26.0f, lit ? rgb(255, 255, 255) : rgb(120, 100, 130), kInk, true}, Align::Center);
   }
+  // Level 2: a thin glass tower turning 15 degrees a frame beside MAX.
+  if (clip == "max_holo_tower")
+  {
+    const float a = float(frame) * float(kPi) / 12.0f;
+    const float cx = 950 + ox, top = 110 + oy, bottom = 500 + oy;
+    const float f1 = 70.0f * std::fabs(std::cos(a)), f2 = 70.0f * std::fabs(std::sin(a));
+    const float left = cx - (f1 + f2) * 0.5f;
+    k.r.fillRect(left, top, f1, bottom - top, rgba(120, 230, 255, 110), Blend::Add);
+    k.r.fillRect(left + f1, top, f2, bottom - top, rgba(60, 150, 230, 90), Blend::Add);
+    for (float y = top + 12; y < bottom; y += 18)
+      k.r.fillRect(left, y, f1 + f2, 2, rgba(180, 250, 255, 90), Blend::Add);
+    k.r.fillRect(cx - 1, top - 40, 2, 40, rgba(180, 250, 255, 160), Blend::Add);
+    drawGlow(k.r, k.art, cx, top - 40, 16, rgb(255, 80, 80), 0.6f + 0.3f * float(frame % 2));
+  }
   (void)t;
+}
+
+// Level 2: Dash from behind at the foot of the Halcyon tower. The mirrored
+// facade slides down so the camera seems to tilt up; the top never shows.
+void towerTilt(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(226, 150, 180));
+  const float total = float(ticks) * 2.0f;
+  const float pan = std::fmod(total, 96.0f);
+  for (int j = -1; j < 8; ++j)
+    for (int col = 0; col < 9; ++col)
+    {
+      const float x = 100.0f + float(col) * 120.0f + ox, y = float(j) * 96.0f + pan;
+      const unsigned h = hash2(col, j - int(total / 96.0f) + 1000);
+      k.r.fillRect(x, y + oy, 110, 86, (h % 7u) == 0 ? rgb(255, 214, 180) : rgb(70, 104, 150));
+      k.r.fillRect(x, y + oy, 110, 6, rgb(200, 230, 255));
+      k.r.fillRect(x + 8, y + 14 + oy, 20, 60, rgba(255, 255, 255, 50));
+    }
+  k.r.fillRect(0, 0, 100 + ox, H, rgb(40, 50, 80));
+  k.r.fillRect(1180 + ox, 0, 100, H, rgb(40, 50, 80));
+  // Dash from behind: jacket, neck, spiky hair, the goggle strap.
+  const Texture& back = cached(k, "dash_back", 520, 520, 260, 470, [](cairo_t* cr) {
+    cairo_move_to(cr, 40, 520);
+    cairo_curve_to(cr, 40, 380, 120, 330, 260, 330);
+    cairo_curve_to(cr, 400, 330, 480, 380, 480, 520);
+    cairo_close_path(cr);
+    setColor(cr, rgb(214, 48, 52));
+    cairo_fill_preserve(cr);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 220, 270, 80, 70);
+    setColor(cr, rgb(232, 176, 140));
+    cairo_fill(cr);
+    cairo_arc(cr, 260, 210, 95, 0, 2 * kPi);
+    setColor(cr, rgb(250, 206, 70));
+    cairo_fill(cr);
+    for (int i = 0; i < 7; ++i)
+    {
+      const double a = kPi + kPi * (double(i) + 0.5) / 7.0;
+      cairo_move_to(cr, 260 + std::cos(a - 0.25) * 80, 210 + std::sin(a - 0.25) * 80);
+      cairo_line_to(cr, 260 + std::cos(a) * 160, 210 + std::sin(a) * 150);
+      cairo_line_to(cr, 260 + std::cos(a + 0.25) * 80, 210 + std::sin(a + 0.25) * 80);
+      cairo_close_path(cr);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 166, 200, 188, 18);
+    setColor(cr, rgb(40, 200, 230));
+    cairo_fill(cr);
+  });
+  // Looking up: the head leans back over the first frames.
+  DrawOpts o;
+  o.scale = 0.62f;
+  k.r.draw(back, 960 + ox, 548 + oy + float(std::min(frame, 5)) * 3.0f, o);
 }
 
 void runners(ClipKit& k, int ticks, float ox, float oy)
@@ -558,6 +626,8 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return credits(k, ticks);
   if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
     return staticNoise(k, ticks / 2);
+  if (clip == "tower_tilt")
+    return towerTilt(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "wreck")

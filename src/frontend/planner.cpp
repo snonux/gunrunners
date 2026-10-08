@@ -47,7 +47,11 @@ const Macro kMacros[] = {
   {false, false, true, false, false, 0, true},   // shoot up
   {false, true, false, true, false, 0, false},   // crawl right
   {false, false, false, true, true, 1, false},   // down + jump: drop from a pipe
+  {false, false, false, false, false, 0, false}, // a long wait (gondolas settle)
 };
+constexpr int kLongWait = 15;
+// Frames a macro runs for.
+int macroFrames(int m) { return m == kLongWait ? 24 : 4; }
 constexpr int kMacroCount = int(sizeof(kMacros) / sizeof(kMacros[0]));
 
 Input macroInput(const Macro& m, int f)
@@ -200,6 +204,29 @@ void Planner::buildField(const World& w, const Goal& goal)
             if ((l.tile == Tile::Solid && !timed) || dy == 0)
               top[std::size_t(y * W + x)] = 1;
           }
+  // Moving platforms: anywhere along their travel is somewhere to stand;
+  // the search finds when they are actually there.
+  for (const auto& pl : w.platforms())
+  {
+    int y0 = pl.y, y1 = pl.y;
+    int x0 = pl.x, x1 = pl.x;
+    if (pl.mode == PlatformMode::Pulley)
+    {
+      y0 = pl.homeY - pl.travel;
+      y1 = pl.homeY + pl.travel;
+    }
+    else
+      for (const auto& [px, py] : pl.path)
+      {
+        x0 = std::min(x0, px);
+        x1 = std::max(x1, px);
+        y0 = std::min(y0, py);
+        y1 = std::max(y1, py);
+      }
+    for (int y = std::max(0, y0); y <= std::min(H - 1, y1); ++y)
+      for (int x = std::max(0, x0); x < std::min(W, x1 + pl.w); ++x)
+        top[std::size_t(y * W + x)] = 1;
+  }
   auto isBlocked = [&](int x, int y) {
     if (x < 0 || x >= W)
       return true;
@@ -516,9 +543,12 @@ void Planner::plan(const World& world)
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
     k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
+    for (const auto& pl : w.platforms())
+      k = mix(k, std::uint64_t(pl.y) | (std::uint64_t(pl.x) << 16) | (std::uint64_t(pl.braked) << 32));
     return k;
   };
   const int h0 = heuristic(world);
+  const std::size_t w0Platforms = world.platforms().size();
   const int hp0 = p0.hp;
   auto score = [&](const Node& n) { return n.g + n.h; };
   auto cmp = [&](int a, int b) { return score(nodes[std::size_t(a)]) > score(nodes[std::size_t(b)]); };
@@ -559,7 +589,10 @@ void Planner::plan(const World& world)
       auto child = std::make_unique<World>(nw);
       Input prev = n.last;
       bool dead = false;
-      for (int f = 0; f < kMacroFrames; ++f)
+      // Waiting only matters while something moves on its own.
+      if (m == kLongWait && w0Platforms == 0)
+        continue;
+      for (int f = 0; f < macroFrames(m); ++f)
       {
         const Input in = macroInput(kMacros[m], f);
         child->update(toPlayerInput(in, prev));
@@ -576,7 +609,7 @@ void Planner::plan(const World& world)
         continue;
       const auto key = keyOf(*child);
       const int lost = std::max(0, nw.player().hp - child->player().hp);
-      const int g = n.g + kMacroFrames + lost * 60 + (m >= 10 && m <= 12 ? 1 : 0);
+      const int g = n.g + macroFrames(m) + lost * 60 + (m >= 10 && m <= 12 ? 1 : 0);
       const auto it = seen.find(key);
       if (it != seen.end() && it->second <= g)
         continue;
@@ -613,7 +646,7 @@ void Planner::plan(const World& world)
     chain.push_back(nodes[std::size_t(i)].macro);
   std::reverse(chain.begin(), chain.end());
   for (int m : chain)
-    for (int f = 0; f < kMacroFrames; ++f)
+    for (int f = 0; f < macroFrames(m); ++f)
       mQueue.push_back(macroInput(kMacros[m], f));
 }
 

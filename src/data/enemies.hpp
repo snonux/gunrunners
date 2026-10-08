@@ -16,6 +16,9 @@ enum class EnemyKind
   Flyer,  // hover over the player's head and dive
   Turret, // static, aimed shots in 8 directions
   Camera, // the candid camera: a harmless shootable prop
+  Crawler, // cling: creeps along walls and ceilings, spits sparks
+  Rider,   // ride: sweeps along a rail (Squeegee Drone)
+  Sniper,  // static: tracks you with a laser line, then fires along it
 };
 
 enum EnemyFlag : unsigned
@@ -34,6 +37,7 @@ enum class EnemyLook
   Flyer,
   Turret,
   Camera,
+  Styled, // drawn by its own art routine (assets/enemy_art.cpp, keyed by `key`)
 };
 
 struct EnemyDef
@@ -51,6 +55,7 @@ struct EnemyDef
   int range;     // turrets: horizontal reach in cells
   unsigned flags;
   Color tint; // 0 = the theme's enemy colours
+  int weight = 1; // on weighted platforms (level 2's pulleys)
 };
 
 // Index into the enemy table, -1 if unknown.

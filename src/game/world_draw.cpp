@@ -1,5 +1,7 @@
 #include "game/world.hpp"
 
+#include "assets/enemy_art.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -108,6 +110,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawProps(r, camX, camY, frame, false);
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
+  drawPlatforms(r, camX, camY, frame, alpha);
 
   // Item boxes and items.
   for (const auto& b : mBoxes)
@@ -187,6 +190,37 @@ void World::draw(Renderer& r, int frame, float alpha) const
         if (e.tell > 0)
           drawGlow(r, mArt, x + float(e.dir) * 30.0f, y - 40, 50, mTheme.enemyEye, 0.9f - float(e.tell) * 0.05f);
         break;
+      case EnemyLook::Styled:
+      {
+        const int variant = (e.kind == EnemyKind::Crawler && (e.attach == -1 || e.attach == 1)) ? 0 : 1;
+        const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
+        tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, (frame / 8) % 2, e.w, e.h).get(dirForArt);
+        if (e.kind == EnemyKind::Crawler && e.tell > 0)
+          drawGlow(r, mArt, x, y - float(e.h) * kCellPx * 0.5f, 40, mTheme.enemyEye, 0.9f - float(e.tell) * 0.06f);
+        if (e.kind == EnemyKind::Rider && e.tell > 0)
+        {
+          // The rail lights up before a sweep.
+          const float rx0 = float(e.railX0) * kCellPx - camX;
+          const float rx1 = float(e.railX1 + e.w) * kCellPx - camX;
+          const float ry = y - float(e.h) * kCellPx - 6.0f;
+          const float a = 0.5f + 0.5f * float((frame / 3) % 2);
+          r.fillRect(rx0, ry, rx1 - rx0, 4.0f, withAlpha(rgb(255, 230, 90), int(200 * a)));
+        }
+        if (e.kind == EnemyKind::Sniper && e.tell > 0)
+        {
+          // The laser sight, cut by the first solid block.
+          const CellBox b = e.box();
+          const int eyeX = b.x + (e.dir > 0 ? b.w - 1 : 0), eyeY = b.y + 1;
+          int hx = 0, hy = 0;
+          lineOfFire(eyeX, eyeY, e.aimX, e.aimY, hx, hy);
+          const float sx = (float(eyeX) + 0.5f) * kCellPx - camX, sy = (float(eyeY) + 0.5f) * kCellPx - camY;
+          const float ex = (float(hx) + 0.5f) * kCellPx - camX, ey = (float(hy) + 0.5f) * kCellPx - camY;
+          const bool holding = e.tell <= 9;
+          r.drawLine(sx, sy, ex, ey, holding ? 4.0f : 2.0f, rgba(255, 40, 40, holding ? 230 : 150), Blend::Add);
+          drawGlow(r, mArt, ex, ey, 16, rgb(255, 50, 50), 0.7f);
+        }
+        break;
+      }
       case EnemyLook::Camera:
       {
         tex = &mArt.items[kIconCamera];
@@ -257,6 +291,20 @@ void World::draw(Renderer& r, int frame, float alpha) const
         tex = &mArt.shotLaser;
         glow = pr.proto >= 0 ? protoDef(pr.proto).color : mTheme.accentA;
         o.tint = lerpColor(glow, rgb(255, 255, 255), 0.4f);
+        if (pr.proto == int(ProtoId::SparkDisc))
+        {
+          // A spinning ring of sparks rather than a bolt.
+          tex = &mArt.enemyShot;
+          o.scale = 1.6f;
+          o.angle = float(frame * 40 % 360);
+          o.blend = Blend::Add;
+          for (int k = 0; k < 4; ++k)
+          {
+            const float a = float(frame) * 0.9f + float(k) * 1.5708f;
+            r.fillRect(cx + std::cos(a) * 18.0f - 3.0f, cy + std::sin(a) * 18.0f - 3.0f, 6, 6,
+              rgb(220, 250, 255), Blend::Add);
+          }
+        }
         if (pr.strong)
         {
           o.scale = 1.5f;

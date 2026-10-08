@@ -13,6 +13,7 @@
 #include <SDL.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -54,6 +55,7 @@ std::string withoutTimestamp(std::string s)
 int main(int argc, char** argv)
 {
   const std::string levelPath = argc > 1 ? argv[1] : "levels/level1.txt";
+  const int playFrames = argc > 2 ? std::atoi(argv[2]) : 200;
   const std::string dir = (std::filesystem::temp_directory_path() / "gunrunners_savegame_test").string();
   std::filesystem::remove_all(dir);
 
@@ -71,7 +73,7 @@ int main(int argc, char** argv)
       World world(level, character, theme, art);
       Bot bot;
       // Far enough to have killed things, broken boxes and caught the virus.
-      for (int f = 0; f < 200; ++f)
+      for (int f = 0; f < playFrames; ++f)
       {
         const Input in = bot.play(world);
         PlayerInput p;
@@ -100,7 +102,16 @@ int main(int argc, char** argv)
       check(fresh.stats().score == world.stats().score, "same score after load");
       const std::string b = slotPath(dir, 4);
       check(writeSave(fresh.snapshot(), b), "write reloaded save");
-      check(withoutTimestamp(slurp(a)) == withoutTimestamp(slurp(b)), "reloaded world saves identically");
+      const std::string sa = withoutTimestamp(slurp(a)), sb = withoutTimestamp(slurp(b));
+      check(sa == sb, "reloaded world saves identically");
+      if (sa != sb)
+      {
+        std::istringstream ia(sa), ib(sb);
+        std::string la, lb;
+        while (std::getline(ia, la) && std::getline(ib, lb))
+          if (la != lb)
+            std::printf("     first difference: '%s' vs '%s'\n", la.c_str(), lb.c_str());
+      }
 
       // Keep playing after the load: the world must stay sane.
       Bot bot2;

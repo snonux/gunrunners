@@ -89,6 +89,7 @@ void World::setupEntities()
   const Level& lv = *mLevel;
   mBonusLevel = !lv.rules.empty() || lv.timer > 0;
   mAirJump = lv.rules.find("airjump") != std::string::npos;
+  mFreeFall = lv.rules.find("freefall") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol);
 
@@ -146,11 +147,67 @@ void World::setupEntities()
     }
 
     const int def = enemyIndex(e.kind == "enemy" ? e.str("kind") : e.kind);
-    if (def >= 0 && e.hasPos)
+    if (def >= 0 && (e.hasPos || hasRect))
     {
-      spawnEnemy(def, cx, cy);
+      spawnEnemy(def, hasRect ? rectCells.x : cx, hasRect ? rectCells.y + enemyDef(def).h - 1 : cy);
+      Enemy& en = mEnemies.back();
       if (e.str("dir") == "r")
-        mEnemies.back().dir = 1;
+        en.dir = 1;
+      en.carrier = e.num("carrier", 0) != 0;
+      switch (en.kind)
+      {
+        case EnemyKind::Crawler:
+          placeClinger(en);
+          break;
+        case EnemyKind::Rider:
+          // rect= is the rail: the drone's rows, x0..x1 its ends.
+          en.railX0 = rectCells.x;
+          en.railX1 = rectCells.x + rectCells.w - en.w;
+          en.x = en.prevX = e.str("start") == "r" ? en.railX1 : en.railX0;
+          break;
+        default:
+          break;
+      }
+      continue;
+    }
+
+    if (e.kind == "platform" && e.hasPos)
+    {
+      setupPlatform(e);
+      continue;
+    }
+    if (e.kind == "rope" && e.hasPos)
+    {
+      mRopes.push_back({cx, e.y * kCellsPerTile, kCellsPerTile, e.num("h", 6) * kCellsPerTile});
+      continue;
+    }
+    if (e.kind == "hatch" && e.hasPos)
+    {
+      mHatches.push_back({e.x, e.y, false, e.str("tile", "H") == "=" ? Tile::Platform : Tile::Ladder});
+      continue;
+    }
+    if (e.kind == "breakable" && hasRect)
+    {
+      Breakable b;
+      b.x0 = x0;
+      b.y0 = y0;
+      b.x1 = x1;
+      b.y1 = y1;
+      b.hp = e.num("hp", 1);
+      const std::string by = e.str("by", "any");
+      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : 0);
+      mBreakables.push_back(b);
+      continue;
+    }
+    if (e.kind == "spawner" && e.hasPos)
+    {
+      Spawner s;
+      s.def = enemyIndex(e.str("enemy"));
+      s.x = cx;
+      s.y = cy;
+      s.onto = e.str("onto");
+      if (s.def >= 0)
+        mSpawners.push_back(s);
       continue;
     }
 
@@ -180,6 +237,8 @@ void World::setupEntities()
         pr.kind = PropKind::Billboard;
       else if (kind == "ufo_flyby")
         pr.kind = PropKind::UfoFlyby;
+      else if (kind == "reflection")
+        pr.kind = PropKind::Reflection;
       else
         pr.kind = PropKind::TextSign;
       mProps.push_back(pr);
@@ -311,7 +370,7 @@ void World::updateProps(const PlayerInput& input)
           pr.hold = 1;
           showMessage("A FLICKERING TV... PRESS UP TO TUNE IN");
         }
-        if (!pr.used && alive && input.up && pr.box().intersects(pbox) &&
+        if (!pr.used && alive && (input.up || input.down) && pr.box().intersects(pbox) &&
             (p.state == PlayerState::OnGround || p.state == PlayerState::Falling))
         {
           pr.used = true;
@@ -336,6 +395,30 @@ void World::updateProps(const PlayerInput& input)
           pr.hold = (inSpot && p.visual == PlayerVisual::LookingUp) ? pr.hold + 1 : 0;
           if (pr.hold >= 45)
             pr.timer = 0;
+        }
+        break;
+
+      case PropKind::Reflection:
+        if (pr.timer >= 0)
+        {
+          if (++pr.timer > 45)
+            pr.timer = -1;
+        }
+        else
+        {
+          const bool still = p.state == PlayerState::OnGround && p.x == p.prevX && p.y == p.prevY &&
+            pr.box().contains(pbox.left(), pbox.top()) && pr.box().contains(pbox.right(), pbox.bottom());
+          pr.hold = still ? pr.hold + 1 : 0;
+          if (pr.hold >= 30)
+          {
+            pr.timer = 0;
+            pr.hold = -60; // not again straight away
+            if (!pr.used)
+            {
+              pr.used = true;
+              addScore(4200, cellCenter(pbox));
+            }
+          }
         }
         break;
 
@@ -503,6 +586,31 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         if (!foreground && onScreen)
           r.drawText(pr.text, x + w * 0.5f, y + h * 0.5f - 16, {28.0f, rgba(255, 255, 255, 150), kInk, true},
             Align::Center);
+        break;
+      case PropKind::Reflection:
+        if (!foreground)
+        {
+          // One frame behind you, facing out of the glass. When it waves it
+          // stops copying you.
+          const auto& p = mPlayer;
+          if (p.hidden)
+            break;
+          const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
+          const Sprite* spr = &ca.idle[0];
+          if (pr.timer >= 0)
+            spr = (pr.timer / 6) % 2 ? &ca.lookUp : &ca.idle[0];
+          else if (p.visual == PlayerVisual::Walking)
+            spr = &ca.run[std::size_t(p.walkFrame % kRunFrames)];
+          else if (p.state == PlayerState::Jumping || p.state == PlayerState::Falling)
+            spr = &ca.jump;
+          else if (p.state == PlayerState::Ladder)
+            spr = &ca.climb[std::size_t(p.climbFrame % 2)];
+          DrawOpts o;
+          o.alpha = 0.22f;
+          o.tint = rgb(255, 200, 230);
+          const float rx = (float(p.prevX) + 1.5f) * kCellPx - camX, ry = float(p.prevY + 1) * kCellPx - camY;
+          r.draw(spr->get(-p.facing), rx, ry, o);
+        }
         break;
       case PropKind::UfoFlyby:
         if (!foreground && pr.timer >= 0)

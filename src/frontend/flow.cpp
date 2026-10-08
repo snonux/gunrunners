@@ -70,6 +70,8 @@ std::string cutsceneLabel(const std::string& name)
 // three theme families per episode.
 int themeFor(int ep, const std::string& key, int fallback)
 {
+  if (const int v = themeIndexForKey(key.c_str()); v >= 0)
+    return v;
   if (key.rfind("station", 0) == 0)
     return int(ThemeId::StationZero);
   if (ep <= 0)
