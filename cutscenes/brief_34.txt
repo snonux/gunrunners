@@ -1,0 +1,14 @@
+cutscene brief_34
+music theme_waltz
+
+shot fleet_sunset delay=100 repeat=1
+  cue 0 fade=in:600
+  cue 0 sound=propellers
+
+shot fleet_sunset delay=100 repeat=3
+
+shot nova_smile delay=120 repeat=1
+  cue 2 say=NOVA "Finally, something with wings."
+  cue 2 hold=2500
+  cue 7 hold=1500
+  cue 7 fade=out:600

@@ -1,0 +1,12 @@
+cutscene brief_18
+music hull_breathing
+
+shot brief18_airlock delay=150 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=airlock_hiss
+  cue 12 stopsound=airlock_hiss
+  cue 12 say=ZERO "You'll have to go outside."
+  cue 18 hold=3000
+  cue 23 say=ZERO "I can't."
+  cue 23 hold=4000
+  cue 23 fade=out:900

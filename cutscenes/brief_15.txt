@@ -1,0 +1,17 @@
+cutscene brief_15
+music theme_cold_ambient
+
+shot brief15_dock delay=100 repeat=1
+  cue 0 fade=in:600
+  cue 0 sound=thruster_low
+  cue 44 sound=dock_clamp
+  cue 44 shake=2:300
+  cue 47 hold=1200
+
+shot brief15_intercom delay=120 repeat=8
+  cue 0 sound=intercom_chime
+  cue 0 say=ZERO "Welcome. Please do not touch anything."
+
+shot brief15_intercom delay=120 repeat=1
+  cue 5 hold=1000
+  cue 5 fade=out:800

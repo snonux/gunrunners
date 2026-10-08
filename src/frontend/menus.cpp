@@ -77,6 +77,9 @@ void Game::openMenu(Menu m)
 void Game::closeMenu()
 {
   mMenu = Menu::None;
+  // The music kept going under the menu; put it back on the level's beat.
+  if (mMode == Mode::Play && mWorld)
+    playLevelMusic();
   // Buttons still held from the menu must not fire or jump in the game.
   mLatched = PlayerInput{};
   mPrevLogicInput = mPrev;
@@ -91,7 +94,7 @@ void Game::switchRunner(int index)
 
 void Game::saveToSlot(int slot)
 {
-  if (!mWorld || !mWorld->canSave())
+  if (!mWorld || !mWorld->canSave() || mMainWorld || mBonusOnly)
   {
     sound(Sfx::Hurt);
     notice("YOU CAN'T SAVE RIGHT NOW");
@@ -99,6 +102,11 @@ void Game::saveToSlot(int slot)
   }
   SaveGame s = mWorld->snapshot();
   s.theme = mThemeIndex;
+  if (campaign())
+  {
+    s.levelFile = mLevelPath;
+    s.levelNumber = mLevelNumber;
+  }
   const std::string dir = mOptions.saveDir.empty() ? defaultSaveDir() : mOptions.saveDir;
   std::string error;
   if (!writeSave(s, slotPath(dir, slot), &error))
@@ -122,7 +130,19 @@ bool Game::loadFromSlot(int slot)
     notice("SLOT " + std::to_string(slot + 1) + " IS EMPTY");
     return false;
   }
-  if (save->levelName != mLevel->name)
+  if (campaign() && !save->levelFile.empty() && (!mLevel || save->levelFile != mLevelPath))
+  {
+    // Campaign saves bring their level along.
+    const SaveGame copy = *save;
+    mWorld.reset();
+    mMainWorld.reset();
+    mBonusOnly = false;
+    if (!loadLevel(copy.levelFile))
+      return false;
+    mLevelNumber = copy.levelNumber;
+    mSlots[std::size_t(slot)] = copy;
+  }
+  if (!mLevel || save->levelName != mLevel->name)
   {
     sound(Sfx::Hurt);
     notice("THAT SAVE IS FROM ANOTHER LEVEL");
@@ -131,8 +151,13 @@ bool Game::loadFromSlot(int slot)
   const SaveGame s = *save; // setTheme below rebuilds things; keep a copy
   if (s.theme >= 0 && s.theme < themeCount() && s.theme != mThemeIndex)
   {
-    mWorld.reset(); // a fresh world comes next, no progress to carry over
-    setTheme(s.theme);
+    // A fresh world comes next, so only the art needs rebuilding (the
+    // world holds references into it).
+    mWorld.reset();
+    mMainWorld.reset();
+    mThemeIndex = s.theme;
+    mArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
+    buildPanels();
   }
   auto world = std::make_unique<World>(mLevel, std::clamp(s.character, 0, kCharacterCount - 1), theme(), *mArt);
   if (!world->restore(s))
@@ -145,14 +170,13 @@ bool Game::loadFromSlot(int slot)
   mCursor = mWorld->characterIndex();
   mBot = Bot{};
   mSubTick = 0;
+  mMainWorld.reset();
+  mBonusOnly = false;
   if (mMode != Mode::Play)
-  {
     setMode(Mode::Play);
-    if (mAudio)
-      mAudio->playMusic(Music::Level);
-  }
   sound(Sfx::Teleport);
   closeMenu();
+  playLevelMusic();
   mWorld->notify("GAME LOADED FROM SLOT " + std::to_string(slot + 1));
   return true;
 }
@@ -197,6 +221,11 @@ bool Game::tickMenu(const Input& in)
             break;
           case kQuitToTitle:
             closeMenu();
+            if (campaign())
+            {
+              goTitle();
+              break;
+            }
             mWorld.reset();
             setMode(Mode::Select);
             if (mAudio)

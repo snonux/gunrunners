@@ -1,0 +1,24 @@
+cutscene brief_09
+music theme_creeping_drums
+
+# Clip brief09_door: 3 layers. Backdrop: sandstone wall with a carved door
+# and red glyphs (static). Mid: two torches, flames on an 8-frame loop,
+# throwing the three runners' long shadows onto the door (shadows sway with
+# the flames). Characters: the runners from behind; Rocco steps forward on
+# frame 14, onto a glyph plate that sinks 1 px. 20 frames.
+shot brief09_door delay=110 repeat=3
+  cue 0 fade=in:600
+  cue 0 sound=torch_crackle
+  cue 14 sound=plate_click
+  cue 15 hold=2000
+  cue 34 sound=plate_click
+  cue 54 sound=plate_click
+
+# Clip brief09_wait: 2 layers. Close-up of Rocco's boot on the plate and the
+# runners' faces above; nothing moves but the torchlight (8-frame loop),
+# then dust trickles from the ceiling on frames 10-15. 16 frames.
+shot brief09_wait delay=120 repeat=1
+  cue 0 hold=1500
+  cue 10 sound=distant_rumble
+  cue 10 shake=1:400
+  cue 15 fade=out:600

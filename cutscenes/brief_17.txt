@@ -1,0 +1,15 @@
+cutscene brief_17
+music greenhouse_pulse
+
+shot brief17_lights delay=120 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=lamp_buzz
+  cue 4 sound=lamp_buzz
+  cue 8 sound=lamp_buzz
+  cue 23 hold=1500
+
+shot brief17_vine delay=150 repeat=1
+  cue 0 sound=leaf_rustle
+  cue 6 say=ZERO "Please don't feed the plants."
+  cue 15 hold=3500
+  cue 15 fade=out:800

@@ -1,0 +1,45 @@
+cutscene finale
+music stop
+
+# Clip master_switch: a hand flips the master switch; the ON AIR sign dies
+# with a fizz. 8 frames.
+shot master_switch delay=100 repeat=1
+  cue 3 sound=switch_big
+  cue 5 sound=neon_fizz
+  cue 7 hold=1500
+
+# Clip monitors_snow: every studio monitor goes to snow (frames 0-5), then
+# a hand-drawn card "GUNRUNNERS. INDEPENDENT BROADCAST." (6-9).
+shot monitors_snow delay=110 repeat=1
+  cue 0 sound=static_burst
+  cue 9 hold=2000
+
+# Clip gallery: Maxine at the mixing board, pushing faders up.
+shot gallery delay=100 repeat=1
+  cue 0 say=MAXINE "You're live. Say something."
+  cue 0 hold=2000
+
+shot dash_camera delay=100 repeat=1
+  cue 0 say=DASH "Forty-two jobs. Here's what was in the box."
+  cue 0 hold=3000
+  cue 0 music=theme_credits
+
+# The credits are an engine sequence, not a clip: highlight cards built
+# from the player's run (best Arsenal kill for each prototype, the candid
+# camera shots, total ducks), every enemy type taking a bow in order of
+# appearance (level 4's cat last), the credits text. Jump makes the runners
+# on screen jump.
+credits run_highlights
+
+# Clip lance_alone: Lance in the empty wings practising his smile at a
+# dead camera. 6-frame loop.
+shot lance_alone delay=140 repeat=3
+  cue 0 sound=room_tone
+
+# Clip walk_out: the three runners walking out into Neon City at sunset;
+# the camera tilts up to the Halcyon tower, where the logo has been painted
+# over with the word RUN. 30 frames.
+shot walk_out delay=120 repeat=1
+  cue 0 music=theme_finale
+  cue 29 hold=4000
+  cue 29 fade=out:2000

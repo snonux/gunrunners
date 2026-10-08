@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 namespace gr
 {
@@ -368,11 +369,21 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
     showMessage("TIME'S UP!");
     return;
   }
-  if (mPlayer.y > mMap.height() + 1)
+  if (mPlayer.y > mMap.height() + 1 || mPlayer.state == PlayerState::Dying)
   {
-    // Falling off a bonus level just ends it.
+    // Falling off or "dying" in a bonus level just ends it: nothing is lost.
     mBonusFailed = true;
     mState = WorldState::Done;
+    mStateFrames = 0;
+    return;
+  }
+  // goal=collect:N ends the bonus level as soon as N gems are in.
+  const auto& goal = mLevel->goal;
+  if (goal.rfind("collect:", 0) == 0 && mStats.gems >= std::atoi(goal.c_str() + 8))
+  {
+    showMessage("GOAL!");
+    playSound(Sfx::Teleport);
+    mState = WorldState::Exiting;
     mStateFrames = 0;
   }
 }
@@ -437,6 +448,28 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
 void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreground) const
 {
   const CellBox pbox = mPlayer.box();
+  // Wind: streaks drifting the way it blows.
+  if (!foreground)
+    for (const auto& z : mZones)
+    {
+      const float zx = float(z.box.x) * kCellPx - camX, zy = float(z.box.y) * kCellPx - camY;
+      const float zw = float(z.box.w) * kCellPx, zh = float(z.box.h) * kCellPx;
+      if (zx > float(kScreenW) || zx + zw < 0.0f || zy > float(kScreenH) || zy + zh < 0.0f)
+        continue;
+      const int streaks = std::max(4, z.box.w * z.box.h / 24);
+      for (int i = 0; i < streaks; ++i)
+      {
+        const unsigned hsh = hash2(i, z.box.x * 31 + z.box.y);
+        const float speed = 6.0f + float(hsh % 5u);
+        const float len = 40.0f + float((hsh >> 4) % 50u);
+        const float travel = std::fmod(float(frame) * speed + float(hsh % 997u), zw + len);
+        const float sx = z.dx < 0 ? zx + zw - travel : zx + travel - len;
+        const float sy = zy + float((hsh >> 8) % unsigned(std::max(1.0f, zh)));
+        const float a0 = std::max(zx, sx), a1 = std::min(zx + zw, sx + len);
+        if (a1 > a0)
+          r.fillRect(a0, sy, a1 - a0, 3.0f, rgba(235, 240, 255, 120));
+      }
+    }
   for (const auto& pr : mProps)
   {
     const float x = float(pr.x) * kCellPx - camX;

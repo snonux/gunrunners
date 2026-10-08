@@ -1,0 +1,23 @@
+cutscene brief_14
+music theme_war_drums
+
+# Clip brief14_door: 3 layers. Backdrop: a solid gold chamber door with
+# jade inlays (static), incense haze drifting on a 16-frame loop.
+# Characters: the runners before it; Nova scratches the gold with a
+# fingernail on frames 6-10, a white plaster streak appears on frame 10 and
+# she frowns on frame 12. 16 frames.
+shot brief14_door delay=110 repeat=4
+  cue 0 fade=in:600
+  cue 0 sound=incense_hiss
+  cue 6 sound=scratch
+  cue 10 hold=1500
+  cue 28 sound=scratch
+  cue 44 sound=scratch
+
+# Clip brief14_pull: 3 layers. Characters: Dash takes Nova's arm and pulls
+# her toward the opening door (frames 0-11); Rocco follows. Backdrop: the
+# door swinging open, gold light spilling out. 12 frames.
+shot brief14_pull delay=100 repeat=2
+  cue 0 sound=door_grind
+  cue 23 hold=800
+  cue 23 fade=out:600

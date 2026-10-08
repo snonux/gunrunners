@@ -1,0 +1,25 @@
+cutscene brief_24
+music stop
+
+# clip static_snow: full-frame noise, 4-frame loop; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+
+# clip ident_ch24: backdrop red-and-white tablecloth; "CH 24" stamped in
+#   (frame 2, with a 2-frame squash), "COOKING" written in icing left to
+#   right on frames 4-11; 12 frames
+shot ident_ch24 delay=80 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 11 hold=1200
+
+# clip lance_chef: backdrop the giant kitchen under studio lights (slow
+#   zoom-in, 1 px/frame); mid Lance in a chef's hat raises a spoon from below
+#   frame (frames 0-5); the three tiny runners on the spoon wave (4-frame
+#   loop); steam rises in the foreground (8-frame loop); 16 frames
+shot lance_chef delay=90 repeat=4
+  cue 0 music=theme_accordion
+  cue 6 sound=spoon_ding
+  cue 8 say=LANCE "Today's special!"
+  cue 15 hold=1800
+  cue 15 fade=out:400

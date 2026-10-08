@@ -1,0 +1,21 @@
+cutscene brief_13
+music theme_orchestral_panic
+
+# Clip brief13_rumble: 3 layers. Backdrop: temple corridor at sunset,
+# light through cracks (static). Mid: dust falling from the ceiling on an
+# 8-frame loop. Characters: the runners and MAX's hologram, all shaking
+# with the screen. 16 frames.
+shot brief13_rumble delay=100 repeat=4
+  cue 0 music=stop
+  cue 0 fade=in:300
+  cue 0 sound=deep_rumble
+  cue 0 shake=2:6400
+  cue 24 say=MAX "Run."
+  cue 63 hold=1500
+
+# Clip brief13_go: 2 layers. Characters: the runners turn and sprint out of
+# frame (frames 0-7); a huge shadow fills the left of the frame. 12 frames.
+shot brief13_go delay=80 repeat=3
+  cue 0 music=theme_orchestral_panic
+  cue 0 sound=boulder_roll
+  cue 35 fade=out:300

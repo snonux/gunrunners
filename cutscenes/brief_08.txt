@@ -1,0 +1,23 @@
+cutscene brief_08
+music theme_marimba
+
+# Clip brief08_ship: 4 layers. Backdrop: morning mist over the canopy, the
+# stepped pyramid on the horizon (static). Mid: treetops, pan left 2 px per
+# frame. Characters: Nova's courier ship side-on, hatch open, the three
+# runners in the hatch, MAX's hologram flickering on the console behind
+# them; the ship bobs 2 px on a 12-frame loop. Foreground: leaves sweep
+# past, pan left 5 px per frame. 24 frames.
+shot brief08_ship delay=100 repeat=3
+  cue 0 fade=in:500
+  cue 0 sound=ship_hover
+  cue 6 say=MAX "Ancient. Valuable. Guarded."
+  cue 60 hold=1200
+
+# Clip brief08_jump: 3 layers. Backdrop: canopy from above. Characters: the
+# runners drop past the camera one by one (frames 0, 4, 8); Nova looks back
+# up at her ship on frame 10. Foreground: mist. 16 frames.
+shot brief08_jump delay=90 repeat=2
+  cue 0 sound=wind_rush
+  cue 10 say=NOVA "My ship isn't."
+  cue 31 hold=1000
+  cue 31 fade=out:500

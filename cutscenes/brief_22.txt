@@ -1,0 +1,23 @@
+cutscene brief_22
+music stop
+
+# clip static_snow: one full-frame noise layer, 4-frame loop, no pan; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+  cue 0 fade=in:200
+
+# clip ident_ch7: backdrop sepia test card; mid "CH 7" slides in from the
+#   right (8 frames), "WESTERNS" in rope letters drops in (4 frames); 12 frames
+shot ident_ch7 delay=80 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 11 hold=1200
+
+# clip lance_cowboy: backdrop painted desert at sundown pans left 1 px/frame;
+#   mid saloon false front; Lance tips his cowboy hat (6-frame loop), a
+#   tumbleweed crosses the foreground (16 frames); 16 frames
+shot lance_cowboy delay=90 repeat=4
+  cue 0 music=theme_western
+  cue 2 say=LANCE "Saddle up!"
+  cue 15 hold=1500
+  cue 15 fade=out:400

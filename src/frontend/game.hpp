@@ -4,11 +4,14 @@
 #include "audio/audio.hpp"
 #include "data/level.hpp"
 #include "frontend/bot.hpp"
+#include "frontend/cutscene.hpp"
+#include "game/profile.hpp"
 #include "game/input.hpp"
 #include "game/savegame.hpp"
 #include "game/world.hpp"
 
 #include <array>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -24,12 +27,19 @@ struct GameOptions
   bool skipMenu = false;
   bool quitAfterClear = false;
   bool trace = false;
-  std::string levelPath;
-  std::string saveDir; // where the 5 savegame slots live
+  std::string levelPath; // a stand-alone level; empty plays the campaign
+  std::string saveDir;   // where the 5 savegame slots and the profile live
+  std::string dataDir;   // holds levels/ and cutscenes/
+  int startLevel = 0;    // campaign: start at this level (with skipMenu)
+  bool noCutscenes = false;
+  std::string cutscene; // play just this cutscene, then quit
 };
 
-// Top-level mode management (character select -> level -> bonus tally), the
-// equivalent of RigelEngine's frontend/game.cpp + GameMode classes.
+// Top-level mode management, the equivalent of RigelEngine's
+// frontend/game.cpp + GameMode classes. The campaign runs title -> runner
+// select -> briefing cutscene -> level (with its bonus level behind the B)
+// -> tally -> episode cutscene -> next briefing; a stand-alone level file
+// runs runner select -> level -> tally.
 class Game
 {
 public:
@@ -43,9 +53,31 @@ public:
 private:
   enum class Mode
   {
+    Title,
     Select,
+    Cutscene,
     Play,
-    Bonus,
+    Bonus, // the tally
+    Arsenal,
+    List,      // level select, bonus channel, reruns
+    Continued, // the campaign ran out of built levels
+  };
+  // What happens once the queued cutscenes have played (flow.cpp).
+  enum class After
+  {
+    StartLevel,
+    NextLevel,
+    Title,
+    EnterBonus,
+    LeaveBonus,
+    List, // back to the list screen it came from
+    Quit,
+  };
+  enum class ListKind
+  {
+    Levels,
+    BonusChannel,
+    Reruns,
   };
 
   void setMode(Mode m);
@@ -55,6 +87,34 @@ private:
   void renderSelect();
   void renderPlayOverlay();
   void renderBonus();
+  void finishTally();
+
+  // flow.cpp: the campaign around the levels.
+  bool campaign() const { return mCampaign; }
+  std::string dataDir() const;
+  std::string saveDir() const;
+  void goTitle();
+  void tickTitle(const Input& in);
+  void renderTitle();
+  std::vector<std::string> titleItems() const;
+  void beginCampaignLevel(int number, bool fromNewGame);
+  bool loadLevel(const std::string& path);
+  void applyLevelLook(int episode, const std::string& themeKey);
+  void playLevelMusic();
+  void playCutscenes(std::vector<std::string> names, After after);
+  void nextCutscene();
+  void afterCutscenes();
+  void tickCutscene(const Input& in);
+  void enterBonus();
+  void startBonusWorld();
+  void leaveBonus();
+  void recordClear();
+  void tickArsenal(const Input& in);
+  void renderArsenal();
+  void openList(ListKind kind);
+  void tickList(const Input& in);
+  void renderList();
+  void renderContinued();
   float renderAlpha() const;
   void buildPanels();
   void sound(Sfx s);
@@ -79,6 +139,31 @@ private:
   void renderMenu();
   void renderNotice();
   const Theme& theme() const { return themeByIndex(mThemeIndex); }
+
+  // Campaign.
+  Profile mProfile;
+  int mLevelNumber = 0;       // campaign level being played, 0 = stand-alone
+  std::string mLevelPath;     // relative to the data dir in the campaign
+  bool mCampaign = false;
+  bool mBonusOnly = false;    // replaying a bonus level from the Bonus Channel
+  std::unique_ptr<World> mMainWorld; // parked while its bonus level plays
+  std::shared_ptr<const Level> mMainLevel;
+  Bot mMainBot;
+  int mBonusScore = 0, mBonusGems = 0;
+  bool mBonusWon = false;
+  std::unique_ptr<CutscenePlayer> mCutscene;
+  std::unique_ptr<ClipKit> mClipKit;
+  std::deque<std::string> mCutQueue;
+  After mAfter = After::Title;
+  Mode mCutsceneReturn = Mode::Title; // where a skipped-into-nothing queue lands
+  int mTitleCursor = 0;
+  int mPendingLevel = 1;    // runner select leads into this campaign level
+  bool mPendingNewGame = false;
+  int mArsenalCursor = 0;
+  ListKind mListKind = ListKind::Levels;
+  std::vector<std::pair<std::string, std::string>> mListItems; // id, label
+  int mListCursor = 0;
+  std::string mTyped; // title screen code entry
 
   GameOptions mOptions;
   Renderer& mRenderer;

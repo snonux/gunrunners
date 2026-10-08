@@ -1,0 +1,29 @@
+cutscene end_e4
+music theme_cartoon_end
+
+# Clip buddy_deflate: Buddy Boom deflating like a balloon. 12 frames.
+shot buddy_deflate delay=80 repeat=1
+  cue 0 sound=deflate
+  cue 11 hold=800
+
+# Clip iris: the cartoon iris closing (frames 0-5) and Nova's boot jamming
+# it open on frame 6; behind it, TV static (static loop). 10 frames.
+shot iris delay=90 repeat=1
+  cue 6 sound=clang
+  cue 6 say=NOVA "Everybody, jump."
+  cue 6 hold=2000
+
+# Clip jump_static: the three runners diving into the static. 8 frames.
+shot jump_static delay=80 repeat=1
+  cue 4 sound=static_burst
+
+# Clip lance_panic: Lance on a monitor, horrified. 4-frame loop.
+shot lance_panic delay=100 repeat=3
+  cue 0 say=LANCE "Cut to commercial! CUT TO COMMERCIAL!"
+
+# Clip halcyon_ad: a glossy Halcyon Arms ad (a slow product spin, the
+# logo, the slogan "PEACE THROUGH FIREPOWER"). 24 frames.
+shot halcyon_ad delay=100 repeat=1
+  cue 0 music=jingle_halcyon
+  cue 23 hold=1500
+  cue 23 fade=out:800

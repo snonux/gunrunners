@@ -1,0 +1,19 @@
+cutscene brief_07
+music theme_rotor
+
+# clip searchlight_sweep: the crew among girders at night; a white searchlight
+# cone sweeps left to right across them over frames 0-15, rotor shadow
+# flickers on frames 0, 4, 8, 12; foreground plastic sheeting snaps (4-frame
+# loop); 16 frames
+shot searchlight_sweep delay=100 repeat=4
+  cue 0 fade=in:300
+  cue 0 sound=rotor_loop
+  cue 8 say=MAX "You've attracted attention."
+  cue 40 say=MAX "Excellent."
+
+# clip rocco_squint: Rocco close up, squinting into the light, the cone
+# pulsing on his face (8-frame loop)
+shot rocco_squint delay=125 repeat=4
+  cue 2 say=ROCCO "Excellent?"
+  cue 31 hold=1500
+  cue 31 fade=out:400

@@ -100,6 +100,7 @@ struct Art
   std::array<Texture, 3> solid;
   Texture solidTop;
   Texture platform;
+  Texture cloud; // one-way platforms in levels with flags=clouds
   Texture spikes;
   Texture ladder;
   Texture pipe;
@@ -142,6 +143,10 @@ void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float bas
 void drawDecoration(Renderer& r, const Art& art, const Theme& theme, float x, float y, int seed, int frame);
 // (x, y) is the bottom-left corner of the 4x6 cell exit.
 void drawExit(Renderer& r, const Art& art, const Theme& theme, float x, float y, int frame);
+// A runner in a pose for cutscenes and menus, anchored at the bottom centre.
+// pose: 0 idle, 1 run, 2 jump, 3 look up, 4 crouch, 5 hurt, 6 coil, 7 fall,
+// 8 idle (other frame).
+Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bool mirror = false);
 // Rounded translucent panel for menus and overlays.
 Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, double radius);
 

@@ -1,0 +1,27 @@
+cutscene end_e1
+music theme_episode_end
+
+# Panel wreck: Black Halo's wreck smoking in the harbor at night, smoke
+# loop 12 frames, slow pan right.
+shot wreck delay=100 repeat=0
+  cue 0 fade=in:600
+  cue 0 say=DASH "That's one chopper that won't be calling back."
+  cue 0 wait=button
+
+# Panel case: the open case, a weapon in foam, HALCYON ARMS stamped on
+# the lid. Static with a light glint loop (6 frames).
+shot case delay=100 repeat=0
+  cue 0 say=NOVA "Halcyon Arms. Fancy."
+  cue 0 wait=button
+
+# Panel lens: Rocco holding a camera lens from the wreck; the second half
+# of the clip is the lens's point of view looking at him. 10 frames.
+shot lens delay=120 repeat=1
+  cue 0 say=ROCCO "Why does a gunship carry a camera lens?"
+  cue 9 hold=2000
+  cue 9 wait=button
+
+shot max_hologram delay=90 repeat=1
+  cue 6 say=MAX "Excellent work. Your next job is in the jungle."
+  cue 6 wait=button
+  cue 11 fade=out:800

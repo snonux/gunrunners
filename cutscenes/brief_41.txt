@@ -1,0 +1,21 @@
+cutscene brief_41
+music theme_big_band
+
+# Clip brief41_audience: 4 layers. Backdrop: gold sequin curtain (glitter
+# 4-frame loop). Mid: audience banks filling up (frames 0-11, people pop in
+# by rows), pans right 1 px/frame. Characters: a floor runner holding a cue
+# card "CHEER FOR THE RUNNERS?"; on frame 14 a red marker line crosses out
+# the question mark. Foreground: marquee bulbs chasing (2-frame loop).
+# 18 frames at 100 ms = 1.8 s, plus 9.5 s of holds.
+shot brief41_audience delay=100 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=crowd_murmur
+  cue 6 say=MAXINE "They've been watching you all season."
+  cue 6 hold=3500
+  cue 14 sound=marker_squeak
+  cue 15 hold=1500
+  cue 16 say=MAXINE "Give them a reason."
+  cue 16 hold=3000
+  cue 17 sound=crowd_cheer
+  cue 17 hold=1500
+  cue 17 fade=out:500

@@ -1,0 +1,69 @@
+cutscene end_e3
+music stop
+
+# Clip zero_fade: ZERO's eye dimming from red to black. 10 frames.
+shot zero_fade delay=150 repeat=1
+  cue 0 say=ZERO "Thank you. I hated that script."
+  cue 0 hold=2500
+  cue 9 hold=1000
+
+# Clip wall_falls: a crack runs up the wall (frames 0-5), the wall tips
+# backwards and lands flat (6-13), dust (14-19). 20 frames.
+shot wall_falls delay=80 repeat=1
+  cue 0 sound=crack_long
+  cue 13 sound=big_thud
+  cue 13 shake=10:600
+  cue 19 hold=800
+
+# Clip studio_lights: three banks of lights snap on, one per 4 frames.
+# 12 frames.
+shot studio_lights delay=100 repeat=1
+  cue 0 sound=light_clunk
+  cue 4 sound=light_clunk
+  cue 8 sound=light_clunk
+  cue 11 hold=600
+
+# Clip audience: reverse shot of a cheering studio audience, arms waving
+# (6-frame loop).
+shot audience delay=90 repeat=4
+  cue 0 sound=crowd_cheer
+  cue 0 music=theme_show
+
+# Clip lance_entrance: Lance striding in (frames 0-7), arms wide on 8, held.
+shot lance_entrance delay=90 repeat=1
+  cue 8 say=LANCE "AND THAT'S A WRAP ON SEASON ONE OF... GUNRUNNERS!"
+  cue 8 hold=3000
+
+# Clip monitors: a wall of monitors; each panel lights up showing one of
+# the candid camera shots the player found (the engine fills them in; a
+# panel for each camera found, static for the rest). 20 frames.
+shot monitors delay=150 repeat=1
+  cue 0 sound=tv_on
+  cue 19 hold=1500
+
+# Clip rocco_lens: Rocco holds up the lens from Episode 1 next to a studio
+# camera; they match. 6 frames.
+shot rocco_lens delay=120 repeat=1
+  cue 5 say=ROCCO "It's the same lens."
+  cue 5 hold=2000
+
+# Clip lance_close: Lance close up, 2 frames (mouth closed, open).
+shot lance_close delay=100 repeat=1
+  cue 0 say=LANCE "Our sponsor, Halcyon Arms, thanks you for the demonstrations!"
+  cue 0 hold=2500
+  cue 1 say=LANCE "Buyers in forty countries were watching!"
+  cue 1 hold=2500
+
+# Clip dash_freeze: close-up of Dash, a single frame.
+shot dash_freeze delay=100 repeat=1
+  cue 0 say=DASH "We've been running their guns."
+  cue 0 hold=3000
+
+# Clip trapdoor: the floor under the runners drops open (frames 0-5), they
+# fall into black (6-9), a channel number "CH 7" appears (10-13). 14 frames.
+shot trapdoor delay=90 repeat=1
+  cue 0 say=LANCE "Season Two starts... NOW!"
+  cue 5 sound=trapdoor
+  cue 10 sound=channel_click
+  cue 13 hold=1500
+  cue 13 fade=out:600

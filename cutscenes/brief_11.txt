@@ -1,0 +1,23 @@
+cutscene brief_11
+music theme_wood_blocks
+
+# Clip brief11_tunnel: 3 layers. Backdrop: a black tunnel mouth with timber
+# shoring, one lantern swinging on a 12-frame loop. Mid: rails running into
+# the dark; an empty mine cart rolls out toward the camera, growing from
+# frame 0 to frame 15 and stopping at a bumper on frame 16. Characters: the
+# runners at the bottom edge, from behind. 20 frames.
+shot brief11_tunnel delay=110 repeat=3
+  cue 0 fade=in:500
+  cue 0 sound=cart_rumble
+  cue 16 stopsound=cart_rumble
+  cue 16 sound=cart_bump
+  cue 20 hold=1500
+  cue 40 say=DASH "Taxi."
+
+# Clip brief11_hop: 2 layers. Characters: Dash vaults into the cart, Rocco
+# and Nova pile in after him (frames 0, 4, 8). Backdrop: the tunnel. 12
+# frames.
+shot brief11_hop delay=100 repeat=2
+  cue 0 sound=jump
+  cue 23 hold=800
+  cue 23 fade=out:500

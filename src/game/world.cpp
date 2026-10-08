@@ -201,6 +201,10 @@ std::vector<Bonus> World::bonuses() const
     out.push_back({"ALL MERCHANDISE COLLECTED", kBonusPoints});
   if (s.gemsTotal > 0 && s.gems == s.gemsTotal)
     out.push_back({"ALL GEMS COLLECTED", kBonusPoints});
+  if (mLevel->par > 0 && s.frames <= mLevel->par * 15)
+    out.push_back({"UNDER PAR TIME", kBonusPoints});
+  if (mBonusStar)
+    out.push_back({"BONUS STAR", 10000});
   return out;
 }
 
@@ -517,7 +521,10 @@ void World::updateProjectiles()
         explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
         return true;
       }
+      const bool wasAlive = e.alive;
       damageEnemy(e, pr.damage);
+      if (wasAlive && !e.alive && pr.kind == ShotKind::Proto)
+        ++mStats.protoKills;
       burst(cellCenter(b), rgb(255, 255, 255), mTheme.enemyLight, 5, 1.2f);
       if (!pr.pierce && pr.pierceLeft <= 0)
         return true;

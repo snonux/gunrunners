@@ -1,0 +1,25 @@
+cutscene brief_27
+music stop
+
+# clip static_snow: full-frame noise, 4-frame loop; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+
+# clip ident_ch40: backdrop black; "CH 40" in white Art Deco letters wipes
+#   in like a venetian blind (frames 0-5), "NOIR" below (6-11); 12 frames
+shot ident_ch40 delay=80 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 11 hold=1200
+
+# clip rain_window: black and white; backdrop the city at night through a
+#   window; mid rain runs down the glass (8-frame loop); foreground red
+#   letters write themselves in the condensation, one character per frame
+#   from frame 4 to frame 33 ("THE SIGNAL CAN BE FOLLOWED. S."); 34 frames
+shot rain_window delay=120 repeat=1
+  cue 0 music=theme_noir_trumpet
+  cue 0 sound=rain_loop
+  cue 4 sound=finger_squeak
+  cue 33 hold=4500
+  cue 33 stopsound=rain_loop
+  cue 33 fade=out:600

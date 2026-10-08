@@ -1,5 +1,7 @@
 #include "frontend/game.hpp"
 
+#include "data/campaign.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -38,18 +40,38 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   , mAudio(audio)
   , mThemeIndex(options.theme)
   , mArt(std::make_unique<Art>(Art::build(themeByIndex(options.theme), renderer)))
-  , mLevel(std::make_shared<const Level>(Level::loadFile(options.levelPath)))
   , mCursor(options.autoplay ? 0 : options.character)
 {
+  mCampaign = options.levelPath.empty();
   buildPanels();
-  if (mOptions.skipMenu)
+  if (!campaign())
+  {
+    mLevel = std::make_shared<const Level>(Level::loadFile(options.levelPath));
+    mMode = Mode::Select;
+    if (mOptions.skipMenu)
+    {
+      mCursor = mOptions.character;
+      startLevel();
+    }
+    else if (mAudio)
+    {
+      mAudio->playMusic(Music::Menu);
+    }
+    return;
+  }
+  mProfile = Profile::load(saveDir());
+  if (!mOptions.cutscene.empty())
+  {
+    playCutscenes({mOptions.cutscene}, After::Quit);
+  }
+  else if (mOptions.skipMenu)
   {
     mCursor = mOptions.character;
-    startLevel();
+    beginCampaignLevel(std::max(1, mOptions.startLevel), mOptions.startLevel <= 1);
   }
-  else if (mAudio)
+  else
   {
-    mAudio->playMusic(Music::Menu);
+    goTitle();
   }
 }
 
@@ -61,6 +83,10 @@ void Game::sound(Sfx s)
 
 void Game::cycleTheme()
 {
+  // A parked level (during its bonus level) and cutscenes hold on to the
+  // current art.
+  if (mMainWorld || mMode == Mode::Cutscene)
+    return;
   setTheme((mThemeIndex + 1) % themeCount());
 }
 
@@ -86,11 +112,18 @@ void Game::setTheme(int index)
     mSubTick = 0;
     mLatched = PlayerInput{};
   }
-  else if (mMode != Mode::Select)
+  else if (mMode == Mode::Play || mMode == Mode::Bonus)
   {
-    setMode(Mode::Select);
-    if (mAudio)
-      mAudio->playMusic(Music::Menu);
+    if (campaign())
+    {
+      goTitle();
+    }
+    else
+    {
+      setMode(Mode::Select);
+      if (mAudio)
+        mAudio->playMusic(Music::Menu);
+    }
   }
 }
 
@@ -104,12 +137,12 @@ void Game::startLevel()
 {
   mWorld = std::make_unique<World>(mLevel, mCursor, theme(), *mArt);
   mBot = Bot{};
+  mBot.setTakeBonus(campaign() && mLevelNumber > 0 && !bonusFile(dataDir(), mLevelNumber).empty());
   mSubTick = 0;
   mLatched = PlayerInput{};
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
-  if (mAudio)
-    mAudio->playMusic(Music::Level);
+  playLevelMusic();
 }
 
 bool Game::tick(const Input& raw)
@@ -130,10 +163,55 @@ bool Game::tick(const Input& raw)
 
   switch (mMode)
   {
+    case Mode::Title:
+      tickTitle(in);
+      break;
+    case Mode::Cutscene:
+      tickCutscene(in);
+      break;
+    case Mode::Arsenal:
+      tickArsenal(in);
+      break;
+    case Mode::List:
+      tickList(in);
+      break;
+    case Mode::Continued:
+      if (mModeTicks > 60 && (edge(&Input::confirm) || edge(&Input::jump) || edge(&Input::pause) ||
+                              (mOptions.autoplay && mModeTicks > 400)))
+      {
+        if (mOptions.autoplay || mOptions.quitAfterClear)
+          return false;
+        goTitle();
+      }
+      break;
     case Mode::Select:
     {
       if (mOptions.autoplay)
         in = mBot.menu(mCursor, mOptions.character, mModeTicks) | raw;
+      if (campaign())
+      {
+        // Campaign runner select: the title screen has LOAD GAME.
+        if (edge(&Input::left))
+        {
+          mCursor = (mCursor + kCharacterCount - 1) % kCharacterCount;
+          sound(Sfx::MenuMove);
+        }
+        if (edge(&Input::right))
+        {
+          mCursor = (mCursor + 1) % kCharacterCount;
+          sound(Sfx::MenuMove);
+        }
+        if ((edge(&Input::confirm) || edge(&Input::jump)) && mModeTicks > 20)
+        {
+          sound(Sfx::MenuSelect);
+          beginCampaignLevel(mPendingLevel, mPendingNewGame);
+        }
+        else if (edge(&Input::back) || edge(&Input::pause))
+        {
+          goTitle();
+        }
+        break;
+      }
       if (edge(&Input::up) || edge(&Input::down))
       {
         mTitleFocusLoad = !mTitleFocusLoad;
@@ -186,27 +264,47 @@ bool Game::tick(const Input& raw)
       break;
     case Mode::Bonus:
       tickBonus(in);
-      if (mModeTicks > kBonusStep * (int(mBonuses.size()) + 2) + 200)
-      {
-        if (mOptions.quitAfterClear)
-        {
-          const auto& s = mWorld->stats();
-          std::fprintf(stderr,
-            "cleared: %s, %.1f s, deaths %d, hits %s, bots %d/%d, gems %d/%d, merch %d/%d, letters %s, score %d (+%d bonus)\n",
-            mWorld->character().name, double(s.frames) / 15.0, s.deaths, s.tookDamage ? "taken" : "none",
-            s.kills, s.enemiesTotal, s.gems, s.gemsTotal, s.merch, s.merchTotal,
-            s.letters.empty() ? "-" : s.letters.c_str(), mShownScore, mShownScore - mScoreBeforeBonus);
-          return false;
-        }
-        mWorld.reset();
-        setMode(Mode::Select);
-        if (mAudio)
-          mAudio->playMusic(Music::Menu);
-      }
+      if (mModeTicks > kBonusStep * (int(mBonuses.size()) + 2) + 200 ||
+          (mModeTicks > 60 && !mOptions.autoplay && (edge(&Input::confirm) || edge(&Input::jump))))
+        finishTally();
       break;
   }
   mPrev = in;
-  return true;
+  return !mQuit;
+}
+
+void Game::finishTally()
+{
+  if (mOptions.quitAfterClear)
+  {
+    const auto& s = mWorld->stats();
+    std::fprintf(stderr,
+      "cleared: %s, %.1f s, deaths %d, hits %s, bots %d/%d, gems %d/%d, merch %d/%d, letters %s, score %d (+%d bonus)\n",
+      mWorld->character().name, double(s.frames) / 15.0, s.deaths, s.tookDamage ? "taken" : "none", s.kills,
+      s.enemiesTotal, s.gems, s.gemsTotal, s.merch, s.merchTotal, s.letters.empty() ? "-" : s.letters.c_str(),
+      mShownScore, mShownScore - mScoreBeforeBonus);
+    if (campaign())
+      recordClear();
+    mQuit = true;
+    return;
+  }
+  if (campaign())
+  {
+    recordClear();
+    mWorld.reset();
+    const int n = mLevelNumber;
+    std::vector<std::string> next;
+    if (n == kCampaignLevels)
+      next = {"finale", "post_credits"};
+    else if (n == episode(episodeOfLevel(n)).last)
+      next = {"end_e" + std::to_string(episodeOfLevel(n))};
+    playCutscenes(next, n == kCampaignLevels ? After::Title : After::NextLevel);
+    return;
+  }
+  mWorld.reset();
+  setMode(Mode::Select);
+  if (mAudio)
+    mAudio->playMusic(Music::Menu);
 }
 
 void Game::tickPlay(const Input& raw)
@@ -258,6 +356,17 @@ void Game::tickPlay(const Input& raw)
   mSubTick = (mSubTick + 1) % kTicksPerLogicFrame;
   mWorld->tickEffects(renderAlpha());
 
+  if (mWorld->bonusRequested())
+  {
+    mWorld->clearBonusRequest();
+    enterBonus();
+    return;
+  }
+  if (mWorld->state() == WorldState::Done && (mMainWorld || mBonusOnly))
+  {
+    leaveBonus();
+    return;
+  }
   if (mWorld->state() == WorldState::Done)
   {
     mBonuses = mWorld->bonuses();
@@ -320,6 +429,22 @@ void Game::render()
   const float alpha = renderAlpha();
   switch (mMode)
   {
+    case Mode::Title:
+      renderTitle();
+      break;
+    case Mode::Cutscene:
+      if (mCutscene && mClipKit)
+        mCutscene->render(*mClipKit);
+      break;
+    case Mode::Arsenal:
+      renderArsenal();
+      break;
+    case Mode::List:
+      renderList();
+      break;
+    case Mode::Continued:
+      renderContinued();
+      break;
     case Mode::Select:
       renderSelect();
       break;
@@ -383,6 +508,14 @@ void Game::renderSelect()
     }
   }
 
+  if (campaign())
+  {
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "LEVEL %d  -  %s", mPendingLevel, campaignLevel(mPendingLevel).title);
+    r.drawText(buf, cx, 640, {20.0f, t.accentB, kInk, true}, Align::Center);
+    return;
+  }
+
   // LOAD GAME button, reached with up/down.
   r.draw(mTitleFocusLoad ? mLoadButtonFocus : mLoadButton, 1030, 128);
   r.drawText("LOAD GAME", 1140, 138, {20.0f, mTitleFocusLoad ? t.accentA : t.hudText, kInk, true}, Align::Center);
@@ -404,9 +537,24 @@ void Game::renderPlayOverlay()
     o.alpha = a;
     r.draw(mBannerPanel, 260, y, o);
     std::string label = mLevel->name.empty() ? "STAGE 1" : mLevel->name;
+    std::string big = t.name, small = t.tagline;
+    if (mLevelNumber > 0 && (mMainWorld || mBonusOnly))
+    {
+      label = "WE INTERRUPT THIS PROGRAM";
+      big = "BONUS LEVEL";
+      small = mLevel->goal.rfind("collect:", 0) == 0 ? "COLLECT " + mLevel->goal.substr(8) + " GEMS"
+                                                     : "REACH THE EXIT BEFORE THE TIME RUNS OUT";
+    }
+    else if (mLevelNumber > 0)
+    {
+      const auto& ep = episode(episodeOfLevel(mLevelNumber));
+      label = "EPISODE " + std::to_string(ep.number) + "  -  LEVEL " + std::to_string(mLevelNumber);
+      big = campaignLevel(mLevelNumber).title;
+      small = ep.name;
+    }
     r.drawText(label, 640, y + 16, {22.0f, t.hudText}, Align::Center, a);
-    r.drawText(t.name, 640, y + 46, {56.0f, t.accentA, kInk, true}, Align::Center, a);
-    r.drawText(t.tagline, 640, y + 122, {20.0f, rgb(200, 200, 216)}, Align::Center, a);
+    r.drawText(big, 640, y + 46, {56.0f, t.accentA, kInk, true}, Align::Center, a);
+    r.drawText(small, 640, y + 122, {20.0f, rgb(200, 200, 216)}, Align::Center, a);
   }
 }
 

@@ -1,0 +1,20 @@
+cutscene brief_29
+music theme_glitch
+
+shot static_void delay=80 repeat=1
+  cue 0 fade=in:400
+  cue 0 sound=static_hiss
+
+shot static_void delay=80 repeat=5
+
+shot static_void delay=80 repeat=1
+  cue 4 say=S "...can... hear... me..."
+  cue 4 hold=1500
+
+shot runners_listen delay=120 repeat=1
+  cue 0 say=S "Don't fight the noise."
+  cue 0 hold=2500
+  cue 15 say=S "Tune it."
+  cue 15 hold=2500
+  cue 15 stopsound=static_hiss
+  cue 15 fade=out:600

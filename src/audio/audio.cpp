@@ -98,10 +98,109 @@ void Audio::play(Sfx s, float volume)
 void Audio::playMusic(Music m)
 {
   std::lock_guard<std::mutex> lock(mMutex);
-  if (m == mMusic)
+  if (m == mMusic && mTrackName.empty())
     return;
   mMusic = m;
+  mTrack = &mTracks[std::size_t(m)];
+  mTrackName.clear();
   mMusicPos = 0;
+}
+
+void Audio::playMusicNamed(const std::string& id)
+{
+  if (id == "stop" || id.empty())
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    mMusic = Music::None;
+    mTrack = nullptr;
+    mTrackName = "stop";
+    return;
+  }
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (id == mTrackName)
+      return;
+  }
+  // Synthesize outside the lock: the audio thread keeps playing meanwhile.
+  Track* track = nullptr;
+  auto it = mNamedTracks.find(id);
+  if (it == mNamedTracks.end())
+  {
+    auto t = synth::makeNamedMusic(id);
+    auto tr = std::make_unique<Track>();
+    tr->left = std::move(t.left);
+    tr->right = std::move(t.right);
+    tr->loops = t.loops;
+    track = tr.get();
+    std::lock_guard<std::mutex> lock(mMutex);
+    mNamedTracks[id] = std::move(tr);
+  }
+  else
+  {
+    track = it->second.get();
+  }
+  std::lock_guard<std::mutex> lock(mMutex);
+  mTrack = track;
+  mTrackName = id;
+  mMusic = Music::None;
+  mMusicPos = 0;
+}
+
+void Audio::seekMusic(double seconds)
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  if (!mTrack || mTrack->left.empty())
+    return;
+  const std::size_t n = mTrack->left.size();
+  mMusicPos = std::size_t(std::max(0.0, seconds) * kAudioRate) % n;
+}
+
+void Audio::playNamed(const std::string& id, float volume)
+{
+  auto it = mNamed.find(id);
+  if (it == mNamed.end())
+  {
+    auto data = synth::makeNamedSfx(id);
+    std::lock_guard<std::mutex> lock(mMutex);
+    it = mNamed.emplace(id, std::move(data)).first;
+  }
+  std::lock_guard<std::mutex> lock(mMutex);
+  if (mVoices.size() >= kMaxVoices)
+    mVoices.erase(mVoices.begin());
+  Voice v{&it->second, 0, volume, Sfx::Count};
+  v.name = &it->first;
+  v.loop = id.find("loop") != std::string::npos;
+  mVoices.push_back(v);
+}
+
+void Audio::stopNamed(const std::string& id)
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  mVoices.erase(std::remove_if(mVoices.begin(), mVoices.end(), [&](const Voice& v) { return v.name && *v.name == id; }),
+    mVoices.end());
+}
+
+void Audio::stopAllNamed()
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  mVoices.erase(std::remove_if(mVoices.begin(), mVoices.end(), [&](const Voice& v) { return v.name != nullptr; }),
+    mVoices.end());
+}
+
+void Audio::voiceBlip(const std::string& speaker)
+{
+  const std::string key = "voice:" + speaker;
+  auto it = mNamed.find(key);
+  if (it == mNamed.end())
+  {
+    auto data = synth::makeVoiceBlip(speaker);
+    std::lock_guard<std::mutex> lock(mMutex);
+    it = mNamed.emplace(key, std::move(data)).first;
+  }
+  std::lock_guard<std::mutex> lock(mMutex);
+  Voice v{&it->second, 0, 1.0f, Sfx::Count};
+  v.name = &it->first;
+  mVoices.push_back(v);
 }
 
 void Audio::mix(float* out, int frames)
@@ -114,7 +213,8 @@ void Audio::mixLocked(float* out, int frames)
 {
   std::fill(out, out + frames * 2, 0.0f);
 
-  const auto& track = mTracks[std::size_t(mMusic)];
+  static const Track kSilence;
+  const auto& track = mTrack ? *mTrack : kSilence;
   if (!track.left.empty())
   {
     for (int i = 0; i < frames; ++i)
@@ -139,6 +239,8 @@ void Audio::mixLocked(float* out, int frames)
     {
       out[i * 2] += d[v.pos] * vol;
       out[i * 2 + 1] += d[v.pos] * vol;
+      if (v.loop && v.pos + 1 >= d.size())
+        v.pos = std::size_t(-1); // wraps to 0 with the ++
     }
   }
   mVoices.erase(

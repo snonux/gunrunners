@@ -1,0 +1,21 @@
+cutscene brief_10
+music theme_brass_bells
+
+# Clip brief10_beam: 4 layers. Backdrop: white marble hall, gold leaf
+# (static). Mid: a shaft of sunlight from a roof slit, dust motes drifting
+# on a 12-frame loop. Characters: the runners round a pedestal; MAX's
+# hologram on it, scrambling on frames 6-9 where the sunlight crosses it.
+# Foreground: a mirror statue's edge, pans right 1 px per frame. 16 frames.
+shot brief10_beam delay=100 repeat=4
+  cue 0 fade=in:500
+  cue 0 sound=bells_soft
+  cue 6 sound=holo_glitch
+  cue 22 sound=holo_glitch
+  cue 24 say=MAX "Follow the light."
+  cue 63 hold=1500
+
+# Clip brief10_up: 2 layers. Backdrop: the dome from below, beams crossing
+# (static). Characters: the runners look up, tilt 2 px per frame. 12 frames.
+shot brief10_up delay=110 repeat=2
+  cue 0 sound=choir_swell
+  cue 23 fade=out:600

@@ -358,6 +358,7 @@ struct WorldStats
   bool protoFound = false;
   bool duck = false;
   bool camera = false; // shot the candid camera
+  int protoKills = 0;   // kills with the prototype, for the Arsenal
 };
 
 // The music clock (SPEC 3.1): 120 BPM, a bar is 30 logic frames and its four
@@ -430,6 +431,7 @@ public:
   void addBonusReward(int score, int gems, bool star);
   bool bonusStar() const { return mBonusStar; }
   const std::vector<Layer>& layers() const { return mLayers; }
+  const std::vector<Prop>& props() const { return mProps; }
   int clock() const { return mStats.frames; }
   // The planner bot simulates copies of the world: no effects or sounds.
   std::unique_ptr<World> cloneForSim() const;

@@ -1,0 +1,20 @@
+cutscene brief_36
+music theme_lonely_piano
+
+# Clip brief36_dock: 4 layers. Backdrop: night sky over the studio lot,
+# MAXTV water tower (static). Mid: loading dock, roll-up door half open,
+# work light swinging (6-frame loop), pans left 1 px/frame. Characters: the
+# three runners crouched behind a crate (Nova's eyes blink on frame 10).
+# Foreground: a corner inset of Maxine in a headset, mouth on a 4-frame
+# talk loop. 24 frames at 120 ms = 2.9 s, plus 9 s of holds.
+shot brief36_dock delay=120 repeat=1
+  cue 0 fade=in:600
+  cue 0 sound=dock_hum
+  cue 4 sound=headset_click
+  cue 6 say=MAXINE "I'm inside. So are you."
+  cue 6 hold=3500
+  cue 14 say=MAXINE "Welcome to the prop store."
+  cue 14 hold=3500
+  cue 20 sound=roll_door
+  cue 20 hold=2000
+  cue 23 fade=out:600

@@ -1,0 +1,24 @@
+cutscene brief_37
+music theme_jazz_bass
+
+# Clip brief37_booths: 4 layers. Backdrop: crimson velvet drapes (static).
+# Mid: three changing booths in a row, curtains swaying (4-frame loop),
+# pans right 1 px/frame. Characters: Dash, Rocco and Nova each step out of
+# a booth in someone else's coat (frames 6, 10, 14), each grinning on the
+# frame after. Foreground: Maxine inset on her headset (4-frame talk loop).
+# 18 frames at 110 ms = 2 s, plus 8.8 s of holds.
+shot brief37_booths delay=110 repeat=1
+  cue 0 fade=in:500
+  cue 2 say=MAXINE "Need a change?"
+  cue 2 hold=2500
+  cue 6 sound=curtain_swish
+  cue 7 hold=600
+  cue 10 sound=curtain_swish
+  cue 11 hold=600
+  cue 14 sound=curtain_swish
+  cue 15 hold=600
+  cue 15 say=MAXINE "Take your pick."
+  cue 16 hold=3000
+  cue 17 sound=jazz_sting
+  cue 17 hold=1500
+  cue 17 fade=out:500

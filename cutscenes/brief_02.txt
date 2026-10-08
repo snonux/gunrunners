@@ -1,0 +1,21 @@
+cutscene brief_02
+music theme_airy
+
+# clip max_holo_tower: backdrop pink dawn (still), mid diner table, foreground
+# MAX hologram (4-frame scramble loop) projecting a thin glass tower that
+# rotates 15 degrees per frame; 12 frames
+shot max_holo_tower delay=125 repeat=4
+  cue 0 fade=in:400
+  cue 0 sound=holo_on
+  cue 2 say=MAX "The package went up the Halcyon tower."
+  cue 28 say=MAX "All the way up."
+
+# clip tower_tilt: Dash from behind at street level; backdrop the mirrored
+# facade tiled vertically, panning down 8 px/frame so the camera seems to
+# tilt up; Dash's head tilts back over frames 0-5, then holds; the top of
+# the tower never enters the frame; 24 frames
+shot tower_tilt delay=100 repeat=3
+  cue 0 sound=wind_high
+  cue 30 say=DASH "...How far up?"
+  cue 60 hold=1000
+  cue 71 fade=out:400

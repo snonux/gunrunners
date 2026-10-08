@@ -1,0 +1,5 @@
+cutscene sting_break
+# Clip break_card: "WE'LL BE RIGHT BACK!" card with the MaxTV logo
+# spinning. 6 frames.
+shot break_card delay=125 repeat=1
+  cue 0 sound=jingle_break

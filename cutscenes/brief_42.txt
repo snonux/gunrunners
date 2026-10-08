@@ -1,0 +1,20 @@
+cutscene brief_42
+music theme_medley
+
+# Clip brief42_onair: 3 layers. Backdrop: dark main stage, the turntable
+# rotating slowly (12-frame loop). Mid: the ON AIR sign, dark on frames
+# 0-7, lighting up red on frame 8 with a hum. Characters: the three runners
+# in silhouette in the wings; Dash steps forward on frame 12. Foreground:
+# a camera's tally light turning red on frame 8.
+# 16 frames at 110 ms = 1.8 s, plus 8.5 s of holds.
+shot brief42_onair delay=110 repeat=1
+  cue 0 fade=in:600
+  cue 0 sound=crowd_hush
+  cue 8 sound=onair_hum
+  cue 8 flash=white:150
+  cue 8 hold=2500
+  cue 12 say=DASH "Let's give them a finale."
+  cue 12 hold=3500
+  cue 15 sound=crowd_roar
+  cue 15 hold=2500
+  cue 15 fade=out:800

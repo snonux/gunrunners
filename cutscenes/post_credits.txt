@@ -1,0 +1,11 @@
+cutscene post_credits
+music stop
+
+# Clip boardroom: a dark boardroom, silhouettes around a table, the
+# pirate broadcast on a screen. The tape stops on Rocco's face. 10 frames.
+shot boardroom delay=140 repeat=1
+  cue 0 sound=room_tone
+  cue 7 sound=tape_stop
+  cue 9 say=BOARD "Get me their agent. Season Two."
+  cue 9 hold=3500
+  cue 9 fade=out:1500

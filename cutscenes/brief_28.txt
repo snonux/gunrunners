@@ -1,0 +1,31 @@
+cutscene brief_28
+music stop
+
+# clip static_snow: full-frame noise, 4-frame loop; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+
+# clip ident_ch1: backdrop concentric cartoon rings that pulse (4-frame
+#   loop); "CH 1" bounces in on frames 0-5 with a squash, "CARTOONS" in
+#   wobbly letters; 12 frames
+shot ident_ch1 delay=80 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 2 sound=slide_whistle
+  cue 11 hold=1000
+
+# clip lance_toon: backdrop a painted repeating street that scrolls 2 px per
+#   frame; characters cartoon Lance with white gloves bounces on the beat
+#   (4-frame loop); the three runners in rubber-hose style beside him;
+#   16 frames
+shot lance_toon delay=90 repeat=2
+  cue 0 music=theme_toon_jazz
+  cue 15 hold=600
+
+# clip nova_whisper: close-up of Nova leaning to Dash, Lance out of focus
+#   behind them still bouncing (4-frame loop); 8 frames
+shot nova_whisper delay=100 repeat=1
+  cue 0 music=stop
+  cue 0 say=NOVA "When this ends, we jump into the static."
+  cue 7 hold=3000
+  cue 7 fade=out:400
