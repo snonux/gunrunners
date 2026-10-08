@@ -168,6 +168,160 @@ void penthouseSniper(const Ctx& c)
   strokeLimb(cr, {{x0 + w * 0.3, y0 + h * 0.36}, {x0 + w * 0.5, y0 + h * 0.44}}, 7, suit, kInk, 1.4);
 }
 
+// Bouncer (level 3): a wall of a man in a black SECURITY tee and shades,
+// arms crossed. Variant 1 is the tell: feet planted, arms up in a flex.
+// `cardboard` draws the bonus level's cut-out copy of him.
+void bouncerFigure(const Ctx& c, bool cardboard)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color skin = cardboard ? rgb(196, 150, 96) : rgb(176, 118, 84);
+  const Color shirt = cardboard ? rgb(150, 110, 66) : rgb(26, 26, 32);
+  const Color pants = cardboard ? rgb(170, 128, 80) : rgb(40, 40, 58);
+  const Color ink = cardboard ? rgb(90, 60, 30) : kInk;
+  const bool flex = c.variant == 1;
+  if (cardboard)
+  {
+    // The easel stand behind the cut-out.
+    strokeLimb(cr, {{x0 + w * 0.5, y0 + h * 0.5}, {x0 + w * 0.85, y0 + h}}, 5, rgb(120, 86, 50), ink, 1.2);
+  }
+  // Legs, wide apart.
+  const double stance = flex ? 0.08 : 0.0;
+  strokeLimb(cr, {{x0 + w * 0.36, y0 + h * 0.62}, {x0 + w * (0.3 - stance), y0 + h - 6}}, 16, pants, ink, kLine);
+  strokeLimb(cr, {{x0 + w * 0.64, y0 + h * 0.62}, {x0 + w * (0.7 + stance), y0 + h - 6}}, 16, pants, ink, kLine);
+  for (double fx : {0.3 - stance, 0.7 + stance})
+  {
+    roundedRect(cr, x0 + w * fx - 14, y0 + h - 10, 28, 10, 4);
+    fillOutline(cr, cardboard ? rgb(110, 80, 46) : rgb(16, 16, 20), ink, 1.4);
+  }
+  // Torso: a big wedge.
+  cairo_move_to(cr, x0 + w * 0.08, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.92, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.76, y0 + h * 0.64);
+  cairo_line_to(cr, x0 + w * 0.24, y0 + h * 0.64);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.24, y0 + h * 0.64, lighten(shirt, 0.15f), shirt, ink, kLine);
+  // SECURITY, as a stripe of block letters.
+  for (int i = 0; i < 8; ++i)
+  {
+    cairo_rectangle(cr, x0 + w * (0.24 + 0.066 * i), y0 + h * 0.4, w * 0.045, h * 0.035);
+    setColor(cr, cardboard ? rgb(90, 60, 30) : rgb(235, 235, 240));
+    cairo_fill(cr);
+  }
+  // Arms.
+  if (flex)
+  {
+    for (int sgn : {-1, 1})
+    {
+      const double sx = x0 + w * (0.5 + sgn * 0.38), ex = x0 + w * (0.5 + sgn * 0.5);
+      strokeLimb(cr, {{sx, y0 + h * 0.28}, {ex, y0 + h * 0.2}, {x0 + w * (0.5 + sgn * 0.36), y0 + h * 0.05}}, 15, skin, ink, kLine);
+      circle(cr, x0 + w * (0.5 + sgn * 0.36), y0 + h * 0.05, 10);
+      fillOutline(cr, skin, ink, kLine);
+      circle(cr, ex, y0 + h * 0.19, 12); // the biceps
+      fillOutline(cr, lighten(skin, 0.1f), ink, kLine);
+    }
+  }
+  else
+  {
+    roundedRect(cr, x0 + w * 0.16, y0 + h * 0.33, w * 0.68, h * 0.09, 10);
+    fillOutline(cr, skin, ink, kLine);
+    strokeLimb(cr, {{x0 + w * 0.3, y0 + h * 0.375}, {x0 + w * 0.7, y0 + h * 0.375}}, 2, darken(skin, 0.25f), ink, 0.0);
+  }
+  // Head: small on a thick neck, shaved, shades.
+  roundedRect(cr, x0 + w * 0.4, y0 + h * 0.17, w * 0.2, h * 0.08, 4);
+  fillOutline(cr, skin, ink, kLine);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.12, w * 0.15);
+  fillGradientOutline(cr, y0, y0 + h * 0.24, lighten(skin, 0.15f), skin, ink, kLine);
+  roundedRect(cr, x0 + w * 0.4, y0 + h * 0.095, w * 0.26, h * 0.035, 3);
+  setColor(cr, cardboard ? rgb(70, 46, 24) : rgb(10, 10, 14));
+  cairo_fill(cr);
+  if (!cardboard)
+  {
+    cairo_rectangle(cr, x0 + w * 0.46, y0 + h * 0.1, w * 0.06, h * 0.01);
+    setColor(cr, rgba(150, 220, 255, 200));
+    cairo_fill(cr);
+    if (flex)
+      radialGlow(cr, x0 + w * 0.5, y0 + h * 0.15, w * 0.45, rgb(255, 60, 60), 0.35);
+  }
+}
+
+void bouncer(const Ctx& c) { bouncerFigure(c, false); }
+void cardboardBouncer(const Ctx& c) { bouncerFigure(c, true); }
+
+// Disco Drone (level 3): a mirror ball on a chain with a tiny rotor. The
+// facets shimmer; variant 1 is the tell, every facet white hot.
+void discoDrone(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double cx = kM + c.w * 0.5, cy = kM + c.h * 0.58, rad = c.w * 0.42;
+  strokeLimb(cr, {{cx, kM - 24}, {cx, cy - rad}}, 3, rgb(160, 160, 180), kInk, 1.0);
+  circle(cr, cx, cy, rad);
+  fillGradientOutline(cr, cy - rad, cy + rad, rgb(220, 220, 240), rgb(90, 90, 120), kInk, kLine);
+  cairo_save(cr);
+  circle(cr, cx, cy, rad - 1);
+  cairo_clip(cr);
+  const int rows = 6, cols = 8;
+  for (int j = 0; j < rows; ++j)
+    for (int i = 0; i < cols; ++i)
+    {
+      const double fy = cy - rad + (j + 0.5) * 2 * rad / rows;
+      const double span = std::sqrt(std::max(0.0, rad * rad - (fy - cy) * (fy - cy)));
+      const double fx = cx - span + (i + 0.5 + 0.5 * (c.frame % 2)) * 2 * span / cols;
+      const unsigned hsh = unsigned(i * 7 + j * 13 + c.frame * 5) % 5u;
+      Color col = hsh == 0 ? rgb(255, 255, 255) : (hsh == 1 ? rgb(255, 120, 220) : (hsh == 2 ? rgb(120, 220, 255) : rgb(150, 150, 175)));
+      if (c.variant == 1)
+        col = rgb(255, 255, 255);
+      cairo_rectangle(cr, fx - span / cols + 1, fy - rad / rows + 1, 2 * span / cols - 2, 2 * rad / rows - 2);
+      setColor(cr, col);
+      cairo_fill(cr);
+    }
+  cairo_restore(cr);
+  if (c.variant == 1)
+    radialGlow(cr, cx, cy, rad * 1.8, rgb(255, 255, 255), 0.6);
+  // A little rotor cap.
+  roundedRect(cr, cx - 10, cy - rad - 8, 20, 10, 3);
+  fillOutline(cr, c.t.enemyDark, kInk, 1.4);
+}
+
+// Glow Raver (level 3): a dancer in neon with a glowstick in each hand.
+// Variant 1 is the tell: one stick held high, about to be thrown.
+void glowRaver(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color top = rgb(255, 60, 200), legs = rgb(40, 30, 80), skin = rgb(230, 180, 140), glow = rgb(120, 255, 90);
+  const double kick = c.frame ? 4.0 : -4.0;
+  strokeLimb(cr, {{x0 + w * 0.42, y0 + h * 0.6}, {x0 + w * 0.34 + kick, y0 + h - 4}}, 9, legs, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.58, y0 + h * 0.6}, {x0 + w * 0.66 - kick, y0 + h - 4}}, 9, legs, kInk, kLine);
+  roundedRect(cr, x0 + w * 0.28, y0 + h * 0.32, w * 0.44, h * 0.3, 8);
+  fillGradientOutline(cr, y0 + h * 0.32, y0 + h * 0.62, lighten(top, 0.25f), top, kInk, kLine);
+  auto stick = [&](double hx, double hy, double ex, double ey) {
+    strokeLimb(cr, {{hx, hy}, {ex, ey}}, 6, glow, kInk, 1.2);
+    radialGlow(cr, (hx + ex) * 0.5, (hy + ey) * 0.5, 18, glow, 0.7);
+  };
+  // Left arm swings down; right arm holds the stick up when telling.
+  strokeLimb(cr, {{x0 + w * 0.32, y0 + h * 0.36}, {x0 + w * 0.14, y0 + h * 0.52}}, 7, skin, kInk, kLine);
+  stick(x0 + w * 0.14, y0 + h * 0.52, x0 + w * 0.04, y0 + h * 0.66);
+  if (c.variant == 1)
+  {
+    strokeLimb(cr, {{x0 + w * 0.68, y0 + h * 0.36}, {x0 + w * 0.82, y0 + h * 0.12}}, 7, skin, kInk, kLine);
+    stick(x0 + w * 0.82, y0 + h * 0.12, x0 + w * 0.9, y0 - 10);
+  }
+  else
+  {
+    strokeLimb(cr, {{x0 + w * 0.68, y0 + h * 0.36}, {x0 + w * 0.88, y0 + h * 0.3}}, 7, skin, kInk, kLine);
+    stick(x0 + w * 0.88, y0 + h * 0.3, x0 + w * 1.0, y0 + h * 0.18);
+  }
+  circle(cr, x0 + w * 0.5, y0 + h * 0.2, w * 0.2);
+  fillOutline(cr, skin, kInk, kLine);
+  // Hair spikes and visor.
+  for (int i = 0; i < 4; ++i)
+    strokeLimb(cr, {{x0 + w * (0.38 + 0.08 * i), y0 + h * 0.08}, {x0 + w * (0.34 + 0.1 * i), y0 - 4}}, 5, rgb(0, 230, 255), kInk, 1.0);
+  roundedRect(cr, x0 + w * 0.4, y0 + h * 0.17, w * 0.28, h * 0.05, 3);
+  setColor(cr, rgb(255, 240, 80));
+  cairo_fill(cr);
+}
+
 using DrawFn = void (*)(const Ctx&);
 
 DrawFn routineFor(const std::string& key)
@@ -176,6 +330,10 @@ DrawFn routineFor(const std::string& key)
     {"glass_crawler", glassCrawler},
     {"squeegee_drone", squeegeeDrone},
     {"penthouse_sniper", penthouseSniper},
+    {"bouncer", bouncer},
+    {"cardboard_bouncer", cardboardBouncer},
+    {"disco_drone", discoDrone},
+    {"glow_raver", glowRaver},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

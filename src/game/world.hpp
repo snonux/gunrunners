@@ -190,6 +190,8 @@ struct Projectile
   // unit step, `speed` steps per frame.
   bool precise = false;
   float fx = 0.0f, fy = 0.0f, vx = 0.0f, vy = 0.0f;
+  float gy = 0.0f;   // precise shots: added to vy every frame (lobbed glowsticks)
+  bool lob = false;  // leaves a puddle where it lands
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -284,6 +286,8 @@ enum class PropKind
   BonusDoor,     // B: a patch of TV static leading to the bonus level
   GemCache,      // $: five gems burst out when touched
   Reflection,    // the backdrop glass mirrors you; stand still in the box and it waves
+  Decks,         // a DJ deck: shoot both on the beat for a change of music
+  DanceFloor,    // lit tiles; crouch on it for 16 seconds to breakdance
 };
 
 struct Prop
@@ -358,7 +362,8 @@ struct Breakable
 {
   int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // blocks, inclusive
   int hp = 1;
-  int by = 0; // 0 any, 1 explosion, 2 heavy
+  int by = 0; // 0 any, 1 explosion, 2 heavy, 3 sound (the Bass Cannon)
+  int look = 0; // 0 cracked glass, 1 mirror ball, 2 speaker cabinet
   bool broken = false;
 };
 
@@ -370,6 +375,41 @@ struct Spawner
   int platform = -1; // only while this platform is at rest and empty
   std::string onto;  // the platform's id
   int cooldown = 0;
+};
+
+// Level 3's subwoofers: a speaker cone in the floor that bumps you on every
+// beat and launches you on its drop hit (SPEC 03).
+struct Pad
+{
+  std::string id;
+  int x = 0, y = 0, w = 6; // cells; y is the floor's top row
+  int bump = 2;            // cells, every beat
+  int launchX10 = 25;      // launch height in tenths of the rider's jump
+  int fire = 1;            // drop hit (1-3) that launches; 0 only bumps
+};
+
+// A ceiling fan of laser beams that sweeps during the chorus.
+struct LaserFan
+{
+  int x = 0, y = 0;            // cells, the hub
+  int a0 = 200, a1 = 340;      // degrees, maths convention (270 = down)
+  int len = 20;                // cells
+};
+
+// A glowstick's puddle: hurts on touch until it fades.
+struct Puddle
+{
+  int x = 0, y = 0, w = 6; // cells; y is the row it lies on
+  int life = 30;
+};
+
+// The Bass Cannon's wall of sound.
+struct Cone
+{
+  int x = 0, y = 0, dir = 1; // origin cell (centre of the mouth), facing
+  int life = 3;
+  int damage = 2;
+  std::vector<int> hit;
 };
 
 struct Checkpoint
@@ -443,6 +483,11 @@ struct WorldStats
 int beatOfFrame(int frame);      // 0..3
 int beatStartFrame(int beat);    // first frame of beat 0..3 within the bar
 int framesIntoBeat(int frame);   // 0.. within the current beat
+// Level 3's 16-bar phrases (480 frames): bars 0-7 verse, 8-13 chorus,
+// 14-15 riser; the drop is a triple hit on beat 1 of bars 0, 1 and 2.
+constexpr int kPhraseFrames = 480;
+int phraseBar(int frame);        // 0..15
+int dropHit(int frame);          // 1..3 on a drop hit, else 0
 
 struct Bonus
 {
@@ -517,6 +562,13 @@ public:
   const std::vector<Prop>& props() const { return mProps; }
   const std::vector<Platform>& platforms() const { return mPlatforms; }
   const std::vector<Hatch>& hatches() const { return mHatches; }
+  const std::vector<Pad>& pads() const { return mPads; }
+  const std::vector<LaserFan>& fans() const { return mFans; }
+  const std::vector<Breakable>& breakables() const { return mBreakables; }
+  const std::string& musicOverride() const { return mMusicOverride; }
+  // Standing on a pad that launches: frames until it does, else -1.
+  int framesToNextLaunch() const;
+  bool launching() const { return mLaunch > 0; }
   int clock() const { return mStats.frames; }
   // The planner bot simulates copies of the world: no effects or sounds.
   std::unique_ptr<World> cloneForSim() const;
@@ -576,6 +628,25 @@ private:
   void updateSpawners();
   void drawPlatforms(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void updateFreeFall(int mvX, int mvY);
+  // Level 3 (world_club.cpp).
+  int jumpHeight() const;
+  int padUnder(const CellBox& b) const;
+  void startLaunch(int cells);
+  void updateLaunch(int mvX);
+  void updateClub();
+  void updateFans();
+  void updateCones();
+  void fireCone(int ox, int oy, int dir, int damage);
+  void knockBack(Enemy& e, int dir, int cells);
+  bool shotHitsEnemy(Enemy& e, int dir, int damage);
+  void updateBouncer(Enemy& e, const EnemyDef& def);
+  void updateDisco(Enemy& e, const EnemyDef& def);
+  void updateRaver(Enemy& e, const EnemyDef& def);
+  void updateStepper(Enemy& e, const EnemyDef& def);
+  void shotAtProps(const CellBox& b);
+  PlayerInput beatStepInput(const PlayerInput& in);
+  void drawClub(Renderer& r, float camX, float camY, int frame) const;
+  void drawClubHud(Renderer& r, int frame) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -647,6 +718,19 @@ private:
   std::vector<Breakable> mBreakables;
   std::vector<Spawner> mSpawners;
   std::size_t mLevelEnemyCount = 0; // the level's own; spawned ones follow
+  // Level 3: subwoofers, laser fans, the Bass Cannon, beat-step rules.
+  std::vector<Pad> mPads;
+  std::vector<LaserFan> mFans;
+  std::vector<Puddle> mPuddles;
+  std::vector<Cone> mCones;
+  int mLaunch = 0;          // cells of a pad launch still to rise
+  int mLaunchBump = 0;      // the launch is a beat bump of this many cells, else 0
+  bool mBeatStep = false;   // bonus rule: you move only on the beat
+  int mQueuedDx = 0;
+  bool mQueuedJump = false, mQueued = false;
+  int mBeatDx = 0, mBeatMove = 0, mBeatJump = 0;
+  std::string mMusicOverride; // an easter egg can change the track
+  bool mBreakdance = false;
   bool mFreeFall = false; // bonus rule: no ground until the net
   std::vector<CellBox> mRopes; // free fall: window-cleaner ropes that bounce you
   int mStall = 0;         // free fall: frames the fall is stalled after a bounce

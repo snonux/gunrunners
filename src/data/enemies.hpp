@@ -19,6 +19,10 @@ enum class EnemyKind
   Crawler, // cling: creeps along walls and ceilings, spits sparks
   Rider,   // ride: sweeps along a rail (Squeegee Drone)
   Sniper,  // static: tracks you with a laser line, then fires along it
+  Bouncer, // patrols his post; shots from the front only stagger him
+  Disco,   // static: eight light shards on beat 1 of every bar
+  Raver,   // static: lobs glowsticks that leave a puddle
+  Stepper, // moves only on the beat (Step on the Beat's cardboard Bouncers)
 };
 
 enum EnemyFlag : unsigned

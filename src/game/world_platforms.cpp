@@ -279,8 +279,8 @@ bool World::hitBreakable(const CellBox& shot, int damage, int kind)
       (b.y1 - b.y0 + 1) * kCellsPerTile};
     if (!area.intersects(shot))
       continue;
-    if ((b.by == 1 && kind != 1) || (b.by == 2 && kind == 0))
-      return true; // only explosions (or heavy hits) break this
+    if ((b.by == 1 && kind != 1) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3))
+      return true; // only explosions (heavy hits, the Bass Cannon) break this
     b.hp -= std::max(1, damage);
     const Vec2 c = cellCenter(shot);
     burst(c, rgb(220, 240, 255), rgb(140, 200, 255), 8, 1.4f);
@@ -468,6 +468,63 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
+    if (b.look != 0)
+    {
+      const float x = float(b.x0) * kTilePx - camX, y = float(b.y0) * kTilePx - camY;
+      const float w = float(b.x1 - b.x0 + 1) * kTilePx, h = float(b.y1 - b.y0 + 1) * kTilePx;
+      if (x > float(kScreenW) || x + w < 0.0f || y > float(kScreenH) || y + h < 0.0f)
+        continue;
+      if (b.look == 1)
+      {
+        // A mirror ball on a chain: facets that glint in turn.
+        const float cx = x + w * 0.5f, cy = y + h * 0.5f, rad = std::min(w, h) * 0.46f;
+        r.fillRect(cx - 2.0f, y - 6.0f, 4.0f, h * 0.5f - rad + 8.0f, rgb(150, 150, 170));
+        drawGlow(r, mArt, cx, cy, rad * 1.8f, rgb(255, 200, 255), 0.35f);
+        const int rows = 8;
+        for (int j = 0; j < rows; ++j)
+        {
+          const float fy = cy - rad + (float(j) + 0.5f) * 2.0f * rad / float(rows);
+          const float span = std::sqrt(std::max(0.0f, rad * rad - (fy - cy) * (fy - cy)));
+          const int cols = std::max(2, int(span / 9.0f));
+          for (int i = 0; i < cols; ++i)
+          {
+            const float fx = cx - span + (float(i) + 0.5f) * 2.0f * span / float(cols);
+            const unsigned hsh = hash2(i * 3 + j * 17, frame / 6);
+            const Color c = hsh % 7u == 0 ? rgb(255, 255, 255)
+              : (hsh % 7u == 1 ? rgb(255, 120, 220) : (hsh % 7u == 2 ? rgb(120, 220, 255) : rgb(150, 150, 178)));
+            r.fillRect(fx - span / float(cols) + 1.0f, fy - rad / float(rows) + 1.0f, 2.0f * span / float(cols) - 2.0f,
+              2.0f * rad / float(rows) - 2.0f, c);
+          }
+        }
+      }
+      else
+      {
+        // A speaker cabinet: grille and cones that pump on the beat.
+        const float pump = framesIntoBeat(mStats.frames) < 2 ? 1.08f : 1.0f;
+        r.fillRect(x, y, w, h, rgb(18, 16, 24));
+        r.fillRect(x + 4.0f, y + 4.0f, w - 8.0f, h - 8.0f, rgb(34, 30, 44));
+        const int cones = std::max(1, int(h / std::max(40.0f, w)));
+        for (int k = 0; k < cones; ++k)
+        {
+          const float cy = y + h * (float(k) + 0.5f) / float(cones), cx = x + w * 0.5f;
+          const float rad = std::min(w, h / float(cones)) * 0.36f * pump;
+          r.fillRect(cx - rad, cy - rad, rad * 2.0f, rad * 2.0f, rgb(60, 52, 76));
+          r.fillRect(cx - rad * 0.4f, cy - rad * 0.4f, rad * 0.8f, rad * 0.8f, rgb(120, 100, 150));
+        }
+        for (float gy = y + 8.0f; gy < y + h - 4.0f; gy += 6.0f)
+          r.fillRect(x + 6.0f, gy, w - 12.0f, 1.0f, rgba(0, 0, 0, 90));
+        r.fillRect(x, y, w, 3.0f, withAlpha(mTheme.trim, 160));
+      }
+      // Damage shows as cracks either way.
+      const int dmg = std::max(0, 6 - b.hp);
+      for (int k = 0; k < dmg; ++k)
+      {
+        const unsigned hsh = hash2(b.x0 * 13 + k, b.y0);
+        const float cx = x + float(hsh % 100u) / 100.0f * w, cy = y + float((hsh >> 8) % 100u) / 100.0f * h;
+        r.drawLine(cx - 14.0f, cy - 10.0f, cx + 12.0f, cy + 12.0f, 2.0f, rgba(255, 255, 255, 150));
+      }
+      continue;
+    }
     for (int ty = b.y0; ty <= b.y1; ++ty)
       for (int tx = b.x0; tx <= b.x1; ++tx)
       {

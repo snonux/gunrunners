@@ -48,10 +48,32 @@ const Macro kMacros[] = {
   {false, true, false, true, false, 0, false},   // crawl right
   {false, false, false, true, true, 1, false},   // down + jump: drop from a pipe
   {false, false, false, false, false, 0, false}, // a long wait (gondolas settle)
+  {false, false, false, false, false, 0, false}, // stand on a subwoofer until it launches you
+  {false, false, false, false, false, 0, false}, // sit out the chorus (laser fans)
 };
 constexpr int kLongWait = 15;
-// Frames a macro runs for.
-int macroFrames(int m) { return m == kLongWait ? 24 : 4; }
+constexpr int kWaitLaunch = 16;
+constexpr int kWaitVerse = 17;
+// Frames a macro runs for in this world, 0 if it does not apply.
+int macroFrames(int m, const World& w)
+{
+  if (m == kLongWait)
+    return w.platforms().empty() ? 0 : 24;
+  if (m == kWaitLaunch)
+  {
+    const int f = w.framesToNextLaunch();
+    return f < 0 ? 0 : f + 1;
+  }
+  if (m == kWaitVerse)
+  {
+    // From the fans' preview bar to the end of the chorus.
+    const int bar = phraseBar(w.clock());
+    if (w.fans().empty() || bar < 7 || bar > 13)
+      return 0;
+    return 14 * 30 - w.clock() % kPhraseFrames;
+  }
+  return 4;
+}
 constexpr int kMacroCount = int(sizeof(kMacros) / sizeof(kMacros[0]));
 
 Input macroInput(const Macro& m, int f)
@@ -103,6 +125,10 @@ int clockPeriod(const World& w)
       p = std::max(1, l.on + l.off);
     period = std::max(period, p);
   }
+  if (!w.pads().empty())
+    period = std::max(period, 30); // subwoofers bump on the beat
+  if (!w.fans().empty())
+    period = std::max(period, kPhraseFrames); // laser fans sweep in the chorus
   return period;
 }
 
@@ -156,7 +182,46 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   if (mTakeBonus && !mSkipBonus)
     for (const auto& pr : w.props())
       if (pr.kind == PropKind::BonusDoor && !pr.used)
+      {
+        // Walled in by something only the prototype breaks (level 3's
+        // speaker): top up its ammo first from a box close by.
+        const auto& p = w.player();
+        const ProtoDef& lp = protoDef(std::max(0, protoIndex(w.level().weapon)));
+        int need = 0;
+        const CellBox door{pr.x - 4, pr.y - 4, pr.w + 8, pr.h + 8};
+        for (const auto& b : w.breakables())
+          if (!b.broken && b.by == 3 &&
+              door.intersects({b.x0 * kCellsPerTile, b.y0 * kCellsPerTile, (b.x1 - b.x0 + 1) * kCellsPerTile,
+                (b.y1 - b.y0 + 1) * kCellsPerTile}))
+            need += (b.hp + lp.damage - 1) / std::max(1, lp.damage);
+        const int ammo = p.weapon == Weapon::Proto ? p.ammo : 0;
+        if (need > ammo && !mSkipProto)
+        {
+          Goal best;
+          int bestD = 90;
+          for (const auto& b : w.boxes())
+          {
+            const int d = std::abs(b.x - p.x) + std::abs(b.y - p.y);
+            if (b.alive && b.content == ItemKind::Proto && d < bestD)
+            {
+              bestD = d;
+              best = {2, b.x, b.y};
+            }
+          }
+          for (const auto& it : w.items())
+          {
+            const int d = std::abs(it.x - p.x) + std::abs(it.y - p.y);
+            if (!it.taken && it.kind == ItemKind::Proto && d < bestD)
+            {
+              bestD = d;
+              best = {2, it.x, it.y};
+            }
+          }
+          if (best.kind == 2)
+            return best;
+        }
         return {3, pr.x, pr.y, pr.w, pr.h};
+      }
   return g;
 }
 
@@ -185,6 +250,24 @@ void Planner::buildField(const World& w, const Goal& goal)
       blocked[std::size_t(y * W + x)] = b;
       top[std::size_t(y * W + x)] = b || map.solidTop(x, y);
     }
+  // Breakables the current weapon can shatter: the search shoots them.
+  const auto& pl0 = w.player();
+  const bool sound = pl0.weapon == Weapon::Proto && pl0.proto == int(ProtoId::BassCannon);
+  mWalls.clear();
+  for (std::size_t bi = 0; bi < w.breakables().size(); ++bi)
+  {
+    const auto& b = w.breakables()[bi];
+    if (b.broken || !(b.by == 0 || (b.by == 3 && sound) || (b.by == 1 && pl0.weapon == Weapon::Rocket)))
+      continue;
+    const CellBox area{b.x0 * kCellsPerTile - 12, b.y0 * kCellsPerTile - 12, (b.x1 - b.x0 + 1) * kCellsPerTile + 24,
+      (b.y1 - b.y0 + 1) * kCellsPerTile + 24};
+    if (area.intersects({goal.x, goal.y - 5, std::max(2, goal.w), std::max(6, goal.h)}))
+      mWalls.push_back(int(bi));
+    for (int y = b.y0 * kCellsPerTile; y < (b.y1 + 1) * kCellsPerTile; ++y)
+      for (int x = b.x0 * kCellsPerTile; x < (b.x1 + 1) * kCellsPerTile; ++x)
+        if (x >= 0 && y >= 0 && x < W && y < H)
+          blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
+  }
   for (const auto& l : w.layers())
     for (int ty = l.y0; ty <= l.y1; ++ty)
       for (int tx = l.x0; tx <= l.x1; ++tx)
@@ -241,12 +324,22 @@ void Planner::buildField(const World& w, const Goal& goal)
       return false;
     return top[std::size_t(y * W + x)] != 0;
   };
+  // Subwoofers: how high you get from standing on one (a launch, or a jump
+  // on the beat).
+  std::vector<int> padLift(std::size_t(W * H), 0);
+  for (const auto& pad : w.pads())
+  {
+    const int lift = std::max(jumpH + 2, pad.fire > 0 ? jumpH * pad.launchX10 / 10 : 0);
+    for (int x = std::max(0, pad.x); x < std::min(W, pad.x + pad.w); ++x)
+      if (pad.y >= 0 && pad.y < H)
+        padLift[std::size_t(pad.y * W + x)] = lift;
+  }
 
   // Per player position (bottom-left cell): valid, height above ground,
   // ladder and pipe.
   std::vector<std::uint8_t> valid(std::size_t(W * H)), ladder(std::size_t(W * H)), hang(std::size_t(W * H)),
     hazard(std::size_t(W * H));
-  std::vector<int> support(std::size_t(W * H), kInf);
+  std::vector<int> support(std::size_t(W * H), kInf), lift(std::size_t(W * H), jumpH);
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
     {
@@ -263,6 +356,9 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (isTop(x, y + 1 + k) || isTop(x + 1, y + 1 + k) || isTop(x + 2, y + 1 + k))
         {
           support[i] = k;
+          for (int xx = x; xx <= x + 2; ++xx)
+            if (xx < W && y + 1 + k < H)
+              lift[i] = std::max(lift[i], padLift[std::size_t((y + 1 + k) * W + xx)]);
           break;
         }
       }
@@ -322,7 +418,7 @@ void Planner::buildField(const World& w, const Goal& goal)
             add(x + dx, y - 1, 0, 2); // stair step
         }
         // Up: within a jump's height of the ground, or on a ladder.
-        if (ladder[i] || (s < jumpH && s < kInf))
+        if (ladder[i] || (s < lift[i] && s < kInf))
           add(x, y - 1, ladder[i] ? 0 : a, 2);
         // Down: falling, or climbing down.
         add(x, y + 1, a, 1);
@@ -427,6 +523,9 @@ int Planner::heuristic(const World& w) const
     for (const auto& b : w.boxes())
       if (b.alive && b.content == (mGoalKind == 1 ? ItemKind::Key : ItemKind::Proto))
         extra = 40;
+  for (int bi : mWalls)
+    if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
+      extra += 12 * std::max(0, w.breakables()[std::size_t(bi)].hp);
   if (p.x < 0 || p.y < 0 || p.x >= mW || p.y >= mH)
     return kInf;
   const int A = kAirBudget + 1;
@@ -498,7 +597,13 @@ void Planner::plan(const World& world)
   {
     if (mSkipProto && goal.kind == 2)
       goal = chooseGoal(world);
-    const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0);
+    // The field also changes when a wall breaks or the Bass Cannon arrives.
+    int broken = 0;
+    for (const auto& b : world.breakables())
+      broken += b.broken;
+    const bool sound = world.player().weapon == Weapon::Proto && world.player().proto == int(ProtoId::BassCannon);
+    const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
+      (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000;
     if (mDist.empty() || keyHash != mGoalKeyHash)
     {
       buildField(world, goal);
@@ -525,6 +630,7 @@ void Planner::plan(const World& world)
     int g;
     int h;
     Input last;
+    int frames; // how long its macro ran
   };
   std::vector<Node> nodes;
   nodes.reserve(kBudget * 4);
@@ -542,20 +648,29 @@ void Planner::plan(const World& world)
     for (const auto& b : w.boxes())
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
+    // Bouncers close by: shoving one away is progress too.
+    for (const auto& e : w.enemies())
+      if (e.alive && (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Stepper) && std::abs(e.x - p.x) < 24 &&
+          std::abs(e.y - p.y) < 16)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 16));
+    k = mix(k, std::uint64_t(w.launching()));
+    int cracks = 0;
+    for (const auto& b : w.breakables())
+      cracks = cracks * 7 + b.hp;
+    k = mix(k, std::uint64_t(cracks));
     k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
     for (const auto& pl : w.platforms())
       k = mix(k, std::uint64_t(pl.y) | (std::uint64_t(pl.x) << 16) | (std::uint64_t(pl.braked) << 32));
     return k;
   };
   const int h0 = heuristic(world);
-  const std::size_t w0Platforms = world.platforms().size();
   const int hp0 = p0.hp;
   auto score = [&](const Node& n) { return n.g + n.h; };
   auto cmp = [&](int a, int b) { return score(nodes[std::size_t(a)]) > score(nodes[std::size_t(b)]); };
   std::priority_queue<int, std::vector<int>, decltype(cmp)> open(cmp);
   std::unordered_map<std::uint64_t, int> seen;
 
-  nodes.push_back({world.cloneForSim(), -1, -1, 0, h0, mPrev});
+  nodes.push_back({world.cloneForSim(), -1, -1, 0, h0, mPrev, 0});
   open.push(0);
   int found = -1, bestStable = -1;
   int expanded = 0;
@@ -566,8 +681,10 @@ void Planner::plan(const World& world)
     const Node& n = nodes[std::size_t(ni)];
     const World& nw = *n.w;
     const auto& np = nw.player();
+    const bool gotProto = nw.stats().protoFound &&
+      (!world.stats().protoFound || (np.weapon == Weapon::Proto && (p0.weapon != Weapon::Proto || np.ammo > p0.ammo)));
     const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) ||
-      (goal.kind == 2 && nw.stats().protoFound) || (goal.kind == 3 && nw.bonusRequested());
+      (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested());
     if (ni != 0 && success)
     {
       found = ni;
@@ -586,18 +703,19 @@ void Planner::plan(const World& world)
     ++expanded;
     for (int m = 0; m < kMacroCount; ++m)
     {
+      // Waiting only matters while something moves on its own.
+      const int frames = macroFrames(m, nw);
+      if (frames == 0)
+        continue;
       auto child = std::make_unique<World>(nw);
       Input prev = n.last;
       bool dead = false;
-      // Waiting only matters while something moves on its own.
-      if (m == kLongWait && w0Platforms == 0)
-        continue;
-      for (int f = 0; f < macroFrames(m); ++f)
+      for (int f = 0; f < frames; ++f)
       {
         const Input in = macroInput(kMacros[m], f);
         child->update(toPlayerInput(in, prev));
         prev = in;
-        if (child->player().state == PlayerState::Dying)
+        if (child->player().state == PlayerState::Dying || child->bonusFailed())
         {
           dead = true;
           break;
@@ -609,7 +727,8 @@ void Planner::plan(const World& world)
         continue;
       const auto key = keyOf(*child);
       const int lost = std::max(0, nw.player().hp - child->player().hp);
-      const int g = n.g + macroFrames(m) + lost * 60 + (m >= 10 && m <= 12 ? 1 : 0);
+      // Waiting for the drop counts as a short wait: it is the way up.
+      const int g = n.g + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : frames)) + lost * 60 + (m >= 10 && m <= 12 ? 1 : 0);
       const auto it = seen.find(key);
       if (it != seen.end() && it->second <= g)
         continue;
@@ -617,7 +736,7 @@ void Planner::plan(const World& world)
       const int h = child->state() != WorldState::Playing ? 0 : heuristic(*child);
       if (h >= kInf)
         continue;
-      nodes.push_back({std::move(child), ni, m, g, h, prev});
+      nodes.push_back({std::move(child), ni, m, g, h, prev, frames});
       open.push(int(nodes.size()) - 1);
     }
     // Free worlds we will not expand again (keeps memory flat).
@@ -643,11 +762,11 @@ void Planner::plan(const World& world)
   mFails = 0;
   std::vector<int> chain;
   for (int i = found; i > 0; i = nodes[std::size_t(i)].parent)
-    chain.push_back(nodes[std::size_t(i)].macro);
+    chain.push_back(i);
   std::reverse(chain.begin(), chain.end());
-  for (int m : chain)
-    for (int f = 0; f < macroFrames(m); ++f)
-      mQueue.push_back(macroInput(kMacros[m], f));
+  for (int i : chain)
+    for (int f = 0; f < nodes[std::size_t(i)].frames; ++f)
+      mQueue.push_back(macroInput(kMacros[nodes[std::size_t(i)].macro], f));
 }
 
 } // namespace gr

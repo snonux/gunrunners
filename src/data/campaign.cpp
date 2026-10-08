@@ -15,7 +15,7 @@ namespace
 const std::array<CampaignLevel, kCampaignLevels> kLevels{{
   {1, "rooftop_run", "ROOFTOP RUN", "cloud_nine"},
   {2, "glass_canyon", "GLASS CANYON", "free_fall"},
-  {3, "club_laserdisc", "CLUB LASERDISC", ""},
+  {3, "club_laserdisc", "CLUB LASERDISC", "step_on_the_beat"},
   {4, "blackout", "BLACKOUT", "echo_room"},
   {5, "sludge_line", "SLUDGE LINE", "duck_rapids"},
   {6, "maglev_express", "MAGLEV EXPRESS", "light_trail"},

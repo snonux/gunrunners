@@ -29,6 +29,12 @@ const EnemyDef kEnemies[] = {
   {"glass_crawler", "GLASS CRAWLER", K::Crawler, L::Styled, 3, 2, 2, 300, 2, 30, 10, 6, 0, 0, 0},
   {"squeegee_drone", "SQUEEGEE DRONE", K::Rider, L::Styled, 4, 4, 5, 400, 1, 90, 15, 0, kEnemyHarmless, 0, 0},
   {"penthouse_sniper", "PENTHOUSE SNIPER", K::Sniper, L::Styled, 3, 4, 4, 1500, 0, 45, 15, 14, 0, 0},
+  // Level 3. Bouncer: range is how far either side of his post he guards.
+  // Raver: range is how far he throws.
+  {"bouncer", "BOUNCER", K::Bouncer, L::Styled, 4, 6, 8, 800, 2, 30, 10, 6, 0, 0, 2},
+  {"disco_drone", "DISCO DRONE", K::Disco, L::Styled, 3, 3, 4, 600, 0, 30, 8, 0, 0, 0},
+  {"glow_raver", "GLOW RAVER", K::Raver, L::Styled, 3, 4, 2, 350, 0, 30, 15, 20, 0, 0},
+  {"cardboard_bouncer", "CARDBOARD BOUNCER", K::Stepper, L::Styled, 4, 6, 2, 300, 0, 0, 0, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

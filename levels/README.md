@@ -26,7 +26,8 @@ flags=                       ; e.g. clouds (one-way platforms drawn as clouds)
 
 Bonus levels add `rules=` (`airjump`: jump again in mid-air; `freefall`: no
 jumping, you fall and steer until you land on the net, up slows the fall and
-down speeds it up),
+down speeds it up; `beatstep`: inputs are queued and the last one runs on the
+next beat, a step of 2 blocks or a jump),
 `timer=` in seconds and `goal=exit` or `goal=collect:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -40,10 +41,13 @@ quoted; `;` starts a comment. Kinds so far:
 | enemy keys (`chrome_cop`, `glass_crawler`, `squeegee_drone`, ...) | `carrier=1`, `dir=r`; riders: `rect` (the rail), `start=r` | an enemy from the table in `src/data/enemies.cpp`; clingers stick to the wall or ceiling next to them |
 | `platform` | `id`, `w` (blocks), `mode=pulley\|loop\|pingpong`, `path=x,y;x,y`, `speed=n/d`; pulley: `pair`, `drop`, `slack`, `rehome`, `brake=1`, `start` | a moving one-way platform; the row given is its top. Pulley pairs share a cable: the heavier side sinks half a cell a frame after `slack` frames of creaking (Rocco weighs 2, enemies their table weight) |
 | `hatch` | `tile==` | a solid trapdoor that turns into ladder (or `=`) once you have stood on its row |
-| `breakable` | `rect`, `hp`, `by=any\|explosion\|heavy` | blocks that shatter when shot |
+| `breakable` | `rect`, `hp`, `by=any\|explosion\|heavy\|sound`, `look=glass\|ball\|speaker` | blocks that shatter when shot; `sound` ones only break to the Bass Cannon |
+| `pad` | `id`, `w` (blocks), `bump` (cells), `launch=2.5j`, `fire=0..3` | a subwoofer in the floor row given: bumps you on every beat, and on drop hit `fire` (beat 1 of bars 1-3 of the 16-bar phrase) launches you `launch` times your jump; a jump on the beat from it goes 2 cells higher |
+| `laserfan` | `arc=a0,a1` (degrees, 270 is down), `len` (blocks) | three beams that sweep the arc once a bar during the chorus (bars 9-14), with harmless preview beams in bar 8 |
+| `virus` | `skin=spiked_drink` | a Virus pickup; the spiked drink passes for a health box |
 | `spawner` | `enemy`, `onto` (a platform id) | brings in a new enemy while that platform is home and empty |
 | `rope` | `h` (blocks) | free fall: a rope that bounces you |
-| `deco` | `kind=42\|text\|ufo_flyby\|reflection`, `text`, `w`, `h`, `rect` | decorations and easter eggs; `reflection` mirrors you in the glass and waves if you stand still in its rect |
+| `deco` | `kind=42\|text\|ufo_flyby\|reflection\|decks\|dancefloor`, `text`, `w`, `h`, `rect` | decorations and easter eggs; `reflection` mirrors you in the glass and waves if you stand still in its rect; `decks` are shootable turntables; `dancefloor` lights its row on every beat |
 | `billboard` | `rect`, `text` | a foreground board that fades while you are behind it |
 | `wind` | `rect`, `push=1/2`, `dir=l\|r\|u\|d` | pushes the player |
 

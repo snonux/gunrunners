@@ -43,6 +43,7 @@ private:
   Input mPrev;
   // Distance field over player positions (bottom-left cell) and air budget.
   std::vector<int> mDist;
+  std::vector<int> mWalls; // breakables in the way of the goal: shooting them is progress
   int mW = 0, mH = 0;
   int mGoalKind = -1;
   int mGoalKeyHash = 0;

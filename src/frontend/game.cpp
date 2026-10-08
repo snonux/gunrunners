@@ -344,6 +344,8 @@ void Game::tickPlay(const Input& raw)
     mLatched.fire.triggered = false;
     for (const auto s : mWorld->takeSounds())
       sound(s);
+    if (mAudio && !mWorld->musicOverride().empty())
+      mAudio->playMusicNamed(mWorld->musicOverride()); // no-op once it plays
 
     if (mOptions.trace)
     {

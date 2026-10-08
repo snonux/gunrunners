@@ -691,6 +691,33 @@ MusicTrack makeNamedMusic(const std::string& id)
     s.lead = true;
   }
   auto mix = renderSong(s);
+  if (contains(id, "clubhouse"))
+  {
+    // Level 3's phrase: the riser sweeps up through bars 15-16 and the drop
+    // is three sub booms on beat 1 of bars 1-3 (world_club.cpp follows it).
+    const double bar = 4.0 * 60.0 / s.bpm;
+    for (int k = 0; k < 3; ++k)
+    {
+      kick(mix, samples(k * bar), 1.0f);
+      Osc o;
+      const int at = samples(k * bar), len = samples(0.7);
+      for (int i = 0; i < len && at + i < int(mix.left.size()); ++i)
+      {
+        const double t = double(i) / kRate;
+        const float v = o.step(55.0 * (1.0 + 2.0 * std::exp(-t * 18.0)), Wave::Sine) * float(0.55 * std::exp(-t * 4.0));
+        mix.add(at + i, v, 0.0f);
+      }
+    }
+    Osc saw;
+    Noise noise(77u);
+    const int from = samples(14 * bar), to = samples(16 * bar);
+    for (int i = from; i < to && i < int(mix.left.size()); ++i)
+    {
+      const double u = double(i - from) / double(to - from);
+      const float v = saw.step(180.0 * std::pow(10.0, u * 1.1), Wave::Saw) * float(0.10 * u) + noise.next() * float(0.07 * u * u);
+      mix.add(i, v, float(std::sin(u * 20.0) * 0.4));
+    }
+  }
   MusicTrack out;
   out.left = std::move(mix.left);
   out.right = std::move(mix.right);
