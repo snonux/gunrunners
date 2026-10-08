@@ -112,6 +112,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
+  drawSludgeBack(r, camX, camY, frame);
 
   // Item boxes and items.
   for (const auto& b : mBoxes)
@@ -226,6 +227,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.dive > 0 ? 1 : 0; // the sack is full
         else if (e.kind == EnemyKind::Leech)
           variant = e.tell > 0 ? 1 : 0;
+        else if (e.kind == EnemyKind::Gator)
+          variant = e.variant + (e.dive > 0 || e.trapped ? 2 : 0); // sunglasses; jaws open
+        else if (e.kind == EnemyKind::Keeper)
+          variant = e.attach == 2 ? 1 : 0; // turning the wheel
+        else if (e.stun > 0)
+          variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, (frame / 8) % 2, e.w, e.h).get(dirForArt);
         if (e.kind == EnemyKind::Raver && e.dive > 0)
@@ -289,6 +296,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   // Power cuts: the dark goes over the level but under the runner.
   drawDark(r, camX, camY, frame, alpha);
   drawPlayer(r, camX, camY, frame, alpha);
+  // Sludge goes over the runner's feet and anything swimming in it.
+  drawSludgeFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -344,6 +353,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
               rgb(220, 250, 255), Blend::Add);
           }
         }
+        if (pr.proto == int(ProtoId::BubbleGun))
+        {
+          // A wobbling soap bubble.
+          const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
+          r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
+          continue;
+        }
         if (pr.strong)
         {
           o.scale = 1.5f;
@@ -387,6 +403,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawHud(r, frame);
   drawBeatHud(r, frame);
   drawClubHud(r, frame);
+  drawTideHud(r, frame);
 }
 
 void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
@@ -422,7 +439,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         continue; // drawn by its layer
       bool prop = false; // a mirror ball or speaker draws itself
       for (const auto& b : mBreakables)
-        prop = prop || (b.look != 0 && !b.broken && tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1);
+        prop = prop || (b.look != 0 && b.look != 3 && !b.broken && tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1);
       if (prop)
         continue;
       switch (mMap.block(tx, ty))
@@ -442,6 +459,9 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         }
         case Tile::Platform:
           r.draw(platformTex, x, y);
+          break;
+        case Tile::Grate:
+          r.draw(styledEnemySprite(mArt, r, mTheme, "grate", 0, 0, 2, 2).get(1), x + 32.0f, y + 64.0f);
           break;
         case Tile::Spikes:
           r.draw(mArt.spikes, x, y);

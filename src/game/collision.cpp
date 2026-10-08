@@ -46,6 +46,14 @@ int CollisionMap::platformAt(int cx, int cy) const
   return -1;
 }
 
+bool CollisionMap::floatTop(int cx, int cy) const
+{
+  for (const auto& f : mFloats)
+    if (cy == f.top() && cx >= f.left() && cx <= f.right())
+      return true;
+  return false;
+}
+
 Tile CollisionMap::tileAt(int cx, int cy) const
 {
   return block(floorDiv(cx, kCellsPerTile), floorDiv(cy, kCellsPerTile));
@@ -60,6 +68,7 @@ bool CollisionMap::solid(int cx, int cy) const
   switch (tileAt(cx, cy))
   {
     case Tile::Solid:
+    case Tile::Grate:
       return cy >= 0 && cy < height();
     case Tile::Spikes:
       return (cy & 1) == 1; // the base of the spike block
@@ -75,6 +84,8 @@ bool CollisionMap::solidTop(int cx, int cy) const
   if (solid(cx, cy))
     return true;
   if (!mPlatforms.empty() && platformAt(cx, cy) >= 0)
+    return true;
+  if (!mFloats.empty() && floatTop(cx, cy))
     return true;
   return tileAt(cx, cy) == Tile::Platform && (cy & 1) == 0;
 }

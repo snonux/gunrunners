@@ -35,6 +35,7 @@ add_library(gunrunners_core STATIC
   src/game/world_club.cpp
   src/game/world_actors.cpp
   src/game/world_dark.cpp
+  src/game/world_sludge.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
@@ -73,3 +74,5 @@ add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/le
 add_test(NAME savegame_club_laserdisc COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/03_club_laserdisc.txt 700)
 # Sectors A-C relit and a Grid Leech on the cable.
 add_test(NAME savegame_blackout COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/04_blackout.txt 720)
+# Into the low tunnels: the tide mid-cycle, rats out of their pipe.
+add_test(NAME savegame_sludge_line COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/05_sludge_line.txt 600)

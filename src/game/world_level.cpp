@@ -3,6 +3,8 @@
 
 #include "game/world.hpp"
 
+#include "assets/enemy_art.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -92,6 +94,7 @@ void World::setupEntities()
   mFreeFall = lv.rules.find("freefall") != std::string::npos;
   mBeatStep = lv.rules.find("beatstep") != std::string::npos;
   mSonar = lv.rules.find("sonar") != std::string::npos;
+  mAutorun = lv.rules.find("autorun") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -157,6 +160,7 @@ void World::setupEntities()
       if (e.str("dir") == "r")
         en.dir = 1;
       en.carrier = e.num("carrier", 0) != 0;
+      setupSludgeEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -246,7 +250,7 @@ void World::setupEntities()
       const std::string by = e.str("by", "any");
       b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : 0));
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : 0);
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : 0));
       mBreakables.push_back(b);
       continue;
     }
@@ -298,6 +302,12 @@ void World::setupEntities()
         pr.kind = PropKind::Graffiti;
       else if (kind == "interior")
         pr.kind = PropKind::Interior;
+      else if (kind == "waterfall")
+        pr.kind = PropKind::Waterfall;
+      else if (kind == "log")
+        pr.kind = PropKind::Log;
+      else if (kind == "lowpipe")
+        pr.kind = PropKind::LowPipe;
       else if (kind == "cat")
       {
         pr.kind = PropKind::Cat;
@@ -327,6 +337,8 @@ void World::setupEntities()
 
     if (setupDarkEntity(e))
       continue;
+    if (setupSludgeEntity(e))
+      continue;
 
     if (!mSimulation)
       std::fprintf(stderr, "level line %d: unknown entity '%s' ignored\n", e.line, e.kind.c_str());
@@ -334,6 +346,7 @@ void World::setupEntities()
   // Power cuts: the score starts as a bare heartbeat (world_dark.cpp).
   if (!mSectors.empty() && !lv.music.empty())
     mMusicOverride = lv.music + "@0";
+  syncFloats();
 }
 
 // --- Layers --------------------------------------------------------------------
@@ -441,7 +454,7 @@ void World::updateProps(const PlayerInput& input)
           showMessage("A FLICKERING TV... PRESS UP TO TUNE IN");
         }
         if (!pr.used && alive && (input.up || input.down) && pr.box().intersects(pbox) &&
-            (p.state == PlayerState::OnGround || p.state == PlayerState::Falling))
+            (p.state == PlayerState::OnGround || p.state == PlayerState::Falling || p.state == PlayerState::Jumping))
         {
           pr.used = true;
           mBonusRequested = true;
@@ -795,6 +808,53 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
           }
           for (float px = x; px < x + w; px += 64.0f)
             r.fillRect(px, y + h - 10.0f, 32.0f, 10.0f, rgb(150, 130, 50));
+        }
+        break;
+      case PropKind::DevNull:
+        if (!foreground && onScreen)
+        {
+          r.draw(styledEnemySprite(mArt, r, mTheme, "devnull_pipe", 0, 0, pr.w, pr.h).get(1), x + w * 0.5f, y + h);
+          r.drawText("/dev/null", x + w * 0.5f, y - 30.0f, {18.0f, rgb(230, 230, 210), rgb(20, 20, 20)}, Align::Center,
+            0.85f);
+        }
+        break;
+      case PropKind::Waterfall:
+        if (!foreground && onScreen)
+        {
+          // Sludge pouring down in sliding streaks.
+          r.fillRect(x, y, w, h, rgba(96, 150, 34, 200));
+          for (int k = 0; k < int(w / 12.0f); ++k)
+          {
+            const unsigned hsh = hash2(k, pr.x);
+            const float sx = x + float(k) * 12.0f;
+            const float len = 40.0f + float(hsh % 60u);
+            const float travel = std::fmod(float(frame) * (10.0f + float(hsh % 6u)) + float(hsh % 400u), h + len);
+            const float a0 = std::max(y, y + travel - len), a1 = std::min(y + h, y + travel);
+            if (a1 > a0)
+              r.fillRect(sx, a0, 5.0f, a1 - a0, rgba(200, 245, 110, 170));
+          }
+          r.fillRect(x - 10.0f, y + h - 14.0f, w + 20.0f, 14.0f, rgba(220, 255, 150, 120 + int(60 * std::sin(float(frame) * 0.4f))));
+        }
+        break;
+      case PropKind::Log:
+        if (foreground && onScreen)
+        {
+          const float bob = 3.0f * std::sin(float(frame) * 0.15f + float(pr.x));
+          r.fillRect(x - 6.0f, y + 6.0f + bob, w + 12.0f, h - 10.0f, rgb(110, 70, 36));
+          r.fillRect(x - 6.0f, y + 6.0f + bob, w + 12.0f, 8.0f, rgb(150, 100, 56));
+          r.fillRect(x + w - 6.0f, y + 10.0f + bob, 12.0f, h - 18.0f, rgb(200, 160, 100));
+          r.fillRect(x + w - 2.0f, y + 20.0f + bob, 4.0f, h - 38.0f, rgb(130, 90, 50));
+        }
+        break;
+      case PropKind::LowPipe:
+        if (foreground && onScreen)
+        {
+          r.fillRect(x + 8.0f, y, w - 16.0f, h, rgb(80, 90, 80));
+          r.fillRect(x + 8.0f, y, 10.0f, h, rgb(130, 140, 130));
+          r.fillRect(x, y + h - 24.0f, w, 24.0f, rgb(100, 110, 100));
+          r.fillRect(x, y + h - 6.0f, w, 6.0f, rgb(255, 200, 40));
+          for (float sy = y + 40.0f; sy < y + h - 30.0f; sy += 120.0f)
+            r.fillRect(x + 4.0f, sy, w - 8.0f, 10.0f, rgb(60, 66, 60));
         }
         break;
       case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)

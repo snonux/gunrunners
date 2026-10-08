@@ -54,6 +54,7 @@ private:
   bool mSkipHadKey = false;
   bool mTakeBonus = false;
   bool mSkipBonus = false;
+  int mSkipBonusAt = -1; // where the search gave up on it (-1: for good)
 };
 
 } // namespace gr

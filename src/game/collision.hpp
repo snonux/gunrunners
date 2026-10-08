@@ -62,6 +62,12 @@ public:
   // Index of the platform whose top row is (cx, cy), -1 if none.
   int platformAt(int cx, int cy) const;
 
+  // Things floating on sludge (its surface, bubbles, the raft): one-way
+  // tops like platforms, rebuilt by world_sludge.cpp every frame.
+  void clearFloats() { mFloats.clear(); }
+  void addFloat(const CellBox& b) { mFloats.push_back(b); }
+  bool floatTop(int cx, int cy) const;
+
   bool solid(int cx, int cy) const;    // blocks from every side
   bool solidTop(int cx, int cy) const; // can be stood on
   bool ladder(int cx, int cy) const;
@@ -90,6 +96,7 @@ private:
   int mW = 0, mH = 0;
   std::vector<Tile> mTiles;
   std::vector<CellBox> mPlatforms;
+  std::vector<CellBox> mFloats;
   bool mForceFieldsOn = true;
 };
 

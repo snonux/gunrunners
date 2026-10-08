@@ -28,7 +28,7 @@ void Level::set(int tx, int ty, Tile t)
 
 bool Level::isSolid(int tx, int ty) const
 {
-  return at(tx, ty) == Tile::Solid;
+  return at(tx, ty) == Tile::Solid || at(tx, ty) == Tile::Grate;
 }
 
 namespace
@@ -343,6 +343,9 @@ Level Level::parse(const std::string& text)
           break;
         case 'D':
           level.set(x, y, Tile::ForceField);
+          break;
+        case '%':
+          level.set(x, y, Tile::Grate);
           break;
         case 'P':
           level.startTx = x;

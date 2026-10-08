@@ -311,6 +311,69 @@ std::vector<float> makeSfx(Sfx id)
       addTone(b, 0.1, 0.25, midiFreq(72), Wave::Triangle, 0.14, 0.1);
       return b;
     }
+    case Sfx::Siren:
+    {
+      // Two slow up-and-down wails.
+      Osc a;
+      return render(2.2, [&](double t, double total) {
+        const double fr = 420.0 + 260.0 * (0.5 - 0.5 * std::cos(t * 2.0 * 3.14159 / 1.1));
+        return a.step(fr, Wave::Square, 0.4) * 0.16 * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.3);
+      });
+    }
+    case Sfx::Splash:
+    {
+      Noise n(311);
+      Svf f;
+      return render(0.45, [&](double t, double total) {
+        const double cut = sweep(2400.0, 300.0, t / total);
+        return f.low(n.next(), float(cut), 1.2) * 0.5 * std::exp(-t * 7.0) * std::min(1.0, t / 0.005);
+      });
+    }
+    case Sfx::Bubble:
+    {
+      Osc a;
+      return render(0.16, [&](double t, double total) {
+        const double fr = sweep(300.0, 1300.0, t / total);
+        return a.step(fr, Wave::Sine) * 0.35 * std::min(1.0, t / 0.004) * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::Bloop:
+    {
+      Osc a;
+      return render(0.35, [&](double t, double total) {
+        const double fr = sweep(900.0, 110.0, t / total);
+        return a.step(fr, Wave::Sine) * 0.4 * std::min(1.0, t / 0.004) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::Klaxon:
+    {
+      Osc a, b;
+      return render(0.9, [&](double t, double total) {
+        const bool on = std::fmod(t, 0.3) < 0.2;
+        const double v = a.step(330.0, Wave::Saw) * 0.5 + b.step(392.0, Wave::Square, 0.5) * 0.4;
+        return on ? v * 0.14 * std::min(1.0, (total - t) / 0.05) : 0.0;
+      });
+    }
+    case Sfx::Rattle:
+    {
+      // Something scrabbling inside a metal pipe.
+      Noise n(97);
+      Svf f;
+      return render(1.0, [&](double t, double total) {
+        const double tick = std::fmod(t, 0.07) < 0.025 ? 1.0 : 0.25;
+        return f.band(n.next(), float(900.0 + 400.0 * std::sin(t * 30.0)), 1.5) * 0.45 * tick *
+          std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Quack:
+    {
+      Osc a, b;
+      return render(0.22, [&](double t, double total) {
+        const double fr = sweep(620.0, 430.0, t / total);
+        return (a.step(fr, Wave::Saw) * 0.5 + b.step(fr * 2.01, Wave::Square, 0.3) * 0.25) * 0.22 *
+          std::min(1.0, t / 0.01) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
     case Sfx::Count:
       break;
   }

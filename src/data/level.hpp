@@ -24,6 +24,7 @@ enum class Tile : unsigned char
   Ladder,     // climb with up/down, jump off at the top
   Pipe,       // hang from it, move hand over hand
   ForceField, // solid until the access card is used on it
+  Grate,      // solid to walk on; sludge rises through it (level 5)
 };
 
 struct Spawn

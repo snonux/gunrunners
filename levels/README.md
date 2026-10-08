@@ -29,7 +29,9 @@ jumping, you fall and steer until you land on the net, up slows the fall and
 down speeds it up; `beatstep`: inputs are queued and the last one runs on the
 next beat, a step of 2 blocks or a jump; `sonar`: nothing draws but the
 runner, and each shot sends out an echo ring that outlines the walls it
-passes),
+passes; `autorun`: you ride a rubber duck that moves right half a cell a
+frame on its own, only jump (6 cells for everyone) and crouch work, and
+running into something bumps you back four blocks),
 `timer=` in seconds and `goal=exit` or `goal=collect:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -61,6 +63,14 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `stash` | `rect`, `manhole=x,y` | where Looters drop what they steal (they run for the manhole) |
 | `platform` … `powered=BREAKER` | | a lift that only moves while that breaker is on |
 | `deco` `kind=graffiti\|cat\|interior` | `rect` or `x y w h` | glow-paint credits a flare reveals; a cat's eyes in the dark (shoot near it); a concrete back wall for underground rooms |
+| `fluid` | `id`, `rect`, `kind=sludge\|tide`; tide: `low`, `high` (surface rows), `current` (quarter cells a frame east) | sludge: a heart a second, you wade at half speed, can't jump and can step a block up out of it; under the surface it pushes you up (hold down to dive); Turbo walks through it. A `tide`'s surface follows one 300-frame clock (siren 0-44, rise 45-89, high 90-179, drain 180-224, low after); `rect` is everywhere it can reach. Declare fluids before what lives in them |
+| `valve` | `id`, `zone` (a fluid) | a Valve Keeper turning it floods its zone (siren, rise, 300 frames high, drain); hold up beside it for 12 frames to padlock it |
+| `ratpipe` | `dir=l\|r`, `count` | rattles, then spits a line of Pipe Rats when you come within 8 blocks; re-arms after 300 frames off screen |
+| `raft` | `w` (blocks) | a raft of bubbles anchored where it floats; it rides the tide |
+| `bubble` | `hp` | puts the enemy at that spot (the candid camera) in a bubble that pops when shot |
+| `devnull` | | a 2x2-block pipe mouth: bubbles, rats and flares that float into it are gone with a bloop |
+| enemy keys `sludge_gator` (`look=sunglasses`, `carrier=1`), `valve_keeper` (`valve=`) | | the gator swims under its sludge and lunges up three blocks; the Keeper walks to its valve when you enter its zone |
+| `deco` `kind=waterfall\|log\|lowpipe` | `rect` or `x y w h` | sludge pouring down; Duck Rapids' logs and low pipes (over solid blocks) |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when
@@ -76,6 +86,7 @@ hanging), and jumps 6 to 9 cells high depending on the runner.
 | `H`  | ladder: press up to grab it, jump off at the top |
 | `-`  | hang bar (pipe): you grab it automatically when jumping into it; down aims down, up pulls your legs in, down+jump drops |
 | `D`  | force field: solid and deadly until you touch it while carrying the access card |
+| `%`  | grate: solid to walk on, sludge rises through it |
 | `P`  | player start (feet on the block below) |
 | `X`  | exit teleporter (stand on the block below it) |
 | `*`  | theme decoration (neon sign, torch, beacon) |

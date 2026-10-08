@@ -93,6 +93,18 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     o << "door " << d << '\n';
   if (s.allLitAt >= 0)
     o << "alllit " << s.allLitAt << '\n';
+  auto list = [&](const char* key, const std::vector<int>& v) {
+    if (v.empty())
+      return;
+    o << key << ' ' << v.size();
+    for (int x : v)
+      o << ' ' << x;
+    o << '\n';
+  };
+  list("floods", s.floods);
+  list("valves", s.valves);
+  list("ratpipes", s.ratPipes);
+  list("bubbled", s.bubbled);
   o << "end\n";
 
   const std::string tmp = path + ".tmp";
@@ -207,6 +219,14 @@ std::optional<SaveGame> readSave(const std::string& path)
       s.doors.push_back(a);
     else if (key == "alllit")
       in >> s.allLitAt;
+    else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled")
+    {
+      auto& v = key == "floods" ? s.floods : (key == "valves" ? s.valves : (key == "ratpipes" ? s.ratPipes : s.bubbled));
+      int n = 0;
+      in >> n;
+      for (int i = 0; i < n && i < 100000 && in >> a; ++i)
+        v.push_back(a);
+    }
     else if (key == "box" && in >> a)
       s.boxes.push_back(a != 0);
     else if (key == "item" && in >> a >> b >> c >> d >> k)
