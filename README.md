@@ -68,9 +68,14 @@ for this PoC but did not fork it, for two reasons:
    original `NUKEM2.CMP` content. Using it for an original game would mean
    either producing assets in Duke 2's formats or rewriting most of
    `assets/`, `data/` and `game_logic/`.
-2. **License.** RigelEngine is GPL-2.0. Copying its code would make
-   Gunrunners GPL-2.0 as well. That is a decision for the project owners,
-   so this PoC is written from scratch and only borrows ideas.
+2. **Rendering.** RigelEngine is built to reproduce Duke II's 320x200
+   pixel look. Gunrunners is aiming for modern HD 2D graphics instead, so
+   its renderer would not carry over either.
+
+The PoC is therefore written from scratch and borrows ideas rather than
+code. Gunrunners is licensed under the GPL (same as RigelEngine), so
+individual RigelEngine pieces can still be reused later where they help,
+with attribution.
 
 What we took over from its design:
 
@@ -112,3 +117,8 @@ docs/          design directions and media
 - More enemy types, a weapon pickup system, checkpoints.
 - A proper level editor workflow (e.g. Tiled `.tmx` import).
 - Gamepad support.
+
+## License
+
+Gunrunners is free software under the GNU General Public License, version 2
+or (at your option) any later version. See [LICENSE](LICENSE).
