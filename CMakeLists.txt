@@ -31,6 +31,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot.cpp
   src/frontend/controls.cpp
   src/frontend/game.cpp
+  src/frontend/menus.cpp
 )
 target_include_directories(gunrunners_core PUBLIC src)
 target_link_libraries(gunrunners_core PUBLIC SDL2::SDL2 PkgConfig::CAIRO)
@@ -44,3 +45,8 @@ target_link_libraries(gunrunners PRIVATE gunrunners_core SDL2::SDL2)
 if(TARGET SDL2::SDL2main)
   target_link_libraries(gunrunners PRIVATE SDL2::SDL2main)
 endif()
+
+enable_testing()
+add_executable(savegame_test tests/savegame_test.cpp)
+target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)

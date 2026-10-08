@@ -40,7 +40,41 @@ struct CliOptions
   std::string screenshotPrefix;
   std::vector<long> screenshotFrames;
   bool fullscreen = false;
+  // Headless: scripted button presses, tick -> buttons held for 3 ticks.
+  std::vector<std::pair<long, Input>> presses;
 };
+
+// "120:pause,140:down+confirm" -> presses. Used to test menus headlessly.
+bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& out)
+{
+  std::stringstream ss(spec);
+  std::string item;
+  while (std::getline(ss, item, ','))
+  {
+    const auto colon = item.find(':');
+    if (colon == std::string::npos)
+      return false;
+    Input in;
+    std::stringstream bs(item.substr(colon + 1));
+    std::string b;
+    while (std::getline(bs, b, '+'))
+    {
+      if (b == "left") in.left = true;
+      else if (b == "right") in.right = true;
+      else if (b == "up") in.up = true;
+      else if (b == "down") in.down = true;
+      else if (b == "jump") in.jump = true;
+      else if (b == "fire") in.fire = true;
+      else if (b == "confirm") in.confirm = true;
+      else if (b == "pause") in.pause = true;
+      else if (b == "back") in.back = true;
+      else if (b == "swap") in.swap = true;
+      else return false;
+    }
+    out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
+  }
+  return true;
+}
 
 void printUsage()
 {
@@ -61,9 +95,16 @@ void printUsage()
     "  --screenshot-prefix P  path prefix for those PNGs (default shot_)\n"
     "  --frames N           stop after N ticks\n"
     "  --fullscreen         start in fullscreen\n"
+    "  --save-dir PATH      where the 5 savegame slots live\n"
+    "                       (default: $XDG_DATA_HOME/gunrunners/saves or\n"
+    "                       ~/.local/share/gunrunners/saves)\n"
+    "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
+    "                       (left right up down jump fire confirm pause back swap)\n"
     "\n"
     "Keys: arrows/WASD move, Z/Space jump, X/Ctrl fire, Enter confirm,\n"
-    "      T cycle theme, Esc quit");
+    "      C switch runner, Esc/P pause menu (save, load, quit), T cycle theme\n"
+    "Gamepad: stick/d-pad move, A jump, X/B/RB/RT fire, Y switch runner,\n"
+    "      Start pause menu, Back cycle theme");
 }
 
 bool fileExists(const std::string& p)
@@ -128,6 +169,16 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.screenshotPrefix = next();
     else if (a == "--fullscreen")
       o.fullscreen = true;
+    else if (a == "--save-dir")
+      o.game.saveDir = next();
+    else if (a == "--press")
+    {
+      if (!parsePresses(next(), o.presses))
+      {
+        std::fprintf(stderr, "bad --press list\n");
+        std::exit(2);
+      }
+    }
     else if (a == "--help" || a == "-h")
     {
       printUsage();
@@ -238,7 +289,11 @@ int runHeadless(const CliOptions& o)
     long frames = 0;
     while (o.maxFrames < 0 || frames < o.maxFrames)
     {
-      if (!game.tick(Input{}))
+      Input scripted;
+      for (const auto& [at, in] : o.presses)
+        if (frames >= at && frames < at + 3)
+          scripted = scripted | in;
+      if (!game.tick(scripted))
         break;
       ++frames;
       if (audio)

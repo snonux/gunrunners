@@ -72,8 +72,6 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
     case SDL_KEYDOWN:
       if (ev.key.repeat)
         break;
-      if (ev.key.keysym.sym == SDLK_ESCAPE)
-        return Action::Quit;
       if (ev.key.keysym.sym == SDLK_t)
         return Action::CycleTheme;
       break;
@@ -103,7 +101,10 @@ Input Controls::read() const
   in.down = k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S];
   in.jump = k[SDL_SCANCODE_Z] || k[SDL_SCANCODE_SPACE];
   in.fire = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
-  in.confirm = k[SDL_SCANCODE_RETURN];
+  in.confirm = k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER];
+  in.pause = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_P];
+  in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE];
+  in.swap = k[SDL_SCANCODE_C];
 
   for (auto* pad : mPads)
   {
@@ -121,6 +122,9 @@ Input Controls::read() const
     in.fire = in.fire || button(SDL_CONTROLLER_BUTTON_X) || button(SDL_CONTROLLER_BUTTON_B) ||
       button(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) || axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > kTriggerThreshold;
     in.confirm = in.confirm || button(SDL_CONTROLLER_BUTTON_START) || button(SDL_CONTROLLER_BUTTON_A);
+    in.pause = in.pause || button(SDL_CONTROLLER_BUTTON_START);
+    in.back = in.back || button(SDL_CONTROLLER_BUTTON_B);
+    in.swap = in.swap || button(SDL_CONTROLLER_BUTTON_Y);
   }
   return in;
 }

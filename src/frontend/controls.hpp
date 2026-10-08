@@ -26,12 +26,13 @@ public:
   enum class Action
   {
     None,
-    Quit,
+    Quit, // window closed
     CycleTheme,
   };
 
   // Feed every SDL event through here. Handles hotplugging and returns the
-  // one-shot actions (quit, theme switch) that are not part of Input.
+  // one-shot actions (window closed, theme switch) that are not part of
+  // Input. Esc is part of Input: it opens the pause menu or backs out.
   Action handleEvent(const SDL_Event& ev);
 
   // Current state of the keyboard and all connected pads combined.

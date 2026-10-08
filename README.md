@@ -43,9 +43,11 @@ Play with the keyboard or a gamepad (both work at the same time):
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
 | Z / Space | A (bottom face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | X / Ctrl | X or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
-| Enter | Start (or A) | confirm |
+| C | Y | switch to the next runner, right where you stand |
+| Esc / P | Start | pause menu: resume, save, load, change runner, quit |
+| Enter | A (or Start) | confirm in menus |
+| Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
 | T | Back / Select | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
-| Esc | | quit |
 
 Gamepads use SDL2's GameController API, so Xbox, PlayStation, Switch Pro,
 8BitDo, Steam Deck and most generic USB or Bluetooth pads work with the
@@ -56,8 +58,13 @@ environment variable (a mapping line from a tool such as
 `sdl2-jstest` or the SDL GameController DB).
 
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
-bot plays), `--level PATH`, `--fullscreen`, `--no-audio`, `--trace` (prints
-the player state every logic frame). Run `--help` for all of them.
+bot plays), `--level PATH`, `--fullscreen`, `--no-audio`, `--save-dir PATH`,
+`--trace` (prints the player state every logic frame), `--press LIST`
+(scripted button presses for headless menu tests). Run `--help` for all of
+them.
+
+Tests: `ctest --test-dir build` runs the savegame round-trip test (play,
+save, load into a fresh world, save again, compare).
 
 ## Gameplay: how close to Duke Nukem II
 
@@ -87,6 +94,28 @@ The player logic is a port of RigelEngine's `game_logic/player.cpp`
 
 The runners differ in health and jump height; Rocco starts with rockets and
 Nova with the laser.
+
+## Beyond Duke Nukem II
+
+- **Switch runners mid-level.** Press C (gamepad Y) to cycle Dash, Rocco
+  and Nova on the spot, or pick one from the pause menu. Position, weapon,
+  ammo and items carry over; health keeps the same share of the new
+  runner's hearts.
+- **Turbo Mode.** A white item box with an orange core (`T` in level files)
+  maxes out every stat for 15 seconds: health refilled and no damage taken,
+  double walking speed, an 11-cell jump, fire on every frame, double damage.
+  Afterimages, a hot glow and a HUD timer show it; it warns before running out.
+- **Virus.** A floating green germ (`V`) that makes you sick for 8 seconds:
+  half walking speed, a 5-cell jump, no rapid fire, half damage. You turn
+  green and bubble. Shoot it from a distance for 250 points. Turbo cures
+  it, and touching a virus during Turbo burns the Turbo off instead.
+- **Savegames.** Five slots, from the pause menu (save or load) and the
+  LOAD GAME button on the title screen. A save keeps your runner, score,
+  health, weapon, ammo, items, letters, Turbo/Virus timers and what is left
+  of the level (enemies, boxes, items, checkpoints, the force field).
+  Loading puts you on the last solid ground you stood on. Saves live in
+  `$XDG_DATA_HOME/gunrunners/saves` (usually `~/.local/share/gunrunners/saves`),
+  one small text file per slot; `--save-dir` overrides that.
 
 ## Sound and music
 

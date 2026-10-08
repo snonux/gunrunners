@@ -436,10 +436,10 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
       DrawOpts t = o;
       t.blend = Blend::Add;
       t.tint = rgb(255, 170, 50);
-      t.alpha = 0.32f * (1.0f - float(i) / float(mTrail.size()));
+      t.alpha = 0.45f * (1.0f - float(i) / float(mTrail.size()));
       r.draw(tex, mTrail[i].x * S - camX, mTrail[i].y * S - camY - lift, t);
     }
-    drawGlow(r, mArt, x, y - 80, 110 + 12 * std::sin(float(frame) * 0.4f), rgb(255, 160, 40), 0.45f);
+    drawGlow(r, mArt, x, y - 80, 120 + 14 * std::sin(float(frame) * 0.4f), rgb(255, 160, 40), 0.6f);
   }
   if (p.virus > 0)
   {
