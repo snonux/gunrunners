@@ -36,6 +36,8 @@ and pop out what they hold, Duke style.
 | `m`  | blue box: merchandise (2000, counts for the "all merch" bonus) |
 | `r`  | white box: rapid fire for a while (500) |
 | `k`  | white box: access card for force fields (500) |
+| `T`  | white box: Turbo Mode, every stat maxed for 15 s (500) |
+| `V`  | virus, floating: touching it makes you slow and weak for 8 s; shoot it for 250 |
 | `L`  | green box: laser (pierces enemies) |
 | `R`  | green box: rockets (explode, heavy damage) |
 | `F`  | green box: flamethrower (pierces; hold down+fire to fly on its jetpack) |

@@ -61,22 +61,36 @@ void Game::sound(Sfx s)
 
 void Game::cycleTheme()
 {
-  mThemeIndex = (mThemeIndex + 1) % themeCount();
+  setTheme((mThemeIndex + 1) % themeCount());
+}
+
+void Game::setTheme(int index)
+{
+  if (index == mThemeIndex && mArt)
+    return;
+  // Mid-level, the run carries over into the new look.
+  std::optional<SaveGame> progress;
+  if (mWorld && mMode == Mode::Play && mWorld->canSave())
+    progress = mWorld->snapshot();
+
+  mThemeIndex = index;
   // World holds references into the art, so rebuild it alongside.
   auto newArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
   buildPanels();
-  if (mWorld && mMode == Mode::Play)
+  mWorld.reset();
+  mArt = std::move(newArt);
+  if (progress)
   {
-    mWorld.reset();
-    mArt = std::move(newArt);
-    startLevel();
+    mWorld = std::make_unique<World>(mLevel, progress->character, theme(), *mArt);
+    mWorld->restore(*progress);
+    mSubTick = 0;
+    mLatched = PlayerInput{};
   }
-  else
+  else if (mMode != Mode::Select)
   {
-    mWorld.reset();
-    mArt = std::move(newArt);
-    if (mMode != Mode::Select)
-      setMode(Mode::Select);
+    setMode(Mode::Select);
+    if (mAudio)
+      mAudio->playMusic(Music::Menu);
   }
 }
 
@@ -102,34 +116,72 @@ bool Game::tick(const Input& raw)
 {
   ++mFrame;
   ++mModeTicks;
+  if (mNoticeTicks > 0)
+    --mNoticeTicks;
   Input in = raw;
+  auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
+
+  if (mMenu != Menu::None)
+  {
+    tickMenu(in);
+    mPrev = in;
+    return !mQuit;
+  }
 
   switch (mMode)
   {
     case Mode::Select:
     {
       if (mOptions.autoplay)
-        in = mBot.menu(mCursor, mOptions.character, mModeTicks);
-      if (in.left && !mPrev.left)
+        in = mBot.menu(mCursor, mOptions.character, mModeTicks) | raw;
+      if (edge(&Input::up) || edge(&Input::down))
+      {
+        mTitleFocusLoad = !mTitleFocusLoad;
+        sound(Sfx::MenuMove);
+      }
+      if (!mTitleFocusLoad && edge(&Input::left))
       {
         mCursor = (mCursor + kCharacterCount - 1) % kCharacterCount;
         sound(Sfx::MenuMove);
       }
-      if (in.right && !mPrev.right)
+      if (!mTitleFocusLoad && edge(&Input::right))
       {
         mCursor = (mCursor + 1) % kCharacterCount;
         sound(Sfx::MenuMove);
       }
-      const bool go = (in.confirm && !mPrev.confirm) || (in.jump && !mPrev.jump) ||
-        (in.fire && !mPrev.fire);
+      const bool go = edge(&Input::confirm) || edge(&Input::jump);
       if (go && mModeTicks > 20)
       {
         sound(Sfx::MenuSelect);
-        startLevel();
+        if (mTitleFocusLoad)
+        {
+          mSlotsForSave = false;
+          openMenu(Menu::Slots);
+        }
+        else
+        {
+          startLevel();
+        }
+      }
+      else if (edge(&Input::back) && mTitleFocusLoad)
+      {
+        mTitleFocusLoad = false;
+      }
+      else if (edge(&Input::pause) && !in.confirm)
+      {
+        return false; // Esc on the title screen quits
       }
       break;
     }
     case Mode::Play:
+      if (edge(&Input::pause) && mWorld->state() == WorldState::Playing)
+      {
+        sound(Sfx::MenuSelect);
+        openMenu(Menu::Pause);
+        break;
+      }
+      if (edge(&Input::swap))
+        switchRunner((mWorld->characterIndex() + 1) % kCharacterCount);
       tickPlay(raw);
       break;
     case Mode::Bonus:
@@ -166,7 +218,7 @@ void Game::tickPlay(const Input& raw)
   {
     if (mSubTick == 0)
       mBotInput = mBot.play(*mWorld);
-    in = mBotInput;
+    in = mBotInput | raw;
   }
   mLatched.left = in.left;
   mLatched.right = in.right;
@@ -244,6 +296,10 @@ void Game::buildPanels()
   mCardPanelSelected = makePanel(mRenderer, 340, 470, rgba(14, 10, 34, 215), t.accentA, 22);
   mBannerPanel = makePanel(mRenderer, 760, 170, rgba(8, 6, 22, 200), t.accentA, 24);
   mBonusPanel = makePanel(mRenderer, 860, 560, rgba(8, 6, 22, 220), t.accentA, 28);
+  mMenuPanel = makePanel(mRenderer, 520, 470, rgba(8, 6, 22, 230), t.accentA, 26);
+  mSlotPanel = makePanel(mRenderer, 1000, 520, rgba(8, 6, 22, 235), t.accentA, 26);
+  mLoadButton = makePanel(mRenderer, 220, 46, rgba(10, 8, 26, 170), rgba(255, 255, 255, 80), 14);
+  mLoadButtonFocus = makePanel(mRenderer, 220, 46, rgba(14, 10, 34, 225), t.accentA, 14);
 }
 
 float Game::renderAlpha() const
@@ -276,6 +332,9 @@ void Game::render()
       renderBonus();
       break;
   }
+  if (mMenu != Menu::None)
+    renderMenu();
+  renderNotice();
 }
 
 void Game::renderSelect()
@@ -324,8 +383,12 @@ void Game::renderSelect()
     }
   }
 
-  r.drawText("KEYS  arrows move  -  Z jump  -  X fire  -  T theme      PAD  stick/d-pad  -  A jump  -  X/B/RT fire  -  Back theme",
-    cx, 684, {16.0f, rgb(210, 210, 228), kInk}, Align::Center);
+  // LOAD GAME button, reached with up/down.
+  r.draw(mTitleFocusLoad ? mLoadButtonFocus : mLoadButton, 1030, 128);
+  r.drawText("LOAD GAME", 1140, 138, {20.0f, mTitleFocusLoad ? t.accentA : t.hudText, kInk, true}, Align::Center);
+
+  r.drawText("KEYS  arrows move  -  Z jump  -  X fire  -  C runner  -  Esc menu      PAD  stick  -  A jump  -  X/B/RT fire  -  Y runner  -  Start menu",
+    cx, 684, {15.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 
 void Game::renderPlayOverlay()

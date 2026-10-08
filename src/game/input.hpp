@@ -15,6 +15,25 @@ struct Input
   bool jump = false;
   bool fire = false;
   bool confirm = false;
+  bool pause = false; // Esc / P, gamepad Start: open or close the pause menu
+  bool back = false;  // Esc / Backspace, gamepad B: leave a menu
+  bool swap = false;  // C, gamepad Y: switch to the next runner mid-level
+
+  Input operator|(const Input& o) const
+  {
+    Input r;
+    r.left = left || o.left;
+    r.right = right || o.right;
+    r.up = up || o.up;
+    r.down = down || o.down;
+    r.jump = jump || o.jump;
+    r.fire = fire || o.fire;
+    r.confirm = confirm || o.confirm;
+    r.pause = pause || o.pause;
+    r.back = back || o.back;
+    r.swap = swap || o.swap;
+    return r;
+  }
 };
 
 struct Button
