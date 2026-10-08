@@ -7,10 +7,10 @@ namespace gr
 
 class World;
 
-// A tiny autopilot used for attract mode and for recording gameplay clips
-// headlessly. It plays the same way a human would: by producing Input.
-// (RigelEngine records and replays input for its demo loop; a bot keeps
-// working while the level layout is still changing.)
+// A small autopilot used for attract mode and for recording gameplay clips
+// headlessly. It plays the same way a human would: by producing Input, once
+// per 15 Hz logic frame. (RigelEngine records and replays input for its demo
+// loop; a bot keeps working while the level layout is still changing.)
 class Bot
 {
 public:
@@ -20,8 +20,10 @@ public:
 private:
   int mJumpHold = 0;
   int mJumpRelease = 0;
-  int mStuckTicks = 0;
-  float mLastX = -1.0f;
+  int mStuck = 0;
+  int mLastX = -1;
+  int mJetpackUntilX = -1;
+  bool mFiredLast = false;
 };
 
 } // namespace gr

@@ -10,7 +10,11 @@
 #include <SDL.h>
 #include <cairo.h>
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <memory>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -30,6 +34,8 @@ struct CliOptions
   bool headless = false;
   long maxFrames = -1;
   std::string rawOut;
+  std::string audioOut;
+  bool noAudio = false;
   std::string screenshotPrefix;
   std::vector<long> screenshotFrames;
   bool fullscreen = false;
@@ -47,6 +53,9 @@ void printUsage()
     "  --quit-after-clear   exit after the results screen\n"
     "  --headless           no window; use with --raw-out to record\n"
     "  --raw-out PATH       write raw 1280x720 BGRA frames at 60 fps ('-' = stdout)\n"
+    "  --audio-out PATH     headless: write the matching soundtrack as a WAV file\n"
+    "  --no-audio           windowed: run without sound\n"
+    "  --trace              print the player state every logic frame\n"
     "  --screenshots LIST   headless: save PNGs of these ticks, e.g. 100,250\n"
     "  --screenshot-prefix P  path prefix for those PNGs (default shot_)\n"
     "  --frames N           stop after N ticks\n"
@@ -99,6 +108,12 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.headless = true;
     else if (a == "--raw-out")
       o.rawOut = next();
+    else if (a == "--audio-out")
+      o.audioOut = next();
+    else if (a == "--no-audio")
+      o.noAudio = true;
+    else if (a == "--trace")
+      o.game.trace = true;
     else if (a == "--frames")
       o.maxFrames = std::atol(next());
     else if (a == "--screenshots")
@@ -129,6 +144,54 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
   return true;
 }
 
+// Minimal 16-bit stereo WAV writer; the sizes are patched in on close.
+class WavWriter
+{
+public:
+  explicit WavWriter(const std::string& path) : mFile(std::fopen(path.c_str(), "wb"))
+  {
+    if (!mFile)
+      return;
+    const unsigned char header[44] = {};
+    std::fwrite(header, 1, sizeof(header), mFile);
+  }
+  ~WavWriter()
+  {
+    if (!mFile)
+      return;
+    const auto put32 = [&](std::uint32_t v) { std::fwrite(&v, 4, 1, mFile); };
+    const auto put16 = [&](std::uint16_t v) { std::fwrite(&v, 2, 1, mFile); };
+    std::fseek(mFile, 0, SEEK_SET);
+    std::fwrite("RIFF", 1, 4, mFile);
+    put32(36 + mBytes);
+    std::fwrite("WAVEfmt ", 1, 8, mFile);
+    put32(16);
+    put16(1);
+    put16(2);
+    put32(kAudioRate);
+    put32(kAudioRate * 4);
+    put16(4);
+    put16(16);
+    std::fwrite("data", 1, 4, mFile);
+    put32(mBytes);
+    std::fclose(mFile);
+  }
+  void write(const float* stereo, int frames)
+  {
+    if (!mFile)
+      return;
+    std::vector<std::int16_t> pcm(std::size_t(frames) * 2);
+    for (std::size_t i = 0; i < pcm.size(); ++i)
+      pcm[i] = std::int16_t(std::lround(std::max(-1.0f, std::min(1.0f, stereo[i])) * 32767.0f));
+    std::fwrite(pcm.data(), 2, pcm.size(), mFile);
+    mBytes += std::uint32_t(pcm.size() * 2);
+  }
+
+private:
+  std::FILE* mFile;
+  std::uint32_t mBytes = 0;
+};
+
 void savePng(SDL_Surface* surface, const std::string& path)
 {
   cairo_surface_t* cs = cairo_image_surface_create_for_data(
@@ -155,7 +218,15 @@ int runHeadless(const CliOptions& o)
   int result = 0;
   {
     Renderer renderer(sdlRenderer);
-    Game game(o.game, renderer);
+    std::unique_ptr<Audio> audio;
+    std::unique_ptr<WavWriter> wav;
+    if (!o.audioOut.empty())
+    {
+      audio = std::make_unique<Audio>();
+      wav = std::make_unique<WavWriter>(o.audioOut);
+    }
+    Game game(o.game, renderer, audio.get());
+    std::vector<float> audioFrame(std::size_t(kAudioRate / 60) * 2);
     std::FILE* out = nullptr;
     if (o.rawOut == "-")
       out = stdout;
@@ -169,6 +240,11 @@ int runHeadless(const CliOptions& o)
       if (!game.tick(Input{}))
         break;
       ++frames;
+      if (audio)
+      {
+        audio->mix(audioFrame.data(), kAudioRate / 60);
+        wav->write(audioFrame.data(), kAudioRate / 60);
+      }
       const bool shot = std::find(o.screenshotFrames.begin(), o.screenshotFrames.end(), frames) !=
         o.screenshotFrames.end();
       if (out || shot)
@@ -237,7 +313,14 @@ int runWindowed(const CliOptions& o)
 
   {
   Renderer renderer(sdlRenderer);
-  Game game(o.game, renderer);
+  std::unique_ptr<Audio> audio;
+  if (!o.noAudio)
+  {
+    audio = std::make_unique<Audio>();
+    if (!audio->openDevice())
+      audio.reset();
+  }
+  Game game(o.game, renderer, audio.get());
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
   Uint64 last = SDL_GetPerformanceCounter();

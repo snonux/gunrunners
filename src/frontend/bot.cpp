@@ -2,7 +2,7 @@
 
 #include "game/world.hpp"
 
-#include <cmath>
+#include <cstdlib>
 
 namespace gr
 {
@@ -10,16 +10,29 @@ namespace gr
 namespace
 {
 
-int toTile(float v) { return int(std::floor(v / float(kTileSize))); }
+int jumpHeight(const CharacterDef& c)
+{
+  int h = 0;
+  for (int v : c.jumpArc)
+    h += v;
+  return h;
+}
 
-bool isGround(Tile t) { return t == Tile::Solid || t == Tile::Platform || t == Tile::Crate; }
+// How many cells of wall rise in column x, counting up from row bottomY.
+int wallHeight(const CollisionMap& map, int x, int bottomY)
+{
+  int h = 0;
+  while (h < 40 && map.solid(x, bottomY - h))
+    ++h;
+  return h;
+}
 
 } // namespace
 
 Input Bot::menu(int cursor, int target, int ticksInMenu) const
 {
   Input in;
-  // Browse through all three dudes first, then settle on the target.
+  // Browse through all three runners first, then settle on the target.
   if (ticksInMenu > 40 && ticksInMenu % 36 < 4)
   {
     const int wanted = ticksInMenu < 40 + 36 * 2 ? 2 : target;
@@ -36,83 +49,205 @@ Input Bot::menu(int cursor, int target, int ticksInMenu) const
 Input Bot::play(const World& world)
 {
   const auto& p = world.player();
-  const auto& level = world.level();
-  const Rect b = p.box();
+  const auto& map = world.map();
+  const CellBox b = p.box();
   Input in;
-  in.right = true;
 
-  const int footY = toTile(b.bottom() - 1.0f);
-  const int headY = toTile(b.y + 2.0f);
-  const int frontX = toTile(b.right() + 5.0f);
-  const bool wallAhead = level.isSolid(frontX, footY) || level.isSolid(frontX, headY);
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting)
+    return in;
 
-  const int aheadX = toTile(b.right() + 10.0f);
-  bool groundAhead = false;
-  for (int dy = 1; dy <= 3 && !groundAhead; ++dy)
-    groundAhead = isGround(level.at(aheadX, footY + dy));
+  const bool rapid = p.rapidFire > 0 || p.weapon == Weapon::Flame;
+  auto fire = [&]() {
+    // Without rapid fire, every shot needs a fresh press.
+    in.fire = rapid || !mFiredLast;
+  };
+  auto startJump = [&](int frames) {
+    if (mJumpHold == 0 && mJumpRelease == 0)
+      mJumpHold = frames;
+  };
+  if (mJumpRelease > 0)
+    --mJumpRelease;
 
-  bool spikesAhead = false;
-  for (float dx : {6.0f, 14.0f, 22.0f})
-    if (level.at(toTile(b.right() + dx), footY) == Tile::Spikes ||
-        level.at(toTile(b.right() + dx), footY + 1) == Tile::Spikes)
-      spikesAhead = true;
+  // --- Climbing and hanging -------------------------------------------------
+  if (p.state == PlayerState::Ladder)
+  {
+    const bool atTop = !map.ladder(b.left() + 1, b.top() - 1);
+    if (atTop)
+    {
+      in.right = true;
+      in.jump = true;
+    }
+    else
+    {
+      in.up = true;
+    }
+    mFiredLast = false;
+    return in;
+  }
 
-  // Shoot whatever is in front and roughly at gun height.
+  if (p.state == PlayerState::Pipe)
+  {
+    in.right = true;
+    mFiredLast = false;
+    return in;
+  }
+
+  // --- Jetpack over walls nothing else gets past --------------------------
+  if (mJetpackUntilX >= 0)
+  {
+    if (p.x >= mJetpackUntilX || p.weapon != Weapon::Flame)
+    {
+      mJetpackUntilX = -1;
+    }
+    else
+    {
+      in.down = true;
+      in.fire = true;
+      in.right = true;
+      mFiredLast = true;
+      return in;
+    }
+  }
+
+  // --- Targets --------------------------------------------------------------
+  enum class Aim
+  {
+    None,
+    Stand,
+    Crouch,
+    Up,
+  } aim = Aim::None;
   bool holdPosition = false;
+  const int gunRow = b.bottom() - 2;
+  const int crouchRow = b.bottom() - 1;
+
   for (const auto& e : world.enemies())
   {
     if (!e.alive || !e.active)
       continue;
-    const Rect eb = e.box();
-    const float dx = eb.cx() - b.cx();
-    const float dy = eb.cy() - (p.pos.y + 12.0f);
-    if (dx > -4.0f && dx < 150.0f && std::abs(dy) < 18.0f)
+    const CellBox eb = e.box();
+    const int dx = eb.left() - b.right();
+    if (e.kind == EnemyKind::Flyer && eb.bottom() < b.top() && std::abs((eb.x + 1) - (b.x + 2)) <= 1)
     {
-      in.fire = true;
-      if (e.kind != EnemyKind::Flyer && dx < 46.0f)
-        holdPosition = true;
-    }
-  }
-  for (int dx = 0; dx < 6; ++dx)
-  {
-    const int tx = toTile(b.right()) + dx;
-    if (level.at(tx, footY) == Tile::Crate || level.at(tx, footY - 1) == Tile::Crate)
-    {
-      in.fire = true;
-      if (dx <= 1)
-        holdPosition = true;
+      aim = Aim::Up;
+      holdPosition = true;
       break;
     }
+    if (dx < 0 || dx > 18)
+      continue;
+    if (eb.top() <= gunRow && eb.bottom() >= gunRow)
+    {
+      aim = Aim::Stand;
+      holdPosition = holdPosition || dx < 9;
+    }
+    else if (eb.top() <= crouchRow && eb.bottom() >= crouchRow && p.state == PlayerState::OnGround)
+    {
+      aim = Aim::Crouch;
+      holdPosition = true;
+    }
   }
-  if (holdPosition && p.onGround)
-    in.right = false;
-
-  // Jumping.
-  const bool crateAhead = level.at(frontX, footY) == Tile::Crate;
-  const bool needJump = !holdPosition && !crateAhead && (wallAhead || !groundAhead || spikesAhead);
-  if (mJumpRelease > 0)
-    --mJumpRelease;
-  const bool canStartJump = mJumpHold == 0 && mJumpRelease == 0;
-  if (p.onGround && canStartJump && needJump)
-    mJumpHold = 22;
-
-  if (in.right && p.onGround && std::abs(p.pos.x - mLastX) < 0.05f)
-    ++mStuckTicks;
-  else
-    mStuckTicks = 0;
-  if (mStuckTicks > 20 && canStartJump)
+  if (aim == Aim::None && p.state == PlayerState::OnGround)
   {
-    mJumpHold = 22;
-    mStuckTicks = 0;
+    for (const auto& box : world.boxes())
+    {
+      if (!box.alive)
+        continue;
+      const CellBox bb = box.box();
+      const int dx = bb.left() - b.right();
+      if (dx >= 0 && dx < 12 && bb.bottom() == b.bottom())
+      {
+        // Crouching with the flamer would start the jetpack; its fat
+        // flames reach the floor anyway.
+        aim = p.weapon == Weapon::Flame ? Aim::Stand : Aim::Crouch;
+        holdPosition = true;
+        break;
+      }
+    }
   }
-  mLastX = p.pos.x;
+
+  if (aim != Aim::None && p.state == PlayerState::OnGround && mJumpHold == 0)
+  {
+    if (aim == Aim::Crouch)
+      in.down = true;
+    else if (aim == Aim::Up)
+      in.up = true;
+    if (!holdPosition)
+      in.right = true;
+    fire();
+    mFiredLast = in.fire && !rapid;
+    mStuck = 0;
+    mLastX = p.x;
+    return in;
+  }
+  mFiredLast = false;
+
+  // --- Moving right ---------------------------------------------------------
+  in.right = true;
+  if (p.facing < 0)
+  {
+    mLastX = p.x;
+    return in;
+  }
+
+  if (p.state == PlayerState::OnGround)
+  {
+    const int ahead = b.right() + 1;
+    const int wall = wallHeight(map, ahead, b.bottom());
+    // A gap is only worth jumping if there is no safe floor a short drop
+    // below; otherwise just walk off the edge.
+    auto safeDrop = [&](int x) {
+      for (int y = b.bottom() + 1; y <= b.bottom() + 10; ++y)
+        if (map.solidTop(x, y))
+          return !map.hazard(x, y - 1);
+      return false;
+    };
+    const bool gapAhead = !map.solidTop(ahead, b.bottom() + 1) && !map.solidTop(ahead + 1, b.bottom() + 1) &&
+      !(safeDrop(ahead + 1) && safeDrop(ahead + 2));
+    const bool hazardAhead = map.hazard(ahead, b.bottom()) || map.hazard(ahead + 1, b.bottom()) ||
+      map.hazard(ahead, b.bottom() + 1) || map.hazard(ahead + 1, b.bottom() + 1);
+
+    bool ladderHere = false;
+    for (int x = b.left(); x <= b.right(); ++x)
+      ladderHere = ladderHere || map.ladder(x, b.top());
+
+    if (wall > jumpHeight(world.character()))
+    {
+      if (ladderHere)
+      {
+        in.right = false;
+        in.up = true;
+      }
+      else if (p.weapon == Weapon::Flame && !map.forceField(ahead, b.bottom()))
+      {
+        // Fly up until we are above the wall, then let go.
+        mJetpackUntilX = ahead;
+        in.down = true;
+        in.fire = true;
+      }
+    }
+    else if (wall > 0 || gapAhead || hazardAhead)
+    {
+      startJump(7);
+    }
+
+    if (p.x == mLastX)
+      ++mStuck;
+    else
+      mStuck = 0;
+    if (mStuck > 8)
+    {
+      startJump(7);
+      mStuck = 0;
+    }
+  }
 
   if (mJumpHold > 0)
   {
     in.jump = true;
     if (--mJumpHold == 0)
-      mJumpRelease = 2; // let go so the next press registers
+      mJumpRelease = 1; // let go so the next press registers
   }
+  mLastX = p.x;
   return in;
 }
 

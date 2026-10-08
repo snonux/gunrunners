@@ -63,15 +63,29 @@ Look lookFor(int kind)
   }
 }
 
+enum class Arms
+{
+  Aim,       // gun in the front hand, pointing along Pose::aim
+  Climb,     // both hands on the ladder
+  Hang,      // both hands on the pipe
+  HangAim,   // back hand on the pipe, gun pointing down
+  Flail,     // hit and flying
+};
+
 struct Pose
 {
-  double bob = 0.0;
+  double bob = 0.0; // + moves hips, torso and head down
   double lean = 0.0;
   double thigh[2] = {0.0, 0.0}; // [0] back leg, [1] front leg; radians, + = forward
   double knee[2] = {0.0, 0.0};
   double armLift = 0.0;
   double hairSwing = 0.0;
+  Arms arms = Arms::Aim;
+  double aim = 0.0;          // radians: 0 forward, -pi/2 up, +pi/2 down
+  double grip[2] = {0, 0};   // hand offsets while climbing or hanging
 };
+
+constexpr double kHangHandY = -12.0; // where the hands hold the pipe
 
 void drawLeg(cairo_t* cr, const Look& L, double hx, double hy, double thigh, double knee, bool back)
 {
@@ -80,9 +94,39 @@ void drawLeg(cairo_t* cr, const Look& L, double hx, double hy, double thigh, dou
   const double a2 = thigh - knee;
   const double fx = kx + std::sin(a2) * l2, fy = ky + std::cos(a2) * l2;
   strokeLimb(cr, {{hx, hy}, {kx, ky}, {fx, fy}}, 10.0, back ? L.pantsShade : L.pants, kInk, kLine);
-  roundedRect(cr, fx - 6.0, fy - 4.0, 16.0, 9.0, 3.8);
+  cairo_save(cr);
+  cairo_translate(cr, fx, fy);
+  cairo_rotate(cr, -(a2) * 0.6);
+  roundedRect(cr, -6.0, -4.0, 16.0, 9.0, 3.8);
   const Color boot = back ? darken(L.boots, 0.25f) : L.boots;
-  fillGradientOutline(cr, fy - 4.0, fy + 5.0, lighten(boot, 0.2f), darken(boot, 0.2f), kInk, kLine);
+  fillGradientOutline(cr, -4.0, 5.0, lighten(boot, 0.2f), darken(boot, 0.2f), kInk, kLine);
+  cairo_restore(cr);
+}
+
+void drawHand(cairo_t* cr, const Look& L, double x, double y)
+{
+  cairo_arc(cr, x, y, 3.8, 0, 2 * kPi);
+  fillOutline(cr, L.skin, kInk, 1.8);
+}
+
+// The gun, drawn around the hand at (hx, hy) and rotated by angle.
+void drawGun(cairo_t* cr, const Look& L, double hx, double hy, double angle)
+{
+  const double gl = L.kind == 1 ? 24.0 : (L.kind == 2 ? 19.0 : 20.0);
+  const double gh = L.kind == 1 ? 10.0 : 7.5;
+  cairo_save(cr);
+  cairo_translate(cr, hx, hy);
+  cairo_rotate(cr, angle);
+  roundedRect(cr, -1.0, 1.0, 4.5, 8.0, 1.5);
+  fillOutline(cr, darken(L.gun, 0.45f), kInk, 1.4);
+  roundedRect(cr, -4.0, -gh + 1.0, gl, gh, 2.8);
+  fillGradientOutline(cr, -gh + 1.0, 1.0, L.gunLight, L.gun, kInk, kLine);
+  roundedRect(cr, -4.0 + gl - 1.0, -gh * 0.5 - 1.0, 6.0, 3.6, 1.2);
+  fillOutline(cr, darken(L.gun, 0.3f), kInk, 1.4);
+  roundedRect(cr, 2.0, -gh + 2.5, gl * 0.45, 2.0, 1.0);
+  setColor(cr, withAlpha(L.accent, 230));
+  cairo_fill(cr);
+  cairo_restore(cr);
 }
 
 void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
@@ -93,6 +137,8 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
   const Color sleeve = bareArms ? L.skin : L.top;
   const Color sleeveShade = bareArms ? L.skinShade : L.topShade;
   const double hcx = 34.0 + lean, hcy = 16.0 + P.bob, r = L.headR;
+  const double bsx = 29.0 + lean, bsy = 37.0 + P.bob; // back shoulder
+  const double fsx = 34.0 + lean, fsy = 36.0 + P.bob; // front shoulder
 
   // Nova's ponytail sits behind everything.
   if (L.kind == 2)
@@ -118,8 +164,32 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
     }
   }
 
-  // Back arm and back leg.
-  strokeLimb(cr, {{29.0 + lean, 37.0 + P.bob}, {25.0 + lean, 47.0 + P.bob}, {27.0 + lean, 55.0 + P.bob}}, 7.5, sleeveShade, kInk, kLine);
+  // Back arm.
+  switch (P.arms)
+  {
+    case Arms::Aim:
+      strokeLimb(cr, {{bsx, bsy}, {bsx - 4.0, bsy + 10.0 - P.armLift * 0.3}, {bsx - 2.0, bsy + 18.0 - P.armLift * 0.6}}, 7.5, sleeveShade, kInk, kLine);
+      break;
+    case Arms::Climb:
+    {
+      const double hx = hcx - 4.0, hy = hcy - 12.0 + P.grip[0];
+      strokeLimb(cr, {{bsx, bsy}, {bsx - 5.0, (bsy + hy) * 0.5}, {hx, hy}}, 7.5, sleeveShade, kInk, kLine);
+      drawHand(cr, L, hx, hy);
+      break;
+    }
+    case Arms::Hang:
+    case Arms::HangAim:
+    {
+      const double hx = hcx - 5.0 + P.grip[0], hy = kHangHandY;
+      strokeLimb(cr, {{bsx, bsy}, {bsx - 3.0, (bsy + hy) * 0.5}, {hx, hy}}, 7.5, sleeveShade, kInk, kLine);
+      drawHand(cr, L, hx, hy);
+      break;
+    }
+    case Arms::Flail:
+      strokeLimb(cr, {{bsx, bsy}, {bsx - 10.0, bsy - 6.0}, {bsx - 14.0, bsy - 16.0}}, 7.5, sleeveShade, kInk, kLine);
+      drawHand(cr, L, bsx - 14.0, bsy - 16.0);
+      break;
+  }
   drawLeg(cr, L, hipX - 2.0, hipY, P.thigh[0], P.knee[0], true);
 
   // Torso.
@@ -177,7 +247,8 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
     cairo_arc(cr, 0, 0, 2.5, 0, 2 * kPi);
     cairo_restore(cr);
     fillOutline(cr, rgb(255, 255, 255), kInk, 1.0);
-    cairo_arc(cr, hcx + 6.5, hcy - 0.6, 1.4, 0, 2 * kPi);
+    const double look = P.arms == Arms::Aim && P.aim < -0.5 ? -1.2 : (P.aim > 0.5 ? 1.0 : 0.0);
+    cairo_arc(cr, hcx + 6.5, hcy - 0.6 + look, 1.4, 0, 2 * kPi);
     setColor(cr, kInk);
     cairo_fill(cr);
     strokeLimb(cr, {{hcx - 0.5, hcy - 5.0}, {hcx + 8.0, hcy - 5.5}}, 1.4, darken(L.hair, 0.1f), kInk, 0.0);
@@ -249,23 +320,52 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
     }
   }
 
-  // Front arm, gun and hand.
-  const double sx = 34.0 + lean, sy = 36.0 + P.bob;
-  const double hx = 47.0 + lean, hy = 43.0 + P.bob - P.armLift;
-  strokeLimb(cr, {{sx, sy}, {40.0 + lean, 44.0 + P.bob - P.armLift * 0.5}, {hx, hy}}, 8.0, sleeve, kInk, kLine);
-  const double gl = L.kind == 1 ? 24.0 : (L.kind == 2 ? 19.0 : 20.0);
-  const double gh = L.kind == 1 ? 10.0 : 7.5;
-  roundedRect(cr, hx - 1.0, hy + 1.0, 4.5, 8.0, 1.5);
-  fillOutline(cr, darken(L.gun, 0.45f), kInk, 1.4);
-  roundedRect(cr, hx - 4.0, hy - gh + 1.0, gl, gh, 2.8);
-  fillGradientOutline(cr, hy - gh + 1.0, hy + 1.0, L.gunLight, L.gun, kInk, kLine);
-  roundedRect(cr, hx - 4.0 + gl - 1.0, hy - gh * 0.5 - 1.0, 6.0, 3.6, 1.2);
-  fillOutline(cr, darken(L.gun, 0.3f), kInk, 1.4);
-  roundedRect(cr, hx + 2.0, hy - gh + 2.5, gl * 0.45, 2.0, 1.0);
-  setColor(cr, withAlpha(L.accent, 230));
-  cairo_fill(cr);
-  cairo_arc(cr, hx, hy, 3.8, 0, 2 * kPi);
-  fillOutline(cr, L.skin, kInk, 1.8);
+  // Front arm: holds the gun unless both hands are busy.
+  switch (P.arms)
+  {
+    case Arms::Aim:
+    case Arms::HangAim:
+    {
+      double ox = 13.0, oy = 11.0 - P.armLift;
+      if (P.aim < -0.5)
+      {
+        ox = 6.0;
+        oy = -12.0;
+      }
+      else if (P.aim > 0.5)
+      {
+        ox = 9.0;
+        oy = 13.0;
+      }
+      const double hx = fsx + ox, hy = fsy + oy;
+      strokeLimb(cr, {{fsx, fsy}, {(fsx + hx) * 0.5 - 1.0, (fsy + hy) * 0.5 + 3.0}, {hx, hy}}, 8.0, sleeve, kInk, kLine);
+      drawGun(cr, L, hx, hy, P.aim);
+      drawHand(cr, L, hx, hy);
+      break;
+    }
+    case Arms::Climb:
+    {
+      const double hx = hcx + 6.0, hy = hcy - 15.0 + P.grip[1];
+      strokeLimb(cr, {{fsx, fsy}, {fsx + 6.0, (fsy + hy) * 0.5 + 2.0}, {hx, hy}}, 8.0, sleeve, kInk, kLine);
+      drawHand(cr, L, hx, hy);
+      break;
+    }
+    case Arms::Hang:
+    {
+      const double hx = hcx + 5.0 + P.grip[1], hy = kHangHandY;
+      strokeLimb(cr, {{fsx, fsy}, {fsx + 4.0, (fsy + hy) * 0.5}, {hx, hy}}, 8.0, sleeve, kInk, kLine);
+      drawHand(cr, L, hx, hy);
+      break;
+    }
+    case Arms::Flail:
+    {
+      const double hx = fsx + 14.0, hy = fsy - 14.0;
+      strokeLimb(cr, {{fsx, fsy}, {fsx + 10.0, fsy - 4.0}, {hx, hy}}, 8.0, sleeve, kInk, kLine);
+      drawGun(cr, L, hx, hy, -1.1);
+      drawHand(cr, L, hx, hy);
+      break;
+    }
+  }
 }
 
 Pose idlePose(int frame)
@@ -296,6 +396,39 @@ Pose runPose(int frame)
   return p;
 }
 
+Pose lookUpPose()
+{
+  Pose p = idlePose(0);
+  p.aim = -kPi / 2.0;
+  p.lean = -1.0;
+  return p;
+}
+
+Pose crouchPose()
+{
+  Pose p;
+  p.bob = 19.0;
+  p.lean = 1.0;
+  p.thigh[1] = 1.35;
+  p.knee[1] = 2.25;
+  p.thigh[0] = 0.75;
+  p.knee[0] = 2.2;
+  p.hairSwing = 2.0;
+  return p;
+}
+
+Pose coilPose()
+{
+  Pose p;
+  p.bob = 8.0;
+  p.thigh[1] = 0.75;
+  p.knee[1] = 1.35;
+  p.thigh[0] = 0.35;
+  p.knee[0] = 1.15;
+  p.armLift = -1.0;
+  return p;
+}
+
 Pose jumpPose()
 {
   Pose p;
@@ -308,29 +441,134 @@ Pose jumpPose()
   return p;
 }
 
-Pose fallPose()
+Pose fallPose(bool fast)
 {
   Pose p;
-  p.thigh[1] = 0.4;
-  p.knee[1] = 0.35;
-  p.thigh[0] = -0.35;
+  p.thigh[1] = fast ? 0.55 : 0.4;
+  p.knee[1] = fast ? 0.2 : 0.35;
+  p.thigh[0] = fast ? -0.5 : -0.35;
   p.knee[0] = 0.55;
-  p.armLift = 1.0;
-  p.hairSwing = -5.0;
+  p.armLift = fast ? 4.0 : 1.0;
+  p.hairSwing = -6.0;
   return p;
 }
 
-constexpr int kCharTexW = 128;
-constexpr int kCharTexH = 120;
-constexpr double kCharOffX = 32.0;
-constexpr double kCharOffY = 20.0;
+Pose tuckPose()
+{
+  Pose p;
+  p.bob = 12.0;
+  p.thigh[1] = 1.9;
+  p.knee[1] = 2.6;
+  p.thigh[0] = 1.6;
+  p.knee[0] = 2.5;
+  p.armLift = -2.0;
+  p.aim = 0.35;
+  return p;
+}
 
-Sprite bakeCharacter(const Renderer& r, const Look& look, const Pose& pose)
+Pose climbPose(int frame)
+{
+  Pose p;
+  p.arms = Arms::Climb;
+  p.lean = 2.0;
+  const double s = frame == 0 ? 1.0 : -1.0;
+  p.grip[0] = 5.0 * s;
+  p.grip[1] = -5.0 * s;
+  p.thigh[1] = frame == 0 ? 0.9 : 0.15;
+  p.knee[1] = frame == 0 ? 1.5 : 0.3;
+  p.thigh[0] = frame == 0 ? 0.1 : 0.85;
+  p.knee[0] = frame == 0 ? 0.25 : 1.45;
+  return p;
+}
+
+Pose hangPose(int frame)
+{
+  Pose p;
+  p.arms = Arms::Hang;
+  p.bob = -24.0;
+  p.lean = 1.0;
+  const double ph = 2.0 * kPi * double(std::max(0, frame)) / 4.0;
+  if (frame >= 0)
+  {
+    p.grip[0] = 4.0 * std::sin(ph);
+    p.grip[1] = -4.0 * std::sin(ph);
+    p.thigh[1] = 0.35 * std::sin(ph);
+    p.thigh[0] = -0.35 * std::sin(ph);
+    p.hairSwing = 3.0 * std::cos(ph);
+  }
+  else
+  {
+    p.thigh[1] = 0.1;
+    p.thigh[0] = -0.08;
+  }
+  p.knee[0] = 0.35;
+  p.knee[1] = 0.25;
+  return p;
+}
+
+Pose hangAimDownPose()
+{
+  Pose p = hangPose(-1);
+  p.arms = Arms::HangAim;
+  p.aim = kPi / 2.0;
+  return p;
+}
+
+Pose hangLegsUpPose()
+{
+  Pose p = hangPose(-1);
+  p.thigh[1] = 1.7;
+  p.knee[1] = 1.9;
+  p.thigh[0] = 1.45;
+  p.knee[0] = 1.8;
+  return p;
+}
+
+Pose jetpackPose()
+{
+  Pose p;
+  p.aim = kPi / 2.0;
+  p.thigh[1] = 0.25;
+  p.knee[1] = 0.5;
+  p.thigh[0] = -0.15;
+  p.knee[0] = 0.4;
+  p.hairSwing = -6.0;
+  return p;
+}
+
+Pose hurtPose()
+{
+  Pose p;
+  p.arms = Arms::Flail;
+  p.lean = -3.0;
+  p.thigh[1] = 0.7;
+  p.knee[1] = 0.6;
+  p.thigh[0] = -0.6;
+  p.knee[0] = 0.3;
+  p.hairSwing = -7.0;
+  return p;
+}
+
+// Characters are drawn in a 64x96 design box and baked at Duke Nukem II
+// proportions: the 3x5 cell (96x160 px) collision box. Each texture is
+// anchored at the middle of the feet.
+constexpr double kCharScale = 1.65;
+constexpr int kCharTexW = 240;
+constexpr int kCharTexH = 256;
+constexpr double kCharAnchorX = 120.0;
+constexpr double kCharAnchorY = 216.0;
+constexpr double kDesignFeetX = 32.0;
+constexpr double kDesignFeetY = 96.0;
+
+Sprite bakeCharacter(const Renderer& r, const Look& look, const Pose& pose, double designAnchorY = kDesignFeetY)
 {
   VectorImage img(kCharTexW, kCharTexH);
-  cairo_translate(img.cr(), kCharOffX, kCharOffY);
-  drawCharacter(img.cr(), look, pose);
-  return toSprite(img, r, float(kCharOffX), float(kCharOffY));
+  cairo_t* cr = img.cr();
+  cairo_translate(cr, kCharAnchorX, kCharAnchorY);
+  cairo_scale(cr, kCharScale, kCharScale);
+  cairo_translate(cr, -kDesignFeetX, -designAnchorY);
+  drawCharacter(cr, look, pose);
+  return toSprite(img, r, float(kCharAnchorX), float(kCharAnchorY));
 }
 
 CharacterArt buildCharacter(const Renderer& r, int kind)
@@ -341,26 +579,47 @@ CharacterArt buildCharacter(const Renderer& r, int kind)
     art.idle[std::size_t(i)] = bakeCharacter(r, look, idlePose(i));
   for (int i = 0; i < kRunFrames; ++i)
     art.run[std::size_t(i)] = bakeCharacter(r, look, runPose(i));
+  art.lookUp = bakeCharacter(r, look, lookUpPose());
+  art.crouch = bakeCharacter(r, look, crouchPose());
+  art.coil = bakeCharacter(r, look, coilPose());
   art.jump = bakeCharacter(r, look, jumpPose());
-  art.fall = bakeCharacter(r, look, fallPose());
+  art.fall = bakeCharacter(r, look, fallPose(false));
+  art.fallFast = bakeCharacter(r, look, fallPose(true));
+  // The tuck is spun around its middle, so anchor it there.
+  art.tuck = bakeCharacter(r, look, tuckPose(), 66.0);
+  for (int i = 0; i < 2; ++i)
+    art.climb[std::size_t(i)] = bakeCharacter(r, look, climbPose(i));
+  art.hang = bakeCharacter(r, look, hangPose(-1));
+  for (int i = 0; i < 4; ++i)
+    art.hangMove[std::size_t(i)] = bakeCharacter(r, look, hangPose(i));
+  art.hangAimDown = bakeCharacter(r, look, hangAimDownPose());
+  art.hangLegsUp = bakeCharacter(r, look, hangLegsUpPose());
+  art.jetpack = bakeCharacter(r, look, jetpackPose());
+  art.hurt = bakeCharacter(r, look, hurtPose());
 
-  VectorImage portrait(kCharTexW * 2, kCharTexH * 2);
+  VectorImage portrait(256, 240);
   cairo_scale(portrait.cr(), 2.0, 2.0);
-  cairo_translate(portrait.cr(), kCharOffX, kCharOffY);
+  cairo_translate(portrait.cr(), 32.0, 20.0);
   drawCharacter(portrait.cr(), look, idlePose(0));
-  art.portrait = portrait.toTexture(r, float(kCharTexW), 0.0f);
+  art.portrait = portrait.toTexture(r, 128.0f, 0.0f);
   return art;
 }
 
 // --- Enemies ---------------------------------------------------------------
 
-constexpr int kEnemyTex = 96;
+// Enemies are drawn in a 64x64 design box and baked at 1.5x, which makes a
+// walker 3x3 cells. Anchored at the middle of the feet.
+constexpr int kEnemyTex = 144;
+constexpr double kEnemyScale = 1.5;
 constexpr double kEnemyOff = 16.0;
+constexpr float kEnemyAnchorX = 72.0f;
+constexpr float kEnemyAnchorY = 120.0f;
 
 Sprite bakeWalker(const Renderer& r, const Theme& t, int frame)
 {
   VectorImage img(kEnemyTex, kEnemyTex);
   cairo_t* cr = img.cr();
+  cairo_scale(cr, kEnemyScale, kEnemyScale);
   cairo_translate(cr, kEnemyOff, kEnemyOff);
   const double up0 = frame == 0 ? 0.0 : -3.0, up1 = frame == 0 ? -3.0 : 0.0;
   strokeLimb(cr, {{22, 46}, {20, 57 + up0}}, 7, t.enemyDark, kInk, kLine);
@@ -397,13 +656,14 @@ Sprite bakeWalker(const Renderer& r, const Theme& t, int frame)
   setColor(cr, lighten(t.enemyEye, 0.4f));
   cairo_fill(cr);
   strokeLimb(cr, {{20, 6}, {30, 5}}, 1.6, rgba(255, 255, 255, 170), kInk, 0.0);
-  return toSprite(img, r, float(kEnemyOff), float(kEnemyOff));
+  return toSprite(img, r, kEnemyAnchorX, kEnemyAnchorY);
 }
 
 Sprite bakeFlyer(const Renderer& r, const Theme& t, int frame)
 {
   VectorImage img(kEnemyTex, kEnemyTex);
   cairo_t* cr = img.cr();
+  cairo_scale(cr, kEnemyScale, kEnemyScale);
   cairo_translate(cr, kEnemyOff, kEnemyOff);
   radialGlow(cr, 32, 54, 12, t.enemyEye, 0.6);
   strokeLimb(cr, {{10, 16}, {54, 16}}, 4, t.enemyDark, kInk, 1.6);
@@ -440,13 +700,14 @@ Sprite bakeFlyer(const Renderer& r, const Theme& t, int frame)
   cairo_arc(cr, 39.5, 32, 3.2, 0, 2 * kPi);
   setColor(cr, lighten(t.enemyEye, 0.3f));
   cairo_fill(cr);
-  return toSprite(img, r, float(kEnemyOff), float(kEnemyOff));
+  return toSprite(img, r, kEnemyAnchorX, kEnemyAnchorY);
 }
 
 Sprite bakeTurret(const Renderer& r, const Theme& t)
 {
   VectorImage img(kEnemyTex, kEnemyTex);
   cairo_t* cr = img.cr();
+  cairo_scale(cr, kEnemyScale, kEnemyScale);
   cairo_translate(cr, kEnemyOff, kEnemyOff);
   roundedRect(cr, 38, 28, 26, 9, 3.5);
   fillGradientOutline(cr, 28, 37, t.enemyLight, t.enemyDark, kInk, kLine);
@@ -471,41 +732,66 @@ Sprite bakeTurret(const Renderer& r, const Theme& t)
     setColor(cr, rgba(0, 0, 0, 80));
     cairo_fill(cr);
   }
-  return toSprite(img, r, float(kEnemyOff), float(kEnemyOff));
+  return toSprite(img, r, kEnemyAnchorX, kEnemyAnchorY);
 }
 
 // --- Items -------------------------------------------------------------------
 
-Texture bakeGem(const Renderer& r, Color c)
+enum class ShotStyle
 {
-  VectorImage img(48, 48);
+  Normal,
+  Laser,
+  Rocket,
+  Flame,
+  Enemy,
+};
+
+// Item art lives in a 96x96 texture: the 2x2 cell (64x64 px) item box sits
+// at (16, 16), with room around it for glows.
+constexpr int kItemTex = 96;
+constexpr float kItemOff = 16.0f;
+
+Texture bakeItemBox(const Renderer& r, Color c)
+{
+  VectorImage img(kItemTex, kItemTex);
   cairo_t* cr = img.cr();
-  const double cx = 24, top = 9, mid = 20, bot = 40, hw = 13;
-  auto tri = [&](double x1, double y1, double x2, double y2, double x3, double y3, Color col) {
-    cairo_move_to(cr, x1, y1);
-    cairo_line_to(cr, x2, y2);
-    cairo_line_to(cr, x3, y3);
-    cairo_close_path(cr);
-    setColor(cr, col);
-    cairo_fill(cr);
-  };
-  tri(cx - hw, mid, cx - 5, top, cx, mid, lighten(c, 0.55f));
-  tri(cx, mid, cx - 5, top, cx + 5, top, lighten(c, 0.75f));
-  tri(cx, mid, cx + 5, top, cx + hw, mid, lighten(c, 0.3f));
-  tri(cx - hw, mid, cx, mid, cx, bot, c);
-  tri(cx, mid, cx + hw, mid, cx, bot, darken(c, 0.3f));
-  cairo_move_to(cr, cx - hw, mid);
-  cairo_line_to(cr, cx - 5, top);
-  cairo_line_to(cr, cx + 5, top);
-  cairo_line_to(cr, cx + hw, mid);
-  cairo_line_to(cr, cx, bot);
-  cairo_close_path(cr);
-  setColor(cr, darken(c, 0.55f));
-  cairo_set_line_width(cr, 1.8);
+  cairo_translate(cr, kItemOff, kItemOff);
+  // Shadowed body.
+  roundedRect(cr, 3, 5, 58, 58, 8);
+  setColor(cr, rgba(0, 0, 0, 90));
+  cairo_fill(cr);
+  roundedRect(cr, 2, 2, 60, 60, 8);
+  fillGradientOutline(cr, 2, 62, rgb(92, 98, 120), rgb(46, 48, 66), kInk, 2.6);
+  // Coloured frame and bands.
+  roundedRect(cr, 6, 6, 52, 52, 6);
+  setColor(cr, c);
+  cairo_set_line_width(cr, 4.0);
   cairo_stroke(cr);
-  strokeLimb(cr, {{17, 13}, {17, 19}}, 1.4, rgba(255, 255, 255, 230), kInk, 0.0);
-  strokeLimb(cr, {{14, 16}, {20, 16}}, 1.4, rgba(255, 255, 255, 230), kInk, 0.0);
-  return img.toTexture(r, 8.0f, 8.0f);
+  for (double y : {20.0, 40.0})
+  {
+    roundedRect(cr, 4, y, 56, 5, 2);
+    fillOutline(cr, darken(c, 0.25f), kInk, 1.2);
+  }
+  // Glowing emblem window.
+  roundedRect(cr, 18, 18, 28, 28, 6);
+  fillOutline(cr, rgb(20, 22, 34), kInk, 1.6);
+  radialGlow(cr, 32, 32, 16, c, 0.75);
+  cairo_move_to(cr, 32, 23);
+  cairo_line_to(cr, 41, 32);
+  cairo_line_to(cr, 32, 41);
+  cairo_line_to(cr, 23, 32);
+  cairo_close_path(cr);
+  fillOutline(cr, lighten(c, 0.45f), kInk, 1.4);
+  // Rivets and a highlight.
+  for (double x : {9.0, 55.0})
+    for (double y : {9.0, 55.0})
+    {
+      cairo_arc(cr, x, y, 2.2, 0, 2 * kPi);
+      setColor(cr, lighten(c, 0.5f));
+      cairo_fill(cr);
+    }
+  strokeLimb(cr, {{10, 4.5}, {44, 4.5}}, 1.6, rgba(255, 255, 255, 120), kInk, 0.0);
+  return img.toTexture(r, kItemOff, kItemOff);
 }
 
 void heartPath(cairo_t* cr, double cx, double cy, double s)
@@ -530,6 +816,451 @@ Texture bakeHeart(const Renderer& r, int size, Color c, Color shade, bool shine)
     cairo_fill(cr);
   }
   return img.toTexture(r, 0.0f, 0.0f);
+}
+
+void drawGemShape(cairo_t* cr, Color c, double cx, double top, double mid, double bot, double hw)
+{
+  auto tri = [&](double x1, double y1, double x2, double y2, double x3, double y3, Color col) {
+    cairo_move_to(cr, x1, y1);
+    cairo_line_to(cr, x2, y2);
+    cairo_line_to(cr, x3, y3);
+    cairo_close_path(cr);
+    setColor(cr, col);
+    cairo_fill(cr);
+  };
+  const double tw = hw * 0.4;
+  tri(cx - hw, mid, cx - tw, top, cx, mid, lighten(c, 0.55f));
+  tri(cx, mid, cx - tw, top, cx + tw, top, lighten(c, 0.75f));
+  tri(cx, mid, cx + tw, top, cx + hw, mid, lighten(c, 0.3f));
+  tri(cx - hw, mid, cx, mid, cx, bot, c);
+  tri(cx, mid, cx + hw, mid, cx, bot, darken(c, 0.3f));
+  cairo_move_to(cr, cx - hw, mid);
+  cairo_line_to(cr, cx - tw, top);
+  cairo_line_to(cr, cx + tw, top);
+  cairo_line_to(cr, cx + hw, mid);
+  cairo_line_to(cr, cx, bot);
+  cairo_close_path(cr);
+  setColor(cr, darken(c, 0.55f));
+  cairo_set_line_width(cr, 2.2);
+  cairo_stroke(cr);
+}
+
+// Every collectable, drawn into the 64x64 item area.
+Texture bakeItemIcon(const Renderer& r, const Theme& t, int icon, Color gemColor)
+{
+  VectorImage img(kItemTex, kItemTex);
+  cairo_t* cr = img.cr();
+  cairo_translate(cr, kItemOff, kItemOff);
+  switch (icon)
+  {
+    case kIconHealth:
+    {
+      // A health molecule: heart in a glass bubble.
+      radialGlow(cr, 32, 34, 34, rgb(255, 60, 100), 0.45);
+      cairo_arc(cr, 32, 34, 25, 0, 2 * kPi);
+      setColor(cr, rgba(255, 220, 230, 60));
+      cairo_fill_preserve(cr);
+      setColor(cr, rgba(255, 255, 255, 170));
+      cairo_set_line_width(cr, 2.2);
+      cairo_stroke(cr);
+      heartPath(cr, 32, 35, 16);
+      fillGradientOutline(cr, 18, 52, rgb(255, 120, 140), rgb(200, 20, 50), kInk, 2.4);
+      cairo_arc(cr, 25, 27, 3.2, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 230));
+      cairo_fill(cr);
+      cairo_arc(cr, 22, 18, 4, kPi, 1.6 * kPi);
+      setColor(cr, rgba(255, 255, 255, 200));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+      break;
+    }
+    case kIconMerch0:
+    {
+      // Mixtape.
+      cairo_save(cr);
+      cairo_translate(cr, 32, 36);
+      cairo_rotate(cr, -0.12);
+      roundedRect(cr, -26, -17, 52, 34, 4);
+      fillGradientOutline(cr, -17, 17, rgb(60, 60, 78), rgb(28, 28, 40), kInk, 2.4);
+      roundedRect(cr, -21, -13, 42, 14, 2);
+      fillGradientOutline(cr, -13, 1, t.accentA, darken(t.accentA, 0.3f), kInk, 1.4);
+      strokeLimb(cr, {{-16, -8}, {12, -8}}, 1.6, rgba(255, 255, 255, 200), kInk, 0.0);
+      for (double x : {-11.0, 11.0})
+      {
+        cairo_arc(cr, x, 8, 5.5, 0, 2 * kPi);
+        fillOutline(cr, rgb(235, 235, 245), kInk, 1.6);
+        cairo_arc(cr, x, 8, 2.2, 0, 2 * kPi);
+        setColor(cr, kInk);
+        cairo_fill(cr);
+      }
+      cairo_restore(cr);
+      break;
+    }
+    case kIconMerch1:
+    {
+      // Runner cap.
+      cairo_move_to(cr, 10, 40);
+      cairo_curve_to(cr, 10, 14, 50, 12, 52, 38);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, 14, 40, lighten(t.accentB, 0.2f), darken(t.accentB, 0.35f), kInk, 2.4);
+      cairo_move_to(cr, 40, 36);
+      cairo_curve_to(cr, 52, 34, 60, 38, 61, 44);
+      cairo_curve_to(cr, 52, 45, 44, 43, 38, 41);
+      cairo_close_path(cr);
+      fillOutline(cr, darken(t.accentB, 0.45f), kInk, 2.2);
+      cairo_arc(cr, 31, 16, 3, 0, 2 * kPi);
+      fillOutline(cr, darken(t.accentB, 0.3f), kInk, 1.4);
+      cairo_arc(cr, 28, 30, 7, 0, 2 * kPi);
+      fillOutline(cr, rgb(255, 255, 255), kInk, 1.4);
+      strokeLimb(cr, {{24, 30}, {32, 30}}, 2.2, t.accentA, kInk, 0.0);
+      break;
+    }
+    case kIconMerch2:
+    {
+      // Action figure in a blister card.
+      roundedRect(cr, 12, 6, 40, 54, 5);
+      fillGradientOutline(cr, 6, 60, rgb(255, 214, 80), rgb(230, 120, 40), kInk, 2.4);
+      roundedRect(cr, 17, 14, 30, 42, 6);
+      setColor(cr, rgba(255, 255, 255, 110));
+      cairo_fill(cr);
+      cairo_arc(cr, 32, 23, 5.5, 0, 2 * kPi);
+      fillOutline(cr, rgb(246, 200, 160), kInk, 1.6);
+      roundedRect(cr, 26, 28, 12, 14, 3);
+      fillOutline(cr, rgb(232, 64, 52), kInk, 1.6);
+      strokeLimb(cr, {{28, 42}, {27, 52}}, 4, rgb(54, 76, 150), kInk, 1.2);
+      strokeLimb(cr, {{36, 42}, {37, 52}}, 4, rgb(54, 76, 150), kInk, 1.2);
+      strokeLimb(cr, {{38, 31}, {44, 25}}, 3.5, rgb(232, 64, 52), kInk, 1.2);
+      strokeLimb(cr, {{26, 31}, {21, 37}}, 3.5, rgb(232, 64, 52), kInk, 1.2);
+      roundedRect(cr, 20, 8, 24, 4, 2);
+      setColor(cr, kInk);
+      cairo_fill(cr);
+      break;
+    }
+    case kIconLaser:
+    {
+      radialGlow(cr, 32, 32, 32, rgb(80, 230, 255), 0.4);
+      roundedRect(cr, 6, 24, 40, 14, 5);
+      fillGradientOutline(cr, 24, 38, rgb(220, 232, 245), rgb(110, 124, 150), kInk, 2.4);
+      roundedRect(cr, 44, 28, 16, 6, 2);
+      fillOutline(cr, rgb(90, 100, 120), kInk, 2.0);
+      roundedRect(cr, 14, 36, 9, 16, 3);
+      fillOutline(cr, rgb(70, 76, 96), kInk, 2.0);
+      for (int i = 0; i < 4; ++i)
+      {
+        roundedRect(cr, 18 + i * 6, 27, 3.5, 8, 1.5);
+        setColor(cr, rgb(120, 245, 255));
+        cairo_fill(cr);
+      }
+      radialGlow(cr, 60, 31, 9, rgb(120, 255, 255), 0.9);
+      break;
+    }
+    case kIconRocket:
+    {
+      radialGlow(cr, 32, 32, 32, rgb(255, 120, 60), 0.35);
+      roundedRect(cr, 4, 22, 46, 18, 7);
+      fillGradientOutline(cr, 22, 40, rgb(120, 150, 90), rgb(56, 76, 40), kInk, 2.4);
+      cairo_move_to(cr, 48, 24);
+      cairo_line_to(cr, 60, 31);
+      cairo_line_to(cr, 48, 38);
+      cairo_close_path(cr);
+      fillOutline(cr, rgb(240, 70, 60), kInk, 2.2);
+      roundedRect(cr, 16, 38, 10, 14, 3);
+      fillOutline(cr, rgb(60, 60, 70), kInk, 2.0);
+      roundedRect(cr, 10, 26, 30, 4, 2);
+      setColor(cr, rgba(255, 255, 255, 110));
+      cairo_fill(cr);
+      cairo_arc(cr, 8, 31, 4, 0, 2 * kPi);
+      fillOutline(cr, rgb(255, 210, 90), kInk, 1.6);
+      break;
+    }
+    case kIconFlame:
+    {
+      radialGlow(cr, 32, 32, 32, rgb(255, 150, 40), 0.4);
+      roundedRect(cr, 8, 22, 20, 32, 8);
+      fillGradientOutline(cr, 22, 54, rgb(255, 100, 70), rgb(160, 30, 30), kInk, 2.4);
+      strokeLimb(cr, {{24, 30}, {44, 30}}, 6, rgb(130, 136, 150), kInk, 2.0);
+      cairo_move_to(cr, 44, 30);
+      cairo_curve_to(cr, 50, 16, 58, 24, 62, 18);
+      cairo_curve_to(cr, 60, 30, 64, 34, 58, 42);
+      cairo_curve_to(cr, 54, 36, 50, 40, 44, 32);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, 16, 42, rgb(255, 240, 120), rgb(255, 110, 30), kInk, 1.8);
+      roundedRect(cr, 12, 18, 12, 6, 2);
+      fillOutline(cr, rgb(90, 90, 100), kInk, 1.6);
+      break;
+    }
+    case kIconRapidFire:
+    {
+      radialGlow(cr, 32, 32, 32, rgb(255, 220, 60), 0.45);
+      cairo_arc(cr, 32, 32, 24, 0, 2 * kPi);
+      fillGradientOutline(cr, 8, 56, rgb(80, 70, 110), rgb(36, 30, 56), kInk, 2.4);
+      cairo_move_to(cr, 36, 10);
+      cairo_line_to(cr, 20, 35);
+      cairo_line_to(cr, 31, 35);
+      cairo_line_to(cr, 27, 54);
+      cairo_line_to(cr, 45, 27);
+      cairo_line_to(cr, 34, 27);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, 10, 54, rgb(255, 250, 170), rgb(255, 190, 40), kInk, 2.0);
+      break;
+    }
+    case kIconKey:
+    {
+      radialGlow(cr, 32, 32, 30, rgb(255, 230, 80), 0.35);
+      cairo_save(cr);
+      cairo_translate(cr, 32, 33);
+      cairo_rotate(cr, -0.2);
+      roundedRect(cr, -24, -16, 48, 32, 5);
+      fillGradientOutline(cr, -16, 16, rgb(250, 250, 255), rgb(190, 196, 214), kInk, 2.4);
+      roundedRect(cr, -24, -9, 48, 7, 0);
+      setColor(cr, rgb(255, 200, 40));
+      cairo_fill(cr);
+      roundedRect(cr, -18, 3, 12, 9, 2);
+      fillOutline(cr, rgb(220, 180, 70), kInk, 1.4);
+      strokeLimb(cr, {{0, 6}, {17, 6}}, 2, rgb(140, 146, 170), kInk, 0.0);
+      strokeLimb(cr, {{0, 11}, {12, 11}}, 2, rgb(140, 146, 170), kInk, 0.0);
+      cairo_restore(cr);
+      break;
+    }
+    case kIconGem0:
+    case kIconGem1:
+    case kIconGem2:
+    case kIconGem3:
+    {
+      radialGlow(cr, 32, 32, 30, gemColor, 0.35);
+      drawGemShape(cr, gemColor, 32, 12, 26, 56, 20);
+      strokeLimb(cr, {{24, 15}, {24, 23}}, 1.8, rgba(255, 255, 255, 230), kInk, 0.0);
+      strokeLimb(cr, {{20, 19}, {28, 19}}, 1.8, rgba(255, 255, 255, 230), kInk, 0.0);
+      break;
+    }
+    default:
+    {
+      // Letters G, U, N in a glowing badge.
+      static const char* const kLetters[3] = {"G", "U", "N"};
+      const char* letter = kLetters[(icon - kIconLetterG) % 3];
+      radialGlow(cr, 32, 32, 34, t.accentA, 0.5);
+      cairo_arc(cr, 32, 32, 25, 0, 2 * kPi);
+      fillGradientOutline(cr, 7, 57, lighten(t.accentA, 0.25f), darken(t.accentA, 0.35f), kInk, 2.6);
+      cairo_arc(cr, 32, 32, 20, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 70));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+      cairo_select_font_face(cr, "DejaVu Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+      cairo_set_font_size(cr, 34);
+      cairo_text_extents_t ext;
+      cairo_text_extents(cr, letter, &ext);
+      cairo_move_to(cr, 32 - ext.width / 2 - ext.x_bearing, 32 - ext.height / 2 - ext.y_bearing);
+      cairo_text_path(cr, letter);
+      setColor(cr, kInk);
+      cairo_set_line_width(cr, 5.0);
+      cairo_stroke_preserve(cr);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+      break;
+    }
+  }
+  return img.toTexture(r, kItemOff, kItemOff);
+}
+
+// --- Climbables, force fields, beacons ---------------------------------------
+
+Texture bakeLadder(const Renderer& r, const Theme& t)
+{
+  // One block of ladder; the rails straddle the left cell column, so the
+  // texture is drawn 16 px left of its block.
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  const Color rail = t.id == ThemeId::LostTemple ? rgb(150, 104, 60) : lighten(t.rockLight, 0.15f);
+  const Color rung = t.id == ThemeId::LostTemple ? rgb(186, 140, 84) : t.rockLight;
+  for (double y : {12.0, 44.0})
+  {
+    roundedRect(cr, 12, y - 3, 40, 7, 3);
+    fillGradientOutline(cr, y - 3, y + 4, lighten(rung, 0.2f), darken(rung, 0.2f), kInk, 2.0);
+  }
+  for (double x : {10.0, 48.0})
+  {
+    cairo_rectangle(cr, x, -2, 7, 68);
+    fillGradientOutline(cr, 0, 64, lighten(rail, 0.15f), darken(rail, 0.2f), kInk, 2.0);
+  }
+  if (t.id == ThemeId::NeonOverdrive)
+    for (double y : {12.0, 44.0})
+    {
+      roundedRect(cr, 20, y - 1, 24, 2, 1);
+      setColor(cr, withAlpha(t.platform, 200));
+      cairo_fill(cr);
+    }
+  return img.toTexture(r, 16.0f, 0.0f);
+}
+
+Texture bakePipe(const Renderer& r, const Theme& t)
+{
+  // A hang bar across the top cell row of its block.
+  VectorImage img(64, 40);
+  cairo_t* cr = img.cr();
+  const Color c = t.id == ThemeId::LostTemple ? rgb(120, 150, 90) : lighten(t.rockLight, 0.25f);
+  cairo_rectangle(cr, -2, 11, 68, 11);
+  fillGradientOutline(cr, 11, 22, lighten(c, 0.35f), darken(c, 0.35f), kInk, 2.2);
+  strokeLimb(cr, {{0, 14}, {64, 14}}, 1.6, rgba(255, 255, 255, 120), kInk, 0.0);
+  roundedRect(cr, 26, 8, 12, 17, 3);
+  fillGradientOutline(cr, 8, 25, lighten(c, 0.1f), darken(c, 0.45f), kInk, 2.0);
+  cairo_rectangle(cr, 30, -4, 4, 12);
+  fillOutline(cr, darken(c, 0.4f), kInk, 1.6);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+Texture bakeFieldEmitter(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, 20);
+  cairo_t* cr = img.cr();
+  roundedRect(cr, 4, 2, 56, 16, 5);
+  fillGradientOutline(cr, 2, 18, lighten(t.rockLight, 0.2f), t.rockDark, kInk, 2.2);
+  for (int i = 0; i < 3; ++i)
+  {
+    cairo_arc(cr, 18 + i * 14, 10, 3, 0, 2 * kPi);
+    setColor(cr, rgb(255, 80, 80));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+Texture bakeFieldBeam(const Renderer& r)
+{
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  cairo_pattern_t* p = cairo_pattern_create_linear(0, 0, 64, 0);
+  cairo_pattern_add_color_stop_rgba(p, 0.0, 1, 1, 1, 0.0);
+  cairo_pattern_add_color_stop_rgba(p, 0.3, 1, 1, 1, 0.35);
+  cairo_pattern_add_color_stop_rgba(p, 0.5, 1, 1, 1, 0.95);
+  cairo_pattern_add_color_stop_rgba(p, 0.7, 1, 1, 1, 0.35);
+  cairo_pattern_add_color_stop_rgba(p, 1.0, 1, 1, 1, 0.0);
+  cairo_set_source(cr, p);
+  cairo_paint(cr);
+  cairo_pattern_destroy(p);
+  for (int i = 0; i < 6; ++i)
+  {
+    strokeLimb(cr, {{24 + (i % 3) * 8.0, i * 11.0}, {28 + ((i + 1) % 3) * 6.0, i * 11.0 + 8}}, 1.6, rgba(255, 255, 255, 220), kInk, 0.0);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+Texture bakeBeacon(const Renderer& r, const Theme& t, bool on)
+{
+  // 2x4 cells (64x128) with a margin of 16 for the glow.
+  VectorImage img(96, 160);
+  cairo_t* cr = img.cr();
+  cairo_translate(cr, 16, 16);
+  const Color light = on ? t.accentB : rgb(110, 110, 130);
+  if (on)
+    radialGlow(cr, 32, 26, 40, light, 0.6);
+  roundedRect(cr, 10, 104, 44, 24, 6);
+  fillGradientOutline(cr, 104, 128, lighten(t.rockLight, 0.15f), t.rockDark, kInk, 2.4);
+  roundedRect(cr, 26, 40, 12, 66, 4);
+  fillGradientOutline(cr, 40, 106, t.rockLight, darken(t.rockDark, 0.2f), kInk, 2.2);
+  for (int i = 0; i < 3; ++i)
+  {
+    roundedRect(cr, 28, 52 + i * 16, 8, 6, 2);
+    setColor(cr, on ? light : rgb(70, 70, 86));
+    cairo_fill(cr);
+  }
+  cairo_arc(cr, 32, 26, 15, 0, 2 * kPi);
+  fillGradientOutline(cr, 11, 41, lighten(light, 0.5f), darken(light, 0.25f), kInk, 2.4);
+  cairo_arc(cr, 27, 21, 4, 0, 2 * kPi);
+  setColor(cr, rgba(255, 255, 255, on ? 230 : 120));
+  cairo_fill(cr);
+  return img.toTexture(r, 16.0f, 16.0f);
+}
+
+// --- Projectiles -------------------------------------------------------------
+
+Texture bakeShot(const Renderer& r, ShotStyle style, Color enemyEye)
+{
+  switch (style)
+  {
+    case ShotStyle::Normal:
+    {
+      VectorImage img(72, 28);
+      cairo_t* cr = img.cr();
+      radialGlow(cr, 46, 14, 14, rgb(255, 190, 70), 0.8);
+      cairo_move_to(cr, 4, 14);
+      cairo_curve_to(cr, 20, 8, 44, 7, 58, 9);
+      cairo_curve_to(cr, 64, 10, 64, 18, 58, 19);
+      cairo_curve_to(cr, 44, 21, 20, 20, 4, 14);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, 7, 21, rgb(255, 255, 230), rgb(255, 170, 40), kInk, 0.0);
+      cairo_arc(cr, 54, 14, 3.5, 0, 2 * kPi);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+      return img.toTexture(r, 36.0f, 14.0f);
+    }
+    case ShotStyle::Laser:
+    {
+      VectorImage img(112, 24);
+      cairo_t* cr = img.cr();
+      roundedRect(cr, 2, 6, 108, 12, 6);
+      setColor(cr, rgba(60, 220, 255, 150));
+      cairo_fill(cr);
+      roundedRect(cr, 6, 9, 100, 6, 3);
+      setColor(cr, rgb(235, 255, 255));
+      cairo_fill(cr);
+      return img.toTexture(r, 56.0f, 12.0f);
+    }
+    case ShotStyle::Rocket:
+    {
+      VectorImage img(104, 36);
+      cairo_t* cr = img.cr();
+      cairo_move_to(cr, 2, 18);
+      cairo_curve_to(cr, 14, 8, 26, 10, 34, 13);
+      cairo_line_to(cr, 34, 23);
+      cairo_curve_to(cr, 26, 26, 14, 28, 2, 18);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, 8, 28, rgb(255, 240, 140), rgb(255, 100, 30), kInk, 0.0);
+      roundedRect(cr, 32, 11, 52, 14, 6);
+      fillGradientOutline(cr, 11, 25, rgb(220, 226, 236), rgb(120, 128, 150), kInk, 2.2);
+      cairo_move_to(cr, 82, 11);
+      cairo_line_to(cr, 100, 18);
+      cairo_line_to(cr, 82, 25);
+      cairo_close_path(cr);
+      fillOutline(cr, rgb(240, 70, 60), kInk, 2.2);
+      cairo_move_to(cr, 36, 11);
+      cairo_line_to(cr, 44, 3);
+      cairo_line_to(cr, 50, 11);
+      cairo_close_path(cr);
+      fillOutline(cr, rgb(240, 70, 60), kInk, 1.8);
+      cairo_move_to(cr, 36, 25);
+      cairo_line_to(cr, 44, 33);
+      cairo_line_to(cr, 50, 25);
+      cairo_close_path(cr);
+      fillOutline(cr, rgb(240, 70, 60), kInk, 1.8);
+      return img.toTexture(r, 52.0f, 18.0f);
+    }
+    case ShotStyle::Flame:
+    {
+      VectorImage img(80, 48);
+      cairo_t* cr = img.cr();
+      radialGlow(cr, 46, 24, 30, rgb(255, 140, 30), 0.8);
+      cairo_move_to(cr, 4, 24);
+      cairo_curve_to(cr, 20, 10, 40, 4, 62, 10);
+      cairo_curve_to(cr, 78, 16, 78, 32, 62, 38);
+      cairo_curve_to(cr, 40, 44, 20, 38, 4, 24);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, 6, 42, rgb(255, 250, 170), rgb(255, 80, 20), kInk, 0.0);
+      cairo_arc(cr, 56, 24, 9, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 230, 230));
+      cairo_fill(cr);
+      return img.toTexture(r, 40.0f, 24.0f);
+    }
+    case ShotStyle::Enemy:
+    default:
+    {
+      VectorImage img(40, 40);
+      cairo_t* cr = img.cr();
+      radialGlow(cr, 20, 20, 20, enemyEye, 1.0);
+      cairo_arc(cr, 20, 20, 8, 0, 2 * kPi);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+      return img.toTexture(r, 20.0f, 20.0f);
+    }
+  }
 }
 
 // --- Tiles -------------------------------------------------------------------
@@ -805,27 +1536,6 @@ Texture bakeSpikes(const Renderer& r, const Theme& t)
   }
   roundedRect(cr, 0, 58, 64, 6, 2);
   fillOutline(cr, darken(t.hazard, 0.5f), kInk, 1.5);
-  return img.toTexture(r, 0.0f, 0.0f);
-}
-
-Texture bakeCrate(const Renderer& r, const Theme& t)
-{
-  VectorImage img(64, 64);
-  cairo_t* cr = img.cr();
-  roundedRect(cr, 2, 2, 60, 60, 7);
-  fillGradientOutline(cr, 2, 62, lighten(t.platform, 0.25f), t.platformDark, kInk, 2.5);
-  roundedRect(cr, 10, 10, 44, 44, 4);
-  setColor(cr, withAlpha(darken(t.platformDark, 0.3f), 160));
-  cairo_fill(cr);
-  strokeLimb(cr, {{13, 13}, {51, 51}}, 6, lighten(t.platform, 0.1f), kInk, 1.6);
-  strokeLimb(cr, {{51, 13}, {13, 51}}, 6, lighten(t.platform, 0.1f), kInk, 1.6);
-  for (double x : {7.0, 57.0})
-    for (double y : {7.0, 57.0})
-    {
-      cairo_arc(cr, x, y, 2.2, 0, 2 * kPi);
-      setColor(cr, lighten(t.accentA, 0.4f));
-      cairo_fill(cr);
-    }
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
@@ -1374,8 +2084,10 @@ Art Art::build(const Theme& theme, const Renderer& r)
 {
   Art art;
   for (int i = 0; i < 3; ++i)
+  {
     art.characters[std::size_t(i)] = buildCharacter(r, i);
-
+    art.characterColor[std::size_t(i)] = lookFor(i).top;
+  }
   for (int f = 0; f < 2; ++f)
   {
     art.walker[std::size_t(f)] = bakeWalker(r, theme, f);
@@ -1384,16 +2096,13 @@ Art Art::build(const Theme& theme, const Renderer& r)
   art.turret = bakeTurret(r, theme);
 
   art.gemColor = {theme.accentA, theme.accentB, rgb(110, 255, 130), rgb(255, 110, 230)};
-  for (std::size_t i = 0; i < 4; ++i)
-    art.gem[i] = bakeGem(r, art.gemColor[i]);
+  art.boxColor = {rgb(235, 240, 255), rgb(70, 150, 255), rgb(80, 230, 110)};
+  for (std::size_t i = 0; i < 3; ++i)
+    art.boxes[i] = bakeItemBox(r, art.boxColor[i]);
+  for (int i = 0; i < kItemIcons; ++i)
   {
-    VectorImage img(48, 48);
-    heartPath(img.cr(), 24, 25, 14);
-    fillGradientOutline(img.cr(), 8, 40, rgb(255, 110, 130), rgb(200, 20, 50), kInk, 2.4);
-    cairo_arc(img.cr(), 18, 19, 3, 0, 2 * kPi);
-    setColor(img.cr(), rgba(255, 255, 255, 220));
-    cairo_fill(img.cr());
-    art.health = img.toTexture(r, 8.0f, 8.0f);
+    const Color gem = i >= kIconGem0 && i <= kIconGem3 ? art.gemColor[std::size_t(i - kIconGem0)] : 0;
+    art.items[std::size_t(i)] = bakeItemIcon(r, theme, i, gem);
   }
 
   for (int v = 0; v < 3; ++v)
@@ -1401,28 +2110,18 @@ Art Art::build(const Theme& theme, const Renderer& r)
   art.solidTop = bakeSolidTop(r, theme);
   art.platform = bakePlatform(r, theme);
   art.spikes = bakeSpikes(r, theme);
-  art.crate = bakeCrate(r, theme);
+  art.ladder = bakeLadder(r, theme);
+  art.pipe = bakePipe(r, theme);
+  art.fieldEmitter = bakeFieldEmitter(r, theme);
+  art.fieldBeam = bakeFieldBeam(r);
+  art.beaconOff = bakeBeacon(r, theme, false);
+  art.beaconOn = bakeBeacon(r, theme, true);
 
-  {
-    VectorImage bolt(28, 12);
-    roundedRect(bolt.cr(), 1, 2, 26, 8, 4);
-    fillGradientOutline(bolt.cr(), 2, 10, rgb(255, 255, 230), rgb(255, 190, 60), kInk, 0.0);
-    art.playerBullet[0] = bolt.toTexture(r, 2.0f, 0.0f);
-    VectorImage pellet(16, 16);
-    cairo_arc(pellet.cr(), 8, 8, 6, 0, 2 * kPi);
-    fillGradientOutline(pellet.cr(), 2, 14, rgb(255, 250, 220), rgb(255, 140, 40), kInk, 0.0);
-    art.playerBullet[1] = pellet.toTexture(r, 2.0f, 2.0f);
-    VectorImage needle(32, 8);
-    roundedRect(needle.cr(), 1, 1, 30, 6, 3);
-    fillGradientOutline(needle.cr(), 1, 7, rgb(255, 255, 255), rgb(90, 240, 255), kInk, 0.0);
-    art.playerBullet[2] = needle.toTexture(r, 2.0f, 0.0f);
-    VectorImage orb(24, 24);
-    radialGlow(orb.cr(), 12, 12, 12, theme.enemyEye, 1.0);
-    cairo_arc(orb.cr(), 12, 12, 5, 0, 2 * kPi);
-    setColor(orb.cr(), rgb(255, 255, 255));
-    cairo_fill(orb.cr());
-    art.enemyBullet = orb.toTexture(r, 2.0f, 2.0f);
-  }
+  art.shotNormal = bakeShot(r, ShotStyle::Normal, theme.enemyEye);
+  art.shotLaser = bakeShot(r, ShotStyle::Laser, theme.enemyEye);
+  art.shotRocket = bakeShot(r, ShotStyle::Rocket, theme.enemyEye);
+  art.shotFlame = bakeShot(r, ShotStyle::Flame, theme.enemyEye);
+  art.enemyShot = bakeShot(r, ShotStyle::Enemy, theme.enemyEye);
 
   art.sky = bakeSky(r, theme);
   art.backFar = bakeBackFar(r, theme);
@@ -1443,11 +2142,12 @@ Art Art::build(const Theme& theme, const Renderer& r)
   art.decoLit = bakeDecoLit(r, theme);
   art.exitBase = bakeExitBase(r, theme);
   art.exitBeam = bakeExitBeam(r);
-  art.heartFull = bakeHeart(r, 32, rgb(255, 90, 110), rgb(200, 20, 50), true);
-  art.heartEmpty = bakeHeart(r, 32, rgb(80, 80, 96), rgb(50, 50, 60), false);
-  art.hudLeft = makePanel(r, 420, 54, rgba(8, 6, 20, 170), withAlpha(theme.accentA, 140), 14);
-  art.hudCenter = makePanel(r, 170, 54, rgba(8, 6, 20, 170), withAlpha(theme.accentA, 140), 14);
-  art.hudRight = makePanel(r, 300, 54, rgba(8, 6, 20, 170), withAlpha(theme.accentA, 140), 14);
+  art.heartFull = bakeHeart(r, 30, rgb(255, 90, 110), rgb(200, 20, 50), true);
+  art.heartEmpty = bakeHeart(r, 30, rgb(80, 80, 96), rgb(50, 50, 60), false);
+  const int panelW[5] = {kHudHealthW, kHudWeaponW, kHudInventoryW, kHudLettersW, kHudScoreW};
+  for (std::size_t i = 0; i < 5; ++i)
+    art.hudPanels[i] = makePanel(r, panelW[i], kHudPanelH, rgba(8, 6, 20, 175), withAlpha(theme.accentA, 150), 14);
+  art.hudSlot = makePanel(r, 44, 44, rgba(255, 255, 255, 18), rgba(255, 255, 255, 60), 9);
   return art;
 }
 
@@ -1519,19 +2219,26 @@ void drawDecoration(Renderer& r, const Art& art, const Theme& t, float x, float 
 
 void drawExit(Renderer& r, const Art& art, const Theme& t, float x, float y, int frame)
 {
+  // The teleporter art is a 64x128 frame; scale it up to the 4x6 cell exit.
+  constexpr float kScale = 1.5f;
+  const float left = x + 64.0f - 32.0f * kScale;
+  const float top = y - 128.0f * kScale;
   DrawOpts beam;
   beam.blend = Blend::Add;
   beam.tint = t.accentB;
   beam.alpha = 0.45f + 0.2f * std::sin(float(frame) * 0.1f);
-  r.draw(art.exitBeam, x, y + 8, beam);
+  beam.scale = kScale;
+  r.draw(art.exitBeam, left, top + 8 * kScale, beam);
   for (int i = 0; i < 3; ++i)
   {
     const float phase = std::fmod(float(frame) * 0.012f + float(i) / 3.0f, 1.0f);
-    drawGlow(r, art, x + 32, y + 116 - phase * 104, 30, t.accentB, 0.5f * (1.0f - phase));
+    drawGlow(r, art, x + 64, y - 18 - phase * 150, 40, t.accentB, 0.5f * (1.0f - phase));
   }
-  drawGlow(r, art, x + 32, y + 64, 110, t.accentB, 0.25f);
-  r.draw(art.exitBase, x, y);
-  r.drawText("EXIT", x + 32, y - 40, {22.0f, t.accentA, rgb(20, 16, 28)}, Align::Center);
+  drawGlow(r, art, x + 64, y - 96, 150, t.accentB, 0.25f);
+  DrawOpts base;
+  base.scale = kScale;
+  r.draw(art.exitBase, left, top, base);
+  r.drawText("EXIT", x + 64, top - 50, {26.0f, t.accentA, rgb(20, 16, 28)}, Align::Center);
 }
 
 } // namespace gr

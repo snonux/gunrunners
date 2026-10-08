@@ -26,8 +26,7 @@ void Level::set(int tx, int ty, Tile t)
 
 bool Level::isSolid(int tx, int ty) const
 {
-  const auto t = at(tx, ty);
-  return t == Tile::Solid || t == Tile::Crate;
+  return at(tx, ty) == Tile::Solid;
 }
 
 Level Level::parse(const std::string& text)
@@ -58,7 +57,6 @@ Level Level::parse(const std::string& text)
   for (const auto& r : rows)
     level.width = std::max(level.width, int(r.size()));
   level.tiles.assign(std::size_t(level.width * level.height), Tile::Empty);
-  level.crateHp.assign(level.tiles.size(), 0);
 
   for (int y = 0; y < level.height; ++y)
   {
@@ -77,9 +75,14 @@ Level Level::parse(const std::string& text)
         case '^':
           level.set(x, y, Tile::Spikes);
           break;
-        case 'C':
-          level.set(x, y, Tile::Crate);
-          level.crateHp[std::size_t(y * level.width + x)] = 3;
+        case 'H':
+          level.set(x, y, Tile::Ladder);
+          break;
+        case '-':
+          level.set(x, y, Tile::Pipe);
+          break;
+        case 'D':
+          level.set(x, y, Tile::ForceField);
           break;
         case 'P':
           level.startTx = x;
@@ -92,11 +95,21 @@ Level Level::parse(const std::string& text)
         case '*':
           level.decorations.emplace_back(x, y);
           break;
-        case 'g':
-        case 'h':
-        case 'w':
-        case 'f':
-        case 't':
+        case 'g': // gem
+        case 'h': // health box
+        case 'm': // merchandise box
+        case 'L': // laser box
+        case 'R': // rocket box
+        case 'F': // flamethrower box
+        case 'r': // rapid fire box
+        case 'k': // access card box
+        case '1': // letters G, U, N
+        case '2':
+        case '3':
+        case 'c': // checkpoint beacon
+        case 'w': // walker
+        case 'f': // flyer
+        case 't': // turret
           level.spawns.push_back({c, x, y});
           break;
         default:
