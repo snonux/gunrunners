@@ -43,6 +43,8 @@ public:
   // Music by the ids level headers and cutscenes use ("theme_synthwave",
   // "stop"); tracks are synthesized the first time they are needed.
   void playMusicNamed(const std::string& id);
+  // Synthesizes a named track now so a later playMusicNamed is instant.
+  void preloadMusic(const std::string& id);
   // Jumps the music to this many seconds in (keeps the beat in sync with
   // the level's music clock after a pause).
   void seekMusic(double seconds);

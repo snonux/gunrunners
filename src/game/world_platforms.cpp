@@ -56,6 +56,11 @@ void World::setupPlatform(const EntityDef& e)
     pl.speedNum = std::max(1, std::atoi(sp.substr(0, slash).c_str()));
     pl.speedDen = slash == std::string::npos ? 1 : std::max(1, std::atoi(sp.substr(slash + 1).c_str()));
   }
+  // powered=BREAKER: a lift that is locked until that breaker is thrown.
+  const std::string power = e.str("powered");
+  for (std::size_t i = 0; i < mBreakers.size() && !power.empty(); ++i)
+    if (mBreakers[i].id == power)
+      pl.powered = int(i);
   mPlatforms.push_back(pl);
   mPlatformPairs.push_back(e.str("pair"));
 }
@@ -158,6 +163,8 @@ void World::updatePlatforms()
     if (a.mode == PlatformMode::Path)
     {
       if (a.path.size() < 2)
+        continue;
+      if (a.powered >= 0 && !mBreakers[std::size_t(a.powered)].on)
         continue;
       // speedNum cells every speedDen frames.
       if (++a.moveTick % a.speedDen != 0)

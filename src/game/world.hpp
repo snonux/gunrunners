@@ -191,6 +191,7 @@ struct Projectile
   bool precise = false;
   float fx = 0.0f, fy = 0.0f, vx = 0.0f, vy = 0.0f;
   float gy = 0.0f;   // precise shots: added to vy every frame (lobbed glowsticks)
+  bool flare = false; // sticks where it hits and lights up the dark
   bool lob = false;  // leaves a puddle where it lands
   bool alive = true;
   int age = 0;
@@ -243,6 +244,7 @@ struct Item
   bool floating = false; // placed in the level: hovers instead of falling
   int vx = 0;            // sideways drift while popping out (gem caches)
   bool taken = false;
+  int heldBy = -1; // carried off by this enemy (a Looter)
   CellBox box() const { return boxAt(x, y, 2, 2); }
 };
 
@@ -288,6 +290,9 @@ enum class PropKind
   Reflection,    // the backdrop glass mirrors you; stand still in the box and it waves
   Decks,         // a DJ deck: shoot both on the beat for a change of music
   DanceFloor,    // lit tiles; crouch on it for 16 seconds to breakdance
+  Graffiti,      // glow-in-the-dark credits that show once a flare lights them
+  Cat,           // a pair of eyes in the dark: shoot near it and it meows off
+  Interior,      // a back wall behind an underground room (no sky in a garage)
 };
 
 struct Prop
@@ -345,6 +350,7 @@ struct Platform
   bool pingpong = false;
   int step = 1;
   int speedNum = 1, speedDen = 1;
+  int powered = -1; // a lift: only moves while this breaker is on
   CellBox box() const { return {x, y, w, h}; }
 };
 
@@ -410,6 +416,73 @@ struct Cone
   int life = 3;
   int damage = 2;
   std::vector<int> hit;
+};
+
+// Level 4's power cuts (SPEC 04, world_dark.cpp). A sector is dark until
+// its breaker is thrown; then it relights as a wave from the breaker.
+struct DarkSector
+{
+  std::string id;
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // blocks, inclusive
+  int breaker = -1;                   // -1: only flares ever light it
+  bool contains(int cx, int cy) const
+  {
+    return cx >= x0 * 2 && cx < (x1 + 1) * 2 && cy >= y0 * 2 && cy < (y1 + 1) * 2;
+  }
+};
+
+struct LightSource
+{
+  int x = 0, y = 0; // cells, the centre
+  int r = 12;       // cells
+};
+
+struct Breaker
+{
+  std::string id;
+  int x = 0, y = 0; // cells, bottom-left of its 2x4 box
+  int sector = -1;
+  bool on = false;
+  int thrownAt = -100000; // clock when it was last thrown (the relight wave)
+  int throwing = 0;       // frames left of the lever animation
+  bool leechKilled = false; // its cable's Leech is dead: no more come
+  int leechIn = -1;         // frames until a new Leech starts, -1 none
+  CellBox box() const { return boxAt(x, y, 2, 4); }
+};
+
+// A roller shutter (or a floor hatch) that opens while its breaker is on.
+struct Door
+{
+  std::string id;
+  int x0 = 0, y0 = 0, w = 1, h = 4; // blocks
+  int breaker = -1;
+  int opentime = 15;
+  int open = 0; // frames of opening done
+  bool solid = true;
+};
+
+struct Flare
+{
+  float x = 0.0f, y = 0.0f; // cells
+  int life = 120;
+  int enemy = -1;           // stuck to this enemy (index), else to a wall
+  float ox = 0.0f, oy = 0.0f; // offset from the enemy's bottom-left
+  int burnLeft = 3;
+};
+
+// A power cable a Grid Leech crawls along to its breaker.
+struct Cable
+{
+  std::string id;
+  std::vector<std::pair<int, int>> path; // cells, from the nest to the breaker
+  int breaker = -1;
+};
+
+// Echo Room: a sonar ring from a shot.
+struct Ping
+{
+  float x = 0.0f, y = 0.0f; // cells
+  int age = 0;
 };
 
 struct Checkpoint
@@ -565,6 +638,11 @@ public:
   const std::vector<Pad>& pads() const { return mPads; }
   const std::vector<LaserFan>& fans() const { return mFans; }
   const std::vector<Breakable>& breakables() const { return mBreakables; }
+  const std::vector<Breaker>& breakers() const { return mBreakers; }
+  const std::vector<Door>& doors() const { return mDoors; }
+  bool exitPowered() const;
+  // Level 4: is this cell in light (a lit sector, a lamp or a flare)?
+  bool litAt(int cx, int cy) const;
   const std::string& musicOverride() const { return mMusicOverride; }
   // Standing on a pad that launches: frames until it does, else -1.
   int framesToNextLaunch() const;
@@ -647,6 +725,22 @@ private:
   PlayerInput beatStepInput(const PlayerInput& in);
   void drawClub(Renderer& r, float camX, float camY, int frame) const;
   void drawClubHud(Renderer& r, int frame) const;
+  // Level 4 (world_dark.cpp).
+  bool setupDarkEntity(const EntityDef& e);
+  bool darkAt(int cx, int cy) const;     // in a sector that is (still) dark here
+  float lightLevel(int cx, int cy) const; // 0 dark .. 1 lit, for drawing
+  void throwBreaker(Breaker& b);
+  void cutBreaker(Breaker& b);
+  void applyDoor(Door& d, bool solid);
+  void updateDark(const PlayerInput& input);
+  void updateFlares();
+  void stickFlare(const Projectile& pr, int enemy);
+  void updateStalker(Enemy& e, const EnemyDef& def);
+  void updateLooter(Enemy& e, const EnemyDef& def);
+  void updateLeech(Enemy& e, const EnemyDef& def);
+  void dropLoot(const Enemy& e);
+  void drawDark(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void sonarPing(int x, int y);
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -730,6 +824,21 @@ private:
   bool mQueuedJump = false, mQueued = false;
   int mBeatDx = 0, mBeatMove = 0, mBeatJump = 0;
   std::string mMusicOverride; // an easter egg can change the track
+  // Level 4: power cuts.
+  std::vector<DarkSector> mSectors;
+  std::vector<LightSource> mLights;
+  std::vector<Breaker> mBreakers;
+  std::vector<Door> mDoors;
+  std::vector<Flare> mFlares;
+  std::vector<Cable> mCables;
+  std::vector<std::pair<CellBox, int>> mHiddenSpikes; // spikes that do not draw while their sector is dark
+  int mAllLitAt = -1;  // clock when the last breaker relit the whole district
+  bool mSonar = false; // bonus rule: nothing draws but the runner and the echoes
+  std::vector<Ping> mPings;
+  std::vector<int> mPinged; // per block: clock of the last echo off it
+  std::vector<std::uint8_t> mChimed; // sonar: gems already announced
+  CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up
+  int mManholeX = -1, mManholeY = -1; // cells: where Looters run off to
   bool mBreakdance = false;
   bool mFreeFall = false; // bonus rule: no ground until the net
   std::vector<CellBox> mRopes; // free fall: window-cleaner ropes that bounce you

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 
 namespace gr::synth
 {
@@ -329,6 +330,10 @@ struct Song
   bool drums;
   bool lead;
   std::vector<int> melody; // one MIDI note (0 = rest, -1 = hold) per 8th note
+  // Level 4's layered score: 0 is bass alone, then pad, drums, arpeggio and
+  // lead come in one by one. A heartbeat thumps under it all.
+  int layers = 9;
+  bool heartbeat = false;
 };
 
 class Mixdown
@@ -391,7 +396,7 @@ Mixdown renderSong(const Song& s)
   std::uint32_t seed = 1234;
 
   // Drums.
-  if (s.drums)
+  if (s.drums && s.layers >= 2)
   {
     for (int bar = 0; bar < s.bars; ++bar)
     {
@@ -431,7 +436,27 @@ Mixdown renderSong(const Song& s)
     }
   }
 
+  // The heartbeat: a soft lub-dub twice a bar.
+  if (s.heartbeat)
+    for (int b = 0; b < s.bars * 2; ++b)
+    {
+      const int at = samples(b * 2 * beat);
+      for (int k = 0; k < 2; ++k)
+      {
+        Osc o;
+        const int from = at + samples(k * 0.2), len = samples(0.25);
+        for (int i = 0; i < len; ++i)
+        {
+          const double t = double(i) / kRate;
+          const float v = o.step(48.0 * (1.0 + 0.8 * std::exp(-t * 30.0)), Wave::Sine) *
+            float((k == 0 ? 0.5 : 0.35) * std::exp(-t * 14.0) * std::min(1.0, t / 0.004));
+          m.add(from + i, v, 0.0f);
+        }
+      }
+    }
+
   // Pad: detuned saws per chord, slowly swelling.
+  if (s.layers >= 1)
   {
     std::array<Osc, 6> osc;
     OnePole lpL, lpR;
@@ -459,6 +484,7 @@ Mixdown renderSong(const Song& s)
   }
 
   // Arpeggio with a ping-pong echo.
+  if (s.layers >= 3)
   {
     std::vector<float> arp(std::size_t(n), 0.0f);
     Osc o;
@@ -487,7 +513,7 @@ Mixdown renderSong(const Song& s)
   }
 
   // Lead melody in the second half.
-  if (s.lead && !s.melody.empty())
+  if (s.lead && s.layers >= 4 && !s.melody.empty())
   {
     Osc a, b, vib;
     OnePole lp;
@@ -672,7 +698,10 @@ MusicTrack makeNamedMusic(const std::string& id)
     {{50, 53, 57}, {48, 52, 55}, {46, 50, 53}, {45, 49, 52}},                         // Dm C Bb A
     {{55, 58, 62}, {51, 55, 58}, {53, 57, 60}, {50, 54, 57}},                         // Gm Eb F D
   };
-  const std::uint32_t seed = hashName(id);
+  // "track@N": the same track with only its first N layers (level 4).
+  const auto at = id.find('@');
+  const std::string base = id.substr(0, at);
+  const std::uint32_t seed = hashName(base);
   const C& chords = kProgressions[seed % (sizeof(kProgressions) / sizeof(kProgressions[0]))];
   Song s{120.0, 16, chords, true, true, makeMelody(chords, seed)};
   if (contains(id, "episode_end") || contains(id, "lonely") || contains(id, "organ") || contains(id, "credits"))
@@ -690,6 +719,12 @@ MusicTrack makeNamedMusic(const std::string& id)
   {
     s.lead = true;
   }
+  if (at != std::string::npos)
+  {
+    s.layers = std::atoi(id.c_str() + at + 1);
+    s.lead = true;
+  }
+  s.heartbeat = contains(id, "heartbeat");
   auto mix = renderSong(s);
   if (contains(id, "clubhouse"))
   {

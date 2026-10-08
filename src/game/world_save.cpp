@@ -57,6 +57,7 @@ SaveGame World::snapshot() const
     if (i >= mLevelEnemyCount && !e.alive)
       continue; // a spawned enemy that is gone for good
     SaveGame::EnemyState es{e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active};
+    es.attach = e.attach;
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
@@ -80,6 +81,11 @@ SaveGame World::snapshot() const
       s.items.push_back({int(it.kind), it.variant, it.x, it.y, it.floating});
   for (const auto& c : mCheckpoints)
     s.checkpoints.push_back(c.active);
+  for (const auto& b : mBreakers)
+    s.breakers.push_back({b.on || b.throwing > 0, b.leechKilled, b.throwing > 0 ? mStats.frames : b.thrownAt, b.leechIn});
+  for (const auto& d : mDoors)
+    s.doors.push_back(d.solid ? d.open : -1);
+  s.allLitAt = mAllLitAt;
   return s;
 }
 
@@ -109,6 +115,8 @@ bool World::restore(const SaveGame& s)
       (!s.platforms.empty() && s.platforms.size() != mPlatforms.size()) ||
       (!s.hatches.empty() && s.hatches.size() != mHatches.size()) ||
       (!s.breakables.empty() && s.breakables.size() != mBreakables.size()) ||
+      (!s.breakers.empty() && s.breakers.size() != mBreakers.size()) ||
+      (!s.doors.empty() && s.doors.size() != mDoors.size()) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -188,7 +196,15 @@ bool World::restore(const SaveGame& s)
     e.timer = se.timer;
     e.active = se.active;
     e.dive = 0;
+    e.tell = 0;
     e.flash = 0;
+    if (e.kind == EnemyKind::Leech)
+    {
+      e.attach = se.attach;
+      e.aimY = 0; // finds its place on the cable again
+    }
+    if (e.kind == EnemyKind::Stalker)
+      e.attach = se.attach; // frozen in light
     e.drawSnap = true;
   }
   for (std::size_t i = 0; i < mBoxes.size(); ++i)
@@ -240,6 +256,27 @@ bool World::restore(const SaveGame& s)
           mMap.setBlock(tx, ty, Tile::Empty);
     }
   }
+
+  for (std::size_t i = 0; i < s.breakers.size(); ++i)
+  {
+    auto& b = mBreakers[i];
+    b.on = s.breakers[i].on;
+    b.thrownAt = s.breakers[i].thrownAt;
+    b.leechKilled = s.breakers[i].leechKilled;
+    b.leechIn = s.breakers[i].leechIn;
+    b.throwing = 0;
+  }
+  for (std::size_t i = 0; i < s.doors.size(); ++i)
+  {
+    auto& d = mDoors[i];
+    d.open = std::max(0, s.doors[i]);
+    applyDoor(d, s.doors[i] >= 0);
+  }
+  mAllLitAt = s.allLitAt;
+  mFlares.clear();
+  mPings.clear();
+  for (auto& it : mItems)
+    it.heldBy = -1;
 
   mProjectiles.clear();
   mPuddles.clear();

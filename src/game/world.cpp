@@ -239,6 +239,7 @@ void World::update(const PlayerInput& input)
       updatePlatforms();
       updatePlayer(input);
       updateClub();
+      updateDark(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -419,9 +420,19 @@ void World::updateEnemies()
       case EnemyKind::Stepper:
         updateStepper(e, def);
         break;
+      case EnemyKind::Stalker:
+        updateStalker(e, def);
+        break;
+      case EnemyKind::Looter:
+        updateLooter(e, def);
+        break;
+      case EnemyKind::Leech:
+        updateLeech(e, def);
+        break;
     }
 
-    if (playerVulnerable && !(def.flags & kEnemyHarmless) && e.box().intersects(p.hitBox()))
+    const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
+    if (e.alive && playerVulnerable && !frozen && !(def.flags & kEnemyHarmless) && e.box().intersects(p.hitBox()))
       touchPlayer(e);
   }
 }
@@ -498,6 +509,8 @@ void World::updateProjectiles()
         explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
       if (pr.lob && pr.vy > 0.0f && !mMap.solid(pr.x, pr.y - 1))
         mPuddles.push_back({pr.x - 3, pr.y, 6, 30}); // a glowstick splashes
+      if (pr.flare)
+        stickFlare(pr, -1);
       return true;
     }
     if (pr.kind == ShotKind::Enemy)
@@ -554,6 +567,9 @@ void World::updateProjectiles()
         continue;
       if (std::find(pr.hit.begin(), pr.hit.end(), e.id) != pr.hit.end())
         continue;
+      // In the dark, shots pass through a Night Stalker; only light pins it.
+      if (e.kind == EnemyKind::Stalker && !pr.flare && e.attach != 1)
+        continue;
       if (pr.kind == ShotKind::Rocket)
       {
         explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
@@ -564,6 +580,11 @@ void World::updateProjectiles()
         return true; // a Bouncer took it on the chest
       if (wasAlive && !e.alive && pr.kind == ShotKind::Proto)
         ++mStats.protoKills;
+      if (pr.flare)
+      {
+        stickFlare(pr, e.alive ? int(&e - mEnemies.data()) : -1);
+        return true;
+      }
       burst(cellCenter(b), rgb(255, 255, 255), mTheme.enemyLight, 5, 1.2f);
       if (!pr.pierce && pr.pierceLeft <= 0)
         return true;
@@ -668,6 +689,16 @@ void World::killEnemy(Enemy& e)
   flashAt(c, 110.0f, rgb(255, 170, 70), 18);
   playSound(Sfx::Explosion);
   addScore(def.score, c);
+  if (e.kind == EnemyKind::Looter)
+    dropLoot(e);
+  if (e.kind == EnemyKind::Leech)
+    for (const auto& c : mCables)
+      if (c.breaker >= 0 && &c - mCables.data() == e.attach)
+      {
+        // Killed on the cable: no more Leeches on this line.
+        mBreakers[std::size_t(c.breaker)].leechKilled = true;
+        mBreakers[std::size_t(c.breaker)].leechIn = -1;
+      }
   if (e.kind == EnemyKind::Camera)
   {
     mStats.camera = true;
@@ -722,8 +753,8 @@ void World::updateItems()
   const bool canCollect = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting;
   for (auto& it : mItems)
   {
-    if (it.taken)
-      continue;
+    if (it.taken || it.heldBy >= 0)
+      continue; // a Looter has it
     ++it.frames;
     if (!it.floating)
     {

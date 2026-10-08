@@ -35,6 +35,11 @@ const EnemyDef kEnemies[] = {
   {"disco_drone", "DISCO DRONE", K::Disco, L::Styled, 3, 3, 4, 600, 0, 30, 8, 0, 0, 0},
   {"glow_raver", "GLOW RAVER", K::Raver, L::Styled, 3, 4, 2, 350, 0, 30, 15, 20, 0, 0},
   {"cardboard_bouncer", "CARDBOARD BOUNCER", K::Stepper, L::Styled, 4, 6, 2, 300, 0, 0, 0, 0, 0, 0},
+  // Level 4. Stalker: range is the lunge in cells. Looter: range is how far
+  // (cells) it spots a pick-up.
+  {"night_stalker", "NIGHT STALKER", K::Stalker, L::Styled, 3, 5, 4, 700, 1, 30, 8, 4, 0, 0},
+  {"looter", "LOOTER", K::Looter, L::Styled, 3, 4, 2, 400, 1, 0, 0, 24, kEnemyHarmless, 0},
+  {"grid_leech", "GRID LEECH", K::Leech, L::Styled, 2, 2, 3, 500, 2, 0, 8, 0, kEnemyCarrier, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

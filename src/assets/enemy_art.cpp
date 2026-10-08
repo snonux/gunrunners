@@ -322,6 +322,124 @@ void glowRaver(const Ctx& c)
   cairo_fill(cr);
 }
 
+
+// Night Stalker (level 4): a tall, thin shape in a long coat with a hat,
+// made to be seen mostly as two yellow eyes. Variant 1 is frozen in light
+// (arms up over its face, flinching); 2 is the lunge (leaning in, claws out).
+void nightStalker(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color coat = rgb(30, 28, 44), coatHi = rgb(70, 64, 96), skin = rgb(120, 116, 140);
+  const double lean = c.variant == 2 ? w * 0.14 : 0.0;
+  const double stride = c.frame ? 5.0 : -5.0;
+  // Legs, long and thin.
+  strokeLimb(cr, {{x0 + w * 0.42, y0 + h * 0.62}, {x0 + w * 0.36 + stride, y0 + h - 4}}, 8, coat, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.58, y0 + h * 0.62}, {x0 + w * 0.64 - stride, y0 + h - 4}}, 8, coat, kInk, kLine);
+  // The coat: a tall trapezoid, flaring at the hem.
+  cairo_move_to(cr, x0 + w * 0.34 + lean, y0 + h * 0.2);
+  cairo_line_to(cr, x0 + w * 0.66 + lean, y0 + h * 0.2);
+  cairo_line_to(cr, x0 + w * 0.8, y0 + h * 0.74);
+  cairo_line_to(cr, x0 + w * 0.2, y0 + h * 0.74);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.2, y0 + h * 0.74, coatHi, coat, kInk, kLine);
+  // Arms.
+  if (c.variant == 1)
+  {
+    for (int sgn : {-1, 1})
+      strokeLimb(cr, {{x0 + w * (0.5 + sgn * 0.14), y0 + h * 0.24}, {x0 + w * (0.5 + sgn * 0.32), y0 + h * 0.14},
+                       {x0 + w * (0.5 + sgn * 0.08), y0 + h * 0.08}}, 7, coat, kInk, kLine);
+  }
+  else
+  {
+    const double reach = c.variant == 2 ? w * 0.5 : w * 0.18;
+    strokeLimb(cr, {{x0 + w * 0.6 + lean, y0 + h * 0.26}, {x0 + w * 0.62 + reach, y0 + h * 0.4}}, 7, coat, kInk, kLine);
+    for (int k = 0; k < 3; ++k)
+      strokeLimb(cr, {{x0 + w * 0.62 + reach, y0 + h * 0.4}, {x0 + w * 0.7 + reach, y0 + h * (0.37 + 0.03 * k)}}, 2, skin, kInk, 0.6);
+    strokeLimb(cr, {{x0 + w * 0.4, y0 + h * 0.26}, {x0 + w * 0.3, y0 + h * 0.5}}, 7, coat, kInk, kLine);
+  }
+  // Head under a wide-brimmed hat; the face is a void with eyes.
+  circle(cr, x0 + w * 0.5 + lean, y0 + h * 0.13, w * 0.15);
+  fillOutline(cr, rgb(12, 10, 18), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.18 + lean, y0 + h * 0.04, w * 0.64, h * 0.025, 2);
+  fillOutline(cr, coat, kInk, 1.4);
+  roundedRect(cr, x0 + w * 0.34 + lean, y0 - h * 0.03, w * 0.32, h * 0.08, 4);
+  fillOutline(cr, coat, kInk, 1.4);
+  const double eye = c.variant == 2 ? 5.0 : (c.variant == 1 ? 1.5 : 3.0);
+  for (int sgn : {-1, 1})
+  {
+    cairo_save(cr);
+    cairo_translate(cr, x0 + w * 0.5 + lean + sgn * w * 0.07, y0 + h * 0.14);
+    cairo_scale(cr, 1.0, eye / 3.0);
+    circle(cr, 0, 0, 3.5);
+    cairo_restore(cr);
+    setColor(cr, rgb(255, 230, 90));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, x0 + w * 0.5 + lean, y0 + h * 0.14, w * 0.3, rgb(255, 220, 80), c.variant == 2 ? 0.5 : 0.25);
+}
+
+// Looter (level 4): a hunched figure in a hoodie with a swag sack. Variant
+// 1: the sack is full and it's running.
+void looter(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color hoodie = rgb(70, 80, 60), pants = rgb(40, 40, 50), sack = rgb(150, 120, 80);
+  const double run = c.frame ? 7.0 : -7.0;
+  strokeLimb(cr, {{x0 + w * 0.42, y0 + h * 0.62}, {x0 + w * 0.32 + run, y0 + h - 4}}, 9, pants, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.58, y0 + h * 0.62}, {x0 + w * 0.66 - run, y0 + h - 4}}, 9, pants, kInk, kLine);
+  // The sack over its back (left: it faces right).
+  circle(cr, x0 + w * 0.22, y0 + h * 0.36, w * (c.variant == 1 ? 0.24 : 0.14));
+  fillGradientOutline(cr, y0 + h * 0.1, y0 + h * 0.6, lighten(sack, 0.2f), sack, kInk, kLine);
+  // Hunched body.
+  roundedRect(cr, x0 + w * 0.3, y0 + h * 0.3, w * 0.42, h * 0.34, 12);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.64, lighten(hoodie, 0.2f), hoodie, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.36, y0 + h * 0.36}, {x0 + w * 0.22, y0 + h * 0.24}}, 7, hoodie, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.66, y0 + h * 0.38}, {x0 + w * 0.86, y0 + h * 0.5}}, 7, hoodie, kInk, kLine);
+  // Hooded head, leaning forward.
+  circle(cr, x0 + w * 0.66, y0 + h * 0.24, w * 0.16);
+  fillGradientOutline(cr, y0 + h * 0.08, y0 + h * 0.4, lighten(hoodie, 0.25f), hoodie, kInk, kLine);
+  circle(cr, x0 + w * 0.72, y0 + h * 0.26, w * 0.09);
+  setColor(cr, rgb(16, 14, 20));
+  cairo_fill(cr);
+  for (int sgn : {-1, 1})
+  {
+    circle(cr, x0 + w * 0.72 + sgn * 3.5, y0 + h * 0.25, 1.8);
+    setColor(cr, rgb(255, 255, 255));
+    cairo_fill(cr);
+  }
+}
+
+// Grid Leech (level 4): a segmented green slug crackling with current.
+// Variant 1: the sparks before it touches you.
+void gridLeech(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color body = rgb(90, 200, 70), dark = rgb(30, 90, 30);
+  for (int k = 3; k >= 0; --k)
+  {
+    const double cx = x0 + w * (0.2 + 0.2 * k), cy = y0 + h * 0.55 + (c.frame && k % 2 ? -3.0 : 0.0);
+    circle(cr, cx, cy, h * (0.26 + 0.04 * (k == 3)));
+    fillGradientOutline(cr, cy - h * 0.3, cy + h * 0.3, lighten(body, 0.3f), dark, kInk, kLine);
+  }
+  // The head's jaws.
+  circle(cr, x0 + w * 0.88, y0 + h * 0.5, 4);
+  setColor(cr, rgb(255, 255, 160));
+  cairo_fill(cr);
+  // Crackle.
+  const int arcs = c.variant == 1 ? 6 : 3;
+  for (int k = 0; k < arcs; ++k)
+  {
+    const double a = (k * 2.1 + c.frame) * 1.3;
+    const double sx = x0 + w * 0.5 + std::cos(a) * w * 0.3, sy = y0 + h * 0.5 + std::sin(a) * h * 0.3;
+    strokeLimb(cr, {{sx, sy}, {sx + std::cos(a) * 10, sy + std::sin(a + 1) * 10}, {sx + std::cos(a) * 18, sy + std::sin(a) * 18}},
+      2, rgb(200, 255, 160), rgb(200, 255, 160), 0.0);
+  }
+  radialGlow(cr, x0 + w * 0.5, y0 + h * 0.5, w * (c.variant == 1 ? 1.4 : 0.9), rgb(120, 255, 90), 0.6);
+}
+
 using DrawFn = void (*)(const Ctx&);
 
 DrawFn routineFor(const std::string& key)
@@ -334,6 +452,9 @@ DrawFn routineFor(const std::string& key)
     {"cardboard_bouncer", cardboardBouncer},
     {"disco_drone", discoDrone},
     {"glow_raver", glowRaver},
+    {"night_stalker", nightStalker},
+    {"looter", looter},
+    {"grid_leech", gridLeech},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

@@ -27,13 +27,15 @@ flags=                       ; e.g. clouds (one-way platforms drawn as clouds)
 Bonus levels add `rules=` (`airjump`: jump again in mid-air; `freefall`: no
 jumping, you fall and steer until you land on the net, up slows the fall and
 down speeds it up; `beatstep`: inputs are queued and the last one runs on the
-next beat, a step of 2 blocks or a jump),
+next beat, a step of 2 blocks or a jump; `sonar`: nothing draws but the
+runner, and each shot sends out an echo ring that outlines the walls it
+passes),
 `timer=` in seconds and `goal=exit` or `goal=collect:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
 `@` lines place things that need parameters. Positions are blocks (`x y`,
 or `x=`/`y=`); `rect=x0,y0,x1,y1` is inclusive; text values with spaces are
-quoted; `;` starts a comment. Kinds so far:
+quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;3,4` separates points). Kinds so far:
 
 | Kind | Keys | What it is |
 |------|------|------------|
@@ -50,6 +52,15 @@ quoted; `;` starts a comment. Kinds so far:
 | `deco` | `kind=42\|text\|ufo_flyby\|reflection\|decks\|dancefloor`, `text`, `w`, `h`, `rect` | decorations and easter eggs; `reflection` mirrors you in the glass and waves if you stand still in its rect; `decks` are shootable turntables; `dancefloor` lights its row on every beat |
 | `billboard` | `rect`, `text` | a foreground board that fades while you are behind it |
 | `wind` | `rect`, `push=1/2`, `dir=l\|r\|u\|d` | pushes the player |
+| `dark` | `id`, `rect` | a sector in a power cut (header `flags=dark`): dark until its breaker is thrown, then it relights as a wave from the breaker; a sector with no breaker only ever lights up under a flare |
+| `light` | `r` (blocks) | a lamp that is never dark (a streetlight, the duck's headlamp) |
+| `breaker` | `id`, `sector` | press up next to it to throw it (12 frames); relights its sector, opens its doors, powers its lifts |
+| `door` | `id`, `w`, `h` (blocks, default 1 x 4), `open=BREAKER`, `opentime` | a roller shutter (or, wider than tall, a floor hatch) that rolls up while its breaker is on and slams shut when it goes off; declare it after its breaker |
+| `cable` | `id`, `path=x,y;x,y`, `breaker` | throwing that breaker sends a Grid Leech along the cable; if it gets to the end it pulls the breaker |
+| `spikes` | `rect`, `hidden=dark` | marks spikes (`^` in the map) that only show once their sector is lit |
+| `stash` | `rect`, `manhole=x,y` | where Looters drop what they steal (they run for the manhole) |
+| `platform` … `powered=BREAKER` | | a lift that only moves while that breaker is on |
+| `deco` `kind=graffiti\|cat\|interior` | `rect` or `x y w h` | glow-paint credits a flare reveals; a cat's eyes in the dark (shoot near it); a concrete back wall for underground rooms |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

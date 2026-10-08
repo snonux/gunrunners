@@ -344,8 +344,14 @@ void Game::tickPlay(const Input& raw)
     mLatched.fire.triggered = false;
     for (const auto s : mWorld->takeSounds())
       sound(s);
-    if (mAudio && !mWorld->musicOverride().empty())
-      mAudio->playMusicNamed(mWorld->musicOverride()); // no-op once it plays
+    if (mAudio && !mWorld->musicOverride().empty() && mWorld->musicOverride() != mPlayingOverride)
+    {
+      // A new track (an easter egg, a sector's layer coming back): it picks
+      // up where the level's clock is.
+      mPlayingOverride = mWorld->musicOverride();
+      mAudio->playMusicNamed(mPlayingOverride);
+      mAudio->seekMusic(double(mWorld->clock()) / 15.0);
+    }
 
     if (mOptions.trace)
     {

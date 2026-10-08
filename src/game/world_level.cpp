@@ -91,6 +91,7 @@ void World::setupEntities()
   mAirJump = lv.rules.find("airjump") != std::string::npos;
   mFreeFall = lv.rules.find("freefall") != std::string::npos;
   mBeatStep = lv.rules.find("beatstep") != std::string::npos;
+  mSonar = lv.rules.find("sonar") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -293,6 +294,15 @@ void World::setupEntities()
         pr.kind = PropKind::Decks;
       else if (kind == "dancefloor")
         pr.kind = PropKind::DanceFloor;
+      else if (kind == "graffiti")
+        pr.kind = PropKind::Graffiti;
+      else if (kind == "interior")
+        pr.kind = PropKind::Interior;
+      else if (kind == "cat")
+      {
+        pr.kind = PropKind::Cat;
+        pr.timer = -1; // sitting
+      }
       else
         pr.kind = PropKind::TextSign;
       mProps.push_back(pr);
@@ -315,9 +325,15 @@ void World::setupEntities()
       continue;
     }
 
+    if (setupDarkEntity(e))
+      continue;
+
     if (!mSimulation)
       std::fprintf(stderr, "level line %d: unknown entity '%s' ignored\n", e.line, e.kind.c_str());
   }
+  // Power cuts: the score starts as a bare heartbeat (world_dark.cpp).
+  if (!mSectors.empty() && !lv.music.empty())
+    mMusicOverride = lv.music + "@0";
 }
 
 // --- Layers --------------------------------------------------------------------
@@ -752,6 +768,36 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
           r.drawLine(x + w - 8.0f, topY - 20.0f, cx + rad * 0.4f, cy - 2.0f, 3.0f, rgb(200, 200, 210)); // tone arm
         }
         break;
+      case PropKind::Cat:
+        if (!foreground && onScreen && pr.timer < 0 && pr.timer != -2)
+        {
+          // A black cat on the kerb; in the dark only its eyes show (world_dark.cpp).
+          const Color fur = rgb(18, 16, 22);
+          r.fillRect(x + 14.0f, y + 30.0f, 38.0f, 26.0f, fur);
+          r.fillRect(x + 18.0f, y + 12.0f, 28.0f, 22.0f, fur);
+          r.drawLine(x + 20.0f, y + 14.0f, x + 22.0f, y + 2.0f, 6.0f, fur);
+          r.drawLine(x + 44.0f, y + 14.0f, x + 42.0f, y + 2.0f, 6.0f, fur);
+          r.drawLine(x + 50.0f, y + 52.0f, x + 64.0f, y + 30.0f + 4.0f * std::sin(float(frame) * 0.1f), 5.0f, fur);
+        }
+        break;
+      case PropKind::Interior:
+        if (!foreground && onScreen)
+        {
+          // Bare concrete: a dark gradient wall, pillars every 8 blocks, a
+          // kerb stripe along the floor.
+          r.fillRect(x, y, w, h, rgb(34, 36, 44));
+          r.fillRect(x, y, w, h * 0.35f, rgba(16, 18, 24, 160));
+          const float pitch = 8.0f * 2.0f * kCellPx;
+          for (float px = x + std::fmod(pitch - std::fmod(x + camX, pitch), pitch); px < x + w; px += pitch)
+          {
+            r.fillRect(px - 18.0f, y, 36.0f, h, rgb(48, 50, 60));
+            r.fillRect(px - 18.0f, y, 5.0f, h, rgb(62, 64, 76));
+          }
+          for (float px = x; px < x + w; px += 64.0f)
+            r.fillRect(px, y + h - 10.0f, 32.0f, 10.0f, rgb(150, 130, 50));
+        }
+        break;
+      case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)
       case PropKind::DanceFloor: // world_club.cpp draws the lit tiles
       case PropKind::GemCache:
         break;
