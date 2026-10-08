@@ -132,6 +132,10 @@ struct Enemy
   int flash = 0; // 60 Hz
   int dive = 0;
   int id = 0;
+  // Eased draw position in cells. Walkers step a cell every other logic
+  // frame; easing turns that stop-and-go into a steady glide.
+  float drawX = 0.0f, drawY = 0.0f;
+  bool drawSnap = true;
   bool alive = true;
   bool active = false;
   CellBox box() const { return boxAt(x, y, w, h); }
@@ -284,7 +288,8 @@ public:
   // One 15 Hz logic frame.
   void update(const PlayerInput& input);
   // One 60 Hz render tick: particles, shake, flashes.
-  void tickEffects();
+  // 60 Hz effects and camera easing; alpha is the next render's alpha.
+  void tickEffects(float alpha);
   // alpha: 0..1 progress between the previous and the current logic frame.
   void draw(Renderer& r, int frame, float alpha) const;
 

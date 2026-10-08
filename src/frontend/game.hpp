@@ -51,6 +51,7 @@ private:
   void renderSelect();
   void renderPlayOverlay();
   void renderBonus();
+  float renderAlpha() const;
   void buildPanels();
   void sound(Sfx s);
   const Theme& theme() const { return themeByIndex(mThemeIndex); }

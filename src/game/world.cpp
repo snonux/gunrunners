@@ -469,7 +469,7 @@ void World::explodeAt(int cx, int cy, int radius, int damage)
   burst(c, rgb(255, 220, 90), rgb(255, 90, 30), 30, 3.0f);
   burst(c, rgb(255, 255, 255), rgb(255, 160, 60), 10, 1.5f);
   flashAt(c, 150.0f, rgb(255, 150, 50), 22);
-  mCamera.shake(10, 4.0f);
+  mCamera.shake(10, 1.5f);
   playSound(Sfx::Explosion);
 }
 
@@ -493,7 +493,6 @@ void World::killEnemy(Enemy& e)
   burst(c, mTheme.enemyBody, rgb(255, 200, 60), 22, 2.4f);
   burst(c, mTheme.enemyEye, rgb(255, 255, 255), 10, 1.4f);
   flashAt(c, 110.0f, rgb(255, 170, 70), 18);
-  mCamera.shake(6, 2.5f);
   playSound(Sfx::Explosion);
   switch (e.kind)
   {
@@ -719,8 +718,24 @@ void World::flashAt(Vec2 at, float radius, Color c, int life)
   mFlashes.push_back({at, radius, c, life, life});
 }
 
-void World::tickEffects()
+void World::tickEffects(float alpha)
 {
+  for (auto& e : mEnemies)
+  {
+    const float tx = float(e.prevX) + float(e.x - e.prevX) * alpha;
+    const float ty = float(e.prevY) + float(e.y - e.prevY) * alpha;
+    if (e.drawSnap || !e.active)
+    {
+      e.drawX = tx;
+      e.drawY = ty;
+      e.drawSnap = !e.active;
+    }
+    else
+    {
+      e.drawX += (tx - e.drawX) * 0.3f;
+      e.drawY += (ty - e.drawY) * 0.3f;
+    }
+  }
   for (auto& p : mParticles)
   {
     p.pos.x += p.vel.x;
@@ -764,7 +779,7 @@ void World::tickEffects()
     p.gravity = false;
     mParticles.push_back(p);
   }
-  mCamera.tick();
+  mCamera.tick(alpha);
 }
 
 } // namespace gr

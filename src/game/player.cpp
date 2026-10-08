@@ -605,7 +605,6 @@ void World::hurtPlayer(int amount)
   }
   p.mercy = kMercyFrames;
   playSound(Sfx::Hurt);
-  mCamera.shake(10, 3.0f);
   const CellBox b = p.box();
   burst({(float(b.x) + 1.5f) * kCellSize, (float(b.y) + 2.0f) * kCellSize}, rgb(255, 80, 80), rgb(255, 255, 255), 10, 1.5f);
 }
@@ -622,7 +621,7 @@ void World::killPlayer()
   p.mercy = 0;
   setVisual(PlayerVisual::Dying);
   playSound(Sfx::Death);
-  mCamera.shake(14, 4.0f);
+  mCamera.shake(12, 2.0f);
   ++mStats.deaths;
 }
 
@@ -662,7 +661,7 @@ void World::updateDeathAnimation()
         burst(c, mArt.characterColor[std::size_t(mCharacterIndex)], rgb(255, 255, 255), 20, 2.2f);
         flashAt(c, 120.0f, rgb(255, 170, 60), 24);
         playSound(Sfx::Explosion);
-        mCamera.shake(16, 5.0f);
+        mCamera.shake(14, 2.5f);
       }
       if (p.frames >= 35)
         respawnPlayer();
