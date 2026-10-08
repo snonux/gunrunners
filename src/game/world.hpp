@@ -8,6 +8,7 @@
 #include "engine/camera.hpp"
 #include "game/collision.hpp"
 #include "game/input.hpp"
+#include "game/savegame.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -310,6 +311,15 @@ public:
   // Sounds triggered since the last call; the frontend plays them.
   std::vector<Sfx> takeSounds();
 
+  // Savegames (world_save.cpp). Saving is refused while dying or leaving.
+  bool canSave() const;
+  SaveGame snapshot() const;
+  // Puts a fresh world for the same level into the saved state. Returns
+  // false (and changes nothing) if the save does not fit this level.
+  bool restore(const SaveGame& save);
+  // Shows a line of text under the HUD, like the pickup messages.
+  void notify(const std::string& text) { showMessage(text); }
+
 private:
   // player.cpp: port of RigelEngine's game_logic/player.cpp
   void updatePlayer(const PlayerInput& input);
@@ -370,6 +380,7 @@ private:
 
   Player mPlayer;
   int mRespawnX = 0, mRespawnY = 0;
+  int mSafeX = 0, mSafeY = 0; // last spot standing on safe ground: saves put you here
   std::vector<Enemy> mEnemies;
   std::vector<Projectile> mProjectiles;
   std::vector<ItemBox> mBoxes;
