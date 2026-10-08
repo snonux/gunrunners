@@ -1,58 +1,82 @@
 #pragma once
 
 #include "data/theme.hpp"
-#include "gfx/canvas.hpp"
+#include "render/renderer.hpp"
 
 #include <array>
 
 namespace td
 {
 
-enum CharacterFrame
+// Game logic runs in "world pixels" (16 per tile, 320x180 view, like the
+// original). Everything is drawn at 4x that, i.e. 1280x720, from smooth
+// vector art baked at startup, so the game looks crisp instead of pixelated.
+constexpr float kPixelScale = 4.0f;
+
+// A sprite baked once facing right and once mirrored facing left.
+struct Sprite
 {
-  kFrameIdle = 0,
-  kFrameRun1 = 1,
-  kFrameRun2 = 2,
-  kFrameJump = 3,
-  kFrameCount = 4,
+  std::array<Texture, 2> facing;
+  const Texture& get(int dir) const { return facing[dir < 0 ? 1 : 0]; }
 };
+
+constexpr int kRunFrames = 8;
 
 struct CharacterArt
 {
-  std::array<Image, kFrameCount> frames;
+  std::array<Sprite, 2> idle;
+  std::array<Sprite, kRunFrames> run;
+  Sprite jump;
+  Sprite fall;
+  Texture portrait;
 };
 
-// All original placeholder art for TurboDudes, generated from ASCII pixel
-// art and small procedural routines at startup. No external asset files.
 struct Art
 {
   std::array<CharacterArt, 3> characters;
-  std::array<Image, 2> walker;
-  std::array<Image, 2> flyer;
-  Image turret;
-  std::array<Image, 4> gem;
-  Image health;
-  Image crate;
-  std::array<Image, 4> solid;
-  Image solidTop;
-  Image platform;
-  Image spikes;
-  std::array<Image, 3> playerBullet;
-  Image enemyBullet;
-  Image backFar;
-  Image backNear;
+  std::array<Sprite, 2> walker;
+  std::array<Sprite, 2> flyer;
+  Sprite turret;
+  std::array<Texture, 4> gem;
+  std::array<Color, 4> gemColor;
+  Texture health;
 
-  static Art build(const Theme& theme);
+  std::array<Texture, 3> solid;
+  Texture solidTop;
+  Texture platform;
+  Texture spikes;
+  Texture crate;
+
+  std::array<Texture, 3> playerBullet;
+  Texture enemyBullet;
+
+  Texture sky;
+  Texture backFar;
+  Texture backNear;
+  Texture vignette;
+  std::array<Texture, 4> glow; // soft white light, radius 16/32/64/128
+  Texture dot;                 // soft particle
+
+  Texture decoBase;
+  Texture decoLit;
+  Texture exitBase;
+  Texture exitBeam;
+  Texture heartFull;
+  Texture heartEmpty;
+  Texture hudLeft;
+  Texture hudCenter;
+  Texture hudRight;
+
+  static Art build(const Theme& theme, const Renderer& renderer);
 };
 
-void drawSky(Canvas& canvas, const Theme& theme, int frame);
-void drawBackdrop(
-  Canvas& canvas,
-  const Art& art,
-  float camX,
-  float camY,
-  float baseCamY);
-void drawDecoration(Canvas& canvas, const Theme& theme, int x, int y, int frame);
-void drawExit(Canvas& canvas, const Theme& theme, int x, int y, int frame);
+// Additive soft light at screen position (cx, cy).
+void drawGlow(Renderer& r, const Art& art, float cx, float cy, float radius, Color c, float alpha);
+// camX/camY are in screen pixels.
+void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float baseCamY);
+void drawDecoration(Renderer& r, const Art& art, const Theme& theme, float x, float y, int seed, int frame);
+void drawExit(Renderer& r, const Art& art, const Theme& theme, float x, float y, int frame);
+// Rounded translucent panel for menus and overlays.
+Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, double radius);
 
 } // namespace td

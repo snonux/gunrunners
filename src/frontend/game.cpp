@@ -1,5 +1,6 @@
 #include "frontend/game.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -9,17 +10,19 @@ namespace td
 namespace
 {
 
-constexpr Color kInk = rgb(20, 16, 28);
+constexpr Color kInk = rgb(16, 12, 26);
 
 } // namespace
 
-Game::Game(const GameOptions& options)
+Game::Game(const GameOptions& options, Renderer& renderer)
   : mOptions(options)
+  , mRenderer(renderer)
   , mThemeIndex(options.theme)
-  , mArt(std::make_unique<Art>(Art::build(themeByIndex(options.theme))))
+  , mArt(std::make_unique<Art>(Art::build(themeByIndex(options.theme), renderer)))
   , mLevel(Level::loadFile(options.levelPath))
   , mCursor(options.autoplay ? 0 : options.character)
 {
+  buildPanels();
   if (mOptions.skipMenu)
   {
     mCursor = mOptions.character;
@@ -31,7 +34,8 @@ void Game::cycleTheme()
 {
   mThemeIndex = (mThemeIndex + 1) % themeCount();
   // World holds references into the art, so rebuild it alongside.
-  auto newArt = std::make_unique<Art>(Art::build(theme()));
+  auto newArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
+  buildPanels();
   if (mWorld)
   {
     mWorld.reset();
@@ -120,126 +124,124 @@ bool Game::tick(const Input& raw)
   return true;
 }
 
-void Game::render(Canvas& c) const
+void Game::buildPanels()
 {
+  const auto& t = theme();
+  mCardPanel = makePanel(mRenderer, 340, 470, rgba(10, 8, 26, 170), rgba(255, 255, 255, 70), 22);
+  mCardPanelSelected = makePanel(mRenderer, 340, 470, rgba(14, 10, 34, 215), t.accentA, 22);
+  mBannerPanel = makePanel(mRenderer, 760, 170, rgba(8, 6, 22, 200), t.accentA, 24);
+  mClearPanel = makePanel(mRenderer, 820, 400, rgba(8, 6, 22, 215), t.accentA, 28);
+}
+
+void Game::render()
+{
+  mRenderer.beginFrame();
+  mRenderer.clear(rgb(0, 0, 0));
   switch (mMode)
   {
     case Mode::Select:
-      renderSelect(c);
+      renderSelect();
       break;
     case Mode::Play:
-      mWorld->draw(c, mFrame);
-      renderPlayOverlay(c);
+      mWorld->draw(mRenderer, mFrame);
+      renderPlayOverlay();
       break;
     case Mode::Clear:
-      mWorld->draw(c, mFrame);
-      renderClear(c);
+      mWorld->draw(mRenderer, mFrame);
+      renderClear();
       break;
   }
 }
 
-void Game::renderSelect(Canvas& c) const
+void Game::renderSelect()
 {
+  auto& r = mRenderer;
   const auto& t = theme();
-  drawSky(c, t, mFrame);
-  drawBackdrop(c, *mArt, float(mFrame) * 0.6f, 0.0f, 0.0f);
-  c.fillRect(0, 0, c.w, c.h, rgba(0, 0, 0, 110));
+  drawBackdrop(r, *mArt, float(mFrame) * 1.5f, 0.0f, 0.0f);
+  r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(4, 2, 12, 110));
+  r.draw(mArt->vignette, 0, 0);
 
-  // Logo
-  const int bounce = int(std::sin(float(mFrame) * 0.08f) * 2.0f);
-  c.drawTextCentered("TURBODUDES", c.w / 2 + 2, 6 + bounce + 2, t.platform, 3);
-  c.drawTextCentered("TURBODUDES", c.w / 2, 6 + bounce, t.accentA, 3);
-  c.drawTextCentered("CHOOSE YOUR DUDE", c.w / 2, 31, t.hudText, 1, kInk);
+  const float bounce = std::sin(float(mFrame) * 0.06f) * 5.0f;
+  const float cx = float(kScreenW) / 2.0f;
+  r.drawText("TURBODUDES", cx + 7, 22 + bounce + 7, {104.0f, withAlpha(t.platform, 200), 0, true}, Align::Center);
+  r.drawText("TURBODUDES", cx, 22 + bounce, {104.0f, t.accentA, kInk, true}, Align::Center);
+  r.drawText("CHOOSE YOUR DUDE", cx, 150, {26.0f, t.hudText, kInk}, Align::Center);
 
   for (int i = 0; i < kCharacterCount; ++i)
   {
     const auto& def = characterByIndex(i);
     const bool selected = i == mCursor;
-    const int x = 14 + i * 100;
-    const int y = 41;
-    const int w = 92;
-    const int h = 126;
-    c.fillRect(x, y, w, h, selected ? rgba(0, 0, 0, 170) : rgba(0, 0, 0, 120));
+    const float x = 100.0f + float(i) * 370.0f;
+    const float y = 196.0f;
     if (selected)
-    {
-      const bool pulse = (mFrame / 8) % 2 == 0;
-      c.frameRect(x, y, w, h, pulse ? t.accentA : t.accentB);
-      c.frameRect(x + 1, y + 1, w - 2, h - 2, withAlpha(t.accentA, 120));
-    }
-    else
-    {
-      c.frameRect(x, y, w, h, rgba(255, 255, 255, 60));
-    }
+      drawGlow(r, *mArt, x + 170, y + 200, 300, t.accentA, 0.18f + 0.06f * std::sin(float(mFrame) * 0.12f));
+    r.draw(selected ? mCardPanelSelected : mCardPanel, x, y);
 
-    int frame = kFrameIdle;
-    if (selected)
-    {
-      static constexpr int kCycle[4] = {kFrameRun1, kFrameIdle, kFrameRun2, kFrameIdle};
-      frame = kCycle[(mFrame / 7) % 4];
-    }
-    const auto& img = mArt->characters[std::size_t(i)].frames[std::size_t(frame)];
-    c.blit(img, x + (w - 48) / 2, y + 4, false, 0, 3);
+    DrawOpts portrait;
     if (!selected)
-      c.fillRect(x + 1, y + 1, w - 2, 76, rgba(0, 0, 0, 90));
+      portrait.tint = rgb(120, 116, 140);
+    const float hop = selected ? -std::abs(std::sin(float(mFrame) * 0.1f)) * 10.0f : 0.0f;
+    r.draw(mArt->characters[std::size_t(i)].portrait, x + 170, y - 18 + hop, portrait);
 
-    c.drawTextCentered(def.name, x + w / 2, y + 80, selected ? t.accentA : t.hudText, 1, kInk);
-    c.drawTextCentered(def.role, x + w / 2, y + 89, rgb(170, 170, 190));
-    const char* labels[3] = {"SPD", "JMP", "PWR"};
+    r.drawText(def.name, x + 170, y + 254, {40.0f, selected ? t.accentA : t.hudText, kInk, true}, Align::Center);
+    r.drawText(def.role, x + 170, y + 306, {18.0f, rgb(180, 178, 200)}, Align::Center);
+    const char* labels[3] = {"SPEED", "JUMP", "POWER"};
     const int pips[3] = {def.speedPips, def.jumpPips, def.powerPips};
     for (int s = 0; s < 3; ++s)
     {
-      const int sy = y + 99 + s * 9;
-      c.drawText(labels[s], x + 8, sy, rgb(200, 200, 215));
+      const float sy = y + 348 + float(s) * 36;
+      r.drawText(labels[s], x + 28, sy, {17.0f, rgb(205, 205, 222)});
       for (int k = 0; k < 5; ++k)
-        c.fillRect(x + 30 + k * 10, sy + 1, 8, 5, k < pips[s] ? t.accentB : rgba(255, 255, 255, 40));
+        r.fillRect(x + 128 + float(k) * 38, sy + 5, 32, 13, k < pips[s] ? t.accentB : rgba(255, 255, 255, 40));
     }
   }
 
-  c.drawTextCentered("< > PICK    JUMP/FIRE: GO    T: THEME", c.w / 2, 171, rgb(200, 200, 215), 1, kInk);
+  r.drawText("LEFT / RIGHT  pick      JUMP / FIRE  go      T  theme", cx, 680, {20.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 
-void Game::renderPlayOverlay(Canvas& c) const
+void Game::renderPlayOverlay()
 {
+  auto& r = mRenderer;
   const auto& t = theme();
   const int ticks = mWorld->stats().ticks;
-  if (ticks > 5 && ticks < 150 && mWorld->state() == WorldState::Playing)
+  if (ticks > 5 && ticks < 160 && mWorld->state() == WorldState::Playing)
   {
-    const int y = 34;
-    c.fillRect(40, y, c.w - 80, 40, rgba(0, 0, 0, 170));
-    c.frameRect(40, y, c.w - 80, 40, t.accentA);
+    const float a = std::min({1.0f, float(ticks - 5) / 15.0f, float(160 - ticks) / 15.0f});
+    const float y = 130.0f - (1.0f - a) * 20.0f;
+    DrawOpts o;
+    o.alpha = a;
+    r.draw(mBannerPanel, 260, y, o);
     std::string label = mLevel.name.empty() ? "STAGE 1" : mLevel.name;
     if (mAttempt > 1)
       label += "  -  TRY " + std::to_string(mAttempt);
-    c.drawTextCentered(label, c.w / 2, y + 5, t.hudText);
-    c.drawTextCentered(t.name, c.w / 2, y + 15, t.accentA, 2, kInk);
-    c.drawTextCentered(t.tagline, c.w / 2, y + 31, rgb(190, 190, 205));
+    r.drawText(label, 640, y + 16, {22.0f, t.hudText}, Align::Center, a);
+    r.drawText(t.name, 640, y + 46, {56.0f, t.accentA, kInk, true}, Align::Center, a);
+    r.drawText(t.tagline, 640, y + 122, {20.0f, rgb(200, 200, 216)}, Align::Center, a);
   }
   if (mWorld->state() == WorldState::Dead && mWorld->stateTicks() > 30)
-  {
-    c.drawTextCentered("OUCH!", c.w / 2 + 2, 66, kInk, 4);
-    c.drawTextCentered("OUCH!", c.w / 2, 64, rgb(255, 70, 90), 4);
-  }
+    r.drawText("OUCH!", 640, 250, {130.0f, rgb(255, 70, 100), kInk, true}, Align::Center);
 }
 
-void Game::renderClear(Canvas& c) const
+void Game::renderClear()
 {
+  auto& r = mRenderer;
   const auto& t = theme();
   const auto& s = mWorld->stats();
-  const int panelH = std::min(100, mModeTicks * 6);
-  const int y = 90 - panelH / 2;
-  c.fillRect(30, y, c.w - 60, panelH, rgba(0, 0, 0, 190));
-  c.frameRect(30, y, c.w - 60, panelH, t.accentA);
-  if (panelH < 100)
-    return;
-  c.drawTextCentered("LEVEL CLEAR!", c.w / 2 + 2, y + 10, t.platform, 3);
-  c.drawTextCentered("LEVEL CLEAR!", c.w / 2, y + 8, t.accentA, 3);
+  const float a = std::min(1.0f, float(mModeTicks) / 20.0f);
+  r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, int(100 * a)));
+  DrawOpts o;
+  o.alpha = a;
+  const float y = 160.0f + (1.0f - a) * 40.0f;
+  r.draw(mClearPanel, 230, y, o);
+  r.drawText("LEVEL CLEAR!", 646, y + 34, {80.0f, withAlpha(t.platform, 200), 0, true}, Align::Center, a);
+  r.drawText("LEVEL CLEAR!", 640, y + 28, {80.0f, t.accentA, kInk, true}, Align::Center, a);
   char buf[96];
-  std::snprintf(buf, sizeof(buf), "%s MADE IT IN %d.%d S", mWorld->character().name, s.ticks / 60, (s.ticks % 60) / 6);
-  c.drawTextCentered(buf, c.w / 2, y + 38, t.hudText);
-  std::snprintf(buf, sizeof(buf), "GEMS %d/%d    BOTS %d/%d", s.gems, s.gemsTotal, s.kills, s.enemiesTotal);
-  c.drawTextCentered(buf, c.w / 2, y + 52, t.accentB);
-  std::snprintf(buf, sizeof(buf), "SCORE %06d", s.score);
-  c.drawTextCentered(buf, c.w / 2, y + 68, t.accentA, 2, kInk);
+  std::snprintf(buf, sizeof(buf), "%s made it in %d.%d seconds", mWorld->character().name, s.ticks / 60, (s.ticks % 60) / 6);
+  r.drawText(buf, 640, y + 150, {28.0f, t.hudText}, Align::Center, a);
+  std::snprintf(buf, sizeof(buf), "GEMS  %d / %d        BOTS  %d / %d", s.gems, s.gemsTotal, s.kills, s.enemiesTotal);
+  r.drawText(buf, 640, y + 205, {26.0f, t.accentB, kInk}, Align::Center, a);
+  std::snprintf(buf, sizeof(buf), "SCORE  %06d", s.score);
+  r.drawText(buf, 640, y + 270, {54.0f, t.accentA, kInk, true}, Align::Center, a);
 }
 
 } // namespace td

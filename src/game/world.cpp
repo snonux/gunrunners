@@ -276,7 +276,7 @@ void World::updatePlayer(const Input& in)
     p.jumpBuffer = 0;
     p.coyote = 0;
     p.onGround = false;
-    explode({p.pos.x + 8.0f, p.pos.y + 23.0f}, rgba(255, 255, 255, 160), rgba(200, 200, 220, 120), 5, 0.8f);
+    explode({p.pos.x + 8.0f, p.pos.y + 23.0f}, rgba(255, 255, 255, 160), rgba(200, 200, 220, 120), 5, 0.8f, false);
   }
   if (!in.jump && p.vel.y < kJumpCutVelocity)
     p.vel.y = kJumpCutVelocity; // variable jump height
@@ -285,7 +285,7 @@ void World::updatePlayer(const Input& in)
   const bool wasOnGround = p.onGround;
   moveBody(p.pos, p.vel, kPlayerBox, p.onGround);
   if (p.onGround && !wasOnGround)
-    explode({p.pos.x + 8.0f, p.pos.y + 23.0f}, rgba(255, 255, 255, 120), rgba(200, 200, 220, 100), 3, 0.6f);
+    explode({p.pos.x + 8.0f, p.pos.y + 23.0f}, rgba(255, 255, 255, 120), rgba(200, 200, 220, 100), 3, 0.6f, false);
   p.coyote = p.onGround ? kCoyoteTicks : std::max(0, p.coyote - 1);
 
   if (p.fireCooldown > 0)
@@ -530,7 +530,7 @@ void World::damageCrate(int tx, int ty)
     return;
   mLevel.set(tx, ty, Tile::Empty);
   const Vec2 c{float(tx) * kTile + 8.0f, float(ty) * kTile + 8.0f};
-  explode(c, mTheme.platform, mTheme.platformDark, 14, 2.0f);
+  explode(c, mTheme.platform, mTheme.platformDark, 14, 2.0f, false);
   mStats.score += 50;
   mPickups.push_back({PickupKind::Gem, {c.x - 4.0f, c.y - 4.0f}, (tx + ty) % 4, false});
 }
@@ -550,7 +550,7 @@ void World::updatePickups()
     {
       ++mStats.gems;
       mStats.score += 100;
-      explode({r.cx(), r.cy()}, mArt.gem[std::size_t(pk.variant)].get(3, 3), rgb(255, 255, 255), 8, 1.2f);
+      explode({r.cx(), r.cy()}, mArt.gemColor[std::size_t(pk.variant)], rgb(255, 255, 255), 8, 1.2f);
     }
     else
     {
@@ -561,7 +561,7 @@ void World::updatePickups()
   }
 }
 
-void World::explode(Vec2 at, Color a, Color b, int count, float speed)
+void World::explode(Vec2 at, Color a, Color b, int count, float speed, bool glow)
 {
   for (int i = 0; i < count; ++i)
   {
@@ -574,6 +574,7 @@ void World::explode(Vec2 at, Color a, Color b, int count, float speed)
     p.color = (i % 2) ? a : b;
     p.size = speed > 1.8f && (i % 3 == 0) ? 2 : 1;
     p.gravity = true;
+    p.glow = glow;
     mParticles.push_back(p);
   }
 }
@@ -595,137 +596,195 @@ void World::updateParticles()
 
 // --- Rendering ---------------------------------------------------------------
 
-void World::draw(Canvas& c, int frame) const
+void World::draw(Renderer& r, int frame) const
 {
-  drawSky(c, mTheme, frame);
-  drawBackdrop(c, mArt, mCamera.x(), mCamera.y(), mBaseCamY);
+  const float S = kPixelScale;
+  const float T = float(kTileSize) * S;
+  const float camX = mCamera.renderX() * S;
+  const float camY = mCamera.renderY() * S;
+  drawBackdrop(r, mArt, camX, camY, mBaseCamY * S);
 
-  const int camX = mCamera.renderX();
-  const int camY = mCamera.renderY();
-  const int tx0 = std::max(0, camX / kTileSize - 1);
-  const int ty0 = std::max(0, camY / kTileSize - 1);
-  const int tx1 = std::min(mLevel.width - 1, (camX + kViewW) / kTileSize + 1);
-  const int ty1 = std::min(mLevel.height - 1, (camY + kViewH) / kTileSize + 1);
+  const int tx0 = std::max(0, int(camX / T) - 1);
+  const int ty0 = std::max(0, int(camY / T) - 1);
+  const int tx1 = std::min(mLevel.width - 1, int((camX + float(kScreenW)) / T) + 1);
+  const int ty1 = std::min(mLevel.height - 1, int((camY + float(kScreenH)) / T) + 1);
+  auto sx = [&](float worldX) { return worldX * S - camX; };
+  auto sy = [&](float worldY) { return worldY * S - camY; };
 
   for (const auto& d : mLevel.decorations)
-    if (d.first >= tx0 && d.first <= tx1)
-      drawDecoration(c, mTheme, d.first * kTileSize - camX, d.second * kTileSize - camY, frame);
+    if (d.first >= tx0 - 1 && d.first <= tx1 + 1)
+      drawDecoration(r, mArt, mTheme, float(d.first) * T - camX, float(d.second) * T - camY, d.first * 31 + d.second, frame);
 
-  drawExit(c, mTheme, mLevel.exitTx * kTileSize - camX, (mLevel.exitTy - 1) * kTileSize - camY, frame);
+  drawExit(r, mArt, mTheme, float(mLevel.exitTx) * T - camX, float(mLevel.exitTy - 1) * T - camY, frame);
 
   for (int ty = ty0; ty <= ty1; ++ty)
   {
     for (int tx = tx0; tx <= tx1; ++tx)
     {
-      const int sx = tx * kTileSize - camX;
-      const int sy = ty * kTileSize - camY;
+      const float x = float(tx) * T - camX;
+      const float y = float(ty) * T - camY;
       switch (mLevel.at(tx, ty))
       {
         case Tile::Solid:
-          {
-            // Mostly plain blocks, with the occasional detailed variant.
-            const auto h = hash2(tx, ty) % 10u;
-            c.blit(mArt.solid[h < 7u ? 0u : h - 6u], sx, sy);
-          }
-          if (!mLevel.isSolid(tx, ty - 1) && ty > 0)
-            c.blit(mArt.solidTop, sx, sy);
+        {
+          // Shade blocks darker the deeper they sit below the surface.
+          int depth = 0;
+          while (depth < 3 && mLevel.isSolid(tx, ty - depth - 1))
+            ++depth;
+          static constexpr int kShade[4] = {255, 210, 175, 145};
+          const auto h = (hash2(tx, ty) >> 8) % 10u;
+          DrawOpts o;
+          o.tint = rgb(kShade[depth], kShade[depth], kShade[depth]);
+          r.draw(mArt.solid[h < 7u ? 0u : (h < 9u ? 1u : 2u)], x, y, o);
           break;
+        }
         case Tile::Platform:
-          c.blit(mArt.platform, sx, sy);
+          r.draw(mArt.platform, x, y);
           break;
         case Tile::Spikes:
-          c.blit(mArt.spikes, sx, sy);
+          r.draw(mArt.spikes, x, y);
           break;
         case Tile::Crate:
-          c.blit(mArt.crate, sx, sy);
+          r.draw(mArt.crate, x, y);
           break;
         case Tile::Empty:
           break;
       }
     }
   }
+  // Surface trims go on top so their glow/grass can overlap neighbours.
+  for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
+    for (int tx = tx0; tx <= tx1; ++tx)
+      if (mLevel.at(tx, ty) == Tile::Solid && !mLevel.isSolid(tx, ty - 1))
+        r.draw(mArt.solidTop, float(tx) * T - camX, float(ty) * T - camY);
 
   for (std::size_t i = 0; i < mPickups.size(); ++i)
   {
     const auto& pk = mPickups[i];
     if (pk.taken)
       continue;
-    const int bob = int(std::sin(float(frame + int(i) * 9) * 0.1f) * 2.0f);
-    const Image& img = pk.kind == PickupKind::Gem ? mArt.gem[std::size_t(pk.variant)] : mArt.health;
-    c.blit(img, int(pk.pos.x) - camX, int(pk.pos.y) - camY + bob);
+    const float bob = std::sin(float(frame + int(i) * 9) * 0.08f) * 6.0f;
+    const float x = sx(pk.pos.x), y = sy(pk.pos.y) + bob;
+    if (pk.kind == PickupKind::Gem)
+    {
+      const Color c = mArt.gemColor[std::size_t(pk.variant)];
+      drawGlow(r, mArt, x + 16, y + 16, 40, c, 0.55f + 0.2f * std::sin(float(frame) * 0.15f + float(i)));
+      r.draw(mArt.gem[std::size_t(pk.variant)], x, y);
+    }
+    else
+    {
+      drawGlow(r, mArt, x + 16, y + 16, 40, rgb(255, 60, 90), 0.5f);
+      r.draw(mArt.health, x, y);
+    }
   }
 
   for (const auto& e : mEnemies)
   {
     if (!e.alive)
       continue;
-    const int sx = int(e.pos.x) - camX;
-    const int sy = int(e.pos.y) - camY;
-    if (sx < -32 || sx > kViewW + 32)
+    const float x = sx(e.pos.x), y = sy(e.pos.y);
+    if (x < -128.0f || x > float(kScreenW) + 128.0f)
       continue;
-    const Color flash = e.flash > 0 ? rgb(255, 255, 255) : 0;
+    const Texture* tex = nullptr;
+    float yOff = 0.0f;
     switch (e.kind)
     {
       case EnemyKind::Walker:
-        c.blit(mArt.walker[std::size_t((e.timer / 10) % 2)], sx, sy + 1, e.dir < 0, flash);
+        tex = &mArt.walker[std::size_t((e.timer / 10) % 2)].get(e.dir);
         break;
       case EnemyKind::Flyer:
-        c.blit(mArt.flyer[std::size_t((e.timer / 4) % 2)], sx, sy, e.dir < 0, flash);
+        tex = &mArt.flyer[std::size_t((e.timer / 3) % 2)].get(e.dir);
+        drawGlow(r, mArt, x + 32, y + 62, 26, mTheme.enemyEye, 0.35f);
         break;
       case EnemyKind::Turret:
-        c.blit(mArt.turret, sx, sy + 1, e.dir < 0, flash);
+        tex = &mArt.turret.get(e.dir);
         break;
+    }
+    r.draw(*tex, x, y + yOff);
+    if (e.flash > 0)
+    {
+      DrawOpts o;
+      o.blend = Blend::Add;
+      o.alpha = 0.9f;
+      r.draw(*tex, x, y + yOff, o);
     }
   }
 
   const auto& p = mPlayer;
-  const bool blinkHidden = p.invulnerable > 0 && (p.invulnerable / 3) % 2 == 0;
+  const bool blinkHidden = p.invulnerable > 0 && (p.invulnerable / 4) % 2 == 0;
   const bool teleported = mState == WorldState::Cleared && mStateTicks > 30;
   if (mState != WorldState::Dead && !blinkHidden && !teleported)
   {
-    int frameIdx = kFrameIdle;
+    const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
+    const Sprite* spr = &ca.idle[std::size_t((frame / 30) % 2)];
     if (!p.onGround)
-      frameIdx = kFrameJump;
+      spr = p.vel.y < 0.0f ? &ca.jump : &ca.fall;
     else if (p.vel.x != 0.0f)
+      spr = &ca.run[std::size_t((p.animTicks / 4) % kRunFrames)];
+    const float x = sx(p.pos.x), y = sy(p.pos.y);
+    r.draw(spr->get(p.facing), x, y);
+    if (mState == WorldState::Cleared)
     {
-      static constexpr int kRunCycle[4] = {kFrameRun1, kFrameIdle, kFrameRun2, kFrameIdle};
-      frameIdx = kRunCycle[(p.animTicks / 6) % 4];
+      DrawOpts o;
+      o.blend = Blend::Add;
+      o.tint = mTheme.accentB;
+      o.alpha = float(mStateTicks) / 30.0f;
+      r.draw(spr->get(p.facing), x, y, o);
     }
-    const Color flash = (mState == WorldState::Cleared && (mStateTicks / 2) % 2 == 0) ? mTheme.accentB : 0;
-    const auto& img = mArt.characters[std::size_t(mCharacterIndex)].frames[std::size_t(frameIdx)];
-    c.blit(img, int(p.pos.x) - camX, int(p.pos.y) - camY, p.facing < 0, flash);
     if (p.muzzleFlash > 0)
     {
-      const int mx = int(p.pos.x) - camX + (p.facing > 0 ? 16 : -4);
-      const int my = int(p.pos.y) - camY + 10;
-      c.fillRect(mx, my, 4, 4, withAlpha(rgb(255, 240, 150), 220));
-      c.fillRect(mx - 1, my + 1, 6, 2, rgb(255, 255, 255));
+      const float mx = x + (p.facing > 0 ? 70.0f : -6.0f);
+      const float my = y + 42.0f;
+      drawGlow(r, mArt, mx, my, 34, rgb(255, 220, 120), 0.9f);
+      drawGlow(r, mArt, mx, my, 12, rgb(255, 255, 255), 1.0f);
     }
   }
 
   for (const auto& b : mBullets)
   {
-    const Image& img = b.fromEnemy ? mArt.enemyBullet : mArt.playerBullet[std::size_t(b.sprite)];
-    c.blit(img, int(b.pos.x) - camX, int(b.pos.y) - camY, b.vel.x < 0.0f);
+    const float x = sx(b.pos.x), y = sy(b.pos.y);
+    if (b.fromEnemy)
+    {
+      drawGlow(r, mArt, x + 10, y + 10, 30, mTheme.enemyEye, 0.8f);
+      r.draw(mArt.enemyBullet, x, y);
+      continue;
+    }
+    static constexpr Color kBulletGlow[3] = {rgb(255, 190, 70), rgb(255, 130, 40), rgb(80, 230, 255)};
+    drawGlow(r, mArt, x + 12, y + 6, 26, kBulletGlow[b.sprite], 0.8f);
+    r.draw(mArt.playerBullet[std::size_t(b.sprite)], x, y);
   }
 
   for (const auto& pt : mParticles)
   {
-    const int a = 255 * pt.life / std::max(1, pt.maxLife);
-    c.fillRect(int(pt.pos.x) - camX, int(pt.pos.y) - camY, pt.size, pt.size, withAlpha(pt.color, std::min(alphaOf(pt.color), a + 60)));
+    const float life = float(pt.life) / float(std::max(1, pt.maxLife));
+    DrawOpts o;
+    o.tint = pt.color;
+    o.alpha = std::min(1.0f, life * 1.4f) * float(alphaOf(pt.color)) / 255.0f;
+    o.blend = pt.glow ? Blend::Add : Blend::Alpha;
+    o.scale = pt.size > 1 ? 1.1f : 0.7f;
+    r.draw(mArt.dot, sx(pt.pos.x), sy(pt.pos.y), o);
   }
 
+  r.draw(mArt.vignette, 0.0f, 0.0f);
+
   // HUD
-  c.fillRect(0, 0, kViewW, 11, rgba(0, 0, 0, 150));
+  r.draw(mArt.hudLeft, 16.0f, 12.0f);
   for (int i = 0; i < mCharacter->maxHp; ++i)
-    c.drawText("@", 3 + i * 7, 2, i < p.hp ? rgb(255, 60, 90) : rgb(70, 70, 85));
-  const int nameX = 3 + mCharacter->maxHp * 7 + 4;
-  c.drawText(mCharacter->name, nameX, 2, mTheme.hudText);
+    r.draw(i < p.hp ? mArt.heartFull : mArt.heartEmpty, 30.0f + float(i) * 34.0f, 23.0f);
+  const TextStyle hudText{24.0f, mTheme.hudText, rgb(10, 8, 20)};
+  r.drawText(mCharacter->name, 40.0f + float(mCharacter->maxHp) * 34.0f, 22.0f, hudText);
+
+  r.draw(mArt.hudCenter, float(kScreenW) / 2.0f - 85.0f, 12.0f);
+  DrawOpts gemIcon;
+  gemIcon.scale = 0.8f;
+  r.draw(mArt.gem[0], float(kScreenW) / 2.0f - 62.0f, 22.0f, gemIcon);
   char buf[64];
-  std::snprintf(buf, sizeof(buf), "*%02d/%02d", mStats.gems, mStats.gemsTotal);
-  c.drawTextCentered(buf, kViewW / 2 + 10, 2, mTheme.accentA);
-  std::snprintf(buf, sizeof(buf), "SCORE %06d", mStats.score);
-  c.drawText(buf, kViewW - 3 - Canvas::textWidth(buf), 2, mTheme.hudText);
+  std::snprintf(buf, sizeof(buf), "%d / %d", mStats.gems, mStats.gemsTotal);
+  r.drawText(buf, float(kScreenW) / 2.0f + 18.0f, 22.0f, {24.0f, mTheme.accentA, rgb(10, 8, 20)}, Align::Center);
+
+  r.draw(mArt.hudRight, float(kScreenW) - 316.0f, 12.0f);
+  std::snprintf(buf, sizeof(buf), "SCORE  %06d", mStats.score);
+  r.drawText(buf, float(kScreenW) - 34.0f, 22.0f, hudText, Align::Right);
 }
 
 } // namespace td

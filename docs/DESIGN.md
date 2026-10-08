@@ -10,7 +10,8 @@ reach the exit. The cast is fixed across all three directions:
 | Rocco | The heavy      | Slowest, lowest jump, 6 hearts         | Scatter gun: three pellets, short range |
 | Nova  | The acrobat    | Fastest, highest jump, only 3 hearts   | Rapid laser: weak but very fast |
 
-The PoC can render the same level in all three directions (press **T** in
+The PoC renders in HD (1280x720, smooth vector art rather than chunky
+pixels) and can show the same level in all three directions (press **T** in
 game, or `--theme 0|1|2`), so we can compare them in motion before we pick one
 or mix them.
 
@@ -87,6 +88,7 @@ episode 2 and 3 worlds, which also matches the Duke-style episodic structure.
 - Do all dudes share one weapon with upgrades (Duke style), or keep a
   signature weapon each (current PoC)?
 - Lives and checkpoints, or restart the level on death (current PoC)?
-- Hand-drawn pixel art by an artist vs. continuing with programmer art?
+- HD art direction: keep the clean vector look of the PoC, or commission
+  painted sprites from an artist?
 - Target platforms: desktop only, or also web (RigelEngine supports
   Emscripten) and handheld (Steam Deck)?

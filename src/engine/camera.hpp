@@ -20,8 +20,8 @@ public:
 
   float x() const { return mX; }
   float y() const { return mY; }
-  int renderX() const;
-  int renderY() const;
+  float renderX() const { return mX + mShakeX; }
+  float renderY() const { return mY + mShakeY; }
   int viewW() const { return mViewW; }
   int viewH() const { return mViewH; }
 
@@ -35,8 +35,8 @@ private:
   int mShakeTicks = 0;
   float mShakeStrength = 0.0f;
   Rng mRng{777u};
-  int mShakeX = 0;
-  int mShakeY = 0;
+  float mShakeX = 0.0f;
+  float mShakeY = 0.0f;
 };
 
 } // namespace td

@@ -27,11 +27,11 @@ struct GameOptions
 class Game
 {
 public:
-  explicit Game(const GameOptions& options);
+  Game(const GameOptions& options, Renderer& renderer);
 
   // Advances one fixed 60 Hz tick. Returns false once the game wants to quit.
   bool tick(const Input& input);
-  void render(Canvas& canvas) const;
+  void render();
   void cycleTheme();
 
 private:
@@ -44,12 +44,14 @@ private:
 
   void setMode(Mode m);
   void startLevel();
-  void renderSelect(Canvas& c) const;
-  void renderPlayOverlay(Canvas& c) const;
-  void renderClear(Canvas& c) const;
+  void renderSelect();
+  void renderPlayOverlay();
+  void renderClear();
+  void buildPanels();
   const Theme& theme() const { return themeByIndex(mThemeIndex); }
 
   GameOptions mOptions;
+  Renderer& mRenderer;
   int mThemeIndex;
   std::unique_ptr<Art> mArt;
   Level mLevel;
@@ -61,6 +63,10 @@ private:
   int mAttempt = 1;
   Bot mBot;
   Input mPrev;
+  Texture mCardPanel;
+  Texture mCardPanelSelected;
+  Texture mBannerPanel;
+  Texture mClearPanel;
 };
 
 } // namespace td
