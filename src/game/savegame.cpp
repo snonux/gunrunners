@@ -65,6 +65,12 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     << s.deaths << ' ' << s.frames << ' ' << int(s.tookDamage) << '\n';
   o << "letters " << (s.letters.empty() ? "-" : s.letters) << '\n';
   o << "fields " << int(s.forceFieldsOn) << '\n';
+  if (!s.levelFile.empty())
+    o << "campaign " << s.levelNumber << ' ' << s.levelFile << '\n';
+  o << "extras " << s.proto << ' ' << int(s.protoFound) << ' ' << int(s.duck) << ' ' << int(s.camera) << ' '
+    << int(s.bonusStar) << ' ' << s.protoKills << '\n';
+  for (bool p : s.props)
+    o << "prop " << int(p) << '\n';
   for (const auto& e : s.enemies)
     o << "enemy " << int(e.alive) << ' ' << e.hp << ' ' << e.x << ' ' << e.y << ' ' << e.dir << ' ' << e.timer << ' '
       << int(e.active) << '\n';
@@ -147,6 +153,17 @@ std::optional<SaveGame> readSave(const std::string& path)
     }
     else if (key == "fields" && in >> a)
       s.forceFieldsOn = a != 0;
+    else if (key == "campaign" && in >> s.levelNumber)
+      s.levelFile = rest();
+    else if (key == "extras" && in >> s.proto >> a >> b >> c >> d >> s.protoKills)
+    {
+      s.protoFound = a != 0;
+      s.duck = b != 0;
+      s.camera = c != 0;
+      s.bonusStar = d != 0;
+    }
+    else if (key == "prop" && in >> a)
+      s.props.push_back(a != 0);
     else if (key == "enemy" && in >> a >> b >> c >> d >> e >> g >> h)
       s.enemies.push_back({a != 0, b, c, d, e, g, h != 0});
     else if (key == "box" && in >> a)

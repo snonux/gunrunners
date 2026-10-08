@@ -28,6 +28,9 @@ struct SaveGame
   };
 
   std::string levelName;
+  // Campaign: which level file, and its number (0 for a stand-alone level).
+  std::string levelFile;
+  int levelNumber = 0;
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
   int theme = 0;
@@ -43,6 +46,13 @@ struct SaveGame
   bool tookDamage = false;
   std::string letters;
   bool forceFieldsOn = true;
+
+  // Campaign extras: the prototype in hand, the level's secrets so far and
+  // which props (gem caches, the bonus entrance, eggs) were used.
+  int proto = -1;
+  bool protoFound = false, duck = false, camera = false, bonusStar = false;
+  int protoKills = 0;
+  std::vector<bool> props;
 
   std::vector<EnemyState> enemies;
   std::vector<bool> boxes; // alive flags, in level order

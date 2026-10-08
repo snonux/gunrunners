@@ -1,0 +1,19 @@
+cutscene brief_03
+music theme_clubhouse
+
+# clip max_holo_club: MAX hologram (4-frame scramble loop) showing a tiny
+# club whose dance-floor tiles change colour every 4 frames (one beat at
+# 125 ms); backdrop diner window with rain loop (8 frames); 16 frames
+shot max_holo_club delay=125 repeat=3
+  cue 0 fade=in:400
+  cue 0 sound=holo_on
+  cue 2 say=MAX "The courier who took it is partying downtown."
+
+# clip crew_outfits: the three runners in road-worn courier jackets, mid
+# layer; a disco-ball reflection sweeps left to right across them (8 px per
+# frame); Rocco looks down at his jacket on frames 10-14 and holds; 20 frames
+shot crew_outfits delay=120 repeat=3
+  cue 0 sound=bass_thump
+  cue 12 say=ROCCO "We're not dressed for this."
+  cue 59 hold=1000
+  cue 59 fade=out:400

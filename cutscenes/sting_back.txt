@@ -1,0 +1,4 @@
+cutscene sting_back
+# Clip back_card: "...AND WE'RE BACK!" card. 6 frames.
+shot back_card delay=125 repeat=1
+  cue 0 sound=jingle_back

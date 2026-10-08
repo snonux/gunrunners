@@ -1,0 +1,13 @@
+cutscene brief_16
+music cryo_bells
+
+shot brief16_frost delay=100 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=frost_creak
+  cue 10 say=ZERO "The labs are cold. I'm sorry."
+  cue 39 hold=2500
+
+shot brief16_shrug delay=150 repeat=1
+  cue 0 say=ZERO "It's in the script."
+  cue 7 hold=2500
+  cue 7 fade=out:800

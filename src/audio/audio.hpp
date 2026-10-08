@@ -5,7 +5,10 @@
 #include <SDL.h>
 
 #include <array>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace gr
@@ -37,6 +40,17 @@ public:
   bool openDevice();
   void play(Sfx s, float volume = 1.0f);
   void playMusic(Music m);
+  // Music by the ids level headers and cutscenes use ("theme_synthwave",
+  // "stop"); tracks are synthesized the first time they are needed.
+  void playMusicNamed(const std::string& id);
+  // Jumps the music to this many seconds in (keeps the beat in sync with
+  // the level's music clock after a pause).
+  void seekMusic(double seconds);
+  // Cutscene sounds by name; names containing "loop" repeat until stopped.
+  void playNamed(const std::string& id, float volume = 1.0f);
+  void stopNamed(const std::string& id);
+  void stopAllNamed();
+  void voiceBlip(const std::string& speaker);
   // Mixes `frames` stereo frames (interleaved L/R floats in -1..1).
   void mix(float* out, int frames);
 
@@ -47,6 +61,8 @@ private:
     std::size_t pos;
     float volume;
     Sfx id;
+    const std::string* name = nullptr; // named sounds
+    bool loop = false;
   };
   struct Track
   {
@@ -60,6 +76,10 @@ private:
 
   std::array<std::vector<float>, std::size_t(Sfx::Count)> mSfx;
   std::array<Track, std::size_t(Music::Count)> mTracks;
+  std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;
+  std::unordered_map<std::string, std::vector<float>> mNamed;
+  const Track* mTrack = nullptr; // what is playing
+  std::string mTrackName;
   std::vector<Voice> mVoices;
   Music mMusic = Music::None;
   std::size_t mMusicPos = 0;

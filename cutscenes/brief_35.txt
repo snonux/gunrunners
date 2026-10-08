@@ -1,0 +1,17 @@
+cutscene brief_35
+music theme_heroic_build
+
+shot mast_clouds delay=110 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=wind
+  cue 16 say=S "At the top, the signal points home."
+  cue 16 hold=2000
+
+shot cargo_shadow delay=120 repeat=1
+  cue 0 sound=engine_drone
+
+shot cargo_shadow delay=120 repeat=1
+  cue 4 say=S "They'll send something big."
+  cue 4 hold=2000
+  cue 11 hold=1500
+  cue 11 fade=out:700

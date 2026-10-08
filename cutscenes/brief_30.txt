@@ -1,0 +1,19 @@
+cutscene brief_30
+music theme_submerged
+
+shot cable_glow delay=100 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=sonar_ping
+
+shot cable_glow delay=100 repeat=3
+
+shot cable_glow delay=100 repeat=1
+  cue 6 sound=sonar_ping
+  cue 6 say=S "The signal runs under the sea."
+  cue 6 hold=2000
+
+shot runners_dive delay=110 repeat=1
+  cue 0 sound=bubbles
+  cue 0 say=S "Follow it home."
+  cue 7 hold=2000
+  cue 7 fade=out:700

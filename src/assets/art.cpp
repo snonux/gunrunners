@@ -606,6 +606,34 @@ CharacterArt buildCharacter(const Renderer& r, int kind)
   return art;
 }
 
+} // namespace
+
+Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bool mirror)
+{
+  const Look look = lookFor(kind);
+  Pose P;
+  switch (pose)
+  {
+    case 1: P = runPose(2); break;
+    case 2: P = jumpPose(); break;
+    case 3: P = lookUpPose(); break;
+    case 4: P = crouchPose(); break;
+    case 5: P = hurtPose(); break;
+    case 6: P = coilPose(); break;
+    case 7: P = fallPose(true); break;
+    default: P = idlePose(pose == 8 ? 1 : 0); break;
+  }
+  const int w = int(128 * scale), h = int(130 * scale);
+  VectorImage img(w, h);
+  cairo_scale(img.cr(), scale, scale);
+  cairo_translate(img.cr(), 32.0, 30.0);
+  drawCharacter(img.cr(), look, P);
+  return img.toTexture(r, float(w) * 0.5f, float(h), mirror);
+}
+
+namespace
+{
+
 // --- Enemies ---------------------------------------------------------------
 
 // Enemies are drawn in a 64x64 design box and baked at 1.5x, which makes a
@@ -1594,6 +1622,26 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, float(kTopOff));
 }
 
+// A puff of cloud for one block of one-way platform; neighbours overlap
+// (the texture is wider than the block) so a row reads as one cloud.
+Texture bakeCloud(const Renderer& r, const Theme& t)
+{
+  VectorImage img(96, 56);
+  cairo_t* cr = img.cr();
+  radialGlow(cr, 48, 24, 46, lerpColor(t.skyBottom, rgb(255, 255, 255), 0.6f), 0.25);
+  const double puffs[4][3] = {{26, 26, 17}, {48, 18, 22}, {70, 26, 17}, {48, 32, 18}};
+  for (const auto& p : puffs)
+    cairo_arc(cr, p[0], p[1], p[2], 0, 6.2831853);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 50);
+  const Color top = rgb(255, 255, 255), bottom = lerpColor(t.skyMid, rgb(255, 255, 255), 0.55f);
+  cairo_pattern_add_color_stop_rgba(g, 0.0, redOf(top) / 255.0, greenOf(top) / 255.0, blueOf(top) / 255.0, 0.96);
+  cairo_pattern_add_color_stop_rgba(g, 1.0, redOf(bottom) / 255.0, greenOf(bottom) / 255.0, blueOf(bottom) / 255.0, 0.92);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  return img.toTexture(r, 16.0f, 10.0f);
+}
+
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
   VectorImage img(64, 40);
@@ -2231,6 +2279,7 @@ Art Art::build(const Theme& theme, const Renderer& r)
     art.solid[std::size_t(v)] = bakeSolid(r, theme, v);
   art.solidTop = bakeSolidTop(r, theme);
   art.platform = bakePlatform(r, theme);
+  art.cloud = bakeCloud(r, theme);
   art.spikes = bakeSpikes(r, theme);
   art.ladder = bakeLadder(r, theme);
   art.pipe = bakePipe(r, theme);

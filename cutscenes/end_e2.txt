@@ -1,0 +1,27 @@
+cutscene end_e2
+music theme_episode_end
+
+# Panel gold: the golem's pile of gold in the sanctum, dust motes loop.
+shot gold_pile delay=100 repeat=0
+  cue 0 fade=in:600
+  cue 0 say=NOVA "It's light. Like... plastic light."
+  cue 0 wait=button
+
+# Panel fiberglass: Nova snapping a gold chunk; white fiberglass inside.
+# 6 frames.
+shot fiberglass delay=120 repeat=1
+  cue 3 sound=crack
+  cue 5 say=DASH "Tourist trap."
+  cue 5 wait=button
+
+# Panel boulder: the boulder at the foot of the cliff at sunset; a faint
+# laugh track plays under the wind.
+shot boulder_cliff delay=100 repeat=0
+  cue 0 sound=laugh_track_faint
+  cue 0 say=ROCCO "Did anybody else hear people laughing?"
+  cue 0 wait=button
+
+shot max_hologram delay=90 repeat=1
+  cue 6 say=MAX "Your next job is in orbit."
+  cue 6 hold=1500
+  cue 11 fade=out:800

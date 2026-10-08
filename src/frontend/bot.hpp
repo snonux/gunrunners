@@ -20,6 +20,7 @@ public:
   Input play(const World& world);
   Input playRules(const World& world);
   Input menu(int cursor, int target, int ticksInMenu) const;
+  void setTakeBonus(bool take) { mPlanner.setTakeBonus(take); }
 
 private:
   Planner mPlanner;

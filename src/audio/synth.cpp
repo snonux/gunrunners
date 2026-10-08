@@ -4,6 +4,8 @@
 
 #include "audio/synth.hpp"
 
+#include "audio/dsp.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -11,175 +13,6 @@
 namespace gr::synth
 {
 
-namespace
-{
-
-constexpr double kPi = 3.14159265358979;
-constexpr double kRate = double(kAudioRate);
-
-int samples(double seconds) { return int(seconds * kRate); }
-
-double midiFreq(double note) { return 440.0 * std::pow(2.0, (note - 69.0) / 12.0); }
-
-class Noise
-{
-public:
-  explicit Noise(std::uint32_t seed) : mState(seed) {}
-  float next()
-  {
-    mState ^= mState << 13;
-    mState ^= mState >> 17;
-    mState ^= mState << 5;
-    return float(mState & 0xFFFFFF) / float(0x800000) - 1.0f;
-  }
-
-private:
-  std::uint32_t mState;
-};
-
-double polyBlep(double t, double dt)
-{
-  if (t < dt)
-  {
-    t /= dt;
-    return t + t - t * t - 1.0;
-  }
-  if (t > 1.0 - dt)
-  {
-    t = (t - 1.0) / dt;
-    return t * t + t + t + 1.0;
-  }
-  return 0.0;
-}
-
-enum class Wave
-{
-  Sine,
-  Triangle,
-  Saw,
-  Square,
-};
-
-// Band-limited oscillator (PolyBLEP), so the sounds stay clean and modern
-// rather than buzzy.
-class Osc
-{
-public:
-  float step(double freq, Wave w, double duty = 0.5)
-  {
-    const double dt = std::min(0.45, freq / kRate);
-    double out = 0.0;
-    switch (w)
-    {
-      case Wave::Sine:
-        out = std::sin(2.0 * kPi * mPhase);
-        break;
-      case Wave::Triangle:
-        out = 1.0 - 4.0 * std::abs(mPhase - 0.5);
-        break;
-      case Wave::Saw:
-        out = 2.0 * mPhase - 1.0 - polyBlep(mPhase, dt);
-        break;
-      case Wave::Square:
-      {
-        out = mPhase < duty ? 1.0 : -1.0;
-        out += polyBlep(mPhase, dt);
-        out -= polyBlep(std::fmod(mPhase + 1.0 - duty, 1.0), dt);
-        break;
-      }
-    }
-    mPhase += dt;
-    if (mPhase >= 1.0)
-      mPhase -= 1.0;
-    return float(out);
-  }
-  void reset(double phase = 0.0) { mPhase = phase; }
-
-private:
-  double mPhase = 0.0;
-};
-
-class OnePole
-{
-public:
-  float lowpass(float x, double cutoff)
-  {
-    const double a = 1.0 - std::exp(-2.0 * kPi * std::min(cutoff, kRate * 0.45) / kRate);
-    mY += a * (double(x) - mY);
-    return float(mY);
-  }
-  float highpass(float x, double cutoff) { return x - lowpass(x, cutoff); }
-
-private:
-  double mY = 0.0;
-};
-
-// Chamberlin state-variable filter: resonant low/band pass.
-class Svf
-{
-public:
-  float low(float x, double cutoff, double q)
-  {
-    process(x, cutoff, q);
-    return float(mLow);
-  }
-  float band(float x, double cutoff, double q)
-  {
-    process(x, cutoff, q);
-    return float(mBand);
-  }
-
-private:
-  void process(float x, double cutoff, double q)
-  {
-    const double f = 2.0 * std::sin(kPi * std::min(cutoff, kRate / 6.5) / kRate);
-    const double damp = 1.0 / std::max(0.5, q);
-    mLow += f * mBand;
-    const double high = double(x) - mLow - damp * mBand;
-    mBand += f * high;
-  }
-  double mLow = 0.0;
-  double mBand = 0.0;
-};
-
-double lerp(double a, double b, double t) { return a + (b - a) * t; }
-// Exponential sweep from a to b over t in 0..1.
-double sweep(double a, double b, double t) { return a * std::pow(b / a, std::clamp(t, 0.0, 1.0)); }
-double decay(double t, double tau) { return std::exp(-t / tau); }
-// Short linear attack to avoid clicks.
-double attack(double t, double a = 0.003) { return std::min(1.0, t / a); }
-
-template <typename F>
-std::vector<float> render(double seconds, F f)
-{
-  std::vector<float> out(std::size_t(samples(seconds)));
-  for (std::size_t i = 0; i < out.size(); ++i)
-  {
-    const double t = double(i) / kRate;
-    out[i] = float(f(t, seconds));
-  }
-  // Fade the last 5 ms.
-  const std::size_t fade = std::min<std::size_t>(out.size(), std::size_t(kRate * 0.005));
-  for (std::size_t i = 0; i < fade; ++i)
-    out[out.size() - 1 - i] *= float(i) / float(fade);
-  return out;
-}
-
-// A note made of one oscillator with a plucky envelope; used for jingles.
-void addTone(std::vector<float>& buf, double start, double len, double freq, Wave w, double vol, double tau)
-{
-  Osc o;
-  const int s0 = samples(start);
-  const int n = samples(len);
-  for (int i = 0; i < n && s0 + i < int(buf.size()); ++i)
-  {
-    const double t = double(i) / kRate;
-    const double env = attack(t, 0.004) * decay(t, tau) * std::min(1.0, (len - t) / 0.01);
-    buf[std::size_t(s0 + i)] += float(o.step(freq, w) * env * vol);
-  }
-}
-
-} // namespace
 
 std::vector<float> makeSfx(Sfx id)
 {
@@ -775,6 +608,93 @@ MusicTrack makeMusic(Music m)
     case Music::Count:
       break;
   }
+  return out;
+}
+
+} // namespace gr::synth
+
+namespace gr::synth
+{
+
+namespace
+{
+
+std::uint32_t hashName(const std::string& s)
+{
+  std::uint32_t h = 2166136261u;
+  for (char c : s)
+    h = (h ^ std::uint32_t(static_cast<unsigned char>(c))) * 16777619u;
+  return h | 1u;
+}
+
+bool contains(const std::string& s, const char* k) { return s.find(k) != std::string::npos; }
+
+// A lead line made from the chord tones, so every track gets its own tune.
+std::vector<int> makeMelody(const std::vector<std::array<int, 3>>& chords, std::uint32_t seed)
+{
+  Noise n(seed);
+  std::vector<int> mel;
+  for (std::size_t bar = 0; bar < 8; ++bar)
+  {
+    const auto& c = chords[bar % chords.size()];
+    for (int e = 0; e < 8; ++e)
+    {
+      const float r = (n.next() + 1.0f) * 0.5f;
+      if (e > 0 && r < 0.3f)
+        mel.push_back(-1); // hold
+      else if (r < 0.38f)
+        mel.push_back(0); // rest
+      else
+        mel.push_back(c[std::size_t(int(r * 9.0f) % 3)] + 12 + (r > 0.85f ? 12 : 0));
+    }
+  }
+  return mel;
+}
+
+} // namespace
+
+MusicTrack makeNamedMusic(const std::string& id)
+{
+  if (id.empty() || id == "theme_synthwave")
+    return makeMusic(Music::Level);
+  if (id == "theme_diner" || id == "menu")
+    return makeMusic(Music::Menu);
+  if (id == "victory")
+    return makeMusic(Music::Victory);
+
+  using C = std::vector<std::array<int, 3>>;
+  static const C kProgressions[] = {
+    {{57, 60, 64}, {53, 57, 60}, {48, 52, 55}, {55, 59, 62}},                         // Am F C G
+    {{50, 53, 57}, {58, 62, 65}, {53, 57, 60}, {48, 52, 55}},                         // Dm Bb F C
+    {{52, 55, 59}, {48, 52, 55}, {55, 59, 62}, {50, 54, 57}},                         // Em C G D
+    {{57, 60, 64}, {55, 59, 62}, {53, 57, 60}, {52, 56, 59}},                         // Am G F E
+    {{48, 52, 55}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}},                         // C Am F G
+    {{50, 53, 57}, {48, 52, 55}, {46, 50, 53}, {45, 49, 52}},                         // Dm C Bb A
+    {{55, 58, 62}, {51, 55, 58}, {53, 57, 60}, {50, 54, 57}},                         // Gm Eb F D
+  };
+  const std::uint32_t seed = hashName(id);
+  const C& chords = kProgressions[seed % (sizeof(kProgressions) / sizeof(kProgressions[0]))];
+  Song s{120.0, 16, chords, true, true, makeMelody(chords, seed)};
+  if (contains(id, "episode_end") || contains(id, "lonely") || contains(id, "organ") || contains(id, "credits"))
+  {
+    s.bpm = 90.0;
+    s.drums = false;
+    s.bars = 8;
+  }
+  else if (contains(id, "ambient") || contains(id, "drone") || contains(id, "breathing") || contains(id, "bells") ||
+           contains(id, "submerged") || contains(id, "cryo"))
+  {
+    s.drums = false;
+  }
+  else if (contains(id, "opening") || contains(id, "finale") || contains(id, "heroic") || contains(id, "medley"))
+  {
+    s.lead = true;
+  }
+  auto mix = renderSong(s);
+  MusicTrack out;
+  out.left = std::move(mix.left);
+  out.right = std::move(mix.right);
+  out.loops = true;
   return out;
 }
 

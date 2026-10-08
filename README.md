@@ -3,10 +3,14 @@
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three
 runners (Dash, Rocco or Nova) and blast your way to the exit.
 
-This is a **proof of concept**: one level, three playable characters, three
-enemy types, Duke II's weapons, item boxes and bonus tally, synthesized sound
-and music, and three switchable visual themes that correspond to the design
-directions in [docs/DESIGN.md](docs/DESIGN.md).
+The game is growing from a proof of concept into a 42-level campaign in six
+episodes (the design is in the project's level spec): every level has its
+own twist, its own prototype weapon, a bonus level behind a flickering TV,
+secrets and a briefing cutscene. Built so far: the title menu and campaign
+flow, the cutscene player with all 53 scripts, the Arsenal, the Bonus
+Channel, Reruns, and **Level 1, Rooftop Run** (neon signs that are only solid
+on the beat, the Pulse Pistol) with its bonus level **Cloud Nine**. The
+original PoC level is still there as the TRAINING STAGE.
 
 ![Gameplay: Dash in Neon Overdrive](docs/media/gameplay_preview.gif)
 
@@ -58,13 +62,40 @@ environment variable (a mapping line from a tool such as
 `sdl2-jstest` or the SDL GameController DB).
 
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
-bot plays), `--level PATH`, `--fullscreen`, `--no-audio`, `--save-dir PATH`,
+bot plays), `--start N` (campaign level N), `--no-cutscenes`,
+`--cutscene NAME` (play one cutscene), `--level PATH` (just this level
+file), `--fullscreen`, `--no-audio`, `--save-dir PATH`,
 `--trace` (prints the player state every logic frame), `--press LIST`
 (scripted button presses for headless menu tests). Run `--help` for all of
 them.
 
 Tests: `ctest --test-dir build` runs the savegame round-trip test (play,
-save, load into a fresh world, save again, compare).
+save, load into a fresh world, save again, compare) on the PoC level and on
+Level 1.
+
+## The campaign
+
+The title menu has NEW GAME, CONTINUE, LOAD GAME, LEVEL SELECT, ARSENAL,
+BONUS CHANNEL, RERUNS and the TRAINING STAGE. A new game plays the opening
+movie, then each level's briefing, the level, the tally and, after an
+episode's last level, its ending. Cutscenes follow RigelEngine's movie model
+(shots of animated clips at a frame delay, with cues for sound, subtitles,
+freeze frames and fades); the scripts are data in `cutscenes/*.txt` and any
+button skips them. The levels that are not built yet end the run with a
+"to be continued" screen.
+
+- **Prototypes and the Arsenal.** Each level hides its own prototype weapon
+  in green `W` boxes. Reach the exit with it and it is logged to the
+  Arsenal (title menu), with your best kill count.
+- **Bonus levels.** A patch of TV static (`B`) is the way in: press up.
+  "WE'LL BE RIGHT BACK!", a short level with crazy rules and a timer, and
+  you are back where you were with everything you had. Beating it earns a
+  Bonus Star (10000 on the tally) and a slot in the Bonus Channel.
+- **Secrets.** A rubber duck in every level, candid cameras, hidden gem
+  caches (`$`) and the number 42 somewhere.
+- **Profile.** What you have unlocked is kept in `profile.txt` next to the
+  savegames. Campaign saves remember their level, so LOAD GAME works from
+  the title screen.
 
 ## Gameplay: how close to Duke Nukem II
 
@@ -119,8 +150,9 @@ Nova with the laser.
 
 ## Sound and music
 
-All sound effects and the three music tracks (menu, level, and the victory
-fanfare) are synthesized at startup in `src/audio/synth.cpp` from
+All sound effects and music are synthesized in `src/audio/synth.cpp` (and
+the cutscenes' named sounds and character voice blips in
+`src/audio/synth_named.cpp`) from
 oscillators, noise, filters and envelopes: original material, GPL like the
 rest of the game, no samples and no Duke assets. The level track is an
 A-minor synthwave loop with drums, bass, pads, an arpeggio and a lead. The
@@ -140,8 +172,13 @@ mixed 800 samples per frame so it stays in sync with the video;
 `record.sh` muxes the two with ffmpeg.
 
 The bot (`src/frontend/bot.cpp`) drives the normal input path, browses the
-select screen, picks the requested runner and plays the level to the exit. Runs
-are deterministic, so the same command always produces the same clip.
+select screen, picks the requested runner and plays the level to the exit.
+On campaign levels it plans with `src/frontend/planner.cpp`: it simulates
+copies of the world with short input macros, guided by a distance field to
+the next goal (the prototype, the access card, the bonus entrance, the
+exit), so it copes with beat-timed platforms and other twists. Runs are
+deterministic, so the same command always produces the same clip. Without
+`--level`, `record.sh` records the campaign from the title screen.
 
 ## Relationship to RigelEngine
 
@@ -188,9 +225,12 @@ src/data       level loader, themes, character stats
 src/engine     camera
 src/game       world simulation: player (Rigel port), collision, enemies,
                shots, item boxes, effects, HUD
-src/frontend   character select / level / bonus tally modes, autoplay bot
+src/frontend   title menu, campaign flow, cutscene player and clips,
+               level / bonus tally modes, menus, autoplay bot and planner
 levels/        text level files (format in levels/README.md)
-tools/         record.sh, mklevel.py (generates levels/level1.txt)
+cutscenes/     cutscene scripts
+tools/         record.sh, mklevel.py (levels/level1.txt), levels/*.py
+               (one generator per campaign level)
 docs/          design directions and media
 ```
 

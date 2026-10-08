@@ -111,6 +111,29 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   g.kind = 0;
   g.x = lv.exitTx * kCellsPerTile;
   g.y = (lv.exitTy + 1) * kCellsPerTile - 1;
+  // The prototype is what the level is built around: grab the nearest one.
+  if (!mSkipProto && !w.stats().protoFound)
+  {
+    const auto& p = w.player();
+    Goal best;
+    int bestD = -1;
+    auto consider = [&](int x, int y) {
+      const int d = std::abs(x - p.x) + std::abs(y - p.y);
+      if (bestD < 0 || d < bestD)
+      {
+        bestD = d;
+        best = {2, x, y};
+      }
+    };
+    for (const auto& it : w.items())
+      if (it.kind == ItemKind::Proto && !it.taken)
+        consider(it.x, it.y);
+    for (const auto& b : w.boxes())
+      if (b.alive && b.content == ItemKind::Proto)
+        consider(b.x, b.y);
+    if (bestD >= 0)
+      return best;
+  }
   // A force field still on and no card: fetch the card first.
   bool fields = false;
   if (w.map().forceFieldsOn())
@@ -126,6 +149,10 @@ Planner::Goal Planner::chooseGoal(const World& w) const
       if (b.alive && b.content == ItemKind::Key)
         return {1, b.x, b.y};
   }
+  if (mTakeBonus && !mSkipBonus)
+    for (const auto& pr : w.props())
+      if (pr.kind == PropKind::BonusDoor && !pr.used)
+        return {3, pr.x, pr.y, pr.w, pr.h};
   return g;
 }
 
@@ -135,7 +162,8 @@ void Planner::buildField(const World& w, const Goal& goal)
   mW = map.width();
   mH = map.height();
   const int W = mW, H = mH;
-  const bool openFields = goal.kind == 0;
+  // With the card (or once the card is no longer needed) force fields open.
+  const bool openFields = goal.kind == 0 || goal.kind == 3 || w.player().hasKey;
   int jumpH = 0;
   for (int v : w.character().jumpArc)
     jumpH += v;
@@ -287,7 +315,9 @@ void Planner::buildField(const World& w, const Goal& goal)
   mDist.assign(std::size_t(N), kInf);
   using QE = std::pair<int, int>;
   std::priority_queue<QE, std::vector<QE>, std::greater<QE>> q;
-  const CellBox goalBox = goal.kind == 0 ? CellBox{goal.x, goal.y - 5, 2, 6} : CellBox{goal.x, goal.y - 1, 2, 2};
+  const CellBox goalBox = goal.kind == 0 ? CellBox{goal.x, goal.y - 5, 2, 6}
+    : goal.kind == 3                      ? CellBox{goal.x, goal.y, goal.w, goal.h}
+                                          : CellBox{goal.x, goal.y - 1, 2, 2};
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
     {
@@ -296,7 +326,7 @@ void Planner::buildField(const World& w, const Goal& goal)
         continue;
       if (!boxAt(x, y, 3, 5).intersects(goalBox))
         continue;
-      if (goal.kind == 0 && support[i] != 0)
+      if ((goal.kind == 0 || goal.kind == 3) && support[i] != 0)
         continue;
       for (int a = 0; a < A; ++a)
       {
@@ -366,9 +396,9 @@ int Planner::heuristic(const World& w) const
   const auto& p = w.player();
   // The card still in its box: breaking the box is part of the way there.
   int extra = 0;
-  if (mGoalKind == 1)
+  if (mGoalKind == 1 || mGoalKind == 2)
     for (const auto& b : w.boxes())
-      if (b.alive && b.content == ItemKind::Key)
+      if (b.alive && b.content == (mGoalKind == 1 ? ItemKind::Key : ItemKind::Proto))
         extra = 40;
   if (p.x < 0 || p.y < 0 || p.x >= mW || p.y >= mH)
     return kInf;
@@ -418,13 +448,46 @@ void Planner::plan(const World& world)
     return;
   }
 
-  const Goal goal = chooseGoal(world);
-  const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y;
-  if (mDist.empty() || keyHash != mGoalKeyHash)
+  Goal goal = chooseGoal(world);
+  // A prototype the field cannot reach, or one the search keeps failing to
+  // get to, is skipped.
+  if (goal.kind == 3 && mGoalKind == 3 && mFails >= 6)
   {
-    buildField(world, goal);
-    mGoalKeyHash = keyHash;
-    mGoalKind = goal.kind;
+    mSkipBonus = true;
+    goal = chooseGoal(world);
+  }
+  if (goal.kind == 2 && mGoalKind == 2 && mFails >= 6)
+  {
+    mSkipProto = true;
+    mSkipHadKey = world.player().hasKey;
+  }
+  // Behind a force field, a prototype becomes reachable with the card.
+  if (mSkipProto && !mSkipHadKey && world.player().hasKey)
+  {
+    mSkipProto = false;
+    goal = chooseGoal(world);
+  }
+  for (int attempt = 0; attempt < 3; ++attempt)
+  {
+    if (mSkipProto && goal.kind == 2)
+      goal = chooseGoal(world);
+    const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0);
+    if (mDist.empty() || keyHash != mGoalKeyHash)
+    {
+      buildField(world, goal);
+      mGoalKeyHash = keyHash;
+      mGoalKind = goal.kind;
+    }
+    if ((goal.kind != 2 && goal.kind != 3) || heuristic(world) < kInf)
+      break;
+    if (goal.kind == 3)
+    {
+      mSkipBonus = true;
+      goal = chooseGoal(world);
+      continue;
+    }
+    mSkipProto = true;
+    mSkipHadKey = world.player().hasKey;
   }
 
   struct Node
@@ -452,6 +515,7 @@ void Planner::plan(const World& world)
     for (const auto& b : w.boxes())
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
+    k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
     return k;
   };
   const int h0 = heuristic(world);
@@ -472,8 +536,8 @@ void Planner::plan(const World& world)
     const Node& n = nodes[std::size_t(ni)];
     const World& nw = *n.w;
     const auto& np = nw.player();
-    const bool success = nw.state() != WorldState::Playing ||
-      (goal.kind == 1 && np.hasKey);
+    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) ||
+      (goal.kind == 2 && nw.stats().protoFound) || (goal.kind == 3 && nw.bonusRequested());
     if (ni != 0 && success)
     {
       found = ni;

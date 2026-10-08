@@ -1,0 +1,24 @@
+cutscene brief_23
+music stop
+
+# clip static_snow: full-frame noise, 4-frame loop; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+
+# clip ident_ch13: backdrop black; "CH 13" in dripping green letters drips
+#   down 2 px/frame, "HORROR" flickers in on frames 6-11; 12 frames
+shot ident_ch13 delay=80 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 11 hold=1200
+
+# clip lance_cape: backdrop the manor on a hill, lightning layer flashes on
+#   frame 3; mid Lance in a cape, lit from below (a flashlight under his chin,
+#   flicker loop of 4 frames), cape swirls (8-frame loop); 16 frames
+shot lance_cape delay=90 repeat=4
+  cue 0 music=theme_theremin
+  cue 3 sound=thunder
+  cue 3 flash=white:120
+  cue 4 say=LANCE "Mwa-ha-ha. Ratings!"
+  cue 15 hold=1800
+  cue 15 fade=out:400

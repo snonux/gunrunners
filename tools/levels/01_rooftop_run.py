@@ -135,7 +135,11 @@ L.ground(149, 174, 14)
 L.col(174, 6, 13, "H")
 letter("g", [(151, 6, 156, 6), (151, 7, 151, 9), (151, 10, 156, 10), (156, 8, 156, 9), (154, 8, 155, 8)],
        "1", "pink")
-letter("u", [(159, 6, 160, 9), (163, 6, 164, 9), (159, 10, 164, 10)], "2", "cyan")
+letter("u", [(159, 6, 160, 9), (163, 6, 164, 9), (159, 10, 160, 10), (163, 10, 164, 10)], "2", "cyan")
+# The middle of the U's bottom is a beat sign: the posts are 4 blocks high,
+# too tall to jump out of, so you leave the U (after the bonus level) by
+# dropping through on the dark beat to the lower roof, where the duck waits.
+sign("uh", 161, 10, 162, 10, color="cyan")
 letter("n", [(167, 6, 168, 10), (171, 6, 172, 10), (169, 7, 169, 8), (170, 8, 170, 9)], "3", "yellow")
 L.put(161, 7, "B")
 L.put(161, 13, "Q")

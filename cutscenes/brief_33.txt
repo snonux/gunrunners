@@ -1,0 +1,19 @@
+cutscene brief_33
+music theme_driving_hihat
+
+shot volcano_dc delay=100 repeat=1
+  cue 0 fade=in:400
+  cue 0 sound=lava_rumble
+
+shot volcano_dc delay=100 repeat=3
+
+shot volcano_dc delay=100 repeat=1
+  cue 5 say=S "The heat's rising."
+  cue 5 hold=2000
+
+shot runners_heat delay=110 repeat=1
+  cue 4 sound=steam_burst
+  cue 4 say=S "So are you."
+  cue 4 hold=1500
+  cue 7 hold=1000
+  cue 7 fade=out:500

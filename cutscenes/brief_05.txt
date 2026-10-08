@@ -1,0 +1,18 @@
+cutscene brief_05
+music theme_dub
+
+# clip max_holo_manhole: MAX hologram (4-frame scramble loop) above the diner
+# table showing a manhole cover sliding aside over frames 4-9; 12 frames
+shot max_holo_manhole delay=125 repeat=4
+  cue 0 fade=in:400
+  cue 0 sound=holo_on
+  cue 2 say=MAX "The thief went underground."
+
+# clip grate_glow: the crew on a wet street around a sewer grate; lime-green
+# glow pulses up through the grate (8-frame loop); Nova pinches her nose on
+# frames 6-9 and holds; foreground steam pans left 2 px/frame; 16 frames
+shot grate_glow delay=125 repeat=4
+  cue 0 sound=drip_echo
+  cue 10 say=NOVA "...Of course he did."
+  cue 24 sound=siren_far
+  cue 63 fade=out:400

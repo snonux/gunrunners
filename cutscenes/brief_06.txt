@@ -1,0 +1,24 @@
+cutscene brief_06
+music theme_arpeggio
+
+# clip bridge_wait: the crew on a bridge railing at night in the rain (rain
+# foreground loop 4 frames); far below, the maglev's headlight grows over
+# frames 0-15; backdrop city pans 1 px/frame; 16 frames
+shot bridge_wait delay=100 repeat=4
+  cue 0 fade=in:400
+  cue 0 sound=rain_loop
+  cue 6 say=MAX "The package is aboard the midnight maglev."
+  cue 40 say=MAX "It does not stop for passengers."
+
+# clip maglev_pass: the train streaks under the bridge, chrome cars with red
+# running lights sliding right to left 64 px/frame, speed lines; 12 frames
+shot maglev_pass delay=80 repeat=5
+  cue 0 sound=maglev_roar
+  cue 0 shake=4:4000
+
+# clip the_jump: the three runners leap off the railing, frames 0-7, freeze
+# on frame 8 mid-air above the roofs; 10 frames
+shot the_jump delay=100 repeat=1
+  cue 0 say=DASH "Now!"
+  cue 8 hold=1500
+  cue 9 fade=out:300

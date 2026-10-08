@@ -1,0 +1,20 @@
+cutscene brief_04
+music theme_heartbeat
+
+# clip max_holo_district: MAX hologram (4-frame scramble loop) projecting a
+# street map split into four glowing sectors; the crew at the diner table,
+# backdrop neon window; 16 frames
+shot max_holo_district delay=125 repeat=3
+  cue 0 fade=in:400
+  cue 0 sound=holo_on
+  cue 2 say=MAX "The east district. Four sectors, one grid, and the package is-"
+  cue 40 sound=power_down
+  cue 40 flash=white:100
+
+# clip blackout_table: the same framing in darkness; only the hologram's
+# glow, the window's dim outline and the three pairs of runners' eyes draw;
+# the eyes blink on frames 6 and 9; 12 frames
+shot blackout_table delay=150 repeat=3
+  cue 4 say=MAX "Proceed."
+  cue 30 hold=2000
+  cue 35 fade=out:400

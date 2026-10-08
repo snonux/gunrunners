@@ -1,0 +1,33 @@
+cutscene end_e5
+music theme_episode_end
+
+# Clip titan_falls: the Halcyon Titan toppling off the mast into the
+# clouds. 14 frames.
+shot titan_falls delay=90 repeat=1
+  cue 0 sound=metal_groan
+  cue 13 sound=big_explosion
+  cue 13 hold=800
+
+# Clip dish_swing: the transmitter dish swinging around to point at the
+# MaxTV studios on the horizon at dawn. 16 frames.
+shot dish_swing delay=110 repeat=1
+  cue 15 say=S "That's home."
+  cue 15 hold=2000
+
+# Clip maxine: static on a monitor resolves into a tired woman in a
+# headset (frames 0-7), then she talks (8-11 loop).
+shot maxine delay=110 repeat=1
+  cue 8 say=MAXINE "Maxine Vale. Director. I was MAX."
+  cue 8 hold=2500
+shot dash_freeze delay=100 repeat=1
+  cue 0 say=DASH "Why should we trust you?"
+  cue 0 hold=2000
+shot maxine delay=110 repeat=1
+  cue 8 say=MAXINE "Because I'm the one who hid the cameras where you'd find them."
+  cue 8 hold=3000
+
+# Clip ride_beam: the runners riding the signal beam toward the studio.
+# 12 frames.
+shot ride_beam delay=80 repeat=2
+  cue 0 sound=beam_whoosh
+  cue 11 fade=out:800

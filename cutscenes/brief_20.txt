@@ -1,0 +1,22 @@
+cutscene brief_20
+music core_drone
+
+shot brief20_core delay=100 repeat=1
+  cue 0 fade=in:600
+  cue 0 sound=core_hum_rise
+  cue 8 flash=white:150
+  cue 8 sound=core_pulse
+  cue 9 say=ZERO "Every ten seconds."
+  cue 9 hold=2500
+
+shot brief20_core delay=100 repeat=1
+  cue 0 sound=core_hum_rise
+  cue 8 flash=white:150
+  cue 8 sound=core_pulse
+  cue 9 say=ZERO "You'll get used to it."
+  cue 9 hold=2500
+
+shot brief20_crew delay=150 repeat=1
+  cue 0 say=ZERO "I never did."
+  cue 7 hold=3000
+  cue 7 fade=out:900

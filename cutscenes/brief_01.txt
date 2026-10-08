@@ -1,0 +1,15 @@
+cutscene brief_01
+music theme_synthwave
+
+# clip max_holo_rooftop: backdrop striped sunset (pan 1 px/frame), mid skyline
+# (pan 2 px/frame), foreground MAX hologram over a diner table with a 4-frame
+# scramble loop; a small neon sign inside the hologram is lit frames 0-11 and
+# dark 12-15 of every 16 (one bar at 125 ms/frame = 120 BPM); 16 frames
+shot max_holo_rooftop delay=125 repeat=6
+  cue 0 fade=in:400
+  cue 0 sound=holo_on
+  cue 4 say=MAX "First package. A rooftop downtown."
+  cue 36 say=MAX "The signs keep time. So should you."
+  cue 76 sound=holo_off
+  cue 80 hold=1500
+  cue 95 fade=out:400

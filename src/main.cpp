@@ -82,8 +82,12 @@ void printUsage()
     "Usage: gunrunners [options]\n"
     "  --theme N            0 = Neon Overdrive, 1 = Lost Temple, 2 = Station Zero\n"
     "  --character N        0 = Dash, 1 = Rocco, 2 = Nova\n"
-    "  --level PATH         level file (default: levels/level1.txt)\n"
-    "  --skip-menu          start straight in the level\n"
+    "  --level PATH         play just this level file (default: the campaign)\n"
+    "  --start N            campaign: start at level N (with --skip-menu)\n"
+    "  --skip-menu          start straight in the level (after its briefing)\n"
+    "  --no-cutscenes       skip the opening, briefings and episode endings\n"
+    "  --cutscene NAME      play cutscenes/NAME.txt, then quit\n"
+    "  --data-dir PATH      where levels/ and cutscenes/ are\n"
     "  --autoplay           let the bot play (menu + level)\n"
     "  --quit-after-clear   exit after the results screen\n"
     "  --headless           no window; use with --raw-out to record\n"
@@ -113,12 +117,12 @@ bool fileExists(const std::string& p)
   return bool(f);
 }
 
-std::string defaultLevelPath()
+std::string defaultDataDir()
 {
-  for (const char* p : {"levels/level1.txt", "../levels/level1.txt"})
-    if (fileExists(p))
-      return p;
-  return std::string(GR_DATA_DIR) + "/levels/level1.txt";
+  for (const char* d : {".", ".."})
+    if (fileExists(std::string(d) + "/levels/01_rooftop_run.txt"))
+      return d;
+  return GR_DATA_DIR;
 }
 
 bool parseArgs(int argc, char** argv, CliOptions& o)
@@ -140,6 +144,14 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.game.character = std::atoi(next());
     else if (a == "--level")
       o.game.levelPath = next();
+    else if (a == "--start")
+      o.game.startLevel = std::atoi(next());
+    else if (a == "--no-cutscenes")
+      o.game.noCutscenes = true;
+    else if (a == "--cutscene")
+      o.game.cutscene = next();
+    else if (a == "--data-dir")
+      o.game.dataDir = next();
     else if (a == "--skip-menu")
       o.game.skipMenu = true;
     else if (a == "--autoplay")
@@ -191,8 +203,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       std::exit(2);
     }
   }
-  if (o.game.levelPath.empty())
-    o.game.levelPath = defaultLevelPath();
+  if (o.game.dataDir.empty())
+    o.game.dataDir = defaultDataDir();
   return true;
 }
 

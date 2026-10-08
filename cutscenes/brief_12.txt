@@ -1,0 +1,21 @@
+cutscene brief_12
+music theme_deep_drums
+
+# Clip brief12_heat: 4 layers. Backdrop: magma glow under basalt columns,
+# ash falling (12-frame loop). Mid: heat-haze distortion band, a 2 px
+# sine wobble per frame. Characters: the runners on a ledge; Rocco's boots
+# smoke (6-frame loop), he lifts one foot on frame 12. Foreground: MAX's
+# hologram from Dash's wrist, flickering in the haze. 16 frames.
+shot brief12_heat delay=110 repeat=4
+  cue 0 fade=in:500
+  cue 0 sound=magma_bubble
+  cue 12 sound=sizzle
+  cue 16 say=MAX "It's warm."
+  cue 36 say=MAX "Don't stand still."
+  cue 63 hold=1200
+
+# Clip brief12_hop: 2 layers. Characters: Rocco hops from foot to foot,
+# Nova steps onto a basalt stone that sinks 2 px per frame. 12 frames.
+shot brief12_hop delay=100 repeat=2
+  cue 0 sound=stone_sink
+  cue 23 fade=out:600

@@ -1,0 +1,23 @@
+cutscene brief_39
+music theme_synth_pulse
+
+# Clip brief39_wall: 3 layers. Backdrop: dark control room. Mid: a wall of
+# 24 monitors, each a 4-frame static/picture loop, pans left 1 px/frame.
+# Characters: on monitor 7 Maxine waves at the camera (frames 0-7); on
+# monitor 8 two security guards grab her by the arms (frames 8-15).
+# Foreground: the backs of the three runners' heads.
+# 16 frames at 110 ms = 1.8 s, plus 10 s of holds.
+shot brief39_wall delay=110 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=radio_chatter
+  cue 2 say=MAXINE "Every camera in the building is live. Use them."
+  cue 2 hold=3500
+  cue 8 sound=scuffle
+  cue 9 say=MAXINE "Hey! Get your hands-"
+  cue 9 hold=2000
+  cue 12 sound=static_burst
+  cue 13 say=ROCCO "They got her."
+  cue 13 hold=2000
+  cue 15 say=DASH "Then we go get her back."
+  cue 15 hold=2500
+  cue 15 fade=out:600

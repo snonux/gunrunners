@@ -1,0 +1,26 @@
+cutscene brief_26
+music stop
+
+# clip static_snow: full-frame noise, 4-frame loop; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+
+# clip ident_ch50: backdrop Technicolor sky; "CH 50" in jagged 1950s
+#   letters shakes in (frames 0-5), "MONSTERS" with a scream-shaped
+#   underline; 12 frames
+shot ident_ch50 delay=80 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 0 shake=3:400
+  cue 11 hold=1200
+
+# clip lizard_wave: backdrop painted mountains; mid the model city at knee
+#   height, a smoke machine puffs (8-frame loop); characters the man in the
+#   rubber lizard suit waves (6-frame loop), Lance beside him points at the
+#   camera on frame 8; 16 frames
+shot lizard_wave delay=90 repeat=4
+  cue 0 music=theme_monster_brass
+  cue 1 sound=rubber_squeak
+  cue 8 say=LANCE "Tonight, YOU are the monster!"
+  cue 15 hold=1800
+  cue 15 fade=out:400

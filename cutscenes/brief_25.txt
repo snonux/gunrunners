@@ -1,0 +1,23 @@
+cutscene brief_25
+music stop
+
+# clip static_snow: full-frame noise, 4-frame loop; 4 frames
+shot static_snow delay=60 repeat=6
+  cue 0 sound=tv_static
+
+# clip ident_ch31: backdrop a leaf in golden light; "CH 31" in a thin serif
+#   fades up over frames 0-5, "NATURE" draws on as a vine on 6-11; 12 frames
+shot ident_ch31 delay=90 repeat=1
+  cue 0 stopsound=tv_static
+  cue 0 sound=channel_ident
+  cue 11 hold=1200
+
+# clip runners_habitat: backdrop bokeh garden, slow pan right 1 px/frame;
+#   mid grass blades sway (8-frame loop); characters the three runners tiny
+#   between the blades, Rocco scratches his head (4-frame loop); foreground a
+#   dew drop slides down a blade (16 frames); 16 frames
+shot runners_habitat delay=100 repeat=4
+  cue 0 music=theme_string_quartet
+  cue 2 say=NARRATOR "And here, the runners, in their natural habitat."
+  cue 15 hold=2000
+  cue 15 fade=out:500

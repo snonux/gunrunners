@@ -1,0 +1,19 @@
+cutscene brief_40
+music theme_arena_rock
+
+# Clip brief40_rigging: 4 layers. Backdrop: haze lit by coloured beams
+# (beams sweep, 8-frame loop). Mid: black trusses and catwalks, tilting up
+# 3 px/frame (the camera cranes upward). Characters: the three runners on
+# a catwalk, Nova looking up. Foreground: a PA speaker that buzzes on
+# frame 4. 16 frames at 100 ms = 1.6 s, plus 9 s of holds.
+shot brief40_rigging delay=100 repeat=1
+  cue 0 fade=in:500
+  cue 4 sound=pa_feedback
+  cue 6 say=LANCE "Places, everyone!"
+  cue 6 hold=3000
+  cue 9 say=LANCE "We're live in ten!"
+  cue 9 hold=2500
+  cue 13 say=NOVA "Up it is."
+  cue 13 hold=2500
+  cue 15 hold=1000
+  cue 15 fade=out:500

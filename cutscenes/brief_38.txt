@@ -1,0 +1,21 @@
+cutscene brief_38
+music theme_typewriter_clarinet
+
+# Clip brief38_door: 3 layers plus inset. Backdrop: a pencil-grey hallway
+# (static). Mid: the writers' room door, its frosted glass labelled
+# "WRITERS" in marker; typewriter light flickers through the glass (6-frame
+# loop); the camera pushes in 2 px/frame. Characters: Dash's hand on the
+# handle. Foreground: Maxine inset on her headset, 4-frame talk loop.
+# 12 frames at 100 ms = 1.2 s, plus 9.5 s of holds.
+shot brief38_door delay=100 repeat=1
+  cue 0 fade=in:500
+  cue 0 sound=typewriter_loop
+  cue 3 say=MAXINE "They're still writing your ending."
+  cue 3 hold=4000
+  cue 7 say=MAXINE "Edit it."
+  cue 7 hold=2500
+  cue 9 stopsound=typewriter_loop
+  cue 9 sound=bell_ding
+  cue 9 hold=1500
+  cue 11 hold=1500
+  cue 11 fade=out:500

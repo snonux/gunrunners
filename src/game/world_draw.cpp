@@ -323,6 +323,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
     }
   }
 
+  const Texture& platformTex = mLevel->flag("clouds") ? mArt.cloud : mArt.platform;
   for (int ty = ty0; ty <= ty1; ++ty)
   {
     for (int tx = tx0; tx <= tx1; ++tx)
@@ -347,7 +348,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
           break;
         }
         case Tile::Platform:
-          r.draw(mArt.platform, x, y);
+          r.draw(platformTex, x, y);
           break;
         case Tile::Spikes:
           r.draw(mArt.spikes, x, y);

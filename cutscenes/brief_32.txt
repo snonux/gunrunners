@@ -1,0 +1,17 @@
+cutscene brief_32
+music theme_desert_slide
+
+shot desert_dishes delay=110 repeat=1
+  cue 0 fade=in:500
+
+shot desert_dishes delay=110 repeat=3
+
+shot desert_dishes delay=110 repeat=1
+  cue 6 sound=dish_groan
+
+shot dish_closeup delay=120 repeat=1
+  cue 0 sound=dish_groan
+  cue 2 say=S "They're looking for you now."
+  cue 2 hold=2000
+  cue 7 hold=1500
+  cue 7 fade=out:600

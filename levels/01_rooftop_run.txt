@@ -71,7 +71,9 @@ flags=
 @ layer g4 rect=154,8,155,8 driver=lit beats=1 style=sign color=pink
 @ layer u0 rect=159,6,160,9 driver=lit beats=2 style=sign color=cyan
 @ layer u1 rect=163,6,164,9 driver=lit beats=2 style=sign color=cyan
-@ layer u2 rect=159,10,164,10 driver=lit beats=2 style=sign color=cyan
+@ layer u2 rect=159,10,160,10 driver=lit beats=2 style=sign color=cyan
+@ layer u3 rect=163,10,164,10 driver=lit beats=2 style=sign color=cyan
+@ layer uh rect=161,10,162,10 driver=beat beats=1,2,3 style=sign color=cyan
 @ layer n0 rect=167,6,168,10 driver=lit beats=3 style=sign color=yellow
 @ layer n1 rect=171,6,172,10 driver=lit beats=3 style=sign color=yellow
 @ layer n2 rect=169,7,169,8 driver=lit beats=3 style=sign color=yellow

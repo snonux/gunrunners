@@ -1,0 +1,56 @@
+cutscene opening
+music theme_opening
+
+# Clip neon_city: 4 layers. Sunset sky gradient (static), far skyline
+# (pans left 1 px/frame), near skyline with the Halcyon tower centred (pans
+# 2 px/frame), a maglev crossing the near skyline left to right (24-frame
+# loop). 24 frames.
+shot neon_city delay=120 repeat=4
+  cue 0 fade=in:800
+  cue 0 sound=city_hum
+
+# Clip diner: rain running down the window (8-frame loop), the three
+# runners in a booth (static), neon sign outside blinking (2 frames).
+# 8 frames.
+shot diner delay=110 repeat=3
+  cue 0 hold=1200
+  cue 2 sound=phone_chime_dash
+  cue 4 sound=phone_chime_rocco
+  cue 6 sound=phone_chime_nova
+
+# Clip max_hologram: a scrambled hologram rising out of the table (frames
+# 0-5), then flickering (frames 6-11 loop). 12 frames.
+shot max_hologram delay=90 repeat=1
+  cue 0 sound=hologram_rise
+  cue 6 say=MAX "Three couriers. Forty-two jobs."
+  cue 6 hold=1800
+  cue 9 say=MAX "Paid by the job. Don't ask what's in the box."
+  cue 9 hold=2200
+
+# Clip name_dash / name_rocco / name_nova: each 6 frames; the runner's
+# action (Dash cocks his blaster, Rocco cracks his knuckles, Nova spins her
+# keys) on frames 0-4, the name card slams in on frame 5.
+shot name_dash delay=70 repeat=1
+  cue 5 sound=name_slam
+  cue 5 hold=2000
+shot name_rocco delay=70 repeat=1
+  cue 5 sound=name_slam
+  cue 5 hold=2000
+shot name_nova delay=70 repeat=1
+  cue 5 sound=name_slam
+  cue 5 hold=2000
+
+# Clip logo: GUNRUNNERS letters slide in from the right (frames 0-9), two
+# smashes (frames 10 and 14) with debris, final frame pulls back to the
+# diner ceiling with a small red light blinking. 18 frames.
+shot logo delay=60 repeat=1
+  cue 0 delay=30
+  cue 10 sound=big_explosion
+  cue 10 shake=6:400
+  cue 10 hold=1000
+  cue 11 delay=60
+  cue 14 sound=big_explosion
+  cue 14 shake=8:500
+  cue 14 hold=1000
+  cue 17 hold=2500
+  cue 17 fade=out:1000

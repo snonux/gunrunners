@@ -42,6 +42,14 @@ SaveGame World::snapshot() const
   s.tookDamage = st.tookDamage;
   s.letters = st.letters;
   s.forceFieldsOn = mMap.forceFieldsOn();
+  s.proto = p.weapon == Weapon::Proto ? p.proto : -1;
+  s.protoFound = st.protoFound;
+  s.duck = st.duck;
+  s.camera = st.camera;
+  s.bonusStar = mBonusStar;
+  s.protoKills = st.protoKills;
+  for (const auto& pr : mProps)
+    s.props.push_back(pr.used);
 
   for (const auto& e : mEnemies)
     s.enemies.push_back({e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active});
@@ -81,10 +89,10 @@ bool World::restore(const SaveGame& s)
 {
   if (s.levelName != mLevel->name || s.enemies.size() != mEnemies.size() ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
-      s.weapon < 0 || s.weapon > int(Weapon::Flame))
+      s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
   for (const auto& it : s.items)
-    if (it.kind < 0 || it.kind > int(ItemKind::Virus))
+    if (it.kind < 0 || it.kind > int(ItemKind::Duck))
       return false;
 
   mCharacter = &characterByIndex(std::clamp(s.character, 0, kCharacterCount - 1));
@@ -123,6 +131,19 @@ bool World::restore(const SaveGame& s)
   st.letters = s.letters;
   if (!s.forceFieldsOn)
     mMap.disableForceFields();
+  if (p.weapon == Weapon::Proto)
+  {
+    p.proto = s.proto >= 0 ? s.proto : mLevelProto;
+    if (p.proto < 0)
+      p.weapon = Weapon::Normal;
+  }
+  st.protoFound = s.protoFound;
+  st.duck = s.duck;
+  st.camera = s.camera;
+  st.protoKills = s.protoKills;
+  mBonusStar = s.bonusStar;
+  for (std::size_t i = 0; i < s.props.size(); ++i)
+    mProps[i].used = s.props[i];
 
   for (std::size_t i = 0; i < mEnemies.size(); ++i)
   {
@@ -161,6 +182,7 @@ bool World::restore(const SaveGame& s)
   mFlashes.clear();
   mState = WorldState::Playing;
   mStateFrames = 0;
+  updateLayers(false); // the beat signs follow the restored music clock
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   return true;
 }

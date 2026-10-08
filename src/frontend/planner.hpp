@@ -13,8 +13,8 @@ class World;
 
 // Search-based autopilot. It plans by simulating copies of the world (the
 // logic is deterministic) with short input "macros", guided by a distance
-// field to the current goal: the access card while a force field blocks the
-// way, then the exit. That lets one bot play levels with beat-timed signs,
+// field to the current goal: the level's prototype (the first box), the
+// access card while a force field blocks the way, then the exit. That lets one bot play levels with beat-timed signs,
 // moving platforms and other twists without bespoke code for each.
 class Planner
 {
@@ -23,12 +23,15 @@ public:
   Input next(const World& world);
   // Frames of input left in the current plan.
   int queued() const { return int(mQueue.size()); }
+  // Also visit the bonus entrance on the way (for demos and tests).
+  void setTakeBonus(bool take) { mTakeBonus = take; }
 
 private:
   struct Goal
   {
-    int kind = 0; // 0 exit, 1 key
+    int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance
     int x = 0, y = 0;
+    int w = 0, h = 0; // kind 3: the entrance's box
   };
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;
@@ -44,6 +47,10 @@ private:
   int mGoalKind = -1;
   int mGoalKeyHash = 0;
   int mFails = 0;
+  bool mSkipProto = false; // the prototype is out of reach: go without it
+  bool mSkipHadKey = false;
+  bool mTakeBonus = false;
+  bool mSkipBonus = false;
 };
 
 } // namespace gr
