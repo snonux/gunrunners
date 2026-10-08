@@ -20,7 +20,12 @@ add_library(gunrunners_core STATIC
   src/data/theme.cpp
   src/data/characters.cpp
   src/engine/camera.cpp
+  src/audio/audio.cpp
+  src/audio/synth.cpp
+  src/game/collision.cpp
+  src/game/player.cpp
   src/game/world.cpp
+  src/game/world_draw.cpp
   src/frontend/bot.cpp
   src/frontend/game.cpp
 )

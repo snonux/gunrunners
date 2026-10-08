@@ -109,7 +109,15 @@ void Renderer::draw(const Texture& t, float x, float y, const DrawOpts& o)
   SDL_SetTextureBlendMode(t.get(), o.blend == Blend::Add ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
   SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::min(1.0f, std::max(0.0f, o.alpha)) * 255.0f)));
   SDL_SetTextureColorMod(t.get(), Uint8(redOf(o.tint)), Uint8(greenOf(o.tint)), Uint8(blueOf(o.tint)));
-  SDL_RenderCopy(mRenderer, t.get(), nullptr, &dst);
+  if (o.angle != 0.0f)
+  {
+    const SDL_Point pivot{int(std::lround(t.anchorX() * o.scale)), int(std::lround(t.anchorY() * o.scale))};
+    SDL_RenderCopyEx(mRenderer, t.get(), nullptr, &dst, double(o.angle), &pivot, SDL_FLIP_NONE);
+  }
+  else
+  {
+    SDL_RenderCopy(mRenderer, t.get(), nullptr, &dst);
+  }
 }
 
 void Renderer::fillRect(float x, float y, float w, float h, Color c, Blend b)

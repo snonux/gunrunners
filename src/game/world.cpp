@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
+#include <cstdlib>
 
 namespace gr
 {
@@ -10,558 +10,693 @@ namespace gr
 namespace
 {
 
-constexpr float kTile = float(kTileSize);
-constexpr float kGravity = 0.32f;
-constexpr float kMaxFall = 6.0f;
-constexpr float kJumpCutVelocity = -2.0f;
-constexpr int kCoyoteTicks = 6;
-constexpr int kJumpBufferTicks = 8;
-constexpr int kInvulnerableTicks = 80;
+constexpr int kItemBoxScore = 100;
+constexpr int kItemPickupDelay = 3;
+constexpr int kBonusPoints = 100000;
 
-const Rect kPlayerBox{Player::kBoxX, Player::kBoxY, Player::kBoxW, Player::kBoxH};
-const Rect kWalkerBox{2.0f, 1.0f, 12.0f, 15.0f};
+int sgn(int v) { return (v > 0) - (v < 0); }
 
-int toTile(float v) { return int(std::floor(v / kTile)); }
-
-Rect offsetBox(Vec2 pos, const Rect& off)
+Vec2 cellCenter(const CellBox& b)
 {
-  return {pos.x + off.x, pos.y + off.y, off.w, off.h};
+  return {(float(b.x) + float(b.w) * 0.5f) * kCellSize, (float(b.y) + float(b.h) * 0.5f) * kCellSize};
 }
+
+int weaponBit(Weapon w) { return 1 << int(w); }
 
 } // namespace
 
-Rect Enemy::box() const
-{
-  switch (kind)
-  {
-    case EnemyKind::Walker:
-      return offsetBox(pos, kWalkerBox);
-    case EnemyKind::Flyer:
-      return {pos.x + 2.0f, pos.y + 2.0f, 12.0f, 10.0f};
-    case EnemyKind::Turret:
-    default:
-      return {pos.x + 1.0f, pos.y + 4.0f, 14.0f, 12.0f};
-  }
-}
-
-Rect Bullet::box() const
-{
-  return fromEnemy ? Rect{pos.x, pos.y, 5.0f, 5.0f} : Rect{pos.x, pos.y, 6.0f, 3.0f};
-}
-
 World::World(const Level& level, int characterIndex, const Theme& theme, const Art& art)
   : mLevel(level)
+  , mMap(mLevel)
   , mCharacter(&characterByIndex(characterIndex))
   , mCharacterIndex(characterIndex)
   , mTheme(theme)
   , mArt(art)
 {
-  mPlayer.pos = {float(mLevel.startTx) * kTile, float(mLevel.startTy + 1) * kTile - 24.0f};
-  mPlayer.hp = mCharacter->maxHp;
+  auto& p = mPlayer;
+  p.x = p.prevX = mRespawnX = mLevel.startTx * kCellsPerTile;
+  p.y = p.prevY = mRespawnY = mLevel.startTy * kCellsPerTile + 1;
+  p.hp = p.maxHp = mCharacter->maxHp;
+  p.weapon = mCharacter->startWeapon;
+  p.ammo = mCharacter->startAmmo;
 
+  int enemyId = 0;
+  int merchCount = 0;
   for (const auto& s : mLevel.spawns)
   {
-    const float x = float(s.tx) * kTile;
-    const float y = float(s.ty) * kTile;
+    const int x = s.tx * kCellsPerTile;
+    const int y = s.ty * kCellsPerTile + 1; // bottom row of the block
+    auto addBox = [&](ItemKind kind, int variant) {
+      ItemBox b;
+      b.content = kind;
+      b.x = x;
+      b.y = y;
+      b.variant = variant;
+      mBoxes.push_back(b);
+    };
+    auto addLoose = [&](ItemKind kind, int variant) {
+      Item it;
+      it.kind = kind;
+      it.x = it.prevX = x;
+      it.y = it.prevY = y;
+      it.variant = variant;
+      it.floating = true;
+      mItems.push_back(it);
+    };
+    auto addEnemy = [&](EnemyKind kind, int w, int h, int hp) {
+      Enemy e;
+      e.kind = kind;
+      e.x = e.prevX = x;
+      e.y = e.prevY = y;
+      e.w = w;
+      e.h = h;
+      e.hp = hp;
+      e.id = enemyId++;
+      e.timer = s.tx * 7;
+      mEnemies.push_back(e);
+    };
     switch (s.kind)
     {
       case 'g':
-        mPickups.push_back({PickupKind::Gem, {x + 4.0f, y + 4.0f}, (s.tx + s.ty) % 4, false});
+        addLoose(ItemKind::Gem, (s.tx + s.ty) % 4);
         ++mStats.gemsTotal;
         break;
+      case '1':
+        addLoose(ItemKind::LetterG, 0);
+        break;
+      case '2':
+        addLoose(ItemKind::LetterU, 0);
+        break;
+      case '3':
+        addLoose(ItemKind::LetterN, 0);
+        break;
       case 'h':
-        mPickups.push_back({PickupKind::Health, {x + 4.0f, y + 4.0f}, 0, false});
+        addBox(ItemKind::Health, 0);
+        break;
+      case 'm':
+        addBox(ItemKind::Merch, merchCount++ % 3);
+        ++mStats.merchTotal;
+        break;
+      case 'L':
+        addBox(ItemKind::Laser, 0);
+        mStats.weaponsTotal |= weaponBit(Weapon::Laser);
+        break;
+      case 'R':
+        addBox(ItemKind::Rocket, 0);
+        mStats.weaponsTotal |= weaponBit(Weapon::Rocket);
+        break;
+      case 'F':
+        addBox(ItemKind::Flame, 0);
+        mStats.weaponsTotal |= weaponBit(Weapon::Flame);
+        break;
+      case 'r':
+        addBox(ItemKind::RapidFire, 0);
+        break;
+      case 'k':
+        addBox(ItemKind::Key, 0);
+        break;
+      case 'c':
+        mCheckpoints.push_back({x, y, false});
         break;
       case 'w':
-      {
-        Enemy e{EnemyKind::Walker, {x, y + kTile - 16.0f}, {}, {}, 3};
-        e.home = e.pos;
-        mEnemies.push_back(e);
+        addEnemy(EnemyKind::Walker, 3, 3, 3);
         break;
-      }
       case 'f':
-      {
-        Enemy e{EnemyKind::Flyer, {x, y}, {}, {x, y}, 2};
-        e.timer = s.tx * 13;
-        mEnemies.push_back(e);
+        addEnemy(EnemyKind::Flyer, 3, 3, 2);
         break;
-      }
       case 't':
-      {
-        Enemy e{EnemyKind::Turret, {x, y + kTile - 16.0f}, {}, {}, 5};
-        e.timer = 40;
-        mEnemies.push_back(e);
+        addEnemy(EnemyKind::Turret, 3, 2, 4);
         break;
-      }
       default:
         break;
     }
   }
-  for (const auto t : mLevel.tiles)
-    if (t == Tile::Crate)
-      ++mStats.gemsTotal; // every crate drops a gem
   mStats.enemiesTotal = int(mEnemies.size());
 
-  mCamera.centerOn(mPlayer.box(), mLevel.widthPx(), mLevel.heightPx());
+  mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   mBaseCamY = mCamera.y();
 }
 
-// --- Physics -----------------------------------------------------------------
-
-void World::moveBody(Vec2& pos, Vec2& vel, const Rect& off, bool& onGround)
+Camera::Target World::cameraTarget() const
 {
-  // Horizontal
-  pos.x += vel.x;
-  Rect b = offsetBox(pos, off);
-  {
-    const int top = toTile(b.y);
-    const int bottom = toTile(b.bottom() - 0.01f);
-    if (vel.x > 0.0f)
-    {
-      const int tx = toTile(b.right() - 0.01f);
-      for (int ty = top; ty <= bottom; ++ty)
-      {
-        if (mLevel.isSolid(tx, ty))
-        {
-          pos.x = float(tx) * kTile - off.x - off.w;
-          vel.x = 0.0f;
-          break;
-        }
-      }
-    }
-    else if (vel.x < 0.0f)
-    {
-      const int tx = toTile(b.x);
-      for (int ty = top; ty <= bottom; ++ty)
-      {
-        if (mLevel.isSolid(tx, ty))
-        {
-          pos.x = float(tx + 1) * kTile - off.x;
-          vel.x = 0.0f;
-          break;
-        }
-      }
-    }
-  }
-
-  // Vertical
-  const float prevBottom = pos.y + off.y + off.h;
-  pos.y += vel.y;
-  onGround = false;
-  b = offsetBox(pos, off);
-  const int left = toTile(b.x);
-  const int right = toTile(b.right() - 0.01f);
-  if (vel.y >= 0.0f)
-  {
-    const int ty = toTile(b.bottom() - 0.01f);
-    for (int tx = left; tx <= right; ++tx)
-    {
-      const Tile t = mLevel.at(tx, ty);
-      const bool lands = t == Tile::Solid || t == Tile::Crate ||
-        (t == Tile::Platform && prevBottom <= float(ty) * kTile + 0.01f);
-      if (lands)
-      {
-        pos.y = float(ty) * kTile - off.y - off.h;
-        vel.y = 0.0f;
-        onGround = true;
-        break;
-      }
-    }
-  }
-  else
-  {
-    const int ty = toTile(b.y);
-    for (int tx = left; tx <= right; ++tx)
-    {
-      if (mLevel.isSolid(tx, ty))
-      {
-        pos.y = float(ty + 1) * kTile - off.y;
-        vel.y = 0.0f;
-        break;
-      }
-    }
-  }
+  const CellBox b = mPlayer.box();
+  const bool tight = mPlayer.state == PlayerState::Ladder || mPlayer.state == PlayerState::Jetpack;
+  return {b.left(), b.top(), b.right(), b.bottom(), tight};
 }
 
-bool World::overlapsTile(const Rect& r, Tile kind) const
+std::vector<Sfx> World::takeSounds()
 {
-  for (int ty = toTile(r.y); ty <= toTile(r.bottom() - 0.01f); ++ty)
-  {
-    for (int tx = toTile(r.x); tx <= toTile(r.right() - 0.01f); ++tx)
-    {
-      if (mLevel.at(tx, ty) != kind)
-        continue;
-      // Spikes only occupy the lower part of their tile.
-      const Rect hit{float(tx) * kTile + 1.0f, float(ty) * kTile + 7.0f, 14.0f, 9.0f};
-      if (hit.intersects(r))
-        return true;
-    }
-  }
-  return false;
+  std::vector<Sfx> out;
+  out.swap(mSounds);
+  return out;
 }
 
-bool World::isActive(const Rect& r) const
+std::vector<Bonus> World::bonuses() const
 {
-  // Like RigelEngine's entity activation system: only things near the
-  // visible area think, so enemies wait for the player to arrive.
-  const Rect view{mCamera.x() - 48.0f, mCamera.y() - 48.0f, float(kViewW) + 96.0f, float(kViewH) + 96.0f};
-  return view.intersects(r);
+  std::vector<Bonus> out;
+  const auto& s = mStats;
+  if (!s.tookDamage)
+    out.push_back({"NO DAMAGE TAKEN", kBonusPoints});
+  if (s.enemiesTotal > 0 && s.kills == s.enemiesTotal)
+    out.push_back({"ALL BOTS DESTROYED", kBonusPoints});
+  if (s.weaponsTotal != 0 && (s.weaponsCollected & s.weaponsTotal) == s.weaponsTotal)
+    out.push_back({"EVERY WEAPON COLLECTED", kBonusPoints});
+  if (s.merchTotal > 0 && s.merch == s.merchTotal)
+    out.push_back({"ALL MERCHANDISE COLLECTED", kBonusPoints});
+  if (s.gemsTotal > 0 && s.gems == s.gemsTotal)
+    out.push_back({"ALL GEMS COLLECTED", kBonusPoints});
+  return out;
 }
 
 // --- Update ------------------------------------------------------------------
 
-void World::update(const Input& input)
+void World::update(const PlayerInput& input)
 {
-  ++mStateTicks;
+  mPlayer.prevX = mPlayer.x;
+  mPlayer.prevY = mPlayer.y;
+  for (auto& e : mEnemies)
+  {
+    e.prevX = e.x;
+    e.prevY = e.y;
+  }
+  for (auto& it : mItems)
+  {
+    it.prevX = it.x;
+    it.prevY = it.y;
+  }
+  for (auto& pr : mProjectiles)
+  {
+    pr.prevX = pr.x;
+    pr.prevY = pr.y;
+  }
+
+  ++mStateFrames;
   switch (mState)
   {
     case WorldState::Playing:
-      ++mStats.ticks;
+      ++mStats.frames;
       updatePlayer(input);
+      updatePlayerInteractions();
       updateEnemies();
-      updateBullets();
-      updatePickups();
+      updateProjectiles();
+      updateItems();
+      mCamera.update(cameraTarget(), mManualScroll, mMap.width(), mMap.height());
       break;
-    case WorldState::Cleared:
-      if (mStateTicks < 40)
+    case WorldState::Exiting:
+      if (mStateFrames > 24)
       {
-        Particle p;
-        p.pos = {mPlayer.pos.x + mRng.range(2.0f, 14.0f), mPlayer.pos.y + 24.0f};
-        p.vel = {0.0f, mRng.range(-2.5f, -1.0f)};
-        p.life = p.maxLife = 30;
-        p.color = mRng.uniform() < 0.5f ? mTheme.accentA : mTheme.accentB;
-        p.size = 2;
-        p.gravity = false;
-        mParticles.push_back(p);
+        mState = WorldState::Done;
+        mStateFrames = 0;
       }
       break;
-    case WorldState::Dead:
-      updateEnemies();
-      updateBullets();
+    case WorldState::Done:
       break;
-  }
-  updateParticles();
-  if (mState == WorldState::Playing)
-    mCamera.update(mPlayer.box(), mLevel.widthPx(), mLevel.heightPx());
-  mCamera.tick();
-}
-
-void World::updatePlayer(const Input& in)
-{
-  auto& p = mPlayer;
-  const auto& c = *mCharacter;
-
-  if (p.knockback > 0)
-  {
-    --p.knockback;
-  }
-  else
-  {
-    const int dir = (in.right ? 1 : 0) - (in.left ? 1 : 0);
-    p.vel.x = float(dir) * c.runSpeed;
-    if (dir != 0)
-      p.facing = dir;
-  }
-
-  const bool jumpPressed = in.jump && !p.jumpHeld;
-  p.jumpHeld = in.jump;
-  if (jumpPressed)
-    p.jumpBuffer = kJumpBufferTicks;
-  else if (p.jumpBuffer > 0)
-    --p.jumpBuffer;
-
-  if (p.jumpBuffer > 0 && (p.onGround || p.coyote > 0))
-  {
-    p.vel.y = c.jumpVelocity;
-    p.jumpBuffer = 0;
-    p.coyote = 0;
-    p.onGround = false;
-    explode({p.pos.x + 8.0f, p.pos.y + 23.0f}, rgba(255, 255, 255, 160), rgba(200, 200, 220, 120), 5, 0.8f, false);
-  }
-  if (!in.jump && p.vel.y < kJumpCutVelocity)
-    p.vel.y = kJumpCutVelocity; // variable jump height
-
-  p.vel.y = std::min(p.vel.y + kGravity, kMaxFall);
-  const bool wasOnGround = p.onGround;
-  moveBody(p.pos, p.vel, kPlayerBox, p.onGround);
-  if (p.onGround && !wasOnGround)
-    explode({p.pos.x + 8.0f, p.pos.y + 23.0f}, rgba(255, 255, 255, 120), rgba(200, 200, 220, 100), 3, 0.6f, false);
-  p.coyote = p.onGround ? kCoyoteTicks : std::max(0, p.coyote - 1);
-
-  if (p.fireCooldown > 0)
-    --p.fireCooldown;
-  if (in.fire && p.fireCooldown == 0)
-    firePlayerWeapon();
-
-  if (p.onGround && p.vel.x != 0.0f)
-    ++p.animTicks;
-  else
-    p.animTicks = 0;
-  if (p.invulnerable > 0)
-    --p.invulnerable;
-  if (p.muzzleFlash > 0)
-    --p.muzzleFlash;
-
-  const Rect box = p.box();
-  if (overlapsTile(box, Tile::Spikes))
-  {
-    hurtPlayer(1, box.cx() - float(p.facing));
-    if (mState == WorldState::Playing)
-      p.vel.y = -5.0f;
-  }
-
-  if (p.pos.y > float(mLevel.heightPx()) + 32.0f)
-  {
-    p.hp = 0;
-    mState = WorldState::Dead;
-    mStateTicks = 0;
-    return;
-  }
-
-  const Rect exitBox{float(mLevel.exitTx) * kTile + 4.0f, float(mLevel.exitTy - 1) * kTile + 4.0f, 8.0f, 28.0f};
-  if (box.intersects(exitBox))
-  {
-    mState = WorldState::Cleared;
-    mStateTicks = 0;
-    p.vel = {};
-    mStats.score += p.hp * 250;
   }
 }
 
-void World::firePlayerWeapon()
+bool World::isOnScreen(const CellBox& b, int margin) const
 {
-  auto& p = mPlayer;
-  const auto& c = *mCharacter;
-  const float dir = float(p.facing);
-  const Vec2 muzzle{p.pos.x + (p.facing > 0 ? 15.0f : -5.0f), p.pos.y + 11.0f};
-
-  auto spawn = [&](float vy, int life, int sprite) {
-    Bullet b;
-    b.pos = muzzle;
-    b.vel = {dir * c.bulletSpeed, vy};
-    b.life = life;
-    b.sprite = sprite;
-    mBullets.push_back(b);
-  };
-
-  switch (c.weapon)
-  {
-    case Weapon::Blaster:
-      spawn(0.0f, 70, 0);
-      break;
-    case Weapon::Scatter:
-      spawn(-0.8f, 30, 1);
-      spawn(0.0f, 30, 1);
-      spawn(0.8f, 30, 1);
-      mCamera.shake(3, 1.0f);
-      break;
-    case Weapon::Rapid:
-      spawn(mRng.range(-0.15f, 0.15f), 55, 2);
-      break;
-  }
-  p.fireCooldown = c.fireCooldown;
-  p.muzzleFlash = 3;
-}
-
-void World::hurtPlayer(int amount, float fromX)
-{
-  auto& p = mPlayer;
-  if (p.invulnerable > 0 || mState != WorldState::Playing)
-    return;
-  p.hp -= amount;
-  p.invulnerable = kInvulnerableTicks;
-  p.knockback = 14;
-  p.vel.x = p.box().cx() < fromX ? -1.8f : 1.8f;
-  p.vel.y = -3.2f;
-  mCamera.shake(8, 2.0f);
-  explode({p.pos.x + 8.0f, p.pos.y + 12.0f}, rgb(255, 80, 80), rgb(255, 255, 255), 8, 1.5f);
-  if (p.hp <= 0)
-  {
-    p.hp = 0;
-    mState = WorldState::Dead;
-    mStateTicks = 0;
-    mCamera.shake(20, 3.0f);
-    explode({p.pos.x + 8.0f, p.pos.y + 12.0f}, rgb(255, 200, 60), rgb(255, 80, 40), 40, 3.0f);
-  }
+  const CellBox view{
+    mCamera.x() - margin,
+    mCamera.y() - margin,
+    int(std::ceil(kViewCellsW)) + margin * 2,
+    int(std::ceil(kViewCellsH)) + margin * 2};
+  return view.intersects(b);
 }
 
 void World::updateEnemies()
 {
-  const Rect pbox = mPlayer.box();
+  const auto& p = mPlayer;
+  const CellBox pbox = p.box();
+  const bool playerVulnerable = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting;
+
   for (auto& e : mEnemies)
   {
     if (!e.alive)
       continue;
-    e.active = isActive(e.box());
+    // Enemies wake up once they scroll into view and stay awake.
+    if (!e.active)
+      e.active = isOnScreen(e.box(), 1);
     if (!e.active)
       continue;
     ++e.timer;
-    if (e.flash > 0)
-      --e.flash;
 
     switch (e.kind)
     {
       case EnemyKind::Walker:
       {
-        e.vel.x = float(e.dir) * 0.55f;
-        e.vel.y = std::min(e.vel.y + kGravity, kMaxFall);
-        moveBody(e.pos, e.vel, kWalkerBox, e.onGround);
-        const Rect b = e.box();
-        const bool hitWall = e.vel.x == 0.0f;
-        const int frontX = toTile(e.dir > 0 ? b.right() + 1.0f : b.x - 1.0f);
-        const int belowY = toTile(b.bottom() + 1.0f);
-        const Tile below = mLevel.at(frontX, belowY);
-        const bool ledge = e.onGround && below != Tile::Solid && below != Tile::Crate && below != Tile::Platform;
-        if (hitWall || ledge)
+        if (!mMap.onSolidGround(e.box()))
+        {
+          mMap.moveVertically(e.x, e.y, e.w, e.h, 1);
+          break;
+        }
+        if (e.timer % 2 != 0)
+          break;
+        const CellBox b = e.box();
+        const int aheadX = e.dir > 0 ? b.right() + 1 : b.left() - 1;
+        const bool wall = e.dir > 0 ? mMap.touchingRightWall(b) : mMap.touchingLeftWall(b);
+        const bool ledge = !mMap.solidTop(aheadX, b.bottom() + 1);
+        if (wall || ledge)
           e.dir = -e.dir;
+        else
+          e.x += e.dir;
         break;
       }
+
       case EnemyKind::Flyer:
       {
-        const float dx = pbox.cx() - (e.home.x + 8.0f);
-        if (std::abs(dx) < 120.0f)
-          e.home.x += dx > 0.0f ? 0.25f : -0.25f;
-        e.pos.x = e.home.x + std::sin(float(e.timer) * 0.021f) * 20.0f;
-        e.pos.y = e.home.y + std::sin(float(e.timer) * 0.05f) * 10.0f;
-        e.dir = pbox.cx() < e.pos.x + 8.0f ? -1 : 1;
+        // Hovers above the player's head and dives down every now and then:
+        // look up and shoot it before it gets you.
+        const int targetX = pbox.x;
+        const int targetBottom = pbox.top() - 3;
+        e.dir = targetX < e.x ? -1 : 1;
+        auto tryMove = [&](int dx, int dy) {
+          const CellBox moved = boxAt(e.x + dx, e.y + dy, e.w, e.h);
+          if (!mMap.overlapsSolid(moved))
+          {
+            e.x += dx;
+            e.y += dy;
+          }
+        };
+        if (e.dive > 0)
+        {
+          tryMove(0, 1);
+          if (--e.dive == 0)
+            e.dive = -6;
+          break;
+        }
+        if (e.dive < 0)
+        {
+          tryMove(0, -1);
+          ++e.dive;
+          break;
+        }
+        const int dx = targetX - e.x;
+        if (dx != 0 && (std::abs(dx) > 6 || e.timer % 2 == 0))
+          tryMove(sgn(dx), 0);
+        const int dy = targetBottom - e.y;
+        if (dy != 0 && e.timer % 2 == 0)
+          tryMove(0, sgn(dy));
+        if (std::abs(dx) <= 1 && std::abs(dy) <= 1 && e.timer % 24 == 0 && playerVulnerable)
+          e.dive = 4;
         break;
       }
+
       case EnemyKind::Turret:
       {
-        const float dx = pbox.cx() - (e.pos.x + 8.0f);
-        const float dy = pbox.cy() - (e.pos.y + 8.0f);
-        e.dir = dx < 0.0f ? -1 : 1;
-        if (e.timer % 95 == 0 && std::abs(dx) < 200.0f && std::abs(dy) < 60.0f && mState == WorldState::Playing)
+        const CellBox b = e.box();
+        const int dxc = (pbox.x + 1) - (b.x + 1);
+        const int dyc = (pbox.y + 2) - b.y;
+        e.dir = dxc < 0 ? -1 : 1;
+        if (e.timer % 20 == 0 && std::abs(dxc) < 22 && std::abs(dyc) < 12 && playerVulnerable &&
+            isOnScreen(b, 0))
         {
-          Bullet b;
-          b.fromEnemy = true;
-          b.pos = {e.pos.x + (e.dir > 0 ? 15.0f : -4.0f), e.pos.y + 5.0f};
-          b.vel = {float(e.dir) * 2.4f, clampTo(dy / std::max(40.0f, std::abs(dx)) * 2.4f, -1.0f, 1.0f)};
-          b.life = 120;
-          mBullets.push_back(b);
-          explode({b.pos.x + 2.0f, b.pos.y + 2.0f}, mTheme.enemyEye, rgb(255, 255, 255), 4, 0.8f);
+          // Aim in one of eight directions, like the original wall guns.
+          int sx = sgn(dxc), sy = 0;
+          if (std::abs(dyc) * 2 > std::abs(dxc))
+            sy = sgn(dyc);
+          if (std::abs(dxc) * 2 < std::abs(dyc))
+            sx = 0;
+          spawnProjectile(ShotKind::Enemy, e.dir > 0 ? b.right() + 1 : b.left() - 1, b.top(), sx, sy);
+          playSound(Sfx::EnemyShot);
         }
         break;
       }
     }
 
-    if (mState == WorldState::Playing && e.box().intersects(pbox))
-      hurtPlayer(1, e.box().cx());
+    if (playerVulnerable && e.box().intersects(p.hitBox()))
+      hurtPlayer(1);
   }
 }
 
-void World::updateBullets()
+void World::spawnProjectile(ShotKind kind, int ax, int ay, int dx, int dy)
 {
-  for (auto& b : mBullets)
+  Projectile pr;
+  pr.kind = kind;
+  pr.dx = dx;
+  pr.dy = dy;
+  const bool vertical = dx == 0;
+  int len = 2;
+  switch (kind)
   {
-    if (!b.alive)
-      continue;
-    b.pos.x += b.vel.x;
-    b.pos.y += b.vel.y;
-    if (--b.life <= 0)
+    case ShotKind::Normal:
+      pr.speed = 2;
+      pr.damage = 1;
+      break;
+    case ShotKind::Laser:
+      pr.speed = 5;
+      pr.damage = 2;
+      pr.pierce = true;
+      len = 3;
+      break;
+    case ShotKind::Rocket:
+      pr.speed = 2;
+      pr.damage = 8;
+      len = 3;
+      break;
+    case ShotKind::Flame:
+      pr.speed = 5;
+      pr.damage = 2;
+      pr.pierce = true;
+      break;
+    case ShotKind::Enemy:
+      pr.speed = 1;
+      pr.damage = 1;
+      len = 1;
+      break;
+  }
+  // Flames are fat: a horizontal blast also scorches boxes on the floor.
+  const int thick = kind == ShotKind::Flame ? 2 : 1;
+  pr.w = vertical ? thick : len;
+  pr.h = vertical ? len : thick;
+  pr.x = dx < 0 ? ax - pr.w + 1 : ax;
+  pr.y = dy < 0 ? ay - pr.h + 1 : ay;
+  pr.prevX = pr.x;
+  pr.prevY = pr.y;
+  mProjectiles.push_back(pr);
+}
+
+void World::updateProjectiles()
+{
+  auto collide = [this](Projectile& pr) -> bool {
+    const CellBox b = pr.box();
+    if (mMap.overlapsSolid(b))
     {
-      b.alive = false;
-      continue;
+      const Vec2 c = cellCenter(b);
+      burst(c, rgb(255, 255, 210), pr.kind == ShotKind::Enemy ? mTheme.enemyEye : mTheme.accentA, 5, 1.0f);
+      if (pr.kind == ShotKind::Rocket)
+        explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
+      return true;
     }
-    const Rect bb = b.box();
-    const int tx = toTile(bb.cx());
-    const int ty = toTile(bb.cy());
-    if (mLevel.isSolid(tx, ty))
+    if (pr.kind == ShotKind::Enemy)
     {
-      if (!b.fromEnemy && mLevel.at(tx, ty) == Tile::Crate)
-        damageCrate(tx, ty);
-      explode({bb.cx(), bb.cy()}, rgb(255, 255, 200), mTheme.accentA, 4, 1.0f);
-      b.alive = false;
-      continue;
-    }
-    if (b.fromEnemy)
-    {
-      if (mState == WorldState::Playing && bb.intersects(mPlayer.box()))
+      if (b.intersects(mPlayer.hitBox()) && mPlayer.state != PlayerState::Dying)
       {
-        hurtPlayer(1, bb.cx() - b.vel.x);
-        b.alive = false;
+        hurtPlayer(1);
+        return true;
       }
-      continue;
+      return false;
+    }
+    for (auto& box : mBoxes)
+    {
+      if (!box.alive || !box.box().intersects(b))
+        continue;
+      if (pr.kind == ShotKind::Rocket)
+      {
+        explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
+        return true;
+      }
+      destroyBox(box);
+      if (!pr.pierce)
+        return true;
     }
     for (auto& e : mEnemies)
     {
-      if (!e.alive || !e.active || !bb.intersects(e.box()))
+      if (!e.alive || !e.active || !e.box().intersects(b))
         continue;
-      --e.hp;
-      e.flash = 5;
-      b.alive = false;
-      explode({bb.cx(), bb.cy()}, rgb(255, 255, 255), mTheme.enemyLight, 4, 1.2f);
-      if (e.hp <= 0)
-        killEnemy(e);
-      break;
+      if (std::find(pr.hit.begin(), pr.hit.end(), e.id) != pr.hit.end())
+        continue;
+      if (pr.kind == ShotKind::Rocket)
+      {
+        explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
+        return true;
+      }
+      damageEnemy(e, pr.damage);
+      burst(cellCenter(b), rgb(255, 255, 255), mTheme.enemyLight, 5, 1.2f);
+      if (!pr.pierce)
+        return true;
+      pr.hit.push_back(e.id);
     }
+    return false;
+  };
+
+  for (auto& pr : mProjectiles)
+  {
+    if (!pr.alive)
+      continue;
+    if (pr.age++ == 0)
+    {
+      // First frame: the shot appears at the muzzle.
+      if (collide(pr))
+        pr.alive = false;
+      continue;
+    }
+    for (int i = 0; i < pr.speed && pr.alive; ++i)
+    {
+      pr.x += pr.dx;
+      pr.y += pr.dy;
+      if (collide(pr))
+        pr.alive = false;
+    }
+    if (pr.alive && !isOnScreen(pr.box(), 2))
+      pr.alive = false;
   }
-  mBullets.erase(
-    std::remove_if(mBullets.begin(), mBullets.end(), [](const Bullet& b) { return !b.alive; }),
-    mBullets.end());
+  mProjectiles.erase(
+    std::remove_if(mProjectiles.begin(), mProjectiles.end(), [](const Projectile& p) { return !p.alive; }),
+    mProjectiles.end());
+}
+
+void World::explodeAt(int cx, int cy, int radius, int damage)
+{
+  const CellBox area{cx - radius, cy - radius, radius * 2 + 1, radius * 2 + 1};
+  for (auto& e : mEnemies)
+    if (e.alive && e.active && e.box().intersects(area))
+      damageEnemy(e, damage);
+  for (auto& b : mBoxes)
+    if (b.alive && b.box().intersects(area))
+      destroyBox(b);
+  const Vec2 c{(float(cx) + 0.5f) * kCellSize, (float(cy) + 0.5f) * kCellSize};
+  burst(c, rgb(255, 220, 90), rgb(255, 90, 30), 30, 3.0f);
+  burst(c, rgb(255, 255, 255), rgb(255, 160, 60), 10, 1.5f);
+  flashAt(c, 150.0f, rgb(255, 150, 50), 22);
+  mCamera.shake(10, 4.0f);
+  playSound(Sfx::Explosion);
+}
+
+void World::damageEnemy(Enemy& e, int damage)
+{
+  if (!e.alive)
+    return;
+  e.hp -= damage;
+  e.flash = 8;
+  if (e.hp <= 0)
+    killEnemy(e);
+  else
+    playSound(Sfx::Hit);
 }
 
 void World::killEnemy(Enemy& e)
 {
   e.alive = false;
   ++mStats.kills;
-  const Vec2 c{e.pos.x + 8.0f, e.pos.y + 8.0f};
-  explode(c, mTheme.enemyBody, rgb(255, 200, 60), 18, 2.2f);
-  explode(c, mTheme.enemyEye, rgb(255, 255, 255), 8, 1.4f);
-  mCamera.shake(6, 1.5f);
+  const Vec2 c = cellCenter(e.box());
+  burst(c, mTheme.enemyBody, rgb(255, 200, 60), 22, 2.4f);
+  burst(c, mTheme.enemyEye, rgb(255, 255, 255), 10, 1.4f);
+  flashAt(c, 110.0f, rgb(255, 170, 70), 18);
+  mCamera.shake(6, 2.5f);
+  playSound(Sfx::Explosion);
   switch (e.kind)
   {
     case EnemyKind::Walker:
-      mStats.score += 200;
+      addScore(250, c);
       break;
     case EnemyKind::Flyer:
-      mStats.score += 150;
+      addScore(500, c);
       break;
     case EnemyKind::Turret:
-      mStats.score += 300;
+      addScore(1000, c);
       break;
   }
 }
 
-void World::damageCrate(int tx, int ty)
+int boxColor(ItemKind content)
 {
-  auto& hp = mLevel.crateHp[std::size_t(ty * mLevel.width + tx)];
-  if (--hp > 0)
-    return;
-  mLevel.set(tx, ty, Tile::Empty);
-  const Vec2 c{float(tx) * kTile + 8.0f, float(ty) * kTile + 8.0f};
-  explode(c, mTheme.platform, mTheme.platformDark, 14, 2.0f, false);
-  mStats.score += 50;
-  mPickups.push_back({PickupKind::Gem, {c.x - 4.0f, c.y - 4.0f}, (tx + ty) % 4, false});
+  switch (content)
+  {
+    case ItemKind::Health:
+    case ItemKind::Merch:
+      return 1; // blue
+    case ItemKind::Laser:
+    case ItemKind::Rocket:
+    case ItemKind::Flame:
+      return 2; // green
+    default:
+      return 0; // white
+  }
 }
 
-void World::updatePickups()
+void World::destroyBox(ItemBox& b)
 {
-  const Rect pbox = mPlayer.box();
-  for (auto& pk : mPickups)
+  b.alive = false;
+  const Vec2 c = cellCenter(b.box());
+  const Color color = mArt.boxColor[std::size_t(boxColor(b.content))];
+  burst(c, color, rgb(60, 60, 80), 16, 2.0f, false);
+  flashAt(c, 60.0f, color, 10);
+  playSound(Sfx::BoxBreak);
+  addScore(kItemBoxScore, c);
+
+  Item it;
+  it.kind = b.content;
+  it.x = it.prevX = b.x;
+  it.y = it.prevY = b.y;
+  it.variant = b.variant;
+  it.pickupDelay = kItemPickupDelay;
+  mItems.push_back(it);
+}
+
+void World::updateItems()
+{
+  const auto& p = mPlayer;
+  const bool canCollect = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting;
+  for (auto& it : mItems)
   {
-    if (pk.taken)
+    if (it.taken)
       continue;
-    const Rect r{pk.pos.x, pk.pos.y, 8.0f, 8.0f};
-    if (!r.intersects(pbox))
-      continue;
-    pk.taken = true;
-    if (pk.kind == PickupKind::Gem)
+    ++it.frames;
+    if (!it.floating)
     {
-      ++mStats.gems;
-      mStats.score += 100;
-      explode({r.cx(), r.cy()}, mArt.gemColor[std::size_t(pk.variant)], rgb(255, 255, 255), 8, 1.2f);
+      // Released items hop out of their box, then drop to the floor.
+      if (it.frames <= 2)
+        mMap.moveVertically(it.x, it.y, 2, 2, -1);
+      else
+        mMap.moveVertically(it.x, it.y, 2, 2, it.frames > 5 ? 2 : 1);
+      if (it.y > mMap.height() + 2)
+        it.taken = true;
     }
-    else
+    if (it.pickupDelay > 0)
     {
-      mPlayer.hp = std::min(mCharacter->maxHp, mPlayer.hp + 1);
-      mStats.score += 50;
-      explode({r.cx(), r.cy()}, rgb(255, 60, 80), rgb(255, 255, 255), 8, 1.2f);
+      --it.pickupDelay;
+      continue;
+    }
+    if (canCollect && it.box().intersects(p.box()))
+      collectItem(it);
+  }
+  mItems.erase(
+    std::remove_if(mItems.begin(), mItems.end(), [](const Item& i) { return i.taken; }), mItems.end());
+}
+
+void World::collectItem(Item& it)
+{
+  auto& p = mPlayer;
+  it.taken = true;
+  const Vec2 c = cellCenter(it.box());
+  auto takeWeapon = [&](Weapon w, const char* msg) {
+    p.weapon = w;
+    p.ammo = maxAmmo(w);
+    mStats.weaponsCollected |= weaponBit(w);
+    addScore(2000, c);
+    showMessage(msg);
+    playSound(Sfx::WeaponPickup);
+    burst(c, rgb(120, 255, 140), rgb(255, 255, 255), 14, 1.6f);
+  };
+  switch (it.kind)
+  {
+    case ItemKind::Health:
+      if (p.hp < p.maxHp)
+      {
+        ++p.hp;
+        addScore(500, c);
+      }
+      else
+      {
+        addScore(10000, c);
+        showMessage("FULL HEALTH BONUS");
+      }
+      playSound(Sfx::Health);
+      burst(c, rgb(255, 80, 110), rgb(255, 255, 255), 12, 1.4f);
+      break;
+    case ItemKind::Merch:
+    {
+      static const char* const kNames[3] = {
+        "GUNRUNNERS MIXTAPE", "LIMITED RUNNER CAP", "COLLECTIBLE ACTION FIGURE"};
+      ++mStats.merch;
+      addScore(2000, c);
+      showMessage(kNames[it.variant % 3]);
+      playSound(Sfx::Item);
+      burst(c, rgb(120, 190, 255), rgb(255, 255, 255), 12, 1.4f);
+      break;
+    }
+    case ItemKind::Laser:
+      takeWeapon(Weapon::Laser, "LASER - SHOOTS THROUGH ENEMIES");
+      break;
+    case ItemKind::Rocket:
+      takeWeapon(Weapon::Rocket, "ROCKETS - HEAVY DAMAGE");
+      break;
+    case ItemKind::Flame:
+      takeWeapon(Weapon::Flame, "FLAMER - HOLD DOWN + FIRE TO FLY");
+      break;
+    case ItemKind::RapidFire:
+      p.rapidFire = 700;
+      addScore(500, c);
+      showMessage("RAPID FIRE - JUST HOLD THE TRIGGER");
+      playSound(Sfx::Item);
+      burst(c, rgb(255, 230, 90), rgb(255, 255, 255), 12, 1.4f);
+      break;
+    case ItemKind::Key:
+      p.hasKey = true;
+      addScore(500, c);
+      showMessage("ACCESS CARD - OPENS FORCE FIELDS");
+      playSound(Sfx::Key);
+      burst(c, rgb(255, 230, 90), rgb(255, 255, 255), 12, 1.4f);
+      break;
+    case ItemKind::Gem:
+      ++mStats.gems;
+      addScore(500, c);
+      playSound(Sfx::Gem);
+      burst(c, mArt.gemColor[std::size_t(it.variant % 4)], rgb(255, 255, 255), 10, 1.3f);
+      break;
+    case ItemKind::LetterG:
+    case ItemKind::LetterU:
+    case ItemKind::LetterN:
+    {
+      static const char kLetters[3] = {'G', 'U', 'N'};
+      mStats.letters += kLetters[int(it.kind) - int(ItemKind::LetterG)];
+      addScore(1000, c);
+      burst(c, mTheme.accentA, rgb(255, 255, 255), 16, 1.6f);
+      if (mStats.letters.size() == 3)
+      {
+        if (mStats.letters == "GUN")
+        {
+          addScore(kBonusPoints, {c.x, c.y - 24.0f});
+          showMessage("G-U-N IN ORDER!");
+        }
+        else
+        {
+          addScore(10000, {c.x, c.y - 24.0f});
+          showMessage("G-U-N COLLECTED");
+        }
+        playSound(Sfx::LettersComplete);
+        flashAt(c, 160.0f, mTheme.accentA, 30);
+      }
+      else
+      {
+        playSound(Sfx::Letter);
+      }
+      break;
     }
   }
 }
 
-void World::explode(Vec2 at, Color a, Color b, int count, float speed, bool glow)
+void World::addScore(int points, Vec2 at)
+{
+  mStats.score += points;
+  FloatingText t;
+  t.pos = at;
+  t.text = std::to_string(points);
+  t.color = points >= 10000 ? mTheme.accentA : rgb(255, 255, 255);
+  t.life = points >= 10000 ? 90 : 50;
+  mTexts.push_back(t);
+}
+
+void World::showMessage(const std::string& text)
+{
+  mMessage = text;
+  mMessageTicks = 200;
+}
+
+// --- Effects (60 Hz) ---------------------------------------------------------
+
+void World::burst(Vec2 at, Color a, Color b, int count, float speed, bool glow)
 {
   for (int i = 0; i < count; ++i)
   {
@@ -579,7 +714,12 @@ void World::explode(Vec2 at, Color a, Color b, int count, float speed, bool glow
   }
 }
 
-void World::updateParticles()
+void World::flashAt(Vec2 at, float radius, Color c, int life)
+{
+  mFlashes.push_back({at, radius, c, life, life});
+}
+
+void World::tickEffects()
 {
   for (auto& p : mParticles)
   {
@@ -592,199 +732,39 @@ void World::updateParticles()
   mParticles.erase(
     std::remove_if(mParticles.begin(), mParticles.end(), [](const Particle& p) { return p.life <= 0; }),
     mParticles.end());
-}
-
-// --- Rendering ---------------------------------------------------------------
-
-void World::draw(Renderer& r, int frame) const
-{
-  const float S = kPixelScale;
-  const float T = float(kTileSize) * S;
-  const float camX = mCamera.renderX() * S;
-  const float camY = mCamera.renderY() * S;
-  drawBackdrop(r, mArt, camX, camY, mBaseCamY * S);
-
-  const int tx0 = std::max(0, int(camX / T) - 1);
-  const int ty0 = std::max(0, int(camY / T) - 1);
-  const int tx1 = std::min(mLevel.width - 1, int((camX + float(kScreenW)) / T) + 1);
-  const int ty1 = std::min(mLevel.height - 1, int((camY + float(kScreenH)) / T) + 1);
-  auto sx = [&](float worldX) { return worldX * S - camX; };
-  auto sy = [&](float worldY) { return worldY * S - camY; };
-
-  for (const auto& d : mLevel.decorations)
-    if (d.first >= tx0 - 1 && d.first <= tx1 + 1)
-      drawDecoration(r, mArt, mTheme, float(d.first) * T - camX, float(d.second) * T - camY, d.first * 31 + d.second, frame);
-
-  drawExit(r, mArt, mTheme, float(mLevel.exitTx) * T - camX, float(mLevel.exitTy - 1) * T - camY, frame);
-
-  for (int ty = ty0; ty <= ty1; ++ty)
+  for (auto& t : mTexts)
   {
-    for (int tx = tx0; tx <= tx1; ++tx)
-    {
-      const float x = float(tx) * T - camX;
-      const float y = float(ty) * T - camY;
-      switch (mLevel.at(tx, ty))
-      {
-        case Tile::Solid:
-        {
-          // Shade blocks darker the deeper they sit below the surface.
-          int depth = 0;
-          while (depth < 3 && mLevel.isSolid(tx, ty - depth - 1))
-            ++depth;
-          static constexpr int kShade[4] = {255, 210, 175, 145};
-          const auto h = (hash2(tx, ty) >> 8) % 10u;
-          DrawOpts o;
-          o.tint = rgb(kShade[depth], kShade[depth], kShade[depth]);
-          r.draw(mArt.solid[h < 7u ? 0u : (h < 9u ? 1u : 2u)], x, y, o);
-          break;
-        }
-        case Tile::Platform:
-          r.draw(mArt.platform, x, y);
-          break;
-        case Tile::Spikes:
-          r.draw(mArt.spikes, x, y);
-          break;
-        case Tile::Crate:
-          r.draw(mArt.crate, x, y);
-          break;
-        case Tile::Empty:
-          break;
-      }
-    }
+    t.pos.y -= 0.35f;
+    --t.life;
   }
-  // Surface trims go on top so their glow/grass can overlap neighbours.
-  for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
-    for (int tx = tx0; tx <= tx1; ++tx)
-      if (mLevel.at(tx, ty) == Tile::Solid && !mLevel.isSolid(tx, ty - 1))
-        r.draw(mArt.solidTop, float(tx) * T - camX, float(ty) * T - camY);
-
-  for (std::size_t i = 0; i < mPickups.size(); ++i)
-  {
-    const auto& pk = mPickups[i];
-    if (pk.taken)
-      continue;
-    const float bob = std::sin(float(frame + int(i) * 9) * 0.08f) * 6.0f;
-    const float x = sx(pk.pos.x), y = sy(pk.pos.y) + bob;
-    if (pk.kind == PickupKind::Gem)
-    {
-      const Color c = mArt.gemColor[std::size_t(pk.variant)];
-      drawGlow(r, mArt, x + 16, y + 16, 40, c, 0.55f + 0.2f * std::sin(float(frame) * 0.15f + float(i)));
-      r.draw(mArt.gem[std::size_t(pk.variant)], x, y);
-    }
-    else
-    {
-      drawGlow(r, mArt, x + 16, y + 16, 40, rgb(255, 60, 90), 0.5f);
-      r.draw(mArt.health, x, y);
-    }
-  }
-
-  for (const auto& e : mEnemies)
-  {
-    if (!e.alive)
-      continue;
-    const float x = sx(e.pos.x), y = sy(e.pos.y);
-    if (x < -128.0f || x > float(kScreenW) + 128.0f)
-      continue;
-    const Texture* tex = nullptr;
-    float yOff = 0.0f;
-    switch (e.kind)
-    {
-      case EnemyKind::Walker:
-        tex = &mArt.walker[std::size_t((e.timer / 10) % 2)].get(e.dir);
-        break;
-      case EnemyKind::Flyer:
-        tex = &mArt.flyer[std::size_t((e.timer / 3) % 2)].get(e.dir);
-        drawGlow(r, mArt, x + 32, y + 62, 26, mTheme.enemyEye, 0.35f);
-        break;
-      case EnemyKind::Turret:
-        tex = &mArt.turret.get(e.dir);
-        break;
-    }
-    r.draw(*tex, x, y + yOff);
+  mTexts.erase(
+    std::remove_if(mTexts.begin(), mTexts.end(), [](const FloatingText& t) { return t.life <= 0; }), mTexts.end());
+  for (auto& f : mFlashes)
+    --f.life;
+  mFlashes.erase(
+    std::remove_if(mFlashes.begin(), mFlashes.end(), [](const Flash& f) { return f.life <= 0; }), mFlashes.end());
+  for (auto& e : mEnemies)
     if (e.flash > 0)
-    {
-      DrawOpts o;
-      o.blend = Blend::Add;
-      o.alpha = 0.9f;
-      r.draw(*tex, x, y + yOff, o);
-    }
-  }
+      --e.flash;
+  if (mPlayer.muzzleTicks > 0)
+    --mPlayer.muzzleTicks;
+  if (mMessageTicks > 0)
+    --mMessageTicks;
+  if (mFieldFlash > 0)
+    --mFieldFlash;
 
-  const auto& p = mPlayer;
-  const bool blinkHidden = p.invulnerable > 0 && (p.invulnerable / 4) % 2 == 0;
-  const bool teleported = mState == WorldState::Cleared && mStateTicks > 30;
-  if (mState != WorldState::Dead && !blinkHidden && !teleported)
+  // Thruster sparks while the jetpack is on.
+  if (mPlayer.state == PlayerState::Jetpack)
   {
-    const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
-    const Sprite* spr = &ca.idle[std::size_t((frame / 30) % 2)];
-    if (!p.onGround)
-      spr = p.vel.y < 0.0f ? &ca.jump : &ca.fall;
-    else if (p.vel.x != 0.0f)
-      spr = &ca.run[std::size_t((p.animTicks / 4) % kRunFrames)];
-    const float x = sx(p.pos.x), y = sy(p.pos.y);
-    r.draw(spr->get(p.facing), x, y);
-    if (mState == WorldState::Cleared)
-    {
-      DrawOpts o;
-      o.blend = Blend::Add;
-      o.tint = mTheme.accentB;
-      o.alpha = float(mStateTicks) / 30.0f;
-      r.draw(spr->get(p.facing), x, y, o);
-    }
-    if (p.muzzleFlash > 0)
-    {
-      const float mx = x + (p.facing > 0 ? 70.0f : -6.0f);
-      const float my = y + 42.0f;
-      drawGlow(r, mArt, mx, my, 34, rgb(255, 220, 120), 0.9f);
-      drawGlow(r, mArt, mx, my, 12, rgb(255, 255, 255), 1.0f);
-    }
+    Particle p;
+    p.pos = {(float(mPlayer.x) + 1.5f + mRng.range(-0.5f, 0.5f)) * kCellSize, float(mPlayer.y + 1) * kCellSize};
+    p.vel = {mRng.range(-0.4f, 0.4f), mRng.range(1.0f, 2.5f)};
+    p.life = p.maxLife = mRng.irange(8, 16);
+    p.color = mRng.uniform() < 0.5f ? rgb(255, 200, 60) : rgb(255, 90, 30);
+    p.gravity = false;
+    mParticles.push_back(p);
   }
-
-  for (const auto& b : mBullets)
-  {
-    const float x = sx(b.pos.x), y = sy(b.pos.y);
-    if (b.fromEnemy)
-    {
-      drawGlow(r, mArt, x + 10, y + 10, 30, mTheme.enemyEye, 0.8f);
-      r.draw(mArt.enemyBullet, x, y);
-      continue;
-    }
-    static constexpr Color kBulletGlow[3] = {rgb(255, 190, 70), rgb(255, 130, 40), rgb(80, 230, 255)};
-    drawGlow(r, mArt, x + 12, y + 6, 26, kBulletGlow[b.sprite], 0.8f);
-    r.draw(mArt.playerBullet[std::size_t(b.sprite)], x, y);
-  }
-
-  for (const auto& pt : mParticles)
-  {
-    const float life = float(pt.life) / float(std::max(1, pt.maxLife));
-    DrawOpts o;
-    o.tint = pt.color;
-    o.alpha = std::min(1.0f, life * 1.4f) * float(alphaOf(pt.color)) / 255.0f;
-    o.blend = pt.glow ? Blend::Add : Blend::Alpha;
-    o.scale = pt.size > 1 ? 1.1f : 0.7f;
-    r.draw(mArt.dot, sx(pt.pos.x), sy(pt.pos.y), o);
-  }
-
-  r.draw(mArt.vignette, 0.0f, 0.0f);
-
-  // HUD
-  r.draw(mArt.hudLeft, 16.0f, 12.0f);
-  for (int i = 0; i < mCharacter->maxHp; ++i)
-    r.draw(i < p.hp ? mArt.heartFull : mArt.heartEmpty, 30.0f + float(i) * 34.0f, 23.0f);
-  const TextStyle hudText{24.0f, mTheme.hudText, rgb(10, 8, 20)};
-  r.drawText(mCharacter->name, 40.0f + float(mCharacter->maxHp) * 34.0f, 22.0f, hudText);
-
-  r.draw(mArt.hudCenter, float(kScreenW) / 2.0f - 85.0f, 12.0f);
-  DrawOpts gemIcon;
-  gemIcon.scale = 0.8f;
-  r.draw(mArt.gem[0], float(kScreenW) / 2.0f - 62.0f, 22.0f, gemIcon);
-  char buf[64];
-  std::snprintf(buf, sizeof(buf), "%d / %d", mStats.gems, mStats.gemsTotal);
-  r.drawText(buf, float(kScreenW) / 2.0f + 18.0f, 22.0f, {24.0f, mTheme.accentA, rgb(10, 8, 20)}, Align::Center);
-
-  r.draw(mArt.hudRight, float(kScreenW) - 316.0f, 12.0f);
-  std::snprintf(buf, sizeof(buf), "SCORE  %06d", mStats.score);
-  r.drawText(buf, float(kScreenW) - 34.0f, 22.0f, hudText, Align::Right);
+  mCamera.tick();
 }
 
 } // namespace gr

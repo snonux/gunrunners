@@ -1,56 +1,80 @@
 #include "engine/camera.hpp"
 
+#include "data/level.hpp"
+
+#include <cmath>
+
 namespace gr
 {
 
 namespace
 {
 
-// Fractions of the view; RigelEngine uses tiles 10..21 of a 32 tile view.
-constexpr float kDeadZoneLeft = 0.36f;
-constexpr float kDeadZoneRight = 0.52f;
-constexpr float kDeadZoneTop = 0.30f;
-constexpr float kDeadZoneBottom = 0.70f;
-constexpr float kMaxScrollX = 4.0f;
-constexpr float kMaxScrollY = 4.0f;
+// RigelEngine keeps the player between cells 10 and 21 of its 32 cell wide
+// view; the wider HD view adds 4 cells on each side.
+constexpr int kDeadZoneStartX = 14;
+constexpr int kDeadZoneEndX = 25;
+// Vertical dead zones: {2, 19} and the tight {7, 13} of a 20 cell high view,
+// shifted down to leave room for the HUD.
+constexpr int kDeadZoneTop = 5;
+constexpr int kDeadZoneBottom = 20;
+constexpr int kTightTop = 8;
+constexpr int kTightBottom = 15;
+constexpr int kMaxAdjust = 2;
 
 } // namespace
 
-void Camera::centerOn(const Rect& t, int worldW, int worldH)
+void Camera::centerOn(const Target& t, int worldW, int worldH)
 {
-  mX = t.cx() - float(mViewW) * 0.4f;
-  mY = t.cy() - float(mViewH) * 0.55f;
+  mX = t.left - 18;
+  mY = t.bottom - 15;
   clampToWorld(worldW, worldH);
+  mPrevX = mX;
+  mPrevY = mY;
 }
 
-void Camera::update(const Rect& t, int worldW, int worldH)
+void Camera::update(const Target& t, int manualScroll, int worldW, int worldH)
 {
-  const float left = mX + float(mViewW) * kDeadZoneLeft;
-  const float right = mX + float(mViewW) * kDeadZoneRight;
-  const float top = mY + float(mViewH) * kDeadZoneTop;
-  const float bottom = mY + float(mViewH) * kDeadZoneBottom;
+  mPrevX = mX;
+  mPrevY = mY;
 
-  float dx = 0.0f;
-  if (t.cx() > right)
-    dx = t.cx() - right;
-  else if (t.cx() < left)
-    dx = t.cx() - left;
+  mY += manualScroll * kMaxAdjust;
 
-  float dy = 0.0f;
-  if (t.y < top)
-    dy = t.y - top;
-  else if (t.bottom() > bottom)
-    dy = t.bottom() - bottom;
+  const int zoneLeft = mX + kDeadZoneStartX;
+  const int zoneRight = mX + kDeadZoneEndX;
+  const int zoneTop = mY + (t.tight ? kTightTop : kDeadZoneTop);
+  const int zoneBottom = mY + (t.tight ? kTightBottom : kDeadZoneBottom);
 
-  mX += gr::clampTo(dx, -kMaxScrollX, kMaxScrollX);
-  mY += gr::clampTo(dy, -kMaxScrollY, kMaxScrollY);
+  int dx = 0;
+  if (t.left < zoneLeft)
+    dx = t.left - zoneLeft;
+  else if (t.right > zoneRight)
+    dx = t.right - zoneRight;
+  int dy = 0;
+  if (t.top < zoneTop)
+    dy = t.top - zoneTop;
+  else if (t.bottom > zoneBottom)
+    dy = t.bottom - zoneBottom;
+
+  mX += clampTo(dx, -kMaxAdjust, kMaxAdjust);
+  mY += clampTo(dy, -kMaxAdjust, kMaxAdjust);
   clampToWorld(worldW, worldH);
 }
 
 void Camera::clampToWorld(int worldW, int worldH)
 {
-  mX = gr::clampTo(mX, 0.0f, float(std::max(0, worldW - mViewW)));
-  mY = gr::clampTo(mY, 0.0f, float(std::max(0, worldH - mViewH)));
+  mX = clampTo(mX, 0, std::max(0, worldW - int(std::ceil(mViewW))));
+  mY = clampTo(mY, 0, std::max(0, worldH - int(std::ceil(mViewH))));
+}
+
+float Camera::renderX(float alpha) const
+{
+  return (float(mPrevX) + float(mX - mPrevX) * alpha) * float(kCellSize) + mShakeX;
+}
+
+float Camera::renderY(float alpha) const
+{
+  return (float(mPrevY) + float(mY - mPrevY) * alpha) * float(kCellSize) + mShakeY;
 }
 
 void Camera::shake(int ticks, float strength)
@@ -74,6 +98,5 @@ void Camera::tick()
     mShakeX = mShakeY = 0.0f;
   }
 }
-
 
 } // namespace gr

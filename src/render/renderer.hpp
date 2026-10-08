@@ -54,6 +54,7 @@ struct DrawOpts
   Color tint = rgb(255, 255, 255);
   Blend blend = Blend::Alpha;
   float scale = 1.0f;
+  float angle = 0.0f; // degrees, clockwise, around the anchor
 };
 
 struct TextStyle

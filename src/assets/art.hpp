@@ -8,12 +8,15 @@
 namespace gr
 {
 
-// Game logic runs in "world pixels" (16 per tile, 320x180 view, like the
-// original). Everything is drawn at 4x that, i.e. 1280x720, from smooth
-// vector art baked at startup, so the game looks crisp instead of pixelated.
+// The game logic works in "world pixels" (8 per cell, 16 per level block,
+// 320x180 visible, like the original). Everything is drawn at 4x that, i.e.
+// 1280x720, from smooth vector art baked at startup, so the game looks crisp
+// instead of pixelated.
 constexpr float kPixelScale = 4.0f;
 
-// A sprite baked once facing right and once mirrored facing left.
+// A sprite baked once facing right and once mirrored facing left. Sprites
+// are anchored at a point (e.g. the middle of the feet), so mirroring keeps
+// them in place.
 struct Sprite
 {
   std::array<Texture, 2> facing;
@@ -22,33 +25,90 @@ struct Sprite
 
 constexpr int kRunFrames = 8;
 
+// HUD panel sizes in screen pixels.
+constexpr int kHudPanelH = 64;
+constexpr int kHudHealthW = 430;
+constexpr int kHudWeaponW = 260;
+constexpr int kHudInventoryW = 130;
+constexpr int kHudLettersW = 160;
+constexpr int kHudScoreW = 224;
+constexpr int kItemIcons = 16;
+
+// Every pose a Gunrunner can strike. All are anchored at the bottom centre of
+// the player's collision box.
 struct CharacterArt
 {
   std::array<Sprite, 2> idle;
   std::array<Sprite, kRunFrames> run;
+  Sprite lookUp;
+  Sprite crouch;
+  Sprite coil;
   Sprite jump;
   Sprite fall;
+  Sprite fallFast;
+  Sprite tuck; // rotated for somersaults
+  std::array<Sprite, 2> climb;
+  Sprite hang;
+  std::array<Sprite, 4> hangMove;
+  Sprite hangAimDown;
+  Sprite hangLegsUp;
+  Sprite jetpack;
+  Sprite hurt;
   Texture portrait;
+};
+
+// Index into Art::items.
+enum ItemIcon
+{
+  kIconHealth,
+  kIconMerch0,
+  kIconMerch1,
+  kIconMerch2,
+  kIconLaser,
+  kIconRocket,
+  kIconFlame,
+  kIconRapidFire,
+  kIconKey,
+  kIconGem0,
+  kIconGem1,
+  kIconGem2,
+  kIconGem3,
+  kIconLetterG,
+  kIconLetterU,
+  kIconLetterN,
 };
 
 struct Art
 {
   std::array<CharacterArt, 3> characters;
+  std::array<Color, 3> characterColor;
   std::array<Sprite, 2> walker;
   std::array<Sprite, 2> flyer;
   Sprite turret;
-  std::array<Texture, 4> gem;
+
+  // Items are 2x2 cells, drawn with their top-left at the box's top-left.
+  std::array<Texture, kItemIcons> items;
+  std::array<Texture, 3> boxes; // white, blue, green
+  std::array<Color, 3> boxColor;
   std::array<Color, 4> gemColor;
-  Texture health;
 
   std::array<Texture, 3> solid;
   Texture solidTop;
   Texture platform;
   Texture spikes;
-  Texture crate;
+  Texture ladder;
+  Texture pipe;
+  Texture fieldEmitter;
+  Texture fieldBeam;
+  Texture beaconOff;
+  Texture beaconOn;
 
-  std::array<Texture, 3> playerBullet;
-  Texture enemyBullet;
+  // Projectiles, drawn centred and rotated for vertical shots.
+  Texture shotNormal;
+  Texture shotLaser;
+  Texture shotRocket;
+  Texture shotFlame;
+  Texture enemyShot;
 
   Texture sky;
   Texture backFar;
@@ -63,9 +123,9 @@ struct Art
   Texture exitBeam;
   Texture heartFull;
   Texture heartEmpty;
-  Texture hudLeft;
-  Texture hudCenter;
-  Texture hudRight;
+  // Health, weapon, inventory, letters and score panels.
+  std::array<Texture, 5> hudPanels;
+  Texture hudSlot;
 
   static Art build(const Theme& theme, const Renderer& renderer);
 };
@@ -75,6 +135,7 @@ void drawGlow(Renderer& r, const Art& art, float cx, float cy, float radius, Col
 // camX/camY are in screen pixels.
 void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float baseCamY);
 void drawDecoration(Renderer& r, const Art& art, const Theme& theme, float x, float y, int seed, int frame);
+// (x, y) is the bottom-left corner of the 4x6 cell exit.
 void drawExit(Renderer& r, const Art& art, const Theme& theme, float x, float y, int frame);
 // Rounded translucent panel for menus and overlays.
 Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, double radius);

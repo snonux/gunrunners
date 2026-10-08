@@ -1,7 +1,5 @@
 #include "data/characters.hpp"
 
-#include <array>
-
 namespace gr
 {
 
@@ -9,12 +7,34 @@ namespace
 {
 
 const std::array<CharacterDef, kCharacterCount> kCharacters{{
-  {"DASH", "THE ALL-ROUNDER", 1.6f, -6.3f, 4, 14, Weapon::Blaster, 5.0f, 3, 3, 3},
-  {"ROCCO", "THE HEAVY", 1.35f, -5.9f, 6, 24, Weapon::Scatter, 4.5f, 2, 2, 5},
-  {"NOVA", "THE ACROBAT", 1.9f, -7.0f, 3, 7, Weapon::Rapid, 6.0f, 5, 5, 2},
+  // Dash plays exactly like Duke: 9 health, the classic jump arc.
+  {"DASH", "THE ALL-ROUNDER", 9, {2, 2, 1, 1, 1, 0, 0, 0}, Weapon::Normal, 0, 3, 3, 3},
+  {"ROCCO", "THE HEAVY", 12, {2, 2, 1, 1, 0, 0, 0, 0}, Weapon::Rocket, 12, 5, 2, 5},
+  {"NOVA", "THE ACROBAT", 7, {2, 2, 2, 1, 1, 1, 0, 0}, Weapon::Laser, 16, 2, 5, 4},
 }};
 
 } // namespace
+
+const char* weaponName(Weapon w)
+{
+  switch (w)
+  {
+    case Weapon::Laser:
+      return "LASER";
+    case Weapon::Rocket:
+      return "ROCKETS";
+    case Weapon::Flame:
+      return "FLAMER";
+    case Weapon::Normal:
+    default:
+      return "BLASTER";
+  }
+}
+
+int maxAmmo(Weapon w)
+{
+  return w == Weapon::Flame ? 64 : 32;
+}
 
 const CharacterDef& characterByIndex(int index)
 {

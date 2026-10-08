@@ -1,0 +1,750 @@
+// Player movement, shooting and death: a port of the Duke Nukem II player
+// logic in RigelEngine's src/game_logic/player.cpp (GPL-2.0-or-later,
+// Copyright (C) 2018 Nikolai Wuttke), adapted to Gunrunners' entity lists.
+// The state machine, jump arc, ladder and pipe rules, firing rules and death
+// sequence follow that file frame by frame.
+
+#include "game/world.hpp"
+
+#include <array>
+#include <cstdlib>
+
+namespace gr
+{
+
+namespace
+{
+
+constexpr int kMercyFrames = 30;      // RigelEngine: 40/30/20 by difficulty
+constexpr int kInitialMercyFrames = 20;
+constexpr int kTemporaryItemFrames = 700;
+constexpr int kItemAboutToExpire = 30;
+
+constexpr std::array<int, 6> kDeathFlyUp{-2, -1, 0, 0, 1, 1};
+
+// Where shots leave the gun, relative to the player position (bottom-left
+// cell), per stance: Regular, Crouched, Up, Down, Jetpack.
+constexpr int kShotOffsetRight[5][2] = {{3, -2}, {3, -1}, {2, -5}, {1, 1}, {1, 1}};
+constexpr int kShotOffsetLeft[5][2] = {{-1, -2}, {-1, -1}, {0, -5}, {1, 1}, {1, 1}};
+
+} // namespace
+
+int Player::height() const
+{
+  if (state == PlayerState::Pipe)
+    return 6;
+  if (visual == PlayerVisual::Crouching)
+    return 4;
+  return 5;
+}
+
+CellBox Player::hitBox() const
+{
+  CellBox b = box();
+  switch (visual)
+  {
+    case PlayerVisual::PullingLegsUp:
+      b.h = 4;
+      break;
+    case PlayerVisual::Coiling:
+      b.y += 1;
+      b.h -= 1;
+      break;
+    case PlayerVisual::Somersault:
+      b.y += 1;
+      b.h = 4;
+      break;
+    default:
+      break;
+  }
+  return b;
+}
+
+void World::updatePlayer(const PlayerInput& raw)
+{
+  auto& p = mPlayer;
+
+  if (p.rapidFire > 0)
+  {
+    --p.rapidFire;
+    if (p.rapidFire == kItemAboutToExpire)
+      showMessage("RAPID FIRE IS RUNNING OUT");
+  }
+
+  if (p.state == PlayerState::Dying)
+  {
+    updateDeathAnimation();
+    return;
+  }
+  if (p.state == PlayerState::Teleporting)
+    return;
+
+  if (p.recoil > 0)
+    --p.recoil;
+  if (p.mercy > 0)
+    --p.mercy;
+  p.oddFrame = !p.oddFrame;
+
+  // Conflicting directions cancel out, like in the original.
+  PlayerInput in = raw;
+  if (in.left && in.right)
+    in.left = in.right = false;
+  if (in.up && in.down)
+    in.up = in.down = false;
+  const int mvX = in.left ? -1 : (in.right ? 1 : 0);
+  const int mvY = in.up ? -1 : (in.down ? 1 : 0);
+
+  const int previousY = p.y;
+  updateLadderAttachment(mvX, mvY);
+  updatePlayerMovement(mvX, mvY, in.jump, in.fire);
+  updateShooting(in.fire);
+
+  if (p.visual == PlayerVisual::ClimbingLadder && p.y != previousY)
+    ++p.climbFrame;
+
+  // Looking up or crouching for a moment scrolls the view (manual scrolling).
+  const bool looking = (p.visual == PlayerVisual::LookingUp || p.visual == PlayerVisual::Crouching) && !in.fire.pressed;
+  mLookFrames = looking ? mLookFrames + 1 : 0;
+  mManualScroll = mLookFrames > 4 ? (p.visual == PlayerVisual::LookingUp ? -1 : 1) : 0;
+
+  if (p.y > mMap.height() + 3)
+  {
+    playSound(Sfx::Death);
+    p.state = PlayerState::Dying;
+    p.deathPhase = 3;
+    p.frames = 0;
+    p.hidden = true;
+    ++mStats.deaths;
+  }
+}
+
+void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, const Button& fireButton)
+{
+  auto& p = mPlayer;
+  p.stance = Stance::Regular;
+
+  if (jumpButton.triggered)
+    p.jumpRequested = true;
+  if (!jumpButton.pressed)
+    p.jumpRequested = false;
+
+  const bool shouldUseJetpack = canFire() && p.weapon == Weapon::Flame && mvY > 0 && fireButton.pressed;
+  if (shouldUseJetpack && p.state != PlayerState::Jetpack)
+  {
+    p.state = PlayerState::Jetpack;
+    p.frames = 0;
+  }
+
+  switch (p.state)
+  {
+    case PlayerState::OnGround:
+    {
+      if (mvY != 0)
+      {
+        p.stance = mvY < 0 ? Stance::Up : Stance::Crouched;
+        setVisual(mvY < 0 ? PlayerVisual::LookingUp : PlayerVisual::Crouching);
+        if (mvX != 0 && mvX != p.facing)
+          switchOrientationWithPositionChange();
+      }
+      else
+      {
+        setVisual(PlayerVisual::Standing);
+        if (mvX != 0)
+        {
+          if (mvX != p.facing)
+          {
+            // Turning around costs a frame.
+            switchOrientation();
+          }
+          else if (mMap.moveHorizontallyWithStairStepping(p.x, p.y, Player::kWidth, p.height(), mvX) ==
+                   MoveResult::Completed)
+          {
+            setVisual(PlayerVisual::Walking);
+            ++p.walkFrame;
+          }
+        }
+      }
+
+      if (p.jumpRequested && !mMap.touchingCeiling(p.box()))
+        jump();
+      else if (!mMap.onSolidGround(p.box()))
+        startFalling();
+      break;
+    }
+
+    case PlayerState::Jumping:
+      updateJumpMovement(mvX, jumpButton.pressed);
+      break;
+
+    case PlayerState::Falling:
+    {
+      const bool terminalVelocity = p.frames >= 2;
+      if (terminalVelocity)
+      {
+        setVisual(PlayerVisual::FallingFull);
+      }
+      else
+      {
+        setVisual(PlayerVisual::Falling);
+        ++p.frames;
+      }
+      updateHorizontalMovementInAir(mvX);
+      bool attached = false;
+      const auto result = moveVerticallyInAir(terminalVelocity ? 2 : 1, attached);
+      if (!attached && result != MoveResult::Completed)
+        landOnGround(terminalVelocity);
+      break;
+    }
+
+    case PlayerState::Jetpack:
+    {
+      if (!shouldUseJetpack)
+      {
+        startFallingDelayed();
+        break;
+      }
+      p.stance = Stance::Jetpack;
+      setVisual(PlayerVisual::Jetpack);
+      updateHorizontalMovementInAir(mvX);
+      mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), -1);
+      break;
+    }
+
+    case PlayerState::Recovering:
+      p.state = PlayerState::OnGround;
+      setVisual(PlayerVisual::Standing);
+      playSound(Sfx::Land);
+      break;
+
+    case PlayerState::Ladder:
+    {
+      if (p.jumpRequested && !mMap.touchingCeiling(p.box()))
+      {
+        jumpFromLadder(mvX);
+        break;
+      }
+      if (mvX != 0 && mvX != p.facing)
+        switchOrientation();
+      if (mvY != 0)
+      {
+        const CellBox b = p.box();
+        const int attachX = b.left() + 1;
+        const int nextY = mvY < 0 ? b.top() - 1 : b.bottom() + 1;
+        if (mMap.ladder(attachX, nextY))
+          mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), mvY);
+        else if (mvY > 0)
+          startFalling();
+      }
+      break;
+    }
+
+    case PlayerState::Pipe:
+    {
+      if (mvY <= 0 && p.jumpRequested && !mMap.touchingCeiling(p.box()))
+      {
+        p.y -= 1;
+        jumpFromLadder(mvX);
+        break;
+      }
+
+      setVisual(PlayerVisual::Hanging);
+      if (mvY != 0)
+      {
+        p.stance = mvY < 0 ? Stance::Up : Stance::Down;
+        setVisual(mvY < 0 ? PlayerVisual::PullingLegsUp : PlayerVisual::AimingDownOnPipe);
+        if (mvX != 0 && mvX != p.facing)
+          switchOrientationWithPositionChange();
+        if (p.jumpRequested && mvY > 0)
+          startFallingDelayed(); // down + jump lets go
+      }
+      else if (mvX != 0 && !fireButton.pressed)
+      {
+        if (mvX != p.facing)
+        {
+          switchOrientation();
+        }
+        else
+        {
+          const CellBox before = p.box();
+          const int testX = mvX < 0 ? before.left() : before.right();
+          if (mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), p.facing) != MoveResult::Failed)
+          {
+            if (mMap.climbable(testX, before.top()))
+            {
+              setVisual(PlayerVisual::MovingOnPipe);
+              ++p.pipeFrame;
+            }
+            else
+            {
+              startFallingDelayed();
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    case PlayerState::Dying:
+    case PlayerState::Teleporting:
+      break;
+  }
+}
+
+void World::updateLadderAttachment(int /*mvX*/, int mvY)
+{
+  auto& p = mPlayer;
+  const bool canAttach = p.state != PlayerState::Ladder && p.state != PlayerState::Dying &&
+    p.state != PlayerState::Teleporting && (p.state != PlayerState::Jumping || p.frames >= 3);
+  if (!canAttach || mvY >= 0)
+    return;
+
+  const CellBox b = p.box();
+  for (int i = 0; i < b.w; ++i)
+  {
+    if (!mMap.ladder(b.left() + i, b.top()))
+      continue;
+    p.state = PlayerState::Ladder;
+    p.frames = 0;
+    p.somersault = -1;
+    setVisual(PlayerVisual::ClimbingLadder);
+    // Snap the player's centre onto the ladder.
+    p.x -= (b.left() + 1) - (b.left() + i);
+    return;
+  }
+}
+
+void World::updateHorizontalMovementInAir(int mvX)
+{
+  auto& p = mPlayer;
+  if (mvX == 0)
+    return;
+  if (mvX != p.facing)
+    switchOrientation();
+  else
+    mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), mvX);
+}
+
+void World::updateJumpMovement(int mvX, bool jumpPressed)
+{
+  auto& p = mPlayer;
+  const auto& arc = mCharacter->jumpArc;
+
+  if (p.frames == 0)
+    setVisual(PlayerVisual::Jumping);
+  if (p.frames != 0 || p.fromLadder)
+    updateHorizontalMovementInAir(mvX);
+
+  if (p.frames >= int(arc.size()))
+  {
+    startFalling();
+    return;
+  }
+
+  const int offset = arc[std::size_t(p.frames)];
+  MoveResult outcome;
+  if (p.frames > 0)
+  {
+    bool attached = false;
+    outcome = moveVerticallyInAir(-offset, attached);
+    if (attached)
+      return;
+  }
+  else
+  {
+    outcome = mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), -offset);
+  }
+
+  if (outcome != MoveResult::Completed)
+  {
+    if (offset == 2 && outcome == MoveResult::MovedPartially)
+    {
+      p.frames = 3;
+    }
+    else
+    {
+      startFalling();
+      return;
+    }
+  }
+
+  // Now and then a running jump turns into a somersault.
+  if (p.somersault >= 0)
+  {
+    ++p.somersault;
+    if (p.somersault >= 8 || mvX == 0)
+    {
+      p.somersault = -1;
+      setVisual(PlayerVisual::Jumping);
+    }
+  }
+  if (p.frames == 1 && p.somersault < 0 && mvX != 0 && mRng.next() % 6 == 0)
+  {
+    p.somersault = 0;
+    setVisual(PlayerVisual::Somersault);
+  }
+
+  // On the third frame, a released jump button cuts the arc short.
+  const bool isShortJump = p.frames == 2 && !jumpPressed;
+  p.frames = isShortJump ? 6 : p.frames + 1;
+}
+
+MoveResult World::moveVerticallyInAir(int amount, bool& attached)
+{
+  auto& p = mPlayer;
+  attached = false;
+  if (amount == 0)
+  {
+    attached = tryAttachToClimbable();
+    return MoveResult::Completed;
+  }
+  const int step = amount > 0 ? 1 : -1;
+  for (int i = 0; i < std::abs(amount); ++i)
+  {
+    if (tryAttachToClimbable())
+    {
+      attached = true;
+      break;
+    }
+    if (mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), step) != MoveResult::Completed)
+      return i == 0 ? MoveResult::Failed : MoveResult::MovedPartially;
+  }
+  return MoveResult::Completed;
+}
+
+bool World::tryAttachToClimbable()
+{
+  auto& p = mPlayer;
+  CellBox b = p.box();
+  if (p.state == PlayerState::Jumping)
+    --b.y;
+  if (!mMap.climbable(b.left() + 1, b.top()))
+    return false;
+  p.state = PlayerState::Pipe;
+  p.frames = 0;
+  p.somersault = -1;
+  setVisual(PlayerVisual::Hanging);
+  p.y = b.top() + 5;
+  playSound(Sfx::AttachClimbable);
+  return true;
+}
+
+void World::updateShooting(const Button& fire)
+{
+  auto& p = mPlayer;
+  const bool hasRapidFire = p.rapidFire > 0 || p.weapon == Weapon::Flame;
+  if (!canFire())
+    return;
+  if (fire.triggered || (fire.pressed && hasRapidFire && !p.rapidFiredLastFrame))
+    fireShot();
+  if (fire.pressed && hasRapidFire)
+    p.rapidFiredLastFrame = !p.rapidFiredLastFrame;
+  else
+    p.rapidFiredLastFrame = false;
+}
+
+bool World::canFire() const
+{
+  const auto& p = mPlayer;
+  const bool blocked = p.state == PlayerState::Ladder || p.state == PlayerState::Dying ||
+    p.state == PlayerState::Teleporting || p.visual == PlayerVisual::Coiling ||
+    (p.state == PlayerState::Pipe && p.stance == Stance::Up);
+  return !blocked;
+}
+
+void World::fireShot()
+{
+  auto& p = mPlayer;
+  const int s = int(p.stance);
+  const auto& off = p.facing > 0 ? kShotOffsetRight[s] : kShotOffsetLeft[s];
+  int dx = p.facing, dy = 0;
+  if (p.stance == Stance::Up)
+  {
+    dx = 0;
+    dy = -1;
+  }
+  else if (p.stance == Stance::Down || p.stance == Stance::Jetpack)
+  {
+    dx = 0;
+    dy = 1;
+  }
+
+  ShotKind kind = ShotKind::Normal;
+  Sfx sound = Sfx::Shot;
+  switch (p.weapon)
+  {
+    case Weapon::Laser:
+      kind = ShotKind::Laser;
+      sound = Sfx::LaserShot;
+      break;
+    case Weapon::Rocket:
+      kind = ShotKind::Rocket;
+      sound = Sfx::RocketShot;
+      break;
+    case Weapon::Flame:
+      kind = ShotKind::Flame;
+      sound = Sfx::FlameShot;
+      break;
+    case Weapon::Normal:
+      break;
+  }
+  spawnProjectile(kind, p.x + off[0], p.y + off[1], dx, dy);
+  playSound(sound);
+  p.recoil = 1;
+  p.muzzleTicks = 6;
+  p.muzzleStance = p.stance;
+
+  if (p.weapon != Weapon::Normal && --p.ammo <= 0)
+  {
+    p.ammo = 0;
+    p.weapon = Weapon::Normal;
+    showMessage("OUT OF AMMO - BACK TO THE BLASTER");
+  }
+}
+
+void World::jump()
+{
+  auto& p = mPlayer;
+  p.state = PlayerState::Jumping;
+  p.frames = 0;
+  p.fromLadder = false;
+  p.somersault = -1;
+  setVisual(PlayerVisual::Coiling);
+  playSound(Sfx::Jump);
+  p.jumpRequested = false;
+}
+
+void World::jumpFromLadder(int mvX)
+{
+  auto& p = mPlayer;
+  p.state = PlayerState::Jumping;
+  p.frames = 0;
+  p.fromLadder = true;
+  p.somersault = -1;
+  updateJumpMovement(mvX, true);
+  if (p.state == PlayerState::Jumping)
+    setVisual(PlayerVisual::Jumping);
+  playSound(Sfx::Jump);
+  p.jumpRequested = false;
+}
+
+void World::startFalling()
+{
+  auto& p = mPlayer;
+  p.somersault = -1;
+  if (mMap.onSolidGround(p.box()))
+  {
+    p.state = PlayerState::OnGround;
+    setVisual(PlayerVisual::Standing);
+    return;
+  }
+  p.state = PlayerState::Falling;
+  p.frames = 0;
+  setVisual(PlayerVisual::Falling);
+  bool attached = false;
+  moveVerticallyInAir(1, attached);
+}
+
+void World::startFallingDelayed()
+{
+  auto& p = mPlayer;
+  p.state = PlayerState::Falling;
+  p.frames = 0;
+  p.somersault = -1;
+  setVisual(PlayerVisual::Jumping);
+}
+
+void World::landOnGround(bool needRecoveryFrame)
+{
+  auto& p = mPlayer;
+  p.somersault = -1;
+  if (needRecoveryFrame)
+  {
+    p.state = PlayerState::Recovering;
+    setVisual(PlayerVisual::Coiling);
+    const Vec2 feet{(float(p.x) + 1.5f) * kCellSize, float(p.y + 1) * kCellSize};
+    burst(feet, rgba(255, 255, 255, 150), rgba(200, 200, 220, 110), 6, 0.9f, false);
+  }
+  else
+  {
+    p.state = PlayerState::OnGround;
+    setVisual(PlayerVisual::Standing);
+  }
+}
+
+void World::switchOrientation()
+{
+  auto& p = mPlayer;
+  p.facing = -p.facing;
+  // Push the player out of a wall the turn would leave them stuck in.
+  CellBox b = p.box();
+  b.x -= p.facing;
+  const bool stuck = p.facing < 0 ? mMap.touchingLeftWall(b) : mMap.touchingRightWall(b);
+  if (stuck)
+    p.x -= p.facing;
+}
+
+void World::switchOrientationWithPositionChange()
+{
+  // The original also shifts the position by a cell here to make up for
+  // Duke's lopsided sprite. Our sprites are symmetric, so just turn.
+  switchOrientation();
+}
+
+void World::hurtPlayer(int amount)
+{
+  auto& p = mPlayer;
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0)
+    return;
+  p.hp -= amount;
+  mStats.tookDamage = true;
+  if (p.hp <= 0)
+  {
+    p.hp = 0;
+    killPlayer();
+    return;
+  }
+  p.mercy = kMercyFrames;
+  playSound(Sfx::Hurt);
+  mCamera.shake(10, 3.0f);
+  const CellBox b = p.box();
+  burst({(float(b.x) + 1.5f) * kCellSize, (float(b.y) + 2.0f) * kCellSize}, rgb(255, 80, 80), rgb(255, 255, 255), 10, 1.5f);
+}
+
+void World::killPlayer()
+{
+  auto& p = mPlayer;
+  if (p.state == PlayerState::Dying)
+    return;
+  p.state = PlayerState::Dying;
+  p.deathPhase = 0;
+  p.frames = 0;
+  p.somersault = -1;
+  p.mercy = 0;
+  setVisual(PlayerVisual::Dying);
+  playSound(Sfx::Death);
+  mCamera.shake(14, 4.0f);
+  ++mStats.deaths;
+}
+
+void World::updateDeathAnimation()
+{
+  auto& p = mPlayer;
+  if (p.y > mMap.height() + 3 && p.deathPhase != 3)
+  {
+    p.deathPhase = 3;
+    p.frames = 0;
+    p.hidden = true;
+  }
+
+  switch (p.deathPhase)
+  {
+    case 0: // flying up
+      p.y += kDeathFlyUp[std::size_t(p.frames)];
+      if (++p.frames >= int(kDeathFlyUp.size()))
+      {
+        p.deathPhase = 1;
+        p.frames = 0;
+      }
+      break;
+    case 1: // falling down
+      if (mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), 2) != MoveResult::Completed)
+      {
+        p.deathPhase = 2;
+        p.frames = 0;
+      }
+      break;
+    case 2: // lying there, then exploding
+      if (++p.frames == 10)
+      {
+        p.hidden = true;
+        const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 1.5f) * kCellSize};
+        burst(c, rgb(255, 210, 80), rgb(255, 90, 40), 40, 3.2f);
+        burst(c, mArt.characterColor[std::size_t(mCharacterIndex)], rgb(255, 255, 255), 20, 2.2f);
+        flashAt(c, 120.0f, rgb(255, 170, 60), 24);
+        playSound(Sfx::Explosion);
+        mCamera.shake(16, 5.0f);
+      }
+      if (p.frames >= 35)
+        respawnPlayer();
+      break;
+    default: // fell out of the map
+      if (++p.frames >= 15)
+        respawnPlayer();
+      break;
+  }
+}
+
+void World::respawnPlayer()
+{
+  auto& p = mPlayer;
+  p.x = p.prevX = mRespawnX;
+  p.y = p.prevY = mRespawnY;
+  p.state = PlayerState::OnGround;
+  p.visual = PlayerVisual::Standing;
+  p.stance = Stance::Regular;
+  p.frames = 0;
+  p.deathPhase = 0;
+  p.somersault = -1;
+  p.hidden = false;
+  p.hp = p.maxHp;
+  p.mercy = kInitialMercyFrames;
+  p.jumpRequested = false;
+  mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
+  showMessage("BACK IN ACTION");
+}
+
+void World::updatePlayerInteractions()
+{
+  auto& p = mPlayer;
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting)
+    return;
+  const CellBox hit = p.hitBox();
+
+  if (mMap.overlapsHazard(hit))
+    hurtPlayer(1);
+
+  // Force fields: walking up to one with the access card switches it off.
+  if (p.hasKey && mMap.forceFieldsOn())
+  {
+    CellBox reach = p.box();
+    reach.x -= 1;
+    reach.w += 2;
+    bool touching = false;
+    for (int y = reach.top(); y <= reach.bottom() && !touching; ++y)
+      for (int x = reach.left(); x <= reach.right() && !touching; ++x)
+        touching = mMap.forceField(x, y);
+    if (touching)
+    {
+      mMap.disableForceFields();
+      p.hasKey = false;
+      mFieldFlash = 40;
+      playSound(Sfx::ForceFieldOff);
+      showMessage("ACCESS GRANTED - FORCE FIELD DOWN");
+      addScore(2000, {(float(p.x) + 1.5f) * kCellSize, float(p.y - 6) * kCellSize});
+    }
+  }
+
+  for (auto& cp : mCheckpoints)
+  {
+    if (cp.active || !cp.box().intersects(hit))
+      continue;
+    cp.active = true;
+    mRespawnX = cp.x;
+    mRespawnY = cp.y;
+    playSound(Sfx::Checkpoint);
+    showMessage("CHECKPOINT - YOU WILL RESPAWN HERE");
+    flashAt({(float(cp.x) + 1.0f) * kCellSize, (float(cp.y) - 3.0f) * kCellSize}, 90.0f, mTheme.accentB, 30);
+  }
+
+  const CellBox exitZone{mLevel.exitTx * kCellsPerTile, (mLevel.exitTy + 1) * kCellsPerTile - 6, 2, 6};
+  if (exitZone.intersects(p.box()) && p.state == PlayerState::OnGround)
+  {
+    p.state = PlayerState::Teleporting;
+    setVisual(PlayerVisual::Standing);
+    mState = WorldState::Exiting;
+    mStateFrames = 0;
+    playSound(Sfx::Teleport);
+  }
+}
+
+} // namespace gr
