@@ -59,6 +59,7 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   o << "theme " << s.theme << '\n';
   o << "player " << s.x << ' ' << s.y << ' ' << s.facing << ' ' << s.hp << ' ' << s.weapon << ' ' << s.ammo << ' '
     << s.rapidFire << ' ' << int(s.hasKey) << '\n';
+  o << "effects " << s.turbo << ' ' << s.virus << '\n';
   o << "respawn " << s.respawnX << ' ' << s.respawnY << '\n';
   o << "progress " << s.score << ' ' << s.gems << ' ' << s.kills << ' ' << s.merch << ' ' << s.weaponsCollected << ' '
     << s.deaths << ' ' << s.frames << ' ' << int(s.tookDamage) << '\n';
@@ -131,6 +132,8 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.theme;
     else if (key == "player" && in >> s.x >> s.y >> s.facing >> s.hp >> s.weapon >> s.ammo >> s.rapidFire >> a)
       s.hasKey = a != 0;
+    else if (key == "effects")
+      in >> s.turbo >> s.virus;
     else if (key == "respawn")
       in >> s.respawnX >> s.respawnY;
     else if (key == "progress" &&

@@ -442,6 +442,41 @@ std::vector<float> makeSfx(Sfx id)
       addTone(b, 0.08, 0.22, midiFreq(88), Wave::Square, 0.14, 0.08);
       return b;
     }
+    case Sfx::TurboOn:
+    {
+      // A revving rise into a bright major arpeggio.
+      Osc a, b;
+      auto buf = render(0.9, [&](double t, double total) {
+        const double f = sweep(110.0, 880.0, std::min(1.0, t / 0.5));
+        const double v = a.step(f, Wave::Saw) * 0.35 + b.step(f * 1.005, Wave::Square, 0.3) * 0.2;
+        return v * 0.35 * std::min(1.0, t / 0.02) * std::min(1.0, (total - t) / 0.3);
+      });
+      const int notes[4] = {72, 76, 79, 84};
+      for (int i = 0; i < 4; ++i)
+        addTone(buf, 0.45 + i * 0.07, 0.3, midiFreq(notes[i]), Wave::Square, 0.12, 0.12);
+      return buf;
+    }
+    case Sfx::VirusOn:
+    {
+      // A sick, wobbling slide down with a gurgle of filtered noise.
+      Osc a, b, lfo;
+      Noise n(99);
+      Svf f;
+      return render(1.0, [&](double t, double total) {
+        const double wob = 1.0 + 0.06 * lfo.step(7.0, Wave::Sine);
+        const double fr = sweep(520.0, 90.0, t / total) * wob;
+        const double tone = a.step(fr, Wave::Square, 0.25) * 0.3 + b.step(fr * 0.993 * 1.5, Wave::Saw) * 0.2;
+        const double gurgle = f.band(n.next(), 300.0 + 200.0 * std::sin(t * 40.0), 0.7) * 0.5;
+        return (tone + gurgle) * 0.32 * std::min(1.0, t / 0.01) * std::min(1.0, (total - t) / 0.25);
+      });
+    }
+    case Sfx::EffectEnd:
+    {
+      std::vector<float> b(std::size_t(samples(0.35)));
+      addTone(b, 0.0, 0.12, midiFreq(79), Wave::Triangle, 0.14, 0.06);
+      addTone(b, 0.1, 0.25, midiFreq(72), Wave::Triangle, 0.14, 0.1);
+      return b;
+    }
     case Sfx::Count:
       break;
   }

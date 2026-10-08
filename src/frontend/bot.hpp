@@ -24,6 +24,7 @@ private:
   int mLastX = -1;
   int mJetpackUntilX = -1;
   bool mFiredLast = false;
+  bool mSeekFlamer = false; // stuck at a jetpack wall: go back for the flamethrower
 };
 
 } // namespace gr

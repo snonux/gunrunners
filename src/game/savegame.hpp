@@ -34,7 +34,7 @@ struct SaveGame
 
   // Player: placed on the last solid ground they stood on.
   int x = 0, y = 0, facing = 1;
-  int hp = 0, weapon = 0, ammo = 0, rapidFire = 0;
+  int hp = 0, weapon = 0, ammo = 0, rapidFire = 0, turbo = 0, virus = 0;
   bool hasKey = false;
   int respawnX = 0, respawnY = 0;
 

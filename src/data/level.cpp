@@ -103,6 +103,8 @@ Level Level::parse(const std::string& text)
         case 'F': // flamethrower box
         case 'r': // rapid fire box
         case 'k': // access card box
+        case 'T': // turbo box
+        case 'V': // virus
         case '1': // letters G, U, N
         case '2':
         case '3':

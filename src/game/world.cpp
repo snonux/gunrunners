@@ -11,6 +11,8 @@ namespace
 {
 
 constexpr int kItemBoxScore = 100;
+constexpr int kTurboFrames = kTurboFramesTotal;
+constexpr int kVirusFrames = kVirusFramesTotal;
 constexpr int kItemPickupDelay = 3;
 constexpr int kBonusPoints = 100000;
 
@@ -116,6 +118,12 @@ World::World(const Level& level, int characterIndex, const Theme& theme, const A
         break;
       case 'k':
         addBox(ItemKind::Key, 0);
+        break;
+      case 'T':
+        addBox(ItemKind::Turbo, 0);
+        break;
+      case 'V':
+        addLoose(ItemKind::Virus, 0);
         break;
       case 'c':
         mCheckpoints.push_back({x, y, false});
@@ -372,6 +380,14 @@ void World::spawnProjectile(ShotKind kind, int ax, int ay, int dx, int dy)
       len = 1;
       break;
   }
+  if (kind != ShotKind::Enemy)
+  {
+    // Turbo doubles your firepower; the virus halves it.
+    if (mPlayer.turbo > 0)
+      pr.damage *= 2;
+    else if (mPlayer.virus > 0)
+      pr.damage = std::max(1, pr.damage / 2);
+  }
   // Flames are fat: a horizontal blast also scorches boxes on the floor.
   const int thick = kind == ShotKind::Flame ? 2 : 1;
   pr.w = vertical ? thick : len;
@@ -414,6 +430,20 @@ void World::updateProjectiles()
         return true;
       }
       destroyBox(box);
+      if (!pr.pierce)
+        return true;
+    }
+    // A virus can be shot down before it gets to you.
+    for (auto& it : mItems)
+    {
+      if (it.taken || it.kind != ItemKind::Virus || !it.box().intersects(b))
+        continue;
+      it.taken = true;
+      const Vec2 c = cellCenter(it.box());
+      burst(c, rgb(140, 255, 70), rgb(40, 120, 30), 18, 1.8f);
+      flashAt(c, 70.0f, rgb(120, 255, 60), 12);
+      addScore(250, c);
+      playSound(Sfx::SmallExplosion);
       if (!pr.pierce)
         return true;
     }
@@ -645,6 +675,13 @@ void World::collectItem(Item& it)
       playSound(Sfx::Key);
       burst(c, rgb(255, 230, 90), rgb(255, 255, 255), 12, 1.4f);
       break;
+    case ItemKind::Turbo:
+      addScore(500, c);
+      startTurbo();
+      break;
+    case ItemKind::Virus:
+      infect();
+      break;
     case ItemKind::Gem:
       ++mStats.gems;
       addScore(500, c);
@@ -681,6 +718,38 @@ void World::collectItem(Item& it)
       break;
     }
   }
+}
+
+void World::startTurbo()
+{
+  auto& p = mPlayer;
+  const bool cured = p.virus > 0;
+  p.virus = 0;
+  p.turbo = kTurboFrames;
+  p.hp = p.maxHp; // full points in every category, health included
+  const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 2.0f) * kCellSize};
+  burst(c, rgb(255, 200, 60), rgb(255, 255, 255), 30, 2.4f);
+  flashAt(c, 150.0f, rgb(255, 170, 40), 24);
+  playSound(Sfx::TurboOn);
+  showMessage(cured ? "TURBO MODE - AND THE VIRUS IS GONE" : "TURBO MODE - EVERYTHING MAXED OUT");
+}
+
+void World::infect()
+{
+  auto& p = mPlayer;
+  const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 2.0f) * kCellSize};
+  burst(c, rgb(140, 255, 70), rgb(60, 110, 30), 22, 1.6f);
+  if (p.turbo > 0)
+  {
+    // Turbo burns the virus off, but uses itself up doing it.
+    p.turbo = 0;
+    playSound(Sfx::EffectEnd);
+    showMessage("TURBO BURNED THE VIRUS OFF");
+    return;
+  }
+  p.virus = kVirusFrames;
+  playSound(Sfx::VirusOn);
+  showMessage("VIRUS! SLOWER, WEAKER, LOWER JUMPS");
 }
 
 void World::addScore(int points, Vec2 at)
@@ -784,6 +853,36 @@ void World::tickEffects(float alpha)
     p.life = p.maxLife = mRng.irange(8, 16);
     p.color = mRng.uniform() < 0.5f ? rgb(255, 200, 60) : rgb(255, 90, 30);
     p.gravity = false;
+    mParticles.push_back(p);
+  }
+  // Turbo afterimage trail and effect particles.
+  const auto& pl = mPlayer;
+  const Vec2 here{(float(pl.prevX) + float(pl.x - pl.prevX) * alpha + 1.5f) * kCellSize,
+    (float(pl.prevY) + float(pl.y - pl.prevY) * alpha + 1.0f) * kCellSize};
+  mTickCount++;
+  if (pl.turbo == 0 || mTickCount % 3 == 0)
+  {
+    for (std::size_t i = mTrail.size() - 1; i > 0; --i)
+      mTrail[i] = pl.turbo > 0 ? mTrail[i - 1] : here;
+    mTrail[0] = here;
+  }
+  if ((pl.turbo > 0 || pl.virus > 0) && pl.state != PlayerState::Dying && mTickCount % 2 == 0)
+  {
+    Particle p;
+    p.pos = {here.x + mRng.range(-12.0f, 12.0f), here.y - mRng.range(4.0f, 36.0f)};
+    p.life = p.maxLife = mRng.irange(14, 26);
+    p.gravity = false;
+    if (pl.turbo > 0)
+    {
+      p.vel = {float(-pl.facing) * mRng.range(0.5f, 1.5f), mRng.range(-0.6f, 0.2f)};
+      p.color = mRng.uniform() < 0.5f ? rgb(255, 210, 80) : rgb(255, 120, 30);
+    }
+    else
+    {
+      p.vel = {mRng.range(-0.2f, 0.2f), mRng.range(-0.8f, -0.3f)}; // bubbles rising
+      p.color = mRng.uniform() < 0.6f ? rgb(140, 255, 80) : rgb(60, 160, 40);
+      p.size = 2;
+    }
     mParticles.push_back(p);
   }
   mCamera.tick(alpha);

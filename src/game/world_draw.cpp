@@ -44,6 +44,10 @@ int itemIcon(ItemKind kind, int variant)
       return kIconLetterG;
     case ItemKind::LetterU:
       return kIconLetterU;
+    case ItemKind::Turbo:
+      return kIconTurbo;
+    case ItemKind::Virus:
+      return kIconVirus;
     case ItemKind::LetterN:
     default:
       return kIconLetterN;
@@ -122,6 +126,15 @@ void World::draw(Renderer& r, int frame, float alpha) const
     const int icon = itemIcon(it.kind, it.variant);
     if (it.kind == ItemKind::Gem)
       drawGlow(r, mArt, x + 32, y + 34, 50, mArt.gemColor[std::size_t(it.variant % 4)], 0.45f + 0.2f * std::sin(float(frame) * 0.15f + float(i)));
+    else if (it.kind == ItemKind::Turbo)
+      drawGlow(r, mArt, x + 32, y + 32, 72, rgb(255, 170, 40), 0.55f + 0.2f * std::sin(float(frame) * 0.2f));
+    else if (it.kind == ItemKind::Virus)
+    {
+      // Drifts and twitches so it reads as alive, and dangerous.
+      x += std::sin(float(frame + int(i) * 13) * 0.05f) * 10.0f;
+      y += std::sin(float(frame) * 0.31f) * 2.0f;
+      drawGlow(r, mArt, x + 32, y + 32, 70, rgb(120, 255, 60), 0.4f + 0.2f * std::sin(float(frame) * 0.13f));
+    }
     else if (it.kind >= ItemKind::LetterG)
       drawGlow(r, mArt, x + 32, y + 32, 64, mTheme.accentA, 0.45f + 0.15f * std::sin(float(frame) * 0.1f));
     r.draw(mArt.items[std::size_t(icon)], x, y);
@@ -415,6 +428,24 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
 
   if (ghost)
     o.alpha = 0.45f + 0.3f * pulse;
+  if (p.turbo > 0)
+  {
+    // Afterimages trailing behind, and a hot aura.
+    for (std::size_t i = 0; i < mTrail.size(); ++i)
+    {
+      DrawOpts t = o;
+      t.blend = Blend::Add;
+      t.tint = rgb(255, 170, 50);
+      t.alpha = 0.32f * (1.0f - float(i) / float(mTrail.size()));
+      r.draw(tex, mTrail[i].x * S - camX, mTrail[i].y * S - camY - lift, t);
+    }
+    drawGlow(r, mArt, x, y - 80, 110 + 12 * std::sin(float(frame) * 0.4f), rgb(255, 160, 40), 0.45f);
+  }
+  if (p.virus > 0)
+  {
+    o.tint = rgb(150, 255, 120);
+    drawGlow(r, mArt, x, y - 80, 90, rgb(110, 255, 60), 0.25f + 0.1f * pulse);
+  }
   r.draw(tex, x, y, o);
   if (flashWhite)
   {
@@ -538,6 +569,23 @@ void World::drawHud(Renderer& r, int frame) const
   r.drawText("SCORE", x + 16, top + 6, label);
   std::snprintf(buf, sizeof(buf), "%07d", mStats.score);
   r.drawText(buf, x + kHudScoreW - 16, top + 22, value, Align::Right);
+
+  // Timed effects: Turbo and Virus, under the health panel.
+  auto effectBar = [&](const char* name, int left, int total, Color c, float ey) {
+    const bool blink = left < 45 && (frame / 8) % 2 == 0;
+    r.fillRect(12, ey, 300, 26, rgba(8, 6, 22, 190));
+    r.drawText(name, 22, ey + 3, {17.0f, blink ? rgb(255, 255, 255) : c, kHudInk});
+    r.fillRect(110, ey + 9, 190, 8, rgba(255, 255, 255, 40));
+    r.fillRect(110, ey + 9, 190.0f * float(left) / float(total), 8, c);
+  };
+  float ey = top + float(kHudPanelH) + 8.0f;
+  if (p.turbo > 0)
+  {
+    effectBar("TURBO", p.turbo, kTurboFramesTotal, rgb(255, 180, 50), ey);
+    ey += 32.0f;
+  }
+  if (p.virus > 0)
+    effectBar("VIRUS", p.virus, kVirusFramesTotal, rgb(130, 255, 70), ey);
 
   // Pickup and tutorial messages, like Duke's message line.
   if (mMessageTicks > 0)

@@ -17,6 +17,10 @@ namespace
 
 constexpr int kMercyFrames = 30;      // RigelEngine: 40/30/20 by difficulty
 constexpr int kInitialMercyFrames = 20;
+// Gunrunners additions on top of Duke II: timed Turbo Mode and Virus.
+constexpr int kEffectAboutToExpire = 45;
+constexpr std::array<int, 8> kTurboJumpArc = {2, 2, 2, 2, 1, 1, 1, 0}; // 11 cells
+constexpr std::array<int, 8> kVirusJumpArc = {2, 1, 1, 1, 0, 0, 0, 0};  // 5 cells
 constexpr int kTemporaryItemFrames = 700;
 constexpr int kItemAboutToExpire = 30;
 
@@ -69,6 +73,24 @@ void World::updatePlayer(const PlayerInput& raw)
     --p.rapidFire;
     if (p.rapidFire == kItemAboutToExpire)
       showMessage("RAPID FIRE IS RUNNING OUT");
+  }
+
+  if (p.turbo > 0)
+  {
+    --p.turbo;
+    if (p.turbo == kEffectAboutToExpire)
+      showMessage("TURBO IS RUNNING OUT");
+    else if (p.turbo == 0)
+      playSound(Sfx::EffectEnd);
+  }
+  if (p.virus > 0)
+  {
+    --p.virus;
+    if (p.virus == 0)
+    {
+      showMessage("VIRUS CLEARED - BACK TO NORMAL");
+      playSound(Sfx::EffectEnd);
+    }
   }
 
   if (p.state == PlayerState::Dying)
@@ -156,11 +178,19 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
             // Turning around costs a frame.
             switchOrientation();
           }
-          else if (mMap.moveHorizontallyWithStairStepping(p.x, p.y, Player::kWidth, p.height(), mvX) ==
-                   MoveResult::Completed)
+          else
           {
-            setVisual(PlayerVisual::Walking);
-            ++p.walkFrame;
+            const int steps = horizontalSteps();
+            if (steps == 0)
+              setVisual(PlayerVisual::Walking); // infected: shuffle in place this frame
+            for (int i = 0; i < steps; ++i)
+            {
+              if (mMap.moveHorizontallyWithStairStepping(p.x, p.y, Player::kWidth, p.height(), mvX) !=
+                  MoveResult::Completed)
+                break;
+              setVisual(PlayerVisual::Walking);
+              ++p.walkFrame;
+            }
           }
         }
       }
@@ -321,13 +351,33 @@ void World::updateHorizontalMovementInAir(int mvX)
   if (mvX != p.facing)
     switchOrientation();
   else
-    mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), mvX);
+    for (int i = 0; i < horizontalSteps(); ++i)
+      mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), mvX);
+}
+
+int World::horizontalSteps() const
+{
+  const auto& p = mPlayer;
+  if (p.turbo > 0)
+    return 2;
+  if (p.virus > 0)
+    return p.oddFrame ? 0 : 1;
+  return 1;
+}
+
+const std::array<int, 8>& World::jumpArc() const
+{
+  if (mPlayer.turbo > 0)
+    return kTurboJumpArc;
+  if (mPlayer.virus > 0)
+    return kVirusJumpArc;
+  return mCharacter->jumpArc;
 }
 
 void World::updateJumpMovement(int mvX, bool jumpPressed)
 {
   auto& p = mPlayer;
-  const auto& arc = mCharacter->jumpArc;
+  const auto& arc = jumpArc();
 
   if (p.frames == 0)
     setVisual(PlayerVisual::Jumping);
@@ -431,10 +481,11 @@ bool World::tryAttachToClimbable()
 void World::updateShooting(const Button& fire)
 {
   auto& p = mPlayer;
-  const bool hasRapidFire = p.rapidFire > 0 || p.weapon == Weapon::Flame;
+  // Turbo fires every frame while held; the virus takes rapid fire away.
+  const bool hasRapidFire = p.virus == 0 && (p.rapidFire > 0 || p.weapon == Weapon::Flame || p.turbo > 0);
   if (!canFire())
     return;
-  if (fire.triggered || (fire.pressed && hasRapidFire && !p.rapidFiredLastFrame))
+  if (fire.triggered || (fire.pressed && hasRapidFire && (!p.rapidFiredLastFrame || p.turbo > 0)))
     fireShot();
   if (fire.pressed && hasRapidFire)
     p.rapidFiredLastFrame = !p.rapidFiredLastFrame;
@@ -593,7 +644,7 @@ void World::switchOrientationWithPositionChange()
 void World::hurtPlayer(int amount)
 {
   auto& p = mPlayer;
-  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0)
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0)
     return;
   p.hp -= amount;
   mStats.tookDamage = true;

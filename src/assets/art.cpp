@@ -4,6 +4,7 @@
 #include "render/vector.hpp"
 
 #include <cmath>
+#include <tuple>
 #include <vector>
 
 namespace gr
@@ -1031,6 +1032,62 @@ Texture bakeItemIcon(const Renderer& r, const Theme& t, int icon, Color gemColor
       drawGemShape(cr, gemColor, 32, 12, 26, 56, 20);
       strokeLimb(cr, {{24, 15}, {24, 23}}, 1.8, rgba(255, 255, 255, 230), kInk, 0.0);
       strokeLimb(cr, {{20, 19}, {28, 19}}, 1.8, rgba(255, 255, 255, 230), kInk, 0.0);
+      break;
+    }
+    case kIconTurbo:
+    {
+      // Turbo: a hot orange core with double chevrons pointing forward.
+      radialGlow(cr, 32, 32, 36, rgb(255, 170, 40), 0.6);
+      cairo_arc(cr, 32, 32, 25, 0, 2 * kPi);
+      fillGradientOutline(cr, 7, 57, rgb(255, 236, 120), rgb(240, 90, 20), kInk, 2.6);
+      cairo_arc(cr, 32, 32, 19, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 80));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+      for (double ox : {-7.0, 6.0})
+      {
+        cairo_move_to(cr, 23 + ox, 19);
+        cairo_line_to(cr, 35 + ox, 32);
+        cairo_line_to(cr, 23 + ox, 45);
+        cairo_line_to(cr, 29 + ox, 45);
+        cairo_line_to(cr, 41 + ox, 32);
+        cairo_line_to(cr, 29 + ox, 19);
+        cairo_close_path(cr);
+        fillOutline(cr, rgb(255, 255, 255), kInk, 2.0);
+      }
+      break;
+    }
+    case kIconVirus:
+    {
+      // Virus: a sickly green germ with knobbed spikes and a mean look.
+      const Color body = rgb(130, 220, 60);
+      radialGlow(cr, 32, 32, 34, rgb(120, 255, 60), 0.45);
+      for (int i = 0; i < 10; ++i)
+      {
+        const double a = double(i) * 2.0 * kPi / 10.0 + 0.2;
+        const double c = std::cos(a), s = std::sin(a);
+        strokeLimb(cr, {{32 + c * 16, 33 + s * 16}, {32 + c * 26, 33 + s * 26}}, 3.0, darken(body, 0.2f), kInk, 1.4);
+        cairo_arc(cr, 32 + c * 27, 33 + s * 27, 3.6, 0, 2 * kPi);
+        fillOutline(cr, rgb(200, 255, 120), kInk, 1.6);
+      }
+      cairo_arc(cr, 32, 33, 18, 0, 2 * kPi);
+      fillGradientOutline(cr, 15, 51, lighten(body, 0.25f), darken(body, 0.45f), kInk, 2.6);
+      for (auto [x, y, rad] : {std::tuple{24.0, 40.0, 3.0}, std::tuple{40.0, 42.0, 2.4}, std::tuple{36.0, 24.0, 2.0}})
+      {
+        cairo_arc(cr, x, y, rad, 0, 2 * kPi);
+        setColor(cr, rgba(40, 90, 20, 160));
+        cairo_fill(cr);
+      }
+      for (double ex : {26.0, 38.0})
+      {
+        cairo_arc(cr, ex, 31, 4.2, 0, 2 * kPi);
+        fillOutline(cr, rgb(255, 250, 200), kInk, 1.6);
+        cairo_arc(cr, ex + 0.8, 32, 1.8, 0, 2 * kPi);
+        setColor(cr, kInk);
+        cairo_fill(cr);
+      }
+      strokeLimb(cr, {{21, 24}, {29, 27}}, 2.2, kInk, kInk, 0.0);
+      strokeLimb(cr, {{43, 24}, {35, 27}}, 2.2, kInk, kInk, 0.0);
       break;
     }
     default:
