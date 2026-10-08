@@ -1,6 +1,6 @@
 #pragma once
 
-namespace td
+namespace gr
 {
 
 // One tick of player input. Mirrors RigelEngine's PlayerInput: the game
@@ -17,4 +17,4 @@ struct Input
   bool confirm = false;
 };
 
-} // namespace td
+} // namespace gr

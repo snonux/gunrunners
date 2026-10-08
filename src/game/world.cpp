@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -787,4 +787,4 @@ void World::draw(Renderer& r, int frame) const
   r.drawText(buf, float(kScreenW) - 34.0f, 22.0f, hudText, Align::Right);
 }
 
-} // namespace td
+} // namespace gr

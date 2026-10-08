@@ -7,7 +7,7 @@
 #include <initializer_list>
 #include <utility>
 
-namespace td
+namespace gr
 {
 
 // An offscreen Cairo surface used to bake anti-aliased vector art into
@@ -55,4 +55,4 @@ void strokeLimb(
   double outlineWidth);
 void radialGlow(cairo_t* cr, double cx, double cy, double radius, Color c, double alpha);
 
-} // namespace td
+} // namespace gr

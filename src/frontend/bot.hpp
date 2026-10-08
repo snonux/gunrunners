@@ -2,7 +2,7 @@
 
 #include "game/input.hpp"
 
-namespace td
+namespace gr
 {
 
 class World;
@@ -24,4 +24,4 @@ private:
   float mLastX = -1.0f;
 };
 
-} // namespace td
+} // namespace gr

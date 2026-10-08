@@ -1,4 +1,4 @@
-// TurboDudes - proof of concept.
+// Gunrunners - proof of concept.
 //
 // Runs either in a GPU-accelerated window (SDL2) or fully headless with SDL's
 // software renderer, in which case every 1280x720 frame can be streamed as
@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-using namespace td;
+using namespace gr;
 
 namespace
 {
@@ -38,8 +38,8 @@ struct CliOptions
 void printUsage()
 {
   std::puts(
-    "Usage: turbodudes [options]\n"
-    "  --theme N            0 = Neon Overdrive, 1 = Temple of Turbo, 2 = Station Zero\n"
+    "Usage: gunrunners [options]\n"
+    "  --theme N            0 = Neon Overdrive, 1 = Lost Temple, 2 = Station Zero\n"
     "  --character N        0 = Dash, 1 = Rocco, 2 = Nova\n"
     "  --level PATH         level file (default: levels/level1.txt)\n"
     "  --skip-menu          start straight in the level\n"
@@ -67,7 +67,7 @@ std::string defaultLevelPath()
   for (const char* p : {"levels/level1.txt", "../levels/level1.txt"})
     if (fileExists(p))
       return p;
-  return std::string(TD_DATA_DIR) + "/levels/level1.txt";
+  return std::string(GR_DATA_DIR) + "/levels/level1.txt";
 }
 
 bool parseArgs(int argc, char** argv, CliOptions& o)
@@ -223,7 +223,7 @@ int runWindowed(const CliOptions& o)
   }
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
   SDL_Window* window = SDL_CreateWindow(
-    "TurboDudes PoC",
+    "Gunrunners PoC",
     SDL_WINDOWPOS_CENTERED,
     SDL_WINDOWPOS_CENTERED,
     kScreenW,

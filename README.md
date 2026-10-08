@@ -1,4 +1,4 @@
-# TurboDudes
+# Gunrunners
 
 A jump-n-shoot platformer in the spirit of Duke Nukem II. Pick one of three
 dudes (Dash, Rocco or Nova) and blast your way to the exit.
@@ -12,9 +12,9 @@ design directions in [docs/DESIGN.md](docs/DESIGN.md).
 The game renders at 1280x720 with smooth, anti-aliased vector art, soft
 glow lighting and parallax backdrops (no chunky pixels).
 
-| Select screen | Temple of Turbo | Station Zero |
+| Select screen | Lost Temple | Station Zero |
 |---|---|---|
-| ![](docs/media/select_screen.png) | ![](docs/media/temple_of_turbo.png) | ![](docs/media/station_zero.png) |
+| ![](docs/media/select_screen.png) | ![](docs/media/lost_temple.png) | ![](docs/media/station_zero.png) |
 
 ## Build and run
 
@@ -29,7 +29,7 @@ sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel              # Fedora
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
-./build/turbodudes
+./build/gunrunners
 ```
 
 | Key | Action |
@@ -38,7 +38,7 @@ cmake --build build -j
 | Z / Space | jump (hold for higher) |
 | X / Ctrl | fire |
 | Enter | confirm |
-| T | cycle theme (Neon Overdrive, Temple of Turbo, Station Zero) |
+| T | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
 | Esc | quit |
 
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
@@ -69,12 +69,12 @@ for this PoC but did not fork it, for two reasons:
    either producing assets in Duke 2's formats or rewriting most of
    `assets/`, `data/` and `game_logic/`.
 2. **License.** RigelEngine is GPL-2.0. Copying its code would make
-   TurboDudes GPL-2.0 as well. That is a decision for the project owners,
+   Gunrunners GPL-2.0 as well. That is a decision for the project owners,
    so this PoC is written from scratch and only borrows ideas.
 
 What we took over from its design:
 
-| RigelEngine | TurboDudes PoC |
+| RigelEngine | Gunrunners PoC |
 |---|---|
 | Module split `base / data / assets / engine / game_logic / frontend` | Same split under `src/` |
 | Fixed-rate game logic decoupled from rendering | 60 Hz fixed tick in 320x180 "world pixels"; rendering at 4x (1280x720) with sub-pixel smooth motion |

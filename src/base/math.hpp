@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace td
+namespace gr
 {
 
 struct Vec2
@@ -67,4 +67,4 @@ inline std::uint32_t hash2(int x, int y)
   return h ^ (h >> 16);
 }
 
-} // namespace td
+} // namespace gr

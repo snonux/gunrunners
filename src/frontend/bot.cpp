@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -116,4 +116,4 @@ Input Bot::play(const World& world)
   return in;
 }
 
-} // namespace td
+} // namespace gr

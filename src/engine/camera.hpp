@@ -2,7 +2,7 @@
 
 #include "base/math.hpp"
 
-namespace td
+namespace gr
 {
 
 // Dead-zone camera modeled after RigelEngine's game_logic/camera.cpp: the
@@ -39,4 +39,4 @@ private:
   float mShakeY = 0.0f;
 };
 
-} // namespace td
+} // namespace gr

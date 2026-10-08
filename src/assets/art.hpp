@@ -5,7 +5,7 @@
 
 #include <array>
 
-namespace td
+namespace gr
 {
 
 // Game logic runs in "world pixels" (16 per tile, 320x180 view, like the
@@ -79,4 +79,4 @@ void drawExit(Renderer& r, const Art& art, const Theme& theme, float x, float y,
 // Rounded translucent panel for menus and overlays.
 Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, double radius);
 
-} // namespace td
+} // namespace gr

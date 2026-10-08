@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-namespace td
+namespace gr
 {
 
 struct GameOptions
@@ -69,4 +69,4 @@ private:
   Texture mClearPanel;
 };
 
-} // namespace td
+} // namespace gr

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace td
+namespace gr
 {
 
 Color lerpColor(Color a, Color b, float t)
@@ -24,4 +24,4 @@ Color scaleColor(Color c, float f)
 
 Color withAlpha(Color c, int a) { return (c & 0x00FFFFFFu) | (Color(a & 255) << 24); }
 
-} // namespace td
+} // namespace gr

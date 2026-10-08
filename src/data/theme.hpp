@@ -2,13 +2,13 @@
 
 #include "render/color.hpp"
 
-namespace td
+namespace gr
 {
 
 enum class ThemeId
 {
   NeonOverdrive = 0,
-  TempleOfTurbo = 1,
+  LostTemple = 1,
   StationZero = 2,
 };
 
@@ -33,4 +33,4 @@ struct Theme
 int themeCount();
 const Theme& themeByIndex(int index);
 
-} // namespace td
+} // namespace gr

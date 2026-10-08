@@ -6,7 +6,7 @@
 #include <cmath>
 #include <vector>
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -588,7 +588,7 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
       }
       break;
     }
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
     {
       cairo_rectangle(cr, 0, 0, 64, 64);
       setColor(cr, darken(t.rockDark, 0.2f));
@@ -682,7 +682,7 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
       cairo_fill(cr);
       break;
     }
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
     {
       cairo_move_to(cr, 0, y - 3);
       for (int x = 0; x <= 64; x += 4)
@@ -753,7 +753,7 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
       fillGradientOutline(cr, 1, 15, lighten(t.platform, 0.3f), t.platformDark, darken(t.platformDark, 0.5f), 2.0);
       strokeLimb(cr, {{8, 5}, {56, 5}}, 2.2, rgba(255, 230, 250, 230), kInk, 0.0);
       break;
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
       roundedRect(cr, 1, 1, 62, 15, 4);
       fillGradientOutline(cr, 1, 16, lighten(t.platform, 0.2f), t.platformDark, darken(t.platformDark, 0.5f), 2.0);
       strokeLimb(cr, {{8, 6}, {28, 7}}, 1.0, withAlpha(t.platformDark, 200), kInk, 0.0);
@@ -883,7 +883,7 @@ Texture bakeSky(const Renderer& r, const Theme& t)
       cairo_paint(cr);
       break;
     }
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
     {
       radialGlow(cr, 320, 170, 600, rgb(255, 250, 200), 0.6);
       cairo_arc(cr, 320, 170, 70, 0, 2 * kPi);
@@ -1020,7 +1020,7 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
       }
       break;
     }
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
     {
       for (int ridge = 0; ridge < 2; ++ridge)
       {
@@ -1135,7 +1135,7 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
       }
       break;
     }
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
     {
       double x = 0;
       while (x < kLayerW)
@@ -1255,7 +1255,7 @@ Texture bakeDecoBase(const Renderer& r, const Theme& t)
       cairo_set_line_width(cr, 3);
       cairo_stroke(cr);
       break;
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
       strokeLimb(cr, {{32, 62}, {32, 30}}, 6, rgb(100, 64, 34), kInk, 1.8);
       cairo_move_to(cr, 20, 26);
       cairo_line_to(cr, 44, 26);
@@ -1289,7 +1289,7 @@ Texture bakeDecoLit(const Renderer& r, const Theme& t)
       strokeLimb(cr, {{17, 20}, {42, 20}}, 3, lighten(t.platform, 0.5f), kInk, 0.0);
       strokeLimb(cr, {{35, 14}, {43, 20}, {35, 26}}, 3, lighten(t.platform, 0.5f), kInk, 0.0);
       break;
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
       cairo_move_to(cr, 32, 2);
       cairo_curve_to(cr, 44, 14, 42, 26, 32, 28);
       cairo_curve_to(cr, 22, 26, 20, 14, 32, 2);
@@ -1498,7 +1498,7 @@ void drawDecoration(Renderer& r, const Art& art, const Theme& t, float x, float 
       }
       break;
     }
-    case ThemeId::TempleOfTurbo:
+    case ThemeId::LostTemple:
     {
       const float flick = 0.75f + 0.25f * float(hash2(seed, frame / 3) % 100u) / 100.0f;
       lit.alpha = flick;
@@ -1534,4 +1534,4 @@ void drawExit(Renderer& r, const Art& art, const Theme& t, float x, float y, int
   r.drawText("EXIT", x + 32, y - 40, {22.0f, t.accentA, rgb(20, 16, 28)}, Align::Center);
 }
 
-} // namespace td
+} // namespace gr
