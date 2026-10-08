@@ -529,7 +529,52 @@ void briefing(ClipKit& k, const std::string& clip, int frame, int ticks, float o
     }
     k.r.fillRect(x0 - 10, y0 + 230, 252, 4, rgba(180, 250, 255, 180), Blend::Add); // the street
   }
+  // Level 5: a manhole cover sliding aside over frames 4-9.
+  if (clip == "max_holo_manhole")
+  {
+    const float cx = 970 + ox, cy = 320 + oy;
+    const float slide = float(std::clamp(frame - 4, 0, 5)) * 18.0f;
+    drawGlow(k.r, k.art, cx, cy, 80, rgb(140, 255, 90), 0.25f + 0.05f * float(std::clamp(frame - 4, 0, 5)));
+    k.r.fillRect(cx - 70, cy - 22, 140, 44, rgba(20, 60, 20, 160)); // the hole
+    k.r.fillRect(cx - 70 + slide, cy - 26, 140, 52, rgba(120, 230, 255, 110), Blend::Add);
+    for (int i = 0; i < 5; ++i)
+      k.r.fillRect(cx - 60 + slide + float(i) * 26.0f, cy - 20, 4, 40, rgba(200, 250, 255, 170), Blend::Add);
+    k.r.fillRect(cx - 120, cy + 34, 240, 3, rgba(180, 250, 255, 180), Blend::Add);
+  }
   (void)t;
+}
+
+// Level 5: the crew on a wet street around a sewer grate; a lime glow pulses
+// up through it, Nova pinches her nose from frame 6 on, steam pans left.
+void grateGlow(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(14, 18, 26));
+  k.r.fillRect(0, 400 + oy, W, H - 400, rgb(30, 34, 42));
+  // Wet street: streaks of reflected neon.
+  for (int i = 0; i < 12; ++i)
+    k.r.fillRect(float(hash2(i, 5) % 1200u) + ox, 420.0f + float(hash2(i, 6) % 120u) + oy, 90, 3,
+      i % 2 ? rgba(255, 60, 200, 70) : rgba(0, 220, 255, 60));
+  // The grate and its glow (8-frame pulse).
+  const float pulse = 0.45f + 0.25f * std::sin(float(frame % 8) / 8.0f * 6.283f);
+  drawGlow(k.r, k.art, 640 + ox, 500 + oy, 260, rgb(140, 255, 70), pulse);
+  k.r.fillRect(520 + ox, 485 + oy, 240, 34, rgb(16, 22, 14));
+  for (int i = 0; i < 9; ++i)
+    k.r.fillRect(530 + float(i) * 26.0f + ox, 485 + oy, 10, 34, rgb(90, 100, 90));
+  k.r.draw(runner(k, 0, 0, 2.6f), 360 + ox, 520 + oy);
+  k.r.draw(runner(k, 1, 0, 2.6f), 880 + ox, 530 + oy);
+  k.r.draw(runner(k, 2, 0, 2.6f, true), 1060 + ox, 520 + oy);
+  if (frame >= 6)
+  {
+    // Nova's hand on her nose.
+    k.r.fillRect(1040 + ox, 310 + oy, 22, 14, rgb(230, 190, 160));
+    k.r.drawText("!", 1100 + ox, 220 + oy, {30.0f, rgb(190, 255, 120), kInk, true}, Align::Center);
+  }
+  // Steam drifting left, 2 px a frame, in front of everything.
+  for (int i = 0; i < 8; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 9) % 1500u) - float(ticks) * 2.0f / 7.5f + 3000.0f, 1500.0f) - 100.0f;
+    drawGlow(k.r, k.art, x + ox, 470.0f - float(i % 3) * 50.0f + oy, 90, rgb(200, 220, 210), 0.18f);
+  }
 }
 
 // Level 4: the briefing in a power cut. Only the hologram, the window's dim
@@ -720,6 +765,8 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return crewOutfits(k, frame, ticks, ox, oy);
   if (clip == "blackout_table")
     return blackoutTable(k, frame, ticks, ox, oy);
+  if (clip == "grate_glow")
+    return grateGlow(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "wreck")

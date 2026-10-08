@@ -240,11 +240,13 @@ void World::update(const PlayerInput& input)
       updatePlayer(input);
       updateClub();
       updateDark(input);
+      updateSludge(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
       updateSpawners();
-      if (mPlayer.state == PlayerState::OnGround && !mMap.overlapsHazard(mPlayer.box()))
+      if (mPlayer.state == PlayerState::OnGround && !mMap.overlapsHazard(mPlayer.box()) &&
+          (mFluids.empty() || wadeFluid() < 0))
       {
         mSafeX = mPlayer.x;
         mSafeY = mPlayer.y;
@@ -289,8 +291,13 @@ void World::updateEnemies()
     // Enemies wake up once they scroll into view and stay awake.
     if (!e.active)
       e.active = isOnScreen(e.box(), 1);
-    if (!e.active)
+    if (!e.active || e.trapped)
       continue;
+    if (e.stun > 0)
+    {
+      --e.stun; // dazed out of a popped bubble
+      continue;
+    }
     ++e.timer;
     const EnemyDef& def = enemyDef(e.def);
 
@@ -429,6 +436,12 @@ void World::updateEnemies()
       case EnemyKind::Leech:
         updateLeech(e, def);
         break;
+      case EnemyKind::Gator:
+        updateGator(e, def);
+        break;
+      case EnemyKind::Keeper:
+        updateKeeper(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -513,6 +526,8 @@ void World::updateProjectiles()
         stickFlare(pr, -1);
       return true;
     }
+    if ((!mFluids.empty() || !mDevNull.empty()) && shotAtSludge(pr))
+      return true;
     if (pr.kind == ShotKind::Enemy)
     {
       if (b.intersects(mPlayer.hitBox()) && mPlayer.state != PlayerState::Dying)
@@ -534,6 +549,8 @@ void World::updateProjectiles()
       return false;
     }
     shotAtProps(b);
+    if (!mBubbles.empty() && shotAtBubbles(b))
+      return true;
     for (auto& box : mBoxes)
     {
       if (!box.alive || !box.box().intersects(b))
@@ -563,10 +580,13 @@ void World::updateProjectiles()
     }
     for (auto& e : mEnemies)
     {
-      if (!e.alive || !e.active || !e.box().intersects(b))
+      if (!e.alive || !e.active || e.trapped || !e.box().intersects(b))
         continue;
       if (std::find(pr.hit.begin(), pr.hit.end(), e.id) != pr.hit.end())
         continue;
+      // The Bubble Gun traps what fits in a bubble.
+      if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && trapEnemy(e))
+        return true;
       // In the dark, shots pass through a Night Stalker; only light pins it.
       if (e.kind == EnemyKind::Stalker && !pr.flare && e.attach != 1)
         continue;
@@ -608,6 +628,16 @@ void World::updateProjectiles()
     }
     if (pr.gy != 0.0f)
       pr.vy = std::min(1.5f, pr.vy + pr.gy);
+    if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && pr.age % 8 == 0)
+    {
+      // Bubbles drift up as they go.
+      --pr.y;
+      if (collide(pr))
+      {
+        pr.alive = false;
+        continue;
+      }
+    }
     for (int i = 0; i < pr.speed && pr.alive; ++i)
     {
       if (pr.precise)
@@ -767,6 +797,8 @@ void World::updateItems()
         mMap.moveVertically(it.x, it.y, 2, 2, it.frames > 5 ? 2 : 1);
       if (it.y > mMap.height() + 2)
         it.taken = true;
+      if (!mFluids.empty())
+        floatItem(it);
     }
     if (it.pickupDelay > 0)
     {

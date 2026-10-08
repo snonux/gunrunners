@@ -62,7 +62,10 @@ int macroFrames(int m, const World& w)
     bool opening = false;
     for (const auto& d : w.doors())
       opening = opening || (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on);
-    return w.platforms().empty() && !opening ? 0 : 24;
+    bool tide = false;
+    for (const auto& f : w.fluids())
+      tide = tide || f.tide;
+    return w.platforms().empty() && !opening && !tide && w.bubbles().empty() ? 0 : 24;
   }
   if (m == kWaitLaunch)
   {
@@ -134,6 +137,9 @@ int clockPeriod(const World& w)
     period = std::max(period, 30); // subwoofers bump on the beat
   if (!w.fans().empty())
     period = std::max(period, kPhraseFrames); // laser fans sweep in the chorus
+  for (const auto& f : w.fluids())
+    if (f.tide)
+      period = std::max(period, 300); // the tide clock
   return period;
 }
 
@@ -280,7 +286,8 @@ void Planner::buildField(const World& w, const Goal& goal)
       if (b && openFields && map.forceField(x, y))
         b = false;
       blocked[std::size_t(y * W + x)] = b;
-      top[std::size_t(y * W + x)] = b || map.solidTop(x, y);
+      // Sludge surfaces and bubbles come and go: not ground to the field.
+      top[std::size_t(y * W + x)] = b || (map.solidTop(x, y) && !map.floatTop(x, y));
     }
   // Shutters whose breaker is on are rolling up: the search waits for them.
   for (const auto& d : w.doors())
@@ -326,6 +333,27 @@ void Planner::buildField(const World& w, const Goal& goal)
             if ((l.tile == Tile::Solid && !timed) || dy == 0)
               top[std::size_t(y * W + x)] = 1;
           }
+  // Sludge that never moves holds you up like a floor (it still hurts).
+  for (const auto& f : w.fluids())
+    if (!f.tide && !w.autorun() && f.surface + 1 < H)
+      for (int x = std::max(0, f.x0); x <= std::min(W - 1, f.x1); ++x)
+        top[std::size_t((f.surface + 1) * W + x)] = 1;
+  // The raft rides the tide: anywhere between low and high water.
+  for (const auto& b : w.bubbles())
+  {
+    if (!b.raft)
+      continue;
+    int y0 = b.y, y1 = b.y;
+    for (const auto& f : w.fluids())
+      if (f.covers(b.x + b.w / 2) && f.tide)
+      {
+        y0 = f.high - b.h + 1;
+        y1 = f.low - b.h + 1;
+      }
+    for (int y = std::max(0, y0); y <= std::min(H - 1, y1); ++y)
+      for (int x = std::max(0, b.x); x < std::min(W, b.x + b.w); ++x)
+        top[std::size_t(y * W + x)] = 1;
+  }
   // Moving platforms: anywhere along their travel is somewhere to stand;
   // the search finds when they are actually there.
   for (const auto& pl : w.platforms())
@@ -387,7 +415,8 @@ void Planner::buildField(const World& w, const Goal& goal)
     for (int x = 0; x < W; ++x)
     {
       bool ok = true;
-      for (int yy = y - 4; yy <= y && ok; ++yy)
+      // Duck Rapids: crouching under the low pipes counts as getting through.
+      for (int yy = y - (w.autorun() ? 3 : 4); yy <= y && ok; ++yy)
         for (int xx = x; xx <= x + 2 && ok; ++xx)
           ok = !isBlocked(xx, yy);
       const std::size_t i = std::size_t(y * W + x);
@@ -413,6 +442,11 @@ void Planner::buildField(const World& w, const Goal& goal)
         for (int xx = x; xx <= x + 2; ++xx)
           if (map.hazard(xx, yy))
             hazard[i] = 1;
+      // Feet in sludge cost hearts; where the tide only sometimes reaches,
+      // the search sorts out the timing.
+      for (const auto& f : w.fluids())
+        if (!hazard[i] && x + 2 >= f.x0 && x <= f.x1 && y <= f.y1)
+          hazard[i] = y >= f.surface ? 1 : (f.tide && y >= f.high ? 2 : 0);
     }
 
   const int A = kAirBudget + 1;
@@ -451,7 +485,7 @@ void Planner::buildField(const World& w, const Goal& goal)
             ta = 0;
           if (ta >= A)
             return;
-          list.push_back({from, node(tx, ty, ta), cost + (hazard[j] ? 40 : 0)});
+          list.push_back({from, node(tx, ty, ta), cost + (hazard[j] == 1 ? 40 : (hazard[j] == 2 ? 6 : 0))});
         };
         // Sideways: free on the ground, from the air budget in a jump.
         for (int dx : {-1, 1})
@@ -494,7 +528,10 @@ void Planner::buildField(const World& w, const Goal& goal)
         continue;
       if (!boxAt(x, y, 3, 5).intersects(goalBox))
         continue;
-      if ((goal.kind == 0 || goal.kind == 3 || goal.kind == 4 || goal.kind == 5) && support[i] != 0)
+      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5) && support[i] != 0)
+        continue;
+      // A bonus entrance can be up in the air: jumping into it is fine.
+      if (goal.kind == 3 && support[i] > lift[i])
         continue;
       for (int a = 0; a < A; ++a)
       {
@@ -627,12 +664,20 @@ void Planner::plan(const World& world)
     return;
   }
 
+  // A bonus the search gave up on gets another try further on: the way
+  // there can be easier from the next room.
+  if (mSkipBonus && mSkipBonusAt >= 0 && p0.x > mSkipBonusAt + 40)
+  {
+    mSkipBonus = false;
+    mSkipBonusAt = -1;
+  }
   Goal goal = chooseGoal(world);
   // A prototype the field cannot reach, or one the search keeps failing to
   // get to, is skipped.
   if (goal.kind == 3 && mGoalKind == 3 && mFails >= 6)
   {
     mSkipBonus = true;
+    mSkipBonusAt = p0.x;
     goal = chooseGoal(world);
   }
   if (goal.kind == 2 && mGoalKind == 2 && mFails >= 6)
@@ -672,6 +717,7 @@ void Planner::plan(const World& world)
     if (goal.kind == 3)
     {
       mSkipBonus = true;
+      mSkipBonusAt = -1;
       goal = chooseGoal(world);
       continue;
     }
@@ -705,11 +751,14 @@ void Planner::plan(const World& world)
     for (const auto& b : w.boxes())
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
-    // Bouncers close by: shoving one away is progress too.
+    // Bouncers and Keepers close by: shoving one away, or wearing a Keeper
+    // down, is progress too.
     for (const auto& e : w.enemies())
-      if (e.alive && (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Stepper) && std::abs(e.x - p.x) < 24 &&
-          std::abs(e.y - p.y) < 16)
-        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 16));
+      if (e.alive &&
+          (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Stepper || e.kind == EnemyKind::Keeper) &&
+          std::abs(e.x - p.x) < 24 && std::abs(e.y - p.y) < 16)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 16) |
+                     (e.kind == EnemyKind::Keeper ? std::uint64_t(e.hp) << 32 : 0));
     k = mix(k, std::uint64_t(w.launching()));
     int cracks = 0;
     for (const auto& b : w.breakables())
@@ -725,6 +774,10 @@ void Planner::plan(const World& world)
     for (const auto& e : w.enemies())
       if (e.alive && e.kind == EnemyKind::Leech)
         k = mix(k, std::uint64_t(e.aimX) | (std::uint64_t(e.hp) << 16));
+    for (const auto& f : w.fluids())
+      k = mix(k, std::uint64_t(f.surface) | (std::uint64_t(std::uint32_t(f.floodAt)) << 16));
+    for (const auto& b : w.bubbles())
+      k = mix(k, std::uint64_t(b.x) | (std::uint64_t(b.y) << 16) | (std::uint64_t(b.stood) << 32));
     return k;
   };
   const int h0 = heuristic(world);

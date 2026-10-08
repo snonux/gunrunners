@@ -155,6 +155,9 @@ struct Enemy
   bool alive = true;
   bool active = false;
   bool carrier = false; // carrier=1: spreads the Virus
+  int variant = 0;      // a look from the level (the gator's sunglasses)
+  int stun = 0;         // frames left dazed (out of a popped bubble)
+  bool trapped = false; // held in a Bubble Gun bubble
   CellBox box() const { return boxAt(x, y, w, h); }
   unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
@@ -227,6 +230,7 @@ struct ItemBox
   int variant = 0;
   bool alive = true;
   int flash = 0;
+  int restY = -1; // floats up off this row on rising sludge (level 5)
   CellBox box() const { return boxAt(x, y, 2, 2); }
 };
 
@@ -293,6 +297,10 @@ enum class PropKind
   Graffiti,      // glow-in-the-dark credits that show once a flare lights them
   Cat,           // a pair of eyes in the dark: shoot near it and it meows off
   Interior,      // a back wall behind an underground room (no sky in a garage)
+  DevNull,       // a pipe mouth that swallows whatever floats into it, with a bloop
+  Waterfall,     // sludge pouring out of the outflow pipe
+  Log,           // Duck Rapids: a log floating on the river (over a solid block)
+  LowPipe,       // Duck Rapids: a pipe hanging from the roof (over solid blocks)
 };
 
 struct Prop
@@ -485,6 +493,59 @@ struct Ping
   int age = 0;
 };
 
+// Level 5's sludge (SPEC 3.3 and 05, world_sludge.cpp). The surface is the
+// top cell row of the sludge: tides move it between low and high on one
+// 300-frame clock, and a Valve Keeper's flood holds it high for a while.
+struct Fluid
+{
+  std::string id;
+  bool tide = false;
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // cells, inclusive: where sludge can be
+  int low = 0, high = 0;              // cells: the surface at low and at high tide
+  int surface = 0;                    // cells: the surface now
+  int floodAt = -100000;              // clock when its valve was turned
+  int current = 0;                    // drift east, quarter cells per frame
+  bool covers(int cx) const { return cx >= x0 && cx <= x1; }
+  bool wet(int cx, int cy) const { return covers(cx) && cy >= surface && cy <= y1; }
+};
+
+struct Valve
+{
+  std::string id;
+  int x = 0, y = 0; // cells, bottom-left of its 4x4 wheel
+  int fluid = -1;
+  bool locked = false; // padlocked, or its Keeper is dead
+  int hold = 0;        // frames up has been held beside it
+  CellBox box() const { return boxAt(x, y, 4, 4); }
+};
+
+// Spits a line of Pipe Rats when a runner comes close.
+struct RatPipe
+{
+  int x = 0, y = 0, dir = -1; // cells: the mouth's bottom-left
+  int count = 5;
+  int rattle = 0; // frames left of the tell
+  int left = 0;   // rats still to come in this burst
+  int next = 0;   // frames to the next rat
+  int idle = 0;   // frames off screen since the burst
+  bool armed = true;
+};
+
+// A Bubble Gun bubble with an enemy in it, the camera's bubble, or the raft.
+// Floats to the sludge surface and rides it; a one-way top to stand on.
+struct Bubble
+{
+  int x = 0, y = 0, w = 4, h = 4; // cells, top-left
+  int prevX = 0, prevY = 0;
+  int enemy = -1; // trapped enemy index
+  int life = 150; // -1: never pops on its own
+  int stood = 0;  // frames a runner has stood on it
+  int hp = 0;     // > 0: pops when shot (the camera's)
+  int drift = 0;  // quarter cells of current
+  bool raft = false;
+  CellBox box() const { return {x, y, w, h}; }
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -641,6 +702,12 @@ public:
   const std::vector<Breaker>& breakers() const { return mBreakers; }
   const std::vector<Door>& doors() const { return mDoors; }
   bool exitPowered() const;
+  const std::vector<Fluid>& fluids() const { return mFluids; }
+  const std::vector<Bubble>& bubbles() const { return mBubbles; }
+  const std::vector<Valve>& valves() const { return mValves; }
+  // Level 5: in sludge (feet at or under its surface), and not in Turbo.
+  bool wading() const;
+  bool autorun() const { return mAutorun; } // Duck Rapids: the duck moves you
   // Level 4: is this cell in light (a lit sector, a lamp or a flare)?
   bool litAt(int cx, int cy) const;
   const std::string& musicOverride() const { return mMusicOverride; }
@@ -741,6 +808,28 @@ private:
   void dropLoot(const Enemy& e);
   void drawDark(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void sonarPing(int x, int y);
+  // Level 5 (world_sludge.cpp).
+  bool setupSludgeEntity(const EntityDef& e);
+  void setupSludgeEnemy(Enemy& en, const EntityDef& e);
+  int fluidAt(int cx, int cy) const; // the fluid whose sludge fills this cell, -1
+  int fluidSurface(const Fluid& f) const; // where its surface is at this clock
+  int wadeFluid() const;             // the fluid at the runner's feet, -1
+  bool buoyed() const;               // under the surface: it pushes you up
+  bool wadeStep(int dir);            // step up a block out of sludge
+  void updateSludge(const PlayerInput& input);
+  void syncFloats();
+  void floatItem(Item& it) const;
+  void updateGator(Enemy& e, const EnemyDef& def);
+  void updateKeeper(Enemy& e, const EnemyDef& def);
+  void updateRatPipes();
+  void updateBubbles();
+  bool trapEnemy(Enemy& e);
+  void popBubble(std::size_t i, bool stun);
+  bool shotAtSludge(const Projectile& pr);
+  bool shotAtBubbles(const CellBox& b);
+  void drawSludgeBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawSludgeFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTideHud(Renderer& r, int frame) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -837,6 +926,16 @@ private:
   std::vector<Ping> mPings;
   std::vector<int> mPinged; // per block: clock of the last echo off it
   std::vector<std::uint8_t> mChimed; // sonar: gems already announced
+  // Level 5: the tide.
+  std::vector<Fluid> mFluids;
+  std::vector<Valve> mValves;
+  std::vector<RatPipe> mRatPipes;
+  std::vector<Bubble> mBubbles;
+  std::vector<CellBox> mDevNull; // pipe mouths that swallow what floats in
+  int mSludgeTicks = 0;          // frames in sludge since the last heart lost
+  bool mDiving = false;          // holding down in sludge: sink instead of float
+  bool mAutorun = false;         // bonus rule: the duck paddles on by itself
+  int mBump = 0;                 // autorun: cells of a bump back still to go
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up
   int mManholeX = -1, mManholeY = -1; // cells: where Looters run off to
   bool mBreakdance = false;

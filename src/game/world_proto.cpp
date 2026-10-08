@@ -126,6 +126,13 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     case ProtoId::FlareGun:
       pr.flare = true; // sticks and lights up (world_dark.cpp)
       break;
+    case ProtoId::BubbleGun:
+      // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).
+      pr.w = pr.h = 2;
+      pr.y = oy - 1;
+      pr.range = 48;
+      playSound(Sfx::Bubble);
+      break;
     default:
       break;
   }

@@ -1862,10 +1862,120 @@ Texture bakeClubNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// --- Sludge Line's storm drains (theme look "sewer") ----------------------------
+
+bool isSewer(const Theme& t) { return std::string_view(t.look) == "sewer"; }
+
+// The vault: wet brick fading into the dark, a grate of light far above.
+Texture bakeSewerSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, rgb(4, 6, 4)}, {0.5, t.skyTop}, {1.0, t.skyMid}});
+  Rng rng(9191u);
+  for (int y = 0; y < kScreenH; y += 22)
+    for (int x = (y / 22) % 2 ? -24 : 0; x < kScreenW; x += 48)
+    {
+      roundedRect(cr, x + 2, y + 2, 44, 18, 3);
+      setColor(cr, withAlpha(lerpColor(t.skyMid, t.skyBottom, rng.uniform() * 0.6f), 70 + rng.irange(0, 40)));
+      cairo_fill(cr);
+    }
+  // Light through a street grate, and its shafts.
+  for (int i = 0; i < 3; ++i)
+  {
+    const double x = 200 + i * 420.0;
+    cairo_move_to(cr, x, 0);
+    cairo_line_to(cr, x + 60, 0);
+    cairo_line_to(cr, x + 160, kScreenH);
+    cairo_line_to(cr, x - 40, kScreenH);
+    cairo_close_path(cr);
+    cairo_pattern_t* p = cairo_pattern_create_linear(0, 0, 0, kScreenH);
+    cairo_pattern_add_color_stop_rgba(p, 0, 0.8, 1.0, 0.7, 0.16);
+    cairo_pattern_add_color_stop_rgba(p, 1, 0.8, 1.0, 0.7, 0.0);
+    cairo_set_source(cr, p);
+    cairo_fill(cr);
+    cairo_pattern_destroy(p);
+  }
+  for (int i = 0; i < 10; ++i)
+    radialGlow(cr, rng.range(0, kScreenW), rng.range(300, kScreenH), rng.range(100, 240), t.trim, 0.06);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: arched tunnel mouths and a run of big pipes.
+Texture bakeSewerFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(313u);
+  for (double x = 60; x < kLayerW - 200; x += rng.range(320, 520))
+  {
+    const double w = rng.range(160, 240), top = rng.range(260, 380);
+    cairo_move_to(cr, x, kScreenH);
+    cairo_line_to(cr, x, top + w * 0.5);
+    cairo_arc(cr, x + w * 0.5, top + w * 0.5, w * 0.5, kPi, 2 * kPi);
+    cairo_line_to(cr, x + w, kScreenH);
+    cairo_close_path(cr);
+    setColor(cr, rgb(6, 10, 6));
+    cairo_fill_preserve(cr);
+    cairo_set_line_width(cr, 14);
+    setColor(cr, withAlpha(t.farLayer, 255));
+    cairo_stroke(cr);
+    radialGlow(cr, x + w * 0.5, kScreenH - 60, w * 0.6, t.trim, 0.12);
+  }
+  for (int k = 0; k < 3; ++k)
+  {
+    const double y = 140 + k * 46.0;
+    cairo_rectangle(cr, 0, y, kLayerW, 26 - k * 4);
+    cairo_pattern_t* p = cairo_pattern_create_linear(0, y, 0, y + 26);
+    cairo_pattern_add_color_stop_rgb(p, 0, 0.32, 0.36, 0.3);
+    cairo_pattern_add_color_stop_rgb(p, 1, 0.12, 0.14, 0.11);
+    cairo_set_source(cr, p);
+    cairo_fill(cr);
+    cairo_pattern_destroy(p);
+    for (double x = rng.range(0, 200); x < kLayerW; x += rng.range(240, 400))
+    {
+      cairo_rectangle(cr, x, y - 4, 12, 34 - k * 4);
+      setColor(cr, rgb(70, 76, 64));
+      cairo_fill(cr);
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: dripping pipes and hanging moss.
+Texture bakeSewerNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(808u);
+  for (double x = 30; x < kLayerW - 60; x += rng.range(180, 360))
+  {
+    const double w = rng.range(26, 44);
+    cairo_rectangle(cr, x, 0, w, rng.range(180, 420));
+    setColor(cr, rgb(30, 36, 28));
+    cairo_fill(cr);
+    for (int d = 0; d < 3; ++d)
+    {
+      const double dx = x + rng.range(4, w - 4), dy = rng.range(200, 600);
+      cairo_arc(cr, dx, dy, 3, 0, 2 * kPi);
+      setColor(cr, withAlpha(t.trimGlow, 150));
+      cairo_fill(cr);
+    }
+  }
+  for (double x = 0; x < kLayerW; x += rng.range(20, 50))
+  {
+    const double len = rng.range(20, 90);
+    strokeLimb(cr, {{x, 0}, {x + rng.range(-6, 6), len}}, 4, withAlpha(t.nearLayer, 220), withAlpha(t.nearLayer, 220), 0.0);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
   if (isClub(t))
     return bakeClubSky(r, t);
+  if (isSewer(t))
+    return bakeSewerSky(r, t);
   VectorImage img(kScreenW, kScreenH);
   cairo_t* cr = img.cr();
   verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.58, t.skyMid}, {1.0, t.skyBottom}});
@@ -2001,6 +2111,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
   if (isClub(t))
     return bakeClubFar(r, t);
+  if (isSewer(t))
+    return bakeSewerFar(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(1234u + std::uint32_t(t.id));
@@ -2111,6 +2223,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
   if (isClub(t))
     return bakeClubNear(r, t);
+  if (isSewer(t))
+    return bakeSewerNear(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(9876u + std::uint32_t(t.id));

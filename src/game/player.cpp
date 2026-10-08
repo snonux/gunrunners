@@ -21,6 +21,7 @@ constexpr int kInitialMercyFrames = 20;
 constexpr int kEffectAboutToExpire = 45;
 constexpr std::array<int, 8> kTurboJumpArc = {2, 2, 2, 2, 1, 1, 1, 0}; // 11 cells
 constexpr std::array<int, 8> kVirusJumpArc = {2, 1, 1, 1, 0, 0, 0, 0};  // 5 cells
+constexpr std::array<int, 8> kDuckJumpArc = {2, 1, 1, 1, 1, 0, 0, 0};   // 6 cells: Duck Rapids, for everyone
 constexpr int kTemporaryItemFrames = 700;
 constexpr int kItemAboutToExpire = 30;
 
@@ -109,6 +110,8 @@ void World::updatePlayer(const PlayerInput& raw)
 
   // Conflicting directions cancel out, like in the original.
   PlayerInput in = mBeatStep ? beatStepInput(raw) : raw;
+  if (mAutorun)
+    in.left = in.right = false; // the duck does the paddling (world_sludge.cpp)
   if (in.left && in.right)
     in.left = in.right = false;
   if (in.up && in.down)
@@ -215,7 +218,8 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
             for (int i = 0; i < steps; ++i)
             {
               if (mMap.moveHorizontallyWithStairStepping(p.x, p.y, Player::kWidth, p.height(), mvX) !=
-                  MoveResult::Completed)
+                    MoveResult::Completed &&
+                  !(wading() && wadeStep(mvX)))
                 break;
               setVisual(PlayerVisual::Walking);
               ++p.walkFrame;
@@ -229,11 +233,12 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       // ground goes away ("coyote time"): beat signs are fair that way.
       const CellBox b = p.box();
       const bool headroom = !mMap.touchingCeiling(b) && !mMap.touchingCeiling({b.x, b.y - 1, b.w, b.h});
-      if (p.jumpRequested && headroom)
+      // No jumping out of sludge: you wade, or step up onto the bank.
+      if (p.jumpRequested && headroom && !(wading() && mFluids.size() > 0))
       {
         jump();
       }
-      else if (!mMap.onSolidGround(p.box()))
+      else if (!mMap.onSolidGround(p.box()) && !(!mFluids.empty() && buoyed()))
       {
         startFalling();
         if (p.state == PlayerState::Falling)
@@ -256,6 +261,13 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
           jump();
           break;
         }
+      }
+      if (!mFluids.empty() && buoyed())
+      {
+        // Sank into sludge: it holds you up.
+        p.state = PlayerState::OnGround;
+        setVisual(PlayerVisual::Standing);
+        break;
       }
       const bool terminalVelocity = p.frames >= 2;
       if (terminalVelocity)
@@ -409,13 +421,15 @@ int World::horizontalSteps() const
   const auto& p = mPlayer;
   if (p.turbo > 0)
     return 2;
-  if (p.virus > 0)
-    return p.oddFrame ? 0 : 1;
+  if (p.virus > 0 || (!mFluids.empty() && wading()))
+    return p.oddFrame ? 0 : 1; // infected, or wading through sludge
   return 1;
 }
 
 const std::array<int, 8>& World::jumpArc() const
 {
+  if (mAutorun)
+    return kDuckJumpArc;
   if (mPlayer.turbo > 0)
     return kTurboJumpArc;
   if (mPlayer.virus > 0)

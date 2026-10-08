@@ -26,6 +26,8 @@ enum class EnemyKind
   Stalker, // chases in the dark, freezes in any light; shots pass through it in the dark
   Looter,  // grabs a loose pick-up and runs off to the stash
   Leech,   // crawls along a power cable to pull its breaker
+  Gator,   // swims under the sludge, lunges up out of it
+  Keeper,  // walks to its valve and floods the zone; then guards it
 };
 
 enum EnemyFlag : unsigned

@@ -475,7 +475,7 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
-    if (b.look != 0)
+    if (b.look != 0 && b.look != 3)
     {
       const float x = float(b.x0) * kTilePx - camX, y = float(b.y0) * kTilePx - camY;
       const float w = float(b.x1 - b.x0 + 1) * kTilePx, h = float(b.y1 - b.y0 + 1) * kTilePx;
@@ -539,6 +539,20 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
         if (x < -64.0f || x > float(kScreenW) || y < -64.0f || y > float(kScreenH))
           continue;
         const unsigned hsh = hash2(tx, ty);
+        if (b.look == 3)
+        {
+          // A painted high-water mark on plain wall; hairline cracks give it away.
+          if (ty == b.y0)
+          {
+            r.fillRect(x, y + 6.0f, 64.0f, 8.0f, rgba(220, 200, 60, 200));
+            r.drawText("HW", x + 32.0f, y + 16.0f, {16.0f, rgb(220, 200, 60), rgb(20, 20, 10)}, Align::Center, 0.8f);
+          }
+          const int dmg = std::max(0, 3 - b.hp);
+          r.drawLine(x + 20.0f, y + 30.0f, x + 34.0f, y + 44.0f, 1.0f, rgba(0, 0, 0, 120));
+          for (int k = 0; k < dmg; ++k)
+            r.drawLine(x + float(hsh % 30u) + 10.0f, y + 10.0f, x + 40.0f, y + 56.0f, 2.0f, rgba(255, 255, 255, 120));
+          continue;
+        }
         r.fillRect(x + float(hsh % 40u) + 8.0f, y + 6.0f, 2.0f, 52.0f, rgba(255, 255, 255, 140));
         r.fillRect(x + 6.0f, y + float((hsh >> 6) % 40u) + 8.0f, 52.0f, 2.0f, rgba(255, 255, 255, 110));
       }

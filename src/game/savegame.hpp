@@ -79,6 +79,12 @@ struct SaveGame
   std::vector<BreakerState> breakers;
   std::vector<int> doors;
   int allLitAt = -1;
+  // The tide (level 5): each zone's flood clock, the valves' padlocks, the
+  // rat pipes (armed, idle) and which enemies are still in a lasting bubble.
+  std::vector<int> floods;
+  std::vector<int> valves;
+  std::vector<int> ratPipes;
+  std::vector<int> bubbled;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

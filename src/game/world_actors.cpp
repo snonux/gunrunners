@@ -34,12 +34,12 @@ void World::touchPlayer(const Enemy& e)
   }
   const bool fresh = p.mercy == 0 && p.turbo == 0;
   hurtPlayer(1);
-  if (fresh && e.kind == EnemyKind::Bouncer)
+  if (fresh && (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Keeper))
   {
-    // Shoved three blocks away from him.
+    // Shoved three blocks away from him (the Keeper: two).
     const CellBox pb = p.box(), b = e.box();
     const int dir = pb.x + 1 < b.x + b.w / 2 ? -1 : 1;
-    mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir * 6);
+    mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir * (e.kind == EnemyKind::Keeper ? 4 : 6));
     if (p.state == PlayerState::OnGround && !mMap.onSolidGround(p.box()))
       startFalling();
   }

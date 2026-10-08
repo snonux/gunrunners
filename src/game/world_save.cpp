@@ -86,6 +86,19 @@ SaveGame World::snapshot() const
   for (const auto& d : mDoors)
     s.doors.push_back(d.solid ? d.open : -1);
   s.allLitAt = mAllLitAt;
+  for (const auto& f : mFluids)
+    s.floods.push_back(f.floodAt);
+  for (const auto& v : mValves)
+    s.valves.push_back(v.locked);
+  for (const auto& rp : mRatPipes)
+  {
+    // A burst in progress is saved as spent.
+    s.ratPipes.push_back(rp.armed && rp.rattle == 0 && rp.left == 0);
+    s.ratPipes.push_back(rp.idle);
+  }
+  for (const auto& b : mBubbles)
+    if (b.life < 0 && b.enemy >= 0)
+      s.bubbled.push_back(b.enemy);
   return s;
 }
 
@@ -117,6 +130,9 @@ bool World::restore(const SaveGame& s)
       (!s.breakables.empty() && s.breakables.size() != mBreakables.size()) ||
       (!s.breakers.empty() && s.breakers.size() != mBreakers.size()) ||
       (!s.doors.empty() && s.doors.size() != mDoors.size()) ||
+      (!s.floods.empty() && s.floods.size() != mFluids.size()) ||
+      (!s.valves.empty() && s.valves.size() != mValves.size()) ||
+      (!s.ratPipes.empty() && s.ratPipes.size() != mRatPipes.size() * 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -203,8 +219,9 @@ bool World::restore(const SaveGame& s)
       e.attach = se.attach;
       e.aimY = 0; // finds its place on the cable again
     }
-    if (e.kind == EnemyKind::Stalker)
-      e.attach = se.attach; // frozen in light
+    if (e.kind == EnemyKind::Stalker || e.kind == EnemyKind::Keeper)
+      e.attach = se.attach; // frozen in light; the Keeper's errand
+    e.stun = 0;
     e.drawSnap = true;
   }
   for (std::size_t i = 0; i < mBoxes.size(); ++i)
@@ -273,6 +290,34 @@ bool World::restore(const SaveGame& s)
     applyDoor(d, s.doors[i] >= 0);
   }
   mAllLitAt = s.allLitAt;
+  // The tide: floods, padlocks, rat pipes; only lasting bubbles come back.
+  for (std::size_t i = 0; i < s.floods.size(); ++i)
+    mFluids[i].floodAt = s.floods[i];
+  for (std::size_t i = 0; i < s.valves.size(); ++i)
+    mValves[i].locked = s.valves[i] != 0;
+  for (std::size_t i = 0; i < mRatPipes.size() && i * 2 + 1 < s.ratPipes.size(); ++i)
+  {
+    mRatPipes[i].armed = s.ratPipes[i * 2] != 0;
+    mRatPipes[i].idle = s.ratPipes[i * 2 + 1];
+  }
+  for (std::size_t i = 0; i < mBubbles.size();)
+  {
+    const auto& b = mBubbles[i];
+    const bool kept = b.enemy < 0 || std::find(s.bubbled.begin(), s.bubbled.end(), b.enemy) != s.bubbled.end();
+    if (!kept)
+    {
+      mEnemies[std::size_t(b.enemy)].trapped = false;
+      mBubbles.erase(mBubbles.begin() + std::ptrdiff_t(i));
+      continue;
+    }
+    ++i;
+  }
+  for (auto& f : mFluids)
+    f.surface = fluidSurface(f);
+  mSludgeTicks = 0;
+  mDiving = false;
+  mBump = 0;
+  syncFloats();
   mFlares.clear();
   mPings.clear();
   for (auto& it : mItems)
