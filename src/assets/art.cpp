@@ -1090,6 +1090,71 @@ Texture bakeItemIcon(const Renderer& r, const Theme& t, int icon, Color gemColor
       strokeLimb(cr, {{43, 24}, {35, 27}}, 2.2, kInk, kInk, 0.0);
       break;
     }
+    case kIconProto:
+    {
+      // A chunky sci-fi pistol with a glowing coil, pale so it tints well.
+      radialGlow(cr, 32, 32, 32, rgb(255, 255, 255), 0.35);
+      roundedRect(cr, 8, 20, 40, 14, 5);
+      fillGradientOutline(cr, 20, 34, rgb(250, 250, 255), rgb(170, 175, 195), kInk, 2.4);
+      roundedRect(cr, 44, 23, 12, 8, 3);
+      fillOutline(cr, rgb(210, 214, 230), kInk, 2.0);
+      roundedRect(cr, 14, 32, 11, 18, 3);
+      fillGradientOutline(cr, 32, 50, rgb(200, 204, 220), rgb(130, 134, 150), kInk, 2.2);
+      for (int i = 0; i < 4; ++i)
+      {
+        cairo_arc(cr, 26 + i * 6, 27, 3.2, 0, 2 * kPi);
+        fillOutline(cr, rgb(255, 255, 255), kInk, 1.4);
+      }
+      cairo_arc(cr, 57, 27, 3, 0, 2 * kPi);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+      break;
+    }
+    case kIconDuck:
+    {
+      // Rubber duck wearing white synthwave shades.
+      radialGlow(cr, 32, 36, 30, rgb(255, 230, 60), 0.4);
+      cairo_save(cr);
+      cairo_translate(cr, 30, 42);
+      cairo_scale(cr, 1.0, 0.7);
+      cairo_arc(cr, 0, 0, 20, 0, 2 * kPi);
+      cairo_restore(cr);
+      fillGradientOutline(cr, 28, 56, rgb(255, 236, 90), rgb(240, 170, 20), kInk, 2.4);
+      cairo_arc(cr, 38, 24, 12, 0, 2 * kPi);
+      fillGradientOutline(cr, 12, 36, rgb(255, 240, 110), rgb(245, 190, 30), kInk, 2.4);
+      cairo_move_to(cr, 48, 24);
+      cairo_line_to(cr, 60, 27);
+      cairo_line_to(cr, 48, 30);
+      cairo_close_path(cr);
+      fillOutline(cr, rgb(255, 130, 30), kInk, 2.0);
+      roundedRect(cr, 32, 18, 16, 6, 2);
+      fillOutline(cr, rgb(255, 255, 255), kInk, 1.6);
+      cairo_move_to(cr, 14, 40);
+      cairo_curve_to(cr, 20, 34, 28, 36, 32, 42);
+      setColor(cr, rgba(200, 130, 10, 200));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+      break;
+    }
+    case kIconCamera:
+    {
+      // A hidden camera: a camcorder with a lens and a red tally light.
+      roundedRect(cr, 10, 20, 34, 24, 5);
+      fillGradientOutline(cr, 20, 44, rgb(90, 90, 110), rgb(40, 40, 54), kInk, 2.4);
+      cairo_arc(cr, 48, 32, 10, 0, 2 * kPi);
+      fillGradientOutline(cr, 22, 42, rgb(120, 130, 160), rgb(30, 30, 44), kInk, 2.4);
+      cairo_arc(cr, 48, 32, 5, 0, 2 * kPi);
+      setColor(cr, rgb(120, 200, 255));
+      cairo_fill(cr);
+      cairo_arc(cr, 46, 30, 1.8, 0, 2 * kPi);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+      cairo_arc(cr, 17, 16, 4, 0, 2 * kPi);
+      fillOutline(cr, rgb(255, 40, 50), kInk, 1.6);
+      roundedRect(cr, 22, 12, 14, 8, 2);
+      fillOutline(cr, rgb(70, 70, 86), kInk, 1.8);
+      break;
+    }
     default:
     {
       // Letters G, U, N in a glowing badge.

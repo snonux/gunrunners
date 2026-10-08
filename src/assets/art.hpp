@@ -32,7 +32,7 @@ constexpr int kHudWeaponW = 260;
 constexpr int kHudInventoryW = 130;
 constexpr int kHudLettersW = 160;
 constexpr int kHudScoreW = 224;
-constexpr int kItemIcons = 18;
+constexpr int kItemIcons = 21;
 
 // Every pose a Gunrunner can strike. All are anchored at the bottom centre of
 // the player's collision box.
@@ -78,6 +78,9 @@ enum ItemIcon
   kIconLetterN,
   kIconTurbo,
   kIconVirus,
+  kIconProto,  // prototype gun, drawn pale so it can be tinted per weapon
+  kIconDuck,   // the rubber duck in synthwave shades
+  kIconCamera, // the candid camera
 };
 
 struct Art

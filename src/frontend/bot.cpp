@@ -53,6 +53,15 @@ Input Bot::menu(int cursor, int target, int ticksInMenu) const
 
 Input Bot::play(const World& world)
 {
+  // Campaign levels (with a header) get the planner; the PoC level keeps
+  // its rule-based bot, which knows about the flamer's jetpack.
+  if (world.level().episode > 0 || !world.level().rules.empty())
+    return mPlanner.next(world);
+  return playRules(world);
+}
+
+Input Bot::playRules(const World& world)
+{
   const auto& p = world.player();
   const auto& map = world.map();
   const CellBox b = p.box();

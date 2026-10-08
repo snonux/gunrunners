@@ -1,5 +1,6 @@
 #pragma once
 
+#include "frontend/planner.hpp"
 #include "game/input.hpp"
 
 namespace gr
@@ -14,10 +15,14 @@ class World;
 class Bot
 {
 public:
+  // The search planner plays; the old reactive rules remain as a fallback
+  // for the PoC level (playRules).
   Input play(const World& world);
+  Input playRules(const World& world);
   Input menu(int cursor, int target, int ticksInMenu) const;
 
 private:
+  Planner mPlanner;
   int mJumpHold = 0;
   int mJumpRelease = 0;
   int mStuck = 0;

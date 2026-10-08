@@ -14,6 +14,7 @@ enum class Weapon
   Laser,  // pierces enemies
   Rocket, // heavy damage
   Flame,  // pierces, and down + fire works as a jetpack
+  Proto,  // the level's prototype (Player::proto)
 };
 
 constexpr int kWeaponCount = 4;

@@ -3,8 +3,10 @@
 #include "assets/art.hpp"
 #include "base/math.hpp"
 #include "data/characters.hpp"
+#include "data/enemies.hpp"
 #include "data/level.hpp"
 #include "data/theme.hpp"
+#include "data/weapons.hpp"
 #include "engine/camera.hpp"
 #include "game/collision.hpp"
 #include "game/input.hpp"
@@ -13,6 +15,7 @@
 #include "render/renderer.hpp"
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -90,6 +93,7 @@ struct Player
   int somersault = -1; // frame of the somersault, -1 if none
   int deathPhase = 0;
   bool jumpRequested = false;
+  int coyote = 0; // frames after the ground went away in which a jump still works
   bool rapidFiredLastFrame = false;
   bool oddFrame = false;
   bool hidden = false;
@@ -98,7 +102,10 @@ struct Player
   int maxHp = 9;
   int mercy = 0;
   Weapon weapon = Weapon::Normal;
+  int proto = -1; // ProtoId while weapon == Weapon::Proto
   int ammo = 0;
+  int shotCooldown = 0; // frames until the prototype can fire again
+  int charge = 0;       // frames fire has been held (charge and hold modes)
   int rapidFire = 0; // frames left
   int turbo = 0;     // frames of Turbo Mode left: every stat maxed
   int virus = 0;     // frames of infection left: slower and weaker
@@ -120,16 +127,10 @@ struct Player
 
 // --- Actors ------------------------------------------------------------------
 
-enum class EnemyKind
-{
-  Walker,
-  Flyer,
-  Turret,
-};
-
 struct Enemy
 {
   EnemyKind kind;
+  int def = 0; // index into the enemy table (data/enemies.hpp)
   int x = 0, y = 0; // bottom-left cell
   int prevX = 0, prevY = 0;
   int w = 3, h = 3;
@@ -138,6 +139,8 @@ struct Enemy
   int timer = 0;
   int flash = 0; // 60 Hz
   int dive = 0;
+  int tell = 0;     // frames left of the attack telegraph
+  int lastDive = -1; // bar of the last beat dive
   int id = 0;
   // Eased draw position in cells. Walkers step a cell every other logic
   // frame; easing turns that stop-and-go into a steady glide.
@@ -146,6 +149,7 @@ struct Enemy
   bool alive = true;
   bool active = false;
   CellBox box() const { return boxAt(x, y, w, h); }
+  unsigned flags() const { return enemyDef(def).flags; }
 };
 
 enum class ShotKind
@@ -155,6 +159,7 @@ enum class ShotKind
   Rocket,
   Flame,
   Enemy,
+  Proto, // a prototype weapon's shot; see Projectile::proto
 };
 
 struct Projectile
@@ -167,6 +172,9 @@ struct Projectile
   int w = 2, h = 1;
   int damage = 1;
   bool pierce = false;
+  int pierceLeft = 0; // enemies it still passes through (pierce-one shots)
+  int proto = -1;     // ProtoId for ShotKind::Proto
+  bool strong = false; // on-the-beat and other powered-up shots look bigger
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -188,6 +196,8 @@ enum class ItemKind
   LetterN,
   Turbo,
   Virus, // a hazard, not a reward: touching it infects you
+  Proto, // this level's prototype weapon (green W box)
+  Duck,  // the level's rubber duck
 };
 
 // Shootable crate that releases an item, Duke Nukem II style. White boxes
@@ -214,8 +224,75 @@ struct Item
   int frames = 0;
   int pickupDelay = 0;
   bool floating = false; // placed in the level: hovers instead of falling
+  int vx = 0;            // sideways drift while popping out (gem caches)
   bool taken = false;
   CellBox box() const { return boxAt(x, y, 2, 2); }
+};
+
+// A rectangle of tiles that turns solid and empty (SPEC 3.1). While empty
+// it draws as a ghost outline.
+enum class LayerDriver
+{
+  Beat,   // solid on some beats of the 120 BPM music clock
+  Timer,  // on/off/phase in frames
+  Switch, // follows a switch
+  Script, // changed by level logic
+  Lit,    // always solid; only its lighting follows the beats
+};
+
+struct Layer
+{
+  std::string id;
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // blocks, inclusive
+  Tile tile = Tile::Solid;
+  LayerDriver driver = LayerDriver::Beat;
+  std::array<bool, 8> beats{}; // beats 1-4 (or 1-8 over two bars)
+  int bars = 1;
+  int on = 0, off = 0, phase = 0;
+  std::string switchId;
+  int switchState = 1;
+  bool scriptSolid = true;
+  bool solid = true;
+  bool buzzing = false; // about to go dark: flicker and buzz
+  int style = 0;        // 0 neon sign, 1 plain
+  Color color = 0;
+};
+
+// Things that are drawn and sometimes touched but are not enemies or items:
+// decorations, the bonus entrance, the gem cache, easter eggs.
+enum class PropKind
+{
+  Deco42,        // the number 42, hidden somewhere in every level
+  Billboard,     // foreground board that fades while the player is behind it
+  TextSign,      // a sign with text on it (easter eggs)
+  UfoFlyby,      // a tiny UFO crossing the sky when triggered
+  BonusDoor,     // B: a patch of TV static leading to the bonus level
+  GemCache,      // $: five gems burst out when touched
+};
+
+struct Prop
+{
+  PropKind kind;
+  int x = 0, y = 0, w = 2, h = 2; // cells, top-left
+  std::string text;
+  int timer = -1; // running animation frame, -1 idle
+  int hold = 0;   // trigger counter
+  bool used = false;
+  CellBox box() const { return {x, y, w, h}; }
+};
+
+// Rectangles that push or pull the player (SPEC 3.4).
+enum class ZoneKind
+{
+  Wind, // push `num/den` cells per frame along dir
+};
+
+struct Zone
+{
+  ZoneKind kind;
+  CellBox box;
+  int dx = 0, dy = 0;
+  int num = 1, den = 1;
 };
 
 struct Checkpoint
@@ -277,8 +354,17 @@ struct WorldStats
   std::string letters; // in pickup order
   bool tookDamage = false;
   int deaths = 0;
-  int frames = 0; // 15 Hz logic frames
+  int frames = 0; // 15 Hz logic frames; also the music clock
+  bool protoFound = false;
+  bool duck = false;
+  bool camera = false; // shot the candid camera
 };
+
+// The music clock (SPEC 3.1): 120 BPM, a bar is 30 logic frames and its four
+// beats are 8, 7, 8 and 7 frames long.
+int beatOfFrame(int frame);      // 0..3
+int beatStartFrame(int beat);    // first frame of beat 0..3 within the bar
+int framesIntoBeat(int frame);   // 0.. within the current beat
 
 struct Bonus
 {
@@ -333,6 +419,21 @@ public:
   // Shows a line of text under the HUD, like the pickup messages.
   void notify(const std::string& text) { showMessage(text); }
 
+  // The player stands in the bonus entrance and pressed up: the frontend
+  // takes over (sting, bonus level, and back). Cleared by the frontend.
+  bool bonusRequested() const { return mBonusRequested; }
+  void clearBonusRequest() { mBonusRequested = false; }
+  // Bonus levels: the timer and goal from the header.
+  int bonusFramesLeft() const { return mBonusFramesLeft; }
+  bool bonusFailed() const { return mBonusFailed; }
+  // Adds what was collected in a bonus level to this level's run.
+  void addBonusReward(int score, int gems, bool star);
+  bool bonusStar() const { return mBonusStar; }
+  const std::vector<Layer>& layers() const { return mLayers; }
+  int clock() const { return mStats.frames; }
+  // The planner bot simulates copies of the world: no effects or sounds.
+  std::unique_ptr<World> cloneForSim() const;
+
 private:
   // player.cpp: port of RigelEngine's game_logic/player.cpp
   void updatePlayer(const PlayerInput& input);
@@ -363,6 +464,24 @@ private:
   void respawnPlayer();
   void updatePlayerInteractions();
 
+  // world_level.cpp: level entities, music clock, layers, props
+  void setupEntities();
+  void spawnEnemy(int def, int x, int y);
+  void updateLayers(bool force);
+  bool layerWantsSolid(const Layer& l, int frame) const;
+  void applyLayer(Layer& l, bool solid);
+  void updateProps(const PlayerInput& input);
+  void updateBonusRules(const PlayerInput& input);
+  void drawLayers(Renderer& r, float camX, float camY, int frame) const;
+  void drawProps(Renderer& r, float camX, float camY, int frame, bool foreground) const;
+  void drawBeatHud(Renderer& r, int frame) const;
+
+  // world_proto.cpp: prototype weapons
+  void fireProto(int ox, int oy, int dx, int dy);
+  void takeProto(const Vec2& at);
+  void updateProtoShooting(const Button& fire);
+  bool onTheBeat() const;
+
   // world.cpp
   void updateEnemies();
   void updateProjectiles();
@@ -376,7 +495,11 @@ private:
   bool isOnScreen(const CellBox& b, int margin) const;
   void addScore(int points, Vec2 at);
   void showMessage(const std::string& text);
-  void playSound(Sfx s) { mSounds.push_back(s); }
+  void playSound(Sfx s)
+  {
+    if (!mSimulation)
+      mSounds.push_back(s);
+  }
   Camera::Target cameraTarget() const;
 
   // effects
@@ -403,6 +526,19 @@ private:
   std::vector<ItemBox> mBoxes;
   std::vector<Item> mItems;
   std::vector<Checkpoint> mCheckpoints;
+  std::vector<Layer> mLayers;
+  std::vector<std::uint8_t> mLayerMask; // per block: 1 if a layer draws it
+  std::vector<Prop> mProps;
+  std::vector<Zone> mZones;
+  int mLevelProto = -1; // the header's weapon=
+  bool mHasBeat = false; // level uses the music clock: show the equalizer
+  bool mBonusRequested = false;
+  bool mBonusLevel = false;
+  int mBonusFramesLeft = 0;
+  bool mBonusFailed = false;
+  bool mBonusStar = false;
+  bool mAirJump = false; // bonus rule: jump again in mid-air
+  bool mSimulation = false;
   std::vector<Particle> mParticles;
   std::vector<FloatingText> mTexts;
   std::vector<Flash> mFlashes;
@@ -411,7 +547,8 @@ private:
   int mManualScroll = 0;
   int mLookFrames = 0;
   int mBaseCamY = 0;
-  Rng mRng{42u};
+  Rng mRng{42u};      // effects only
+  Rng mLogicRng{7u};  // game logic: stays in step when the bot simulates without effects
   WorldState mState = WorldState::Playing;
   int mStateFrames = 0;
   WorldStats mStats;
