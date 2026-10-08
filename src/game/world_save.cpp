@@ -14,7 +14,7 @@ bool World::canSave() const
 SaveGame World::snapshot() const
 {
   SaveGame s;
-  s.levelName = mLevel.name;
+  s.levelName = mLevel->name;
   s.character = mCharacterIndex;
 
   const auto& p = mPlayer;
@@ -79,7 +79,7 @@ bool World::switchCharacter(int index)
 
 bool World::restore(const SaveGame& s)
 {
-  if (s.levelName != mLevel.name || s.enemies.size() != mEnemies.size() ||
+  if (s.levelName != mLevel->name || s.enemies.size() != mEnemies.size() ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Flame))
     return false;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -31,11 +33,52 @@ struct Spawn
   int ty;
 };
 
+// One `@ kind ...` line from a level's [entities] section: everything that
+// needs parameters (layers, level-specific enemies, zones, decorations).
+struct EntityDef
+{
+  std::string kind;
+  std::string id; // first bare word after the kind, or id=
+  int x = 0, y = 0;
+  bool hasPos = false;
+  std::map<std::string, std::string> keys;
+  int line = 0;
+
+  bool has(const std::string& k) const { return keys.count(k) != 0; }
+  std::string str(const std::string& k, const std::string& def = {}) const;
+  int num(const std::string& k, int def = 0) const;
+  // "1/2" style speeds come back as a fraction num/den.
+  float real(const std::string& k, float def = 0.0f) const;
+  std::vector<int> list(const std::string& k) const;
+  // rect=x0,y0,x1,y1 (inclusive blocks); false if missing.
+  bool rect(const std::string& k, int& x0, int& y0, int& x1, int& y1) const;
+  // path=x0,y0;x1,y1;...
+  std::vector<std::pair<int, int>> path(const std::string& k) const;
+};
+
 // Tile map loaded from a plain-text level file (see levels/README.md for the
 // legend). Inspired by RigelEngine's data::map::Map, but deliberately simple.
 struct Level
 {
   std::string name;
+  // Header keys (levels/README.md). Everything is also kept in `header`.
+  std::map<std::string, std::string> header;
+  int episode = 0;
+  std::string themeKey;
+  std::string music;
+  std::string weapon; // prototype in the W boxes
+  int par = 0;        // seconds
+  std::set<std::string> flags;
+  int respawnAmmo = 0;
+  // Bonus levels.
+  std::string rules;
+  int timer = 0; // seconds
+  std::string goal;
+  std::vector<EntityDef> entities;
+
+  bool flag(const std::string& f) const { return flags.count(f) != 0; }
+  std::string headerStr(const std::string& k, const std::string& def = {}) const;
+
   int width = 0;
   int height = 0;
   std::vector<Tile> tiles;

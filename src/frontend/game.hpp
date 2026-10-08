@@ -85,7 +85,7 @@ private:
   Audio* mAudio;
   int mThemeIndex;
   std::unique_ptr<Art> mArt;
-  Level mLevel;
+  std::shared_ptr<const Level> mLevel;
   std::unique_ptr<World> mWorld;
   Mode mMode = Mode::Select;
   int mModeTicks = 0;

@@ -27,17 +27,17 @@ int weaponBit(Weapon w) { return 1 << int(w); }
 
 } // namespace
 
-World::World(const Level& level, int characterIndex, const Theme& theme, const Art& art)
-  : mLevel(level)
-  , mMap(mLevel)
+World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme& theme, const Art& art)
+  : mLevel(std::move(level))
+  , mMap(*mLevel)
   , mCharacter(&characterByIndex(characterIndex))
   , mCharacterIndex(characterIndex)
   , mTheme(theme)
   , mArt(art)
 {
   auto& p = mPlayer;
-  p.x = p.prevX = mRespawnX = mLevel.startTx * kCellsPerTile;
-  p.y = p.prevY = mRespawnY = mLevel.startTy * kCellsPerTile + 1;
+  p.x = p.prevX = mRespawnX = mLevel->startTx * kCellsPerTile;
+  p.y = p.prevY = mRespawnY = mLevel->startTy * kCellsPerTile + 1;
   mSafeX = p.x;
   mSafeY = p.y;
   p.hp = p.maxHp = mCharacter->maxHp;
@@ -46,7 +46,7 @@ World::World(const Level& level, int characterIndex, const Theme& theme, const A
 
   int enemyId = 0;
   int merchCount = 0;
-  for (const auto& s : mLevel.spawns)
+  for (const auto& s : mLevel->spawns)
   {
     const int x = s.tx * kCellsPerTile;
     const int y = s.ty * kCellsPerTile + 1; // bottom row of the block

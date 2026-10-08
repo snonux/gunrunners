@@ -122,7 +122,7 @@ bool Game::loadFromSlot(int slot)
     notice("SLOT " + std::to_string(slot + 1) + " IS EMPTY");
     return false;
   }
-  if (save->levelName != mLevel.name)
+  if (save->levelName != mLevel->name)
   {
     sound(Sfx::Hurt);
     notice("THAT SAVE IS FROM ANOTHER LEVEL");
