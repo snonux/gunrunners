@@ -95,6 +95,8 @@ public:
   void clear(Color c);
   void draw(const Texture& t, float x, float y, const DrawOpts& o = {});
   void fillRect(float x, float y, float w, float h, Color c, Blend b = Blend::Alpha);
+  // A line of any angle, `width` px thick (laser sights, cables).
+  void drawLine(float x0, float y0, float x1, float y1, float width, Color c, Blend b = Blend::Alpha);
 
   const Texture& text(const std::string& s, const TextStyle& style);
   float drawText(

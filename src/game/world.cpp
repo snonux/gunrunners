@@ -18,11 +18,6 @@ constexpr int kBonusPoints = 100000;
 
 int sgn(int v) { return (v > 0) - (v < 0); }
 
-Vec2 cellCenter(const CellBox& b)
-{
-  return {(float(b.x) + float(b.w) * 0.5f) * kCellSize, (float(b.y) + float(b.h) * 0.5f) * kCellSize};
-}
-
 int weaponBit(Weapon w) { return 1 << int(w); }
 
 } // namespace
@@ -163,6 +158,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
     }
   }
   setupEntities();
+  linkPlatforms();
+  mLevelEnemyCount = mEnemies.size();
   mStats.enemiesTotal = 0;
   for (const auto& e : mEnemies)
     if (!(enemyDef(e.def).flags & kEnemyNoTally))
@@ -239,9 +236,12 @@ void World::update(const PlayerInput& input)
       updateBonusRules(input);
       if (mState != WorldState::Playing)
         break;
+      updatePlatforms();
       updatePlayer(input);
+      updateHatches();
       updateProps(input);
       updatePlayerInteractions();
+      updateSpawners();
       if (mPlayer.state == PlayerState::OnGround && !mMap.overlapsHazard(mPlayer.box()))
       {
         mSafeX = mPlayer.x;
@@ -397,10 +397,19 @@ void World::updateEnemies()
 
       case EnemyKind::Camera:
         break;
+      case EnemyKind::Crawler:
+        updateCrawler(e, def);
+        break;
+      case EnemyKind::Rider:
+        updateRider(e, def);
+        break;
+      case EnemyKind::Sniper:
+        updateSniper(e, def);
+        break;
     }
 
     if (playerVulnerable && !(def.flags & kEnemyHarmless) && e.box().intersects(p.hitBox()))
-      hurtPlayer(1);
+      touchPlayer(e);
   }
 }
 
@@ -468,6 +477,8 @@ void World::updateProjectiles()
     const CellBox b = pr.box();
     if (mMap.overlapsSolid(b))
     {
+      if (pr.kind != ShotKind::Enemy)
+        hitBreakable(b, pr.damage, pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0));
       const Vec2 c = cellCenter(b);
       burst(c, rgb(255, 255, 210), pr.kind == ShotKind::Enemy ? mTheme.enemyEye : mTheme.accentA, 5, 1.0f);
       if (pr.kind == ShotKind::Rocket)
@@ -478,7 +489,18 @@ void World::updateProjectiles()
     {
       if (b.intersects(mPlayer.hitBox()) && mPlayer.state != PlayerState::Dying)
       {
-        hurtPlayer(1);
+        if (pr.carrier)
+        {
+          if (mPlayer.mercy == 0 && mPlayer.virus == 0)
+          {
+            infect();
+            mPlayer.mercy = 20;
+          }
+        }
+        else
+        {
+          hurtPlayer(1);
+        }
         return true;
       }
       return false;
@@ -548,11 +570,36 @@ void World::updateProjectiles()
     }
     for (int i = 0; i < pr.speed && pr.alive; ++i)
     {
-      pr.x += pr.dx;
-      pr.y += pr.dy;
+      if (pr.precise)
+      {
+        pr.fx += pr.vx;
+        pr.fy += pr.vy;
+        pr.x = int(std::floor(pr.fx));
+        pr.y = int(std::floor(pr.fy));
+      }
+      else if (pr.ride >= 0 || (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SparkDisc)))
+      {
+        if (!stepSurfaceShot(pr))
+        {
+          pr.alive = false;
+          break;
+        }
+        if (collide(pr))
+          pr.alive = false;
+        continue;
+      }
+      else
+      {
+        pr.x += pr.dx;
+        pr.y += pr.dy;
+      }
       if (collide(pr))
         pr.alive = false;
+      if (pr.range > 0 && --pr.range == 0)
+        pr.alive = false;
     }
+    if (pr.ride > 0 && --pr.ride == 0)
+      pr.alive = false;
     if (pr.alive && !isOnScreen(pr.box(), 2))
       pr.alive = false;
   }

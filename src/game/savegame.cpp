@@ -73,13 +73,20 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     o << "prop " << int(p) << '\n';
   for (const auto& e : s.enemies)
     o << "enemy " << int(e.alive) << ' ' << e.hp << ' ' << e.x << ' ' << e.y << ' ' << e.dir << ' ' << e.timer << ' '
-      << int(e.active) << '\n';
+      << int(e.active) << ' ' << e.def << ' ' << e.platform << '\n';
   for (bool b : s.boxes)
     o << "box " << int(b) << '\n';
   for (const auto& it : s.items)
     o << "item " << it.kind << ' ' << it.variant << ' ' << it.x << ' ' << it.y << ' ' << int(it.floating) << '\n';
   for (bool c : s.checkpoints)
     o << "checkpoint " << int(c) << '\n';
+  for (const auto& p : s.platforms)
+    o << "platform " << p.x << ' ' << p.y << ' ' << p.balance << ' ' << p.slackLeft << ' ' << p.idle << ' '
+      << p.moveTick << ' ' << p.target << ' ' << p.step << ' ' << int(p.braked) << '\n';
+  for (bool h : s.hatches)
+    o << "hatch " << int(h) << '\n';
+  for (int b : s.breakables)
+    o << "breakable " << b << '\n';
   o << "end\n";
 
   const std::string tmp = path + ".tmp";
@@ -165,7 +172,28 @@ std::optional<SaveGame> readSave(const std::string& path)
     else if (key == "prop" && in >> a)
       s.props.push_back(a != 0);
     else if (key == "enemy" && in >> a >> b >> c >> d >> e >> g >> h)
-      s.enemies.push_back({a != 0, b, c, d, e, g, h != 0});
+    {
+      SaveGame::EnemyState es{a != 0, b, c, d, e, g, h != 0};
+      if (in >> k)
+      {
+        es.def = k;
+        in >> es.platform;
+      }
+      s.enemies.push_back(es);
+    }
+    else if (key == "platform")
+    {
+      SaveGame::PlatformState p;
+      if (in >> p.x >> p.y >> p.balance >> p.slackLeft >> p.idle >> p.moveTick >> p.target >> p.step >> a)
+      {
+        p.braked = a != 0;
+        s.platforms.push_back(p);
+      }
+    }
+    else if (key == "hatch" && in >> a)
+      s.hatches.push_back(a != 0);
+    else if (key == "breakable" && in >> a)
+      s.breakables.push_back(a);
     else if (key == "box" && in >> a)
       s.boxes.push_back(a != 0);
     else if (key == "item" && in >> a >> b >> c >> d >> k)

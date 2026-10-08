@@ -51,8 +51,26 @@ SaveGame World::snapshot() const
   for (const auto& pr : mProps)
     s.props.push_back(pr.used);
 
-  for (const auto& e : mEnemies)
-    s.enemies.push_back({e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active});
+  for (std::size_t i = 0; i < mEnemies.size(); ++i)
+  {
+    const auto& e = mEnemies[i];
+    if (i >= mLevelEnemyCount && !e.alive)
+      continue; // a spawned enemy that is gone for good
+    SaveGame::EnemyState es{e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active};
+    if (i >= mLevelEnemyCount)
+    {
+      es.def = e.def;
+      es.platform = e.platform;
+    }
+    s.enemies.push_back(es);
+  }
+  for (const auto& pl : mPlatforms)
+    s.platforms.push_back(
+      {pl.x, pl.y, pl.balance, pl.slackLeft, pl.idle, pl.moveTick, pl.target, pl.step, pl.braked});
+  for (const auto& h : mHatches)
+    s.hatches.push_back(h.open);
+  for (const auto& b : mBreakables)
+    s.breakables.push_back(b.broken ? 0 : b.hp);
   for (const auto& b : mBoxes)
     s.boxes.push_back(b.alive);
   // Items still waiting to be picked up, including ones that already popped
@@ -87,12 +105,18 @@ bool World::switchCharacter(int index)
 
 bool World::restore(const SaveGame& s)
 {
-  if (s.levelName != mLevel->name || s.enemies.size() != mEnemies.size() ||
+  if (s.levelName != mLevel->name || s.enemies.size() < mLevelEnemyCount ||
+      (!s.platforms.empty() && s.platforms.size() != mPlatforms.size()) ||
+      (!s.hatches.empty() && s.hatches.size() != mHatches.size()) ||
+      (!s.breakables.empty() && s.breakables.size() != mBreakables.size()) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
   for (const auto& it : s.items)
     if (it.kind < 0 || it.kind > int(ItemKind::Duck))
+      return false;
+  for (std::size_t i = mLevelEnemyCount; i < s.enemies.size(); ++i)
+    if (s.enemies[i].def < 0 || s.enemies[i].def >= enemyDefCount())
       return false;
 
   mCharacter = &characterByIndex(std::clamp(s.character, 0, kCharacterCount - 1));
@@ -145,6 +169,13 @@ bool World::restore(const SaveGame& s)
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];
 
+  mEnemies.resize(mLevelEnemyCount);
+  for (std::size_t i = mLevelEnemyCount; i < s.enemies.size(); ++i)
+  {
+    const auto& se = s.enemies[i];
+    spawnEnemy(se.def, se.x, se.y);
+    mEnemies.back().platform = se.platform;
+  }
   for (std::size_t i = 0; i < mEnemies.size(); ++i)
   {
     auto& e = mEnemies[i];
@@ -175,6 +206,40 @@ bool World::restore(const SaveGame& s)
   }
   for (std::size_t i = 0; i < mCheckpoints.size(); ++i)
     mCheckpoints[i].active = s.checkpoints[i];
+  for (std::size_t i = 0; i < s.platforms.size(); ++i)
+  {
+    auto& pl = mPlatforms[i];
+    const auto& sp = s.platforms[i];
+    pl.x = pl.prevX = sp.x;
+    pl.y = pl.prevY = sp.y;
+    pl.balance = sp.balance;
+    pl.slackLeft = sp.slackLeft;
+    pl.idle = sp.idle;
+    pl.moveTick = sp.moveTick;
+    pl.target = pl.path.empty() ? sp.target : std::clamp(sp.target, 0, int(pl.path.size()) - 1);
+    pl.step = sp.step < 0 ? -1 : 1;
+    pl.braked = sp.braked;
+    pl.shudder = 0;
+  }
+  syncPlatformCollision();
+  for (std::size_t i = 0; i < s.hatches.size(); ++i)
+    if (s.hatches[i] && !mHatches[i].open)
+    {
+      mHatches[i].open = true;
+      mMap.setBlock(mHatches[i].tx, mHatches[i].ty, mHatches[i].tile);
+    }
+  for (std::size_t i = 0; i < s.breakables.size(); ++i)
+  {
+    auto& b = mBreakables[i];
+    b.hp = s.breakables[i];
+    if (b.hp <= 0 && !b.broken)
+    {
+      b.broken = true;
+      for (int ty = b.y0; ty <= b.y1; ++ty)
+        for (int tx = b.x0; tx <= b.x1; ++tx)
+          mMap.setBlock(tx, ty, Tile::Empty);
+    }
+  }
 
   mProjectiles.clear();
   mParticles.clear();

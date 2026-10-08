@@ -24,7 +24,9 @@ flags=                       ; e.g. clouds (one-way platforms drawn as clouds)
 @ kind x y key=value ...
 ```
 
-Bonus levels add `rules=` (e.g. `airjump`: jump again in mid-air),
+Bonus levels add `rules=` (`airjump`: jump again in mid-air; `freefall`: no
+jumping, you fall and steer until you land on the net, up slows the fall and
+down speeds it up),
 `timer=` in seconds and `goal=exit` or `goal=collect:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -35,8 +37,13 @@ quoted; `;` starts a comment. Kinds so far:
 | Kind | Keys | What it is |
 |------|------|------------|
 | `layer` | `id`, `rect`, `driver=beat\|timer\|switch\|script\|lit`, `beats=1,2,3`, `period/on/off/phase`, `style=sign`, `color` | a switchable block of solid tiles; `beat` signs are solid on the listed beats of the 120 BPM music clock and buzz for 8 frames before going dark; `lit` ones are always solid and only light up |
-| enemy keys (`chrome_cop`, `hover_lens`, `roof_turret`, ...) | `carrier=1` | an enemy from the table in `src/data/enemies.cpp` |
-| `deco` | `kind=42\|text\|ufo_flyby`, `text`, `w`, `h`, `rect` | decorations and easter eggs |
+| enemy keys (`chrome_cop`, `glass_crawler`, `squeegee_drone`, ...) | `carrier=1`, `dir=r`; riders: `rect` (the rail), `start=r` | an enemy from the table in `src/data/enemies.cpp`; clingers stick to the wall or ceiling next to them |
+| `platform` | `id`, `w` (blocks), `mode=pulley\|loop\|pingpong`, `path=x,y;x,y`, `speed=n/d`; pulley: `pair`, `drop`, `slack`, `rehome`, `brake=1`, `start` | a moving one-way platform; the row given is its top. Pulley pairs share a cable: the heavier side sinks half a cell a frame after `slack` frames of creaking (Rocco weighs 2, enemies their table weight) |
+| `hatch` | `tile==` | a solid trapdoor that turns into ladder (or `=`) once you have stood on its row |
+| `breakable` | `rect`, `hp`, `by=any\|explosion\|heavy` | blocks that shatter when shot |
+| `spawner` | `enemy`, `onto` (a platform id) | brings in a new enemy while that platform is home and empty |
+| `rope` | `h` (blocks) | free fall: a rope that bounces you |
+| `deco` | `kind=42\|text\|ufo_flyby\|reflection`, `text`, `w`, `h`, `rect` | decorations and easter eggs; `reflection` mirrors you in the glass and waves if you stand still in its rect |
 | `billboard` | `rect`, `text` | a foreground board that fades while you are behind it |
 | `wind` | `rect`, `push=1/2`, `dir=l\|r\|u\|d` | pushes the player |
 

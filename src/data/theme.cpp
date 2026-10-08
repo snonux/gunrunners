@@ -1,6 +1,7 @@
 #include "data/theme.hpp"
 
 #include <array>
+#include <string_view>
 
 namespace gr
 {
@@ -47,14 +48,49 @@ const std::array<Theme, 3> kThemes{{
    rgb(220, 240, 255)},
 }};
 
+// Per-level palettes: a family's art routines in the level's own colours.
+struct Variant
+{
+  const char* key;
+  Theme theme;
+};
+
+const std::array<Variant, 1> kVariants{{
+  {"glass_canyon",
+   {ThemeId::NeonOverdrive,
+    "GLASS CANYON",
+    "MIRRORED TOWERS AT PINK DAWN",
+    rgb(54, 40, 104), rgb(226, 118, 168), rgb(255, 204, 170),
+    rgb(64, 104, 146), rgb(150, 200, 232), rgb(30, 48, 80),
+    rgb(255, 226, 240), rgb(255, 176, 220),
+    rgb(196, 218, 240), rgb(86, 106, 140),
+    rgb(255, 60, 110), rgb(255, 190, 210),
+    rgb(255, 220, 120), rgb(120, 230, 255),
+    rgb(120, 88, 150), rgb(80, 58, 110),
+    rgb(180, 190, 212), rgb(240, 245, 255), rgb(80, 90, 112), rgb(255, 60, 120),
+    rgb(255, 255, 255)}},
+}};
+
 } // namespace
 
 int themeCount() { return int(kThemes.size()); }
 
+int themeTotal() { return themeCount() + int(kVariants.size()); }
+
 const Theme& themeByIndex(int index)
 {
   const int n = themeCount();
+  if (index >= n && index < themeTotal())
+    return kVariants[std::size_t(index - n)].theme;
   return kThemes[std::size_t(((index % n) + n) % n)];
+}
+
+int themeIndexForKey(const char* key)
+{
+  for (std::size_t i = 0; i < kVariants.size(); ++i)
+    if (std::string_view(key) == kVariants[i].key)
+      return themeCount() + int(i);
+  return -1;
 }
 
 } // namespace gr

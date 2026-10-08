@@ -30,7 +30,13 @@ struct Theme
   Color hudText;
 };
 
+// The three families the T key cycles through.
 int themeCount();
+// Families plus the campaign's per-level palettes (indices from
+// themeCount() on); anything out of range wraps onto a family.
+int themeTotal();
 const Theme& themeByIndex(int index);
+// A level's own palette by its theme= key (e.g. glass_canyon), -1 if none.
+int themeIndexForKey(const char* key);
 
 } // namespace gr
