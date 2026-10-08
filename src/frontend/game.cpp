@@ -324,8 +324,8 @@ void Game::renderSelect()
     }
   }
 
-  r.drawText("ARROWS move  -  UP climb  -  DOWN crouch  -  Z jump  -  X fire  -  T theme", cx, 680,
-    {19.0f, rgb(210, 210, 228), kInk}, Align::Center);
+  r.drawText("KEYS  arrows move  -  Z jump  -  X fire  -  T theme      PAD  stick/d-pad  -  A jump  -  X/B/RT fire  -  Back theme",
+    cx, 684, {16.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 
 void Game::renderPlayOverlay()

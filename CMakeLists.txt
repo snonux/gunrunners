@@ -27,6 +27,7 @@ add_library(gunrunners_core STATIC
   src/game/world.cpp
   src/game/world_draw.cpp
   src/frontend/bot.cpp
+  src/frontend/controls.cpp
   src/frontend/game.cpp
 )
 target_include_directories(gunrunners_core PUBLIC src)

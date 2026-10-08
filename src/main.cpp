@@ -6,6 +6,7 @@
 // clips without a display.
 
 #include "frontend/game.hpp"
+#include "frontend/controls.hpp"
 
 #include <SDL.h>
 #include <cairo.h>
@@ -276,20 +277,6 @@ int runHeadless(const CliOptions& o)
   return result;
 }
 
-Input readKeyboard()
-{
-  const Uint8* k = SDL_GetKeyboardState(nullptr);
-  Input in;
-  in.left = k[SDL_SCANCODE_LEFT] || k[SDL_SCANCODE_A];
-  in.right = k[SDL_SCANCODE_RIGHT] || k[SDL_SCANCODE_D];
-  in.up = k[SDL_SCANCODE_UP] || k[SDL_SCANCODE_W];
-  in.down = k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S];
-  in.jump = k[SDL_SCANCODE_Z] || k[SDL_SCANCODE_SPACE];
-  in.fire = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
-  in.confirm = k[SDL_SCANCODE_RETURN];
-  return in;
-}
-
 int runWindowed(const CliOptions& o)
 {
   if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -321,6 +308,7 @@ int runWindowed(const CliOptions& o)
       audio.reset();
   }
   Game game(o.game, renderer, audio.get());
+  Controls controls;
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
   Uint64 last = SDL_GetPerformanceCounter();
@@ -333,14 +321,16 @@ int runWindowed(const CliOptions& o)
     SDL_Event ev;
     while (SDL_PollEvent(&ev))
     {
-      if (ev.type == SDL_QUIT)
-        running = false;
-      if (ev.type == SDL_KEYDOWN && !ev.key.repeat)
+      switch (controls.handleEvent(ev))
       {
-        if (ev.key.keysym.sym == SDLK_ESCAPE)
+        case Controls::Action::Quit:
           running = false;
-        if (ev.key.keysym.sym == SDLK_t)
+          break;
+        case Controls::Action::CycleTheme:
           game.cycleTheme();
+          break;
+        case Controls::Action::None:
+          break;
       }
     }
 
@@ -350,7 +340,7 @@ int runWindowed(const CliOptions& o)
     accumulator = std::min(accumulator, 0.25);
     while (accumulator >= tickSeconds && running)
     {
-      running = game.tick(readKeyboard());
+      running = game.tick(controls.read());
       accumulator -= tickSeconds;
       ++frames;
       if (o.maxFrames >= 0 && frames >= o.maxFrames)
