@@ -34,16 +34,26 @@ cmake --build build -j
 ./build/gunrunners
 ```
 
-| Key | Action |
-|-----|--------|
-| Left / Right (A / D) | walk, pick a runner |
-| Up (W) | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
-| Down (S) | crouch, aim down from a hang bar; hold to look down |
-| Z / Space | jump (tap for a short hop), down+jump drops from a hang bar |
-| X / Ctrl | fire; with the flamethrower, down+fire is a jetpack |
-| Enter | confirm |
-| T | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
-| Esc | quit |
+Play with the keyboard or a gamepad (both work at the same time):
+
+| Keyboard | Gamepad | Action |
+|----------|---------|--------|
+| Left / Right (A / D) | left stick or d-pad | walk, pick a runner |
+| Up (W) | stick or d-pad up | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
+| Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
+| Z / Space | A (bottom face button) | jump (tap for a short hop), down+jump drops from a hang bar |
+| X / Ctrl | X or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
+| Enter | Start (or A) | confirm |
+| T | Back / Select | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
+| Esc | | quit |
+
+Gamepads use SDL2's GameController API, so Xbox, PlayStation, Switch Pro,
+8BitDo, Steam Deck and most generic USB or Bluetooth pads work with the
+same layout (button names above are Xbox style; on PlayStation A is Cross
+and X is Square). Pads can be plugged in or out while the game runs. A pad
+SDL does not recognise can be added with the `SDL_GAMECONTROLLERCONFIG`
+environment variable (a mapping line from a tool such as
+`sdl2-jstest` or the SDL GameController DB).
 
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
 bot plays), `--level PATH`, `--fullscreen`, `--no-audio`, `--trace` (prints
@@ -163,7 +173,6 @@ docs/          design directions and media
   destructible walls), secret areas, a boss.
 - More levels and an episode map.
 - A proper level editor workflow (e.g. Tiled `.tmx` import).
-- Gamepad support.
 
 ## License
 
