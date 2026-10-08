@@ -55,9 +55,29 @@ SaveGame World::snapshot() const
   return s;
 }
 
+bool World::switchCharacter(int index)
+{
+  if (!canSave() || index < 0 || index >= kCharacterCount || index == mCharacterIndex)
+    return false;
+  auto& p = mPlayer;
+  const auto& next = characterByIndex(index);
+  // Same fraction of hearts, rounded up so a switch never kills you.
+  p.hp = std::max(1, (p.hp * next.maxHp + p.maxHp - 1) / p.maxHp);
+  p.maxHp = next.maxHp;
+  mCharacter = &next;
+  mCharacterIndex = index;
+
+  const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 2.0f) * kCellSize};
+  burst(c, mArt.characterColor[std::size_t(index)], rgb(255, 255, 255), 24, 2.0f);
+  flashAt(c, 90.0f, mArt.characterColor[std::size_t(index)], 16);
+  playSound(Sfx::Teleport);
+  showMessage(std::string(next.name) + " STEPS IN");
+  return true;
+}
+
 bool World::restore(const SaveGame& s)
 {
-  if (s.levelName != mLevel.name || s.character != mCharacterIndex || s.enemies.size() != mEnemies.size() ||
+  if (s.levelName != mLevel.name || s.enemies.size() != mEnemies.size() ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Flame))
     return false;
@@ -65,6 +85,8 @@ bool World::restore(const SaveGame& s)
     if (it.kind < 0 || it.kind > int(ItemKind::LetterN))
       return false;
 
+  mCharacter = &characterByIndex(std::clamp(s.character, 0, kCharacterCount - 1));
+  mCharacterIndex = std::clamp(s.character, 0, kCharacterCount - 1);
   auto& p = mPlayer;
   p = Player{};
   p.x = p.prevX = mSafeX = s.x;

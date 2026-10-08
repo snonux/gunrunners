@@ -317,6 +317,11 @@ public:
   // Puts a fresh world for the same level into the saved state. Returns
   // false (and changes nothing) if the save does not fit this level.
   bool restore(const SaveGame& save);
+  // Swaps in another runner on the spot, keeping position, weapon, ammo and
+  // items; health keeps the same share of the new runner's hearts. Returns
+  // false while dying or leaving through the exit.
+  bool switchCharacter(int characterIndex);
+  int characterIndex() const { return mCharacterIndex; }
   // Shows a line of text under the HUD, like the pickup messages.
   void notify(const std::string& text) { showMessage(text); }
 
