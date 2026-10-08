@@ -6,7 +6,7 @@
 #include <cmath>
 #include <vector>
 
-namespace td
+namespace gr
 {
 
 Texture::Texture(SDL_Texture* tex, int w, int h, float anchorX, float anchorY)
@@ -188,4 +188,4 @@ float Renderer::drawText(
   return tw;
 }
 
-} // namespace td
+} // namespace gr

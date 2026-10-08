@@ -5,7 +5,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace td
+namespace gr
 {
 
 Tile Level::at(int tx, int ty) const
@@ -117,4 +117,4 @@ Level Level::loadFile(const std::string& path)
   return parse(ss.str());
 }
 
-} // namespace td
+} // namespace gr

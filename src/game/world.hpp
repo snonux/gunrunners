@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace td
+namespace gr
 {
 
 constexpr int kViewW = 320;
@@ -172,4 +172,4 @@ private:
   WorldStats mStats;
 };
 
-} // namespace td
+} // namespace gr

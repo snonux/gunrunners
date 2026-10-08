@@ -1,6 +1,6 @@
 #include "engine/camera.hpp"
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -42,15 +42,15 @@ void Camera::update(const Rect& t, int worldW, int worldH)
   else if (t.bottom() > bottom)
     dy = t.bottom() - bottom;
 
-  mX += td::clampTo(dx, -kMaxScrollX, kMaxScrollX);
-  mY += td::clampTo(dy, -kMaxScrollY, kMaxScrollY);
+  mX += gr::clampTo(dx, -kMaxScrollX, kMaxScrollX);
+  mY += gr::clampTo(dy, -kMaxScrollY, kMaxScrollY);
   clampToWorld(worldW, worldH);
 }
 
 void Camera::clampToWorld(int worldW, int worldH)
 {
-  mX = td::clampTo(mX, 0.0f, float(std::max(0, worldW - mViewW)));
-  mY = td::clampTo(mY, 0.0f, float(std::max(0, worldH - mViewH)));
+  mX = gr::clampTo(mX, 0.0f, float(std::max(0, worldW - mViewW)));
+  mY = gr::clampTo(mY, 0.0f, float(std::max(0, worldH - mViewH)));
 }
 
 void Camera::shake(int ticks, float strength)
@@ -76,4 +76,4 @@ void Camera::tick()
 }
 
 
-} // namespace td
+} // namespace gr

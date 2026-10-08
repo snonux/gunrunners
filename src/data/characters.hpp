@@ -1,6 +1,6 @@
 #pragma once
 
-namespace td
+namespace gr
 {
 
 enum class Weapon
@@ -10,7 +10,7 @@ enum class Weapon
   Rapid,   // fast, light shots
 };
 
-// The three selectable TurboDudes. Stats are deliberately readable at a
+// The three selectable Gunrunners. Stats are deliberately readable at a
 // glance on the select screen (1-5 pips).
 struct CharacterDef
 {
@@ -28,4 +28,4 @@ struct CharacterDef
 constexpr int kCharacterCount = 3;
 const CharacterDef& characterByIndex(int index);
 
-} // namespace td
+} // namespace gr

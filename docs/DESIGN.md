@@ -1,6 +1,6 @@
-# TurboDudes: three design directions
+# Gunrunners: three design directions
 
-TurboDudes is a side-scrolling jump-n-shoot in the spirit of Duke Nukem II:
+Gunrunners is a side-scrolling jump-n-shoot in the spirit of Duke Nukem II:
 pick one of three dudes, run and gun through short, dense levels, grab gems,
 reach the exit. The cast is fixed across all three directions:
 
@@ -21,7 +21,7 @@ or mix them.
 
 ![Neon Overdrive](media/neon_overdrive.png)
 
-**Pitch:** 1980s synthwave action movie. Turbo City at night, seen from its
+**Pitch:** 1980s synthwave action movie. Neon City at night, seen from its
 rooftops.
 
 - **Levels:** rooftops, billboards, highway overpasses, a night club, a
@@ -37,11 +37,11 @@ rooftops.
 - **Signature mechanic:** neon signs that flicker on and off as temporary
   platforms; power cuts that darken parts of a level.
 
-## 2. Temple of Turbo
+## 2. Lost Temple
 
-![Temple of Turbo](media/temple_of_turbo.png)
+![Lost Temple](media/lost_temple.png)
 
-**Pitch:** pulpy 1930s jungle adventure. Ancient ruins hide the Turbo Idol.
+**Pitch:** pulpy 1930s jungle adventure. Ancient ruins hide a golden idol.
 
 - **Levels:** overgrown temple courtyards, rope bridges, flooded caves,
   lava chambers, a golden inner sanctum. Backdrop is hazy jungle with a
@@ -79,8 +79,8 @@ rooftops.
 ## Recommendation
 
 Start with **Neon Overdrive** for the first episode: it reads best at low
-resolution, makes the "TURBO" name land, and its blocky city geometry is the
-cheapest to produce tiles for. Temple of Turbo and Station Zero make good
+resolution, suits the gun-toting action of the name, and its blocky city geometry is the
+cheapest to produce tiles for. Lost Temple and Station Zero make good
 episode 2 and 3 worlds, which also matches the Duke-style episodic structure.
 
 ## Open questions for the next round

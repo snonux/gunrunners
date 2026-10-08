@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace td
+namespace gr
 {
 
 using Color = std::uint32_t; // 0xAARRGGBB
@@ -22,4 +22,4 @@ Color lerpColor(Color a, Color b, float t);
 Color scaleColor(Color c, float f);
 Color withAlpha(Color c, int a);
 
-} // namespace td
+} // namespace gr

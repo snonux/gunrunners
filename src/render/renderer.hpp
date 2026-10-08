@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace td
+namespace gr
 {
 
 constexpr int kScreenW = 1280;
@@ -109,4 +109,4 @@ private:
   std::unordered_map<std::string, Texture> mTextCache;
 };
 
-} // namespace td
+} // namespace gr

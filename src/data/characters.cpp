@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -21,4 +21,4 @@ const CharacterDef& characterByIndex(int index)
   return kCharacters[std::size_t(((index % kCharacterCount) + kCharacterCount) % kCharacterCount)];
 }
 
-} // namespace td
+} // namespace gr

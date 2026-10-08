@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace td
+namespace gr
 {
 
 VectorImage::VectorImage(int w, int h)
@@ -145,4 +145,4 @@ void radialGlow(cairo_t* cr, double cx, double cy, double radius, Color c, doubl
   cairo_pattern_destroy(p);
 }
 
-} // namespace td
+} // namespace gr

@@ -7,9 +7,9 @@ set -euo pipefail
 
 THEME=${1:-0}
 CHARACTER=${2:-2}
-OUT=${3:-out/turbodudes_t${THEME}_c${CHARACTER}}
+OUT=${3:-out/gunrunners_t${THEME}_c${CHARACTER}}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-BIN="$ROOT/build/turbodudes"
+BIN="$ROOT/build/gunrunners"
 
 if [[ ! -x "$BIN" ]]; then
   cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release

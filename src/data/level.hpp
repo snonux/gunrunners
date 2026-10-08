@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace td
+namespace gr
 {
 
 constexpr int kTileSize = 16;
@@ -49,4 +49,4 @@ struct Level
   static Level loadFile(const std::string& path);
 };
 
-} // namespace td
+} // namespace gr

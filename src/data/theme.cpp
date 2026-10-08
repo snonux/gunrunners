@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -11,7 +11,7 @@ namespace
 const std::array<Theme, 3> kThemes{{
   {ThemeId::NeonOverdrive,
    "NEON OVERDRIVE",
-   "SYNTHWAVE ROOFTOPS OF TURBO CITY",
+   "SYNTHWAVE ROOFTOPS OF NEON CITY",
    rgb(18, 6, 40), rgb(110, 20, 110), rgb(255, 120, 70),
    rgb(42, 30, 78), rgb(70, 54, 120), rgb(24, 16, 46),
    rgb(0, 240, 255), rgb(150, 255, 255),
@@ -21,8 +21,8 @@ const std::array<Theme, 3> kThemes{{
    rgb(52, 20, 80), rgb(30, 10, 50),
    rgb(170, 180, 205), rgb(230, 238, 250), rgb(80, 86, 110), rgb(255, 40, 80),
    rgb(255, 255, 255)},
-  {ThemeId::TempleOfTurbo,
-   "TEMPLE OF TURBO",
+  {ThemeId::LostTemple,
+   "LOST TEMPLE",
    "JUNGLE RUINS FULL OF GOLD AND TRAPS",
    rgb(40, 120, 120), rgb(120, 190, 150), rgb(230, 230, 170),
    rgb(110, 100, 80), rgb(150, 140, 110), rgb(70, 62, 48),
@@ -57,4 +57,4 @@ const Theme& themeByIndex(int index)
   return kThemes[std::size_t(((index % n) + n) % n)];
 }
 
-} // namespace td
+} // namespace gr

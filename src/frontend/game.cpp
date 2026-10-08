@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace td
+namespace gr
 {
 
 namespace
@@ -163,9 +163,9 @@ void Game::renderSelect()
 
   const float bounce = std::sin(float(mFrame) * 0.06f) * 5.0f;
   const float cx = float(kScreenW) / 2.0f;
-  r.drawText("TURBODUDES", cx + 7, 22 + bounce + 7, {104.0f, withAlpha(t.platform, 200), 0, true}, Align::Center);
-  r.drawText("TURBODUDES", cx, 22 + bounce, {104.0f, t.accentA, kInk, true}, Align::Center);
-  r.drawText("CHOOSE YOUR DUDE", cx, 150, {26.0f, t.hudText, kInk}, Align::Center);
+  r.drawText("GUNRUNNERS", cx + 7, 22 + bounce + 7, {104.0f, withAlpha(t.platform, 200), 0, true}, Align::Center);
+  r.drawText("GUNRUNNERS", cx, 22 + bounce, {104.0f, t.accentA, kInk, true}, Align::Center);
+  r.drawText("CHOOSE YOUR RUNNER", cx, 150, {26.0f, t.hudText, kInk}, Align::Center);
 
   for (int i = 0; i < kCharacterCount; ++i)
   {
@@ -244,4 +244,4 @@ void Game::renderClear()
   r.drawText(buf, 640, y + 270, {54.0f, t.accentA, kInk, true}, Align::Center, a);
 }
 
-} // namespace td
+} // namespace gr
