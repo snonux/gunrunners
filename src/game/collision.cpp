@@ -1,3 +1,8 @@
+// Cell based collision and movement. The movement rules (stair stepping,
+// one cell at a time vertical moves, solid-top platforms) follow
+// RigelEngine's src/engine/movement.cpp and collision_checker.cpp
+// (GPL-2.0-or-later, Copyright (C) 2017 Nikolai Wuttke).
+
 #include "game/collision.hpp"
 
 #include <cstdlib>
