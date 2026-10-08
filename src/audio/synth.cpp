@@ -660,11 +660,13 @@ Mixdown renderSong(const Song& s)
     }
   }
 
-  // Gentle bus compression: soft clip.
+  // Gentle bus compression: soft clip. Songs without drums get more gain so
+  // the calm menu loop sits at a similar loudness to the level track.
+  const float bus = s.drums ? 1.1f : 2.2f;
   for (int i = 0; i < n; ++i)
   {
-    m.left[std::size_t(i)] = std::tanh(m.left[std::size_t(i)] * 1.1f);
-    m.right[std::size_t(i)] = std::tanh(m.right[std::size_t(i)] * 1.1f);
+    m.left[std::size_t(i)] = std::tanh(m.left[std::size_t(i)] * bus);
+    m.right[std::size_t(i)] = std::tanh(m.right[std::size_t(i)] * bus);
   }
   return m;
 }

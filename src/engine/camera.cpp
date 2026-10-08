@@ -1,3 +1,7 @@
+// Dead-zone camera after RigelEngine's src/game_logic/camera.cpp
+// (GPL-2.0-or-later, Copyright (C) 2017 Nikolai Wuttke), working in cells
+// and widened for the 16:9 HD view.
+
 #include "engine/camera.hpp"
 
 #include "data/level.hpp"

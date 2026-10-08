@@ -1,16 +1,18 @@
 # Gunrunners
 
-A jump-n-shoot platformer in the spirit of Duke Nukem II. Pick one of three
-dudes (Dash, Rocco or Nova) and blast your way to the exit.
+A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three
+runners (Dash, Rocco or Nova) and blast your way to the exit.
 
-This is a **proof of concept**: one short level, three playable characters,
-three enemy types, and three switchable visual themes that correspond to the
-design directions in [docs/DESIGN.md](docs/DESIGN.md).
+This is a **proof of concept**: one level, three playable characters, three
+enemy types, Duke II's weapons, item boxes and bonus tally, synthesized sound
+and music, and three switchable visual themes that correspond to the design
+directions in [docs/DESIGN.md](docs/DESIGN.md).
 
-![Gameplay: Nova in Neon Overdrive](docs/media/gameplay_preview.gif)
+![Gameplay: Dash in Neon Overdrive](docs/media/gameplay_preview.gif)
 
 The game renders at 1280x720 with smooth, anti-aliased vector art, soft
-glow lighting and parallax backdrops (no chunky pixels).
+glow lighting and parallax backdrops (no chunky pixels). The full gameplay
+videos (with sound) are made with `tools/record.sh`, see below.
 
 | Select screen | Lost Temple | Station Zero |
 |---|---|---|
@@ -34,15 +36,56 @@ cmake --build build -j
 
 | Key | Action |
 |-----|--------|
-| Arrows / WASD | move, pick a dude |
-| Z / Space | jump (hold for higher) |
-| X / Ctrl | fire |
+| Left / Right (A / D) | walk, pick a runner |
+| Up (W) | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
+| Down (S) | crouch, aim down from a hang bar; hold to look down |
+| Z / Space | jump (tap for a short hop), down+jump drops from a hang bar |
+| X / Ctrl | fire; with the flamethrower, down+fire is a jetpack |
 | Enter | confirm |
 | T | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
 | Esc | quit |
 
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
-bot plays), `--level PATH`, `--fullscreen`. Run `--help` for all of them.
+bot plays), `--level PATH`, `--fullscreen`, `--no-audio`, `--trace` (prints
+the player state every logic frame). Run `--help` for all of them.
+
+## Gameplay: how close to Duke Nukem II
+
+The player logic is a port of RigelEngine's `game_logic/player.cpp`
+(`src/game/player.cpp`), so movement matches Duke II frame by frame:
+
+- Game logic runs at Duke's 15 Hz on an 8 px cell grid; rendering
+  interpolates between logic frames at 60 fps, so it still looks smooth.
+- The same jump arc (with short hops when you let go early, air control and
+  the occasional somersault), falling speeds, landing recovery after a long
+  fall, turning on the spot, and 1-cell stair stepping.
+- Ladders, hang bars (pipes) with aiming down and pulling the legs in, and
+  the flamethrower jetpack.
+- Duke's weapons: the blaster plus pick-ups for laser (pierces), rockets
+  (splash damage) and flamethrower, with limited ammo; rapid fire as a
+  timed power-up. Shot speeds, damage and muzzle positions per stance come
+  from Rigel's tables.
+- Health with mercy frames (blinking, then flashing white), Duke's death
+  animation and respawn at the last checkpoint.
+- Breakable item boxes colour-coded like Duke's (blue: health and merch,
+  green: weapons, white: power-ups and keys), gems, an access card that
+  opens a force field, the letters G-U-N (collect them in order for 100000),
+  floating score numbers and the end-of-level bonus tally (no damage, all
+  bots, every weapon, all merch, all gems).
+- Enemies only wake up once they have been on screen, as in Duke II.
+- Rigel's dead-zone camera with look up/down.
+
+The runners differ in health and jump height; Rocco starts with rockets and
+Nova with the laser.
+
+## Sound and music
+
+All sound effects and the three music tracks (menu, level, and the victory
+fanfare) are synthesized at startup in `src/audio/synth.cpp` from
+oscillators, noise, filters and envelopes: original material, GPL like the
+rest of the game, no samples and no Duke assets. The level track is an
+A-minor synthwave loop with drums, bass, pads, an arpeggio and a lead. The
+mixer (`src/audio/audio.cpp`) plays through SDL2's audio device.
 
 ## Recording gameplay without a display
 
@@ -50,18 +93,32 @@ The game can run headless (SDL's software renderer, no display or GPU needed)
 and stream raw frames, so clips can be recorded in CI or a container:
 
 ```sh
-tools/record.sh 0 2 out/neon_nova   # theme 0, Nova -> out/neon_nova.mp4 (720p60) + .gif
+tools/record.sh 0 2 out/neon_nova   # theme 0, Nova -> out/neon_nova.mp4 (720p60, AAC audio) + .gif
 ```
 
+In headless mode `--audio-out PATH` writes the game's audio to a WAV file,
+mixed 800 samples per frame so it stays in sync with the video;
+`record.sh` muxes the two with ffmpeg.
+
 The bot (`src/frontend/bot.cpp`) drives the normal input path, browses the
-select screen, picks the requested dude and plays the level to the exit. Runs
+select screen, picks the requested runner and plays the level to the exit. Runs
 are deterministic, so the same command always produces the same clip.
 
 ## Relationship to RigelEngine
 
 [RigelEngine](https://github.com/lethal-guitar/RigelEngine) is a modern
-reimplementation of the Duke Nukem II engine. We studied it as the reference
-for this PoC but did not fork it, for two reasons:
+reimplementation of the Duke Nukem II engine. Gunrunners ports its game
+logic where that helps, with attribution in each file (both projects are
+GPL-2.0-or-later):
+
+| RigelEngine | Gunrunners |
+|---|---|
+| `game_logic/player.cpp` (state machine, jump arc, ladders, pipes, jetpack, firing, death) | `src/game/player.cpp` |
+| `engine/movement.cpp`, `engine/collision_checker.cpp` | `src/game/collision.cpp` |
+| `game_logic/camera.cpp` | `src/engine/camera.cpp` |
+| weapon, item box and bonus rules | `src/game/world.cpp` |
+
+We did not fork the engine as a whole, for two reasons:
 
 1. **It is built around Duke Nukem II's data files.** Levels, sprites, actor
    behaviour and the game logic itself are loaded from or keyed to the
@@ -72,22 +129,9 @@ for this PoC but did not fork it, for two reasons:
    pixel look. Gunrunners is aiming for modern HD 2D graphics instead, so
    its renderer would not carry over either.
 
-The PoC is therefore written from scratch and borrows ideas rather than
-code. Gunrunners is licensed under the GPL (same as RigelEngine), so
-individual RigelEngine pieces can still be reused later where they help,
-with attribution.
-
-What we took over from its design:
-
-| RigelEngine | Gunrunners PoC |
-|---|---|
-| Module split `base / data / assets / engine / game_logic / frontend` | Same split under `src/` |
-| Fixed-rate game logic decoupled from rendering | 60 Hz fixed tick in 320x180 "world pixels"; rendering at 4x (1280x720) with sub-pixel smooth motion |
-| Tile map with per-tile collision attributes, one-way platforms | `data/level.cpp`, `game/world.cpp` |
-| Dead-zone camera with capped scroll speed (`game_logic/camera.cpp`) | `engine/camera.cpp` |
-| Entity activation: actors only update near the screen | `World::isActive` |
-| Input abstraction + demo playback for attract mode | `game/input.hpp` + autoplay bot |
-| Earthquake/screen shake, particle debris | `Camera::shake`, `World::explode` |
+So the engine around the ported logic is our own: the module split
+(`base / data / assets / engine / game / frontend`) mirrors RigelEngine's,
+but levels are text files, art is drawn in code and the renderer is HD.
 
 Unlike Duke Nukem II (and RigelEngine), the look is not low-res pixel art:
 all graphics are original vector art drawn with Cairo at startup
@@ -100,12 +144,14 @@ glow, particles, parallax and a vignette. No Duke Nukem assets are used.
 src/base       math, deterministic RNG
 src/render     SDL2 renderer wrapper, Cairo vector helpers, text
 src/assets     vector-drawn sprites, tiles and backdrops for each theme
+src/audio      synthesized sound effects and music, mixer
 src/data       level loader, themes, character stats
 src/engine     camera
-src/game       world simulation: player, enemies, bullets, pickups, effects
-src/frontend   character select / level / results modes, autoplay bot
+src/game       world simulation: player (Rigel port), collision, enemies,
+               shots, item boxes, effects, HUD
+src/frontend   character select / level / bonus tally modes, autoplay bot
 levels/        text level files (format in levels/README.md)
-tools/         record.sh
+tools/         record.sh, mklevel.py (generates levels/level1.txt)
 docs/          design directions and media
 ```
 
@@ -113,8 +159,9 @@ docs/          design directions and media
 
 - Pick a design direction and replace the programmer art with artist-made
   HD sprites (PNG or SVG; the renderer already works with textures).
-- Sound effects and music (SDL_mixer).
-- More enemy types, a weapon pickup system, checkpoints.
+- More of Duke II's enemy roster and hazards (conveyor belts, elevators,
+  destructible walls), secret areas, a boss.
+- More levels and an episode map.
 - A proper level editor workflow (e.g. Tiled `.tmx` import).
 - Gamepad support.
 

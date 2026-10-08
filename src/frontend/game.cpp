@@ -322,9 +322,9 @@ void Game::renderPlayOverlay()
   auto& r = mRenderer;
   const auto& t = theme();
   const int ticks = mWorld->stats().frames * kTicksPerLogicFrame + mSubTick;
-  if (ticks > 5 && ticks < 170 && mWorld->state() == WorldState::Playing)
+  if (ticks > 5 && ticks < 110 && mWorld->state() == WorldState::Playing)
   {
-    const float a = std::min({1.0f, float(ticks - 5) / 15.0f, float(170 - ticks) / 15.0f});
+    const float a = std::min({1.0f, float(ticks - 5) / 15.0f, float(110 - ticks) / 15.0f});
     const float y = 200.0f - (1.0f - a) * 20.0f;
     DrawOpts o;
     o.alpha = a;

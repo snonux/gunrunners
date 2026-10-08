@@ -1,14 +1,19 @@
 # Gunrunners: three design directions
 
 Gunrunners is a side-scrolling jump-n-shoot in the spirit of Duke Nukem II:
-pick one of three dudes, run and gun through short, dense levels, grab gems,
-reach the exit. The cast is fixed across all three directions:
+pick one of three runners, run and gun through dense levels, break item
+boxes, collect weapons, gems and the letters G-U-N, reach the exit. The
+mechanics follow Duke Nukem II closely (see the README); the cast is fixed
+across all three directions:
 
-| Dude  | Role           | Feel                                   | Weapon in the PoC |
-|-------|----------------|----------------------------------------|-------------------|
-| Dash  | The all-rounder | Balanced speed and jump, 4 hearts     | Blaster: single bolts, medium rate |
-| Rocco | The heavy      | Slowest, lowest jump, 6 hearts         | Scatter gun: three pellets, short range |
-| Nova  | The acrobat    | Fastest, highest jump, only 3 hearts   | Rapid laser: weak but very fast |
+| Runner | Role            | Feel                                       | Starts with |
+|--------|-----------------|--------------------------------------------|-------------|
+| Dash   | The all-rounder | Duke's own jump (7 cells), 9 hearts        | Blaster |
+| Rocco  | The heavy       | Lowest jump (6 cells), 12 hearts           | Blaster plus 12 rockets |
+| Nova   | The acrobat     | Highest jump (9 cells), only 7 hearts      | Blaster plus 16 laser shots |
+
+All three can pick up every weapon (laser, rockets, flamethrower), as in
+Duke II; the starting weapon only gives each a different opening.
 
 The PoC renders in HD (1280x720, smooth vector art rather than chunky
 pixels) and can show the same level in all three directions (press **T** in
@@ -72,7 +77,7 @@ rooftops.
 - **Dudes:** Dash as a station mechanic, Rocco as a heavy-suit cargo loader,
   Nova as the station's test pilot.
 - **Signature mechanic:** gravity switches and slippery ice floors; airlocks
-  that suck enemies (and careless dudes) out.
+  that suck enemies (and careless runners) out.
 
 ---
 
@@ -85,9 +90,11 @@ episode 2 and 3 worlds, which also matches the Duke-style episodic structure.
 
 ## Open questions for the next round
 
-- Do all dudes share one weapon with upgrades (Duke style), or keep a
-  signature weapon each (current PoC)?
-- Lives and checkpoints, or restart the level on death (current PoC)?
+- Keep the Duke rule of shared weapon pick-ups (current PoC), or give each
+  runner a signature weapon on top?
+- Duke II has no lives, only checkpoints (current PoC). Keep it that way?
+- Sound: keep the synthesized synthwave soundtrack and effects, or bring in
+  a composer and sound designer later?
 - HD art direction: keep the clean vector look of the PoC, or commission
   painted sprites from an artist?
 - Target platforms: desktop only, or also web (RigelEngine supports

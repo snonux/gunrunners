@@ -2,7 +2,8 @@
 # Records a gameplay clip headlessly: the bot picks a dude and plays the level.
 #
 # Usage: tools/record.sh [theme 0-2] [character 0-2] [output basename]
-# Produces <basename>.mp4 (1280x720, 60 fps) and <basename>.gif (480x270, 20 fps preview).
+# Produces <basename>.mp4 (1280x720, 60 fps, with the game's synthesized sound
+# and music as AAC) and <basename>.gif (480x270, 20 fps silent preview).
 set -euo pipefail
 
 THEME=${1:-0}
@@ -17,13 +18,20 @@ if [[ ! -x "$BIN" ]]; then
 fi
 mkdir -p "$(dirname "$OUT")"
 PALETTE=$(mktemp --suffix=.png)
-trap 'rm -f "$PALETTE"' EXIT
+AUDIO=$(mktemp --suffix=.wav)
+VIDEO=$(mktemp --suffix=.mp4)
+trap 'rm -f "$PALETTE" "$AUDIO" "$VIDEO"' EXIT
 
 "$BIN" --headless --autoplay --quit-after-clear \
-  --theme "$THEME" --character "$CHARACTER" --raw-out - |
+  --theme "$THEME" --character "$CHARACTER" --audio-out "$AUDIO" --raw-out - |
   ffmpeg -loglevel error -y -f rawvideo -pix_fmt bgra -s 1280x720 -r 60 -i - \
     -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -movflags +faststart \
-    "$OUT.mp4"
+    "$VIDEO"
+
+# The audio is mixed in lockstep with the frames (800 samples per frame), so
+# the two streams line up without any offset.
+ffmpeg -loglevel error -y -i "$VIDEO" -i "$AUDIO" -map 0:v -map 1:a \
+  -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart "$OUT.mp4"
 
 GIF_FILTER="fps=20,scale=480:270:flags=lanczos"
 ffmpeg -loglevel error -y -i "$OUT.mp4" -vf "$GIF_FILTER,palettegen=stats_mode=diff" "$PALETTE"
