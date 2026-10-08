@@ -36,6 +36,8 @@ World::World(const Level& level, int characterIndex, const Theme& theme, const A
   auto& p = mPlayer;
   p.x = p.prevX = mRespawnX = mLevel.startTx * kCellsPerTile;
   p.y = p.prevY = mRespawnY = mLevel.startTy * kCellsPerTile + 1;
+  mSafeX = p.x;
+  mSafeY = p.y;
   p.hp = p.maxHp = mCharacter->maxHp;
   p.weapon = mCharacter->startWeapon;
   p.ammo = mCharacter->startAmmo;
@@ -197,6 +199,11 @@ void World::update(const PlayerInput& input)
       ++mStats.frames;
       updatePlayer(input);
       updatePlayerInteractions();
+      if (mPlayer.state == PlayerState::OnGround && !mMap.overlapsHazard(mPlayer.box()))
+      {
+        mSafeX = mPlayer.x;
+        mSafeY = mPlayer.y;
+      }
       updateEnemies();
       updateProjectiles();
       updateItems();
