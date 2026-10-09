@@ -435,9 +435,9 @@ Input TouchControls::held() const
       in.down = in.down || dy > 0.0f;
     }
   }
-  // Same meaning as a pad's buttons: A jumps and confirms, B fires and
-  // backs out of menus, Y switches runner, Start pauses. In menus the two
-  // shown buttons are OK and BACK only, so BACK can't fire a stray shot.
+  // Jump also confirms (OK in menus) and Fire also backs out of menus. In
+  // menus the two shown buttons are OK and BACK only, so BACK can't fire a
+  // stray shot.
   in.jump = in.confirm = buttonHeld(kJump);
   if (mLayout == Layout::Play)
   {

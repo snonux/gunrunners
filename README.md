@@ -99,8 +99,8 @@ Play with the keyboard or a gamepad (both work at the same time):
 | Left / Right (A / D) | left stick or d-pad | walk, pick a runner |
 | Up (W) | stick or d-pad up | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
-| Z / Space | A (bottom face button) | jump (tap for a short hop), down+jump drops from a hang bar |
-| X / Ctrl | X or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
+| X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
+| Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
 | Esc / P | Start | pause menu: resume, save, load, change runner, quit |
 | Enter | A (or Start) | confirm in menus |
