@@ -3,7 +3,7 @@
 Gunrunners is a side-scrolling jump-n-shoot in the spirit of Duke Nukem II:
 pick one of three runners, run and gun through dense levels, break item
 boxes, collect weapons, gems and the letters G-U-N, reach the exit. The
-mechanics follow Duke Nukem II closely (see the README); the cast is fixed
+mechanics follow Duke Nukem II closely (see [DEVELOPMENT.md](DEVELOPMENT.md)); the cast is fixed
 across all three directions:
 
 | Runner | Role            | Feel                                       | Starts with |
@@ -15,7 +15,7 @@ across all three directions:
 All three can pick up every weapon (laser, rockets, flamethrower), as in
 Duke II; the starting weapon only gives each a different opening.
 
-The PoC renders in HD (1280x720, smooth vector art rather than chunky
+The game renders in HD (1280x720, smooth vector art rather than chunky
 pixels) and can show the same level in all three directions (press **T** in
 game, or `--theme 0|1|2`), so we can compare them in motion before we pick one
 or mix them.
@@ -90,12 +90,12 @@ episode 2 and 3 worlds, which also matches the Duke-style episodic structure.
 
 ## Open questions for the next round
 
-- Keep the Duke rule of shared weapon pick-ups (current PoC), or give each
+- Keep the Duke rule of shared weapon pick-ups (current game), or give each
   runner a signature weapon on top?
-- Duke II has no lives, only checkpoints (current PoC). Keep it that way?
+- Duke II has no lives, only checkpoints (current game). Keep it that way?
 - Sound: keep the synthesized synthwave soundtrack and effects, or bring in
   a composer and sound designer later?
-- HD art direction: keep the clean vector look of the PoC, or commission
+- HD art direction: keep the clean vector look of the game, or commission
   painted sprites from an artist?
 - Target platforms: desktop only, or also web (RigelEngine supports
   Emscripten) and handheld (Steam Deck)?
