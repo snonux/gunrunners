@@ -35,6 +35,29 @@ with the debug key so it installs directly; it is about 10 MB.
 The on-screen gamepad also works on the desktop with `--touch` (for a
 Linux touch screen, or to try the layout).
 
+## What the PoC showed
+
+Tested in the Android emulator (Android 11, x86_64) running in software
+emulation with no GPU and no hardware acceleration: the APK installs, unpacks
+its 67 data files, bakes the art, plays the synthesized music, and shows the
+title screen. The on-screen gamepad drives the menus, the runner select and
+the training stage (walking, picking up gems). Bluetooth gamepads use the same
+SDL code as on Linux, but no pad was tested here.
+
+The emulator manages about 8 fps, since it emulates the CPU and draws with a
+software GPU. That says nothing about phone speed: the game logs its frame
+rate to logcat every 10 seconds (`adb logcat -s SDL/APP`), which is the first
+thing to check on a real phone. The work per frame is SDL texture blits of
+pre-baked art, which any phone GPU handles; startup Cairo baking takes about
+half a second on a desktop and should take a few seconds on a phone.
+
+The largest texture is 2560x720, fine for every phone of the last decade
+(OpenGL ES 2 only guarantees 2048, so very old devices could miss a backdrop).
+
+Note for emulator testing: `adb shell input tap X Y` on this emulator in
+landscape maps X through a 1920-wide space (x_app = (X - 180) * 1.1875), so
+taps land to the right of where the screenshot says. Real touches are fine.
+
 ## What a full port still needs
 
 - **Font.** Without fontconfig, Cairo's toy font API falls back to its
