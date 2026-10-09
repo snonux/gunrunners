@@ -374,6 +374,45 @@ std::vector<float> makeSfx(Sfx id)
           std::min(1.0, t / 0.01) * std::min(1.0, (total - t) / 0.04);
       });
     }
+    case Sfx::Warn:
+    {
+      Osc a;
+      return render(0.12, [&](double t, double total) {
+        return a.step(1180.0, Wave::Square, 0.5) * 0.12 * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::Chime:
+    {
+      // The station's three-note chime.
+      std::vector<float> b(std::size_t(samples(1.1)));
+      addTone(b, 0.0, 0.5, midiFreq(76), Wave::Sine, 0.22, 0.4);
+      addTone(b, 0.25, 0.5, midiFreq(72), Wave::Sine, 0.22, 0.4);
+      addTone(b, 0.5, 0.6, midiFreq(67), Wave::Sine, 0.22, 0.5);
+      return b;
+    }
+    case Sfx::Clunk:
+    {
+      Noise n(53);
+      Svf f;
+      Osc a;
+      return render(0.25, [&](double t, double total) {
+        (void)total;
+        return (f.low(n.next(), 900.0f, 1.0) * 0.5 + a.step(sweep(160.0, 70.0, t / 0.25), Wave::Square, 0.5) * 0.3) *
+          std::exp(-t * 18.0);
+      });
+    }
+    case Sfx::Zap:
+    {
+      Noise n(29);
+      Svf f;
+      Osc a;
+      return render(0.3, [&](double t, double total) {
+        const double crackle = (n.next() > 0.6f ? 1.0 : -0.3) * 0.4;
+        const double fr = 1800.0 + 900.0 * std::sin(t * 210.0);
+        return (f.band(float(crackle), float(fr), 2.0) * 0.8 + a.step(sweep(2400.0, 300.0, t / total), Wave::Saw) * 0.15) *
+          std::min(1.0, t / 0.003) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
     case Sfx::Count:
       break;
   }
@@ -777,6 +816,11 @@ MusicTrack makeNamedMusic(const std::string& id)
            contains(id, "submerged") || contains(id, "cryo"))
   {
     s.drums = false;
+  }
+  else if (contains(id, "arpeggio"))
+  {
+    s.bpm = 138.0;
+    s.lead = true;
   }
   else if (contains(id, "opening") || contains(id, "finale") || contains(id, "heroic") || contains(id, "medley"))
   {

@@ -759,6 +759,99 @@ void rubberDuck(const Ctx& c)
   cairo_fill(cr);
 }
 
+// Track Hopper (level 6): a springy rail-yard robot on piston legs.
+// Variant 0 stands, 1 crouches to leap, 2 is in the air (legs tucked).
+void trackHopper(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color body = rgb(230, 170, 40), dark = rgb(60, 56, 64);
+  const double squat = c.variant == 1 ? h * 0.18 : 0.0;
+  const double tuck = c.variant == 2 ? h * 0.15 : 0.0;
+  // Legs: two pistons.
+  for (double lx : {0.28, 0.66})
+  {
+    strokeLimb(cr, {{x0 + w * lx, y0 + h * 0.55 + squat}, {x0 + w * (lx - 0.08), y0 + h * 0.8 - tuck},
+      {x0 + w * lx, y0 + h - tuck}}, 7, dark, kInk, kLine);
+    roundedRect(cr, x0 + w * (lx - 0.12), y0 + h - 8 - tuck, w * 0.26, 8, 3);
+    fillOutline(cr, rgb(90, 90, 100), kInk, kLine);
+  }
+  // Body: a hazard-striped box with one big eye.
+  roundedRect(cr, x0 + w * 0.08, y0 + h * 0.18 + squat, w * 0.84, h * 0.42, 10);
+  fillGradientOutline(cr, y0 + h * 0.18 + squat, y0 + h * 0.6 + squat, lighten(body, 0.2f), body, kInk, kLine);
+  for (int i = 0; i < 4; ++i)
+  {
+    cairo_move_to(cr, x0 + w * (0.14 + i * 0.2), y0 + h * 0.52 + squat);
+    cairo_line_to(cr, x0 + w * (0.24 + i * 0.2), y0 + h * 0.52 + squat);
+    cairo_line_to(cr, x0 + w * (0.18 + i * 0.2), y0 + h * 0.6 + squat);
+    cairo_line_to(cr, x0 + w * (0.08 + i * 0.2), y0 + h * 0.6 + squat);
+    cairo_close_path(cr);
+    setColor(cr, rgb(30, 30, 30));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, x0 + w * 0.68, y0 + h * 0.34 + squat, 16, rgb(255, 60, 40), 0.8);
+  circle(cr, x0 + w * 0.68, y0 + h * 0.34 + squat, 7);
+  fillOutline(cr, rgb(255, 120, 90), kInk, 1.4);
+  // Antenna.
+  strokeLimb(cr, {{x0 + w * 0.3, y0 + h * 0.2 + squat}, {x0 + w * 0.22, y0 + h * 0.04 + squat}}, 3, dark, kInk, 1.0);
+}
+
+// Rail Drone (level 6): a sleek hover pod with a bomb bay underneath
+// (variant 1: the bay is open).
+void railDrone(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.5, y0 + h * 0.45);
+  cairo_scale(cr, w * 0.5, h * 0.36);
+  circle(cr, 0, 0, 1.0);
+  cairo_restore(cr);
+  fillGradientOutline(cr, y0 + h * 0.1, y0 + h * 0.8, rgb(210, 216, 230), rgb(110, 116, 136), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.55, y0 + h * 0.25, w * 0.3, h * 0.2, 4);
+  fillOutline(cr, rgb(60, 200, 255), kInk, 1.4);
+  // Bay doors.
+  const double open = c.variant == 1 ? 10 : 0;
+  roundedRect(cr, x0 + w * 0.3 - open, y0 + h * 0.72, w * 0.18, 8, 2);
+  fillOutline(cr, rgb(70, 74, 90), kInk, 1.2);
+  roundedRect(cr, x0 + w * 0.52 + open, y0 + h * 0.72, w * 0.18, 8, 2);
+  fillOutline(cr, rgb(70, 74, 90), kInk, 1.2);
+  if (c.variant == 1)
+    radialGlow(cr, x0 + w * 0.5, y0 + h * 0.8, 18, rgb(255, 80, 60), 0.8);
+  // Thruster glow at the back.
+  radialGlow(cr, x0 + w * 0.05, y0 + h * 0.45, 20, rgb(120, 200, 255), 0.7);
+}
+
+// Decoupler (level 6): a hunched gremlin in grease-stained overalls with a
+// huge wrench (variant 1: heaving on the coupling).
+void decoupler(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color suit = rgb(70, 90, 120), skin = rgb(120, 200, 110);
+  roundedRect(cr, x0 + w * 0.2, y0 + h * 0.62, w * 0.24, h * 0.38, 5);
+  fillOutline(cr, darken(suit, 0.3f), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.56, y0 + h * 0.62, w * 0.24, h * 0.38, 5);
+  fillOutline(cr, darken(suit, 0.3f), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.1, y0 + h * 0.3, w * 0.8, h * 0.4, 12);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.7, lighten(suit, 0.2f), suit, kInk, kLine);
+  // Head with goggles.
+  circle(cr, x0 + w * 0.5, y0 + h * 0.2, w * 0.24);
+  fillOutline(cr, skin, kInk, kLine);
+  for (int sg : {-1, 1})
+  {
+    circle(cr, x0 + w * (0.5 + sg * 0.1), y0 + h * 0.18, 6);
+    fillOutline(cr, rgb(255, 200, 60), kInk, 1.4);
+  }
+  // The wrench: raised overhead while it works.
+  const double ang = c.variant == 1 ? (c.frame ? -0.9 : -0.5) : 0.6;
+  const double hx = x0 + w * 0.85, hy = y0 + h * 0.4;
+  const double ex = hx + std::cos(ang) * w * 0.5, ey = hy + std::sin(ang) * w * 0.5;
+  strokeLimb(cr, {{hx, hy}, {ex, ey}}, 6, rgb(180, 186, 200), kInk, kLine);
+  circle(cr, ex, ey, 9);
+  fillOutline(cr, rgb(180, 186, 200), kInk, kLine);
+}
+
 using DrawFn = void (*)(const Ctx&);
 
 DrawFn routineFor(const std::string& key)
@@ -784,6 +877,9 @@ DrawFn routineFor(const std::string& key)
     {"grate", grate},
     {"devnull_pipe", devnullPipe},
     {"rubber_duck", rubberDuck},
+    {"track_hopper", trackHopper},
+    {"rail_drone", railDrone},
+    {"decoupler", decoupler},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

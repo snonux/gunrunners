@@ -143,7 +143,10 @@ struct Art
 // Additive soft light at screen position (cx, cy).
 void drawGlow(Renderer& r, const Art& art, float cx, float cy, float radius, Color c, float alpha);
 // camX/camY are in screen pixels.
-void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float baseCamY);
+// farShift/nearShift: extra px the far and near layers have slid (the
+// maglev's rushing city).
+void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float baseCamY, float farShift = 0.0f,
+  float nearShift = 0.0f);
 void drawDecoration(Renderer& r, const Art& art, const Theme& theme, float x, float y, int seed, int frame);
 // (x, y) is the bottom-left corner of the 4x6 cell exit.
 void drawExit(Renderer& r, const Art& art, const Theme& theme, float x, float y, int frame);

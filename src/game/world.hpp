@@ -301,6 +301,11 @@ enum class PropKind
   Waterfall,     // sludge pouring out of the outflow pipe
   Log,           // Duck Rapids: a log floating on the river (over a solid block)
   LowPipe,       // Duck Rapids: a pipe hanging from the roof (over solid blocks)
+  CarInterior,   // Maglev Express: a car's back wall with its windows
+  Seat,          // Maglev Express: a row of seats (over a solid block)
+  Crate,         // Maglev Express: luggage (over solid blocks)
+  Sleeper,       // Maglev Express: the passenger who sleeps through everything
+  HiScore,       // Maglev Express: a billboard through the window with your level 2 score
 };
 
 struct Prop
@@ -311,6 +316,9 @@ struct Prop
   int timer = -1; // running animation frame, -1 idle
   int hold = 0;   // trigger counter
   bool used = false;
+  int ride = -1;        // carried by this platform (the passer's bonus patch)
+  int rideDx = 0, rideDy = 0; // cells from the platform's top-left
+  bool dormant = false; // not there yet (the patch before the camera is shot)
   CellBox box() const { return {x, y, w, h}; }
 };
 
@@ -359,6 +367,9 @@ struct Platform
   int step = 1;
   int speedNum = 1, speedDen = 1;
   int powered = -1; // a lift: only moves while this breaker is on
+  bool once = false;   // mode=once: hidden until a script starts it, gone at the end
+  bool running = false;
+  bool hidden = false;
   CellBox box() const { return {x, y, w, h}; }
 };
 
@@ -546,6 +557,67 @@ struct Bubble
   CellBox box() const { return {x, y, w, h}; }
 };
 
+// Level 6's gantries (SPEC 06, world_maglev.cpp): a hazard band that sweeps
+// over the train from the front, at `speed` cells a frame.
+enum class GantryKind
+{
+  Low,   // rows 7-9: crouch
+  Tall,  // rows 10-11: jump
+  Tall4, // rows 8-11: Nova jumps it, the others take a hatch
+  Mouth, // rows 0-11: the tunnel mouth, be inside a car
+  Ring,  // rows 0-11: a tunnel ring
+};
+
+struct Gantry
+{
+  std::string id;
+  GantryKind kind = GantryKind::Low;
+  int trigger = 0; // cells: the runner first reaching this x sets it off
+  int speed = 3;
+  int warn = 30;
+  bool fired = false;
+  int x = -1;     // cells: the band's left edge while it sweeps, -1 idle
+  int prevX = -1;
+  int bandTop() const { return kind == GantryKind::Low ? 14 : kind == GantryKind::Tall ? 20 : kind == GantryKind::Tall4 ? 16 : 0; }
+  int bandBottom() const { return kind == GantryKind::Low ? 19 : 23; }
+};
+
+// A Rail Drone's caltrop: falls onto a roof, slides back with the wind
+// (green ones stick and infect).
+struct Caltrop
+{
+  int x = 0, y = 0; // cells, top-left of its 2x1 box
+  int prevX = 0, prevY = 0;
+  int life = 150;
+  int slide = 0;     // quarter cells of wind
+  bool green = false;
+  bool landed = false;
+  CellBox box() const { return {x, y, 2, 1}; }
+};
+
+// A Track Hopper's landing: a ripple along the roof, 1 cell high.
+struct Shockwave
+{
+  int x = 0, y = 0; // cells: its front, and the row it runs along (feet row)
+  int dir = 1;
+  int left = 12;    // cells still to run
+};
+
+// The Arc Caster's lightning, for drawing (logic frames).
+struct ArcBolt
+{
+  float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f; // cells
+  int life = 3;
+  int seed = 0;
+};
+
+// Light Trail: a block of neon under the runner's feet that fades.
+struct TrailBlock
+{
+  int x = 0, y = 0; // cells: left end, the row you stand on
+  int life = 45;
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -705,6 +777,15 @@ public:
   const std::vector<Fluid>& fluids() const { return mFluids; }
   const std::vector<Bubble>& bubbles() const { return mBubbles; }
   const std::vector<Valve>& valves() const { return mValves; }
+  // Level 6: the gantries, and whether something about to sweep over the
+  // runner would knock them off where they stand (the planner waits it out).
+  const std::vector<Gantry>& gantries() const { return mGantries; }
+  bool trainDanger() const;
+  bool trainBusy() const; // the train is braking or a gantry is sweeping
+  bool lightTrail() const { return mLightTrail; }
+  // Level 6's billboard shows the best level 2 score, if there is one.
+  void setHiScore(int score) { mHiScore = score; }
+  const std::vector<TrailBlock>& trail() const { return mTrailBlocks; }
   // Level 5: in sludge (feet at or under its surface), and not in Turbo.
   bool wading() const;
   bool autorun() const { return mAutorun; } // Duck Rapids: the duck moves you
@@ -830,6 +911,26 @@ private:
   void drawSludgeBack(Renderer& r, float camX, float camY, int frame) const;
   void drawSludgeFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawTideHud(Renderer& r, int frame) const;
+  // Level 6 (world_maglev.cpp).
+  bool setupMaglevEntity(const EntityDef& e);
+  void setupMaglevEnemy(Enemy& en, const EntityDef& e);
+  void updateMaglev(const PlayerInput& input);
+  void fireGantry(Gantry& g);
+  void updateGantries();
+  void updateTunnel();
+  void updateCaltrops();
+  void updateLightTrail(const PlayerInput& input);
+  void updateHopper(Enemy& e, const EnemyDef& def);
+  void updateRailDrone(Enemy& e, const EnemyDef& def);
+  void updateDecoupler(Enemy& e, const EnemyDef& def);
+  void resetTrain(); // after a respawn: gantries gone, Decouplers back in their couplings
+  void fireArc(int ox, int oy, int dir, int damage);
+  int roofTopBelow(int cx, int cy) const; // first solid top at or below cy, -1
+  bool sameRoof(const CellBox& a, const CellBox& b) const;
+  float trainSpeed() const; // 1 at full speed, 0 stopped at the station
+  void drawMaglevBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMaglevFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTrainProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -936,6 +1037,28 @@ private:
   bool mDiving = false;          // holding down in sludge: sink instead of float
   bool mAutorun = false;         // bonus rule: the duck paddles on by itself
   int mBump = 0;                 // autorun: cells of a bump back still to go
+  // Level 6: the train.
+  bool mTrain = false;              // trainscroll: the backdrop rushes past
+  std::array<int, 3> mScrollSpeeds{6, 12, 24}; // px a frame: sky, far, near
+  float mScroll = 0.0f;             // frames of travel so far (braking slows it)
+  int mBrakeX = -1, mBrakeAt = -1;  // cells: arrival trigger; clock when braking began
+  int mStationLayer = -1;
+  std::vector<Gantry> mGantries;
+  int mTunnelX0 = -1, mTunnelX1 = -1; // cells
+  int mTunnelRing = 90;
+  int mTunnelState = 0; // 0 not yet, 1 inside (rings), 2 left
+  int mTunnelNext = 0;  // clock of the next ring
+  int mTunnelMouthX = -1, mTunnelExitX = -1; // cells: where the dark starts and ends (drawing)
+  int mGapX = -1, mGapFrames = 160, mGapUntil = -1, mPasser = -1;
+  bool mGapDone = false;
+  std::vector<Caltrop> mCaltrops;
+  std::vector<Shockwave> mWaves;
+  std::size_t mLevelGantries = 0; // the level's own; tunnel rings follow
+  std::vector<ArcBolt> mArcs;
+  bool mLightTrail = false; // bonus rule: your feet draw a neon bridge
+  std::vector<TrailBlock> mTrailBlocks;
+  int mPry = 0; // frames down has been held on a loose floor panel
+  int mHiScore = -1;
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up
   int mManholeX = -1, mManholeY = -1; // cells: where Looters run off to
   bool mBreakdance = false;

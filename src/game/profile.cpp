@@ -69,6 +69,12 @@ Profile Profile::load(const std::string& dir)
       while (in >> k >> n)
         p.protoKills[k] = n;
     }
+    else if (key == "scores")
+    {
+      int n = 0, v = 0;
+      while (in >> n >> v)
+        p.scores[n] = v;
+    }
     else if (key == "reached")
       in >> p.reached;
     else if (key == "duckmode")
@@ -95,6 +101,10 @@ bool Profile::save(const std::string& dir) const
     writeSet(o, "ducks", ducks);
     writeSet(o, "cameras", cameras);
     writeSet(o, "cutscenes", cutscenes);
+    o << "scores";
+    for (const auto& [n, v] : scores)
+      o << ' ' << n << ' ' << v;
+    o << '\n';
     o << "reached " << reached << '\n';
     o << "duckmode " << duckMode << '\n';
     if (!o)

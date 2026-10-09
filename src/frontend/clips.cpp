@@ -716,6 +716,104 @@ void wreck(ClipKit& k, int frame, int ticks, float ox, float oy)
   drawGlow(k.r, k.art, 600 + ox, 460 + oy, 140, rgb(255, 120, 40), 0.3f + 0.1f * float(frame % 3));
 }
 
+// Level 6: the rain, the city and the guideway far below a bridge; the
+// crew at the railing, from behind. The maglev's headlight grows out of the
+// dark over frames 0-15.
+void rainStreaks(ClipKit& k, int ticks, float ox, float oy)
+{
+  for (int i = 0; i < 70; ++i)
+  {
+    const float x = float(hash2(i, 61) % 1400u) - float(ticks % 40) * 3.0f;
+    const float y = std::fmod(float(hash2(i, 62) % 720u) + float(ticks) * 18.0f, 760.0f) - 40.0f;
+    k.r.fillRect(x + ox, y + oy, 2, 26, rgba(170, 200, 255, 90));
+  }
+}
+
+void bridgeNight(ClipKit& k, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(10, 12, 30));
+  panLayer(k, skyline(k, 0, rgb(18, 18, 44), rgb(255, 210, 140)), float(ticks) * 0.25f + ox, 60 + oy);
+  panLayer(k, skyline(k, 1, rgb(26, 24, 56), rgb(120, 220, 255)), float(ticks) * 0.5f + ox, 160 + oy);
+  // The guideway: a pale beam on pylons, far below.
+  k.r.fillRect(0, 560 + oy, W, 14, rgb(120, 130, 160));
+  for (int i = 0; i < 6; ++i)
+    k.r.fillRect(float(i) * 240.0f + 60.0f + ox, 574 + oy, 18, 146, rgb(60, 66, 90));
+}
+
+void bridgeRail(ClipKit& k, float ox, float oy)
+{
+  k.r.fillRect(0, 610 + oy, W, 16, rgb(70, 74, 92));
+  k.r.fillRect(0, 610 + oy, W, 3, rgb(180, 190, 220));
+  for (int i = 0; i < 17; ++i)
+    k.r.fillRect(float(i) * 80.0f + ox, 626 + oy, 10, 100, rgb(50, 54, 70));
+}
+
+void bridgeWait(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  bridgeNight(k, ticks, ox, oy);
+  const float grow = std::min(1.0f, float(frame) / 15.0f);
+  drawGlow(k.r, k.art, 1180 + ox, 540 + oy, 30.0f + 160.0f * grow, rgb(255, 250, 220), 0.2f + 0.6f * grow);
+  bridgeRail(k, ox, oy);
+  k.r.draw(runner(k, 0, 0, 2.4f, true), 420 + ox, 640 + oy);
+  k.r.draw(runner(k, 1, 0, 2.4f, true), 640 + ox, 648 + oy);
+  k.r.draw(runner(k, 2, 0, 2.4f, true), 860 + ox, 640 + oy);
+  rainStreaks(k, ticks, ox, oy);
+}
+
+// The maglev streaks under the bridge, right to left, 64 px a frame.
+void maglevPass(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  bridgeNight(k, ticks, ox, oy);
+  const float head = 1400.0f - float(frame) * 64.0f - float(ticks % 8) * 8.0f;
+  for (int car = 0; car < 9; ++car)
+  {
+    const float x = head + float(car) * 300.0f;
+    if (x > W || x + 290.0f < 0.0f)
+      continue;
+    k.r.fillRect(x + ox, 470 + oy, 290, 90, rgb(190, 198, 214));
+    k.r.fillRect(x + ox, 470 + oy, 290, 10, rgb(240, 244, 255));
+    k.r.fillRect(x + ox, 505 + oy, 290, 18, rgb(40, 60, 90));
+    for (int w = 0; w < 6; ++w)
+      k.r.fillRect(x + 16.0f + float(w) * 46.0f + ox, 508 + oy, 32, 12, rgba(255, 230, 160, 220));
+    k.r.fillRect(x + 4 + ox, 540 + oy, 10, 6, rgb(255, 40, 50));
+    k.r.fillRect(x + 276 + ox, 540 + oy, 10, 6, rgb(255, 40, 50));
+  }
+  if (head < W && head > -2800.0f)
+    drawGlow(k.r, k.art, head + ox, 520 + oy, 120, rgb(255, 250, 220), 0.7f);
+  for (int i = 0; i < 24; ++i)
+  {
+    const float y = 440.0f + float(hash2(i, 71) % 140u);
+    const float x = std::fmod(float(hash2(i, 72) % 1600u) - float(ticks) * 40.0f + 16000.0f, 1600.0f) - 200.0f;
+    k.r.fillRect(x + ox, y + oy, 180, 2, rgba(220, 240, 255, 110));
+  }
+  bridgeRail(k, ox, oy);
+  rainStreaks(k, ticks, ox, oy);
+}
+
+// The three runners leap off the railing (frames 0-7) and hang in the air
+// above the passing roofs on frame 8.
+void theJump(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  bridgeNight(k, ticks, ox, oy);
+  k.r.fillRect(0, 470 + oy, W, 90, rgb(190, 198, 214));
+  k.r.fillRect(0, 470 + oy, W, 10, rgb(240, 244, 255));
+  for (int i = 0; i < 20; ++i)
+  {
+    const float x = std::fmod(float(i) * 70.0f - float(std::min(frame, 8)) * 64.0f + 2800.0f, 1400.0f) - 60.0f;
+    k.r.fillRect(x + ox, 508 + oy, 32, 12, rgba(255, 230, 160, 220));
+  }
+  bridgeRail(k, ox, oy);
+  const float u = float(std::min(frame, 8)) / 8.0f;
+  const float lift = std::sin(u * 1.5708f) * 300.0f;
+  for (int who = 0; who < 3; ++who)
+  {
+    const float x = 420.0f + float(who) * 220.0f + u * 120.0f;
+    const float y = 640.0f - lift + float(who) * 12.0f;
+    k.r.draw(runner(k, who, frame < 1 ? 6 : 2, 2.4f, false), x + ox, y + oy);
+  }
+  rainStreaks(k, frame >= 8 ? 0 : ticks, ox, oy);
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -769,6 +867,12 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return grateGlow(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
+  if (clip == "bridge_wait")
+    return bridgeWait(k, frame, ticks, ox, oy);
+  if (clip == "maglev_pass")
+    return maglevPass(k, frame, ticks, ox, oy);
+  if (clip == "the_jump")
+    return theJump(k, frame, ticks, ox, oy);
   if (clip == "wreck")
     return wreck(k, frame, ticks, ox, oy);
   if (starts(clip, "runners"))

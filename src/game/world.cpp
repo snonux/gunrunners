@@ -241,6 +241,7 @@ void World::update(const PlayerInput& input)
       updateClub();
       updateDark(input);
       updateSludge(input);
+      updateMaglev(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -441,6 +442,15 @@ void World::updateEnemies()
         break;
       case EnemyKind::Keeper:
         updateKeeper(e, def);
+        break;
+      case EnemyKind::Hopper:
+        updateHopper(e, def);
+        break;
+      case EnemyKind::RailDrone:
+        updateRailDrone(e, def);
+        break;
+      case EnemyKind::Decoupler:
+        updateDecoupler(e, def);
         break;
     }
 

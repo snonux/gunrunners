@@ -31,7 +31,9 @@ next beat, a step of 2 blocks or a jump; `sonar`: nothing draws but the
 runner, and each shot sends out an echo ring that outlines the walls it
 passes; `autorun`: you ride a rubber duck that moves right half a cell a
 frame on its own, only jump (6 cells for everyone) and crouch work, and
-running into something bumps you back four blocks),
+running into something bumps you back four blocks; `lighttrail`: in the
+air your feet leave a one-way neon trail that lasts 45 frames, so a jump
+draws a bridge, and holding down drops through it),
 `timer=` in seconds and `goal=exit` or `goal=collect:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -71,6 +73,18 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `devnull` | | a 2x2-block pipe mouth: bubbles, rats and flares that float into it are gone with a bloop |
 | enemy keys `sludge_gator` (`look=sunglasses`, `carrier=1`), `valve_keeper` (`valve=`) | | the gator swims under its sludge and lunges up three blocks; the Keeper walks to its valve when you enter its zone |
 | `deco` `kind=waterfall\|log\|lowpipe` | `rect` or `x y w h` | sludge pouring down; Duck Rapids' logs and low pipes (over solid blocks) |
+| `trainscroll` | `speeds=far,near,ground` (px a frame) | the map is a moving train: it never scrolls, the backdrop layers slide past instead |
+| `gantry` | `kind=low\|tall\|tall4`, `trigger` (block x), `speed` (cells a frame), `warn` (frames) | when you pass `trigger` a signal gantry sweeps over the roofs from the right after a warning: crouch under `low`, jump `tall`, get inside a car for `tall4`; one at a time, the sweep kills |
+| `tunnel` | `rect`, `ring` (frames) | dark with sodium lamps; its mouth sweeps the roofs when you enter and a ring every `ring` frames while you are in it |
+| `passgap` | `frames`, `platform` | where the tunnel opens for a passing train: the rings pause and that `mode=once` platform runs its path |
+| `bonuspatch` | `on` (a platform), `dx` | the bonus door, asleep (dormant) until the candid camera is shot, riding that platform |
+| `arrival` | `layer` | passing it brakes the train over 90 frames; the `layer` (`style=station`, `solid=0`) slides in and turns solid at the stop |
+| `layer` … `style=station`, `solid=0` | | a station platform drawn by the train code; `solid=0` starts it non-solid |
+| `platform` … `mode=once` | | hidden until something starts it, runs its path once, then hides again |
+| `candid_camera` … `ride=` | | rides that platform |
+| enemy keys `track_hopper`, `rail_drone` (`carrier=1`), `decoupler` | | the Hopper leaps between roofs and its landing sends shockwaves both ways (jump them); the drone hovers ahead of you dropping caltrops (green ones from carriers stick and infect); the Decoupler wakes when you come up behind it and unhooks its car after a countdown (be across by then, or shoot it) |
+| `deco` `kind=carinterior\|seat\|crate\|sleeper\|hiscore` | `rect` or `x y w h` | the inside of a car, seats and luggage (over solid blocks), a sleeping passenger, and an arcade cabinet showing your best Level 2 score |
+| `breakable` … `by=pry`, `look=panel` | | a floor panel you pry up by standing on it and holding down for 8 frames |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

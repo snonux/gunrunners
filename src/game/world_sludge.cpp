@@ -265,6 +265,8 @@ void World::syncFloats()
       mMap.addFloat({f.x0, f.surface + 1, f.x1 - f.x0 + 1, 1});
   for (const auto& b : mBubbles)
     mMap.addFloat(b.box());
+  for (const auto& t : mTrailBlocks)
+    mMap.addFloat({t.x, t.y, Player::kWidth, 1}); // Light Trail (world_maglev.cpp)
 }
 
 void World::floatItem(Item& it) const

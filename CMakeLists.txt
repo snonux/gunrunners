@@ -36,6 +36,7 @@ add_library(gunrunners_core STATIC
   src/game/world_actors.cpp
   src/game/world_dark.cpp
   src/game/world_sludge.cpp
+  src/game/world_maglev.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
@@ -76,3 +77,5 @@ add_test(NAME savegame_club_laserdisc COMMAND savegame_test ${CMAKE_SOURCE_DIR}/
 add_test(NAME savegame_blackout COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/04_blackout.txt 720)
 # Into the low tunnels: the tide mid-cycle, rats out of their pipe.
 add_test(NAME savegame_sludge_line COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/05_sludge_line.txt 600)
+# On the train past the first gantries, Arc Caster in hand.
+add_test(NAME savegame_maglev_express COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/06_maglev_express.txt 900)

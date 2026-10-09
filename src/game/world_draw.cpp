@@ -82,7 +82,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
 {
   const float camX = mCamera.renderX() * S;
   const float camY = mCamera.renderY() * S;
-  drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx);
+  if (mTrain)
+  {
+    // The maglev: the city rushes past (world_maglev.cpp).
+    const float s = mScroll + trainSpeed() * alpha;
+    drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx, s * float(mScrollSpeeds[1]), s * float(mScrollSpeeds[2]));
+  }
+  else
+    drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx);
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -108,6 +115,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   }
 
   drawProps(r, camX, camY, frame, false);
+  drawMaglevBack(r, camX, camY, frame, alpha);
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
@@ -191,8 +199,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     for (const auto& b : mBreakables)
       inside = inside || (!b.broken && e.x / kCellsPerTile >= b.x0 && e.x / kCellsPerTile <= b.x1 &&
                            e.y / kCellsPerTile >= b.y0 && e.y / kCellsPerTile <= b.y1);
-    if (inside)
-      continue;
+    if (inside || e.y < 0 || (e.kind == EnemyKind::Decoupler && e.attach == 0))
+      continue; // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && e.kind == EnemyKind::Flyer)
       x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives
     const Texture* tex = nullptr;
@@ -231,6 +239,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.variant + (e.dive > 0 || e.trapped ? 2 : 0); // sunglasses; jaws open
         else if (e.kind == EnemyKind::Keeper)
           variant = e.attach == 2 ? 1 : 0; // turning the wheel
+        else if (e.kind == EnemyKind::Hopper)
+          variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // crouching, leaping
+        else if (e.kind == EnemyKind::RailDrone)
+          variant = e.tell > 0 ? 1 : 0; // the bay is open
+        else if (e.kind == EnemyKind::Decoupler)
+          variant = e.attach == 2 ? 1 : 0; // working the coupling
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -298,6 +312,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawPlayer(r, camX, camY, frame, alpha);
   // Sludge goes over the runner's feet and anything swimming in it.
   drawSludgeFront(r, camX, camY, frame, alpha);
+  drawMaglevFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)

@@ -822,6 +822,8 @@ void World::respawnPlayer()
   p.mercy = kInitialMercyFrames;
   p.jumpRequested = false;
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
+  if (mTrain)
+    resetTrain();
   showMessage("BACK IN ACTION");
 }
 

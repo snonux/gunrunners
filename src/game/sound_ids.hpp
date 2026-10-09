@@ -44,6 +44,10 @@ enum class Sfx
   Klaxon,    // a Valve Keeper turning its wheel
   Rattle,    // a rat pipe about to burst
   Quack,     // the Duck Rapids duck
+  Warn,      // a gantry's warning lights
+  Chime,     // the maglev's station chime, the passing train
+  Clunk,     // a coupling, a caltrop bay
+  Zap,       // the Arc Caster
   Count,
 };
 

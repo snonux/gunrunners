@@ -45,6 +45,10 @@ const EnemyDef kEnemies[] = {
   {"sludge_gator", "SLUDGE GATOR", K::Gator, L::Styled, 4, 2, 3, 600, 2, 45, 15, 6, 0, 0},
   {"pipe_rat", "PIPE RAT", K::Walker, L::Styled, 2, 1, 1, 100, 1, 0, 0, 0, kEnemyNoTally, 0},
   {"valve_keeper", "VALVE KEEPER", K::Keeper, L::Styled, 3, 4, 10, 900, 2, 0, 30, 0, 0, 0, 3},
+  // Level 6: Maglev Express.
+  {"track_hopper", "TRACK HOPPER", K::Hopper, L::Styled, 3, 4, 4, 500, 2, 45, 10, 12, 0, 0},
+  {"rail_drone", "RAIL DRONE", K::RailDrone, L::Styled, 4, 2, 3, 600, 1, 45, 10, 0, 0, 0},
+  {"decoupler", "DECOUPLER", K::Decoupler, L::Styled, 3, 4, 6, 800, 0, 75, 15, 24, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

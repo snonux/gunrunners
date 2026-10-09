@@ -85,6 +85,9 @@ struct SaveGame
   std::vector<int> valves;
   std::vector<int> ratPipes;
   std::vector<int> bubbled;
+  // The maglev (level 6): braking, the tunnel, the passing train, and
+  // which gantries have gone by (see World::snapshot).
+  std::vector<int> train;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.
