@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace gr
 {
@@ -250,6 +251,11 @@ void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
       break;
     case SDL_CONTROLLERBUTTONDOWN:
       mVisible = false;
+      break;
+    case SDL_CONTROLLERAXISMOTION:
+      // A pushed stick, not a resting one's jitter.
+      if (std::abs(int(ev.caxis.value)) > 16000)
+        mVisible = false;
       break;
     default:
       break;

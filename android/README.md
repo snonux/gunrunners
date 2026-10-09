@@ -62,6 +62,17 @@ debug key; see "Releasing".
 - The overlay hides when a key or gamepad is used and comes back with the
   next touch. A tap shorter than a frame still counts.
 
+## Gamepads
+
+Bluetooth and USB pads go through SDL's GameController API, as on Linux
+(`src/frontend/controls.cpp`): plug in or pair one at any time, even
+mid-level, and it works with the same layout (A jump, X/B/RB/RT fire, Y
+switch runner, Start pause). Pressing a button or pushing the stick hides
+the touch overlay. Android reports a pad's Back/Select as the system back
+key, so on Android it pauses or backs out of a menu instead of cycling the
+theme. `tests/gamepad_test.cpp` plugs a virtual pad in and out to check
+all of this (on Linux, SDL 2.24 or newer).
+
 The same overlay runs on Linux with `--touch` (for a touch screen, or to
 try the layout).
 

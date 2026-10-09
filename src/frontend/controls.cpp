@@ -1,7 +1,6 @@
 #include "frontend/controls.hpp"
 
 #include <algorithm>
-#include <cstdio>
 
 namespace gr
 {
@@ -14,13 +13,22 @@ namespace
 constexpr Sint16 kStickThreshold = 16000;
 constexpr Sint16 kTriggerThreshold = 12000;
 
+// Android reports a pad's Back/Select (and some pads' B) as the system back
+// key, so there it does what the phone's back key does: pause in a level,
+// back out of a menu. On a desktop it cycles the theme.
+#ifdef __ANDROID__
+constexpr bool kBackIsBackKey = true;
+#else
+constexpr bool kBackIsBackKey = false;
+#endif
+
 } // namespace
 
 Controls::Controls()
 {
   if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0)
   {
-    std::fprintf(stderr, "gamepads unavailable: %s\n", SDL_GetError());
+    SDL_Log("gamepads unavailable: %s", SDL_GetError());
     return;
   }
   // Pads that are already plugged in also arrive as
@@ -47,7 +55,7 @@ void Controls::open(int deviceIndex)
   {
     mPads.push_back(pad);
     const char* name = SDL_GameControllerName(pad);
-    std::fprintf(stderr, "gamepad connected: %s\n", name ? name : "unknown");
+    SDL_Log("gamepad connected: %s", name ? name : "unknown");
   }
 }
 
@@ -58,7 +66,7 @@ void Controls::close(SDL_JoystickID id)
   });
   if (it == mPads.end())
     return;
-  std::fprintf(stderr, "gamepad disconnected\n");
+  SDL_Log("gamepad disconnected");
   SDL_GameControllerClose(*it);
   mPads.erase(it);
 }
@@ -85,7 +93,7 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
       close(ev.cdevice.which);
       break;
     case SDL_CONTROLLERBUTTONDOWN:
-      if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK)
+      if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK && !kBackIsBackKey)
         return Action::CycleTheme;
       break;
     default:
@@ -130,6 +138,8 @@ Input Controls::read() const
     in.pause = in.pause || button(SDL_CONTROLLER_BUTTON_START);
     in.back = in.back || button(SDL_CONTROLLER_BUTTON_B);
     in.swap = in.swap || button(SDL_CONTROLLER_BUTTON_Y);
+    if (kBackIsBackKey && button(SDL_CONTROLLER_BUTTON_BACK))
+      in.pause = in.back = true;
   }
   return in;
 }
