@@ -414,7 +414,10 @@ int runWindowed(const CliOptions& o)
       audio.reset();
   }
   GameOptions gameOptions = o.game;
+  // FULLSCREEN in the menus; an Android app is always fullscreen.
+#ifndef __ANDROID__
   gameOptions.window = true;
+#endif
   Game game(gameOptions, renderer, audio.get());
 
   const auto applyFullscreen = [&](bool on) {
@@ -485,6 +488,15 @@ int runWindowed(const CliOptions& o)
     if (touch)
       touch->draw(renderer);
     SDL_RenderPresent(sdlRenderer);
+#ifdef __ANDROID__
+    static Uint32 fpsStart = SDL_GetTicks(), fpsFrames = 0;
+    if (++fpsFrames == 300 || SDL_GetTicks() - fpsStart > 10000)
+    {
+      SDL_Log("%.1f fps", fpsFrames * 1000.0 / double(SDL_GetTicks() - fpsStart));
+      fpsStart = SDL_GetTicks();
+      fpsFrames = 0;
+    }
+#endif
   }
   }
 

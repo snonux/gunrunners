@@ -24,7 +24,9 @@ public:
 
   // Feed every SDL event through here (after Controls).
   void handleEvent(const SDL_Event& ev, SDL_Window* window);
-  Input read() const;
+  // The buttons held now, plus any tap that started and ended since the
+  // last call (a quick tap between two ticks is not lost). Call once per tick.
+  Input read();
   // Draws the overlay in the game's 1280x720 logical coordinates.
   void draw(Renderer& renderer) const;
 
@@ -55,12 +57,14 @@ private:
   void press(SDL_FingerID id, float x, float y);
   void move(SDL_FingerID id, float x, float y);
   void lift(SDL_FingerID id);
+  Input held() const;
   void dpadDirections(bool& left, bool& right, bool& up, bool& down) const;
   bool buttonHeld(int b) const;
   int buttonAt(float x, float y) const;
 
   static const ButtonSpot kButtons[kButtonCount];
   std::vector<Finger> mFingers;
+  Input mTapped; // presses since the last read()
   bool mVisible;
   Texture mDpad;
   Texture mDpadNub;

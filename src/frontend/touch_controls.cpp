@@ -179,6 +179,7 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
   mVisible = true;
   lift(id);
   mFingers.push_back({id, x, y, x < float(kScreenW) * 0.5f});
+  mTapped = mTapped | held();
 }
 
 void TouchControls::move(SDL_FingerID id, float x, float y)
@@ -249,7 +250,14 @@ bool TouchControls::buttonHeld(int b) const
   return false;
 }
 
-Input TouchControls::read() const
+Input TouchControls::read()
+{
+  const Input in = held() | mTapped;
+  mTapped = Input{};
+  return in;
+}
+
+Input TouchControls::held() const
 {
   Input in;
   dpadDirections(in.left, in.right, in.up, in.down);
