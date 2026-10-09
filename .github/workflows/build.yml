@@ -1,6 +1,5 @@
 # Builds Gunrunners on every push and pull request: the Linux game with its
 # tests, and a debug-signed Android APK (kept as a run artifact for a week).
-# Paul moves it to .github/workflows/build.yml.
 name: Build
 
 on:

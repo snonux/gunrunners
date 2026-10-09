@@ -1,6 +1,5 @@
 # Release workflow for Gunrunners on Android, published through
-# snonux/fdroid. Paul moves it to .github/workflows/release.yml (an agent's
-# token cannot write there); see android/README.md, "Releasing".
+# snonux/fdroid; see android/README.md, "Releasing".
 #
 # A pushed vX.Y.Z tag builds the release APK (arm64-v8a, armeabi-v7a and
 # x86_64 in one file) with the app's release key and attaches it to the

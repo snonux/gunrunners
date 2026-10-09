@@ -79,23 +79,22 @@ release; the F-Droid repo picks it up from there with the store text in
   at most 500 characters, rewritten before each tag.
 - **Icon:** `tools/icons.sh` draws it with the game's own art.
 
-### One-time setup (Paul, fish)
+### One-time setup (done)
 
-The release key is the app's identity on every phone; keep it backed up.
+The release key is the app's identity on every phone; never lose or
+replace it. It lives in `~/.config/gunrunners/release.jks`, with
+`android/key.properties` (gitignored) pointing at it, and both are kept in
+foostore under `keys/f-droid/gunrunners-release.jks.txt` as attachments.
+The workflows read it from the `ANDROID_*` repository secrets.
+
+On a new machine, restore the key from foostore; to set the secrets again:
 
 ```fish
+set e keys/f-droid/gunrunners-release.jks.txt
 mkdir -p ~/.config/gunrunners
-set pw (openssl rand -hex 16)
-keytool -genkeypair -noprompt -keystore ~/.config/gunrunners/release.jks -storetype PKCS12 \
-  -alias gunrunners -keyalg RSA -keysize 4096 -validity 36500 \
-  -dname "CN=Gunrunners" -storepass $pw -keypass $pw
-printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=gunrunners\nkeyPassword=%s\n' \
-  ~/.config/gunrunners/release.jks $pw $pw > android/key.properties
+foostore read $e/gunrunners-release.jks > ~/.config/gunrunners/release.jks
+foostore read $e/key.properties > android/key.properties
 chmod 600 ~/.config/gunrunners/release.jks android/key.properties
-cp ~/.config/gunrunners/release.jks android/key.properties ~/.foostore-export/
-
-mkdir -p .github/workflows; and git mv ci/workflows/release.yml ci/workflows/build.yml .github/workflows/
-git commit -m "Enable the release and build workflows"; and git push
 
 function get; sed -n "s/^$argv[1]=//p" android/key.properties; end
 base64 -w0 (get storeFile) | gh secret set ANDROID_KEYSTORE
