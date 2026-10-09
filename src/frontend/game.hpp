@@ -35,6 +35,7 @@ struct GameOptions
   std::string cutscene; // play just this cutscene, then quit
   bool cheats = false;  // the pause menu's CHEATS item from the start
   bool window = false;  // a real window (not headless): offer FULLSCREEN
+  bool touch = false;   // on-screen gamepad: offer its TOUCH PAD size
 };
 
 // Top-level mode management, the equivalent of RigelEngine's
@@ -65,6 +66,14 @@ public:
   }
   void render();
   void cycleTheme();
+
+  // For the on-screen gamepad: a level is being played (its layout) rather
+  // than a menu, cutscene or tally, and the TOUCH PAD size setting.
+  bool inLevel() const;
+  int touchSize() const { return mProfile.touchSize; }
+  // The app is going to the background (Android may close it there): the
+  // pause menu opens over a running level and the profile is saved.
+  void suspend();
 
 private:
   enum class Mode
@@ -216,6 +225,8 @@ private:
   bool mQuit = false;
   bool mFullscreenToggle = false;
   bool mFullscreenNow = false;
+  void cycleTouchSize();
+  std::string touchSizeLabel() const;
 
   // 15 Hz logic clock and input latching.
   int mSubTick = 0;

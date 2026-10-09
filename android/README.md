@@ -1,85 +1,117 @@
-# Gunrunners on Android (proof of concept)
+# Gunrunners on Android
 
-The normal game, unchanged, built for Android with SDL2's Android
-backend. This is a proof of concept on its own branch, not a finished port:
-see "What a full port still needs" below.
+The same game as on Linux, built for Android with SDL2's Android backend:
+one APK for arm64-v8a (phones), armeabi-v7a (older 32-bit phones) and
+x86_64 (emulators, Chromebooks), Android 7.0 (API 24) and newer. It is
+published through [snonux/fdroid](https://github.com/snonux/fdroid).
 
 ## Build
 
 Needs the Android SDK (`ANDROID_HOME`) with platform 35, build-tools 35 and
-NDK 27.3.13750724, a JDK 17+, and `meson` + `ninja` for the first run.
+NDK 27.3.13750724, a JDK 17+, and `meson` + `ninja`.
 
 ```sh
 android/build.sh            # -> android/app/build/outputs/apk/release/app-release.apk
 adb install -r android/app/build/outputs/apk/release/app-release.apk
 ```
 
-The first run of `build.sh` calls `build-deps.sh`, which fetches SDL2,
-Cairo and pixman into `android/deps/` and cross-compiles Cairo and pixman
-for arm64-v8a (phones) and x86_64 (emulators). The release APK is signed
-with the debug key so it installs directly; it is about 10 MB.
+The first run calls `build-deps.sh`, which fetches SDL2 (a pinned commit),
+FreeType, pixman and Cairo (checksummed release tarballs) into
+`android/deps/` and cross-compiles FreeType, pixman and Cairo for the three
+ABIs. Without `android/key.properties` the release APK is signed with the
+debug key; see "Releasing".
 
 ## How it fits together
 
-| Piece | Desktop | Android |
+| Piece | Linux | Android |
 |---|---|---|
 | Entry point | `main()` in `src/main.cpp` | the same `main()`, built as `libmain.so`; SDL's Java activity (`org.libsdl.app.SDLActivity`, from the SDL2 source tree) calls it |
-| Build | top-level `CMakeLists.txt` | the same file; `if(ANDROID)` pulls in `android/android.cmake` (SDL2 from source, prebuilt static Cairo) |
-| Rendering | SDL2 renderer, OpenGL | SDL2 renderer, OpenGL ES 2; the 1280x720 logical size is letterboxed to the screen |
-| Art | baked with Cairo at startup | the same; Cairo is built without fontconfig/FreeType, so text uses Cairo's built-in font (see below) |
+| Build | top-level `CMakeLists.txt` | the same file; `if(ANDROID)` pulls in `android/android.cmake` (SDL2 from source, the static libraries of `build-deps.sh`) |
+| Rendering | SDL2 renderer, OpenGL | SDL2 renderer, OpenGL ES 2; the 1280x720 picture is letterboxed to the screen |
+| Art | baked with Cairo at startup | the same |
+| Font | DejaVu Sans Bold through fontconfig | the same font, shipped in `fonts/` and loaded through FreeType (`loadGameFont` in `src/render/vector.cpp`) |
 | Audio | synthesized, SDL audio | the same code; SDL plays through AAudio/OpenSL ES |
 | Levels, cutscenes | read from the source tree | packed into the APK as assets with a manifest, unpacked to internal storage on start (`src/frontend/android_data.cpp`) |
-| Saves, profile | `$XDG_DATA_HOME/gunrunners/saves` | the app's internal storage (`/data/data/io.github.snonux.gunrunners/files/saves`) |
-| Input | keyboard, gamepads | on-screen gamepad (`src/frontend/touch_controls.cpp`), Bluetooth/USB gamepads through the same SDL GameController code, the back key pauses / backs out |
+| Saves, profile | `$XDG_DATA_HOME/gunrunners/saves` | the app's private storage (`/data/data/org.buetow.gunrunners/files/saves`) |
+| Input | keyboard, gamepads | on-screen gamepad, Bluetooth/USB gamepads (the same SDL GameController code), the back key |
+| Leaving the app | | the pause menu opens over a running level and the profile is saved (`Game::suspend`), since Android may close a background app |
 
-The on-screen gamepad also works on the desktop with `--touch` (for a
-Linux touch screen, or to try the layout).
+## Touch controls
 
-## What the PoC showed
+`src/frontend/touch_controls.cpp`, tested by `tests/touch_test.cpp`.
 
-Tested in the Android emulator (Android 11, x86_64) running in software
-emulation with no GPU and no hardware acceleration: the APK installs, unpacks
-its 67 data files, bakes the art, starts SDL's audio thread with the
-synthesized music (the emulator ran without sound output, so nothing was
-heard), and shows the title screen. The on-screen gamepad drives the menus, the runner select and
-the training stage (walking, picking up gems). Bluetooth gamepads use the same
-SDL code as on Linux, but no pad was tested here.
+- **In a level:** a floating stick on the left half of the screen (it
+  centres wherever the thumb lands and keeps steering if the thumb slides
+  across), and Jump, Fire, Switch runner and Pause on the right. Drawn
+  faintly so the level shows through.
+- **In menus, cutscenes and tallies:** a d-pad, OK (confirm, skip) and
+  BACK. BACK never fires or pauses, so it can't quit the title by accident.
+- **TOUCH PAD: SMALL / MEDIUM / LARGE** on the title screen and in the pause
+  menu, saved in the profile.
+- The overlay hides when a key or gamepad is used and comes back with the
+  next touch. A tap shorter than a frame still counts.
 
-The emulator manages about 8 fps, since it emulates the CPU and draws with a
-software GPU. That says nothing about phone speed: the game logs its frame
-rate to logcat every 10 seconds (`adb logcat -s SDL/APP`), which is the first
-thing to check on a real phone. The work per frame is SDL texture blits of
-pre-baked art, which any phone GPU handles; startup Cairo baking takes about
-half a second on a desktop and should take a few seconds on a phone.
+The same overlay runs on Linux with `--touch` (for a touch screen, or to
+try the layout).
 
-The largest texture is 2560x720, fine for every phone of the last decade
-(OpenGL ES 2 only guarantees 2048, so very old devices could miss a backdrop).
+## Testing
 
-Note for emulator testing: `adb shell input tap X Y` on this emulator in
-landscape maps X through a 1920-wide space (x_app = (X - 180) * 1.1875), so
-taps land to the right of where the screenshot says. The raw finger positions
-SDL reports match that mapping, so the game's own conversion is not the cause.
+- `ctest --test-dir build` on Linux runs `touch_test` with the savegame
+  tests.
+- In the emulator: `adb install -r ...apk`, then `adb logcat -s SDL/APP`
+  shows the data unpacking and the frame rate every 10 seconds.
+- `adb shell input tap X Y` on the landscape emulator maps X through a
+  1920-wide space (x_app = (X - 180) * 1.1875), so taps land right of where
+  a screenshot says; real touches are not affected.
 
-## What a full port still needs
+## Releasing
 
-- **Font.** Without fontconfig, Cairo's toy font API falls back to its
-  built-in stroke font. It is readable and looks fine, but it is not DejaVu
-  Sans. To match the desktop: build Cairo with FreeType, ship
-  `DejaVuSans-Bold.ttf` in the APK and create the font face with
-  `cairo_ft_font_face_create_for_ft_face` in `Renderer::text` (and the two
-  other `cairo_select_font_face` calls).
-- **Touch controls tuning.** The layout is fixed and the d-pad sits where
-  the camera keeps the runner (lower left). Wants: placement and size per
-  screen, a floating stick, transparency in levels, an options screen, and
-  menus you can tap directly.
-- **App lifecycle.** SDL already pauses the loop in the background; the
-  game should also open its pause menu and save the profile on
-  `SDL_APP_WILLENTERBACKGROUND`, since Android may kill a background app.
-- **Data loading.** Unpacking to internal storage keeps the game's file
-  code unchanged. Cleaner: read levels and cutscenes through `SDL_RWops`.
-- **Store release.** A real signing key, an adaptive launcher icon, a
-  version scheme, an App Bundle (`bundleRelease`), and testing on a range
-  of phones (GPU drivers, notches and aspect ratios, 60 vs 90/120 Hz
-  displays).
-- **CI.** A job that runs `android/build.sh` so the port does not rot as
-  the desktop game changes.
+Releases go out through [snonux/fdroid](https://github.com/snonux/fdroid):
+a `vX.Y.Z` tag runs `.github/workflows/release.yml`, which builds the APK
+with the release key and attaches `gunrunners-vX.Y.Z.apk` to the GitHub
+release; the F-Droid repo picks it up from there with the store text in
+`fastlane/metadata/android/`.
+
+- **Version:** `project(Gunrunners VERSION x.y.z)` in `CMakeLists.txt`.
+  The APK's versionCode is `x * 10000 + y * 100 + z`, so it grows with
+  every release.
+- **Changelog:** `fastlane/metadata/android/en-US/changelogs/default.txt`,
+  at most 500 characters, rewritten before each tag.
+- **Icon:** `tools/icons.sh` draws it with the game's own art.
+
+### One-time setup (Paul, fish)
+
+The release key is the app's identity on every phone; keep it backed up.
+
+```fish
+mkdir -p ~/.config/gunrunners
+set pw (openssl rand -hex 16)
+keytool -genkeypair -noprompt -keystore ~/.config/gunrunners/release.jks -storetype PKCS12 \
+  -alias gunrunners -keyalg RSA -keysize 4096 -validity 36500 \
+  -dname "CN=Gunrunners" -storepass $pw -keypass $pw
+printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=gunrunners\nkeyPassword=%s\n' \
+  ~/.config/gunrunners/release.jks $pw $pw > android/key.properties
+chmod 600 ~/.config/gunrunners/release.jks android/key.properties
+cp ~/.config/gunrunners/release.jks android/key.properties ~/.foostore-export/
+
+mkdir -p .github/workflows; and git mv ci/workflows/release.yml ci/workflows/build.yml .github/workflows/
+git commit -m "Enable the release and build workflows"; and git push
+
+function get; sed -n "s/^$argv[1]=//p" android/key.properties; end
+base64 -w0 (get storeFile) | gh secret set ANDROID_KEYSTORE
+gh secret set ANDROID_KEY_ALIAS --body (get keyAlias)
+gh secret set ANDROID_KEYSTORE_PASSWORD --body (get storePassword)
+gh secret set ANDROID_KEY_PASSWORD --body (get keyPassword)
+```
+
+Optionally `gh secret set FDROID_DISPATCH_TOKEN` (a fine-grained token with
+*Contents: read and write* on snonux/fdroid), so a release shows up in
+F-Droid at once instead of within six hours.
+
+### Each release (fish)
+
+```fish
+# bump project(Gunrunners VERSION ...) in CMakeLists.txt, rewrite the changelog
+git commit -am "Release vX.Y.Z"; and git tag vX.Y.Z; and git push; and git push --tags
+gh run watch
+```

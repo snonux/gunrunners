@@ -44,8 +44,16 @@ pixels. Every sound and every note of music is made by the game itself.
 
 ## Get the game
 
-Gunrunners runs on Linux. Install the build tools and libraries, then build
-and start it:
+Gunrunners runs on Linux and Android.
+
+**Android:** install it with [F-Droid](https://f-droid.org) from Paul's
+repository: add `https://snonux.github.io/fdroid/repo` under *Settings →
+Repositories* ([details and QR code](https://github.com/snonux/fdroid)),
+then search for Gunrunners. Play with the on-screen controls or a Bluetooth
+gamepad. Building the APK yourself is described in
+[android/README.md](android/README.md).
+
+**Linux:** install the build tools and libraries, then build and start it:
 
 ```sh
 sudo apt install build-essential cmake libsdl2-dev libcairo2-dev   # Debian/Ubuntu
@@ -54,6 +62,15 @@ sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel              # Fedora
 ```
 
 After that, `./build/gunrunners` starts the game.
+
+## Touch controls (Android)
+
+In a level, the left half of the screen is a stick: put your thumb down
+anywhere there and slide it. On the right are Jump (the big button), Fire,
+Switch runner and, at the top, Pause. In menus you get a d-pad with OK and
+BACK. TOUCH PAD on the title screen and in the pause menu picks small,
+medium or large controls. The back key pauses. Leaving the app pauses the
+game.
 
 ## Controls
 

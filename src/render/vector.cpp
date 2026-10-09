@@ -1,6 +1,13 @@
 #include "render/vector.hpp"
 
 #include <algorithm>
+#include <cstdio>
+
+#ifdef GR_BUNDLED_FONT
+#include <cairo-ft.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#endif
 
 namespace gr
 {
@@ -33,6 +40,52 @@ Texture VectorImage::toTexture(const Renderer& r, float anchorX, float anchorY, 
     anchorY,
     mirrorX);
 }
+
+#ifdef GR_BUNDLED_FONT
+namespace
+{
+cairo_font_face_t* gFont = nullptr;        // upright
+cairo_font_face_t* gFontOblique = nullptr; // slanted by Cairo
+} // namespace
+
+bool loadGameFont(const char* ttfPath)
+{
+  static FT_Library library = nullptr;
+  if (!library && FT_Init_FreeType(&library) != 0)
+    return false;
+  // Both faces live for the whole run, so the FT_Faces are never freed.
+  FT_Face upright = nullptr, oblique = nullptr;
+  if (FT_New_Face(library, ttfPath, 0, &upright) != 0 || FT_New_Face(library, ttfPath, 0, &oblique) != 0)
+  {
+    std::fprintf(stderr, "cannot load the font %s\n", ttfPath);
+    return false;
+  }
+  gFont = cairo_ft_font_face_create_for_ft_face(upright, 0);
+  gFontOblique = cairo_ft_font_face_create_for_ft_face(oblique, 0);
+  cairo_ft_font_face_set_synthesize(gFontOblique, CAIRO_FT_SYNTHESIZE_OBLIQUE);
+  return true;
+}
+
+void selectGameFont(cairo_t* cr, bool italic)
+{
+  if (cairo_font_face_t* face = italic ? gFontOblique : gFont)
+    cairo_set_font_face(cr, face);
+  else
+    cairo_select_font_face(
+      cr, "DejaVu Sans", italic ? CAIRO_FONT_SLANT_ITALIC : CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+}
+#else
+bool loadGameFont(const char*)
+{
+  return true;
+}
+
+void selectGameFont(cairo_t* cr, bool italic)
+{
+  cairo_select_font_face(
+    cr, "DejaVu Sans", italic ? CAIRO_FONT_SLANT_ITALIC : CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+}
+#endif
 
 void setColor(cairo_t* cr, Color c)
 {

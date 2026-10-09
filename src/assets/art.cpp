@@ -1216,7 +1216,7 @@ Texture bakeItemIcon(const Renderer& r, const Theme& t, int icon, Color gemColor
       setColor(cr, rgba(255, 255, 255, 70));
       cairo_set_line_width(cr, 2.0);
       cairo_stroke(cr);
-      cairo_select_font_face(cr, "DejaVu Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+      selectGameFont(cr);
       cairo_set_font_size(cr, 34);
       cairo_text_extents_t ext;
       cairo_text_extents(cr, letter, &ext);

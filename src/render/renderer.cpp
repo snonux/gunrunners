@@ -205,11 +205,7 @@ const Texture& Renderer::text(const std::string& s, const TextStyle& st)
     return it->second;
 
   const auto setFont = [&](cairo_t* cr) {
-    cairo_select_font_face(
-      cr,
-      "DejaVu Sans",
-      st.italic ? CAIRO_FONT_SLANT_ITALIC : CAIRO_FONT_SLANT_NORMAL,
-      CAIRO_FONT_WEIGHT_BOLD);
+    selectGameFont(cr, st.italic);
     cairo_set_font_size(cr, st.size);
   };
 

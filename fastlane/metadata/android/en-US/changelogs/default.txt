@@ -1,0 +1,1 @@
+First Android release: all of Episode 1 (Levels 1-7) with its bonus levels and ending, an on-screen gamepad in three sizes, Bluetooth and USB gamepads, and the game pauses itself when you leave the app.

@@ -37,6 +37,14 @@ Fullscreen uses SDL's desktop fullscreen (`SDL_WINDOW_FULLSCREEN_DESKTOP`):
 a borderless window at the desktop resolution, with the 1280x720 logical
 size letterboxed. The setting is the `fullscreen` key in `profile.txt`.
 
+## Android
+
+The same code builds for Android (arm64, 32-bit ARM and x86_64) with SDL2's
+Android backend: `android/build.sh` makes the APK. How the port fits
+together, the touch controls and how releases reach F-Droid are in
+[android/README.md](../android/README.md). `--touch` shows the on-screen
+gamepad on Linux too.
+
 ## Gamepads
 
 Gamepads use SDL2's GameController API, so any pad SDL knows gets the same
@@ -196,7 +204,12 @@ levels/        text level files (format in levels/README.md)
 cutscenes/     cutscene scripts
 tools/         record.sh, mklevel.py (levels/level1.txt), levels/*.py
                (one generator per campaign level), covers.sh and cover/
-               (the box art, drawn with the game's own runners)
+               (the box art, drawn with the game's own runners), icons.sh
+               (the Android app icon)
+fonts/         DejaVu Sans Bold, for builds without fontconfig (Android)
+android/       the Android project (Gradle, SDL2's activity, deps script)
+fastlane/      store text, icon and screenshots for F-Droid
+ci/workflows/  release and build workflows, to be moved to .github/
 docs/          design directions and media
 ```
 

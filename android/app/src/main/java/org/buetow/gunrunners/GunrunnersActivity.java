@@ -1,4 +1,4 @@
-package io.github.snonux.gunrunners;
+package org.buetow.gunrunners;
 
 import org.libsdl.app.SDLActivity;
 

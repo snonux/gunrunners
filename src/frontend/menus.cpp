@@ -23,13 +23,14 @@ enum PauseItem
   kChangeRunner,
   kCheats,
   kFullscreen,
+  kTouchSize,
   kQuitToTitle,
   kQuitGame,
   kPauseItemCount,
 };
 
 const char* const kPauseLabels[kPauseItemCount] = {
-  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "QUIT TO TITLE",
+  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "TOUCH PAD", "QUIT TO TITLE",
   "QUIT GAME"};
 
 // Entered on the pause menu, Konami style: up, up, down, down, left, right,
@@ -47,7 +48,8 @@ std::vector<int> Game::pauseItems() const
 {
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
+    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window) &&
+        (i != kTouchSize || mOptions.touch))
       items.push_back(i);
   return items;
 }
@@ -58,6 +60,30 @@ void Game::setFullscreen(bool on)
   if (mProfile.fullscreen == on)
     return;
   mProfile.fullscreen = on;
+  mProfile.save(saveDir());
+}
+
+void Game::cycleTouchSize()
+{
+  mProfile.touchSize = (mProfile.touchSize + 1) % 3;
+  mProfile.save(saveDir());
+}
+
+std::string Game::touchSizeLabel() const
+{
+  static const char* const kSizes[3] = {"SMALL", "MEDIUM", "LARGE"};
+  return std::string("TOUCH PAD: ") + kSizes[std::clamp(mProfile.touchSize, 0, 2)];
+}
+
+bool Game::inLevel() const
+{
+  return mMenu == Menu::None && mMode == Mode::Play;
+}
+
+void Game::suspend()
+{
+  if (mMenu == Menu::None && mMode == Mode::Play && mWorld && mWorld->state() == WorldState::Playing)
+    openMenu(Menu::Pause);
   mProfile.save(saveDir());
 }
 
@@ -267,6 +293,9 @@ bool Game::tickMenu(const Input& in)
           case kFullscreen:
             mFullscreenToggle = true;
             break;
+          case kTouchSize:
+            cycleTouchSize();
+            break;
           case kSave:
             mSlotsForSave = true;
             openMenu(Menu::Slots);
@@ -416,7 +445,9 @@ void Game::renderMenu()
       }
       const int item = items[std::size_t(i)];
       const std::string label =
-        item == kFullscreen ? (mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF") : kPauseLabels[item];
+        item == kFullscreen ? (mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF")
+        : item == kTouchSize ? touchSizeLabel()
+                             : kPauseLabels[item];
       r.drawText(label, 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);
     }

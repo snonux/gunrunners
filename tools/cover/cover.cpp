@@ -405,7 +405,7 @@ void front(const std::string& path)
   font(cr, 26);
   text(cr, "GR", 30, 46, 0xffb02a);
   font(cr, 20, false);
-  text(cr, "FOR LINUX  \xC2\xB7  KEYBOARD & GAMEPAD", W - 30, 44, 0xffffff, 1.0);
+  text(cr, "LINUX & ANDROID  \xC2\xB7  GAMEPAD, KEYS & TOUCH", W - 30, 44, 0xffffff, 1.0);
 
   logo(cr, W / 2.0, 250, 170, W - 70.0);
   font(cr, 30, true);
@@ -577,13 +577,74 @@ void back(const std::string& path, const std::vector<std::string>& shots)
   cairo_surface_destroy(s);
 }
 
+// The app icon, as Android's adaptive icon layers (432 px: 108 dp at
+// xxxhdpi; launchers mask it to a circle or squircle and show the middle
+// 66%) plus a flat 512 px icon for the store listing.
+void icon(const std::string& dir)
+{
+  constexpr int kLayer = 432;
+  const double s = kLayer / 1000.0;
+
+  auto layer = [&](const char* name, bool background) {
+    cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, kLayer, kLayer);
+    cairo_t* cr = cairo_create(surf);
+    cairo_scale(cr, s, s);
+    if (background)
+      neonNight(cr, 640, 470, 250, 7);
+    else
+    {
+      // Rocco head and shoulders, with his rocket launcher.
+      glow(cr, 500, 520, 300, 0x40e0ff, 0.35);
+      runner(cr, 1, 0, 470, 1240, 9.0, false);
+    }
+    cairo_surface_write_to_png(surf, (dir + "/" + name).c_str());
+    cairo_destroy(cr);
+    cairo_surface_destroy(surf);
+  };
+  layer("icon_background.png", true);
+  layer("icon_foreground.png", false);
+
+  // The flat icon: both layers under a rounded mask.
+  constexpr int kFlat = 512;
+  cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, kFlat, kFlat);
+  cairo_t* cr = cairo_create(surf);
+  const double r = kFlat * 0.18;
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, kFlat - r, r, r, -kPi / 2, 0);
+  cairo_arc(cr, kFlat - r, kFlat - r, r, 0, kPi / 2);
+  cairo_arc(cr, r, kFlat - r, r, kPi / 2, kPi);
+  cairo_arc(cr, r, r, r, kPi, 3 * kPi / 2);
+  cairo_close_path(cr);
+  cairo_clip(cr);
+  // Show the same middle part a launcher shows.
+  const double crop = kLayer * 0.17;
+  cairo_scale(cr, kFlat / (kLayer - 2 * crop), kFlat / (kLayer - 2 * crop));
+  cairo_translate(cr, -crop, -crop);
+  for (const char* name : {"icon_background.png", "icon_foreground.png"})
+  {
+    cairo_surface_t* img = cairo_image_surface_create_from_png((dir + "/" + name).c_str());
+    cairo_set_source_surface(cr, img, 0, 0);
+    cairo_paint(cr);
+    cairo_surface_destroy(img);
+  }
+  cairo_surface_write_to_png(surf, (dir + "/icon.png").c_str());
+  cairo_destroy(cr);
+  cairo_surface_destroy(surf);
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
+  if (argc == 3 && std::string(argv[1]) == "--icon")
+  {
+    icon(argv[2]);
+    std::printf("wrote %s/icon.png and the adaptive icon layers\n", argv[2]);
+    return 0;
+  }
   if (argc < 2)
   {
-    std::fprintf(stderr, "usage: %s OUTDIR [SHOT.png ...]\n", argv[0]);
+    std::fprintf(stderr, "usage: %s OUTDIR [SHOT.png ...]   or   %s --icon OUTDIR\n", argv[0], argv[0]);
     return 1;
   }
   const std::string dir = argv[1];

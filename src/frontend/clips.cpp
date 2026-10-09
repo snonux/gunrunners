@@ -733,7 +733,7 @@ void caseClip(ClipKit& k, int frame, int ticks, float ox, float oy)
     cairo_rectangle(cr, 60, 40, 640, 180);
     cairo_set_source_rgb(cr, 0.22, 0.23, 0.27);
     cairo_fill(cr);
-    cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    selectGameFont(cr);
     cairo_set_font_size(cr, 54);
     cairo_text_extents_t te;
     cairo_text_extents(cr, "HALCYON ARMS", &te);
