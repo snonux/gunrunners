@@ -445,6 +445,75 @@ std::vector<float> makeSfx(Sfx id)
         return a.step(f, Wave::Saw) * 0.2 * std::min(1.0, (total - t) / 0.08);
       });
     }
+    case Sfx::Creak:
+    {
+      // A slow wooden groan: a low saw wobbling in pitch, rough with noise.
+      Osc a;
+      Noise n(81);
+      return render(0.6, [&](double t, double total) {
+        const double f = 90.0 + 30.0 * std::sin(t * 23.0) + 20.0 * std::sin(t * 7.0);
+        return (a.step(f, Wave::Saw) * 0.12 + n.next() * 0.04) * std::min(1.0, t / 0.05) *
+          std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Chop:
+    {
+      Noise n(83);
+      Osc a;
+      return render(0.14, [&](double t, double total) {
+        const double e = std::exp(-t * 40.0);
+        return (n.next() * 0.35 + a.step(sweep(420.0, 180.0, t / total), Wave::Square, 0.5) * 0.12) * e;
+      });
+    }
+    case Sfx::Hoot:
+    {
+      // Two monkey hoots, each sliding up.
+      Osc a;
+      return render(0.42, [&](double t, double) {
+        const double k = std::fmod(t, 0.21) / 0.21;
+        const double f = 380.0 + 420.0 * k;
+        return a.step(f, Wave::Sine) * 0.22 * std::sin(k * 3.1416);
+      });
+    }
+    case Sfx::Rustle:
+    {
+      Noise n(85);
+      double lp = 0.0;
+      return render(0.5, [&](double t, double total) {
+        lp += (n.next() - lp) * 0.25;
+        const double flutter = 0.5 + 0.5 * std::sin(t * 70.0);
+        return lp * 0.5 * flutter * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Whoosh:
+    {
+      Noise n(87);
+      double lp = 0.0;
+      return render(0.3, [&](double t, double total) {
+        lp += (n.next() - lp) * (0.1 + 0.3 * std::sin(t / total * 3.1416));
+        return lp * 0.45 * std::sin(t / total * 3.1416);
+      });
+    }
+    case Sfx::Yell:
+    {
+      // The jungle yell: a rising voice warble (three quick yodel steps).
+      Osc a, b;
+      return render(3.0, [&](double t, double total) {
+        const double step = std::floor(t / 0.5);
+        const double base = 260.0 * std::pow(1.26, std::fmod(step, 3.0));
+        const double f = base * (1.0 + 0.06 * std::sin(t * 38.0));
+        const double env = std::min(1.0, t / 0.08) * std::min(1.0, (total - t) / 0.4);
+        return (a.step(f, Wave::Saw) * 0.08 + b.step(f * 2.0, Wave::Sine) * 0.1) * env;
+      });
+    }
+    case Sfx::Boing:
+    {
+      Osc a;
+      return render(0.25, [&](double t, double total) {
+        const double f = 180.0 + 260.0 * (t / total) + 30.0 * std::sin(t * 90.0);
+        return a.step(f, Wave::Sine) * 0.3 * std::exp(-t * 9.0);
+      });
+    }
     case Sfx::Count:
       break;
   }

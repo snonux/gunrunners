@@ -56,6 +56,11 @@ const EnemyDef kEnemies[] = {
   // Pilot Seat's cardboard targets: they only run along their roofs.
   {"cardboard_runner", "CARDBOARD RUNNER", K::Walker, L::Styled, 3, 5, 2, 500, 1, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
   {"cardboard_truck", "CARDBOARD TRUCK", K::Walker, L::Styled, 8, 4, 6, 1500, 1, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  // Level 8: Canopy Road. Howler: range is how far (cells) it throws.
+  // Viper: range is how far to the side (cells) it notices a runner below.
+  {"howler", "HOWLER", K::Howler, L::Styled, 3, 3, 2, 300, 0, 40, 12, 24, 0, 0},
+  {"viper", "CANOPY VIPER", K::Viper, L::Styled, 2, 2, 2, 450, 0, 45, 12, 4, 0, 0},
+  {"cutter", "BRIDGE CUTTER", K::Cutter, L::Styled, 3, 5, 3, 600, 1, 30, 10, 20, 0, 0, 2},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

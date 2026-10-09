@@ -34,6 +34,9 @@ enum class EnemyKind
   Trooper,   // slides down a rope from the gunship, then patrols and shoots
   Biker,     // charges along its roof, turns at the end, revs and charges back
   Shield,    // patrols behind a riot shield that stops shots from the front
+  Howler,    // sits on a branch and lobs fruit that rolls along the ground
+  Viper,     // coiled on a branch; drops to hang and strikes at a runner below
+  Cutter,    // runs to its rope bridge's far anchor and chops it down
 };
 
 enum EnemyFlag : unsigned
