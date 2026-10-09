@@ -80,7 +80,11 @@ After that, `./build/gunrunners` starts the game.
 
 In a level, the left half of the screen is a stick: put your thumb down
 anywhere there and slide it. On the right are Jump (the big button), Fire,
-Switch runner and, at the top, Pause. In menus you get a d-pad with OK and
+Switch runner and, at the top, Pause. You don't have to hit them exactly:
+a touch near them presses the nearest one, a thumb that drifts keeps its
+button, and sliding onto another button switches to it. Or swipe: a quick
+swipe up anywhere on the right half jumps (also with a thumb on Fire), a
+quick swipe down switches runner. In menus you get a d-pad with OK and
 BACK. TOUCH PAD on the title screen and in the pause menu picks small,
 medium or large controls. The back key pauses. Leaving the app pauses the
 game.

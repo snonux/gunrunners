@@ -1,1 +1,1 @@
-Releases now also come with a Linux download. Nothing changes in the Android game.
+Touch controls that are much easier to hit: the buttons sit at the screen's edges (in the black bars on wide phones), a touch near a button presses it, and a thumb that drifts keeps its button. New: swipe up on the right half to jump, swipe down to switch runner. Releases now also come with a Linux download.

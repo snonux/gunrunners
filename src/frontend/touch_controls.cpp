@@ -11,14 +11,25 @@ namespace gr
 namespace
 {
 
-// Geometry at the medium size, measured from the corner each control hugs.
+// Geometry at the medium size, measured from the corner of the visible
+// screen each control hugs.
 constexpr float kStickR = 125.0f;
 constexpr float kStickFromLeft = 175.0f;
 constexpr float kStickFromBottom = 175.0f;
 // A thumb this close to the stick's centre steers nowhere.
-constexpr float kDeadZone = 26.0f;
-// A touch counts for a button within this multiple of its drawn radius.
-constexpr float kHitSlop = 1.35f;
+constexpr float kDeadZone = 22.0f;
+// A thumb further out than this drags the stick's centre along, so turning
+// round takes a short move rather than the whole way back.
+constexpr float kStickLeash = 1.0f;
+// A touch this far outside a button's rim (in its radii) still presses it,
+// whichever button's rim is nearest: no dead gaps between them.
+constexpr float kReach = 1.2f;
+// Pause is out of the way and only answers a touch close to it.
+constexpr float kPauseReach = 0.6f;
+// A swipe: this far (at medium size), more along one axis than the other,
+// within this long. Slower moves are a thumb shifting on its button.
+constexpr float kSwipeDistance = 80.0f;
+constexpr Uint32 kSwipeMs = 220;
 // The art is baked at the large size and scaled down.
 constexpr float kBakeScale = 1.2f;
 constexpr float kSizes[3] = {0.8f, 1.0f, 1.2f};
@@ -29,13 +40,13 @@ struct ButtonSpec
 };
 // jump, fire, switch (bottom right); pause hugs the top right instead.
 constexpr ButtonSpec kSpecs[3] = {
-  {115.0f, 130.0f, 72.0f},
-  {268.0f, 80.0f, 60.0f},
-  {115.0f, 280.0f, 44.0f},
+  {120.0f, 140.0f, 82.0f},
+  {292.0f, 92.0f, 68.0f},
+  {120.0f, 300.0f, 52.0f},
 };
-constexpr float kPauseFromRight = 52.0f;
+constexpr float kPauseFromRight = 56.0f;
 constexpr float kPauseY = 120.0f;
-constexpr float kPauseR = 34.0f;
+constexpr float kPauseR = 36.0f;
 
 constexpr Color kNeon = rgb(46, 242, 255);
 constexpr Color kPink = rgb(255, 46, 196);
@@ -180,17 +191,31 @@ void TouchControls::configure(Layout layout, int size)
   mScale = kSizes[std::clamp(size, 0, 2)];
 }
 
+void TouchControls::setScreen(int pixelW, int pixelH)
+{
+  if (pixelW <= 0 || pixelH <= 0)
+    return;
+  // SDL letterboxes the logical 1280x720 picture into the middle.
+  const float scale = std::min(float(pixelW) / float(kScreenW), float(pixelH) / float(kScreenH));
+  const float barX = (float(pixelW) / scale - float(kScreenW)) * 0.5f;
+  const float barY = (float(pixelH) / scale - float(kScreenH)) * 0.5f;
+  mLeft = -barX;
+  mRight = float(kScreenW) + barX;
+  mTop = -barY;
+  mBottom = float(kScreenH) + barY;
+}
+
 TouchControls::Circle TouchControls::stickHome() const
 {
-  return {kStickFromLeft * mScale, float(kScreenH) - kStickFromBottom * mScale, kStickR * mScale};
+  return {mLeft + kStickFromLeft * mScale, mBottom - kStickFromBottom * mScale, kStickR * mScale};
 }
 
 TouchControls::Circle TouchControls::button(int b) const
 {
   if (b == kPause)
-    return {float(kScreenW) - kPauseFromRight, kPauseY, kPauseR * mScale};
+    return {mRight - kPauseFromRight * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale};
   const ButtonSpec& s = kSpecs[b];
-  return {float(kScreenW) - s.fromRight * mScale, float(kScreenH) - s.fromBottom * mScale, s.r * mScale};
+  return {mRight - s.fromRight * mScale, mBottom - s.fromBottom * mScale, s.r * mScale};
 }
 
 bool TouchControls::buttonShown(int b) const
@@ -206,13 +231,10 @@ void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
     case SDL_FINGERMOTION:
     case SDL_FINGERUP:
     {
-      // Finger positions are 0..1 of the window; the game draws in a
-      // letterboxed 1280x720 logical space.
-      int w = 0, h = 0;
-      SDL_GetWindowSize(window, &w, &h);
-      float lx = 0.0f, ly = 0.0f;
-      SDL_RenderWindowToLogical(
-        SDL_GetRenderer(window), int(ev.tfinger.x * float(w)), int(ev.tfinger.y * float(h)), &lx, &ly);
+      // Finger positions are 0..1 of the whole screen, bars included.
+      const float lx = mLeft + ev.tfinger.x * (mRight - mLeft);
+      const float ly = mTop + ev.tfinger.y * (mBottom - mTop);
+      mNow = ev.tfinger.timestamp;
       if (ev.type == SDL_FINGERDOWN)
         press(ev.tfinger.fingerId, lx, ly);
       else if (ev.type == SDL_FINGERMOTION)
@@ -238,19 +260,24 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
 {
   mVisible = true;
   lift(id);
-  Finger f{id, x, y, x < float(kScreenW) * 0.5f, 0.0f, 0.0f};
+  Finger f{id, x, y, x < float(kScreenW) * 0.5f, 0.0f, 0.0f, -1, x, y, mNow, false, false};
   const Circle home = stickHome();
   if (f.stick && mLayout == Layout::Play)
   {
     // The stick centres under the thumb, kept clear of the screen's edges
     // and of the HUD.
-    f.ox = std::clamp(x, home.r * 0.7f, float(kScreenW) * 0.5f - home.r * 0.7f);
-    f.oy = std::clamp(y, 110.0f + home.r * 0.7f, float(kScreenH) - home.r * 0.7f);
+    const float m = home.r * 0.7f;
+    f.ox = std::clamp(x, mLeft + m, float(kScreenW) * 0.5f - m);
+    f.oy = std::clamp(y, std::max(mTop, 0.0f) + 110.0f + m, mBottom - m);
   }
-  else
+  else if (f.stick)
   {
     f.ox = home.x;
     f.oy = home.y;
+  }
+  else
+  {
+    f.button = buttonFor(x, y);
   }
   mFingers.push_back(f);
   mTapped = mTapped | held();
@@ -259,11 +286,64 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
 void TouchControls::move(SDL_FingerID id, float x, float y)
 {
   for (auto& f : mFingers)
-    if (f.id == id)
+  {
+    if (f.id != id)
+      continue;
+    f.x = x;
+    f.y = y;
+    if (f.stick && mLayout == Layout::Play)
     {
-      f.x = x;
-      f.y = y;
+      const float leash = kStickR * mScale * kStickLeash;
+      const float dx = x - f.ox, dy = y - f.oy;
+      const float d = std::hypot(dx, dy);
+      if (d > leash)
+      {
+        f.ox = x - dx * leash / d;
+        f.oy = y - dy * leash / d;
+      }
     }
+    else if (!f.stick)
+    {
+      swipe(f);
+      const int b = f.swiped ? f.button : buttonSlidTo(x, y, f.button);
+      if (b != f.button)
+      {
+        f.button = b;
+        mTapped = mTapped | held();
+      }
+    }
+  }
+}
+
+void TouchControls::swipe(Finger& f)
+{
+  if (mLayout != Layout::Play)
+    return;
+  // Measured from a start point that follows the finger, so only a quick
+  // flick counts, at any point while the finger is down.
+  if (mNow - f.st > kSwipeMs)
+  {
+    f.sx = f.x;
+    f.sy = f.y;
+    f.st = mNow;
+    return;
+  }
+  const float dx = f.x - f.sx, dy = f.y - f.sy;
+  if (std::fabs(dy) < kSwipeDistance * mScale || std::fabs(dy) < std::fabs(dx) * 1.5f)
+    return;
+  if (dy < 0.0f)
+  {
+    f.swipeJump = true;
+    mTapped.jump = true;
+  }
+  else if (f.button != kSwap) // its own press already switched
+  {
+    mTapped.swap = true;
+  }
+  f.swiped = true;
+  f.sx = f.x;
+  f.sy = f.y;
+  f.st = mNow;
 }
 
 void TouchControls::lift(SDL_FingerID id)
@@ -273,29 +353,46 @@ void TouchControls::lift(SDL_FingerID id)
     mFingers.end());
 }
 
-int TouchControls::buttonAt(float x, float y) const
+// The button whose rim is nearest, if the touch is within its reach.
+int TouchControls::buttonFor(float x, float y) const
 {
   int best = -1;
-  float bestD = 0.0f;
+  float bestGap = 0.0f;
   for (int b = 0; b < kButtonCount; ++b)
   {
     if (!buttonShown(b))
       continue;
     const Circle c = button(b);
-    const float d = std::hypot(x - c.x, y - c.y) / c.r;
-    if (d < kHitSlop && (best < 0 || d < bestD))
+    const float gap = std::hypot(x - c.x, y - c.y) - c.r;
+    const float reach = (b == kPause ? kPauseReach : kReach) * c.r;
+    if (gap < reach && (best < 0 || gap < bestGap))
     {
       best = b;
-      bestD = d;
+      bestGap = gap;
     }
   }
   return best;
 }
 
+// A held thumb keeps its button however far it drifts, and switches only
+// when it slides right onto another one (pause excepted).
+int TouchControls::buttonSlidTo(float x, float y, int current) const
+{
+  for (int b = 0; b < kButtonCount; ++b)
+  {
+    if (b == current || b == kPause || !buttonShown(b))
+      continue;
+    const Circle c = button(b);
+    if (std::hypot(x - c.x, y - c.y) < c.r)
+      return b;
+  }
+  return current < 0 ? buttonFor(x, y) : current;
+}
+
 bool TouchControls::buttonHeld(int b) const
 {
   for (const auto& f : mFingers)
-    if (!f.stick && buttonAt(f.x, f.y) == b)
+    if (!f.stick && (f.button == b || (b == kJump && f.swipeJump)))
       return true;
   return false;
 }
@@ -354,9 +451,27 @@ void TouchControls::draw(Renderer& renderer) const
 {
   if (!mVisible)
     return;
+  // Draw over the whole screen, letterbox bars included: the viewport is
+  // in logical units, and positions shift by the bars' width.
+  SDL_Renderer* sdl = renderer.sdl();
+  SDL_Rect picture;
+  SDL_RenderGetViewport(sdl, &picture);
+  const bool bars = mLeft < 0.0f || mTop < 0.0f;
+  if (bars)
+  {
+    const SDL_Rect whole{0, 0, int(std::ceil(mRight - mLeft)), int(std::ceil(mBottom - mTop))};
+    SDL_RenderSetViewport(sdl, &whole);
+  }
+  drawAt(renderer, -mLeft, -mTop);
+  if (bars)
+    SDL_RenderSetViewport(sdl, &picture);
+}
+
+void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
+{
   const float scale = mScale / kBakeScale;
   const bool play = mLayout == Layout::Play;
-  const float idle = play ? 0.4f : 0.55f;
+  const float idle = play ? 0.5f : 0.6f;
 
   // The stick: where each thumb put it, or faintly at home.
   const Circle home = stickHome();
@@ -367,8 +482,9 @@ void TouchControls::draw(Renderer& renderer) const
       continue;
     DrawOpts o;
     o.scale = scale;
+    o.cull = false;
     o.alpha = 0.75f;
-    renderer.draw(play ? mStick : mDpad, f.ox, f.oy, o);
+    renderer.draw(play ? mStick : mDpad, sx + f.ox, sy + f.oy, o);
     float dx = f.x - f.ox, dy = f.y - f.oy;
     const float d = std::hypot(dx, dy);
     const float reach = home.r * 0.75f;
@@ -379,16 +495,18 @@ void TouchControls::draw(Renderer& renderer) const
     }
     DrawOpts n;
     n.scale = scale;
+    n.cull = false;
     n.blend = Blend::Add;
-    renderer.draw(mNub, f.ox + dx, f.oy + dy, n);
+    renderer.draw(mNub, sx + f.ox + dx, sy + f.oy + dy, n);
     stickDrawn = true;
   }
   if (!stickDrawn)
   {
     DrawOpts o;
     o.scale = scale;
+    o.cull = false;
     o.alpha = idle;
-    renderer.draw(play ? mStick : mDpad, home.x, home.y, o);
+    renderer.draw(play ? mStick : mDpad, sx + home.x, sy + home.y, o);
   }
 
   for (int b = 0; b < kButtonCount; ++b)
@@ -400,8 +518,9 @@ void TouchControls::draw(Renderer& renderer) const
     DrawOpts o;
     o.alpha = held ? 0.95f : idle;
     o.scale = scale * (held ? 0.92f : 1.0f);
+    o.cull = false;
     const Texture& t = play ? mPlayIcons[std::size_t(b)] : (b == kJump ? mOk : mBack);
-    renderer.draw(t, c.x, c.y, o);
+    renderer.draw(t, sx + c.x, sy + c.y, o);
   }
 }
 

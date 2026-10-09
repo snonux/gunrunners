@@ -56,6 +56,7 @@ struct DrawOpts
   Blend blend = Blend::Alpha;
   float scale = 1.0f;
   float angle = 0.0f; // degrees, clockwise, around the anchor
+  bool cull = true;   // skip if outside 1280x720 (off for the letterbox bars)
 };
 
 struct TextStyle

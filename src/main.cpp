@@ -490,8 +490,13 @@ int runWindowed(const CliOptions& o)
     last = now;
     accumulator = std::min(accumulator, 0.25);
     if (touch)
+    {
+      int pw = 0, ph = 0;
+      SDL_GetRendererOutputSize(sdlRenderer, &pw, &ph);
+      touch->setScreen(pw, ph);
       touch->configure(
         game.inLevel() ? TouchControls::Layout::Play : TouchControls::Layout::Menu, game.touchSize());
+    }
     while (accumulator >= tickSeconds && running)
     {
       running = game.tick(touch ? controls.read() | touch->read() : controls.read());

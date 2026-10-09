@@ -42,8 +42,19 @@ debug key; see "Releasing".
 
 - **In a level:** a floating stick on the left half of the screen (it
   centres wherever the thumb lands and keeps steering if the thumb slides
-  across), and Jump, Fire, Switch runner and Pause on the right. Drawn
+  across, its centre following a thumb that goes far out so turning round
+  is quick), and Jump, Fire, Switch runner and Pause on the right. Drawn
   faintly so the level shows through.
+- **Made to hit without looking:** the controls hug the physical screen's
+  edges, so on phones wider than 16:9 they sit in the black bars beside the
+  picture, under the thumbs. A touch up to 1.2 radii outside a button
+  presses the button whose rim is nearest; Pause needs a closer touch. A
+  thumb keeps its button however far it drifts and switches only when it
+  slides right onto another one.
+- **Swipes, on the right half in a level:** a quick swipe up (80 units in
+  under 220 ms) jumps and holds jump until the finger lifts, so a thumb on
+  Fire can jump without letting go; a quick swipe down switches runner.
+  Slower moves are not swipes.
 - **In menus, cutscenes and tallies:** a d-pad, OK (confirm, skip) and
   BACK. BACK never fires or pauses, so it can't quit the title by accident.
 - **TOUCH PAD: SMALL / MEDIUM / LARGE** on the title screen and in the pause
