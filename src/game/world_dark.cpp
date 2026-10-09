@@ -722,8 +722,10 @@ void World::drawDark(Renderer& r, float camX, float camY, int frame, float /*alp
       float a = 0.0f;
       if (mSonar)
       {
+        if (mPinged.empty())
+          continue;
         const int age = mStats.frames - mPinged[std::size_t(ty * mLevel->width + tx)];
-        if (mPinged.empty() || age >= 15)
+        if (age >= 15)
           continue;
         a = 1.0f - float(age) / 15.0f;
       }
