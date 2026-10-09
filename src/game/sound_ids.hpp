@@ -48,6 +48,10 @@ enum class Sfx
   Chime,     // the maglev's station chime, the passing train
   Clunk,     // a coupling, a caltrop bay
   Zap,       // the Arc Caster
+  Beep,      // the hunter has a lock
+  Whistle,   // a gunship rocket coming down
+  Scream,    // Black Halo's engine as it lines up a ram
+  Rev,       // a Hover Biker revving
   Count,
 };
 

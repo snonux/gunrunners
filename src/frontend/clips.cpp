@@ -814,6 +814,71 @@ void theJump(ClipKit& k, int frame, int ticks, float ox, float oy)
   rainStreaks(k, frame >= 8 ? 0 : ticks, ox, oy);
 }
 
+// Level 7: night on the building site, the crew among red girders. A white
+// searchlight cone sweeps left to right across them (frames 0-15), the
+// rotor's shadow flickers over everything on frames 0, 4, 8 and 12, and
+// plastic sheeting snaps in the foreground.
+void siteNight(ClipKit& k, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(6, 10, 24));
+  panLayer(k, skyline(k, 0, rgb(16, 22, 44), rgb(255, 200, 120)), float(ticks) * 0.2f + ox, 120 + oy);
+  // Girders: two levels of red I-beams on posts.
+  for (int level = 0; level < 2; ++level)
+  {
+    const float y = 300.0f + float(level) * 240.0f;
+    for (int i = 0; i < 3; ++i)
+    {
+      const float x = float(i) * 470.0f - 60.0f + float(level) * 200.0f;
+      k.r.fillRect(x + ox, y + oy, 380, 34, rgb(150, 44, 30));
+      k.r.fillRect(x + ox, y + oy, 380, 8, rgb(220, 80, 50));
+      for (float hx = x + 30.0f; hx < x + 360.0f; hx += 70.0f)
+        k.r.fillRect(hx + ox, y + 12.0f + oy, 26, 12, rgb(70, 22, 16));
+      k.r.fillRect(x + 20.0f + ox, y + 34.0f + oy, 14, 240, rgb(90, 30, 22));
+    }
+  }
+}
+
+void searchCone(ClipKit& k, float spotX, float spotY, float ox, float oy, float alpha)
+{
+  const float srcX = spotX - 160.0f, srcY = -40.0f;
+  for (int i = -5; i <= 5; ++i)
+    k.r.drawLine(srcX + ox, srcY + oy, spotX + float(i) * 22.0f + ox, spotY + oy, 30.0f,
+      rgba(230, 240, 255, int(alpha * 22.0f)));
+  drawGlow(k.r, k.art, spotX + ox, spotY + oy, 150, rgb(240, 248, 255), 0.45f * alpha);
+}
+
+void searchlightSweep(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  siteNight(k, ticks, ox, oy);
+  k.r.draw(runner(k, 0, 0, 2.2f), 420 + ox, 535 + oy);
+  k.r.draw(runner(k, 1, 0, 2.2f), 650 + ox, 540 + oy);
+  k.r.draw(runner(k, 2, 0, 2.2f, true), 880 + ox, 535 + oy);
+  const float u = float(frame % 16) / 15.0f;
+  searchCone(k, 200.0f + u * 900.0f, 520.0f, ox, oy, 1.0f);
+  if (frame % 4 == 0)
+    k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 90)); // the rotor's shadow
+  // Plastic sheeting in the foreground, snapping in the downdraft.
+  const float snap = float((frame % 4) - 2) * 14.0f;
+  for (int i = 0; i < 6; ++i)
+  {
+    const float x = 40.0f + float(i) * 34.0f + snap * float(i % 2 ? 1 : -1);
+    k.r.fillRect(x + ox, 0 + oy, 34, H, rgba(220, 230, 240, 40));
+    k.r.drawLine(x + 4.0f + ox, oy, x + 4.0f + snap + ox, H + oy, 2.0f, rgba(255, 255, 255, 50));
+  }
+}
+
+// Rocco close up, squinting into the light; the cone pulses on his face.
+void roccoSquint(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  siteNight(k, ticks, ox, oy);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 110));
+  k.r.draw(runner(k, 1, 0, 5.0f), 640 + ox, 860 + oy);
+  const float pulse = 0.6f + 0.4f * std::sin(float(frame % 8) / 8.0f * 6.2832f);
+  searchCone(k, 650.0f, 430.0f, ox, oy, pulse);
+  // The glare full on his face.
+  drawGlow(k.r, k.art, 660 + ox, 420 + oy, 220, rgb(255, 255, 240), 0.35f * pulse);
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -873,6 +938,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return maglevPass(k, frame, ticks, ox, oy);
   if (clip == "the_jump")
     return theJump(k, frame, ticks, ox, oy);
+  if (clip == "searchlight_sweep")
+    return searchlightSweep(k, frame, ticks, ox, oy);
+  if (clip == "rocco_squint")
+    return roccoSquint(k, frame, ticks, ox, oy);
   if (clip == "wreck")
     return wreck(k, frame, ticks, ox, oy);
   if (starts(clip, "runners"))

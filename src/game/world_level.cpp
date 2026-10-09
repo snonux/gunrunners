@@ -96,6 +96,7 @@ void World::setupEntities()
   mSonar = lv.rules.find("sonar") != std::string::npos;
   mAutorun = lv.rules.find("autorun") != std::string::npos;
   mLightTrail = lv.rules.find("lighttrail") != std::string::npos;
+  mFlight = lv.rules.find("flight") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -165,6 +166,7 @@ void World::setupEntities()
       en.carrier = e.num("carrier", 0) != 0;
       setupSludgeEnemy(en, e);
       setupMaglevEnemy(en, e);
+      setupChopperEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -254,7 +256,7 @@ void World::setupEntities()
       const std::string by = e.str("by", "any");
       b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : (by == "pry" ? 4 : 0)));
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : 0)));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : 0))));
       mBreakables.push_back(b);
       continue;
     }
@@ -322,6 +324,20 @@ void World::setupEntities()
         pr.kind = PropKind::Sleeper;
       else if (kind == "hiscore")
         pr.kind = PropKind::HiScore;
+      else if (kind == "girder")
+        pr.kind = PropKind::Girder;
+      else if (kind == "sheet")
+        pr.kind = PropKind::Sheet;
+      else if (kind == "awning")
+        pr.kind = PropKind::Awning;
+      else if (kind == "office")
+        pr.kind = PropKind::Office;
+      else if (kind == "lattice")
+        pr.kind = PropKind::Lattice;
+      else if (kind == "spareship")
+        pr.kind = PropKind::SpareShip;
+      else if (kind == "radio")
+        pr.kind = PropKind::Radio;
       else if (kind == "cat")
       {
         pr.kind = PropKind::Cat;
@@ -354,6 +370,8 @@ void World::setupEntities()
     if (setupSludgeEntity(e))
       continue;
     if (setupMaglevEntity(e))
+      continue;
+    if (setupChopperEntity(e))
       continue;
 
     if (!mSimulation)
@@ -590,7 +608,8 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
   }
   // goal=collect:N ends the bonus level as soon as N gems are in.
   const auto& goal = mLevel->goal;
-  if (goal.rfind("collect:", 0) == 0 && mStats.gems >= std::atoi(goal.c_str() + 8))
+  if ((goal.rfind("collect:", 0) == 0 && mStats.gems >= std::atoi(goal.c_str() + 8)) ||
+      (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)))
   {
     showMessage("GOAL!");
     playSound(Sfx::Teleport);
@@ -884,6 +903,17 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
       case PropKind::HiScore:
         if (onScreen)
           drawTrainProp(r, pr, x, y, w, h, frame, foreground);
+        break;
+      case PropKind::Girder:
+      case PropKind::Sheet:
+      case PropKind::Awning:
+      case PropKind::Office:
+      case PropKind::Lattice:
+      case PropKind::SpareShip:
+      case PropKind::Radio:
+      case PropKind::Mixer:
+        if (onScreen)
+          drawChopperProp(r, pr, x, y, w, h, frame, foreground);
         break;
       case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)
       case PropKind::DanceFloor: // world_club.cpp draws the lit tiles

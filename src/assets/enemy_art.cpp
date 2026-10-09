@@ -852,6 +852,328 @@ void decoupler(const Ctx& c)
   fillOutline(cr, rgb(180, 186, 200), kInk, kLine);
 }
 
+// A trooper figure (level 7): helmet, visor, body armour, rifle. Used by the
+// Rappel Trooper (variant 0 patrol, 1 aiming, 2 on the rope: arms up, legs
+// together) and the Shield Trooper (with a riot shield in front; variant 1
+// raises the gun over it).
+void trooperFigure(const Ctx& c, bool shield)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color armour = shield ? rgb(46, 52, 70) : rgb(70, 78, 64), pants = rgb(36, 38, 46);
+  const Color visor = shield ? rgb(255, 80, 60) : rgb(255, 200, 60);
+  const bool rope = !shield && c.variant == 2;
+  const bool aim = c.variant == 1;
+  const double step = rope ? 0.0 : (c.frame ? 5.0 : -5.0);
+  // Legs.
+  const double spread = rope ? 0.03 : 0.1;
+  strokeLimb(cr, {{x0 + w * 0.42, y0 + h * 0.6}, {x0 + w * (0.5 - spread) + step, y0 + h - 5}}, 11, pants, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.58, y0 + h * 0.6}, {x0 + w * (0.5 + spread) - step, y0 + h - 5}}, 11, pants, kInk, kLine);
+  for (double fx : {0.5 - spread, 0.5 + spread})
+  {
+    roundedRect(cr, x0 + w * fx - 9, y0 + h - 9, 20, 9, 3);
+    fillOutline(cr, rgb(20, 20, 24), kInk, 1.2);
+  }
+  // Torso: a plated vest with pouches.
+  roundedRect(cr, x0 + w * 0.26, y0 + h * 0.3, w * 0.48, h * 0.34, 10);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.64, lighten(armour, 0.2f), armour, kInk, kLine);
+  for (int i = 0; i < 3; ++i)
+  {
+    roundedRect(cr, x0 + w * (0.3 + 0.14 * i), y0 + h * 0.5, w * 0.11, h * 0.07, 2);
+    fillOutline(cr, darken(armour, 0.3f), kInk, 1.0);
+  }
+  // Head: helmet and glowing visor, facing right.
+  circle(cr, x0 + w * 0.52, y0 + h * 0.2, w * 0.19);
+  fillGradientOutline(cr, y0 + h * 0.06, y0 + h * 0.32, lighten(armour, 0.3f), darken(armour, 0.2f), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.52, y0 + h * 0.17, w * 0.2, h * 0.05, 3);
+  setColor(cr, visor);
+  cairo_fill(cr);
+  radialGlow(cr, x0 + w * 0.64, y0 + h * 0.195, 14, visor, aim ? 0.9 : 0.4);
+  if (rope)
+  {
+    // Both hands up on the rope.
+    strokeLimb(cr, {{x0 + w * 0.34, y0 + h * 0.34}, {x0 + w * 0.46, y0 + h * 0.02}}, 8, armour, kInk, kLine);
+    strokeLimb(cr, {{x0 + w * 0.66, y0 + h * 0.34}, {x0 + w * 0.54, y0 + h * 0.06}}, 8, armour, kInk, kLine);
+    return;
+  }
+  // The rifle: level when patrolling, raised and glowing at the muzzle when aiming.
+  const double gy = y0 + h * (aim ? 0.36 : 0.44);
+  strokeLimb(cr, {{x0 + w * 0.36, gy + 4}, {x0 + w * 0.62, gy + 6}}, 8, armour, kInk, kLine);
+  roundedRect(cr, x0 + w * 0.42, gy - 4, w * 0.62, 9, 2);
+  fillOutline(cr, rgb(30, 30, 36), kInk, 1.4);
+  if (aim)
+    radialGlow(cr, x0 + w * 1.06, gy, 16, rgb(255, 140, 60), 0.9);
+  if (shield)
+  {
+    // The riot shield: a tall clear slab in front with a white stencil band.
+    roundedRect(cr, x0 + w * 0.72, y0 + h * (c.variant == 1 ? 0.34 : 0.22), w * 0.26, h * 0.74, 6);
+    fillGradientOutline(cr, y0 + h * 0.2, y0 + h, rgba(170, 200, 230, 210), rgba(90, 110, 140, 210), kInk, kLine);
+    for (int i = 0; i < 4; ++i)
+    {
+      cairo_rectangle(cr, x0 + w * 0.76, y0 + h * (0.46 + 0.05 * i), w * 0.18, h * 0.02);
+      setColor(cr, rgba(255, 255, 255, 140));
+      cairo_fill(cr);
+    }
+  }
+}
+
+void rappelTrooper(const Ctx& c) { trooperFigure(c, false); }
+void shieldTrooper(const Ctx& c) { trooperFigure(c, true); }
+
+// Hover Biker (level 7): a low jet bike with a hunched rider; variant 1 is
+// the rev before a charge (headlight blazing, exhaust flaring).
+void hoverBiker(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color paint = rgb(220, 40, 70), dark = rgb(40, 36, 46);
+  const bool rev = c.variant == 1;
+  const double bob = c.frame ? 2.0 : -2.0;
+  radialGlow(cr, x0 + w * 0.5, y0 + h - 4, w * 0.4, rgb(90, 200, 255), rev ? 0.9 : 0.5);
+  // The bike: a swept wedge.
+  cairo_move_to(cr, x0 + w * 0.02, y0 + h * 0.55 + bob);
+  cairo_line_to(cr, x0 + w * 0.3, y0 + h * 0.42 + bob);
+  cairo_line_to(cr, x0 + w * 0.82, y0 + h * 0.48 + bob);
+  cairo_line_to(cr, x0 + w * 0.98, y0 + h * 0.66 + bob);
+  cairo_line_to(cr, x0 + w * 0.86, y0 + h * 0.84 + bob);
+  cairo_line_to(cr, x0 + w * 0.1, y0 + h * 0.84 + bob);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.42, y0 + h * 0.84, lighten(paint, 0.25f), paint, kInk, kLine);
+  roundedRect(cr, x0 + w * 0.14, y0 + h * 0.7 + bob, w * 0.7, h * 0.08, 3);
+  setColor(cr, dark);
+  cairo_fill(cr);
+  // Rider: hunched forward, helmet low.
+  roundedRect(cr, x0 + w * 0.34, y0 + h * 0.16 + bob, w * 0.26, h * 0.34, 8);
+  fillOutline(cr, dark, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.56, y0 + h * 0.28 + bob}, {x0 + w * 0.76, y0 + h * 0.46 + bob}}, 7, dark, kInk, kLine);
+  circle(cr, x0 + w * 0.64, y0 + h * 0.16 + bob, h * 0.15);
+  fillGradientOutline(cr, y0, y0 + h * 0.3, rgb(250, 250, 255), rgb(150, 150, 170), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.65, y0 + h * 0.12 + bob, w * 0.08, h * 0.07, 2);
+  setColor(cr, rgb(30, 30, 40));
+  cairo_fill(cr);
+  // Headlight and exhaust.
+  radialGlow(cr, x0 + w * 0.97, y0 + h * 0.62 + bob, rev ? 40 : 16, rgb(255, 250, 200), rev ? 1.0 : 0.6);
+  radialGlow(cr, x0 + w * 0.02, y0 + h * 0.58 + bob, rev ? 34 : 14, rgb(255, 140, 40), rev ? 1.0 : 0.5);
+}
+
+// The cardboard crowd of the Pilot Seat (level 7 bonus): a runner cut-out on
+// an easel and a delivery truck cut-out, both plainly painted cardboard.
+void cardboardRunner(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color card = rgb(196, 150, 96), ink = rgb(90, 60, 30);
+  strokeLimb(cr, {{x0 + w * 0.5, y0 + h * 0.5}, {x0 + w * 0.15, y0 + h}}, 5, rgb(120, 86, 50), ink, 1.2);
+  strokeLimb(cr, {{x0 + w * 0.45, y0 + h * 0.6}, {x0 + w * 0.25, y0 + h * 0.8}, {x0 + w * 0.35, y0 + h - 3}}, 12, card, ink, kLine);
+  strokeLimb(cr, {{x0 + w * 0.55, y0 + h * 0.6}, {x0 + w * 0.8, y0 + h * 0.76}, {x0 + w * 0.82, y0 + h - 3}}, 12, card, ink, kLine);
+  roundedRect(cr, x0 + w * 0.28, y0 + h * 0.28, w * 0.44, h * 0.36, 8);
+  fillOutline(cr, rgb(210, 90, 60), ink, kLine);
+  strokeLimb(cr, {{x0 + w * 0.32, y0 + h * 0.34}, {x0 + w * 0.12, y0 + h * 0.46}}, 9, card, ink, kLine);
+  strokeLimb(cr, {{x0 + w * 0.68, y0 + h * 0.34}, {x0 + w * 0.9, y0 + h * 0.24}}, 9, card, ink, kLine);
+  circle(cr, x0 + w * 0.52, y0 + h * 0.16, w * 0.17);
+  fillOutline(cr, card, ink, kLine);
+  cairo_arc(cr, x0 + w * 0.56, y0 + h * 0.17, w * 0.08, 0.2, 2.9);
+  setColor(cr, ink);
+  cairo_set_line_width(cr, 2.0);
+  cairo_stroke(cr);
+  circle(cr, x0 + w * 0.6, y0 + h * 0.13, 2.5);
+  cairo_fill(cr);
+}
+
+void cardboardTruck(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color card = rgb(196, 150, 96), ink = rgb(90, 60, 30);
+  roundedRect(cr, x0 + w * 0.02, y0 + h * 0.08, w * 0.66, h * 0.66, 6);
+  fillOutline(cr, card, ink, kLine);
+  cairo_move_to(cr, x0 + w * 0.68, y0 + h * 0.3);
+  cairo_line_to(cr, x0 + w * 0.88, y0 + h * 0.3);
+  cairo_line_to(cr, x0 + w * 0.98, y0 + h * 0.52);
+  cairo_line_to(cr, x0 + w * 0.98, y0 + h * 0.74);
+  cairo_line_to(cr, x0 + w * 0.68, y0 + h * 0.74);
+  cairo_close_path(cr);
+  fillOutline(cr, rgb(210, 90, 60), ink, kLine);
+  roundedRect(cr, x0 + w * 0.76, y0 + h * 0.36, w * 0.12, h * 0.16, 3);
+  fillOutline(cr, rgb(150, 190, 210), ink, 1.4);
+  // A painted logo in blocky strokes.
+  for (int i = 0; i < 5; ++i)
+  {
+    cairo_rectangle(cr, x0 + w * (0.08 + 0.11 * i), y0 + h * 0.3, w * 0.07, h * 0.2);
+    setColor(cr, rgb(200, 60, 50));
+    cairo_fill(cr);
+  }
+  for (double wx : {0.18, 0.5, 0.84})
+  {
+    circle(cr, x0 + w * wx, y0 + h * 0.82, h * 0.14);
+    fillOutline(cr, rgb(70, 50, 30), ink, kLine);
+    circle(cr, x0 + w * wx, y0 + h * 0.82, h * 0.05);
+    setColor(cr, card);
+    cairo_fill(cr);
+  }
+}
+
+// Black Halo (level 7's boss): a matte black attack gunship, nose to the
+// right, tail boom to the left. The pods, light, rotors and weak-spot
+// markers are drawn by the world; this is the airframe. Variant 1: the belly
+// hatch is open; variant 2: the burning wreck.
+void blackHalo(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const bool wreck = c.variant == 2;
+  const Color hull = wreck ? rgb(40, 34, 32) : rgb(34, 36, 44), edge = rgb(90, 96, 116);
+  // Tail boom and fin.
+  cairo_move_to(cr, x0, y0 + h * 0.28);
+  cairo_line_to(cr, x0 + w * 0.06, y0 + h * 0.06);
+  cairo_line_to(cr, x0 + w * 0.12, y0 + h * 0.06);
+  cairo_line_to(cr, x0 + w * 0.14, y0 + h * 0.36);
+  cairo_line_to(cr, x0 + w * 0.42, y0 + h * 0.4);
+  cairo_line_to(cr, x0 + w * 0.42, y0 + h * 0.58);
+  cairo_line_to(cr, x0 + w * 0.1, y0 + h * 0.56);
+  cairo_line_to(cr, x0, y0 + h * 0.5);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0, y0 + h * 0.6, lighten(hull, 0.15f), hull, kInk, kLine);
+  // Fuselage: an angular, stealthy body tapering to the nose.
+  cairo_move_to(cr, x0 + w * 0.36, y0 + h * 0.3);
+  cairo_line_to(cr, x0 + w * 0.6, y0 + h * 0.16);
+  cairo_line_to(cr, x0 + w * 0.8, y0 + h * 0.22);
+  cairo_line_to(cr, x0 + w * 0.98, y0 + h * 0.56);
+  cairo_line_to(cr, x0 + w * 0.9, y0 + h * 0.76);
+  cairo_line_to(cr, x0 + w * 0.42, y0 + h * 0.84);
+  cairo_line_to(cr, x0 + w * 0.32, y0 + h * 0.64);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.16, y0 + h * 0.84, lighten(hull, 0.2f), hull, kInk, kLine);
+  // Panel lines.
+  cairo_set_line_width(cr, 1.6);
+  setColor(cr, edge);
+  cairo_move_to(cr, x0 + w * 0.42, y0 + h * 0.5);
+  cairo_line_to(cr, x0 + w * 0.88, y0 + h * 0.48);
+  cairo_move_to(cr, x0 + w * 0.56, y0 + h * 0.2);
+  cairo_line_to(cr, x0 + w * 0.54, y0 + h * 0.8);
+  cairo_stroke(cr);
+  // Canopy: tinted red.
+  cairo_move_to(cr, x0 + w * 0.66, y0 + h * 0.28);
+  cairo_line_to(cr, x0 + w * 0.8, y0 + h * 0.3);
+  cairo_line_to(cr, x0 + w * 0.92, y0 + h * 0.54);
+  cairo_line_to(cr, x0 + w * 0.7, y0 + h * 0.52);
+  cairo_close_path(cr);
+  fillOutline(cr, wreck ? rgb(60, 40, 30) : rgb(200, 40, 50), kInk, 1.6);
+  if (!wreck)
+    radialGlow(cr, x0 + w * 0.8, y0 + h * 0.42, 30, rgb(255, 60, 60), 0.4);
+  // Rotor mast.
+  roundedRect(cr, x0 + w * 0.47, y0, w * 0.06, h * 0.18, 3);
+  fillOutline(cr, rgb(60, 62, 72), kInk, 1.4);
+  // Stub wings with the halo stripe.
+  roundedRect(cr, x0 + w * 0.36, y0 + h * 0.6, w * 0.4, h * 0.1, 4);
+  fillOutline(cr, darken(hull, 0.2f), kInk, 1.6);
+  cairo_rectangle(cr, x0 + w * 0.4, y0 + h * 0.63, w * 0.32, h * 0.03);
+  setColor(cr, rgb(255, 200, 60));
+  cairo_fill(cr);
+  if (c.variant == 1)
+  {
+    roundedRect(cr, x0 + w * 0.42, y0 + h * 0.78, w * 0.2, h * 0.12, 3);
+    setColor(cr, rgb(255, 140, 60));
+    cairo_fill(cr);
+    radialGlow(cr, x0 + w * 0.52, y0 + h * 0.86, 40, rgb(255, 120, 40), 0.8);
+  }
+  // Landing skids.
+  cairo_set_line_width(cr, 4.0);
+  setColor(cr, rgb(70, 72, 80));
+  cairo_move_to(cr, x0 + w * 0.36, y0 + h * 0.98);
+  cairo_line_to(cr, x0 + w * 0.86, y0 + h * 0.98);
+  cairo_move_to(cr, x0 + w * 0.44, y0 + h * 0.84);
+  cairo_line_to(cr, x0 + w * 0.42, y0 + h * 0.98);
+  cairo_move_to(cr, x0 + w * 0.76, y0 + h * 0.8);
+  cairo_line_to(cr, x0 + w * 0.78, y0 + h * 0.98);
+  cairo_stroke(cr);
+  if (wreck)
+  {
+    radialGlow(cr, x0 + w * 0.5, y0 + h * 0.3, 60, rgb(255, 120, 30), 0.9);
+    radialGlow(cr, x0 + w * 0.2, y0 + h * 0.4, 40, rgb(255, 80, 20), c.frame ? 0.8 : 0.5);
+  }
+  else
+  {
+    radialGlow(cr, x0 + w * 0.06, y0 + h * 0.08, 10, rgb(255, 40, 40), c.frame ? 0.9 : 0.3);
+  }
+}
+
+// The cement mixer on Chopper Down's roof R2 (a breakable): a striped drum
+// tilted on its stand. Frame 1 turns the drum's stripes a little.
+void cementMixer(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color orange = rgb(226, 124, 40), steel = rgb(90, 92, 100);
+  // The stand: two legs, an axle and a wheel.
+  strokeLimb(cr, {{x0 + w * 0.2, y0 + h}, {x0 + w * 0.42, y0 + h * 0.55}}, 8, steel, kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.82, y0 + h}, {x0 + w * 0.6, y0 + h * 0.55}}, 8, steel, kInk, kLine);
+  circle(cr, x0 + w * 0.82, y0 + h * 0.9, h * 0.09);
+  fillOutline(cr, rgb(30, 30, 34), kInk, kLine);
+  // The drum, tilted up to the right.
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.5, y0 + h * 0.45);
+  cairo_rotate(cr, -0.35);
+  cairo_move_to(cr, -w * 0.42, -h * 0.22);
+  cairo_line_to(cr, w * 0.18, -h * 0.34);
+  cairo_line_to(cr, w * 0.42, -h * 0.14);
+  cairo_line_to(cr, w * 0.42, h * 0.14);
+  cairo_line_to(cr, w * 0.18, h * 0.34);
+  cairo_line_to(cr, -w * 0.42, h * 0.22);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, -h * 0.34, h * 0.34, lighten(orange, 0.25f), darken(orange, 0.2f), kInk, kLine);
+  // Spiral stripes.
+  for (int k = 0; k < 4; ++k)
+  {
+    const double sx = -w * 0.34 + w * 0.17 * k + (c.frame ? w * 0.06 : 0.0);
+    cairo_move_to(cr, sx, -h * 0.27);
+    cairo_line_to(cr, sx + w * 0.08, h * 0.27);
+    cairo_set_line_width(cr, 6);
+    setColor(cr, darken(orange, 0.35f));
+    cairo_stroke(cr);
+  }
+  // The mouth.
+  cairo_save(cr);
+  cairo_translate(cr, w * 0.42, 0);
+  cairo_scale(cr, w * 0.05, h * 0.14);
+  circle(cr, 0, 0, 1.0);
+  cairo_restore(cr);
+  fillOutline(cr, rgb(50, 46, 44), kInk, 1.6);
+  cairo_restore(cr);
+}
+
+// Black Halo's gun pod (3 x 2 cells): a rounded pod with a twin barrel,
+// pointing left (the gunship's nose side).
+void haloPod(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  for (int k = 0; k < 2; ++k)
+  {
+    roundedRect(cr, x0 - w * 0.2, y0 + h * (0.3 + 0.24 * k), w * 0.4, h * 0.14, 3);
+    fillOutline(cr, rgb(40, 40, 46), kInk, 1.4);
+  }
+  roundedRect(cr, x0 + w * 0.08, y0 + h * 0.12, w * 0.86, h * 0.76, h * 0.36);
+  fillGradientOutline(cr, y0 + h * 0.12, y0 + h * 0.88, rgb(120, 126, 120), rgb(50, 56, 52), kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.3, y0 + h * 0.2, w * 0.05, h * 0.6);
+  setColor(cr, rgb(255, 200, 60));
+  cairo_fill(cr);
+  if (c.variant == 1)
+    radialGlow(cr, x0 - w * 0.15, y0 + h * 0.5, 22, rgb(255, 160, 60), 0.9);
+}
+
+// Black Halo's searchlight (2 x 2 cells): a round lamp in a cowl.
+void haloLight(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  radialGlow(cr, x0 + w * 0.5, y0 + h * 0.5, w * 0.9, rgb(240, 248, 255), 0.6);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.5, w * 0.42);
+  fillOutline(cr, rgb(60, 62, 72), kInk, kLine);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.5, w * 0.3);
+  fillGradientOutline(cr, y0 + h * 0.2, y0 + h * 0.8, rgb(255, 255, 255), rgb(190, 220, 255), kInk, 1.2);
+}
+
 using DrawFn = void (*)(const Ctx&);
 
 DrawFn routineFor(const std::string& key)
@@ -880,6 +1202,15 @@ DrawFn routineFor(const std::string& key)
     {"track_hopper", trackHopper},
     {"rail_drone", railDrone},
     {"decoupler", decoupler},
+    {"rappel_trooper", rappelTrooper},
+    {"shield_trooper", shieldTrooper},
+    {"hover_biker", hoverBiker},
+    {"cardboard_runner", cardboardRunner},
+    {"cardboard_truck", cardboardTruck},
+    {"black_halo", blackHalo},
+    {"cement_mixer", cementMixer},
+    {"halo_pod", haloPod},
+    {"halo_light", haloLight},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

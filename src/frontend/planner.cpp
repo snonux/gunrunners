@@ -121,6 +121,39 @@ bool stable(const Player& p)
   return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe;
 }
 
+// Under the hunter's light, a place to stop must also be safe a little
+// while after: some simple way out (stay, crouch, hop, run either way) has
+// to get through the next 40 frames without losing a heart. Rockets in the
+// air and a salvo counting down only show up that far ahead.
+bool safeAhead(const World& w)
+{
+  if (!w.hunter().on || (w.hunter().beep == 0 && w.hunter().left == 0 && w.strikes().empty()))
+    return true;
+  static const Input kWays[] = {
+    {}, // stay
+    [] { Input i; i.right = true; return i; }(),
+    [] { Input i; i.left = true; return i; }(),
+  };
+  for (const Input& way : kWays)
+  {
+    World sim(w);
+    const int hp = sim.player().hp;
+    Input prev;
+    bool ok = true;
+    for (int f = 0; f < 40 && ok; ++f)
+    {
+      sim.update(toPlayerInput(way, prev));
+      prev = way;
+      ok = sim.player().hp >= hp && sim.player().state != PlayerState::Dying;
+      if (sim.state() != WorldState::Playing)
+        break;
+    }
+    if (ok)
+      return true;
+  }
+  return false;
+}
+
 int clockPeriod(const World& w)
 {
   int period = 1;
@@ -373,9 +406,9 @@ void Planner::buildField(const World& w, const Goal& goal)
       y0 = pl.homeY - pl.travel;
       y1 = pl.homeY + pl.travel;
     }
-    else if (pl.powered >= 0 && !w.breakers()[std::size_t(pl.powered)].on)
+    else if ((pl.powered >= 0 && !w.breakers()[std::size_t(pl.powered)].on) || w.latchedPlatform(pl))
     {
-      // A lift with no power stays where it is.
+      // A lift with no power, or a hook still on its latch, stays where it is.
     }
     else
       for (const auto& [px, py] : pl.path)
@@ -788,6 +821,15 @@ void Planner::plan(const World& world)
       k = mix(k, std::uint64_t(b.x) | (std::uint64_t(b.y) << 16) | (std::uint64_t(b.stood) << 32));
     for (const auto& t : w.trail())
       k = mix(k, std::uint64_t(t.x) | (std::uint64_t(t.y) << 16));
+    // The hunter: where its spot is and how far along a lock or salvo is.
+    if (const auto& h = w.hunter(); h.on)
+    {
+      k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
+                   (std::uint64_t(std::min(h.locking, h.lock)) << 32) | (std::uint64_t(h.beep) << 40) |
+                   (std::uint64_t(h.left) << 48) | (std::uint64_t(h.cool > 0) << 56));
+      for (const auto& st : w.strikes())
+        k = mix(k, std::uint64_t(st.x) | (std::uint64_t(st.y) << 16) | (std::uint64_t(st.t) << 32));
+    }
     return k;
   };
   const int h0 = heuristic(world);
@@ -823,13 +865,17 @@ void Planner::plan(const World& world)
     }
     if (ni != 0 && stable(np) && np.hp >= hp0 - 1 && !nw.trainDanger())
     {
-      if (n.h <= h0 - kProgress)
+      const bool done = n.h <= h0 - kProgress;
+      const bool better = bestStable < 0 || n.h < nodes[std::size_t(bestStable)].h;
+      if ((done || better) && safeAhead(nw))
       {
-        found = ni;
-        break;
-      }
-      if (bestStable < 0 || n.h < nodes[std::size_t(bestStable)].h)
+        if (done)
+        {
+          found = ni;
+          break;
+        }
         bestStable = ni;
+      }
     }
     ++expanded;
     for (int m = 0; m < kMacroCount; ++m)

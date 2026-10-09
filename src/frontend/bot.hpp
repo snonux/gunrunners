@@ -3,6 +3,8 @@
 #include "frontend/planner.hpp"
 #include "game/input.hpp"
 
+#include <deque>
+
 namespace gr
 {
 
@@ -20,10 +22,17 @@ public:
   Input play(const World& world);
   Input playRules(const World& world);
   Input menu(int cursor, int target, int ticksInMenu) const;
+  // Black Halo's arena: short look-ahead fights instead of the planner.
+  Input fightBoss(const World& world);
+  // Pilot Seat: fly at the cardboard.
+  Input fly(const World& world);
   void setTakeBonus(bool take) { mPlanner.setTakeBonus(take); }
 
 private:
   Planner mPlanner;
+  std::deque<Input> mFightQueue;
+  bool mFighting = false;
+  Input mFightPrev;
   int mJumpHold = 0;
   int mJumpRelease = 0;
   int mStuck = 0;

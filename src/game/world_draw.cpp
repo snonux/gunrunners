@@ -97,7 +97,15 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (d.first >= tx0 - 1 && d.first <= tx1 + 1)
       drawDecoration(r, mArt, mTheme, float(d.first) * kTilePx - camX, float(d.second) * kTilePx - camY, d.first * 31 + d.second, frame);
 
-  drawExit(r, mArt, mTheme, float(mLevel->exitTx) * kTilePx - 32.0f - camX, float(mLevel->exitTy + 1) * kTilePx - camY, frame);
+  if (!mBoss.on || mBoss.exitT >= 0)
+  {
+    // After Black Halo the exit drops out of the crane cab.
+    float drop = 0.0f;
+    if (mBoss.on && mBoss.exitT < 15)
+      drop = float(15 - mBoss.exitT) / 15.0f * 3.0f * kTilePx;
+    drawExit(r, mArt, mTheme, float(mLevel->exitTx) * kTilePx - 32.0f - camX,
+      float(mLevel->exitTy + 1) * kTilePx - camY - drop, frame);
+  }
 
   for (const auto& cp : mCheckpoints)
   {
@@ -116,16 +124,25 @@ void World::draw(Renderer& r, int frame, float alpha) const
 
   drawProps(r, camX, camY, frame, false);
   drawMaglevBack(r, camX, camY, frame, alpha);
+  drawChopperBack(r, camX, camY, frame, alpha);
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
-  // Item boxes and items.
+  // Item boxes and items; ones still sealed inside a breakable (the mixer,
+  // the mirror ball) stay out of sight until it breaks.
+  auto sealed = [&](int cx, int cy) {
+    for (const auto& br : mBreakables)
+      if (!br.broken && (br.look == 1 || br.look == 2 || br.look == 5) && cx >= br.x0 * kCellsPerTile &&
+          cx < (br.x1 + 1) * kCellsPerTile && cy >= br.y0 * kCellsPerTile && cy < (br.y1 + 1) * kCellsPerTile)
+        return true;
+    return false;
+  };
   for (const auto& b : mBoxes)
   {
-    if (!b.alive)
+    if (!b.alive || sealed(b.x, b.y - 1))
       continue;
     const float x = float(b.x) * kCellPx - camX;
     const float y = float(b.y - 1) * kCellPx - camY;
@@ -136,6 +153,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   for (std::size_t i = 0; i < mItems.size(); ++i)
   {
     const auto& it = mItems[i];
+    if (sealed(it.x, it.y - 1))
+      continue;
     float x = lerpCells(it.prevX, it.x, alpha) - camX;
     float y = lerpCells(it.prevY - 1, it.y - 1, alpha) - camY;
     if (x < -128.0f || x > float(kScreenW) + 64.0f)
@@ -245,6 +264,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the bay is open
         else if (e.kind == EnemyKind::Decoupler)
           variant = e.attach == 2 ? 1 : 0; // working the coupling
+        else if (e.kind == EnemyKind::Trooper)
+          variant = e.attach == 1 ? 2 : (e.tell > 0 ? 1 : 0); // on the rope, aiming
+        else if (e.kind == EnemyKind::Biker)
+          variant = e.attach == 2 ? 1 : 0; // revving, headlight on
+        else if (e.kind == EnemyKind::Shield)
+          variant = e.tell > 0 ? 1 : 0; // the gun over the shield
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -309,10 +334,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
 
   // Power cuts: the dark goes over the level but under the runner.
   drawDark(r, camX, camY, frame, alpha);
-  drawPlayer(r, camX, camY, frame, alpha);
+  if (mFlight)
+    drawFlightShip(r, camX, camY, frame, alpha);
+  else
+    drawPlayer(r, camX, camY, frame, alpha);
   // Sludge goes over the runner's feet and anything swimming in it.
   drawSludgeFront(r, camX, camY, frame, alpha);
   drawMaglevFront(r, camX, camY, frame, alpha);
+  drawChopperFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -339,6 +368,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       case ShotKind::Rocket:
         tex = &mArt.shotRocket;
         glow = rgb(255, 140, 50);
+        if (pr.precise)
+          o.angle = std::atan2(pr.vy, pr.vx) * 57.2958f;
         break;
       case ShotKind::Flame:
         tex = &mArt.shotFlame;
@@ -374,6 +405,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
           r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
           continue;
+        }
+        if (pr.proto == int(ProtoId::LockOnRockets))
+        {
+          tex = &mArt.shotRocket;
+          if (pr.precise)
+            o.angle = std::atan2(pr.vy, pr.vx) * 57.2958f;
         }
         if (pr.strong)
         {
@@ -793,6 +830,19 @@ void World::drawHud(Renderer& r, int frame) const
   }
   if (p.virus > 0)
     effectBar("VIRUS", p.virus, kVirusFramesTotal, rgb(130, 255, 70), ey);
+
+  // Black Halo's armour, phase by phase, along the bottom.
+  if (bossFight())
+  {
+    const float bw = 600.0f, bx = (float(kScreenW) - bw) * 0.5f, by = float(kScreenH) - 54.0f;
+    r.fillRect(bx - 10, by - 30, bw + 20, 52, rgba(8, 6, 22, 200));
+    r.drawText("BLACK HALO", bx, by - 26, {17.0f, rgb(255, 90, 60), kHudInk});
+    const float frac = float(mBoss.total()) / 82.0f;
+    r.fillRect(bx, by, bw, 12, rgba(255, 255, 255, 40));
+    r.fillRect(bx, by, bw * frac, 12, (mBoss.flash > 0 && (frame / 2) % 2) ? rgb(255, 255, 255) : rgb(255, 70, 50));
+    for (const float cut : {24.0f / 82.0f, 54.0f / 82.0f})
+      r.fillRect(bx + bw * cut - 1.0f, by - 3, 3, 18, rgb(20, 16, 30));
+  }
 
   // Bonus level countdown.
   if (mBonusLevel && mLevel->timer > 0)

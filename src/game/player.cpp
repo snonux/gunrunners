@@ -7,6 +7,7 @@
 #include "game/world.hpp"
 
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 
 namespace gr
@@ -163,6 +164,8 @@ void World::updatePlayer(const PlayerInput& raw)
     p.frames = 0;
     p.hidden = true;
     ++mStats.deaths;
+    if (!mSimulation && std::getenv("GR_PLANNER_DEBUG"))
+      std::fprintf(stderr, "death (fell) at %d,%d frame %d\n", p.x, p.y, mStats.frames);
   }
 }
 
@@ -728,6 +731,17 @@ void World::hurtPlayer(int amount)
     return;
   p.hp -= amount;
   mStats.tookDamage = true;
+  if (!mSimulation && std::getenv("GR_PLANNER_DEBUG"))
+  {
+    int shots = 0;
+    for (const auto& pr : mProjectiles)
+      shots += pr.alive && pr.kind == ShotKind::Enemy && pr.box().intersects(p.box());
+    int touching = 0;
+    for (const auto& e : mEnemies)
+      touching += e.alive && e.box().intersects(p.box());
+    std::fprintf(stderr, "hurt at %d,%d frame %d hp %d: strikes %zu shots %d touching %d sweep %d ram %d pod %d\n", p.x,
+      p.y, mStats.frames, p.hp, mStrikes.size(), shots, touching, mBoss.sweepX, mBoss.ram, mBoss.podX);
+  }
   if (p.hp <= 0)
   {
     p.hp = 0;
@@ -754,6 +768,8 @@ void World::killPlayer()
   playSound(Sfx::Death);
   mCamera.shake(12, 2.0f);
   ++mStats.deaths;
+  if (!mSimulation && std::getenv("GR_PLANNER_DEBUG"))
+    std::fprintf(stderr, "death at %d,%d frame %d\n", p.x, p.y, mStats.frames);
 }
 
 void World::updateDeathAnimation()
@@ -824,6 +840,9 @@ void World::respawnPlayer()
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   if (mTrain)
     resetTrain();
+  mPaint.clear();
+  if (mHunter.on || mBoss.on)
+    resetBossCycle();
   showMessage("BACK IN ACTION");
 }
 

@@ -88,6 +88,10 @@ struct SaveGame
   // The maglev (level 6): braking, the tunnel, the passing train, and
   // which gantries have gone by (see World::snapshot).
   std::vector<int> train;
+  // Chopper Down (level 7): the hunter's demo and cooldown, Black Halo's
+  // phase, part HP and exit, the Pilot Seat's counters, then each latch
+  // and each rappel zone's next drop (see World::snapshot).
+  std::vector<int> chopper;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

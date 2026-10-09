@@ -162,6 +162,12 @@ struct Enemy
   unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
 
+// Lock-On Rockets' targets: an enemy's index, or a part of Black Halo
+// (kBossTarget - part).
+constexpr int kNoTarget = -1000;
+constexpr std::size_t kChopperSave = 14; // fixed part of SaveGame::chopper (world_save.cpp)
+constexpr int kBossTarget = -10;
+
 enum class ShotKind
 {
   Normal,
@@ -196,6 +202,8 @@ struct Projectile
   float gy = 0.0f;   // precise shots: added to vy every frame (lobbed glowsticks)
   bool flare = false; // sticks where it hits and lights up the dark
   bool lob = false;  // leaves a puddle where it lands
+  int target = kNoTarget; // Lock-On Rockets: steers for this (see World::targetBox)
+  int radius = 0;    // explodes with this radius (cells) where it hits (the gunship's rockets)
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -306,6 +314,14 @@ enum class PropKind
   Crate,         // Maglev Express: luggage (over solid blocks)
   Sleeper,       // Maglev Express: the passenger who sleeps through everything
   HiScore,       // Maglev Express: a billboard through the window with your level 2 score
+  Girder,        // Chopper Down: a steel I-beam drawn over its blocks
+  Sheet,         // Chopper Down: hanging plastic sheeting (cover from the searchlight)
+  Awning,        // Chopper Down: a canvas awning over a one-way row
+  Office,        // Chopper Down: the site office's back wall
+  Lattice,       // Chopper Down: the crane's counter-jib lattice
+  SpareShip,     // Chopper Down: the parked spare gunship (the bonus door is its hatch)
+  Radio,         // Chopper Down: the cab radio; stand in the cab and it plays the theme as elevator music
+  Mixer,         // Chopper Down: the cement mixer's drum (drawn over its breakable)
 };
 
 struct Prop
@@ -368,6 +384,8 @@ struct Platform
   int speedNum = 1, speedDen = 1;
   int powered = -1; // a lift: only moves while this breaker is on
   bool once = false;   // mode=once: hidden until a script starts it, gone at the end
+  int latch = -1;      // a hook: held by this latch until it is shot, then runs once you stand on it
+  std::string latchId;
   bool running = false;
   bool hidden = false;
   CellBox box() const { return {x, y, w, h}; }
@@ -618,6 +636,105 @@ struct TrailBlock
   int life = 45;
 };
 
+// Level 7's hunter (SPEC 07, world_chopper.cpp): the gunship in the
+// backdrop. Its searchlight spot drifts toward the runner; a spot on an
+// exposed runner for `lock` frames starts the beep, and `salvo` frames later
+// it fires `rockets` rockets at where it last saw them.
+struct Hunter
+{
+  bool on = false;
+  int zoneX0 = 0, zoneX1 = 0; // cells: where it hunts
+  int r = 6;                  // cells: the spot's radius
+  int lock = 15, salvo = 22, rockets = 3, damage = 1, cooldown = 60, speed = 1;
+  float sx = 0.0f, sy = 0.0f;  // cells: the spot's centre
+  float prevSx = 0.0f, prevSy = 0.0f;
+  int locking = 0;  // frames the spot has held an exposed runner
+  int beep = 0;     // frames left before the salvo
+  int left = 0;     // rockets still to fire in this salvo
+  int next = 0;     // frames to the next rocket
+  int cool = 0;     // frames of cooldown left
+  int seenX = 0, seenY = 0; // cells: the runner's centre when last seen
+  int demoTrigger = -1, demoX = 0, demoY = 0; // the yard's demonstration salvo
+  bool demoDone = true;
+  bool demo = false;   // this salvo is the demonstration
+  bool random = false; // Black Halo's light is out: slow random salvos
+};
+
+// A gunship rocket on its way down: lands on (x, y) in t frames.
+struct Strike
+{
+  int x = 0, y = 0; // cells: where it lands
+  int t = 8;
+  int r = 4;        // cells: blast radius
+  int damage = 1;
+  float fromX = 0.0f, fromY = 0.0f; // cells: where it was fired from (drawing)
+};
+
+// Where the gunship drops Rappel Troopers.
+struct RappelZone
+{
+  CellBox zone;
+  int max = 2, period = 150;
+  int next = 0; // clock of the next drop
+};
+
+// A latch that holds a hook until it is shot.
+struct Latch
+{
+  std::string id;
+  int x = 0, y = 0; // cells, top-left of its 2x2 box
+  bool open = false;
+  CellBox box() const { return {x, y, 2, 2}; }
+};
+
+// Black Halo (SPEC 07): three phases, each with its own weak spots.
+enum class BossPhase
+{
+  Waiting, // the runner has not reached the arena yet
+  Strafe,  // gun pods, chaingun sweeps
+  Drop,    // belly hatch, trooper pods, searchlight salvos
+  Ram,     // tail rotor, rams along the jib
+  Falling, // spinning into the bay
+  Done,
+};
+
+enum class BossPart
+{
+  NosePod,
+  TailPod,
+  Hatch,
+  Light,
+  Rotor,
+  Count,
+};
+
+struct Boss
+{
+  bool on = false;
+  CellBox arena{0, 0, 0, 0}; // cells
+  int deckY = 19;            // cells: the row the runner's feet are on
+  int exitX = 0, exitY = 0;  // blocks: where the exit drops to
+  BossPhase phase = BossPhase::Waiting;
+  int x = 0, y = 0;          // cells: the body's top-left (16 x 6)
+  int prevX = 0, prevY = 0;
+  int facing = -1;           // -1: nose to the left
+  int t = 0;                 // frames into the current cycle
+  std::array<int, 5> hp{14, 14, 30, 8, 24};
+  int open = 0;              // frames the current weak spot stays open
+  int sweepX = -1;           // cells: the chaingun's front while it sweeps
+  int prevSweepX = -1;
+  int passDamage = 0;        // rotor damage taken this pass
+  int ram = 0;               // 0 hovering, 1 lining up, 2 ramming, 3 turning over the cab
+  int podX = -1, podY = 0;   // cells: a trooper pod falling (its shadow shows first)
+  int podT = 0;
+  int flash = 0;
+  int fallT = 0;             // frames of the fall into the bay
+  int exitT = -1;            // frames of the exit dropping from the cab, -1 not yet
+  static constexpr int kW = 16, kH = 6;
+  CellBox body() const { return {x, y, kW, kH}; }
+  int total() const;
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -783,6 +900,15 @@ public:
   bool trainDanger() const;
   bool trainBusy() const; // the train is braking or a gantry is sweeping
   bool lightTrail() const { return mLightTrail; }
+  // Level 7: the hunter, its rockets on the way and Black Halo.
+  const Hunter& hunter() const { return mHunter; }
+  const std::vector<Strike>& strikes() const { return mStrikes; }
+  const Boss& boss() const { return mBoss; }
+  bool bossFight() const; // the runner is in the arena and Black Halo is up
+  bool bossTarget(BossPart part, CellBox& box) const; // where a part is; false if it can't be hit now
+  int bossHp() const { return mBoss.on ? mBoss.total() : 0; }
+  bool flight() const { return mFlight; } // Pilot Seat: you fly the gunship
+  bool latchedPlatform(const Platform& pl) const; // a hook still held by its latch
   // Level 6's billboard shows the best level 2 score, if there is one.
   void setHiScore(int score) { mHiScore = score; }
   const std::vector<TrailBlock>& trail() const { return mTrailBlocks; }
@@ -931,6 +1057,38 @@ private:
   void drawMaglevBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMaglevFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawTrainProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
+  // Level 7 (world_chopper.cpp).
+  bool setupChopperEntity(const EntityDef& e);
+  void setupChopperEnemy(Enemy& en, const EntityDef& e);
+  void updateChopper(const PlayerInput& input);
+  bool covered() const; // under cover from the searchlight
+  void updateHunter();
+  void startSalvo(bool demo);
+  void fireStrike(int tx, int ty);
+  void updateStrikes();
+  void updateRappel();
+  bool dropTrooper(int x, int feetY, int fall);
+  void updateTrooper(Enemy& e, const EnemyDef& def);
+  void updateBiker(Enemy& e, const EnemyDef& def);
+  void updateShield(Enemy& e, const EnemyDef& def);
+  void updateBoss();
+  void bossPhase(BossPhase phase);
+  void damageBoss(BossPart part, int damage, Vec2 at);
+  bool shotAtBoss(Projectile& pr);
+  void explodeAtBoss(int cx, int cy, int radius, int damage);
+  void resetBossCycle(); // after a respawn
+  void updateFlight(const PlayerInput& input);
+  void updateCardboard();
+  void updateRadio();
+  bool targetBox(int target, CellBox& box) const;
+  void paintTarget();
+  void launchRockets();
+  void steerRocket(Projectile& pr);
+  void drawChopperBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawChopperFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawChopperProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
+  void drawBoss(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFlightShip(Renderer& r, float camX, float camY, int frame, float alpha) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1059,6 +1217,23 @@ private:
   std::vector<TrailBlock> mTrailBlocks;
   int mPry = 0; // frames down has been held on a loose floor panel
   int mHiScore = -1;
+  // Level 7: the hunter, cover, rappel drops, the hook and Black Halo.
+  Hunter mHunter;
+  std::vector<Strike> mStrikes;
+  std::vector<CellBox> mCovers;
+  std::vector<RappelZone> mRappels;
+  std::vector<Latch> mLatches;
+  Boss mBoss;
+  std::vector<int> mPaint;     // Lock-On Rockets: painted targets
+  int mNextTarget = kNoTarget; // the target of the rocket fireProto launches next
+  int mRadio = 0;              // frames in the crane cab (the elevator music)
+  CellBox mCab{0, 0, 0, 0};    // cells: the crane cab
+  bool mFlight = false;        // bonus rule: you fly Black Halo
+  int mFlightGun = 0, mFlightRocket = 0; // frames to the next chaingun round, rocket
+  int mGemScore = 0;           // Pilot Seat: points toward the next gem
+  int mPopNext = 0, mTruckNext = 0, mPops = 0, mTrucks = 0;
+  std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
+  int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up
   int mManholeX = -1, mManholeY = -1; // cells: where Looters run off to
   bool mBreakdance = false;

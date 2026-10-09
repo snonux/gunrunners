@@ -4,6 +4,8 @@
 
 #include "game/world.hpp"
 
+#include "assets/enemy_art.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -50,6 +52,15 @@ void World::setupPlatform(const EntityDef& e)
     // once: waits out of sight until a script starts it, rides its path
     // once and is gone (the maglev's passing train).
     pl.once = pl.hidden = mode == "once";
+    // latch=: a crane hook, there all along but held until its latch is shot.
+    pl.latchId = e.str("latch");
+    if (!pl.latchId.empty())
+    {
+      pl.hidden = false;
+      for (std::size_t i = 0; i < mLatches.size(); ++i)
+        if (mLatches[i].id == pl.latchId)
+          pl.latch = int(i);
+    }
     for (const auto& [px, py] : e.path("path"))
       pl.path.emplace_back(px * kCellsPerTile, py * kCellsPerTile);
     if (pl.path.empty())
@@ -170,7 +181,16 @@ void World::updatePlatforms()
       if (a.powered >= 0 && !mBreakers[std::size_t(a.powered)].on)
         continue;
       if (a.once && !a.running)
-        continue;
+      {
+        // A hook sets off once its latch is open and someone stands on it.
+        bool rider = false;
+        if (a.latch >= 0 && !latchedPlatform(a) && a.target == 1 && mPlayer.state == PlayerState::OnGround)
+          rider = standsOn(mPlayer.box(), a);
+        if (!rider)
+          continue;
+        a.running = true;
+        playSound(Sfx::Clunk);
+      }
       // speedNum cells every speedDen frames.
       if (++a.moveTick % a.speedDen != 0)
         continue;
@@ -183,7 +203,7 @@ void World::updatePlatforms()
           if (a.once && a.target + 1 >= int(a.path.size()))
           {
             a.running = false;
-            a.hidden = true;
+            a.hidden = a.latch < 0; // a hook stays where it got to
             break;
           }
           if (a.once)
@@ -519,6 +539,27 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
               2.0f * rad / float(rows) - 2.0f, c);
           }
         }
+      }
+      else if (b.look == 4)
+      {
+        // A loose floor panel: a scuffed plate with four screws and a gap
+        // at one end you could get your fingers under.
+        r.fillRect(x, y, w, 14.0f, rgb(96, 100, 112));
+        r.fillRect(x, y, w, 3.0f, rgb(170, 176, 190));
+        r.fillRect(x + w - 10.0f, y, 10.0f, 14.0f, rgb(20, 20, 26));
+        for (const float sx : {x + 8.0f, x + w - 22.0f})
+        {
+          r.fillRect(sx, y + 5.0f, 5.0f, 5.0f, rgb(60, 62, 70));
+          r.fillRect(sx, y + 5.0f, 5.0f, 2.0f, rgb(200, 200, 210));
+        }
+        continue;
+      }
+      else if (b.look == 5)
+      {
+        // A cement mixer: the drum on its stand, turning slowly.
+        static const std::string kMixer = "cement_mixer";
+        const int wc = (b.x1 - b.x0 + 1) * kCellsPerTile, hc = (b.y1 - b.y0 + 1) * kCellsPerTile;
+        r.draw(styledEnemySprite(mArt, r, mTheme, kMixer, 0, (frame / 10) % 2, wc, hc).get(1), x + w * 0.5f, y + h);
       }
       else
       {

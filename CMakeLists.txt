@@ -37,6 +37,7 @@ add_library(gunrunners_core STATIC
   src/game/world_dark.cpp
   src/game/world_sludge.cpp
   src/game/world_maglev.cpp
+  src/game/world_chopper.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
@@ -79,3 +80,5 @@ add_test(NAME savegame_blackout COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels
 add_test(NAME savegame_sludge_line COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/05_sludge_line.txt 600)
 # On the train past the first gantries, Arc Caster in hand.
 add_test(NAME savegame_maglev_express COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/06_maglev_express.txt 900)
+# Across the rooftops under the hunter's light, Lock-On Rockets in hand.
+add_test(NAME savegame_chopper_down COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/07_chopper_down.txt 500)

@@ -61,6 +61,15 @@ SaveGame World::snapshot() const
     // Mid-leap Hoppers and working Decouplers come back at rest.
     if (e.kind == EnemyKind::Hopper)
       es.attach = 0;
+    // A Rappel Trooper still on its rope comes back landed; a Hover Biker
+    // turning or revving comes back charging.
+    if (e.kind == EnemyKind::Trooper && e.attach != 0)
+    {
+      es.attach = 0;
+      es.y = e.aimY;
+    }
+    if (e.kind == EnemyKind::Biker)
+      es.attach = 0;
     if (e.kind == EnemyKind::Decoupler && e.alive && e.attach != 0)
     {
       es.attach = 0;
@@ -117,6 +126,22 @@ SaveGame World::snapshot() const
     for (std::size_t i = 0; i < mLevelGantries; ++i)
       s.train.push_back(mGantries[i].fired);
   }
+  if (mHunter.on || mBoss.on || mFlight || !mLatches.empty() || !mRappels.empty())
+  {
+    // A gunship going down counts as down.
+    const auto& b = mBoss;
+    const bool falling = b.phase == BossPhase::Falling;
+    s.chopper = {mHunter.demoDone, mHunter.cool, falling ? int(BossPhase::Done) : int(b.phase)};
+    for (int hp : b.hp)
+      s.chopper.push_back(hp);
+    s.chopper.push_back(falling ? 0 : b.exitT);
+    for (int v : {mPops, mTrucks, mGemScore, mPopNext, mTruckNext})
+      s.chopper.push_back(v);
+    for (const auto& l : mLatches)
+      s.chopper.push_back(l.open);
+    for (const auto& z : mRappels)
+      s.chopper.push_back(z.next);
+  }
   return s;
 }
 
@@ -152,6 +177,7 @@ bool World::restore(const SaveGame& s)
       (!s.valves.empty() && s.valves.size() != mValves.size()) ||
       (!s.ratPipes.empty() && s.ratPipes.size() != mRatPipes.size() * 2) ||
       (!s.train.empty() && s.train.size() != 9 + mLevelGantries) ||
+      (!s.chopper.empty() && s.chopper.size() != kChopperSave + mLatches.size() + mRappels.size()) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -355,6 +381,39 @@ bool World::restore(const SaveGame& s)
       mLayers[std::size_t(mStationLayer)].scriptSolid = true;
     syncPlatformCollision();
   }
+  if (!s.chopper.empty())
+  {
+    const auto& c = s.chopper;
+    const int phase = c[2];
+    if (phase < int(BossPhase::Waiting) || phase > int(BossPhase::Done))
+      return false;
+    auto& b = mBoss;
+    b.phase = BossPhase(phase);
+    for (std::size_t i = 0; i < b.hp.size(); ++i)
+      b.hp[i] = std::max(0, c[3 + i]);
+    b.exitT = c[8];
+    mPops = c[9];
+    mTrucks = c[10];
+    mGemScore = c[11];
+    mPopNext = c[12];
+    mTruckNext = c[13];
+    for (std::size_t i = 0; i < mLatches.size(); ++i)
+      mLatches[i].open = c[kChopperSave + i] != 0;
+    for (std::size_t i = 0; i < mRappels.size(); ++i)
+      mRappels[i].next = c[kChopperSave + mLatches.size() + i];
+    // The gunship comes back hovering at the start of its cycle.
+    b.x = b.prevX = b.arena.right() - Boss::kW - 2;
+    b.y = b.prevY = 6;
+    b.fallT = 0;
+    resetBossCycle();
+    mHunter.demoDone = c[0] != 0;
+    mHunter.cool = std::max(0, c[1]);
+    if (b.on && b.phase != BossPhase::Waiting && b.phase != BossPhase::Done)
+      mMusicOverride = "boss_black_halo";
+  }
+  mStrikes.clear();
+  mPaint.clear();
+  mRadio = 0;
   for (auto& f : mFluids)
     f.surface = fluidSurface(f);
   mSludgeTicks = 0;

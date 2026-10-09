@@ -25,6 +25,8 @@ public:
   int queued() const { return int(mQueue.size()); }
   // Also visit the bonus entrance on the way (for demos and tests).
   void setTakeBonus(bool take) { mTakeBonus = take; }
+  // Drops the current plan (another controller drove in the meantime).
+  void reset() { mQueue.clear(); }
 
 private:
   struct Goal

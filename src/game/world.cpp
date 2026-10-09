@@ -173,6 +173,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
 Camera::Target World::cameraTarget() const
 {
   const CellBox b = mPlayer.box();
+  if (mFlight)
+    return {b.left(), b.top(), b.right(), b.bottom() + 12, false}; // keep the street in view below
   const bool tight = mPlayer.state == PlayerState::Ladder || mPlayer.state == PlayerState::Jetpack;
   return {b.left(), b.top(), b.right(), b.bottom(), tight};
 }
@@ -237,11 +239,15 @@ void World::update(const PlayerInput& input)
       if (mState != WorldState::Playing)
         break;
       updatePlatforms();
-      updatePlayer(input);
+      if (mFlight)
+        updateFlight(input);
+      else
+        updatePlayer(input);
       updateClub();
       updateDark(input);
       updateSludge(input);
       updateMaglev(input);
+      updateChopper(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -452,6 +458,15 @@ void World::updateEnemies()
       case EnemyKind::Decoupler:
         updateDecoupler(e, def);
         break;
+      case EnemyKind::Trooper:
+        updateTrooper(e, def);
+        break;
+      case EnemyKind::Biker:
+        updateBiker(e, def);
+        break;
+      case EnemyKind::Shield:
+        updateShield(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -529,8 +544,8 @@ void World::updateProjectiles()
       const Vec2 c = cellCenter(b);
       burst(c, rgb(255, 255, 210), pr.kind == ShotKind::Enemy ? mTheme.enemyEye : mTheme.accentA, 5, 1.0f);
       if (pr.kind == ShotKind::Rocket)
-        explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
-      if (pr.lob && pr.vy > 0.0f && !mMap.solid(pr.x, pr.y - 1))
+        explodeAt(b.x + b.w / 2, b.y, pr.radius > 0 ? pr.radius : 3, pr.damage);
+      if (pr.lob && pr.vy > 0.0f && !mMap.solid(pr.x, pr.y - 1) && pr.kind != ShotKind::Rocket)
         mPuddles.push_back({pr.x - 3, pr.y, 6, 30}); // a glowstick splashes
       if (pr.flare)
         stickFlare(pr, -1);
@@ -561,13 +576,15 @@ void World::updateProjectiles()
     shotAtProps(b);
     if (!mBubbles.empty() && shotAtBubbles(b))
       return true;
+    if ((mBoss.on || !mLatches.empty()) && shotAtBoss(pr))
+      return true;
     for (auto& box : mBoxes)
     {
       if (!box.alive || !box.box().intersects(b))
         continue;
       if (pr.kind == ShotKind::Rocket)
       {
-        explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
+        explodeAt(b.x + b.w / 2, b.y, pr.radius > 0 ? pr.radius : 3, pr.damage);
         return true;
       }
       destroyBox(box);
@@ -602,7 +619,17 @@ void World::updateProjectiles()
         continue;
       if (pr.kind == ShotKind::Rocket)
       {
-        explodeAt(b.x + b.w / 2, b.y, 3, pr.damage);
+        explodeAt(b.x + b.w / 2, b.y, pr.radius > 0 ? pr.radius : 3, pr.damage);
+        return true;
+      }
+      // A Shield Trooper's shield stops shots from the front; homing
+      // rockets come in over it.
+      if (e.kind == EnemyKind::Shield && !(pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::LockOnRockets)) &&
+          pr.dy <= 0 && (pr.precise ? (pr.vx < 0.0f ? -1 : 1) : pr.dx) == -e.dir)
+      {
+        e.flash = 3;
+        burst(cellCenter(b), rgb(255, 255, 255), rgb(160, 200, 255), 6, 1.4f);
+        playSound(Sfx::Land);
         return true;
       }
       const bool wasAlive = e.alive;
@@ -648,6 +675,8 @@ void World::updateProjectiles()
         continue;
       }
     }
+    if (pr.target != kNoTarget)
+      steerRocket(pr);
     for (int i = 0; i < pr.speed && pr.alive; ++i)
     {
       if (pr.precise)
@@ -680,7 +709,7 @@ void World::updateProjectiles()
     }
     if (pr.ride > 0 && --pr.ride == 0)
       pr.alive = false;
-    if (pr.alive && !isOnScreen(pr.box(), pr.lob ? 12 : 2))
+    if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget ? 12 : 2))
       pr.alive = false;
   }
   mProjectiles.erase(
@@ -697,6 +726,7 @@ void World::explodeAt(int cx, int cy, int radius, int damage)
   for (auto& b : mBoxes)
     if (b.alive && b.box().intersects(area))
       destroyBox(b);
+  explodeAtBoss(cx, cy, radius, damage);
   const Vec2 c{(float(cx) + 0.5f) * kCellSize, (float(cy) + 0.5f) * kCellSize};
   burst(c, rgb(255, 220, 90), rgb(255, 90, 30), 30, 3.0f);
   burst(c, rgb(255, 255, 255), rgb(255, 160, 60), 10, 1.5f);
@@ -839,7 +869,14 @@ void World::collectItem(Item& it)
   switch (it.kind)
   {
     case ItemKind::Health:
-      if (p.hp < p.maxHp)
+      if (it.variant == 1 && p.hp < p.maxHp)
+      {
+        // A full refill (before a boss).
+        p.hp = p.maxHp;
+        addScore(500, c);
+        showMessage("FULL HEALTH");
+      }
+      else if (p.hp < p.maxHp)
       {
         ++p.hp;
         addScore(500, c);
