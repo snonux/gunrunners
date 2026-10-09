@@ -69,6 +69,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     o << "campaign " << s.levelNumber << ' ' << s.levelFile << '\n';
   o << "extras " << s.proto << ' ' << int(s.protoFound) << ' ' << int(s.duck) << ' ' << int(s.camera) << ' '
     << int(s.bonusStar) << ' ' << s.protoKills << '\n';
+  if (s.god || s.cheated)
+    o << "cheats " << int(s.god) << ' ' << int(s.cheated) << '\n';
   for (bool p : s.props)
     o << "prop " << int(p) << '\n';
   for (const auto& e : s.enemies)
@@ -188,6 +190,11 @@ std::optional<SaveGame> readSave(const std::string& path)
       s.duck = b != 0;
       s.camera = c != 0;
       s.bonusStar = d != 0;
+    }
+    else if (key == "cheats" && in >> a >> b)
+    {
+      s.god = a != 0;
+      s.cheated = b != 0;
     }
     else if (key == "prop" && in >> a)
       s.props.push_back(a != 0);

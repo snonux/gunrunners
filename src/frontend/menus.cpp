@@ -1,5 +1,6 @@
-// Pause menu, savegame slots and the runner switcher. Menus freeze the game
-// underneath and work the same with the keyboard and a gamepad.
+// Pause menu, savegame slots, the runner switcher and the secret cheats.
+// Menus freeze the game underneath and work the same with the keyboard and
+// a gamepad.
 
 #include "frontend/game.hpp"
 
@@ -20,15 +21,34 @@ enum PauseItem
   kSave,
   kLoad,
   kChangeRunner,
+  kCheats,
   kQuitToTitle,
   kQuitGame,
   kPauseItemCount,
 };
 
 const char* const kPauseLabels[kPauseItemCount] = {
-  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "QUIT TO TITLE", "QUIT GAME"};
+  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "QUIT TO TITLE", "QUIT GAME"};
+
+// Entered on the pause menu, Konami style: up, up, down, down, left, right,
+// left, right (arrows, WASD, d-pad or stick).
+constexpr int kCode[] = {0, 0, 1, 1, 2, 3, 2, 3}; // up down left right
+constexpr int kCodeLength = int(sizeof(kCode) / sizeof(kCode[0]));
+
+const char* const kCheatLabels[int(Cheat::Count)] = {
+  "GOD MODE", "FULL HEALTH", "PROTOTYPE + FULL AMMO", "TURBO MODE", "CURE THE VIRUS", "ACCESS CARD", "RAPID FIRE",
+  "SKIP THE LEVEL"};
 
 } // namespace
+
+std::vector<int> Game::pauseItems() const
+{
+  std::vector<int> items;
+  for (int i = 0; i < kPauseItemCount; ++i)
+    if (i != kCheats || mCheatsUnlocked || mOptions.cheats)
+      items.push_back(i);
+  return items;
+}
 
 void Game::notice(const std::string& text)
 {
@@ -49,7 +69,10 @@ void Game::openMenu(Menu m)
   switch (m)
   {
     case Menu::Pause:
-      mMenuCursor = kResume;
+      mMenuCursor = 0;
+      mCodeStep = 0;
+      break;
+    case Menu::Cheats:
       break;
     case Menu::Slots:
       refreshSlots();
@@ -195,7 +218,26 @@ bool Game::tickMenu(const Input& in)
   switch (mMenu)
   {
     case Menu::Pause:
-      mMenuCursor = (mMenuCursor + dir + kPauseItemCount) % kPauseItemCount;
+    {
+      // The cheat code rides on the menu's own moves.
+      const int pressed = edge(&Input::up) ? 0 : edge(&Input::down) ? 1 : edge(&Input::left) ? 2 : edge(&Input::right) ? 3 : -1;
+      if (pressed >= 0 && !mCheatsUnlocked && !mOptions.cheats)
+      {
+        if (pressed == kCode[mCodeStep])
+          ++mCodeStep;
+        else
+          mCodeStep = pressed == kCode[0] ? 1 : 0;
+        if (mCodeStep == kCodeLength)
+        {
+          mCheatsUnlocked = true;
+          mCodeStep = 0;
+          sound(Sfx::TurboOn);
+          notice("CHEATS UNLOCKED - SEE THE PAUSE MENU");
+        }
+      }
+      const auto items = pauseItems();
+      const int count = int(items.size());
+      mMenuCursor = (mMenuCursor + dir + count) % count;
       if (cancel)
       {
         closeMenu();
@@ -203,10 +245,13 @@ bool Game::tickMenu(const Input& in)
       else if (ok)
       {
         sound(Sfx::MenuSelect);
-        switch (mMenuCursor)
+        switch (items[std::size_t(mMenuCursor)])
         {
           case kResume:
             closeMenu();
+            break;
+          case kCheats:
+            openMenu(Menu::Cheats);
             break;
           case kSave:
             mSlotsForSave = true;
@@ -237,6 +282,34 @@ bool Game::tickMenu(const Input& in)
         }
       }
       break;
+    }
+
+    case Menu::Cheats:
+    {
+      const int count = int(Cheat::Count);
+      mCheatCursor = (mCheatCursor + dir + count) % count;
+      if (cancel)
+      {
+        openMenu(Menu::Pause);
+      }
+      else if (ok && mWorld)
+      {
+        const Cheat c = Cheat(mCheatCursor);
+        if (!mWorld->cheat(c))
+        {
+          sound(Sfx::Hurt);
+          notice("NOT RIGHT NOW");
+        }
+        else
+        {
+          sound(Sfx::MenuSelect);
+          notice(c == Cheat::God ? (mWorld->godMode() ? "GOD MODE ON" : "GOD MODE OFF") : kCheatLabels[mCheatCursor]);
+          if (c == Cheat::Exit || c == Cheat::Turbo)
+            closeMenu();
+        }
+      }
+      break;
+    }
 
     case Menu::Slots:
       mSlotCursor = (mSlotCursor + dir + kSaveSlots) % kSaveSlots;
@@ -291,20 +364,44 @@ void Game::renderMenu()
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, 140));
   const TextStyle hint{16.0f, rgb(190, 188, 214), kInk};
 
+  if (mMenu == Menu::Cheats)
+  {
+    r.draw(mMenuPanel, 380, 120);
+    r.drawText("CHEATS", 640, 140, {44.0f, t.accentB, kInk, true}, Align::Center);
+    const float step = 38.0f;
+    for (int i = 0; i < int(Cheat::Count); ++i)
+    {
+      const bool sel = i == mCheatCursor;
+      const float y = 208.0f + float(i) * step;
+      if (sel)
+        r.fillRect(420, y - 4, 440, step - 4, withAlpha(t.accentB, 60));
+      std::string label = kCheatLabels[i];
+      if (Cheat(i) == Cheat::God && mWorld)
+        label += mWorld->godMode() ? "  [ON]" : "  [OFF]";
+      r.drawText(label, 640, y, {22.0f, sel ? t.accentB : t.hudText, kInk, sel}, Align::Center);
+    }
+    r.drawText("Cheating forfeits this level's bonuses and records.", 640, 522, hint, Align::Center);
+    r.drawText("ENTER / A use   ESC / B back", 640, 560, hint, Align::Center);
+    return;
+  }
+
   if (mMenu == Menu::Pause)
   {
     r.draw(mMenuPanel, 380, 120);
     r.drawText("PAUSED", 640, 140, {48.0f, t.accentA, kInk, true}, Align::Center);
-    for (int i = 0; i < kPauseItemCount; ++i)
+    const auto items = pauseItems();
+    const float step = items.size() > 6 ? 44.0f : 50.0f;
+    for (int i = 0; i < int(items.size()); ++i)
     {
       const bool sel = i == mMenuCursor;
-      const float y = 222.0f + float(i) * 50.0f;
+      const float y = 216.0f + float(i) * step;
       if (sel)
       {
         r.fillRect(420, y - 6, 440, 42, withAlpha(t.accentA, 60));
         drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
       }
-      r.drawText(kPauseLabels[i], 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel}, Align::Center);
+      r.drawText(kPauseLabels[items[std::size_t(i)]], 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel},
+        Align::Center);
     }
     r.drawText("UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 560, hint, Align::Center);
     return;

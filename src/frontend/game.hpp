@@ -33,6 +33,7 @@ struct GameOptions
   int startLevel = 0;    // campaign: start at this level (with skipMenu)
   bool noCutscenes = false;
   std::string cutscene; // play just this cutscene, then quit
+  bool cheats = false;  // the pause menu's CHEATS item from the start
 };
 
 // Top-level mode management, the equivalent of RigelEngine's
@@ -126,8 +127,11 @@ private:
     Pause,
     Slots,
     Runner,
+    Cheats,
   };
   bool tickMenu(const Input& in);
+  // The pause menu's items; CHEATS shows up once the code was entered.
+  std::vector<int> pauseItems() const;
   void openMenu(Menu m);
   void closeMenu();
   void refreshSlots();
@@ -151,6 +155,7 @@ private:
   Bot mMainBot;
   int mBonusScore = 0, mBonusGems = 0;
   bool mBonusWon = false;
+  bool mBonusCheated = false;
   std::unique_ptr<CutscenePlayer> mCutscene;
   std::unique_ptr<ClipKit> mClipKit;
   std::deque<std::string> mCutQueue;
@@ -163,7 +168,6 @@ private:
   ListKind mListKind = ListKind::Levels;
   std::vector<std::pair<std::string, std::string>> mListItems; // id, label
   int mListCursor = 0;
-  std::string mTyped; // title screen code entry
 
   GameOptions mOptions;
   Renderer& mRenderer;
@@ -187,6 +191,9 @@ private:
   int mMenuCursor = 0;
   int mSlotCursor = 0;
   int mRunnerCursor = 0;
+  int mCheatCursor = 0;
+  bool mCheatsUnlocked = false; // the code was entered on the pause menu
+  int mCodeStep = 0;            // how much of the code has been entered
   std::array<std::optional<SaveGame>, kSaveSlots> mSlots;
   std::string mNotice;
   std::string mPlayingOverride; // the world's music override now playing

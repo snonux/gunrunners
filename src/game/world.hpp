@@ -891,6 +891,21 @@ struct WorldStats
   bool duck = false;
   bool camera = false; // shot the candid camera
   int protoKills = 0;   // kills with the prototype, for the Arsenal
+  bool cheated = false; // a cheat was used: no bonuses, nothing recorded
+};
+
+// The pause menu's secret cheats (world_cheats.cpp).
+enum class Cheat
+{
+  God,    // toggle: no damage (falling off the map still counts)
+  Health, // full hearts
+  Ammo,   // the level's prototype with full ammo
+  Turbo,  // Turbo Mode now
+  Cure,   // the Virus is gone
+  Card,   // the access card
+  Rapid,  // rapid fire
+  Exit,   // beam out through the exit
+  Count,
 };
 
 // The music clock (SPEC 3.1): 120 BPM, a bar is 30 logic frames and its four
@@ -962,6 +977,11 @@ public:
   int characterIndex() const { return mCharacterIndex; }
   // Shows a line of text under the HUD, like the pickup messages.
   void notify(const std::string& text) { showMessage(text); }
+  // Applies a cheat and says what it did; false if it can't right now
+  // (dying, already leaving).
+  bool cheat(Cheat c);
+  bool godMode() const { return mGod; }
+  void markCheated() { mStats.cheated = true; } // a cheat in its bonus level
 
   // The player stands in the bonus entrance and pressed up: the frontend
   // takes over (sting, bonus level, and back). Cleared by the frontend.
@@ -1399,6 +1419,7 @@ private:
   WorldState mState = WorldState::Playing;
   int mStateFrames = 0;
   WorldStats mStats;
+  bool mGod = false; // the God Mode cheat
   std::string mMessage;
   int mMessageTicks = 0;
   int mFieldFlash = 0;

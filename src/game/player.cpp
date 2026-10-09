@@ -727,7 +727,7 @@ void World::switchOrientationWithPositionChange()
 void World::hurtPlayer(int amount)
 {
   auto& p = mPlayer;
-  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0)
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0 || mGod)
     return;
   p.hp -= amount;
   mStats.tookDamage = true;

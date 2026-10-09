@@ -48,6 +48,8 @@ SaveGame World::snapshot() const
   s.camera = st.camera;
   s.bonusStar = mBonusStar;
   s.protoKills = st.protoKills;
+  s.god = mGod;
+  s.cheated = st.cheated;
   for (const auto& pr : mProps)
     s.props.push_back(pr.used);
 
@@ -234,6 +236,8 @@ bool World::restore(const SaveGame& s)
   st.duck = s.duck;
   st.camera = s.camera;
   st.protoKills = s.protoKills;
+  st.cheated = s.cheated;
+  mGod = s.god;
   mBonusStar = s.bonusStar;
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];
