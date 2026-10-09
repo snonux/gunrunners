@@ -39,6 +39,7 @@ add_library(gunrunners_core STATIC
   src/game/world_sludge.cpp
   src/game/world_maglev.cpp
   src/game/world_chopper.cpp
+  src/game/world_cheats.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp

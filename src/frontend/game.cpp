@@ -589,7 +589,8 @@ void Game::renderBonus()
   float ly = y + 172;
   if (mBonuses.empty() && mModeTicks > kBonusStep)
   {
-    r.drawText("NO BONUSES THIS TIME", 640, ly, {28.0f, rgb(200, 200, 216), kInk}, Align::Center);
+    r.drawText(s.cheated ? "CHEATS USED - NO BONUSES, NO RECORDS" : "NO BONUSES THIS TIME", 640, ly,
+      {28.0f, rgb(200, 200, 216), kInk}, Align::Center);
   }
   for (int i = 0; i < mBonusesShown && i < int(mBonuses.size()); ++i)
   {

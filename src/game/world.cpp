@@ -190,6 +190,8 @@ std::vector<Bonus> World::bonuses() const
 {
   std::vector<Bonus> out;
   const auto& s = mStats;
+  if (s.cheated)
+    return out;
   if (!s.tookDamage)
     out.push_back({"NO DAMAGE TAKEN", kBonusPoints});
   if (s.enemiesTotal > 0 && s.kills == s.enemiesTotal)

@@ -67,6 +67,7 @@ struct SaveGame
   bool protoFound = false, duck = false, camera = false, bonusStar = false;
   int protoKills = 0;
   std::vector<bool> props;
+  bool god = false, cheated = false; // the cheats
 
   std::vector<EnemyState> enemies;
   std::vector<bool> boxes; // alive flags, in level order

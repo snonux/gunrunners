@@ -331,7 +331,7 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
 
 void Game::recordClear()
 {
-  if (mLevelNumber <= 0 || mBonusOnly || !mWorld)
+  if (mLevelNumber <= 0 || mBonusOnly || !mWorld || mWorld->stats().cheated)
     return;
   const auto& st = mWorld->stats();
   const int n = mLevelNumber;
@@ -451,6 +451,8 @@ void Game::afterCutscenes()
       mSubTick = 0;
       mLatched = PlayerInput{};
       mWorld->addBonusReward(mBonusScore, mBonusGems, mBonusWon);
+      if (mBonusCheated)
+        mWorld->markCheated();
       setMode(Mode::Play);
       playLevelMusic();
       break;
@@ -500,7 +502,8 @@ void Game::leaveBonus()
   mBonusScore = st.score;
   mBonusGems = st.gems;
   mBonusWon = !mWorld->bonusFailed();
-  if (mBonusWon && mLevelNumber > 0)
+  mBonusCheated = st.cheated;
+  if (mBonusWon && mLevelNumber > 0 && !mBonusCheated)
   {
     mProfile.stars.insert(mLevelNumber);
     mProfile.save(saveDir());

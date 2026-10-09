@@ -88,7 +88,7 @@ environment variable (a mapping line from a tool such as
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
 bot plays), `--start N` (campaign level N), `--no-cutscenes`,
 `--cutscene NAME` (play one cutscene), `--level PATH` (just this level
-file), `--fullscreen`, `--no-audio`, `--save-dir PATH`,
+file), `--fullscreen`, `--no-audio`, `--cheats`, `--save-dir PATH`,
 `--trace` (prints the player state every logic frame), `--press LIST`
 (scripted button presses for headless menu tests). Run `--help` for all of
 them.
@@ -172,6 +172,28 @@ Nova with the laser.
   Loading puts you on the last solid ground you stood on. Saves live in
   `$XDG_DATA_HOME/gunrunners/saves` (usually `~/.local/share/gunrunners/saves`),
   one small text file per slot; `--save-dir` overrides that.
+
+## Cheats (a little secret)
+
+Pause the game and enter **up, up, down, down, left, right, left, right**
+(arrow keys, WASD, the d-pad or the stick all work). A chime plays and the
+pause menu gains a **CHEATS** entry:
+
+| Cheat | What it does |
+|---|---|
+| GOD MODE | toggle: nothing hurts you (falling off the map still does) |
+| FULL HEALTH | refills your hearts |
+| PROTOTYPE + FULL AMMO | the level's prototype weapon, fully loaded |
+| TURBO MODE | starts Turbo Mode on the spot |
+| CURE THE VIRUS | ends an infection |
+| ACCESS CARD | the card that switches off force fields |
+| RAPID FIRE | the rapid-fire power-up |
+| SKIP THE LEVEL | beams you out through the exit |
+
+The code is remembered until you quit; `--cheats` shows the entry from the
+start. Cheating has a price, as it should: a level you cheated in pays no
+tally bonuses, and its score, time, Bonus Star and Arsenal entry are not
+recorded in your profile. Savegames remember that you cheated.
 
 ## Sound and music
 

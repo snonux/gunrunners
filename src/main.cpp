@@ -85,6 +85,7 @@ void printUsage()
     "  --level PATH         play just this level file (default: the campaign)\n"
     "  --start N            campaign: start at level N (with --skip-menu)\n"
     "  --skip-menu          start straight in the level (after its briefing)\n"
+    "  --cheats             the pause menu shows CHEATS without the code\n"
     "  --no-cutscenes       skip the opening, briefings and episode endings\n"
     "  --cutscene NAME      play cutscenes/NAME.txt, then quit\n"
     "  --data-dir PATH      where levels/ and cutscenes/ are\n"
@@ -154,6 +155,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.game.dataDir = next();
     else if (a == "--skip-menu")
       o.game.skipMenu = true;
+    else if (a == "--cheats")
+      o.game.cheats = true;
     else if (a == "--autoplay")
       o.game.autoplay = true;
     else if (a == "--quit-after-clear")
