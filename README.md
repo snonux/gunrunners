@@ -76,6 +76,14 @@ Play with the keyboard or a gamepad (both work at the same time):
 | Enter | A (or Start) | confirm in menus |
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
 | T | Back / Select | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
+| F11 / Alt+Enter | | fullscreen on or off |
+
+Fullscreen is borderless at your desktop's resolution: no window frame,
+no mode switch, and the 1280x720 picture is scaled up with black bars if
+the screen is not 16:9. Toggle it with F11, Alt+Enter, or the FULLSCREEN
+item on the title screen and in the pause menu. The game remembers the
+choice for the next start; `--fullscreen` or `--windowed` overrides it for
+one run.
 
 Gamepads use SDL2's GameController API, so Xbox, PlayStation, Switch Pro,
 8BitDo, Steam Deck and most generic USB or Bluetooth pads work with the
@@ -88,7 +96,7 @@ environment variable (a mapping line from a tool such as
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
 bot plays), `--start N` (campaign level N), `--no-cutscenes`,
 `--cutscene NAME` (play one cutscene), `--level PATH` (just this level
-file), `--fullscreen`, `--no-audio`, `--cheats`, `--save-dir PATH`,
+file), `--fullscreen` / `--windowed`, `--no-audio`, `--cheats`, `--save-dir PATH`,
 `--trace` (prints the player state every logic frame), `--press LIST`
 (scripted button presses for headless menu tests). Run `--help` for all of
 them.

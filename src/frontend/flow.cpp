@@ -132,6 +132,8 @@ std::vector<std::string> Game::titleItems() const
     items.emplace_back("RERUNS");
   if (std::ifstream(dataDir() + "/levels/level1.txt"))
     items.emplace_back("TRAINING STAGE");
+  if (mOptions.window)
+    items.emplace_back(mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
   items.emplace_back("QUIT");
   return items;
 }
@@ -187,6 +189,10 @@ void Game::tickTitle(const Input& raw)
   else if (item == "RERUNS")
   {
     openList(ListKind::Reruns);
+  }
+  else if (item.rfind("FULLSCREEN", 0) == 0)
+  {
+    mFullscreenToggle = true;
   }
   else if (item == "QUIT")
   {

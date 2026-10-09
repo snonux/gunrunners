@@ -7,6 +7,8 @@
 
 #include "frontend/game.hpp"
 #include "frontend/controls.hpp"
+#include "game/profile.hpp"
+#include "game/savegame.hpp"
 
 #include <SDL.h>
 #include <cairo.h>
@@ -40,6 +42,7 @@ struct CliOptions
   std::string screenshotPrefix;
   std::vector<long> screenshotFrames;
   bool fullscreen = false;
+  bool windowed = false;
   // Headless: scripted button presses, tick -> buttons held for 3 ticks.
   std::vector<std::pair<long, Input>> presses;
 };
@@ -99,7 +102,8 @@ void printUsage()
     "  --screenshots LIST   headless: save PNGs of these ticks, e.g. 100,250\n"
     "  --screenshot-prefix P  path prefix for those PNGs (default shot_)\n"
     "  --frames N           stop after N ticks\n"
-    "  --fullscreen         start in fullscreen\n"
+    "  --fullscreen         start in borderless fullscreen (F11 or Alt+Enter toggles)\n"
+    "  --windowed           start in a window even if fullscreen was saved\n"
     "  --save-dir PATH      where the 5 savegame slots live\n"
     "                       (default: $XDG_DATA_HOME/gunrunners/saves or\n"
     "                       ~/.local/share/gunrunners/saves)\n"
@@ -107,7 +111,8 @@ void printUsage()
     "                       (left right up down jump fire confirm pause back swap)\n"
     "\n"
     "Keys: arrows/WASD move, Z/Space jump, X/Ctrl fire, Enter confirm,\n"
-    "      C switch runner, Esc/P pause menu (save, load, quit), T cycle theme\n"
+    "      C switch runner, Esc/P pause menu (save, load, quit), T cycle theme,\n"
+    "      F11 or Alt+Enter fullscreen\n"
     "Gamepad: stick/d-pad move, A jump, X/B/RB/RT fire, Y switch runner,\n"
     "      Start pause menu, Back cycle theme");
 }
@@ -184,6 +189,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.screenshotPrefix = next();
     else if (a == "--fullscreen")
       o.fullscreen = true;
+    else if (a == "--windowed")
+      o.windowed = true;
     else if (a == "--save-dir")
       o.game.saveDir = next();
     else if (a == "--press")
@@ -355,13 +362,19 @@ int runWindowed(const CliOptions& o)
     return 1;
   }
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+  // Borderless fullscreen at the desktop resolution: no mode switch, no
+  // window decorations, and the logical size keeps the 1280x720 picture
+  // letterboxed. The saved setting applies unless a flag overrides it. The
+  // window is created fullscreen so it also works without a window manager.
+  const std::string saveDir = o.game.saveDir.empty() ? defaultSaveDir() : o.game.saveDir;
+  const bool startFullscreen = !o.windowed && (o.fullscreen || Profile::load(saveDir).fullscreen);
   SDL_Window* window = SDL_CreateWindow(
-    "Gunrunners PoC",
+    "Gunrunners",
     SDL_WINDOWPOS_CENTERED,
     SDL_WINDOWPOS_CENTERED,
     kScreenW,
     kScreenH,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (o.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (startFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
   SDL_Renderer* sdlRenderer =
     SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   if (!sdlRenderer)
@@ -377,7 +390,25 @@ int runWindowed(const CliOptions& o)
     if (!audio->openDevice())
       audio.reset();
   }
-  Game game(o.game, renderer, audio.get());
+  GameOptions gameOptions = o.game;
+  gameOptions.window = true;
+  Game game(gameOptions, renderer, audio.get());
+
+  const auto applyFullscreen = [&](bool on) {
+    SDL_SetWindowFullscreen(window, on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    SDL_ShowCursor(on ? SDL_DISABLE : SDL_ENABLE);
+  };
+  const auto isFullscreen = [&] {
+    return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
+  };
+  const auto toggleFullscreen = [&] {
+    const bool on = !isFullscreen();
+    applyFullscreen(on);
+    game.setFullscreen(on);
+  };
+  SDL_ShowCursor(startFullscreen ? SDL_DISABLE : SDL_ENABLE);
+  game.showFullscreen(startFullscreen);
+
   Controls controls;
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
@@ -399,6 +430,9 @@ int runWindowed(const CliOptions& o)
         case Controls::Action::CycleTheme:
           game.cycleTheme();
           break;
+        case Controls::Action::ToggleFullscreen:
+          toggleFullscreen();
+          break;
         case Controls::Action::None:
           break;
       }
@@ -411,6 +445,8 @@ int runWindowed(const CliOptions& o)
     while (accumulator >= tickSeconds && running)
     {
       running = game.tick(controls.read());
+      if (game.takeFullscreenToggle())
+        toggleFullscreen();
       accumulator -= tickSeconds;
       ++frames;
       if (o.maxFrames >= 0 && frames >= o.maxFrames)

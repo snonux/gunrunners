@@ -28,6 +28,7 @@ public:
     None,
     Quit, // window closed
     CycleTheme,
+    ToggleFullscreen, // F11 or Alt+Enter
   };
 
   // Feed every SDL event through here. Handles hotplugging and returns the
