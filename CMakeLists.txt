@@ -66,6 +66,10 @@ if(TARGET SDL2::SDL2main)
   target_link_libraries(gunrunners PRIVATE SDL2::SDL2main)
 endif()
 
+# Box art for the README (tools/covers.sh); not part of the default build.
+add_executable(gunrunners_cover EXCLUDE_FROM_ALL tools/cover/cover.cpp)
+target_link_libraries(gunrunners_cover PRIVATE gunrunners_core)
+
 enable_testing()
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)

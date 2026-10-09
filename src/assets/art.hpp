@@ -3,6 +3,8 @@
 #include "data/theme.hpp"
 #include "render/renderer.hpp"
 
+#include <cairo.h>
+
 #include <array>
 #include <map>
 #include <string>
@@ -154,6 +156,9 @@ void drawExit(Renderer& r, const Art& art, const Theme& theme, float x, float y,
 // pose: 0 idle, 1 run, 2 jump, 3 look up, 4 crouch, 5 hurt, 6 coil, 7 fall,
 // 8 idle (other frame).
 Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bool mirror = false);
+// The same, straight onto a Cairo context in design units (the feet at
+// (32, 96), about 130 units tall), for print-size art such as the covers.
+void drawCharacterPose(cairo_t* cr, int kind, int pose);
 // Rounded translucent panel for menus and overlays.
 Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, double radius);
 
