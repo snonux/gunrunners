@@ -3,6 +3,7 @@
 #include "assets/art.hpp"
 #include "audio/audio.hpp"
 #include "data/level.hpp"
+#include "frontend/bindings.hpp"
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
 #include "game/profile.hpp"
@@ -74,6 +75,18 @@ public:
   // The app is going to the background (Android may close it there): the
   // pause menu opens over a running level and the profile is saved.
   void suspend();
+
+  // The CONTROLS menu (controls_menu.cpp). The window code reads the
+  // bindings, and while the menu listens for a new key or pad button it
+  // hands over the next press instead of turning it into Input.
+  const Bindings& bindings() const { return mBindings; }
+  bool listening() const { return mListening; }
+  void captureKey(int scancode);
+  void capturePad(int code);
+  // The on-screen gamepad's layout editor, and the layout itself.
+  bool touchEditing() const { return mMenu == Menu::TouchEdit; }
+  const std::vector<int>& touchLayout() const;
+  void setTouchLayout(const std::vector<int>& offsets);
 
 private:
   enum class Mode
@@ -152,6 +165,8 @@ private:
     Slots,
     Runner,
     Cheats,
+    Controls,
+    TouchEdit,
   };
   bool tickMenu(const Input& in);
   // The pause menu's items; CHEATS shows up once the code was entered.
@@ -166,6 +181,14 @@ private:
   void notice(const std::string& text);
   void renderMenu();
   void renderNotice();
+  // controls_menu.cpp
+  struct ControlRow;
+  std::vector<ControlRow> controlRows() const;
+  void openControls();
+  void tickControls(const Input& in, bool ok, bool cancel, int dir, int side);
+  void renderControls();
+  void saveBindings();
+  std::string keysHint() const;
   const Theme& theme() const { return themeByIndex(mThemeIndex); }
 
   // Campaign.
@@ -227,6 +250,15 @@ private:
   bool mFullscreenNow = false;
   void cycleTouchSize();
   std::string touchSizeLabel() const;
+
+  // CONTROLS menu.
+  Bindings mBindings;
+  int mControlsCursor = 0;
+  int mControlsColumn = 0; // key 1, key 2, pad
+  bool mListening = false;
+  int mListenTicks = 0;
+  bool mMenuHold = false;  // ignore the menu until every button is let go
+  Menu mControlsReturn = Menu::None;
 
   // 15 Hz logic clock and input latching.
   int mSubTick = 0;

@@ -23,14 +23,14 @@ enum PauseItem
   kChangeRunner,
   kCheats,
   kFullscreen,
-  kTouchSize,
+  kControls,
   kQuitToTitle,
   kQuitGame,
   kPauseItemCount,
 };
 
 const char* const kPauseLabels[kPauseItemCount] = {
-  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "TOUCH PAD", "QUIT TO TITLE",
+  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "CONTROLS", "QUIT TO TITLE",
   "QUIT GAME"};
 
 // Entered on the pause menu, Konami style: up, up, down, down, left, right,
@@ -48,8 +48,7 @@ std::vector<int> Game::pauseItems() const
 {
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window) &&
-        (i != kTouchSize || mOptions.touch))
+    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
       items.push_back(i);
   return items;
 }
@@ -110,6 +109,8 @@ void Game::openMenu(Menu m)
       mCodeStep = 0;
       break;
     case Menu::Cheats:
+    case Menu::Controls:
+    case Menu::TouchEdit:
       break;
     case Menu::Slots:
       refreshSlots();
@@ -244,6 +245,13 @@ bool Game::loadFromSlot(int slot)
 bool Game::tickMenu(const Input& in)
 {
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
+  if (mMenuHold)
+  {
+    // The key or button just bound is still down: it must not also act.
+    mMenuHold = in.left || in.right || in.up || in.down || in.jump || in.fire || in.confirm || in.pause ||
+      in.back || in.swap;
+    return !mQuit;
+  }
   // Start both opens the pause menu and confirms; in a menu it backs out.
   const bool cancel = edge(&Input::back) || edge(&Input::pause);
   const bool ok = !cancel && (edge(&Input::confirm) || edge(&Input::jump));
@@ -293,8 +301,9 @@ bool Game::tickMenu(const Input& in)
           case kFullscreen:
             mFullscreenToggle = true;
             break;
-          case kTouchSize:
-            cycleTouchSize();
+          case kControls:
+            mControlsReturn = Menu::Pause;
+            openControls();
             break;
           case kSave:
             mSlotsForSave = true;
@@ -385,6 +394,11 @@ bool Game::tickMenu(const Input& in)
       }
       break;
 
+    case Menu::Controls:
+    case Menu::TouchEdit:
+      tickControls(in, ok, cancel, dir, side);
+      break;
+
     case Menu::None:
       break;
   }
@@ -406,6 +420,12 @@ void Game::renderMenu()
   const auto& t = theme();
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, 140));
   const TextStyle hint{16.0f, rgb(190, 188, 214), kInk};
+
+  if (mMenu == Menu::Controls || mMenu == Menu::TouchEdit)
+  {
+    renderControls();
+    return;
+  }
 
   if (mMenu == Menu::Cheats)
   {
@@ -446,7 +466,6 @@ void Game::renderMenu()
       const int item = items[std::size_t(i)];
       const std::string label =
         item == kFullscreen ? (mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF")
-        : item == kTouchSize ? touchSizeLabel()
                              : kPauseLabels[item];
       r.drawText(label, 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);

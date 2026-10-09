@@ -134,8 +134,7 @@ std::vector<std::string> Game::titleItems() const
     items.emplace_back("TRAINING STAGE");
   if (mOptions.window)
     items.emplace_back(mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
-  if (mOptions.touch)
-    items.emplace_back(touchSizeLabel());
+  items.emplace_back("CONTROLS");
   items.emplace_back("QUIT");
   return items;
 }
@@ -196,9 +195,10 @@ void Game::tickTitle(const Input& raw)
   {
     mFullscreenToggle = true;
   }
-  else if (item.rfind("TOUCH PAD", 0) == 0)
+  else if (item == "CONTROLS")
   {
-    cycleTouchSize();
+    mControlsReturn = Menu::None;
+    openControls();
   }
   else if (item == "QUIT")
   {
@@ -221,11 +221,13 @@ void Game::renderTitle()
   r.drawText("42 LEVELS  -  42 PROTOTYPES  -  ONE SHOW", cx, 186, {22.0f, t.hudText, kInk}, Align::Center);
 
   const auto items = titleItems();
-  const float top = 236.0f;
+  // Eleven items at most (every unlock, a window): they close up a little.
+  const bool crowded = items.size() > 10;
+  const float top = crowded ? 222.0f : 236.0f;
   for (std::size_t i = 0; i < items.size(); ++i)
   {
     const bool sel = int(i) == mTitleCursor;
-    const float y = top + float(i) * 44.0f;
+    const float y = top + float(i) * (crowded ? 38.0f : 44.0f);
     if (sel)
     {
       r.fillRect(cx - 200, y - 4, 400, 40, withAlpha(t.accentA, 60));

@@ -83,6 +83,15 @@ Profile Profile::load(const std::string& dir)
       in >> p.fullscreen;
     else if (key == "touchsize")
       in >> p.touchSize;
+    else if (key == "control")
+    {
+      std::string name;
+      in >> name;
+      auto& values = p.controls[name];
+      int v = 0;
+      while (in >> v)
+        values.push_back(v);
+    }
   }
   return p;
 }
@@ -113,6 +122,13 @@ bool Profile::save(const std::string& dir) const
     o << "duckmode " << duckMode << '\n';
     o << "fullscreen " << fullscreen << '\n';
     o << "touchsize " << touchSize << '\n';
+    for (const auto& [name, values] : controls)
+    {
+      o << "control " << name;
+      for (int v : values)
+        o << ' ' << v;
+      o << '\n';
+    }
     if (!o)
       return false;
   }

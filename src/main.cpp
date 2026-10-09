@@ -121,7 +121,47 @@ void printUsage()
     "      C switch runner, Esc/P pause menu (save, load, quit), T cycle theme,\n"
     "      F11 or Alt+Enter fullscreen\n"
     "Gamepad: stick/d-pad move, X jump, A/B/RB/RT fire, Y switch runner,\n"
-    "      Start pause menu, Back cycle theme");
+    "      Start pause menu, Back cycle theme\n"
+    "CONTROLS on the title screen or in the pause menu rebinds keys and buttons");
+}
+
+// The on-screen gamepad follows the game: its layout for the moment, its
+// size, where the player moved its controls, and the layout editor.
+void syncTouch(TouchControls& touch, Game& game)
+{
+  touch.setEditing(game.touchEditing());
+  touch.configure(game.inLevel() || game.touchEditing() ? TouchControls::Layout::Play : TouchControls::Layout::Menu,
+    game.touchSize());
+  if (touch.takeLayoutChange())
+    game.setTouchLayout(touch.layout());
+  else
+    touch.setLayout(game.touchLayout());
+}
+
+// While the CONTROLS menu listens for a new binding, the next key or pad
+// button goes to it instead of to the game.
+bool captureBinding(Game& game, const SDL_Event& ev)
+{
+  if (!game.listening())
+    return false;
+  switch (ev.type)
+  {
+    case SDL_KEYDOWN:
+      if (!ev.key.repeat)
+        game.captureKey(ev.key.keysym.scancode);
+      return true;
+    case SDL_CONTROLLERBUTTONDOWN:
+      game.capturePad(ev.cbutton.button);
+      return true;
+    case SDL_CONTROLLERAXISMOTION:
+      if (ev.caxis.value > 20000 && ev.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)
+        game.capturePad(kPadLeftTrigger);
+      else if (ev.caxis.value > 20000 && ev.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
+        game.capturePad(kPadRightTrigger);
+      return false;
+    default:
+      return false;
+  }
 }
 
 bool fileExists(const std::string& p)
@@ -354,8 +394,7 @@ int runHeadless(const CliOptions& o)
         game.render();
         if (touch)
         {
-          touch->configure(game.inLevel() ? TouchControls::Layout::Play : TouchControls::Layout::Menu,
-            game.touchSize());
+          syncTouch(*touch, game);
           touch->draw(renderer);
         }
         SDL_RenderPresent(sdlRenderer);
@@ -469,6 +508,8 @@ int runWindowed(const CliOptions& o)
       // Android may close a backgrounded app without warning.
       if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
         game.suspend();
+      if (captureBinding(game, ev))
+        continue;
       switch (controls.handleEvent(ev))
       {
         case Controls::Action::Quit:
@@ -489,17 +530,21 @@ int runWindowed(const CliOptions& o)
     accumulator += double(now - last) / freq;
     last = now;
     accumulator = std::min(accumulator, 0.25);
+    if (controls.bindings() != game.bindings())
+      controls.setBindings(game.bindings());
     if (touch)
     {
       int pw = 0, ph = 0;
       SDL_GetRendererOutputSize(sdlRenderer, &pw, &ph);
       touch->setScreen(pw, ph);
-      touch->configure(
-        game.inLevel() ? TouchControls::Layout::Play : TouchControls::Layout::Menu, game.touchSize());
+      syncTouch(*touch, game);
     }
     while (accumulator >= tickSeconds && running)
     {
-      running = game.tick(touch ? controls.read() | touch->read() : controls.read());
+      const Input keysAndPads = controls.read(!game.inLevel());
+      running = game.tick(touch ? keysAndPads | touch->read() : keysAndPads);
+      if (touch)
+        syncTouch(*touch, game);
       if (game.takeFullscreenToggle())
         toggleFullscreen();
       accumulator -= tickSeconds;

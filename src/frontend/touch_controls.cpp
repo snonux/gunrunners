@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <tuple>
 
 namespace gr
 {
@@ -209,20 +210,127 @@ void TouchControls::setScreen(int pixelW, int pixelH)
   mBottom = float(kScreenH) + barY;
 }
 
+bool TouchControls::moved() const
+{
+  return mLayout == Layout::Play || mEditing;
+}
+
+TouchControls::Circle TouchControls::place(Circle c, int element) const
+{
+  if (!moved())
+    return c;
+  // A moved control stays whole on the screen.
+  const auto& o = mOffset[std::size_t(element)];
+  c.x = std::clamp(c.x + o.x, mLeft + c.r, mRight - c.r);
+  c.y = std::clamp(c.y + o.y, mTop + c.r, mBottom - c.r);
+  return c;
+}
+
 TouchControls::Circle TouchControls::stickHome() const
 {
-  return {mLeft + kStickFromLeft * mScale, mBottom - kStickFromBottom * mScale, kStickR * mScale};
+  return place({mLeft + kStickFromLeft * mScale, mBottom - kStickFromBottom * mScale, kStickR * mScale}, 0);
 }
 
 TouchControls::Circle TouchControls::button(int b) const
 {
   if (b == kPause)
-    return {mRight - kPauseFromRight * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale};
+    return place({mRight - kPauseFromRight * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale}, 1 + b);
   int slot = b;
   if (b == kJump || b == kFire)
-    slot = (b == kJump) == (mLayout == Layout::Menu) ? kCorner : kInner;
+    slot = (b == kJump) == (mLayout == Layout::Menu && !mEditing) ? kCorner : kInner;
   const ButtonSpec& s = kSpecs[slot];
-  return {mRight - s.fromRight * mScale, mBottom - s.fromBottom * mScale, s.r * mScale};
+  return place({mRight - s.fromRight * mScale, mBottom - s.fromBottom * mScale, s.r * mScale}, 1 + b);
+}
+
+void TouchControls::setLayout(const std::vector<int>& offsets)
+{
+  for (std::size_t i = 0; i < mOffset.size(); ++i)
+    mOffset[i] = i * 2 + 1 < offsets.size() ? SDL_FPoint{float(offsets[i * 2]), float(offsets[i * 2 + 1])}
+                                            : SDL_FPoint{0.0f, 0.0f};
+}
+
+std::vector<int> TouchControls::layout() const
+{
+  std::vector<int> v;
+  for (const auto& o : mOffset)
+  {
+    v.push_back(int(std::lround(o.x)));
+    v.push_back(int(std::lround(o.y)));
+  }
+  return v;
+}
+
+void TouchControls::setEditing(bool on)
+{
+  if (on == mEditing)
+    return;
+  mEditing = on;
+  mFingers.clear();
+  mTapped = Input{};
+  mVisible = mVisible || on;
+}
+
+bool TouchControls::takeLayoutChange()
+{
+  const bool c = mLayoutChanged;
+  mLayoutChanged = false;
+  return c;
+}
+
+namespace
+{
+
+// The layout editor's two buttons, centred on the screen.
+constexpr SDL_FRect kDoneRect{660.0f, 320.0f, 200.0f, 64.0f};
+constexpr SDL_FRect kResetRect{420.0f, 320.0f, 200.0f, 64.0f};
+
+bool inside(const SDL_FRect& r, float x, float y)
+{
+  return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+}
+
+} // namespace
+
+void TouchControls::editPress(Finger& f)
+{
+  if (inside(kDoneRect, f.x, f.y))
+  {
+    mTapped.back = true; // the game leaves the editor
+    return;
+  }
+  if (inside(kResetRect, f.x, f.y))
+  {
+    mOffset = {};
+    mLayoutChanged = true;
+    return;
+  }
+  // Grab the control under the finger (the stick's ring, or a button).
+  float best = 1e9f;
+  for (int e = 0; e < 1 + kButtonCount; ++e)
+  {
+    const Circle c = e == 0 ? stickHome() : button(e - 1);
+    const float d = std::hypot(f.x - c.x, f.y - c.y);
+    if (d < c.r * 1.3f && d / c.r < best)
+    {
+      best = d / c.r;
+      f.button = e;
+      f.ox = f.x - c.x; // where on the control it was grabbed
+      f.oy = f.y - c.y;
+    }
+  }
+}
+
+void TouchControls::editMove(const Finger& f)
+{
+  if (f.button < 0)
+    return;
+  auto& o = mOffset[std::size_t(f.button)];
+  const SDL_FPoint was = o;
+  o = {0.0f, 0.0f};
+  const Circle base = f.button == 0 ? stickHome() : button(f.button - 1);
+  o = {f.x - f.ox - base.x, f.y - f.oy - base.y};
+  if (o.x != was.x || o.y != was.y)
+    mLayoutChanged = true;
 }
 
 bool TouchControls::buttonShown(int b) const
@@ -273,6 +381,21 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
   mVisible = true;
   lift(id);
   Finger f{id, x, y, x < float(kScreenW) * 0.5f, 0.0f, 0.0f, -1, x, y, mNow, false, false};
+  if (mEditing)
+  {
+    f.stick = false;
+    editPress(f);
+    mFingers.push_back(f);
+    return;
+  }
+  // A button moved onto the left half still takes a touch right on it.
+  if (f.stick)
+    for (int b = 0; b < kButtonCount; ++b)
+    {
+      const Circle c = button(b);
+      if (buttonShown(b) && std::hypot(x - c.x, y - c.y) < c.r)
+        f.stick = false;
+    }
   const Circle home = stickHome();
   if (f.stick && mLayout == Layout::Play)
   {
@@ -303,7 +426,9 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
       continue;
     f.x = x;
     f.y = y;
-    if (f.stick && mLayout == Layout::Play)
+    if (mEditing)
+      editMove(f);
+    else if (f.stick && mLayout == Layout::Play)
     {
       const float leash = kStickR * mScale * kStickLeash;
       const float dx = x - f.ox, dy = y - f.oy;
@@ -403,6 +528,8 @@ int TouchControls::buttonSlidTo(float x, float y, int current) const
 
 bool TouchControls::buttonHeld(int b) const
 {
+  if (mEditing)
+    return false;
   for (const auto& f : mFingers)
     if (!f.stick && (f.button == b || (b == kJump && f.swipeJump)))
       return true;
@@ -454,7 +581,7 @@ Input TouchControls::held() const
 
 Input TouchControls::read()
 {
-  const Input in = held() | mTapped;
+  const Input in = mEditing ? mTapped : held() | mTapped;
   mTapped = Input{};
   return in;
 }
@@ -482,8 +609,14 @@ void TouchControls::draw(Renderer& renderer) const
 void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
 {
   const float scale = mScale / kBakeScale;
-  const bool play = mLayout == Layout::Play;
-  const float idle = play ? 0.5f : 0.6f;
+  const bool play = mLayout == Layout::Play || mEditing;
+  const float idle = mEditing ? 0.85f : play ? 0.5f : 0.6f;
+  auto grabbed = [this](int element) {
+    for (const auto& f : mFingers)
+      if (mEditing && f.button == element)
+        return true;
+    return false;
+  };
 
   // The stick: where each thumb put it, or faintly at home.
   const Circle home = stickHome();
@@ -517,7 +650,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     DrawOpts o;
     o.scale = scale;
     o.cull = false;
-    o.alpha = idle;
+    o.alpha = grabbed(0) ? 1.0f : idle;
     renderer.draw(play ? mStick : mDpad, sx + home.x, sy + home.y, o);
   }
 
@@ -526,13 +659,26 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     if (!buttonShown(b))
       continue;
     const Circle c = button(b);
-    const bool held = buttonHeld(b);
+    const bool held = buttonHeld(b) || grabbed(1 + b);
     DrawOpts o;
     o.alpha = held ? 0.95f : idle;
     o.scale = scale * (held ? 0.92f : 1.0f);
     o.cull = false;
     const Texture& t = play ? mPlayIcons[std::size_t(b)] : (b == kJump ? mOk : mBack);
     renderer.draw(t, sx + c.x, sy + c.y, o);
+  }
+
+  if (mEditing)
+  {
+    const TextStyle label{30.0f, rgb(255, 255, 255), rgb(16, 12, 26), true};
+    for (const auto& [r, text, col] :
+      {std::tuple{kResetRect, "RESET", kPink}, std::tuple{kDoneRect, "DONE", kNeon}})
+    {
+      renderer.fillRect(sx + r.x, sy + r.y, r.w, r.h, withAlpha(col, 90));
+      renderer.fillRect(sx + r.x, sy + r.y, r.w, 3.0f, col);
+      renderer.fillRect(sx + r.x, sy + r.y + r.h - 3.0f, r.w, 3.0f, col);
+      renderer.drawText(text, sx + r.x + r.w * 0.5f, sy + r.y + 14.0f, label, Align::Center);
+    }
   }
 }
 
