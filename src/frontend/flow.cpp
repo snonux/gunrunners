@@ -395,9 +395,14 @@ void Game::tickCutscene(const Input& raw)
   if (!mCutscene)
     return nextCutscene();
   Input in = raw;
-  // The autopilot presses a button whenever a panel waits for one.
-  if (mOptions.autoplay && mCutscene->waiting() && mModeTicks % 40 == 0)
+  // The autopilot presses a button once a panel has waited long enough to
+  // read (2.5 s), so recorded playthroughs keep the story legible.
+  mAutoWait = mCutscene->waiting() ? mAutoWait + 1 : 0;
+  if (mOptions.autoplay && mAutoWait >= 150)
+  {
     in.confirm = true;
+    mAutoWait = 0;
+  }
   if (!mCutscene->tick(in, mPrev))
   {
     mModeTicks = 0;

@@ -174,6 +174,7 @@ private:
   std::unique_ptr<World> mWorld;
   Mode mMode = Mode::Select;
   int mModeTicks = 0;
+  int mAutoWait = 0; // autoplay: ticks a cutscene panel has waited for a button
   int mFrame = 0;
   int mCursor = 0;
   Bot mBot;
