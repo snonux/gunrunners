@@ -53,7 +53,20 @@ then search for Gunrunners. Play with the on-screen controls or a Bluetooth
 gamepad. Building the APK yourself is described in
 [android/README.md](android/README.md).
 
-**Linux:** install the build tools and libraries, then build and start it:
+**Linux (x86_64):** download `gunrunners-vX.Y.Z-linux-x86_64.tar.gz` from
+the [latest release](https://github.com/snonux/gunrunners/releases/latest),
+unpack it anywhere and start `gunrunners` in it. It needs SDL2 and Cairo,
+which most desktops already have:
+
+```sh
+sudo apt install libsdl2-2.0-0 libcairo2 fonts-dejavu-core   # Debian/Ubuntu
+sudo dnf install SDL2 cairo dejavu-sans-fonts                 # Fedora
+tar xzf gunrunners-v*-linux-x86_64.tar.gz
+gunrunners-v*-linux-x86_64/gunrunners
+```
+
+**Linux, from source** (any architecture): install the build tools and
+libraries, then build and start it:
 
 ```sh
 sudo apt install build-essential cmake libsdl2-dev libcairo2-dev   # Debian/Ubuntu
