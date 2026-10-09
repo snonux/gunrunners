@@ -39,7 +39,10 @@ struct ButtonSpec
 {
   float fromRight, fromBottom, r;
 };
-// jump, fire, switch (bottom right); pause hugs the top right instead.
+// The corner button, the one left of it, and the one above the corner (bottom
+// right); pause hugs the top right instead. In a level Fire takes the corner
+// and Jump the inner spot; in menus OK takes the corner and BACK the inner.
+constexpr int kCorner = 0, kInner = 1;
 constexpr ButtonSpec kSpecs[3] = {
   {120.0f, 140.0f, 82.0f},
   {292.0f, 92.0f, 68.0f},
@@ -177,11 +180,11 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
   , mStick(bakeStick(renderer, false))
   , mDpad(bakeStick(renderer, true))
   , mNub(bakeNub(renderer))
-  , mOk(bakeIcon(renderer, kSpecs[0].r, kGold, 4))
-  , mBack(bakeIcon(renderer, kSpecs[1].r, kPink, 5))
+  , mOk(bakeIcon(renderer, kSpecs[kCorner].r, kGold, 4))
+  , mBack(bakeIcon(renderer, kSpecs[kInner].r, kPink, 5))
 {
-  mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[0].r, kNeon, 0);
-  mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[1].r, kPink, 1);
+  mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[kInner].r, kNeon, 0);
+  mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kCorner].r, kPink, 1);
   mPlayIcons[kSwap] = bakeIcon(renderer, kSpecs[2].r, kNeon, 2);
   mPlayIcons[kPause] = bakeIcon(renderer, kPauseR, kNeon, 3);
 }
@@ -215,7 +218,10 @@ TouchControls::Circle TouchControls::button(int b) const
 {
   if (b == kPause)
     return {mRight - kPauseFromRight * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale};
-  const ButtonSpec& s = kSpecs[b];
+  int slot = b;
+  if (b == kJump || b == kFire)
+    slot = (b == kJump) == (mLayout == Layout::Menu) ? kCorner : kInner;
+  const ButtonSpec& s = kSpecs[slot];
   return {mRight - s.fromRight * mScale, mBottom - s.fromBottom * mScale, s.r * mScale};
 }
 

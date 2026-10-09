@@ -28,6 +28,9 @@ using Layout = TouchControls::Layout;
 constexpr float kStickX = 175.0f, kStickY = 545.0f;
 constexpr float kJumpX = 1160.0f, kJumpY = 580.0f;
 constexpr float kFireX = 988.0f, kFireY = 628.0f;
+// In a level Fire takes the corner and Jump the inner spot.
+constexpr float kPlayJumpX = kFireX, kPlayJumpY = kFireY;
+constexpr float kPlayFireX = kJumpX, kPlayFireY = kJumpY;
 constexpr float kSwapX = 1160.0f, kSwapY = 420.0f;
 constexpr float kPauseX = 1224.0f, kPauseY = 120.0f;
 
@@ -86,8 +89,8 @@ void playLayout(Renderer& r)
   in = t.read();
   check(in.right && !in.jump && !in.fire, "play: the stick keeps its thumb across the screen");
 
-  t.touch(2, kJumpX, kJumpY);
-  t.touch(3, kFireX, kFireY);
+  t.touch(2, kPlayJumpX, kPlayJumpY);
+  t.touch(3, kPlayFireX, kPlayFireY);
   in = t.read();
   check(in.right && in.jump && in.fire, "play: steer, jump and fire at once");
   t.release(2);
@@ -112,11 +115,11 @@ void sizes(Renderer& r)
   // Large: the jump button grows towards the screen's middle.
   t.configure(Layout::Play, 2);
   t.touch(1, 1280.0f - 120.0f * 1.2f, 720.0f - 140.0f * 1.2f);
-  check(t.read().jump, "large: jump at its large spot");
+  check(t.read().fire, "large: fire at its large spot");
   t.release(1);
   t.configure(Layout::Play, 0);
   t.touch(2, 1280.0f - 120.0f * 0.8f, 720.0f - 140.0f * 0.8f);
-  check(t.read().jump, "small: jump at its small spot");
+  check(t.read().fire, "small: fire at its small spot");
   t.release(2);
   t.touch(3, 640.0f + 20.0f, 300.0f);
   check(!t.read().jump, "small: empty screen presses nothing");
@@ -130,21 +133,21 @@ void forgiving(Renderer& r)
   t.configure(Layout::Play, 1);
 
   t.touch(1, 1276.0f, 712.0f);
-  check(t.read().jump, "the bottom-right corner of the screen jumps");
+  check(t.read().fire, "the bottom-right corner of the screen fires");
   t.release(1);
-  t.touch(2, (kJumpX + kFireX) * 0.5f + 12.0f, (kJumpY + kFireY) * 0.5f);
+  t.touch(2, (kPlayJumpX + kPlayFireX) * 0.5f + 12.0f, (kPlayJumpY + kPlayFireY) * 0.5f);
   Input in = t.read();
   check(in.jump != in.fire, "the gap between jump and fire presses one of them");
   t.release(2);
-  t.touch(3, kFireX - 120.0f, kFireY + 40.0f);
-  check(t.read().fire, "a touch well left of fire still fires");
+  t.touch(3, kPlayJumpX - 120.0f, kPlayJumpY + 40.0f);
+  check(t.read().jump, "a touch well left of jump still jumps");
   t.release(3);
 
-  t.touch(4, kFireX, kFireY);
-  t.slide(4, kFireX - 60.0f, kFireY - 150.0f, 1000);
+  t.touch(4, kPlayFireX, kPlayFireY);
+  t.slide(4, kPlayFireX - 40.0f, kPlayFireY + 100.0f, 1000);
   in = t.read();
   check(in.fire && !in.jump && !in.swap, "a thumb drifting off fire keeps firing");
-  t.slide(4, kJumpX, kJumpY, 2000);
+  t.slide(4, kPlayJumpX, kPlayJumpY, 2000);
   in = t.read();
   check(in.jump && !in.fire, "sliding onto jump switches to jump");
   t.release(4);
@@ -164,11 +167,11 @@ void letterbox(Renderer& r)
   ev.tfinger.x = 0.99f;
   ev.tfinger.y = 0.85f;
   t.handleEvent(ev, nullptr);
-  check(t.read().jump, "20:9: a thumb in the right-hand bar jumps");
+  check(t.read().fire, "20:9: a thumb in the right-hand bar fires");
   ev.type = SDL_FINGERUP;
   t.handleEvent(ev, nullptr);
   t.touch(2, 1440.0f - 120.0f, 720.0f - 140.0f);
-  check(t.read().jump, "20:9: jump sits 120 in from the screen's right edge");
+  check(t.read().fire, "20:9: fire sits 120 in from the screen's right edge");
   t.release(2);
   t.touch(3, -160.0f + 175.0f, 400.0f);
   t.slide(3, -160.0f + 260.0f, 400.0f);
@@ -181,11 +184,11 @@ void swipes(Renderer& r)
   TouchControls t(r, true);
   t.configure(Layout::Play, 1);
 
-  t.touch(1, kFireX, kFireY, 0);
-  t.slide(1, kFireX, kFireY - 100.0f, 100);
+  t.touch(1, kPlayFireX, kPlayFireY, 0);
+  t.slide(1, kPlayFireX, kPlayFireY - 100.0f, 100);
   Input in = t.read();
   check(in.jump && in.fire, "a quick swipe up from fire jumps and keeps firing");
-  t.slide(1, kFireX, kFireY - 110.0f, 400);
+  t.slide(1, kPlayFireX, kPlayFireY - 110.0f, 400);
   in = t.read();
   check(in.jump && in.fire, "...jump stays held while the finger is down");
   t.release(1);
@@ -198,15 +201,15 @@ void swipes(Renderer& r)
   check(!t.read().swap, "...once");
   t.release(2);
 
-  t.touch(3, kFireX, kFireY, 2000);
-  t.slide(3, kFireX, kFireY - 40.0f, 2300);
-  t.slide(3, kFireX, kFireY - 80.0f, 2600);
+  t.touch(3, kPlayFireX, kPlayFireY, 2000);
+  t.slide(3, kPlayFireX, kPlayFireY - 40.0f, 2300);
+  t.slide(3, kPlayFireX, kPlayFireY - 80.0f, 2600);
   in = t.read();
   check(!in.jump && in.fire, "a slow drift up is not a swipe");
   t.release(3);
 
   t.configure(Layout::Menu, 1);
-  t.touch(4, kFireX, kFireY, 3000);
+  t.touch(4, kFireX, kFireY, 3000); // BACK
   t.slide(4, kFireX, kFireY - 100.0f, 3100);
   in = t.read();
   check(!in.jump && !in.confirm, "menus: no swipes");

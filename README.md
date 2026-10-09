@@ -80,8 +80,8 @@ After that, `./build/gunrunners` starts the game.
 ## Touch controls (Android)
 
 In a level, the left half of the screen is a stick: put your thumb down
-anywhere there and slide it. On the right are Jump (the big button), Fire,
-Switch runner and, at the top, Pause. You don't have to hit them exactly:
+anywhere there and slide it. On the right are Fire (the big corner button),
+Jump left of it, Switch runner above and, at the top, Pause. You don't have to hit them exactly:
 a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
