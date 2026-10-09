@@ -43,6 +43,7 @@ add_library(gunrunners_core STATIC
   src/game/world_sludge.cpp
   src/game/world_maglev.cpp
   src/game/world_chopper.cpp
+  src/game/world_jungle.cpp
   src/game/world_cheats.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
@@ -104,3 +105,5 @@ add_test(NAME savegame_sludge_line COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 add_test(NAME savegame_maglev_express COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/06_maglev_express.txt 900)
 # Across the rooftops under the hunter's light, Lock-On Rockets in hand.
 add_test(NAME savegame_chopper_down COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/07_chopper_down.txt 500)
+# Over the stream on the first vine, the Boomerang in hand.
+add_test(NAME savegame_canopy_road COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/08_canopy_road.txt 600)

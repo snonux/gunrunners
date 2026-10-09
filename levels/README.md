@@ -35,7 +35,10 @@ running into something bumps you back four blocks; `lighttrail`: in the
 air your feet leave a one-way neon trail that lasts 45 frames, so a jump
 draws a bridge, and holding down drops through it; `flight`: you fly Black
 Halo, eight ways at 2 cells a frame with no gravity, fire is its chaingun
-and down + fire lobs a rocket),
+and down + fire lobs a rocket; `bounce`: every surface is a trampoline and
+you never stand, each landing bounces you back to the last height, 2 cells
+higher with jump held, 3 lower with down, 1 lower with neither, 4 to 18
+cells, and walls bounce you back),
 `timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -98,6 +101,13 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `breakable` … `look=mixer` | | a cement mixer drum |
 | enemy keys `rappel_trooper`, `hover_biker`, `shield_trooper` | | the trooper patrols and shoots after a 10-frame aim; the biker charges along its roof, revs at the end and charges back; the shield trooper's riot shield stops shots from the front (homing rockets come down over it) |
 | `popup`, `street` | `x y` | Pilot Seat: where cardboard runners pop up, and the row the cardboard trucks drive along |
+| `vine` | `id`, `x y` (the anchor), `len` (blocks), `amp` (degrees) | a swing vine: jump into its lower three blocks to grab it, hold the way it swings to pump it 5 degrees a half-swing (up to 60), and jump near the end of a swing of 45 degrees or more to launch 14 cells up, 2 cells a frame that way; any other jump just lets go |
+| `bridge` | `id`, `rect` (one row), `snap` (frames under Rocco), `after` (frames after you step off), `cut` (chops) | a rope bridge of one-way planks; it drops under a heavy runner, a while after you leave it, or at a Bridge Cutter's last chop |
+| `log` | `id`, `x y` (the pulley), `len`, `hang` (blocks under the pulley), `tie=x,y`, `lands=x0,x1,row` | a log on a rope from its tie over the pulley: shoot the rope through (3 hits, the Boomerang cuts it at once) and the log drops across `lands` as a one-row bridge |
+| `cage` | `id`, `x y` (top centre), `gems`, `rope=x,y` | a cage of gems on a rope: cut it and the cage breaks open where it lands |
+| `water` | `rect` | shallow water: wading through it halves your speed |
+| enemy keys `howler` (`look=dash`, `carrier=1`), `viper`, `cutter` (`bridge=ID`) | | the Howler lobs fruit that rolls along the ground (a carrier's fruit gives you the virus; `look=dash` throws Dash a banana); the Viper drops from its branch when you pass under and strikes; the Bridge Cutter runs to its bridge's post when you near it and chops it down in three |
+| `deco` `kind=trunk\|gate\|nest` | `rect`, `text=hollow` (trunk) | Canopy Road: bark over solid blocks (a hollow trunk shows its inside), the temple gate, a bird's nest |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

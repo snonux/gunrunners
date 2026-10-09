@@ -1176,6 +1176,174 @@ void haloLight(const Ctx& c)
 
 using DrawFn = void (*)(const Ctx&);
 
+// Howler (level 8): a long-armed monkey in the canopy. Odd variants wind up
+// a throw (fruit held high); variants 2-3 wear a tiny copy of Dash's jacket.
+void howler(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color fur = rgb(120, 76, 44), face = rgb(222, 184, 140);
+  const bool throwing = c.variant % 2 == 1, jacket = c.variant >= 2;
+  // The tail, curling up behind.
+  strokeLimb(cr, {{x0 + w * 0.3, y0 + h * 0.8}, {x0 + w * 0.02, y0 + h * 0.7}, {x0 + w * 0.05, y0 + h * 0.3},
+                   {x0 + w * 0.2, y0 + h * 0.25}}, 7, fur, kInk, kLine);
+  // Legs and body.
+  for (double lx : {0.32, 0.6})
+  {
+    roundedRect(cr, x0 + w * lx, y0 + h * 0.72, w * 0.16, h * 0.28, 5);
+    fillOutline(cr, darken(fur, 0.15f), kInk, kLine);
+  }
+  roundedRect(cr, x0 + w * 0.25, y0 + h * 0.38, w * 0.5, h * 0.42, 14);
+  if (jacket)
+    fillGradientOutline(cr, y0 + h * 0.38, y0 + h * 0.8, rgb(240, 70, 60), rgb(180, 30, 40), kInk, kLine);
+  else
+    fillGradientOutline(cr, y0 + h * 0.38, y0 + h * 0.8, lighten(fur, 0.15f), fur, kInk, kLine);
+  roundedRect(cr, x0 + w * 0.38, y0 + h * 0.5, w * 0.24, h * 0.24, 8);
+  fillOutline(cr, face, kInk, 1.6); // the belly
+  // Arms: one hanging, one up with the fruit when it throws.
+  strokeLimb(cr, {{x0 + w * 0.3, y0 + h * 0.45}, {x0 + w * 0.16, y0 + h * 0.85}}, 6, fur, kInk, kLine);
+  const double hx = x0 + w * (throwing ? 0.86 : 0.84), hy = y0 + h * (throwing ? 0.05 : 0.85);
+  strokeLimb(cr, {{x0 + w * 0.7, y0 + h * 0.45}, {x0 + w * 0.82, y0 + h * 0.35}, {hx, hy}}, 6,
+    jacket ? rgb(200, 40, 50) : fur, kInk, kLine);
+  if (throwing)
+  {
+    circle(cr, hx, hy - 6, 10);
+    fillOutline(cr, rgb(240, 120, 50), kInk, kLine);
+  }
+  // Head: round, a pale face, wide mouth (howling) every other frame.
+  circle(cr, x0 + w * 0.52, y0 + h * 0.26, w * 0.2);
+  fillOutline(cr, fur, kInk, kLine);
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.56, y0 + h * 0.3);
+  cairo_scale(cr, 1.0, 0.8);
+  circle(cr, 0, 0, w * 0.13);
+  cairo_restore(cr);
+  fillOutline(cr, face, kInk, 1.6);
+  for (double ex : {0.5, 0.62})
+  {
+    circle(cr, x0 + w * ex, y0 + h * 0.24, 3);
+    setColor(cr, kInk);
+    cairo_fill(cr);
+  }
+  const double mouth = c.frame ? 6 : 3;
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.57, y0 + h * 0.35);
+  cairo_scale(cr, 1.0, mouth / 6.0);
+  circle(cr, 0, 0, 6);
+  cairo_restore(cr);
+  setColor(cr, rgb(90, 30, 30));
+  cairo_fill(cr);
+  if (jacket)
+  {
+    // Dash's goggles on its forehead.
+    roundedRect(cr, x0 + w * 0.4, y0 + h * 0.1, w * 0.28, 8, 4);
+    fillOutline(cr, rgb(120, 220, 255), kInk, 1.4);
+  }
+}
+
+// Canopy Viper (level 8): coiled on its branch (variant 0, 2 x 2), or
+// hanging down from it to strike (variant 1, 2 x 4).
+void viper(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color scales = rgb(90, 180, 70), belly = rgb(220, 230, 120);
+  auto head = [&](double hx, double hy, double dir) {
+    cairo_save(cr);
+    cairo_translate(cr, hx, hy);
+    cairo_scale(cr, dir, 1.0);
+    cairo_move_to(cr, -10, -9);
+    cairo_curve_to(cr, 6, -14, 18, -4, 18, 2);
+    cairo_curve_to(cr, 14, 10, 0, 12, -10, 9);
+    cairo_close_path(cr);
+    cairo_restore(cr);
+    fillOutline(cr, lighten(scales, 0.1f), kInk, kLine);
+    circle(cr, hx + dir * 6, hy - 3, 3);
+    setColor(cr, rgb(255, 220, 40));
+    cairo_fill(cr);
+    if (c.frame)
+    {
+      cairo_move_to(cr, hx + dir * 18, hy + 2);
+      cairo_line_to(cr, hx + dir * 28, hy);
+      cairo_line_to(cr, hx + dir * 32, hy - 3);
+      cairo_move_to(cr, hx + dir * 28, hy);
+      cairo_line_to(cr, hx + dir * 32, hy + 4);
+      setColor(cr, rgb(220, 40, 60));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+    }
+  };
+  if (c.variant == 1)
+  {
+    // Hanging: the tail wrapped on the branch, the body in an S down to
+    // the head at the bottom.
+    strokeLimb(cr, {{x0 + w * 0.2, y0 + 4}, {x0 + w * 0.8, y0 + h * 0.15}, {x0 + w * 0.3, y0 + h * 0.4},
+                     {x0 + w * 0.7, y0 + h * 0.65}, {x0 + w * 0.45, y0 + h * 0.86}}, 11, scales, kInk, kLine);
+    for (int i = 0; i < 4; ++i)
+    {
+      circle(cr, x0 + w * (i % 2 ? 0.62 : 0.4), y0 + h * (0.2 + i * 0.17), 3);
+      setColor(cr, belly);
+      cairo_fill(cr);
+    }
+    head(x0 + w * 0.45, y0 + h * 0.9, 1.0);
+    return;
+  }
+  // Coiled: three stacked rings, head on top.
+  for (int i = 0; i < 3; ++i)
+  {
+    const double ry = y0 + h * (0.85 - i * 0.2), rw = w * (0.48 - i * 0.08);
+    cairo_save(cr);
+    cairo_translate(cr, x0 + w * 0.5, ry);
+    cairo_scale(cr, 1.0, 0.4);
+    circle(cr, 0, 0, rw);
+    cairo_restore(cr);
+    fillOutline(cr, i % 2 ? lighten(scales, 0.1f) : scales, kInk, kLine);
+  }
+  head(x0 + w * 0.5, y0 + h * 0.2, 1.0);
+}
+
+// Bridge Cutter (level 8): a poacher in khaki and a bandana with a machete.
+// Variant 1 has the machete up for a chop.
+void cutter(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color khaki = rgb(170, 150, 96), skin = rgb(190, 140, 100);
+  for (double lx : {0.28, 0.54})
+  {
+    roundedRect(cr, x0 + w * lx, y0 + h * 0.62, w * 0.18, h * 0.38, 5);
+    fillOutline(cr, darken(khaki, 0.25f), kInk, kLine);
+    roundedRect(cr, x0 + w * (lx - 0.03), y0 + h * 0.93, w * 0.26, h * 0.07, 3);
+    fillOutline(cr, rgb(70, 50, 34), kInk, 1.6);
+  }
+  roundedRect(cr, x0 + w * 0.18, y0 + h * 0.3, w * 0.62, h * 0.38, 10);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.68, lighten(khaki, 0.15f), khaki, kInk, kLine);
+  cairo_move_to(cr, x0 + w * 0.2, y0 + h * 0.36); // a rope coil over the shoulder
+  cairo_line_to(cr, x0 + w * 0.76, y0 + h * 0.62);
+  setColor(cr, rgb(200, 170, 110));
+  cairo_set_line_width(cr, 5.0);
+  cairo_stroke(cr);
+  // Head, bandana, stubble.
+  circle(cr, x0 + w * 0.5, y0 + h * 0.2, w * 0.2);
+  fillOutline(cr, skin, kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.3, y0 + h * 0.07, w * 0.4, h * 0.06);
+  fillOutline(cr, rgb(200, 50, 40), kInk, 1.6);
+  circle(cr, x0 + w * 0.6, y0 + h * 0.19, 3);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  // The machete arm.
+  const bool up = c.variant == 1;
+  const double sx = x0 + w * 0.74, sy = y0 + h * 0.38;
+  const double hx = up ? x0 + w * 0.86 : x0 + w * 0.92, hy = up ? y0 + h * 0.12 : y0 + h * 0.52;
+  strokeLimb(cr, {{sx, sy}, {hx, hy}}, 7, khaki, kInk, kLine);
+  const double bx = up ? hx - 4 : hx + 30, by = up ? hy - 34 : hy + 4;
+  cairo_move_to(cr, hx, hy);
+  cairo_line_to(cr, bx, by);
+  cairo_line_to(cr, bx + (up ? 12 : 4), by + (up ? 4 : 10));
+  cairo_close_path(cr);
+  fillOutline(cr, rgb(210, 216, 226), kInk, 1.6);
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -1211,6 +1379,9 @@ DrawFn routineFor(const std::string& key)
     {"cement_mixer", cementMixer},
     {"halo_pod", haloPod},
     {"halo_light", haloLight},
+    {"howler", howler},
+    {"viper", viper},
+    {"cutter", cutter},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

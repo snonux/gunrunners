@@ -241,6 +241,8 @@ void World::update(const PlayerInput& input)
       if (mState != WorldState::Playing)
         break;
       updatePlatforms();
+      if (!mVines.empty())
+        updateVines();
       if (mFlight)
         updateFlight(input);
       else
@@ -250,6 +252,7 @@ void World::update(const PlayerInput& input)
       updateSludge(input);
       updateMaglev(input);
       updateChopper(input);
+      updateJungle(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -469,6 +472,15 @@ void World::updateEnemies()
       case EnemyKind::Shield:
         updateShield(e, def);
         break;
+      case EnemyKind::Howler:
+        updateHowler(e, def);
+        break;
+      case EnemyKind::Viper:
+        updateViper(e, def);
+        break;
+      case EnemyKind::Cutter:
+        updateCutter(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -577,6 +589,8 @@ void World::updateProjectiles()
     }
     shotAtProps(b);
     if (!mBubbles.empty() && shotAtBubbles(b))
+      return true;
+    if ((!mJRopes.empty() || !mFruits.empty()) && shotAtJungle(pr))
       return true;
     if ((mBoss.on || !mLatches.empty()) && shotAtBoss(pr))
       return true;
@@ -688,6 +702,17 @@ void World::updateProjectiles()
         pr.x = int(std::floor(pr.fx));
         pr.y = int(std::floor(pr.fy));
       }
+      else if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::Boomerang))
+      {
+        if (!stepBoomerang(pr))
+        {
+          pr.alive = false;
+          break;
+        }
+        if (collide(pr))
+          pr.alive = false;
+        continue;
+      }
       else if (pr.ride >= 0 || (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SparkDisc)))
       {
         if (!stepSurfaceShot(pr))
@@ -711,7 +736,8 @@ void World::updateProjectiles()
     }
     if (pr.ride > 0 && --pr.ride == 0)
       pr.alive = false;
-    if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget ? 12 : 2))
+    const bool comesBack = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::Boomerang);
+    if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget || comesBack ? 12 : 2))
       pr.alive = false;
   }
   mProjectiles.erase(

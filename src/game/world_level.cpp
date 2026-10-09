@@ -97,6 +97,7 @@ void World::setupEntities()
   mAutorun = lv.rules.find("autorun") != std::string::npos;
   mLightTrail = lv.rules.find("lighttrail") != std::string::npos;
   mFlight = lv.rules.find("flight") != std::string::npos;
+  mBounce = lv.rules.find("bounce") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -167,6 +168,7 @@ void World::setupEntities()
       setupSludgeEnemy(en, e);
       setupMaglevEnemy(en, e);
       setupChopperEnemy(en, e);
+      setupJungleEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -338,6 +340,12 @@ void World::setupEntities()
         pr.kind = PropKind::SpareShip;
       else if (kind == "radio")
         pr.kind = PropKind::Radio;
+      else if (kind == "trunk")
+        pr.kind = PropKind::Trunk;
+      else if (kind == "gate")
+        pr.kind = PropKind::Gate;
+      else if (kind == "nest")
+        pr.kind = PropKind::Nest;
       else if (kind == "cat")
       {
         pr.kind = PropKind::Cat;
@@ -372,6 +380,8 @@ void World::setupEntities()
     if (setupMaglevEntity(e))
       continue;
     if (setupChopperEntity(e))
+      continue;
+    if (setupJungleEntity(e))
       continue;
 
     if (!mSimulation)
@@ -915,6 +925,12 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         if (onScreen)
           drawChopperProp(r, pr, x, y, w, h, frame, foreground);
         break;
+      case PropKind::Gate:
+      case PropKind::Nest:
+        if (onScreen)
+          drawJungleProp(r, pr, x, y, w, h, frame, foreground);
+        break;
+      case PropKind::Trunk: // drawn over its blocks (world_jungle.cpp)
       case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)
       case PropKind::DanceFloor: // world_club.cpp draws the lit tiles
       case PropKind::GemCache:

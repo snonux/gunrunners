@@ -1026,7 +1026,12 @@ public:
   const std::vector<Bridge>& bridges() const { return mBridges; }
   bool bounce() const { return mBounce; }
   // Would letting go now launch (high enough and near a turn)?
-  bool vineLaunchReady() const;
+  bool vineLaunchReady() const { return vineLaunchDir() != 0; }
+  // Which way letting go now would launch the runner (-1, 1), 0 for no launch.
+  int vineLaunchDir() const;
+  const std::vector<Load>& loads() const { return mLoads; }
+  const std::vector<JungleRope>& jungleRopes() const { return mJRopes; }
+  bool inWater() const; // Canopy Road's stream: wading at half speed
   // Level 6's billboard shows the best level 2 score, if there is one.
   void setHiScore(int score) { mHiScore = score; }
   const std::vector<TrailBlock>& trail() const { return mTrailBlocks; }
@@ -1385,7 +1390,7 @@ private:
   std::vector<Load> mLoads;
   std::vector<JungleRope> mJRopes;
   std::vector<Fruit> mFruits;
-  std::vector<std::string> mCutterBridge; // setup only: each Cutter's bridge= id
+  std::vector<CellBox> mWater; // shallow water: half speed, harmless
   bool mBounce = false;  // bonus rule: every surface is a trampoline
   int mBounceH = 8;      // cells: the next bounce's height
   int mBounceKick = 0;   // frames of a wall's bounce back left (sign: direction)

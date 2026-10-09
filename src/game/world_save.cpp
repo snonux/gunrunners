@@ -72,6 +72,12 @@ SaveGame World::snapshot() const
     }
     if (e.kind == EnemyKind::Biker)
       es.attach = 0;
+    // A Viper hanging or catching its breath comes back coiled on its branch.
+    if (e.kind == EnemyKind::Viper)
+    {
+      es.attach = 0;
+      es.y = e.aimY;
+    }
     if (e.kind == EnemyKind::Decoupler && e.alive && e.attach != 0)
     {
       es.attach = 0;
@@ -144,6 +150,18 @@ SaveGame World::snapshot() const
     for (const auto& z : mRappels)
       s.chopper.push_back(z.next);
   }
+  if (!mBridges.empty() || !mJRopes.empty())
+  {
+    // A bridge that is creaking counts as down; a load on its way down as landed.
+    for (const auto& b : mBridges)
+      s.jungle.push_back(b.down || b.creak > 0);
+    for (const auto& rope : mJRopes)
+    {
+      s.jungle.push_back(rope.cut ? 0 : rope.hp);
+      const int state = rope.load >= 0 ? mLoads[std::size_t(rope.load)].state : 0;
+      s.jungle.push_back(state == 1 ? (mLoads[std::size_t(rope.load)].cage ? 3 : 2) : state);
+    }
+  }
   return s;
 }
 
@@ -180,6 +198,7 @@ bool World::restore(const SaveGame& s)
       (!s.ratPipes.empty() && s.ratPipes.size() != mRatPipes.size() * 2) ||
       (!s.train.empty() && s.train.size() != 9 + mLevelGantries) ||
       (!s.chopper.empty() && s.chopper.size() != kChopperSave + mLatches.size() + mRappels.size()) ||
+      (!s.jungle.empty() && s.jungle.size() != mBridges.size() + mJRopes.size() * 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -415,6 +434,35 @@ bool World::restore(const SaveGame& s)
     if (b.on && b.phase != BossPhase::Waiting && b.phase != BossPhase::Done)
       mMusicOverride = "boss_black_halo";
   }
+  if (!s.jungle.empty())
+  {
+    for (std::size_t i = 0; i < mBridges.size(); ++i)
+      if (s.jungle[i] != 0)
+      {
+        auto& b = mBridges[i];
+        b.down = true;
+        for (int tx = b.x0; tx <= b.x1; ++tx)
+          mMap.setBlock(tx, b.y, Tile::Empty);
+      }
+    for (std::size_t i = 0; i < mJRopes.size(); ++i)
+    {
+      auto& rope = mJRopes[i];
+      const int hp = s.jungle[mBridges.size() + i * 2], state = s.jungle[mBridges.size() + i * 2 + 1];
+      rope.hp = std::max(0, hp);
+      rope.cut = hp <= 0;
+      if (rope.load < 0 || state < 2)
+        continue;
+      Load& l = mLoads[std::size_t(rope.load)];
+      l.state = l.cage ? 3 : 2; // a cage's gems are with the items
+      l.fall = 10;
+      if (!l.cage)
+        for (int tx = l.landX0; tx <= l.landX1; ++tx)
+          mMap.setBlock(tx, l.landRow, Tile::Platform);
+    }
+  }
+  mFruits.clear();
+  for (auto& b : mBridges)
+    b.drop = 8;
   mStrikes.clear();
   mPaint.clear();
   mRadio = 0;

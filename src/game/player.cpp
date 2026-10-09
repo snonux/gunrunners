@@ -23,6 +23,7 @@ constexpr int kEffectAboutToExpire = 45;
 constexpr std::array<int, 8> kTurboJumpArc = {2, 2, 2, 2, 1, 1, 1, 0}; // 11 cells
 constexpr std::array<int, 8> kVirusJumpArc = {2, 1, 1, 1, 0, 0, 0, 0};  // 5 cells
 constexpr std::array<int, 8> kDuckJumpArc = {2, 1, 1, 1, 1, 0, 0, 0};   // 6 cells: Duck Rapids, for everyone
+constexpr std::array<int, 8> kVineJumpArc = {3, 3, 2, 2, 2, 1, 1, 0};   // 14 cells: a launch off a swing vine
 constexpr int kTemporaryItemFrames = 700;
 constexpr int kItemAboutToExpire = 30;
 
@@ -37,7 +38,7 @@ constexpr int kShotOffsetLeft[5][2] = {{-1, -2}, {-1, -1}, {0, -5}, {1, 1}, {1, 
 
 int Player::height() const
 {
-  if (state == PlayerState::Pipe)
+  if (state == PlayerState::Pipe || state == PlayerState::Swing)
     return 6;
   if (visual == PlayerVisual::Crouching)
     return 4;
@@ -125,6 +126,13 @@ void World::updatePlayer(const PlayerInput& raw)
     updateFreeFall(mvX, mvY);
     return;
   }
+  if (mBounce)
+  {
+    // Bounce House: every surface is a trampoline (world_jungle.cpp).
+    updateBounce(mvX, mvY, in);
+    updateShooting(in.fire);
+    return;
+  }
 
   const int previousY = p.y;
   // Subwoofers: a jump started on the beat from a pad goes 2 cells higher,
@@ -145,6 +153,14 @@ void World::updatePlayer(const PlayerInput& raw)
   {
     updateLadderAttachment(mvX, mvY);
     updatePlayerMovement(mvX, mvY, in.jump, in.fire);
+    // Swing vines: hands that meet one in the air grab it (world_jungle.cpp).
+    if (!mVines.empty() && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
+      tryGrabVine();
+  }
+  if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
+  {
+    p.fling = 0; // a vine's swing lasts until you land
+    p.vineArc = false;
   }
   updateShooting(in.fire);
 
@@ -378,6 +394,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       break;
     }
 
+    case PlayerState::Swing:
+      updateSwing(mvX, mvY, jumpButton);
+      break;
+
     case PlayerState::Dying:
     case PlayerState::Teleporting:
       break;
@@ -388,6 +408,7 @@ void World::updateLadderAttachment(int /*mvX*/, int mvY)
 {
   auto& p = mPlayer;
   const bool canAttach = p.state != PlayerState::Ladder && p.state != PlayerState::Dying &&
+    p.state != PlayerState::Swing &&
     p.state != PlayerState::Teleporting && (p.state != PlayerState::Jumping || p.frames >= 3);
   if (!canAttach || mvY >= 0)
     return;
@@ -410,6 +431,20 @@ void World::updateLadderAttachment(int /*mvX*/, int mvY)
 void World::updateHorizontalMovementInAir(int mvX)
 {
   auto& p = mPlayer;
+  if (p.fling != 0)
+  {
+    // Off a vine: carried along at the swing's speed, air control on top.
+    const int dir = p.fling > 0 ? 1 : -1;
+    const int steps = std::abs(p.fling) + (mvX == dir ? 1 : (mvX == -dir ? -1 : 0));
+    p.facing = dir;
+    for (int i = 0; i < steps; ++i)
+      if (mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir) != MoveResult::Completed)
+      {
+        p.fling = 0;
+        break;
+      }
+    return;
+  }
   if (mvX == 0)
     return;
   if (mvX != p.facing)
@@ -424,8 +459,8 @@ int World::horizontalSteps() const
   const auto& p = mPlayer;
   if (p.turbo > 0)
     return 2;
-  if (p.virus > 0 || (!mFluids.empty() && wading()))
-    return p.oddFrame ? 0 : 1; // infected, or wading through sludge
+  if (p.virus > 0 || (!mFluids.empty() && wading()) || (!mWater.empty() && inWater()))
+    return p.oddFrame ? 0 : 1; // infected, or wading through sludge or a stream
   return 1;
 }
 
@@ -433,6 +468,8 @@ const std::array<int, 8>& World::jumpArc() const
 {
   if (mAutorun)
     return kDuckJumpArc;
+  if (mPlayer.vineArc)
+    return kVineJumpArc;
   if (mPlayer.turbo > 0)
     return kTurboJumpArc;
   if (mPlayer.virus > 0)
@@ -500,7 +537,7 @@ void World::updateJumpMovement(int mvX, bool jumpPressed)
   }
 
   // On the third frame, a released jump button cuts the arc short.
-  const bool isShortJump = p.frames == 2 && !jumpPressed;
+  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc;
   p.frames = isShortJump ? 6 : p.frames + 1;
 }
 
@@ -832,6 +869,9 @@ void World::respawnPlayer()
   p.deathPhase = 0;
   p.somersault = -1;
   p.hidden = false;
+  p.vine = -1;
+  p.fling = 0;
+  p.vineArc = false;
   mLaunch = mLaunchBump = 0;
   mBreakdance = false;
   p.hp = p.maxHp;
@@ -843,6 +883,8 @@ void World::respawnPlayer()
   mPaint.clear();
   if (mHunter.on || mBoss.on)
     resetBossCycle();
+  if (!mBridges.empty() || !mFruits.empty() || mBounce)
+    resetJungle();
   showMessage("BACK IN ACTION");
 }
 
@@ -890,7 +932,7 @@ void World::updatePlayerInteractions()
   }
 
   const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
-  if (exitZone.intersects(p.box()) && p.state == PlayerState::OnGround && exitPowered())
+  if (exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce) && exitPowered())
   {
     p.state = PlayerState::Teleporting;
     setVisual(PlayerVisual::Standing);
