@@ -130,10 +130,18 @@ bool fileExists(const std::string& p)
   return bool(f);
 }
 
+// Levels next to the binary (an unpacked release), in or above the current
+// directory (the source tree), else where it was built from.
 std::string defaultDataDir()
 {
-  for (const char* d : {".", ".."})
-    if (fileExists(std::string(d) + "/levels/01_rooftop_run.txt"))
+  std::vector<std::string> dirs = {".", ".."};
+  if (char* base = SDL_GetBasePath())
+  {
+    dirs.insert(dirs.begin(), {base, std::string(base) + ".."});
+    SDL_free(base);
+  }
+  for (const std::string& d : dirs)
+    if (fileExists(d + "/levels/01_rooftop_run.txt"))
       return d;
   return GR_DATA_DIR;
 }

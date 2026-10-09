@@ -205,11 +205,12 @@ cutscenes/     cutscene scripts
 tools/         record.sh, mklevel.py (levels/level1.txt), levels/*.py
                (one generator per campaign level), covers.sh and cover/
                (the box art, drawn with the game's own runners), icons.sh
-               (the Android app icon)
+               (the Android app icon), linux-package.sh (the Linux
+               release tarball)
 fonts/         DejaVu Sans Bold, for builds without fontconfig (Android)
 android/       the Android project (Gradle, SDL2's activity, deps script)
 fastlane/      store text, icon and screenshots for F-Droid
-.github/workflows/  release.yml (tag -> signed APK) and build.yml (CI)
+.github/workflows/  release.yml (tag -> Linux tarball + signed APK) and build.yml (CI)
 docs/          design directions and media
 ```
 
