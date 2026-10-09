@@ -1016,6 +1016,9 @@ public:
   // Level 4: is this cell in light (a lit sector, a lamp or a flare)?
   bool litAt(int cx, int cy) const;
   const std::string& musicOverride() const { return mMusicOverride; }
+  // Tracks this level may switch to mid-run (the club's chiptune, the cab
+  // radio's cover), so they can be rendered before they are needed.
+  std::vector<std::string> musicVariants() const;
   // Standing on a pad that launches: frames until it does, else -1.
   int framesToNextLaunch() const;
   bool launching() const { return mLaunch > 0; }

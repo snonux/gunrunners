@@ -104,14 +104,20 @@ class OnePole
 public:
   float lowpass(float x, double cutoff)
   {
-    const double a = 1.0 - std::exp(-2.0 * kPi * std::min(cutoff, kRate * 0.45) / kRate);
-    mY += a * (double(x) - mY);
+    if (cutoff != mCutoff)
+    {
+      mCutoff = cutoff;
+      mA = 1.0 - std::exp(-2.0 * kPi * std::min(cutoff, kRate * 0.45) / kRate);
+    }
+    mY += mA * (double(x) - mY);
     return float(mY);
   }
   float highpass(float x, double cutoff) { return x - lowpass(x, cutoff); }
 
 private:
   double mY = 0.0;
+  double mCutoff = -1.0;
+  double mA = 0.0;
 };
 
 // Chamberlin state-variable filter: resonant low/band pass.
@@ -132,7 +138,12 @@ public:
 private:
   void process(float x, double cutoff, double q)
   {
-    const double f = 2.0 * std::sin(kPi * std::min(cutoff, kRate / 6.5) / kRate);
+    if (cutoff != mCutoff)
+    {
+      mCutoff = cutoff;
+      mF = 2.0 * std::sin(kPi * std::min(cutoff, kRate / 6.5) / kRate);
+    }
+    const double f = mF;
     const double damp = 1.0 / std::max(0.5, q);
     mLow += f * mBand;
     const double high = double(x) - mLow - damp * mBand;
@@ -140,6 +151,8 @@ private:
   }
   double mLow = 0.0;
   double mBand = 0.0;
+  double mCutoff = -1.0;
+  double mF = 0.0;
 };
 
 inline double lerp(double a, double b, double t) { return a + (b - a) * t; }

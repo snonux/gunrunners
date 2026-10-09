@@ -24,6 +24,7 @@ add_library(gunrunners_core STATIC
   src/audio/audio.cpp
   src/audio/synth.cpp
   src/audio/synth_named.cpp
+  src/audio/music.cpp
   src/game/collision.cpp
   src/game/player.cpp
   src/game/world.cpp

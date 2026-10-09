@@ -275,7 +275,11 @@ void Game::playLevelMusic()
   const std::string track = !mPlayingOverride.empty() ? mPlayingOverride : mLevel->music;
   mAudio->playMusicNamed(track);
   mAudio->seekMusic(mWorld ? double(mWorld->clock()) / 15.0 : 0.0);
-  // A layered score: have every layer ready so a breaker never stalls a frame.
+  // Tracks a level switches to mid-run (the club's chiptune, the cab
+  // radio's cover, the blackout's layered score) render in the background.
+  if (mWorld)
+    for (const auto& id : mWorld->musicVariants())
+      mAudio->preloadMusic(id);
   if (const auto at = track.find('@'); at != std::string::npos)
     for (int k = 0; k <= 4; ++k)
       mAudio->preloadMusic(track.substr(0, at + 1) + std::to_string(k));
@@ -308,6 +312,8 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
   std::snprintf(rel, sizeof(rel), "levels/%02d_%s.txt", number, campaignLevel(number).slug);
   if (!loadLevel(rel))
     return goTitle();
+  if (mAudio)
+    mAudio->preloadMusic(mLevel->music);
   applyLevelLook(episodeOfLevel(number), mLevel->themeKey);
   if (number > mProfile.reached)
   {
@@ -365,6 +371,17 @@ void Game::playCutscenes(std::vector<std::string> names, After after)
   }
   mAfter = after;
   mClipKit.reset();
+  // Have every track these scenes cue rendering in the background.
+  if (mAudio)
+    for (const auto& name : mCutQueue)
+    {
+      const Cutscene cs = Cutscene::load(cutsceneFile(dataDir(), name));
+      mAudio->preloadMusic(cs.music);
+      for (const auto& shot : cs.shots)
+        for (const auto& cue : shot.cues)
+          if (cue.key == "music")
+            mAudio->preloadMusic(cue.value);
+    }
   nextCutscene();
 }
 

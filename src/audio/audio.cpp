@@ -122,23 +122,7 @@ void Audio::playMusicNamed(const std::string& id)
       return;
   }
   // Synthesize outside the lock: the audio thread keeps playing meanwhile.
-  Track* track = nullptr;
-  auto it = mNamedTracks.find(id);
-  if (it == mNamedTracks.end())
-  {
-    auto t = synth::makeNamedMusic(id);
-    auto tr = std::make_unique<Track>();
-    tr->left = std::move(t.left);
-    tr->right = std::move(t.right);
-    tr->loops = t.loops;
-    track = tr.get();
-    std::lock_guard<std::mutex> lock(mMutex);
-    mNamedTracks[id] = std::move(tr);
-  }
-  else
-  {
-    track = it->second.get();
-  }
+  Track* track = namedTrack(id);
   std::lock_guard<std::mutex> lock(mMutex);
   mTrack = track;
   mTrackName = id;
@@ -146,17 +130,57 @@ void Audio::playMusicNamed(const std::string& id)
   mMusicPos = 0;
 }
 
-void Audio::preloadMusic(const std::string& id)
+std::unique_ptr<Audio::Track> Audio::synthTrack(const std::string& id)
 {
-  if (id.empty() || mNamedTracks.count(id))
-    return;
   auto t = synth::makeNamedMusic(id);
-  auto tr = std::make_unique<Track>();
+  auto tr = std::make_unique<Audio::Track>();
   tr->left = std::move(t.left);
   tr->right = std::move(t.right);
   tr->loops = t.loops;
+  return tr;
+}
+
+Audio::Track* Audio::namedTrack(const std::string& id)
+{
+  if (auto it = mNamedTracks.find(id); it != mNamedTracks.end())
+    return it->second.get();
+  std::unique_ptr<Track> tr;
+  if (auto p = mPendingTracks.find(id); p != mPendingTracks.end())
+  {
+    tr = p->second.get();
+    mPendingTracks.erase(p);
+  }
+  else
+  {
+    tr = synthTrack(id);
+  }
+  Track* track = tr.get();
   std::lock_guard<std::mutex> lock(mMutex);
   mNamedTracks[id] = std::move(tr);
+  mTrackOrder.push_back(id);
+  // A track is ~15 MB: keep the most recent few, never the one playing.
+  for (std::size_t i = 0; mNamedTracks.size() > kKeepTracks && i < mTrackOrder.size();)
+  {
+    auto it = mNamedTracks.find(mTrackOrder[i]);
+    if (it == mNamedTracks.end() || (it->second.get() != mTrack && it->second.get() != track))
+    {
+      if (it != mNamedTracks.end())
+        mNamedTracks.erase(it);
+      mTrackOrder.erase(mTrackOrder.begin() + long(i));
+    }
+    else
+    {
+      ++i;
+    }
+  }
+  return track;
+}
+
+void Audio::preloadMusic(const std::string& id)
+{
+  if (id.empty() || id == "stop" || mNamedTracks.count(id) || mPendingTracks.count(id))
+    return;
+  mPendingTracks.emplace(id, std::async(std::launch::async, synthTrack, id));
 }
 
 void Audio::seekMusic(double seconds)

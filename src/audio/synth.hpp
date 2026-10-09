@@ -23,5 +23,7 @@ MusicTrack makeMusic(Music m);
 std::vector<float> makeNamedSfx(const std::string& id);
 std::vector<float> makeVoiceBlip(const std::string& speaker);
 MusicTrack makeNamedMusic(const std::string& id);
+// Level soundtracks (music.cpp): each id has its own arrangement.
+MusicTrack makeStyledMusic(const std::string& id);
 
 } // namespace gr::synth
