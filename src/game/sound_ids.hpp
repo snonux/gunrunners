@@ -52,6 +52,13 @@ enum class Sfx
   Whistle,   // a gunship rocket coming down
   Scream,    // Black Halo's engine as it lines up a ram
   Rev,       // a Hover Biker revving
+  Creak,     // a rope bridge about to go
+  Chop,      // a Bridge Cutter's machete, a rope cut
+  Hoot,      // a Howler winding up a throw
+  Rustle,    // a Canopy Viper about to strike
+  Whoosh,    // the Boomerang in the air
+  Yell,      // the jungle yell (ten swings on one vine)
+  Boing,     // Bounce House: a trampoline landing
   Count,
 };
 

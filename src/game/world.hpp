@@ -45,6 +45,7 @@ enum class PlayerState
   Jetpack,
   Dying,
   Teleporting, // leaving through the exit
+  Swing,       // holding a swing vine (level 8, world_jungle.cpp)
 };
 
 // What the player looks like; also decides the hit box (RigelEngine's
@@ -110,6 +111,10 @@ struct Player
   int turbo = 0;     // frames of Turbo Mode left: every stat maxed
   int virus = 0;     // frames of infection left: slower and weaker
   bool hasKey = false;
+  int vine = -1;   // Swing: the vine held
+  int vineAt = 0;  // Swing: cells from the anchor to the hands
+  int fling = 0;   // cells a frame sideways until landing (let go of a vine)
+  bool vineArc = false; // this jump is a vine launch (its own arc)
 
   int walkFrame = 0;
   int climbFrame = 0;
@@ -322,6 +327,9 @@ enum class PropKind
   SpareShip,     // Chopper Down: the parked spare gunship (the bonus door is its hatch)
   Radio,         // Chopper Down: the cab radio; stand in the cab and it plays the theme as elevator music
   Mixer,         // Chopper Down: the cement mixer's drum (drawn over its breakable)
+  Trunk,         // Canopy Road: a tree trunk behind the canopy (over its rect)
+  Gate,          // Canopy Road: the temple gate around the exit
+  Nest,          // Canopy Road: the nest on the tallest tree
 };
 
 struct Prop
@@ -735,6 +743,90 @@ struct Boss
   int total() const;
 };
 
+// Level 8's jungle (SPEC 08, world_jungle.cpp).
+// A swing vine: anchored at (ax, ay), hanging len cells, swinging as a
+// pendulum amp degrees either way of straight down (0 is the right end of
+// the swing). Pumping on it raises the swing, letting it be lowers it back
+// to its resting amp.
+struct Vine
+{
+  std::string id;
+  int ax = 0, ay = 0;  // cells: the anchor
+  int len = 14;        // cells
+  int rest = 20;       // degrees: the resting swing
+  int amp = 20;        // degrees now
+  int t = 0;           // frames into the period
+  int period = 26;
+  int pump = 0;        // frames of this half-swing the runner pushed along it
+  int halves = 0;      // half-swings held without letting go (the yell egg)
+  bool yelled = false;
+  int cool = 0;        // frames before the runner can grab it again
+  float angle() const; // degrees, + to the right
+  int swingDir() const { return t < period / 2 ? -1 : 1; } // where it is heading
+  // Where the point `at` cells down the vine is now (cells).
+  void point(int at, float& x, float& y) const;
+};
+
+// A rope bridge: one-way planks at block row y. It snaps under a heavy
+// weight, a while after the last runner left it, or at a Bridge Cutter's
+// third chop.
+struct Bridge
+{
+  std::string id;
+  int x0 = 0, x1 = 0, y = 0; // blocks
+  int snap = 0;   // frames of weight 2+ to snap (0: never)
+  int after = 0;  // frames after the last runner steps off (0: never)
+  int cut = 0;    // chops to fall (0: can't be cut)
+  int heavy = 0;  // frames of weight 2+ so far
+  int left = -1;  // frames left to snap after the runner stepped off, -1 not counting
+  bool stood = false;
+  int chops = 0;
+  int creak = 0;  // frames left of the creak before it drops
+  int drop = 0;   // frames of the drop shown so far
+  bool down = false;
+  int sag = -1;   // cells: where the weight is (drawing), -1 none
+};
+
+// Something hanging on a rope over the ravine: a log that drops across its
+// notches as a bridge, or a cage of gems that breaks where it lands.
+struct Load
+{
+  std::string id;
+  bool cage = false;
+  int x = 0, y = 0;   // cells: centre top, hanging
+  int len = 6;        // blocks (logs)
+  int landX0 = 0, landX1 = 0, landRow = 0; // blocks (logs)
+  int gems = 0;       // cages
+  int state = 0;      // 0 hanging, 1 falling, 2 down, 3 broken
+  int fall = 0;       // frames fallen
+  int fy = 0;         // cells: the cage's top while it falls
+};
+
+// A rope a load hangs from, from its tie (x0, y0) to (x1, y1). Any shot
+// wears it through; the Boomerang cuts it outright.
+struct JungleRope
+{
+  std::string id;
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // cells
+  int hp = 3;
+  int load = -1;
+  bool cut = false;
+  bool hits(const CellBox& b) const;
+};
+
+// A Howler's fruit: lobbed, then rolls along what it lands on.
+struct Fruit
+{
+  float x = 0.0f, y = 0.0f; // cells: the centre
+  float vx = 0.0f, vy = 0.0f;
+  float prevX = 0.0f, prevY = 0.0f;
+  int dir = 1;
+  int roll = -1; // frames of rolling left, -1 still in the air
+  bool carrier = false;
+  bool banana = false; // the Dash Howler's: harmless
+  CellBox box() const { return {int(std::floor(x)) - 1, int(std::floor(y)) - 1, 2, 2}; }
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -909,6 +1001,12 @@ public:
   int bossHp() const { return mBoss.on ? mBoss.total() : 0; }
   bool flight() const { return mFlight; } // Pilot Seat: you fly the gunship
   bool latchedPlatform(const Platform& pl) const; // a hook still held by its latch
+  // Level 8: the vines (the bot swings them), the bridges, the Boomerang out.
+  const std::vector<Vine>& vines() const { return mVines; }
+  const std::vector<Bridge>& bridges() const { return mBridges; }
+  bool bounce() const { return mBounce; }
+  // Would letting go now launch (high enough and near a turn)?
+  bool vineLaunchReady() const;
   // Level 6's billboard shows the best level 2 score, if there is one.
   void setHiScore(int score) { mHiScore = score; }
   const std::vector<TrailBlock>& trail() const { return mTrailBlocks; }
@@ -1089,6 +1187,32 @@ private:
   void drawChopperProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
   void drawBoss(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawFlightShip(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 8 (world_jungle.cpp).
+  bool setupJungleEntity(const EntityDef& e);
+  void setupJungleEnemy(Enemy& en, const EntityDef& e);
+  void updateJungle(const PlayerInput& input);
+  void updateVines();
+  bool tryGrabVine();
+  void placeOnVine();
+  void updateSwing(int mvX, int mvY, const Button& jump);
+  void letGoOfVine(bool launch, int dir);
+  void updateBridges();
+  int bridgeWeight(const Bridge& b, bool& runner) const;
+  void dropBridge(Bridge& b);
+  void updateLoads();
+  void cutRope(JungleRope& rope);
+  void updateFruits();
+  void lobFruit(const Enemy& e);
+  void updateHowler(Enemy& e, const EnemyDef& def);
+  void updateViper(Enemy& e, const EnemyDef& def);
+  void updateCutter(Enemy& e, const EnemyDef& def);
+  bool shotAtJungle(Projectile& pr);
+  bool stepBoomerang(Projectile& pr);
+  void resetJungle(); // after a respawn: bridges rebuilt
+  void updateBounce(int mvX, int mvY, const PlayerInput& in);
+  void drawJungleBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawJungleFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawJungleProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1232,6 +1356,16 @@ private:
   int mFlightGun = 0, mFlightRocket = 0; // frames to the next chaingun round, rocket
   int mGemScore = 0;           // Pilot Seat: points toward the next gem
   int mPopNext = 0, mTruckNext = 0, mPops = 0, mTrucks = 0;
+  // Level 8: vines, rope bridges, ropes and their loads, fruit, Bounce House.
+  std::vector<Vine> mVines;
+  std::vector<Bridge> mBridges;
+  std::vector<Load> mLoads;
+  std::vector<JungleRope> mJRopes;
+  std::vector<Fruit> mFruits;
+  std::vector<std::string> mCutterBridge; // setup only: each Cutter's bridge= id
+  bool mBounce = false;  // bonus rule: every surface is a trampoline
+  int mBounceH = 8;      // cells: the next bounce's height
+  int mBounceKick = 0;   // frames of a wall's bounce back left (sign: direction)
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up
