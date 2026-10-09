@@ -101,6 +101,17 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     fireCone(ox, oy, dx, damage);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::ArcCaster && dx != 0)
+  {
+    // Instant lightning instead of a projectile (world_maglev.cpp).
+    int damage = def.damage;
+    if (p.turbo > 0)
+      damage *= 2;
+    else if (p.virus > 0)
+      damage = std::max(1, damage / 2);
+    fireArc(ox, oy, dx, damage);
+    return;
+  }
   spawnProjectile(ShotKind::Proto, ox, oy, dx, dy);
   Projectile& pr = mProjectiles.back();
   pr.proto = p.proto;

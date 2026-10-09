@@ -1970,10 +1970,116 @@ Texture bakeSewerNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isMaglev(const Theme& t) { return std::string_view(t.look) == "maglev"; }
+
+// Night over Neon City in the rain: a low cloud deck lit from below, the
+// glow of the downtown towers on the horizon.
+Texture bakeMaglevSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(6060u);
+  for (int i = 0; i < 14; ++i)
+  {
+    const double cx = rng.range(-100, kScreenW + 100), cy = rng.range(20, 260);
+    cairo_save(cr);
+    cairo_translate(cr, cx, cy);
+    cairo_scale(cr, rng.range(180, 340), rng.range(30, 60));
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setColor(cr, withAlpha(lerpColor(t.skyMid, rgb(120, 80, 140), 0.4f), 60));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, kScreenW * 0.5, kScreenH, 700, rgb(255, 80, 150), 0.25);
+  radialGlow(cr, kScreenW * 0.2, kScreenH * 0.9, 400, rgb(80, 180, 255), 0.18);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: downtown, dense towers with lit windows and aircraft lights.
+Texture bakeMaglevFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(6161u);
+  double x = 0;
+  while (x < kLayerW - 60)
+  {
+    const double w = std::min(double(rng.range(60, 150)), double(kLayerW) - x - 4), h = rng.range(200, 520);
+    const double top = kScreenH - h;
+    cairo_rectangle(cr, x, top, w - 4, h);
+    setColor(cr, lerpColor(t.farLayer, t.skyMid, rng.uniform() * 0.3f));
+    cairo_fill(cr);
+    for (double wy = top + 10; wy < kScreenH - 10; wy += 14)
+      for (double wx = x + 6; wx < x + w - 12; wx += 10)
+        if (rng.uniform() < 0.28f)
+        {
+          cairo_rectangle(cr, wx, wy, 4, 6);
+          setColor(cr, withAlpha(rng.uniform() < 0.7f ? rgb(255, 220, 150) : rgb(120, 220, 255), 110 + rng.irange(0, 100)));
+          cairo_fill(cr);
+        }
+    if (rng.uniform() < 0.4f)
+    {
+      cairo_rectangle(cr, x + w * 0.45, top - 40, 3, 40);
+      setColor(cr, t.farLayer);
+      cairo_fill(cr);
+      radialGlow(cr, x + w * 0.45 + 1, top - 40, 8, rgb(255, 40, 40), 0.8);
+    }
+    x += w;
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: the elevated line's own neighbourhood rushing past: building
+// bases with neon signs, lamp posts and the odd billboard.
+Texture bakeMaglevNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(6262u);
+  const Color signs[] = {rgb(255, 60, 200), rgb(0, 230, 255), rgb(255, 210, 60), rgb(120, 255, 120)};
+  double x = 20;
+  while (x < kLayerW - 300)
+  {
+    const double w = rng.range(160, 280), h = rng.range(160, 330);
+    const double top = kScreenH - h;
+    cairo_rectangle(cr, x, top, w, h);
+    setColor(cr, t.nearLayer);
+    cairo_fill(cr);
+    // A neon sign on its face.
+    const Color c = signs[rng.irange(0, 3)];
+    const double sx = x + rng.range(10, w - 90), sy = top + rng.range(20, 80);
+    roundedRect(cr, sx, sy, 70, 22, 6);
+    setColor(cr, withAlpha(c, 220));
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    radialGlow(cr, sx + 35, sy + 11, 60, c, 0.25);
+    for (double wy = top + 110; wy < kScreenH - 20; wy += 34)
+      for (double wx = x + 14; wx < x + w - 30; wx += 40)
+        if (rng.uniform() < 0.35f)
+        {
+          cairo_rectangle(cr, wx, wy, 18, 14);
+          setColor(cr, withAlpha(rgb(255, 200, 140), 120));
+          cairo_fill(cr);
+        }
+    x += w + rng.range(40, 120);
+    // A lamp post in the gap.
+    const double lx = x - rng.range(20, 40);
+    cairo_rectangle(cr, lx, kScreenH - 260, 6, 260);
+    setColor(cr, rgb(20, 22, 34));
+    cairo_fill(cr);
+    radialGlow(cr, lx + 3, kScreenH - 262, 40, rgb(255, 190, 120), 0.5);
+  }
+  (void)t;
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
   if (isClub(t))
     return bakeClubSky(r, t);
+  if (isMaglev(t))
+    return bakeMaglevSky(r, t);
   if (isSewer(t))
     return bakeSewerSky(r, t);
   VectorImage img(kScreenW, kScreenH);
@@ -2113,6 +2219,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeClubFar(r, t);
   if (isSewer(t))
     return bakeSewerFar(r, t);
+  if (isMaglev(t))
+    return bakeMaglevFar(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(1234u + std::uint32_t(t.id));
@@ -2225,6 +2333,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeClubNear(r, t);
   if (isSewer(t))
     return bakeSewerNear(r, t);
+  if (isMaglev(t))
+    return bakeMaglevNear(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(9876u + std::uint32_t(t.id));
@@ -2593,20 +2703,20 @@ void drawGlow(Renderer& r, const Art& art, float cx, float cy, float radius, Col
   r.draw(art.glow[i], cx, cy, o);
 }
 
-void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float baseCamY)
+void drawBackdrop(Renderer& r, const Art& art, float camX, float camY, float baseCamY, float farShift, float nearShift)
 {
   r.draw(art.sky, 0.0f, 0.0f);
-  auto layer = [&](const Texture& t, float px, float py) {
+  auto layer = [&](const Texture& t, float px, float py, float shift) {
     const float w = float(t.w());
-    float ox = std::fmod(camX * px, w);
+    float ox = std::fmod(camX * px + shift, w);
     if (ox < 0.0f)
       ox += w;
     const float oy = (camY - baseCamY) * py;
     for (float x = -ox; x < float(kScreenW); x += w)
       r.draw(t, x, -oy);
   };
-  layer(art.backFar, 0.12f, 0.06f);
-  layer(art.backNear, 0.3f, 0.15f);
+  layer(art.backFar, 0.12f, 0.06f, farShift);
+  layer(art.backNear, 0.3f, 0.15f, nearShift);
 }
 
 void drawDecoration(Renderer& r, const Art& art, const Theme& t, float x, float y, int seed, int frame)

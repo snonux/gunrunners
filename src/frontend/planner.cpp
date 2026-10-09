@@ -65,7 +65,7 @@ int macroFrames(int m, const World& w)
     bool tide = false;
     for (const auto& f : w.fluids())
       tide = tide || f.tide;
-    return w.platforms().empty() && !opening && !tide && w.bubbles().empty() ? 0 : 24;
+    return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() ? 0 : 24;
   }
   if (m == kWaitLaunch)
   {
@@ -140,6 +140,8 @@ int clockPeriod(const World& w)
   for (const auto& f : w.fluids())
     if (f.tide)
       period = std::max(period, 300); // the tide clock
+  if (!w.gantries().empty())
+    period = std::max(period, 1 << 12); // the train: gantries, rings and couplings run on time
   return period;
 }
 
@@ -192,7 +194,7 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   }
   if (mTakeBonus && !mSkipBonus)
     for (const auto& pr : w.props())
-      if (pr.kind == PropKind::BonusDoor && !pr.used)
+      if (pr.kind == PropKind::BonusDoor && !pr.used && !pr.dormant)
       {
         // Walled in by something only the prototype breaks (level 3's
         // speaker): top up its ammo first from a box close by.
@@ -356,8 +358,14 @@ void Planner::buildField(const World& w, const Goal& goal)
   }
   // Moving platforms: anywhere along their travel is somewhere to stand;
   // the search finds when they are actually there.
+  // Light Trail: your feet draw the ground as you go.
+  if (w.lightTrail())
+    for (std::size_t i = 0; i < top.size(); ++i)
+      top[i] = top[i] || !blocked[i];
   for (const auto& pl : w.platforms())
   {
+    if (pl.hidden)
+      continue; // a train not here yet
     int y0 = pl.y, y1 = pl.y;
     int x0 = pl.x, x1 = pl.x;
     if (pl.mode == PlatformMode::Pulley)
@@ -778,6 +786,8 @@ void Planner::plan(const World& world)
       k = mix(k, std::uint64_t(f.surface) | (std::uint64_t(std::uint32_t(f.floodAt)) << 16));
     for (const auto& b : w.bubbles())
       k = mix(k, std::uint64_t(b.x) | (std::uint64_t(b.y) << 16) | (std::uint64_t(b.stood) << 32));
+    for (const auto& t : w.trail())
+      k = mix(k, std::uint64_t(t.x) | (std::uint64_t(t.y) << 16));
     return k;
   };
   const int h0 = heuristic(world);
@@ -811,7 +821,7 @@ void Planner::plan(const World& world)
       found = ni;
       break;
     }
-    if (ni != 0 && stable(np) && np.hp >= hp0 - 1)
+    if (ni != 0 && stable(np) && np.hp >= hp0 - 1 && !nw.trainDanger())
     {
       if (n.h <= h0 - kProgress)
       {

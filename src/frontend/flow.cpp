@@ -335,6 +335,8 @@ void Game::recordClear()
     int& best = mProfile.protoKills[mLevel->weapon];
     best = std::max(best, st.protoKills);
   }
+  int& score = mProfile.scores[n];
+  score = std::max(score, st.score);
   if (st.duck)
     mProfile.ducks.insert(n);
   if (st.camera)

@@ -136,6 +136,8 @@ void Game::setMode(Mode m)
 void Game::startLevel()
 {
   mWorld = std::make_unique<World>(mLevel, mCursor, theme(), *mArt);
+  if (const auto it = mProfile.scores.find(2); it != mProfile.scores.end())
+    mWorld->setHiScore(it->second);
   mBot = Bot{};
   mBot.setTakeBonus(campaign() && mLevelNumber > 0 && !bonusFile(dataDir(), mLevelNumber).empty());
   mSubTick = 0;

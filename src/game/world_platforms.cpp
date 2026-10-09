@@ -47,6 +47,9 @@ void World::setupPlatform(const EntityDef& e)
   {
     pl.mode = PlatformMode::Path;
     pl.pingpong = mode == "pingpong";
+    // once: waits out of sight until a script starts it, rides its path
+    // once and is gone (the maglev's passing train).
+    pl.once = pl.hidden = mode == "once";
     for (const auto& [px, py] : e.path("path"))
       pl.path.emplace_back(px * kCellsPerTile, py * kCellsPerTile);
     if (pl.path.empty())
@@ -166,6 +169,8 @@ void World::updatePlatforms()
         continue;
       if (a.powered >= 0 && !mBreakers[std::size_t(a.powered)].on)
         continue;
+      if (a.once && !a.running)
+        continue;
       // speedNum cells every speedDen frames.
       if (++a.moveTick % a.speedDen != 0)
         continue;
@@ -175,7 +180,15 @@ void World::updatePlatforms()
         const int dx = sgn(tx - a.x), dy = sgn(ty - a.y);
         if (dx == 0 && dy == 0)
         {
-          if (a.pingpong)
+          if (a.once && a.target + 1 >= int(a.path.size()))
+          {
+            a.running = false;
+            a.hidden = true;
+            break;
+          }
+          if (a.once)
+            ++a.target;
+          else if (a.pingpong)
           {
             if (a.target + a.step < 0 || a.target + a.step >= int(a.path.size()))
               a.step = -a.step;
@@ -251,7 +264,8 @@ void World::syncPlatformCollision()
   if (mFreeFall)
     return; // in free fall gondolas bounce you instead
   for (const auto& pl : mPlatforms)
-    mMap.addPlatform(pl.box());
+    if (!pl.hidden)
+      mMap.addPlatform(pl.box());
 }
 
 // --- Hatches, breakables, spawners ----------------------------------------------
@@ -286,7 +300,7 @@ bool World::hitBreakable(const CellBox& shot, int damage, int kind)
       (b.y1 - b.y0 + 1) * kCellsPerTile};
     if (!area.intersects(shot))
       continue;
-    if ((b.by == 1 && kind != 1) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3))
+    if ((b.by == 1 && kind != 1) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3) || (b.by == 4 && kind != 4))
       return true; // only explosions (heavy hits, the Bass Cannon) break this
     b.hp -= std::max(1, damage);
     const Vec2 c = cellCenter(shot);
@@ -415,6 +429,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   for (std::size_t i = 0; i < mPlatforms.size(); ++i)
   {
     const auto& pl = mPlatforms[i];
+    if (pl.once)
+      continue; // the passing train draws itself (world_maglev.cpp)
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;
     const float y = (float(pl.prevY) + (float(pl.y) - float(pl.prevY)) * alpha) * kCellPx - camY;
     const float w = float(pl.w) * kCellPx;

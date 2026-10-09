@@ -58,6 +58,15 @@ SaveGame World::snapshot() const
       continue; // a spawned enemy that is gone for good
     SaveGame::EnemyState es{e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active};
     es.attach = e.attach;
+    // Mid-leap Hoppers and working Decouplers come back at rest.
+    if (e.kind == EnemyKind::Hopper)
+      es.attach = 0;
+    if (e.kind == EnemyKind::Decoupler && e.alive && e.attach != 0)
+    {
+      es.attach = 0;
+      es.x = e.railX0;
+      es.y = e.aimY;
+    }
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
@@ -99,6 +108,15 @@ SaveGame World::snapshot() const
   for (const auto& b : mBubbles)
     if (b.life < 0 && b.enemy >= 0)
       s.bubbled.push_back(b.enemy);
+  if (mTrain)
+  {
+    // A gantry sweeping now counts as gone by.
+    const Platform* passer = mPasser >= 0 ? &mPlatforms[std::size_t(mPasser)] : nullptr;
+    s.train = {mBrakeAt, mTunnelState, mGapDone, mGapUntil, mTunnelNext, mTunnelMouthX, mTunnelExitX,
+      passer && passer->hidden, passer && passer->running};
+    for (std::size_t i = 0; i < mLevelGantries; ++i)
+      s.train.push_back(mGantries[i].fired);
+  }
   return s;
 }
 
@@ -133,6 +151,7 @@ bool World::restore(const SaveGame& s)
       (!s.floods.empty() && s.floods.size() != mFluids.size()) ||
       (!s.valves.empty() && s.valves.size() != mValves.size()) ||
       (!s.ratPipes.empty() && s.ratPipes.size() != mRatPipes.size() * 2) ||
+      (!s.train.empty() && s.train.size() != 9 + mLevelGantries) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -221,6 +240,10 @@ bool World::restore(const SaveGame& s)
     }
     if (e.kind == EnemyKind::Stalker || e.kind == EnemyKind::Keeper)
       e.attach = se.attach; // frozen in light; the Keeper's errand
+    if (e.kind == EnemyKind::Hopper)
+      e.attach = 0; // lands where it was
+    if (e.kind == EnemyKind::Decoupler)
+      e.attach = se.attach; // asleep in its coupling, or gone with the rear cars
     e.stun = 0;
     e.drawSnap = true;
   }
@@ -311,6 +334,26 @@ bool World::restore(const SaveGame& s)
       continue;
     }
     ++i;
+  }
+  if (s.train.size() == 9 + mLevelGantries)
+  {
+    mBrakeAt = s.train[0];
+    mTunnelState = s.train[1];
+    mGapDone = s.train[2] != 0;
+    mGapUntil = s.train[3];
+    mTunnelNext = s.train[4];
+    mTunnelMouthX = s.train[5];
+    mTunnelExitX = s.train[6];
+    if (mPasser >= 0)
+    {
+      mPlatforms[std::size_t(mPasser)].hidden = s.train[7] != 0;
+      mPlatforms[std::size_t(mPasser)].running = s.train[8] != 0;
+    }
+    for (std::size_t i = 0; i < mLevelGantries; ++i)
+      mGantries[i].fired = s.train[9 + i] != 0;
+    if (mBrakeAt >= 0 && mStats.frames - mBrakeAt >= 90 && mStationLayer >= 0)
+      mLayers[std::size_t(mStationLayer)].scriptSolid = true;
+    syncPlatformCollision();
   }
   for (auto& f : mFluids)
     f.surface = fluidSurface(f);

@@ -28,6 +28,9 @@ enum class EnemyKind
   Leech,   // crawls along a power cable to pull its breaker
   Gator,   // swims under the sludge, lunges up out of it
   Keeper,  // walks to its valve and floods the zone; then guards it
+  Hopper,  // leaps car to car toward you; its landing sends a shockwave along the roof
+  RailDrone, // hovers alongside the train and drops caltrops
+  Decoupler, // climbs out of a coupling and unhooks it
 };
 
 enum EnemyFlag : unsigned

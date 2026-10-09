@@ -95,6 +95,7 @@ void World::setupEntities()
   mBeatStep = lv.rules.find("beatstep") != std::string::npos;
   mSonar = lv.rules.find("sonar") != std::string::npos;
   mAutorun = lv.rules.find("autorun") != std::string::npos;
+  mLightTrail = lv.rules.find("lighttrail") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -139,7 +140,9 @@ void World::setupEntities()
       l.phase = e.num("phase", 0);
       l.switchId = e.str("switch");
       l.switchState = e.num("state", 1);
-      l.style = e.str("style", "sign") == "sign" ? 0 : 1;
+      const std::string style = e.str("style", "sign");
+      l.style = style == "sign" ? 0 : (style == "station" ? 2 : 1);
+      l.scriptSolid = e.num("solid", 1) != 0;
       l.color = namedColor(e.str("color"), kSignColors[mLayers.size() % 3]);
       l.solid = true;
       for (int ty = y0; ty <= y1; ++ty)
@@ -161,6 +164,7 @@ void World::setupEntities()
         en.dir = 1;
       en.carrier = e.num("carrier", 0) != 0;
       setupSludgeEnemy(en, e);
+      setupMaglevEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -248,9 +252,9 @@ void World::setupEntities()
       b.y1 = y1;
       b.hp = e.num("hp", 1);
       const std::string by = e.str("by", "any");
-      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : 0));
+      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : (by == "pry" ? 4 : 0)));
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : 0));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : 0)));
       mBreakables.push_back(b);
       continue;
     }
@@ -308,6 +312,16 @@ void World::setupEntities()
         pr.kind = PropKind::Log;
       else if (kind == "lowpipe")
         pr.kind = PropKind::LowPipe;
+      else if (kind == "carinterior")
+        pr.kind = PropKind::CarInterior;
+      else if (kind == "seat")
+        pr.kind = PropKind::Seat;
+      else if (kind == "crate")
+        pr.kind = PropKind::Crate;
+      else if (kind == "sleeper")
+        pr.kind = PropKind::Sleeper;
+      else if (kind == "hiscore")
+        pr.kind = PropKind::HiScore;
       else if (kind == "cat")
       {
         pr.kind = PropKind::Cat;
@@ -338,6 +352,8 @@ void World::setupEntities()
     if (setupDarkEntity(e))
       continue;
     if (setupSludgeEntity(e))
+      continue;
+    if (setupMaglevEntity(e))
       continue;
 
     if (!mSimulation)
@@ -447,6 +463,8 @@ void World::updateProps(const PlayerInput& input)
 
       case PropKind::BonusDoor:
       {
+        if (pr.dormant)
+          break;
         const CellBox near{pr.x - 12, pr.y - 12, pr.w + 24, pr.h + 24};
         if (!pr.used && near.intersects(pbox) && pr.hold == 0)
         {
@@ -605,6 +623,8 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
     const float h = float(l.y1 - l.y0 + 1) * kTilePx;
     if (x > float(kScreenW) + 64.0f || x + w < -64.0f || y > float(kScreenH) + 64.0f || y + h < -64.0f)
       continue;
+    if (l.style == 2)
+      continue; // the maglev's station slides in on its own (world_maglev.cpp)
     const Color c = l.color;
     if (!l.solid)
     {
@@ -737,7 +757,7 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         }
         break;
       case PropKind::BonusDoor:
-        if (!foreground && onScreen)
+        if (!foreground && onScreen && !pr.dormant)
         {
           const CellBox near{pr.x - 12, pr.y - 12, pr.w + 24, pr.h + 24};
           const bool flicker = near.intersects(pbox) && !pr.used;
@@ -856,6 +876,14 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
           for (float sy = y + 40.0f; sy < y + h - 30.0f; sy += 120.0f)
             r.fillRect(x + 4.0f, sy, w - 8.0f, 10.0f, rgb(60, 66, 60));
         }
+        break;
+      case PropKind::CarInterior:
+      case PropKind::Seat:
+      case PropKind::Crate:
+      case PropKind::Sleeper:
+      case PropKind::HiScore:
+        if (onScreen)
+          drawTrainProp(r, pr, x, y, w, h, frame, foreground);
         break;
       case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)
       case PropKind::DanceFloor: // world_club.cpp draws the lit tiles
