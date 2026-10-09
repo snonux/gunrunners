@@ -50,7 +50,8 @@ Gunrunners runs on Linux and Android.
 repository: add `https://snonux.github.io/fdroid/repo` under *Settings →
 Repositories* ([details and QR code](https://github.com/snonux/fdroid)),
 then search for Gunrunners. Play with the on-screen controls or a Bluetooth
-gamepad. Building the APK yourself is described in
+or USB gamepad, connected at any time; the on-screen controls step aside
+while you use the pad. Building the APK yourself is described in
 [android/README.md](android/README.md).
 
 **Linux (x86_64):** download `gunrunners-vX.Y.Z-linux-x86_64.tar.gz` from
