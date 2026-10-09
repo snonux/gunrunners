@@ -845,43 +845,6 @@ MusicTrack makeMusic(Music m)
 namespace gr::synth
 {
 
-namespace
-{
-
-std::uint32_t hashName(const std::string& s)
-{
-  std::uint32_t h = 2166136261u;
-  for (char c : s)
-    h = (h ^ std::uint32_t(static_cast<unsigned char>(c))) * 16777619u;
-  return h | 1u;
-}
-
-bool contains(const std::string& s, const char* k) { return s.find(k) != std::string::npos; }
-
-// A lead line made from the chord tones, so every track gets its own tune.
-std::vector<int> makeMelody(const std::vector<std::array<int, 3>>& chords, std::uint32_t seed)
-{
-  Noise n(seed);
-  std::vector<int> mel;
-  for (std::size_t bar = 0; bar < 8; ++bar)
-  {
-    const auto& c = chords[bar % chords.size()];
-    for (int e = 0; e < 8; ++e)
-    {
-      const float r = (n.next() + 1.0f) * 0.5f;
-      if (e > 0 && r < 0.3f)
-        mel.push_back(-1); // hold
-      else if (r < 0.38f)
-        mel.push_back(0); // rest
-      else
-        mel.push_back(c[std::size_t(int(r * 9.0f) % 3)] + 12 + (r > 0.85f ? 12 : 0));
-    }
-  }
-  return mel;
-}
-
-} // namespace
-
 MusicTrack makeNamedMusic(const std::string& id)
 {
   if (id.empty() || id == "theme_synthwave")
@@ -890,91 +853,7 @@ MusicTrack makeNamedMusic(const std::string& id)
     return makeMusic(Music::Menu);
   if (id == "victory")
     return makeMusic(Music::Victory);
-
-  using C = std::vector<std::array<int, 3>>;
-  static const C kProgressions[] = {
-    {{57, 60, 64}, {53, 57, 60}, {48, 52, 55}, {55, 59, 62}},                         // Am F C G
-    {{50, 53, 57}, {58, 62, 65}, {53, 57, 60}, {48, 52, 55}},                         // Dm Bb F C
-    {{52, 55, 59}, {48, 52, 55}, {55, 59, 62}, {50, 54, 57}},                         // Em C G D
-    {{57, 60, 64}, {55, 59, 62}, {53, 57, 60}, {52, 56, 59}},                         // Am G F E
-    {{48, 52, 55}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}},                         // C Am F G
-    {{50, 53, 57}, {48, 52, 55}, {46, 50, 53}, {45, 49, 52}},                         // Dm C Bb A
-    {{55, 58, 62}, {51, 55, 58}, {53, 57, 60}, {50, 54, 57}},                         // Gm Eb F D
-  };
-  // "track@N": the same track with only its first N layers (level 4).
-  const auto at = id.find('@');
-  std::string base = id.substr(0, at);
-  // "elevator_track": a cover of that track (same chords and tune).
-  if (base.rfind("elevator_", 0) == 0)
-    base = base.substr(9);
-  const std::uint32_t seed = hashName(base);
-  const C& chords = kProgressions[seed % (sizeof(kProgressions) / sizeof(kProgressions[0]))];
-  Song s{120.0, 16, chords, true, true, makeMelody(chords, seed)};
-  if (contains(id, "episode_end") || contains(id, "lonely") || contains(id, "organ") || contains(id, "credits"))
-  {
-    s.bpm = 90.0;
-    s.drums = false;
-    s.bars = 8;
-  }
-  else if (contains(id, "ambient") || contains(id, "drone") || contains(id, "breathing") || contains(id, "bells") ||
-           contains(id, "submerged") || contains(id, "cryo"))
-  {
-    s.drums = false;
-  }
-  else if (contains(id, "elevator"))
-  {
-    s.bpm = 84.0;
-    s.drums = false;
-    s.lead = true;
-  }
-  else if (contains(id, "arpeggio"))
-  {
-    s.bpm = 138.0;
-    s.lead = true;
-  }
-  else if (contains(id, "opening") || contains(id, "finale") || contains(id, "heroic") || contains(id, "medley"))
-  {
-    s.lead = true;
-  }
-  if (at != std::string::npos)
-  {
-    s.layers = std::atoi(id.c_str() + at + 1);
-    s.lead = true;
-  }
-  s.heartbeat = contains(id, "heartbeat");
-  auto mix = renderSong(s);
-  if (contains(id, "clubhouse"))
-  {
-    // Level 3's phrase: the riser sweeps up through bars 15-16 and the drop
-    // is three sub booms on beat 1 of bars 1-3 (world_club.cpp follows it).
-    const double bar = 4.0 * 60.0 / s.bpm;
-    for (int k = 0; k < 3; ++k)
-    {
-      kick(mix, samples(k * bar), 1.0f);
-      Osc o;
-      const int at = samples(k * bar), len = samples(0.7);
-      for (int i = 0; i < len && at + i < int(mix.left.size()); ++i)
-      {
-        const double t = double(i) / kRate;
-        const float v = o.step(55.0 * (1.0 + 2.0 * std::exp(-t * 18.0)), Wave::Sine) * float(0.55 * std::exp(-t * 4.0));
-        mix.add(at + i, v, 0.0f);
-      }
-    }
-    Osc saw;
-    Noise noise(77u);
-    const int from = samples(14 * bar), to = samples(16 * bar);
-    for (int i = from; i < to && i < int(mix.left.size()); ++i)
-    {
-      const double u = double(i - from) / double(to - from);
-      const float v = saw.step(180.0 * std::pow(10.0, u * 1.1), Wave::Saw) * float(0.10 * u) + noise.next() * float(0.07 * u * u);
-      mix.add(i, v, float(std::sin(u * 20.0) * 0.4));
-    }
-  }
-  MusicTrack out;
-  out.left = std::move(mix.left);
-  out.right = std::move(mix.right);
-  out.loops = true;
-  return out;
+  return makeStyledMusic(id);
 }
 
 } // namespace gr::synth

@@ -3,24 +3,40 @@
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three
 runners (Dash, Rocco or Nova) and blast your way to the exit.
 
-The game is growing from a proof of concept into a 42-level campaign in six
-episodes (the design is in the project's level spec): every level has its
-own twist, its own prototype weapon, a bonus level behind a flickering TV,
-secrets and a briefing cutscene. Built so far: the title menu and campaign
-flow, the cutscene player with all 53 scripts, the Arsenal, the Bonus
-Channel, Reruns, and **Level 1, Rooftop Run** (neon signs that are only solid
-on the beat, the Pulse Pistol) with its bonus level **Cloud Nine**. The
-original PoC level is still there as the TRAINING STAGE.
+A 42-level campaign in six episodes: every level has its own twist, its
+own prototype weapon, its own soundtrack, a bonus level behind a flickering
+TV, secrets and a briefing cutscene. **Episode 1 (Levels 1-7) is complete**,
+with its bonus levels and ending; Episode 2 is being built now.
 
-![Gameplay: Dash in Neon Overdrive](docs/media/gameplay_preview.gif)
+| Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
+|---|---|
+| ![Rooftop Run](docs/media/rooftop_run.gif) | ![Club Laserdisc](docs/media/club_laserdisc.gif) |
+| **Maglev Express: a fight along a moving train** | **Chopper Down: the Black Halo gunship** |
+| ![Maglev Express](docs/media/maglev_express.gif) | ![Chopper Down](docs/media/chopper_down.gif) |
 
 The game renders at 1280x720 with smooth, anti-aliased vector art, soft
-glow lighting and parallax backdrops (no chunky pixels). The full gameplay
-videos (with sound) are made with `tools/record.sh`, see below.
+glow lighting and parallax backdrops (no chunky pixels). Full gameplay
+videos with sound are made with `tools/record.sh`, see below.
 
-| Select screen | Lost Temple | Station Zero |
-|---|---|---|
-| ![](docs/media/select_screen.png) | ![](docs/media/lost_temple.png) | ![](docs/media/station_zero.png) |
+## Episode 1: Neon Overdrive
+
+| # | Level | Twist | Prototype | Bonus level |
+|---|---|---|---|---|
+| 1 | Rooftop Run | neon signs that are solid only on the beat | Pulse Pistol | Cloud Nine (air jumps) |
+| 2 | Glass Canyon | pulley gondolas: weigh one down to lift the other | Spark Disc | Free Fall |
+| 3 | Club Laserdisc | subwoofer pads that launch you on the bass drop | Bass Cannon | Step on the Beat (you move only on the beat) |
+| 4 | Blackout | a city in the dark: relight it sector by sector | Flare Gun | Echo Room (sonar) |
+| 5 | Sludge Line | a rising and falling tide of sludge, gators in it | Bubble Gun | Duck Rapids |
+| 6 | Maglev Express | a running train: get inside a car before each tunnel | Arc Caster | Light Trail |
+| 7 | Chopper Down | a boss fight against a gunship and its searchlight | Lock-On Rockets | Pilot Seat (you fly) |
+
+| | |
+|---|---|
+| ![Level 1, Rooftop Run](docs/media/level01.jpg) | ![Level 2, Glass Canyon](docs/media/level02.jpg) |
+| ![Level 3, Club Laserdisc](docs/media/level03.jpg) | ![Level 4, Blackout](docs/media/level04.jpg) |
+| ![Level 5, Sludge Line](docs/media/level05.jpg) | ![Level 6, Maglev Express](docs/media/level06.jpg) |
+| ![Level 7, Chopper Down](docs/media/level07.jpg) | ![The level tally](docs/media/tally.jpg) |
+| ![The title screen](docs/media/title.jpg) | ![A briefing cutscene](docs/media/cutscene.jpg) |
 
 ## Build and run
 
@@ -70,8 +86,8 @@ file), `--fullscreen`, `--no-audio`, `--save-dir PATH`,
 them.
 
 Tests: `ctest --test-dir build` runs the savegame round-trip test (play,
-save, load into a fresh world, save again, compare) on the PoC level and on
-Level 1.
+save, load into a fresh world, save again, compare) on the training stage
+and on every campaign level.
 
 ## The campaign
 
@@ -82,7 +98,8 @@ episode's last level, its ending. Cutscenes follow RigelEngine's movie model
 (shots of animated clips at a frame delay, with cues for sound, subtitles,
 freeze frames and fades); the scripts are data in `cutscenes/*.txt` and any
 button skips them. The levels that are not built yet end the run with a
-"to be continued" screen.
+"to be continued" screen. The TRAINING STAGE is a free-play level for
+trying the controls.
 
 - **Prototypes and the Arsenal.** Each level hides its own prototype weapon
   in green `W` boxes. Reach the exit with it and it is logged to the
@@ -150,13 +167,29 @@ Nova with the laser.
 
 ## Sound and music
 
-All sound effects and music are synthesized in `src/audio/synth.cpp` (and
-the cutscenes' named sounds and character voice blips in
-`src/audio/synth_named.cpp`) from
-oscillators, noise, filters and envelopes: original material, GPL like the
-rest of the game, no samples and no Duke assets. The level track is an
-A-minor synthwave loop with drums, bass, pads, an arpeggio and a lead. The
-mixer (`src/audio/audio.cpp`) plays through SDL2's audio device.
+All sound effects and music are synthesized from oscillators, noise,
+filters and envelopes: original material, GPL like the rest of the game, no
+samples and no Duke assets.
+
+Every level has its own soundtrack (`src/audio/music.cpp`). Each track is an
+arrangement in a style of its own, with its own tempo, metre, key, chord
+progression, drum groove, bass line and instruments, and a lead tune
+composed from a motif: synthwave on the rooftops, a house track in the club,
+a heartbeat score in the blackout whose layers come back as the power does,
+dub in the sewers, a marimba and congas in the jungle, a slide guitar in the
+desert, a waltz on the accordion, a noir trumpet in the rain, big band,
+arena rock and more, up to a medley for the finale. Bonus levels, cutscenes
+and the lift's lounge cover in Chopper Down get their own tracks too. Tracks render
+in the background while a briefing plays.
+
+The instruments are synthesized too: FM bells and electric piano, a
+Karplus-Strong plucked string, marimba, kalimba, piano, organ, brass,
+strings, choir, theremin, accordion and more, with a drum kit of kicks,
+snares, toms, taiko, wood blocks, brushes and shakers.
+
+Sound effects live in `src/audio/synth.cpp`, the cutscenes' named sounds and
+character voice blips in `src/audio/synth_named.cpp`. The mixer
+(`src/audio/audio.cpp`) plays through SDL2's audio device.
 
 ## Recording gameplay without a display
 
@@ -236,12 +269,11 @@ docs/          design directions and media
 
 ## Next steps
 
-- Pick a design direction and replace the programmer art with artist-made
-  HD sprites (PNG or SVG; the renderer already works with textures).
-- More of Duke II's enemy roster and hazards (conveyor belts, elevators,
-  destructible walls), secret areas, a boss.
-- More levels and an episode map.
-- A proper level editor workflow (e.g. Tiled `.tmx` import).
+- Episodes 2-6 (Levels 8-42), episode by episode, each with its twists,
+  prototypes, bosses, bonus levels and cutscenes.
+- Artist-made HD sprites to replace the programmer art (PNG or SVG; the
+  renderer already works with textures).
+- A level editor workflow (e.g. Tiled `.tmx` import).
 
 ## License
 

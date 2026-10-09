@@ -663,4 +663,20 @@ void World::drawClubHud(Renderer& r, int frame) const
     pulse);
 }
 
+std::vector<std::string> World::musicVariants() const
+{
+  std::vector<std::string> out;
+  if (!mLevel)
+    return out;
+  for (const auto& pr : mProps)
+    if (pr.kind == PropKind::Decks)
+    {
+      out.emplace_back("theme_chiptune");
+      break;
+    }
+  if (mCab.w > 0)
+    out.push_back("elevator_" + mLevel->music);
+  return out;
+}
+
 } // namespace gr
