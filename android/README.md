@@ -43,7 +43,8 @@ debug key; see "Releasing".
 - **In a level:** a floating stick on the left half of the screen (it
   centres wherever the thumb lands and keeps steering if the thumb slides
   across, its centre following a thumb that goes far out so turning round
-  is quick), and Jump, Fire, Switch runner and Pause on the right. Drawn
+  is quick), and on the right Fire in the corner, Jump left of it, Switch
+  runner above and Pause at the top. Drawn
   faintly so the level shows through.
 - **Made to hit without looking:** the controls hug the physical screen's
   edges, so on phones wider than 16:9 they sit in the black bars beside the
