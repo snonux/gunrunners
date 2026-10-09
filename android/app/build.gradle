@@ -1,0 +1,86 @@
+// Gunrunners for Android (proof of concept). The native code is the normal
+// game, built by the top-level CMakeLists.txt as libmain.so; SDL2's own Java
+// glue (org.libsdl.app) comes straight from the SDL2 source tree that
+// android/build-deps.sh fetches, so nothing of SDL is copied in here.
+
+plugins {
+    id 'com.android.application'
+}
+
+def sdlJava = "${rootDir}/deps/SDL2/android-project/app/src/main/java"
+def gameData = "${rootDir}/.."
+def generatedAssets = layout.buildDirectory.dir('generated/gunrunners-assets')
+
+android {
+    namespace 'io.github.snonux.gunrunners'
+    compileSdk 35
+    ndkVersion '27.3.13750724'
+
+    defaultConfig {
+        applicationId 'io.github.snonux.gunrunners'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '0.1-android-poc'
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared'
+            }
+        }
+    }
+
+    buildTypes {
+        // The PoC's release build is signed with the debug key so it installs
+        // without a keystore; a store build needs its own signing config.
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path '../../CMakeLists.txt'
+            version '3.31.6'
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += [sdlJava]
+            assets.srcDirs += [generatedAssets]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+// levels/ and cutscenes/ go into the APK as assets, with a manifest listing
+// them: Android can't list APK assets from native code, and the game copies
+// them to internal storage on start (src/frontend/android_data.cpp).
+def syncGameData = tasks.register('syncGameData') {
+    def out = generatedAssets.get().asFile
+    inputs.dir("${gameData}/levels")
+    inputs.dir("${gameData}/cutscenes")
+    outputs.dir(out)
+    doLast {
+        project.delete(out)
+        def files = []
+        ['levels', 'cutscenes'].each { dir ->
+            project.copy {
+                from "${gameData}/${dir}"
+                into new File(out, "data/${dir}")
+                include '*.txt'
+            }
+            new File(out, "data/${dir}").eachFile { f -> files << "${dir}/${f.name}" }
+        }
+        new File(out, 'data/manifest.txt').text = files.sort().join('\n') + '\n'
+    }
+}
+tasks.named('preBuild') { dependsOn syncGameData }

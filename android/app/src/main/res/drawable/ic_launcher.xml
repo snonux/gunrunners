@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder launcher icon: a neon crosshair on night blue. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#0D0B26" android:pathData="M4,0h40a4,4 0,0 1,4 4v40a4,4 0,0 1,-4 4h-40a4,4 0,0 1,-4 -4v-40a4,4 0,0 1,4 -4z" />
+    <path android:strokeColor="#FF2EC4" android:strokeWidth="3" android:fillColor="#00000000"
+        android:pathData="M24,10a14,14 0,1 1,0 28a14,14 0,1 1,0 -28z" />
+    <path android:strokeColor="#2EF2FF" android:strokeWidth="3"
+        android:pathData="M24,6v12M24,30v12M6,24h12M30,24h12" />
+</vector>

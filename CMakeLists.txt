@@ -7,9 +7,13 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(SDL2 REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(CAIRO REQUIRED IMPORTED_TARGET cairo)
+if(ANDROID)
+  include(android/android.cmake)
+else()
+  find_package(SDL2 REQUIRED)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(CAIRO REQUIRED IMPORTED_TARGET cairo)
+endif()
 
 add_library(gunrunners_core STATIC
   src/render/color.cpp
@@ -61,7 +65,13 @@ if(NOT MSVC)
   target_compile_options(gunrunners_core PRIVATE -Wall -Wextra)
 endif()
 
-add_executable(gunrunners src/main.cpp)
+if(ANDROID)
+  # The APK's libmain.so; no desktop binary, tools or tests.
+  gr_add_android_main()
+  return()
+endif()
+
+add_executable(gunrunners src/main.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(gunrunners PRIVATE gunrunners_core SDL2::SDL2)
 if(TARGET SDL2::SDL2main)
   target_link_libraries(gunrunners PRIVATE SDL2::SDL2main)
