@@ -54,6 +54,9 @@ cmake --build build -j
 ./build/gunrunners
 ```
 
+Or use `./build.sh` (`-t` also runs the tests, `-r` starts the game, `-d`
+makes a debug build, `-c` starts from a clean build directory).
+
 Play with the keyboard or a gamepad (both work at the same time):
 
 | Keyboard | Gamepad | Action |
