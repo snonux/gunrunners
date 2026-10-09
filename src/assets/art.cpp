@@ -609,9 +609,11 @@ CharacterArt buildCharacter(const Renderer& r, int kind)
 
 } // namespace
 
-Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bool mirror)
+namespace
 {
-  const Look look = lookFor(kind);
+
+Pose poseFor(int pose)
+{
   Pose P;
   switch (pose)
   {
@@ -630,12 +632,24 @@ Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bo
       break;
     default: P = idlePose(pose == 8 ? 1 : 0); break;
   }
+  return P;
+}
+
+} // namespace
+
+Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bool mirror)
+{
   const int w = int(128 * scale), h = int(130 * scale);
   VectorImage img(w, h);
   cairo_scale(img.cr(), scale, scale);
   cairo_translate(img.cr(), 32.0, 30.0);
-  drawCharacter(img.cr(), look, P);
+  drawCharacter(img.cr(), lookFor(kind), poseFor(pose));
   return img.toTexture(r, float(w) * 0.5f, float(h), mirror);
+}
+
+void drawCharacterPose(cairo_t* cr, int kind, int pose)
+{
+  drawCharacter(cr, lookFor(kind), poseFor(pose));
 }
 
 namespace

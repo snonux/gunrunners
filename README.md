@@ -1,5 +1,10 @@
 # Gunrunners
 
+<p align="center">
+  <img src="docs/media/cover_front.jpg" width="420" alt="Gunrunners box art, front">
+  <img src="docs/media/cover_back.jpg" width="420" alt="Gunrunners box art, back">
+</p>
+
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three
 runners (Dash, Rocco or Nova) and blast your way to the exit.
 
@@ -266,7 +271,8 @@ src/frontend   title menu, campaign flow, cutscene player and clips,
 levels/        text level files (format in levels/README.md)
 cutscenes/     cutscene scripts
 tools/         record.sh, mklevel.py (levels/level1.txt), levels/*.py
-               (one generator per campaign level)
+               (one generator per campaign level), covers.sh and cover/
+               (the box art, drawn with the game's own runners)
 docs/          design directions and media
 ```
 
