@@ -33,6 +33,12 @@ private:
 };
 
 void setColor(cairo_t* cr, Color c);
+// The game's one typeface, DejaVu Sans Bold (italic is slanted). On the
+// desktop fontconfig finds it; builds with GR_BUNDLED_FONT (Android) have no
+// fontconfig and load the TTF with loadGameFont first. Without it Cairo
+// falls back to its built-in font.
+void selectGameFont(cairo_t* cr, bool italic = false);
+bool loadGameFont(const char* ttfPath);
 void roundedRect(cairo_t* cr, double x, double y, double w, double h, double r);
 // Fills the current path with a vertical gradient (top -> bottom) and strokes
 // it with an outline, preserving nothing.

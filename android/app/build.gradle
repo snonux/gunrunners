@@ -11,19 +11,35 @@ def sdlJava = "${rootDir}/deps/SDL2/android-project/app/src/main/java"
 def gameData = "${rootDir}/.."
 def generatedAssets = layout.buildDirectory.dir('generated/gunrunners-assets')
 
+// One version for every platform: project(Gunrunners VERSION x.y.z) in the
+// top-level CMakeLists.txt. versionCode = x * 10000 + y * 100 + z.
+def gameVersion = (file("${gameData}/CMakeLists.txt").text =~ /project\(Gunrunners VERSION (\d+)\.(\d+)\.(\d+)/)[0]
+def gameVersionName = "${gameVersion[1]}.${gameVersion[2]}.${gameVersion[3]}"
+def gameVersionCode = gameVersion[1].toInteger() * 10000 + gameVersion[2].toInteger() * 100 + gameVersion[3].toInteger()
+
+// Release signing: android/key.properties (storeFile, storePassword,
+// keyAlias, keyPassword), written by the release workflow from secrets or
+// kept on the developer's machine; never committed. Without it the release
+// build is signed with the debug key.
+def keyProperties = new Properties()
+def keyPropertiesFile = rootProject.file('key.properties')
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.withInputStream { keyProperties.load(it) }
+}
+
 android {
-    namespace 'io.github.snonux.gunrunners'
+    namespace 'org.buetow.gunrunners'
     compileSdk 35
     ndkVersion '27.3.13750724'
 
     defaultConfig {
-        applicationId 'io.github.snonux.gunrunners'
+        applicationId 'org.buetow.gunrunners'
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName '0.1-android-poc'
+        versionCode gameVersionCode
+        versionName gameVersionName
         ndk {
-            abiFilters 'arm64-v8a', 'x86_64'
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
         }
         externalNativeBuild {
             cmake {
@@ -32,13 +48,28 @@ android {
         }
     }
 
+    signingConfigs {
+        if (keyProperties['storeFile']) {
+            release {
+                storeFile rootProject.file(keyProperties['storeFile'])
+                storePassword keyProperties['storePassword']
+                keyAlias keyProperties['keyAlias']
+                keyPassword keyProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
-        // The PoC's release build is signed with the debug key so it installs
-        // without a keystore; a store build needs its own signing config.
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            signingConfig keyProperties['storeFile'] ? signingConfigs.release : signingConfigs.debug
         }
+    }
+
+    // F-Droid and reproducible builds: no Google dependency metadata blob.
+    dependenciesInfo {
+        includeInApk false
+        includeInBundle false
     }
 
     externalNativeBuild {
@@ -61,22 +92,23 @@ android {
     }
 }
 
-// levels/ and cutscenes/ go into the APK as assets, with a manifest listing
-// them: Android can't list APK assets from native code, and the game copies
-// them to internal storage on start (src/frontend/android_data.cpp).
+// levels/, cutscenes/ and fonts/ go into the APK as assets, with a manifest
+// listing them: Android can't list APK assets from native code, and the game
+// copies them to internal storage on start (src/frontend/android_data.cpp).
 def syncGameData = tasks.register('syncGameData') {
     def out = generatedAssets.get().asFile
     inputs.dir("${gameData}/levels")
     inputs.dir("${gameData}/cutscenes")
+    inputs.dir("${gameData}/fonts")
     outputs.dir(out)
     doLast {
         project.delete(out)
         def files = []
-        ['levels', 'cutscenes'].each { dir ->
+        ['levels', 'cutscenes', 'fonts'].each { dir ->
             project.copy {
                 from "${gameData}/${dir}"
                 into new File(out, "data/${dir}")
-                include '*.txt'
+                include '*.txt', '*.ttf'
             }
             new File(out, "data/${dir}").eachFile { f -> files << "${dir}/${f.name}" }
         }

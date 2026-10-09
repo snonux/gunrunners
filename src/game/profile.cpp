@@ -81,6 +81,8 @@ Profile Profile::load(const std::string& dir)
       in >> p.duckMode;
     else if (key == "fullscreen")
       in >> p.fullscreen;
+    else if (key == "touchsize")
+      in >> p.touchSize;
   }
   return p;
 }
@@ -110,6 +112,7 @@ bool Profile::save(const std::string& dir) const
     o << "reached " << reached << '\n';
     o << "duckmode " << duckMode << '\n';
     o << "fullscreen " << fullscreen << '\n';
+    o << "touchsize " << touchSize << '\n';
     if (!o)
       return false;
   }

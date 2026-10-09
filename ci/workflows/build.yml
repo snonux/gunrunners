@@ -1,0 +1,56 @@
+# Builds Gunrunners on every push and pull request: the Linux game with its
+# tests, and a debug-signed Android APK (kept as a run artifact for a week).
+# Paul moves it to .github/workflows/build.yml.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  NDK_VERSION: 27.3.13750724
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libsdl2-dev libcairo2-dev fonts-dejavu-core
+      - name: Build and test
+        run: ./build.sh -t
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: NDK, CMake, meson
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null
+          "$sdkmanager" "ndk;$NDK_VERSION" "cmake;3.31.6" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+          pip install --user meson
+          sudo apt-get install -y ninja-build
+      - uses: actions/cache@v4
+        with:
+          path: android/deps
+          key: android-deps-${{ hashFiles('android/build-deps.sh') }}
+      - name: Build the APK
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          android/build.sh release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gunrunners-debug-signed.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7

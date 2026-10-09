@@ -1,0 +1,15 @@
+Gunrunners is a jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three runners (Dash, Rocco or Nova), switch between them mid-level, and blast your way to the exit.
+
+* A campaign of 42 levels in six episodes, each level with its own twist, its own prototype weapon and its own soundtrack. Episode 1, Neon Overdrive (Levels 1-7), is complete; more episodes follow in updates.
+* Bonus levels behind flickering TVs, with crazy rules and a timer.
+* Secrets: a rubber duck in every level, candid cameras, hidden gem caches.
+* An Arsenal of prototypes, Bonus Stars, five savegame slots.
+* Smooth HD vector art with glowing neon and parallax backdrops; no pixels.
+* Every sound and every note of music is synthesized by the game itself.
+
+Controls:
+* Touch: a floating stick on the left, Jump, Fire, Switch runner and Pause on the right. In menus, a d-pad with OK and BACK. Three sizes under TOUCH PAD in the menus.
+* Gamepads (Bluetooth or USB): Xbox, PlayStation, Switch Pro, 8BitDo and most others work out of the box.
+* The back key pauses the game.
+
+Gunrunners is free software (GPL-2.0-or-later), with no ads, no tracking and no network access. It also runs on Linux.

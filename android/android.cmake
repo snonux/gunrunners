@@ -13,11 +13,15 @@ add_subdirectory(${GR_ANDROID_DEPS}/SDL2 ${CMAKE_BINARY_DIR}/SDL2)
 
 # Same target name as pkg-config's on the desktop, so the rest of the build
 # does not care where Cairo came from.
+# GR_BUNDLED_FONT: no fontconfig here, the game loads its TTF through
+# FreeType (src/render/vector.cpp).
+set(GR_ABI_PREFIX ${GR_ANDROID_DEPS}/${ANDROID_ABI})
 add_library(PkgConfig::CAIRO INTERFACE IMPORTED)
 set_target_properties(PkgConfig::CAIRO PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${GR_ANDROID_DEPS}/${ANDROID_ABI}/include/cairo"
+  INTERFACE_INCLUDE_DIRECTORIES "${GR_ABI_PREFIX}/include/cairo;${GR_ABI_PREFIX}/include/freetype2"
+  INTERFACE_COMPILE_DEFINITIONS GR_BUNDLED_FONT
   INTERFACE_LINK_LIBRARIES
-    "${GR_ANDROID_DEPS}/${ANDROID_ABI}/lib/libcairo.a;${GR_ANDROID_DEPS}/${ANDROID_ABI}/lib/libpixman-1.a;m")
+    "${GR_ABI_PREFIX}/lib/libcairo.a;${GR_ABI_PREFIX}/lib/libpixman-1.a;${GR_ABI_PREFIX}/lib/libfreetype.a;m")
 
 # SDL's Java activity loads libmain.so and calls SDL_main (main.cpp's main,
 # renamed by SDL_main.h).

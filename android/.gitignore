@@ -4,3 +4,6 @@
 /app/.cxx/
 /.gradle/
 /local.properties
+/key.properties
+*.jks
+*.keystore

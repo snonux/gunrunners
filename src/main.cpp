@@ -10,6 +10,7 @@
 #include "frontend/touch_controls.hpp"
 #include "game/profile.hpp"
 #include "game/savegame.hpp"
+#include "render/vector.hpp"
 #ifdef __ANDROID__
 #include "frontend/android_data.hpp"
 #endif
@@ -344,7 +345,11 @@ int runHeadless(const CliOptions& o)
       {
         game.render();
         if (touch)
+        {
+          touch->configure(game.inLevel() ? TouchControls::Layout::Play : TouchControls::Layout::Menu,
+            game.touchSize());
           touch->draw(renderer);
+        }
         SDL_RenderPresent(sdlRenderer);
         if (shot)
           savePng(surface, prefix + std::to_string(frames) + ".png");
@@ -453,6 +458,9 @@ int runWindowed(const CliOptions& o)
     {
       if (touch)
         touch->handleEvent(ev, window);
+      // Android may close a backgrounded app without warning.
+      if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
+        game.suspend();
       switch (controls.handleEvent(ev))
       {
         case Controls::Action::Quit:
@@ -473,6 +481,9 @@ int runWindowed(const CliOptions& o)
     accumulator += double(now - last) / freq;
     last = now;
     accumulator = std::min(accumulator, 0.25);
+    if (touch)
+      touch->configure(
+        game.inLevel() ? TouchControls::Layout::Play : TouchControls::Layout::Menu, game.touchSize());
     while (accumulator >= tickSeconds && running)
     {
       running = game.tick(touch ? controls.read() | touch->read() : controls.read());
@@ -525,7 +536,9 @@ int main(int argc, char** argv)
   o.game.saveDir = androidSaveDir();
   o.touch = true;
   o.fullscreen = true;
+  loadGameFont((o.game.dataDir + "/fonts/DejaVuSans-Bold.ttf").c_str());
 #endif
+  o.game.touch = o.touch;
   try
   {
     return o.headless ? runHeadless(o) : runWindowed(o);

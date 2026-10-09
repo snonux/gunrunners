@@ -5,70 +5,93 @@
 
 #include <SDL.h>
 
+#include <array>
 #include <vector>
 
 namespace gr
 {
 
 // An on-screen gamepad for touch screens (Android, or --touch on a desktop
-// touch screen): a d-pad on the left half of the screen and Jump, Fire,
-// Switch and Pause buttons on the right, mapped like a real pad's A, B, Y
-// and Start. Any finger on the left half steers by its offset from the
-// d-pad's centre, so the thumb can slide around without lifting.
-// The overlay hides itself when a keyboard or gamepad is used and comes
-// back with the next touch.
+// touch screen). Two layouts:
+//
+// - In a level: a floating stick on the left half (it centres wherever the
+//   thumb lands) and Jump, Fire, Switch runner and Pause on the right,
+//   mapped like a pad's A, B, Y and Start.
+// - In menus, cutscenes and tallies: a fixed d-pad, OK and BACK.
+//
+// Three sizes (the TOUCH PAD setting). The overlay hides itself when a
+// keyboard or gamepad is used and comes back with the next touch.
 class TouchControls
 {
 public:
-  explicit TouchControls(Renderer& renderer, bool visible);
+  enum class Layout
+  {
+    Play,
+    Menu,
+  };
+
+  TouchControls(Renderer& renderer, bool visible);
 
   // Feed every SDL event through here (after Controls).
   void handleEvent(const SDL_Event& ev, SDL_Window* window);
-  // The buttons held now, plus any tap that started and ended since the
-  // last call (a quick tap between two ticks is not lost). Call once per tick.
+  // Call once per frame before read(): which layout, and the size setting
+  // (0 small, 1 medium, 2 large).
+  void configure(Layout layout, int size);
+  // The buttons held now, plus any press since the last call, so a tap that
+  // starts and ends between two ticks is not lost. Call once per tick.
   Input read();
   // Draws the overlay in the game's 1280x720 logical coordinates.
   void draw(Renderer& renderer) const;
+  bool visible() const { return mVisible; }
 
-  // Headless tests: a finger at this logical position (no SDL events).
-  void injectFinger(SDL_FingerID id, float x, float y);
+  // Tests: fingers at logical positions, without SDL events.
+  void touch(SDL_FingerID id, float x, float y) { press(id, x, y); }
+  void slide(SDL_FingerID id, float x, float y) { move(id, x, y); }
+  void release(SDL_FingerID id) { lift(id); }
 
 private:
-  struct Finger
-  {
-    SDL_FingerID id;
-    float x;
-    float y;
-    bool dpad; // started on the left half: steers until lifted
-  };
   enum ButtonId
   {
-    kJump,
-    kFire,
-    kSwap,
+    kJump, // A; OK in menus
+    kFire, // B; BACK in menus
+    kSwap, // Y
     kPause,
     kButtonCount,
   };
-  struct ButtonSpot
+  struct Circle
   {
     float x, y, r;
+  };
+  struct Finger
+  {
+    SDL_FingerID id;
+    float x, y;
+    bool stick;     // landed on the left half: steers until lifted
+    float ox, oy;   // the stick's centre for this finger
   };
 
   void press(SDL_FingerID id, float x, float y);
   void move(SDL_FingerID id, float x, float y);
   void lift(SDL_FingerID id);
   Input held() const;
-  void dpadDirections(bool& left, bool& right, bool& up, bool& down) const;
-  bool buttonHeld(int b) const;
+  Circle stickHome() const;
+  Circle button(int b) const;
+  bool buttonShown(int b) const;
   int buttonAt(float x, float y) const;
+  bool buttonHeld(int b) const;
 
-  static const ButtonSpot kButtons[kButtonCount];
+  Layout mLayout = Layout::Menu;
+  float mScale = 1.0f;
+  bool mVisible;
   std::vector<Finger> mFingers;
   Input mTapped; // presses since the last read()
-  bool mVisible;
+
+  Texture mStick;
   Texture mDpad;
-  Texture mDpadNub;
-  Texture mButtonTex[kButtonCount];
+  Texture mNub;
+  std::array<Texture, kButtonCount> mPlayIcons;
+  Texture mOk;
+  Texture mBack;
 };
 
 } // namespace gr

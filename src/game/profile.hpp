@@ -22,6 +22,7 @@ struct Profile
   int reached = 1;                 // highest level started
   bool duckMode = false;           // all 42 ducks: quack mode is available
   bool fullscreen = false;         // the window covers the screen, no borders
+  int touchSize = 1;               // on-screen gamepad: 0 small, 1 medium, 2 large
 
   static Profile load(const std::string& dir);
   bool save(const std::string& dir) const;
