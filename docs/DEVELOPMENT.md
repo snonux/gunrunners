@@ -209,7 +209,7 @@ tools/         record.sh, mklevel.py (levels/level1.txt), levels/*.py
 fonts/         DejaVu Sans Bold, for builds without fontconfig (Android)
 android/       the Android project (Gradle, SDL2's activity, deps script)
 fastlane/      store text, icon and screenshots for F-Droid
-ci/workflows/  release and build workflows, to be moved to .github/
+.github/workflows/  release.yml (tag -> signed APK) and build.yml (CI)
 docs/          design directions and media
 ```
 
