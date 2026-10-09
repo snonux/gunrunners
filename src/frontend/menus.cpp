@@ -22,13 +22,15 @@ enum PauseItem
   kLoad,
   kChangeRunner,
   kCheats,
+  kFullscreen,
   kQuitToTitle,
   kQuitGame,
   kPauseItemCount,
 };
 
 const char* const kPauseLabels[kPauseItemCount] = {
-  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "QUIT TO TITLE", "QUIT GAME"};
+  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "QUIT TO TITLE",
+  "QUIT GAME"};
 
 // Entered on the pause menu, Konami style: up, up, down, down, left, right,
 // left, right (arrows, WASD, d-pad or stick).
@@ -45,9 +47,18 @@ std::vector<int> Game::pauseItems() const
 {
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if (i != kCheats || mCheatsUnlocked || mOptions.cheats)
+    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
       items.push_back(i);
   return items;
+}
+
+void Game::setFullscreen(bool on)
+{
+  mFullscreenNow = on;
+  if (mProfile.fullscreen == on)
+    return;
+  mProfile.fullscreen = on;
+  mProfile.save(saveDir());
 }
 
 void Game::notice(const std::string& text)
@@ -253,6 +264,9 @@ bool Game::tickMenu(const Input& in)
           case kCheats:
             openMenu(Menu::Cheats);
             break;
+          case kFullscreen:
+            mFullscreenToggle = true;
+            break;
           case kSave:
             mSlotsForSave = true;
             openMenu(Menu::Slots);
@@ -400,7 +414,10 @@ void Game::renderMenu()
         r.fillRect(420, y - 6, 440, 42, withAlpha(t.accentA, 60));
         drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
       }
-      r.drawText(kPauseLabels[items[std::size_t(i)]], 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel},
+      const int item = items[std::size_t(i)];
+      const std::string label =
+        item == kFullscreen ? (mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF") : kPauseLabels[item];
+      r.drawText(label, 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);
     }
     r.drawText("UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 560, hint, Align::Center);

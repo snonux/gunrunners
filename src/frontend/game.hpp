@@ -34,6 +34,7 @@ struct GameOptions
   bool noCutscenes = false;
   std::string cutscene; // play just this cutscene, then quit
   bool cheats = false;  // the pause menu's CHEATS item from the start
+  bool window = false;  // a real window (not headless): offer FULLSCREEN
 };
 
 // Top-level mode management, the equivalent of RigelEngine's
@@ -48,6 +49,20 @@ public:
 
   // Advances one fixed 60 Hz tick. Returns false once the game wants to quit.
   bool tick(const Input& input);
+  // Fullscreen is borderless at the desktop's resolution. The window code
+  // applies it and reports back with setFullscreen, which saves it in the
+  // profile; the menus ask for a switch through takeFullscreenToggle.
+  // showFullscreen only updates the menu label (a command-line flag
+  // overrode the saved setting for this run).
+  bool fullscreenSetting() const { return mProfile.fullscreen; }
+  void setFullscreen(bool on);
+  void showFullscreen(bool on) { mFullscreenNow = on; }
+  bool takeFullscreenToggle()
+  {
+    const bool t = mFullscreenToggle;
+    mFullscreenToggle = false;
+    return t;
+  }
   void render();
   void cycleTheme();
 
@@ -199,6 +214,8 @@ private:
   std::string mPlayingOverride; // the world's music override now playing
   int mNoticeTicks = 0;
   bool mQuit = false;
+  bool mFullscreenToggle = false;
+  bool mFullscreenNow = false;
 
   // 15 Hz logic clock and input latching.
   int mSubTick = 0;

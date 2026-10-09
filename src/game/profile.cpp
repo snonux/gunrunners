@@ -79,6 +79,8 @@ Profile Profile::load(const std::string& dir)
       in >> p.reached;
     else if (key == "duckmode")
       in >> p.duckMode;
+    else if (key == "fullscreen")
+      in >> p.fullscreen;
   }
   return p;
 }
@@ -107,6 +109,7 @@ bool Profile::save(const std::string& dir) const
     o << '\n';
     o << "reached " << reached << '\n';
     o << "duckmode " << duckMode << '\n';
+    o << "fullscreen " << fullscreen << '\n';
     if (!o)
       return false;
   }

@@ -74,6 +74,9 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
         break;
       if (ev.key.keysym.sym == SDLK_t)
         return Action::CycleTheme;
+      if (ev.key.keysym.sym == SDLK_F11 ||
+          ((ev.key.keysym.sym == SDLK_RETURN || ev.key.keysym.sym == SDLK_KP_ENTER) && (ev.key.keysym.mod & KMOD_ALT)))
+        return Action::ToggleFullscreen;
       break;
     case SDL_CONTROLLERDEVICEADDED:
       open(ev.cdevice.which);
@@ -101,7 +104,8 @@ Input Controls::read() const
   in.down = k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S];
   in.jump = k[SDL_SCANCODE_Z] || k[SDL_SCANCODE_SPACE];
   in.fire = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
-  in.confirm = k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER];
+  // Alt+Enter toggles fullscreen, so it must not also pick a menu item.
+  in.confirm = (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER]) && !(SDL_GetModState() & KMOD_ALT);
   in.pause = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_P];
   in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE];
   in.swap = k[SDL_SCANCODE_C];

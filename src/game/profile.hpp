@@ -21,6 +21,7 @@ struct Profile
   std::map<int, int> scores;       // best score per level (level 6's billboard shows level 2's)
   int reached = 1;                 // highest level started
   bool duckMode = false;           // all 42 ducks: quack mode is available
+  bool fullscreen = false;         // the window covers the screen, no borders
 
   static Profile load(const std::string& dir);
   bool save(const std::string& dir) const;
