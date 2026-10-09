@@ -10,8 +10,10 @@ runners (Dash, Rocco or Nova) and blast your way to the exit.
 
 A 42-level campaign in six episodes: every level has its own twist, its
 own prototype weapon, its own soundtrack, a bonus level behind a flickering
-TV, secrets and a briefing cutscene. **Episode 1 (Levels 1-7) is complete**,
-with its bonus levels and ending; Episode 2 is being built now.
+TV, secrets and a briefing cutscene. Six episodes of seven levels each.
+**Playable now:** all of Episode 1 (Levels 1-7) with its bonus levels and
+ending, and the first level of Episode 2 (Level 8, Canopy Road). The rest
+of Episode 2 is being built now, then Episodes 3-6.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|
