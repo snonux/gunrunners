@@ -106,8 +106,9 @@ Input Controls::read() const
   in.fire = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
   // Alt+Enter toggles fullscreen, so it must not also pick a menu item.
   in.confirm = (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER]) && !(SDL_GetModState() & KMOD_ALT);
-  in.pause = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_P];
-  in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE];
+  // AC_BACK is Android's back key: pause in a level, back out of a menu.
+  in.pause = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_P] || k[SDL_SCANCODE_AC_BACK];
+  in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_AC_BACK];
   in.swap = k[SDL_SCANCODE_C];
 
   for (auto* pad : mPads)

@@ -7,8 +7,12 @@
 
 #include "frontend/game.hpp"
 #include "frontend/controls.hpp"
+#include "frontend/touch_controls.hpp"
 #include "game/profile.hpp"
 #include "game/savegame.hpp"
+#ifdef __ANDROID__
+#include "frontend/android_data.hpp"
+#endif
 
 #include <SDL.h>
 #include <cairo.h>
@@ -43,6 +47,7 @@ struct CliOptions
   std::vector<long> screenshotFrames;
   bool fullscreen = false;
   bool windowed = false;
+  bool touch = false; // on-screen gamepad (always on Android)
   // Headless: scripted button presses, tick -> buttons held for 3 ticks.
   std::vector<std::pair<long, Input>> presses;
 };
@@ -104,6 +109,7 @@ void printUsage()
     "  --frames N           stop after N ticks\n"
     "  --fullscreen         start in borderless fullscreen (F11 or Alt+Enter toggles)\n"
     "  --windowed           start in a window even if fullscreen was saved\n"
+    "  --touch              show the on-screen gamepad for touch screens\n"
     "  --save-dir PATH      where the 5 savegame slots live\n"
     "                       (default: $XDG_DATA_HOME/gunrunners/saves or\n"
     "                       ~/.local/share/gunrunners/saves)\n"
@@ -191,6 +197,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.fullscreen = true;
     else if (a == "--windowed")
       o.windowed = true;
+    else if (a == "--touch")
+      o.touch = true;
     else if (a == "--save-dir")
       o.game.saveDir = next();
     else if (a == "--press")
@@ -274,7 +282,11 @@ void savePng(SDL_Surface* surface, const std::string& path)
     surface->w,
     surface->h,
     surface->pitch);
+#ifdef CAIRO_HAS_PNG_FUNCTIONS // not in the minimal Cairo of the Android build
   cairo_surface_write_to_png(cs, path.c_str());
+#else
+  (void)path;
+#endif
   cairo_surface_destroy(cs);
 }
 
@@ -300,6 +312,9 @@ int runHeadless(const CliOptions& o)
       wav = std::make_unique<WavWriter>(o.audioOut);
     }
     Game game(o.game, renderer, audio.get());
+    std::unique_ptr<TouchControls> touch;
+    if (o.touch)
+      touch = std::make_unique<TouchControls>(renderer, true);
     std::vector<float> audioFrame(std::size_t(kAudioRate / 60) * 2);
     std::FILE* out = nullptr;
     if (o.rawOut == "-")
@@ -328,6 +343,8 @@ int runHeadless(const CliOptions& o)
       if (out || shot)
       {
         game.render();
+        if (touch)
+          touch->draw(renderer);
         SDL_RenderPresent(sdlRenderer);
         if (shot)
           savePng(surface, prefix + std::to_string(frames) + ".png");
@@ -362,6 +379,12 @@ int runWindowed(const CliOptions& o)
     return 1;
   }
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+#ifdef __ANDROID__
+  // Landscape only, and the back key reaches the game (pause / back out of
+  // a menu) instead of closing the app.
+  SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+  SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+#endif
   // Borderless fullscreen at the desktop resolution: no mode switch, no
   // window decorations, and the logical size keeps the 1280x720 picture
   // letterboxed. The saved setting applies unless a flag overrides it. The
@@ -410,6 +433,9 @@ int runWindowed(const CliOptions& o)
   game.showFullscreen(startFullscreen);
 
   Controls controls;
+  std::unique_ptr<TouchControls> touch;
+  if (o.touch)
+    touch = std::make_unique<TouchControls>(renderer, true);
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
   Uint64 last = SDL_GetPerformanceCounter();
@@ -422,6 +448,8 @@ int runWindowed(const CliOptions& o)
     SDL_Event ev;
     while (SDL_PollEvent(&ev))
     {
+      if (touch)
+        touch->handleEvent(ev, window);
       switch (controls.handleEvent(ev))
       {
         case Controls::Action::Quit:
@@ -444,7 +472,7 @@ int runWindowed(const CliOptions& o)
     accumulator = std::min(accumulator, 0.25);
     while (accumulator >= tickSeconds && running)
     {
-      running = game.tick(controls.read());
+      running = game.tick(touch ? controls.read() | touch->read() : controls.read());
       if (game.takeFullscreenToggle())
         toggleFullscreen();
       accumulator -= tickSeconds;
@@ -454,6 +482,8 @@ int runWindowed(const CliOptions& o)
     }
 
     game.render();
+    if (touch)
+      touch->draw(renderer);
     SDL_RenderPresent(sdlRenderer);
   }
   }
@@ -471,6 +501,19 @@ int main(int argc, char** argv)
   CliOptions o;
   if (!parseArgs(argc, argv, o))
     return 0;
+#ifdef __ANDROID__
+  // No command line on Android: the game data is unpacked from the APK,
+  // saves go to private storage, and the screen is the gamepad.
+  o.game.dataDir = prepareAndroidData();
+  if (o.game.dataDir.empty())
+  {
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Gunrunners", "Could not unpack the game data.", nullptr);
+    return 1;
+  }
+  o.game.saveDir = androidSaveDir();
+  o.touch = true;
+  o.fullscreen = true;
+#endif
   try
   {
     return o.headless ? runHeadless(o) : runWindowed(o);
