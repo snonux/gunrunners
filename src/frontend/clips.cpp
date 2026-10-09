@@ -716,6 +716,149 @@ void wreck(ClipKit& k, int frame, int ticks, float ox, float oy)
   drawGlow(k.r, k.art, 600 + ox, 460 + oy, 140, rgb(255, 120, 40), 0.3f + 0.1f * float(frame % 3));
 }
 
+void siteNight(ClipKit& k, int ticks, float ox, float oy);
+
+// The case from the wreck: open on the dock planks, a pistol in grey foam,
+// HALCYON ARMS stamped on the lid; a glint runs along the barrel.
+void caseClip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(10, 12, 26));
+  for (int i = 0; i < 9; ++i)
+    k.r.fillRect(0, float(i) * 80.0f + oy, W, 76, i % 2 ? rgb(40, 30, 26) : rgb(46, 34, 28));
+  const Texture& box = cached(k, "e1_case", 760, 560, 380, 280, [](cairo_t* cr) {
+    // The lid, tipped up behind.
+    cairo_rectangle(cr, 40, 20, 680, 220);
+    cairo_set_source_rgb(cr, 0.16, 0.17, 0.2);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 60, 40, 640, 180);
+    cairo_set_source_rgb(cr, 0.22, 0.23, 0.27);
+    cairo_fill(cr);
+    cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, 54);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "HALCYON ARMS", &te);
+    cairo_move_to(cr, 380 - te.width / 2 - te.x_bearing, 150);
+    cairo_set_source_rgb(cr, 0.85, 0.72, 0.3);
+    cairo_show_text(cr, "HALCYON ARMS");
+    cairo_new_path(cr);
+    cairo_arc(cr, 380, 80, 20, 0, 2 * kPi);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The tray with its foam.
+    cairo_rectangle(cr, 20, 250, 720, 290);
+    cairo_set_source_rgb(cr, 0.12, 0.13, 0.15);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 50, 275, 660, 240);
+    cairo_set_source_rgb(cr, 0.3, 0.3, 0.33);
+    cairo_fill(cr);
+    for (int y = 285; y < 510; y += 16)
+      for (int x = 60; x < 700; x += 16)
+      {
+        cairo_arc(cr, x + ((y / 16) % 2) * 8, y, 3, 0, 2 * kPi);
+        cairo_set_source_rgba(cr, 0, 0, 0, 0.18);
+        cairo_fill(cr);
+      }
+    // The pistol, sunk in its cut-out.
+    cairo_set_source_rgb(cr, 0.07, 0.07, 0.09);
+    cairo_rectangle(cr, 190, 340, 390, 70);
+    cairo_fill(cr);
+    cairo_move_to(cr, 250, 400);
+    cairo_line_to(cr, 330, 400);
+    cairo_line_to(cr, 300, 500);
+    cairo_line_to(cr, 220, 500);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+    cairo_set_source_rgb(cr, 0.55, 0.58, 0.64);
+    cairo_rectangle(cr, 200, 348, 370, 46);
+    cairo_fill(cr);
+    cairo_set_source_rgb(cr, 0.95, 0.4, 0.2);
+    cairo_rectangle(cr, 200, 386, 370, 6);
+    cairo_fill(cr);
+    cairo_set_source_rgb(cr, 0.25, 0.25, 0.3);
+    cairo_move_to(cr, 258, 396);
+    cairo_line_to(cr, 322, 396);
+    cairo_line_to(cr, 296, 488);
+    cairo_line_to(cr, 232, 488);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+  });
+  k.r.draw(box, 640 + ox, 380 + oy);
+  const float gx = 340.0f + float(frame % 6) / 5.0f * 360.0f;
+  drawGlow(k.r, k.art, gx + ox, 355 + oy, 50, rgb(255, 255, 255), 0.7f);
+  drawGlow(k.r, k.art, 640 + ox, 380 + oy, 500, rgb(255, 210, 140), 0.08f + 0.02f * std::sin(float(ticks) * 0.05f));
+}
+
+// The lens: Rocco turns a big camera lens over in his hands (frames 0-4),
+// then the lens's own view of him, a camera's viewfinder with REC
+// blinking (frames 5-9). Someone has been filming the crew.
+void lensClip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& glass = cached(k, "e1_lens", 260, 260, 130, 130, [](cairo_t* cr) {
+    cairo_arc(cr, 130, 130, 126, 0, 2 * kPi);
+    cairo_set_source_rgb(cr, 0.1, 0.1, 0.12);
+    cairo_fill(cr);
+    for (int i = 0; i < 4; ++i)
+    {
+      cairo_arc(cr, 130, 130, 112 - i * 22, 0, 2 * kPi);
+      cairo_set_source_rgb(cr, 0.18 + i * 0.03, 0.18 + i * 0.03, 0.22 + i * 0.03);
+      cairo_set_line_width(cr, 6);
+      cairo_stroke(cr);
+    }
+    cairo_pattern_t* g = cairo_pattern_create_radial(110, 105, 4, 130, 130, 70);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.7, 0.4, 0.9);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.15, 0.25, 0.55);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.03, 0.05, 0.12);
+    cairo_arc(cr, 130, 130, 64, 0, 2 * kPi);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_arc(cr, 108, 104, 12, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 1, 1, 1, 0.8);
+    cairo_fill(cr);
+  });
+  if (frame < 5)
+  {
+    siteNight(k, ticks, ox, oy);
+    k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 120));
+    k.r.draw(runner(k, 1, 0, 5.0f), 640 + ox, 860 + oy);
+    DrawOpts o;
+    o.scale = 0.9f + 0.05f * float(frame);
+    k.r.draw(glass, 700 + ox, 470 + oy, o);
+    drawGlow(k.r, k.art, 690 + ox, 455 + oy, 40, rgb(200, 160, 255), 0.6f);
+    return;
+  }
+  // Through the lens: Rocco big and bent at the edges, the frame lines of a
+  // TV camera over him.
+  siteNight(k, ticks, ox * 0.5f, oy * 0.5f);
+  k.r.fillRect(0, 0, W, H, rgba(20, 0, 40, 90));
+  DrawOpts o;
+  o.scale = 1.15f;
+  k.r.draw(runner(k, 1, 0, 6.0f), 640 + ox, 980 + oy, o);
+  // A dark vignette, the round edge of the glass.
+  for (int i = 0; i < 12; ++i)
+  {
+    const float inset = float(i) * 14.0f;
+    k.r.fillRect(0, 0, W, inset, rgba(0, 0, 0, 30));
+    k.r.fillRect(0, H - inset, W, inset, rgba(0, 0, 0, 30));
+    k.r.fillRect(0, 0, inset * 2.0f, H, rgba(0, 0, 0, 30));
+    k.r.fillRect(W - inset * 2.0f, 0, inset * 2.0f, H, rgba(0, 0, 0, 30));
+  }
+  const Color line = rgba(255, 255, 255, 200);
+  for (int sx : {-1, 1})
+    for (int sy : {-1, 1})
+    {
+      const float cx = W / 2 + float(sx) * 520.0f, cy = H / 2 + float(sy) * 280.0f;
+      k.r.fillRect(cx - (sx > 0 ? 60.0f : 0.0f), cy - (sy > 0 ? 4.0f : 0.0f), 60, 4, line);
+      k.r.fillRect(cx - (sx > 0 ? 4.0f : 0.0f), cy - (sy > 0 ? 60.0f : 0.0f), 4, 60, line);
+    }
+  k.r.fillRect(W / 2 - 20, H / 2 - 1, 40, 2, line);
+  k.r.fillRect(W / 2 - 1, H / 2 - 20, 2, 40, line);
+  if ((ticks / 30) % 2 == 0)
+    drawGlow(k.r, k.art, 172, 120, 24, rgb(255, 30, 30), 1.0f);
+  k.r.drawText("REC", 196, 104, {30.0f, rgb(255, 255, 255), kInk, false}, Align::Left);
+  k.r.drawText("CH 42  LIVE", W - 150, 104, {26.0f, rgb(255, 255, 255), kInk, false}, Align::Right);
+}
+
 // Level 6: the rain, the city and the guideway far below a bridge; the
 // crew at the railing, from behind. The maglev's headlight grows out of the
 // dark over frames 0-15.
@@ -944,6 +1087,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return roccoSquint(k, frame, ticks, ox, oy);
   if (clip == "wreck")
     return wreck(k, frame, ticks, ox, oy);
+  if (clip == "case")
+    return caseClip(k, frame, ticks, ox, oy);
+  if (clip == "lens")
+    return lensClip(k, frame, ticks, ox, oy);
   if (starts(clip, "runners"))
     return runners(k, ticks, ox, oy);
   if (starts(clip, "dash_"))
