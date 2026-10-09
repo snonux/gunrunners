@@ -39,8 +39,9 @@ Linux touch screen, or to try the layout).
 
 Tested in the Android emulator (Android 11, x86_64) running in software
 emulation with no GPU and no hardware acceleration: the APK installs, unpacks
-its 67 data files, bakes the art, plays the synthesized music, and shows the
-title screen. The on-screen gamepad drives the menus, the runner select and
+its 67 data files, bakes the art, starts SDL's audio thread with the
+synthesized music (the emulator ran without sound output, so nothing was
+heard), and shows the title screen. The on-screen gamepad drives the menus, the runner select and
 the training stage (walking, picking up gems). Bluetooth gamepads use the same
 SDL code as on Linux, but no pad was tested here.
 
@@ -56,7 +57,8 @@ The largest texture is 2560x720, fine for every phone of the last decade
 
 Note for emulator testing: `adb shell input tap X Y` on this emulator in
 landscape maps X through a 1920-wide space (x_app = (X - 180) * 1.1875), so
-taps land to the right of where the screenshot says. Real touches are fine.
+taps land to the right of where the screenshot says. The raw finger positions
+SDL reports match that mapping, so the game's own conversion is not the cause.
 
 ## What a full port still needs
 
