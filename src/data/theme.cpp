@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 6> kVariants{{
+const std::array<Variant, 7> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -134,6 +134,19 @@ const std::array<Variant, 6> kVariants{{
     rgb(22, 30, 52), rgb(14, 18, 34),
     rgb(56, 64, 58), rgb(120, 134, 112), rgb(26, 30, 28), rgb(255, 60, 40),
     rgb(255, 255, 255), "crane"}},
+  {"jungle_canopy",
+   {ThemeId::LostTemple,
+    "CANOPY ROAD",
+    "MORNING MIST OVER THE JUNGLE CANOPY",
+    rgb(70, 150, 140), rgb(160, 210, 170), rgb(236, 236, 190),
+    rgb(96, 88, 64), rgb(140, 128, 96), rgb(60, 54, 40),
+    rgb(80, 180, 60), rgb(170, 240, 110),
+    rgb(160, 110, 60), rgb(100, 64, 30),
+    rgb(170, 60, 50), rgb(240, 160, 130),
+    rgb(255, 200, 40), rgb(120, 230, 90),
+    rgb(70, 130, 96), rgb(30, 80, 46),
+    rgb(120, 104, 70), rgb(170, 150, 110), rgb(64, 56, 40), rgb(255, 140, 30),
+    rgb(255, 250, 220)}},
 }};
 
 } // namespace

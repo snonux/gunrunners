@@ -93,6 +93,9 @@ struct SaveGame
   // phase, part HP and exit, the Pilot Seat's counters, then each latch
   // and each rappel zone's next drop (see World::snapshot).
   std::vector<int> chopper;
+  // Canopy Road (level 8): each bridge (down or up), then each rope (hp
+  // left, 0 = cut) with its load's state.
+  std::vector<int> jungle;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

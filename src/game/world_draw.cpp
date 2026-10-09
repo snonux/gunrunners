@@ -128,6 +128,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
+  drawJungleBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -220,8 +221,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
                            e.y / kCellsPerTile >= b.y0 && e.y / kCellsPerTile <= b.y1);
     if (inside || e.y < 0 || (e.kind == EnemyKind::Decoupler && e.attach == 0))
       continue; // (asleep in its coupling, or riding a train not here yet)
-    if (e.tell > 0 && e.kind == EnemyKind::Flyer)
-      x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives
+    if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
+      x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives (the Viper's leaves rustle)
     const Texture* tex = nullptr;
     float hop = 0.0f;
     DrawOpts eo;
@@ -270,6 +271,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach == 2 ? 1 : 0; // revving, headlight on
         else if (e.kind == EnemyKind::Shield)
           variant = e.tell > 0 ? 1 : 0; // the gun over the shield
+        else if (e.kind == EnemyKind::Howler)
+          variant = e.variant * 2 + (e.tell > 0 ? 1 : 0); // Dash's jacket; winding up a throw
+        else if (e.kind == EnemyKind::Viper)
+          variant = e.attach == 2 ? 1 : 0; // hanging from the branch
+        else if (e.kind == EnemyKind::Cutter)
+          variant = e.tell > 0 ? 1 : 0; // the machete up
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -342,6 +349,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSludgeFront(r, camX, camY, frame, alpha);
   drawMaglevFront(r, camX, camY, frame, alpha);
   drawChopperFront(r, camX, camY, frame, alpha);
+  drawJungleFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -404,6 +412,16 @@ void World::draw(Renderer& r, int frame, float alpha) const
           // A wobbling soap bubble.
           const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
           r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
+          continue;
+        }
+        if (pr.proto == int(ProtoId::Boomerang))
+        {
+          // A spinning wooden V.
+          const float a = float(frame) * 0.7f;
+          const Color wood = rgb(214, 160, 84);
+          for (const float arm : {0.0f, 2.1f})
+            r.drawLine(cx, cy, cx + std::cos(a + arm) * 26.0f, cy + std::sin(a + arm) * 26.0f, 9.0f, wood);
+          r.fillRect(cx - 5.0f, cy - 5.0f, 10.0f, 10.0f, rgb(240, 200, 120));
           continue;
         }
         if (pr.proto == int(ProtoId::LockOnRockets))
@@ -635,8 +653,21 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
       break;
   }
 
-  const float x = lerpCells(p.prevX, p.x, alpha) + 1.5f * kCellPx - camX;
-  const float y = lerpCells(p.prevY + 1, p.y + 1, alpha) - camY - lift;
+  float x = lerpCells(p.prevX, p.x, alpha) + 1.5f * kCellPx - camX;
+  float y = lerpCells(p.prevY + 1, p.y + 1, alpha) - camY - lift;
+  if (p.state == PlayerState::Swing && p.vine >= 0 && std::size_t(p.vine) < mVines.size())
+  {
+    // Hanging along the vine, hands on it, at the in-between time.
+    const Vine& v = mVines[std::size_t(p.vine)];
+    float t = float(v.t) - 1.0f + alpha;
+    if (t < 0.0f)
+      t += float(v.period);
+    const float a = float(v.amp) * std::cos(6.2831853f * t / float(v.period)) * 0.0174533f;
+    const float hx = float(v.ax) + float(p.vineAt) * std::sin(a), hy = float(v.ay) + float(p.vineAt) * std::cos(a);
+    x = (hx + 5.6f * std::sin(a)) * kCellPx - camX;
+    y = (hy + 5.6f * std::cos(a)) * kCellPx - camY;
+    o.angle = -a * 57.2958f;
+  }
 
   if (p.state == PlayerState::Jetpack)
   {

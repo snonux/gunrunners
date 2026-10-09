@@ -1022,6 +1022,117 @@ void roccoSquint(ClipKit& k, int frame, int ticks, float ox, float oy)
   drawGlow(k.r, k.art, 660 + ox, 420 + oy, 220, rgb(255, 255, 240), 0.35f * pulse);
 }
 
+// Level 8: morning mist over the jungle canopy, the stepped pyramid on the
+// horizon. Treetops pan left under Nova's courier ship, the crew in its
+// open hatch and MAX flickering on the console behind them.
+const Texture& canopyTrees(ClipKit& k, int layer)
+{
+  return cached(k, "canopy" + std::to_string(layer), 2560, 360, 0, 0, [layer](cairo_t* cr) {
+    Rng rng(std::uint32_t(41 + layer * 7));
+    const Color c = layer == 0 ? rgb(40, 84, 58) : rgb(22, 56, 34);
+    for (double x = -60; x < 2620; x += rng.range(50.0f, 110.0f))
+    {
+      const double r = layer == 0 ? rng.range(50.0f, 90.0f) : rng.range(80.0f, 140.0f);
+      const double y = (layer == 0 ? 170 : 150) + rng.range(-30.0f, 40.0f);
+      cairo_arc(cr, x, y, r, 0, 2 * kPi);
+      setColor(cr, c);
+      cairo_fill(cr);
+      cairo_arc(cr, x - r * 0.25, y - r * 0.3, r * 0.55, 0, 2 * kPi);
+      setColor(cr, lighten(c, 0.12f));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, layer == 0 ? 220 : 200, 2560, 160);
+    setColor(cr, c);
+    cairo_fill(cr);
+  });
+}
+
+void canopyMorning(ClipKit& k, int ticks, float ox, float oy)
+{
+  const Texture& sky = cached(k, "canopy_sky", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(150, 196, 190), rgb(214, 228, 200), rgb(240, 236, 210));
+    // The stepped pyramid on the horizon.
+    for (int step = 0; step < 6; ++step)
+    {
+      const double w = 300 - step * 44, y = 430 - step * 26;
+      cairo_rectangle(cr, 900 - w / 2, y, w, 28);
+      cairo_set_source_rgba(cr, 0.42, 0.48, 0.44, 0.7);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 880, 254, 40, 22);
+    cairo_set_source_rgba(cr, 0.42, 0.48, 0.44, 0.7);
+    cairo_fill(cr);
+  });
+  k.r.draw(sky, ox * 0.2f, oy * 0.2f);
+  panLayer(k, canopyTrees(k, 0), float(ticks) * 1.0f + ox, 380 + oy);
+  for (int i = 0; i < 5; ++i) // mist banks
+    k.r.fillRect(0, 470.0f + float(i) * 30.0f + oy, W, 22, rgba(240, 244, 236, 50));
+  panLayer(k, canopyTrees(k, 1), float(ticks) * 2.0f + ox, 470 + oy);
+}
+
+void canopyShip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  canopyMorning(k, ticks, ox, oy);
+  const float bob = (frame % 12) < 6 ? 0.0f : 2.0f;
+  const float sx = 330 + ox, sy = 230 + oy + bob;
+  // The hull, side-on: a long wedge with a tail fin and engine glow.
+  k.r.fillRect(sx, sy, 620, 150, rgb(70, 76, 92));
+  k.r.fillRect(sx, sy, 620, 12, rgb(150, 160, 180));
+  k.r.fillRect(sx + 620, sy + 30, 70, 90, rgb(70, 76, 92));
+  k.r.fillRect(sx + 690, sy + 52, 40, 46, rgb(110, 116, 130));
+  k.r.fillRect(sx - 90, sy - 50, 110, 60, rgb(60, 66, 82));
+  k.r.fillRect(sx + 40, sy + 150, 520, 16, rgb(44, 48, 60));
+  drawGlow(k.r, k.art, sx - 20, sy + 90, 70, rgb(120, 220, 255), 0.6f + 0.2f * float(frame % 3) / 2.0f);
+  // The open hatch, MAX on the console at the back.
+  k.r.fillRect(sx + 120, sy + 18, 380, 126, rgb(26, 24, 34));
+  drawMax(k, sx + 440, sy + 64, 0.22f, ticks, (frame % 7) == 0 ? 0.6f : 0.0f);
+  k.r.draw(runner(k, 0, 0, 1.4f), sx + 180, sy + 142);
+  k.r.draw(runner(k, 1, 0, 1.4f), sx + 270, sy + 142);
+  k.r.draw(runner(k, 2, 0, 1.4f, true), sx + 360, sy + 142);
+  // Leaves sweeping past up close.
+  for (int i = 0; i < 6; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 81) % 1600u) - float(ticks) * 5.0f + 16000.0f, 1600.0f) - 160.0f;
+    const float y = 520.0f + float(hash2(i, 82) % 200u);
+    k.r.fillRect(x + ox * 1.5f, y + oy, 120, 34, rgba(30, 90, 40, 230));
+    k.r.fillRect(x + 10 + ox * 1.5f, y + 14 + oy, 100, 4, rgba(90, 160, 80, 230));
+  }
+}
+
+// The canopy from above; the runners drop past the camera one by one and
+// Nova looks back up at her ship.
+void canopyJump(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& below = cached(k, "canopy_below", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    setColor(cr, rgb(20, 52, 30));
+    cairo_fill(cr);
+    for (int i = 0; i < 70; ++i)
+    {
+      const double x = double(hash2(i, 5) % 1400u) - 60, y = double(hash2(i, 6) % 800u) - 40;
+      const double r = 40 + double(hash2(i, 7) % 70u);
+      cairo_arc(cr, x, y, r, 0, 2 * kPi);
+      setColor(cr, lerpColor(rgb(36, 90, 48), rgb(90, 150, 70), float(hash2(i, 8) % 100u) / 100.0f));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(below, ox * 0.5f, oy * 0.5f);
+  for (int who = 0; who < 3; ++who)
+  {
+    const int f = frame - who * 4;
+    if (f < 0)
+      continue;
+    // Falling away from the camera: smaller and lower each frame.
+    const float u = std::min(1.0f, float(f) / 12.0f);
+    const float scale = 4.0f - u * 3.0f;
+    const bool lookBack = who == 2 && frame >= 10;
+    k.r.draw(runner(k, who, lookBack ? 0 : 2, std::round(scale * 4.0f) / 4.0f, who == 1),
+      420.0f + float(who) * 220.0f + ox, 760.0f - u * 260.0f + oy);
+  }
+  for (int i = 0; i < 4; ++i) // mist
+    k.r.fillRect(0, float(i) * 180.0f + std::fmod(float(ticks) * 3.0f, 180.0f) + oy, W, 60, rgba(240, 244, 236, 40));
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1073,6 +1184,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return blackoutTable(k, frame, ticks, ox, oy);
   if (clip == "grate_glow")
     return grateGlow(k, frame, ticks, ox, oy);
+  if (clip == "brief08_ship")
+    return canopyShip(k, frame, ticks, ox, oy);
+  if (clip == "brief08_jump")
+    return canopyJump(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")

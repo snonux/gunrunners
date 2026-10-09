@@ -3,6 +3,7 @@
 #include "game/world.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -51,12 +52,21 @@ const Macro kMacros[] = {
   {false, false, false, false, false, 0, false}, // stand on a subwoofer until it launches you
   {false, false, false, false, false, 0, false}, // sit out the chorus (laser fans)
 };
+constexpr int kMacroCountBase = int(sizeof(kMacros) / sizeof(kMacros[0]));
+constexpr int kMacroCount = kMacroCountBase + 2;
 constexpr int kLongWait = 15;
 constexpr int kWaitLaunch = 16;
 constexpr int kWaitVerse = 17;
+// Swing vines (level 8): pump the vine you hold, then launch at the top of
+// a swing to the right or to the left. Their inputs are worked out as they
+// run (see Planner::plan), not taken from kMacros.
+constexpr int kVineRight = kMacroCountBase;
+constexpr int kVineLeft = kMacroCountBase + 1;
 // Frames a macro runs for in this world, 0 if it does not apply.
 int macroFrames(int m, const World& w)
 {
+  if (m == kVineRight || m == kVineLeft)
+    return w.player().state == PlayerState::Swing ? 1 : 0; // the real length comes out of the run
   if (m == kLongWait)
   {
     bool opening = false;
@@ -82,7 +92,6 @@ int macroFrames(int m, const World& w)
   }
   return 4;
 }
-constexpr int kMacroCount = int(sizeof(kMacros) / sizeof(kMacros[0]));
 
 Input macroInput(const Macro& m, int f)
 {
@@ -116,9 +125,47 @@ std::uint64_t mix(std::uint64_t h, std::uint64_t v)
   return h;
 }
 
-bool stable(const Player& p)
+bool stable(const World& w)
 {
-  return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe;
+  const Player& p = w.player();
+  if (w.bounce())
+    return true; // Bounce House: you never stand, anywhere will do
+  return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe ||
+    p.state == PlayerState::Swing;
+}
+
+// A vine macro's input this frame: push along the swing until a launch
+// the right way is ready, then jump (and keep leaning that way a moment).
+// Sets `done` once the launch is a few frames old, `fail` if the runner is
+// off the vine any other way or it takes too long.
+Input vineInput(const World& w, int dir, int f, int& launchedAt, bool& done, bool& fail)
+{
+  Input in;
+  const auto& p = w.player();
+  if (launchedAt >= 0)
+  {
+    in.right = dir > 0;
+    in.left = dir < 0;
+    done = f - launchedAt >= 3;
+    return in;
+  }
+  if (p.state != PlayerState::Swing || p.vine < 0 || f > 120)
+  {
+    fail = true;
+    return in;
+  }
+  if (w.vineLaunchDir() == dir)
+  {
+    in.jump = true;
+    in.right = dir > 0;
+    in.left = dir < 0;
+    launchedAt = f;
+    return in;
+  }
+  const int sd = w.vines()[std::size_t(p.vine)].swingDir();
+  in.right = sd > 0;
+  in.left = sd < 0;
+  return in;
 }
 
 // Under the hunter's light, a place to stop must also be safe a little
@@ -309,6 +356,8 @@ void Planner::buildField(const World& w, const Goal& goal)
   int jumpH = 0;
   for (int v : w.character().jumpArc)
     jumpH += v;
+  if (w.bounce())
+    jumpH = 18; // Bounce House: up to 18 cells, held jump builds it
 
   // Cell solidity as the planner sees it: switchable layers count as solid
   // (the search handles their timing), force fields are open on the way to
@@ -389,6 +438,14 @@ void Planner::buildField(const World& w, const Goal& goal)
       for (int x = std::max(0, b.x); x < std::min(W, b.x + b.w); ++x)
         top[std::size_t(y * W + x)] = 1;
   }
+  // Logs still hanging over the ravine: their landings are ground to the
+  // field, and cutting their ropes (see heuristic) is how it gets there.
+  for (const auto& l : w.loads())
+    if (!l.cage && l.state < 2)
+      for (int tx = l.landX0; tx <= l.landX1; ++tx)
+        for (int x = tx * kCellsPerTile; x < (tx + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && x < W && l.landRow * kCellsPerTile < H)
+            top[std::size_t(l.landRow * kCellsPerTile * W + x)] = 1;
   // Moving platforms: anywhere along their travel is somewhere to stand;
   // the search finds when they are actually there.
   // Light Trail: your feet draw the ground as you go.
@@ -490,6 +547,29 @@ void Planner::buildField(const World& w, const Goal& goal)
           hazard[i] = y >= f.surface ? 1 : (f.tide && y >= f.high ? 2 : 0);
     }
 
+  // Swing vines: anywhere the hands can be along a vine's swing is
+  // somewhere to hold on, and near the top of a swing it launches you.
+  struct Launch
+  {
+    int x, y, dir;
+  };
+  std::vector<Launch> launches;
+  for (const auto& v : w.vines())
+    for (int deg = -60; deg <= 60; deg += 2)
+    {
+      const float a = float(deg) * 3.14159265f / 180.0f;
+      for (int at = std::max(2, v.len - 6); at <= v.len; ++at)
+      {
+        const float hx = float(v.ax) + float(at) * std::sin(a), hy = float(v.ay) + float(at) * std::cos(a);
+        const int px = int(std::lround(hx - 1.5f)), py = int(std::lround(hy)) + 5;
+        if (px < 0 || py < 0 || px >= W || py >= H || !valid[std::size_t(py * W + px)])
+          continue;
+        hang[std::size_t(py * W + px)] = 1;
+        if (std::abs(deg) >= 30 && at == v.len)
+          launches.push_back({px, py - 1, deg > 0 ? 1 : -1});
+      }
+    }
+
   const int A = kAirBudget + 1;
   const int N = W * H * A;
   auto node = [&](int x, int y, int a) { return (y * W + x) * A + a; };
@@ -542,6 +622,35 @@ void Planner::buildField(const World& w, const Goal& goal)
         add(x, y + 1, a, 1);
       }
     }
+  // The launch: 14 cells up, 2 a frame sideways, and still 2 a frame
+  // sideways on the way down.
+  static const int kArc[] = {3, 3, 2, 2, 2, 1, 1, 0, -1, -1, -2, -2, -2, -2, -2, -2};
+  for (const auto& l : launches)
+  {
+    int x = l.x, y = l.y, f = 0;
+    bool ok = true;
+    auto step = [&](int dx, int dy) {
+      if (x + dx < 0 || x + dx >= W || y + dy < 0 || y + dy >= H || !valid[std::size_t((y + dy) * W + x + dx)])
+        return false;
+      x += dx;
+      y += dy;
+      return true;
+    };
+    for (int dy : kArc)
+    {
+      ++f;
+      for (int k = 0; k < 2 && ok; ++k)
+        ok = step(l.dir, 0);
+      for (int k = 0; k < std::abs(dy) && ok; ++k)
+        ok = step(0, dy > 0 ? -1 : 1);
+      if (!ok)
+        break;
+      const std::size_t j = std::size_t(y * W + x);
+      list.push_back({node(l.x, l.y + 1, 0), node(x, y, 0), 4 + 3 * f + (hazard[j] == 1 ? 40 : 0)});
+      if (dy < 0 && support[j] == 0)
+        break; // landed
+    }
+  }
   for (const auto& e : list)
     ++revStart[std::size_t(e.to) + 1];
   for (int i = 0; i < N; ++i)
@@ -654,6 +763,17 @@ int Planner::heuristic(const World& w) const
     if (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on &&
         std::abs(d.x0 * kCellsPerTile - p.x) < 40)
       extra += std::max(0, d.opentime - d.open);
+  // A log's rope not yet behind you: wearing it through is progress (the
+  // field already counts the log as down). Counted the same from anywhere
+  // before it, so walking up to it never looks like a step back.
+  for (const auto& rope : w.jungleRopes())
+  {
+    if (rope.cut || rope.load < 0)
+      continue;
+    const Load& l = w.loads()[std::size_t(rope.load)];
+    if (!l.cage && (l.landX1 + 1) * kCellsPerTile + 40 > p.x)
+      extra += 20 * std::max(0, rope.hp);
+  }
   for (int bi : mWalls)
     if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
       extra += 12 * std::max(0, w.breakables()[std::size_t(bi)].hp);
@@ -744,6 +864,11 @@ void Planner::plan(const World& world)
     int powered = 0;
     for (const auto& b : world.breakers())
       powered = powered * 2 + b.on;
+    // Level 8: rope bridges that fell, logs that landed.
+    for (const auto& b : world.bridges())
+      powered = powered * 2 + b.down;
+    for (const auto& l : world.loads())
+      powered = powered * 3 + std::min(l.state, 2);
     const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
       (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
     if (mDist.empty() || keyHash != mGoalKeyHash)
@@ -774,7 +899,8 @@ void Planner::plan(const World& world)
     int g;
     int h;
     Input last;
-    int frames; // how long its macro ran
+    int frames;             // how long its macro ran
+    std::vector<Input> seq; // a vine macro's inputs
   };
   std::vector<Node> nodes;
   nodes.reserve(kBudget * 4);
@@ -822,6 +948,22 @@ void Planner::plan(const World& world)
     for (const auto& t : w.trail())
       k = mix(k, std::uint64_t(t.x) | (std::uint64_t(t.y) << 16));
     // The hunter: where its spot is and how far along a lock or salvo is.
+    // Level 8: the vines close by (where they are in their swing, how high
+    // they go), the bridges, the ropes and what hangs from them.
+    for (const auto& v : w.vines())
+      if (std::abs(v.ax - p.x) < 48)
+        k = mix(k, std::uint64_t(v.t) | (std::uint64_t(v.amp) << 8) | (std::uint64_t(v.cool) << 16) |
+                     (std::uint64_t(v.pump) << 24));
+    if (p.state == PlayerState::Swing)
+      k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
+    k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+    for (const auto& b : w.bridges())
+      k = mix(k, std::uint64_t(b.down) | (std::uint64_t(b.chops) << 1) | (std::uint64_t(std::min(b.heavy, 63)) << 4) |
+                   (std::uint64_t(b.left + 1) << 12) | (std::uint64_t(b.creak) << 24));
+    for (const auto& rope : w.jungleRopes())
+      k = mix(k, std::uint64_t(rope.hp) | (std::uint64_t(rope.cut) << 8));
+    for (const auto& l : w.loads())
+      k = mix(k, std::uint64_t(l.state) | (std::uint64_t(l.fall) << 4));
     if (const auto& h = w.hunter(); h.on)
     {
       k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
@@ -839,7 +981,7 @@ void Planner::plan(const World& world)
   std::priority_queue<int, std::vector<int>, decltype(cmp)> open(cmp);
   std::unordered_map<std::uint64_t, int> seen;
 
-  nodes.push_back({world.cloneForSim(), -1, -1, 0, h0, mPrev, 0});
+  nodes.push_back({world.cloneForSim(), -1, -1, 0, h0, mPrev, 0, {}});
   open.push(0);
   int found = -1, bestStable = -1;
   int expanded = 0;
@@ -863,7 +1005,7 @@ void Planner::plan(const World& world)
       found = ni;
       break;
     }
-    if (ni != 0 && stable(np) && np.hp >= hp0 - 1 && !nw.trainDanger())
+    if (ni != 0 && stable(nw) && np.hp >= hp0 - 1 && !nw.trainDanger())
     {
       const bool done = n.h <= h0 - kProgress;
       const bool better = bestStable < 0 || n.h < nodes[std::size_t(bestStable)].h;
@@ -887,11 +1029,27 @@ void Planner::plan(const World& world)
       auto child = std::make_unique<World>(nw);
       Input prev = n.last;
       bool dead = false;
-      for (int f = 0; f < frames; ++f)
+      const bool vine = m == kVineRight || m == kVineLeft;
+      std::vector<Input> seq;
+      int launchedAt = -1;
+      int ran = 0;
+      for (int f = 0; vine || f < frames; ++f)
       {
-        const Input in = macroInput(kMacros[m], f);
+        bool done = false, fail = false;
+        const Input in =
+          vine ? vineInput(*child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail) : macroInput(kMacros[m], f);
+        if (fail)
+        {
+          dead = true;
+          break;
+        }
+        if (done)
+          break;
+        if (vine)
+          seq.push_back(in);
         child->update(toPlayerInput(in, prev));
         prev = in;
+        ++ran;
         if (child->player().state == PlayerState::Dying || child->bonusFailed())
         {
           dead = true;
@@ -905,7 +1063,8 @@ void Planner::plan(const World& world)
       const auto key = keyOf(*child);
       const int lost = std::max(0, nw.player().hp - child->player().hp);
       // Waiting for the drop counts as a short wait: it is the way up.
-      const int g = n.g + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : frames)) + lost * 60 + (m >= 10 && m <= 12 ? 1 : 0);
+      const int g = n.g + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : (vine ? ran / 2 : frames))) + lost * 60 +
+        (m >= 10 && m <= 12 ? 1 : 0);
       const auto it = seen.find(key);
       if (it != seen.end() && it->second <= g)
         continue;
@@ -913,7 +1072,7 @@ void Planner::plan(const World& world)
       const int h = child->state() != WorldState::Playing ? 0 : heuristic(*child);
       if (h >= kInf)
         continue;
-      nodes.push_back({std::move(child), ni, m, g, h, prev, frames});
+      nodes.push_back({std::move(child), ni, m, g, h, prev, vine ? ran : frames, std::move(seq)});
       open.push(int(nodes.size()) - 1);
     }
     // Free worlds we will not expand again (keeps memory flat).
@@ -942,8 +1101,14 @@ void Planner::plan(const World& world)
     chain.push_back(i);
   std::reverse(chain.begin(), chain.end());
   for (int i : chain)
-    for (int f = 0; f < nodes[std::size_t(i)].frames; ++f)
-      mQueue.push_back(macroInput(kMacros[nodes[std::size_t(i)].macro], f));
+  {
+    const Node& n = nodes[std::size_t(i)];
+    if (!n.seq.empty())
+      mQueue.insert(mQueue.end(), n.seq.begin(), n.seq.end());
+    else
+      for (int f = 0; f < n.frames; ++f)
+        mQueue.push_back(macroInput(kMacros[n.macro], f));
+  }
 }
 
 } // namespace gr

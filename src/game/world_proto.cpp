@@ -101,6 +101,12 @@ void World::updateProtoShooting(const Button& fire)
       out += pr.alive && pr.kind == ShotKind::Proto && pr.proto == p.proto;
     shoot = out < 2;
   }
+  if (shoot && ProtoId(p.proto) == ProtoId::Boomerang)
+  {
+    // One Boomerang in the air at a time.
+    for (const auto& pr : mProjectiles)
+      shoot = shoot && !(pr.alive && pr.kind == ShotKind::Proto && pr.proto == p.proto);
+  }
   if (shoot)
   {
     fireShot();
@@ -178,6 +184,16 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       }
       break;
     }
+    case ProtoId::Boomerang:
+      // Out, a block up at the turn, and back (world_jungle.cpp); it passes
+      // through what it hits, once each way.
+      pr.pierce = true;
+      pr.w = pr.h = 2;
+      if (pr.dy < 0)
+        pr.y = oy - 1;
+      pr.sx = pr.sy = 0;
+      playSound(Sfx::Whoosh);
+      break;
     case ProtoId::BubbleGun:
       // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).
       pr.w = pr.h = 2;

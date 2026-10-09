@@ -28,6 +28,7 @@ const char* stateName(PlayerState s)
     case PlayerState::Jetpack: return "jetpack";
     case PlayerState::Dying: return "dying";
     case PlayerState::Teleporting: return "exit";
+    case PlayerState::Swing: return "swing";
   }
   return "?";
 }
