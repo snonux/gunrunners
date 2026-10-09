@@ -50,6 +50,7 @@ void World::updateProtoShooting(const Button& fire)
   if (!canFire())
   {
     p.charge = 0;
+    mPaint.clear();
     return;
   }
   const ProtoDef& def = protoDef(p.proto);
@@ -69,6 +70,27 @@ void World::updateProtoShooting(const Button& fire)
     case FireMode::Place:
       shoot = fire.triggered && (p.shotCooldown == 0 || p.turbo > 0);
       break;
+  }
+  if (ProtoId(p.proto) == ProtoId::LockOnRockets)
+  {
+    // Hold to paint up to three targets, 8 frames each; release to fire a
+    // rocket at each (or one straight ahead with none painted).
+    if (fire.pressed)
+    {
+      ++p.charge;
+      if (p.charge % 8 == 0 && int(mPaint.size()) < std::min(3, p.ammo))
+        paintTarget();
+      return;
+    }
+    if (p.charge > 0 && (p.shotCooldown == 0 || p.turbo > 0))
+    {
+      p.charge = 0;
+      launchRockets();
+      p.shotCooldown = def.cooldown;
+    }
+    p.charge = 0;
+    mPaint.clear();
+    return;
   }
   p.charge = fire.pressed ? p.charge + 1 : 0;
   if (shoot && ProtoId(p.proto) == ProtoId::SparkDisc)
@@ -137,6 +159,25 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     case ProtoId::FlareGun:
       pr.flare = true; // sticks and lights up (world_dark.cpp)
       break;
+    case ProtoId::LockOnRockets:
+    {
+      // A homing rocket: climbs, then curves in on its target from above.
+      pr.precise = true;
+      pr.fx = float(pr.x);
+      pr.fy = float(pr.y);
+      pr.target = mNextTarget;
+      if (pr.target != kNoTarget)
+      {
+        pr.vx = 0.55f * float(dx == 0 ? p.facing : dx);
+        pr.vy = -0.83f;
+      }
+      else
+      {
+        pr.vx = float(dx);
+        pr.vy = float(dy);
+      }
+      break;
+    }
     case ProtoId::BubbleGun:
       // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).
       pr.w = pr.h = 2;

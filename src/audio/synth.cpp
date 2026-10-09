@@ -413,6 +413,38 @@ std::vector<float> makeSfx(Sfx id)
           std::min(1.0, t / 0.003) * std::min(1.0, (total - t) / 0.08);
       });
     }
+    case Sfx::Beep:
+    {
+      Osc a;
+      return render(0.08, [&](double t, double total) {
+        return a.step(1760.0, Wave::Square, 0.5) * 0.14 * std::min(1.0, (total - t) / 0.01);
+      });
+    }
+    case Sfx::Whistle:
+    {
+      Osc a;
+      return render(0.5, [&](double t, double total) {
+        return a.step(sweep(2600.0, 900.0, t / total), Wave::Sine) * 0.16 * std::min(1.0, t / 0.05);
+      });
+    }
+    case Sfx::Scream:
+    {
+      Osc a, b;
+      Noise n(71);
+      return render(1.4, [&](double t, double total) {
+        const double f = sweep(220.0, 900.0, t / total);
+        return (a.step(f, Wave::Saw) * 0.16 + b.step(f * 1.01, Wave::Square, 0.3) * 0.08 + n.next() * 0.05) *
+          std::min(1.0, t / 0.2) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Rev:
+    {
+      Osc a;
+      return render(0.6, [&](double t, double total) {
+        const double f = 70.0 + 140.0 * std::sin(std::min(1.0, t / total) * 3.1416);
+        return a.step(f, Wave::Saw) * 0.2 * std::min(1.0, (total - t) / 0.08);
+      });
+    }
     case Sfx::Count:
       break;
   }
@@ -802,7 +834,10 @@ MusicTrack makeNamedMusic(const std::string& id)
   };
   // "track@N": the same track with only its first N layers (level 4).
   const auto at = id.find('@');
-  const std::string base = id.substr(0, at);
+  std::string base = id.substr(0, at);
+  // "elevator_track": a cover of that track (same chords and tune).
+  if (base.rfind("elevator_", 0) == 0)
+    base = base.substr(9);
   const std::uint32_t seed = hashName(base);
   const C& chords = kProgressions[seed % (sizeof(kProgressions) / sizeof(kProgressions[0]))];
   Song s{120.0, 16, chords, true, true, makeMelody(chords, seed)};
@@ -816,6 +851,12 @@ MusicTrack makeNamedMusic(const std::string& id)
            contains(id, "submerged") || contains(id, "cryo"))
   {
     s.drums = false;
+  }
+  else if (contains(id, "elevator"))
+  {
+    s.bpm = 84.0;
+    s.drums = false;
+    s.lead = true;
   }
   else if (contains(id, "arpeggio"))
   {

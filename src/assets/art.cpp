@@ -2074,8 +2074,190 @@ Texture bakeMaglevNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isCrane(const Theme& t) { return std::string_view(t.look) == "crane"; }
+
+void circle(cairo_t* cr, double x, double y, double radius) { cairo_arc(cr, x, y, radius, 0, 2 * kPi); }
+
+// Chopper Down (level 7): a clear night over the bay. Stars, a big moon low
+// over the water, the glow of the city on the far shore.
+Texture bakeCraneSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.6, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(7070u);
+  for (int i = 0; i < 160; ++i)
+  {
+    const double sx = rng.range(0, kScreenW), sy = rng.range(0, kScreenH * 0.6);
+    circle(cr, sx, sy, rng.uniform() < 0.1f ? 1.8 : 1.0);
+    setColor(cr, withAlpha(rgb(230, 236, 255), 80 + rng.irange(0, 150)));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, kScreenW * 0.72, kScreenH * 0.3, 260, rgb(200, 210, 255), 0.25);
+  circle(cr, kScreenW * 0.72, kScreenH * 0.3, 70);
+  setColor(cr, rgb(236, 232, 214));
+  cairo_fill(cr);
+  for (int i = 0; i < 5; ++i)
+  {
+    circle(cr, kScreenW * 0.72 + rng.range(-40, 40), kScreenH * 0.3 + rng.range(-40, 40), rng.range(6, 14));
+    setColor(cr, withAlpha(rgb(190, 186, 170), 120));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, kScreenW * 0.3, kScreenH, 600, rgb(255, 150, 60), 0.2);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: the bay itself. The city skyline on the far shore over dark water
+// with the moon's reflection, a bridge, a ship or two at anchor.
+Texture bakeCraneFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(7171u);
+  const double shore = kScreenH * 0.52;
+  double x = 0;
+  while (x < kLayerW - 40)
+  {
+    const double w = std::min(double(rng.range(30, 90)), double(kLayerW) - x - 2), h = rng.range(30, 180);
+    cairo_rectangle(cr, x, shore - h, w - 2, h);
+    setColor(cr, lerpColor(t.farLayer, t.skyMid, 0.3f + rng.uniform() * 0.3f));
+    cairo_fill(cr);
+    for (double wy = shore - h + 6; wy < shore - 4; wy += 10)
+      for (double wx = x + 4; wx < x + w - 6; wx += 8)
+        if (rng.uniform() < 0.2f)
+        {
+          cairo_rectangle(cr, wx, wy, 3, 4);
+          setColor(cr, withAlpha(rgb(255, 220, 150), 90 + rng.irange(0, 90)));
+          cairo_fill(cr);
+        }
+    x += w;
+  }
+  // The water.
+  cairo_rectangle(cr, 0, shore, kLayerW, kScreenH - shore);
+  setColor(cr, lerpColor(t.skyTop, t.farLayer, 0.4f));
+  cairo_fill(cr);
+  for (int i = 0; i < 260; ++i)
+  {
+    const double wx = rng.range(0, kLayerW), wy = rng.range(shore + 4, kScreenH);
+    cairo_rectangle(cr, wx, wy, rng.range(10, 40), 2);
+    setColor(cr, withAlpha(rng.uniform() < 0.5f ? rgb(255, 200, 120) : rgb(160, 180, 230), 40 + rng.irange(0, 60)));
+    cairo_fill(cr);
+  }
+  // A suspension bridge across part of the layer.
+  const double bx0 = kLayerW * 0.15, bx1 = kLayerW * 0.55, deck = shore - 30;
+  cairo_set_line_width(cr, 3);
+  setColor(cr, withAlpha(t.farLayer, 255));
+  cairo_move_to(cr, bx0, deck);
+  cairo_line_to(cr, bx1, deck);
+  cairo_stroke(cr);
+  for (double tx : {bx0 + (bx1 - bx0) * 0.25, bx0 + (bx1 - bx0) * 0.75})
+  {
+    cairo_rectangle(cr, tx - 4, deck - 110, 8, 110 + (kScreenH - deck));
+    cairo_fill(cr);
+    radialGlow(cr, tx, deck - 112, 8, rgb(255, 40, 40), 0.8);
+  }
+  cairo_set_line_width(cr, 1.5);
+  cairo_move_to(cr, bx0, deck);
+  cairo_curve_to(cr, bx0 + (bx1 - bx0) * 0.15, deck - 60, bx0 + (bx1 - bx0) * 0.2, deck - 110, bx0 + (bx1 - bx0) * 0.25, deck - 110);
+  cairo_curve_to(cr, bx0 + (bx1 - bx0) * 0.4, deck - 10, bx0 + (bx1 - bx0) * 0.6, deck - 10, bx0 + (bx1 - bx0) * 0.75, deck - 110);
+  cairo_curve_to(cr, bx0 + (bx1 - bx0) * 0.8, deck - 110, bx0 + (bx1 - bx0) * 0.85, deck - 60, bx1, deck);
+  cairo_stroke(cr);
+  for (double lx = bx0; lx < bx1; lx += 14)
+  {
+    circle(cr, lx, deck - 2, 1.6);
+    setColor(cr, rgb(255, 210, 140));
+    cairo_fill(cr);
+  }
+  // Ships at anchor.
+  for (int i = 0; i < 3; ++i)
+  {
+    const double sx = rng.range(kLayerW * 0.6, kLayerW - 200), sy = shore + rng.range(30, 90);
+    cairo_move_to(cr, sx, sy);
+    cairo_line_to(cr, sx + 160, sy);
+    cairo_line_to(cr, sx + 146, sy + 16);
+    cairo_line_to(cr, sx + 10, sy + 16);
+    cairo_close_path(cr);
+    setColor(cr, t.farLayer);
+    cairo_fill(cr);
+    cairo_rectangle(cr, sx + 120, sy - 22, 26, 22);
+    cairo_fill(cr);
+    radialGlow(cr, sx + 133, sy - 24, 8, rgb(120, 255, 140), 0.7);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: the dockside of the building site. Container stacks and tower
+// cranes in silhouette, their jib lights blinking red.
+Texture bakeCraneNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(7272u);
+  const Color boxes[] = {rgb(140, 50, 40), rgb(40, 80, 120), rgb(170, 120, 40), rgb(50, 100, 70)};
+  // Container stacks along the bottom.
+  double x = 0;
+  while (x < kLayerW - 100)
+  {
+    const int rows = rng.irange(1, 4);
+    const double w = rng.range(120, 200);
+    for (int k = 0; k < rows; ++k)
+    {
+      const double cy = kScreenH - 46.0 * (k + 1);
+      cairo_rectangle(cr, x, cy, w, 44);
+      setColor(cr, lerpColor(boxes[rng.irange(0, 3)], t.nearLayer, 0.65f));
+      cairo_fill(cr);
+      for (double rx = x + 8; rx < x + w - 4; rx += 10)
+      {
+        cairo_rectangle(cr, rx, cy + 4, 2, 36);
+        setColor(cr, withAlpha(rgb(0, 0, 0), 60));
+        cairo_fill(cr);
+      }
+    }
+    x += w + rng.range(10, 60);
+  }
+  // Tower cranes: a lattice mast, a long jib, a counterweight and a hook.
+  for (double cx = 260; cx < kLayerW - 300; cx += rng.range(700, 1000))
+  {
+    const double top = rng.range(70, 140), jibL = rng.range(320, 460), back = 120;
+    const Color steel = t.nearLayer;
+    cairo_rectangle(cr, cx - 12, top, 24, kScreenH - top);
+    setColor(cr, steel);
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 2);
+    setColor(cr, lerpColor(steel, rgb(255, 170, 30), 0.25f));
+    for (double y = top; y < kScreenH; y += 24)
+    {
+      cairo_move_to(cr, cx - 12, y);
+      cairo_line_to(cr, cx + 12, y + 24);
+      cairo_move_to(cr, cx + 12, y);
+      cairo_line_to(cr, cx - 12, y + 24);
+    }
+    cairo_stroke(cr);
+    cairo_rectangle(cr, cx - back, top - 6, jibL + back, 14);
+    setColor(cr, steel);
+    cairo_fill(cr);
+    cairo_rectangle(cr, cx - back, top + 8, 50, 30);
+    cairo_fill(cr);
+    cairo_move_to(cr, cx, top - 50);
+    cairo_line_to(cr, cx - back + 10, top - 6);
+    cairo_move_to(cr, cx, top - 50);
+    cairo_line_to(cr, cx + jibL * 0.8, top - 6);
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+    const double hx = cx + jibL * rng.range(0.4, 0.9);
+    cairo_move_to(cr, hx, top + 8);
+    cairo_line_to(cr, hx, top + rng.range(80, 220));
+    cairo_stroke(cr);
+    radialGlow(cr, cx + jibL, top, 10, rgb(255, 40, 40), 0.9);
+    radialGlow(cr, cx, top - 50, 10, rgb(255, 40, 40), 0.9);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isCrane(t))
+    return bakeCraneSky(r, t);
   if (isClub(t))
     return bakeClubSky(r, t);
   if (isMaglev(t))
@@ -2221,6 +2403,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeSewerFar(r, t);
   if (isMaglev(t))
     return bakeMaglevFar(r, t);
+  if (isCrane(t))
+    return bakeCraneFar(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(1234u + std::uint32_t(t.id));
@@ -2335,6 +2519,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeSewerNear(r, t);
   if (isMaglev(t))
     return bakeMaglevNear(r, t);
+  if (isCrane(t))
+    return bakeCraneNear(r, t);
   VectorImage img(kLayerW, kScreenH);
   cairo_t* cr = img.cr();
   Rng rng(9876u + std::uint32_t(t.id));

@@ -203,6 +203,8 @@ float World::lightLevel(int cx, int cy) const
 
 bool World::exitPowered() const
 {
+  if (mBoss.on && mBoss.exitT < 15)
+    return false; // the exit drops from the crane cab once Black Halo is down
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();
 }
 

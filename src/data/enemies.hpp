@@ -31,6 +31,9 @@ enum class EnemyKind
   Hopper,  // leaps car to car toward you; its landing sends a shockwave along the roof
   RailDrone, // hovers alongside the train and drops caltrops
   Decoupler, // climbs out of a coupling and unhooks it
+  Trooper,   // slides down a rope from the gunship, then patrols and shoots
+  Biker,     // charges along its roof, turns at the end, revs and charges back
+  Shield,    // patrols behind a riot shield that stops shots from the front
 };
 
 enum EnemyFlag : unsigned

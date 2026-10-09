@@ -33,8 +33,10 @@ passes; `autorun`: you ride a rubber duck that moves right half a cell a
 frame on its own, only jump (6 cells for everyone) and crouch work, and
 running into something bumps you back four blocks; `lighttrail`: in the
 air your feet leave a one-way neon trail that lasts 45 frames, so a jump
-draws a bridge, and holding down drops through it),
-`timer=` in seconds and `goal=exit` or `goal=collect:N`. Files without the
+draws a bridge, and holding down drops through it; `flight`: you fly Black
+Halo, eight ways at 2 cells a frame with no gravity, fire is its chaingun
+and down + fire lobs a rocket),
+`timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
 `@` lines place things that need parameters. Positions are blocks (`x y`,
@@ -85,6 +87,17 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | enemy keys `track_hopper`, `rail_drone` (`carrier=1`), `decoupler` | | the Hopper leaps between roofs and its landing sends shockwaves both ways (jump them); the drone hovers ahead of you dropping caltrops (green ones from carriers stick and infect); the Decoupler wakes when you come up behind it and unhooks its car after a countdown (be across by then, or shoot it) |
 | `deco` `kind=carinterior\|seat\|crate\|sleeper\|hiscore` | `rect` or `x y w h` | the inside of a car, seats and luggage (over solid blocks), a sleeping passenger, and an arcade cabinet showing your best Level 2 score |
 | `breakable` … `by=pry`, `look=panel` | | a floor panel you pry up by standing on it and holding down for 8 frames |
+| `hunter` | `id`, `zone=x0,x1`, `r` (blocks), `lock`, `salvo`, `rockets`, `damage`, `cooldown` (frames), `speed` (cells a frame), `demo=x,y`, `demotrigger` (block x) | a gunship in the backdrop whose searchlight drifts toward you: `lock` frames in the light lock on, a beep, and `salvo` frames later its rockets land on shown markers. With `demo`, it holds fire until you pass `demotrigger`, then fires one salvo at that empty spot to show how it works |
+| `cover` | `rect` | shade from the hunter's light: inside it you can't be locked, and rockets go to where it last saw you |
+| `rappel` | `zone=x0,y0,x1,y1`, `max`, `period` | while you are in the zone the gunship drops a Rappel Trooper behind you every `period` frames, at most `max` at once |
+| `platform` … `latch=ID` with `switch` `ID` `kind=shootable` | | a hook held by a latch: shoot the latch, then stand on the hook to ride its path once |
+| `boss` | `id` (`black_halo`), `rect` (the arena), `deck` (its floor row), `exit=x,y` | Black Halo: the fight starts when you reach the deck; the `X` drops in once it is down |
+| `health` | `full=1` | a health box that refills every heart |
+| `cab` | `rect` | the crane cab: stand in it a while and its radio plays the theme as elevator music |
+| `deco` `kind=girder\|sheet\|awning\|office\|lattice\|spareship\|radio` | `rect` or `x y w h`, `text` (girder) | Chopper Down's site: I-beams over their solid row, plastic sheeting, an awning, the site office, the counter-jib, the parked spare gunship and the cab radio |
+| `breakable` … `look=mixer` | | a cement mixer drum |
+| enemy keys `rappel_trooper`, `hover_biker`, `shield_trooper` | | the trooper patrols and shoots after a 10-frame aim; the biker charges along its roof, revs at the end and charges back; the shield trooper's riot shield stops shots from the front (homing rockets come down over it) |
+| `popup`, `street` | `x y` | Pilot Seat: where cardboard runners pop up, and the row the cardboard trucks drive along |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

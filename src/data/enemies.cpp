@@ -49,6 +49,13 @@ const EnemyDef kEnemies[] = {
   {"track_hopper", "TRACK HOPPER", K::Hopper, L::Styled, 3, 4, 4, 500, 2, 45, 10, 12, 0, 0},
   {"rail_drone", "RAIL DRONE", K::RailDrone, L::Styled, 4, 2, 3, 600, 1, 45, 10, 0, 0, 0},
   {"decoupler", "DECOUPLER", K::Decoupler, L::Styled, 3, 4, 6, 800, 0, 75, 15, 24, 0, 0},
+  // Level 7: Chopper Down. Troopers: range is how far they see you (cells).
+  {"rappel_trooper", "RAPPEL TROOPER", K::Trooper, L::Styled, 3, 5, 3, 500, 2, 30, 10, 20, 0, 0, 2},
+  {"hover_biker", "HOVER BIKER", K::Biker, L::Styled, 5, 3, 5, 700, 1, 45, 10, 0, 0, 0, 3},
+  {"shield_trooper", "SHIELD TROOPER", K::Shield, L::Styled, 3, 5, 6, 900, 2, 40, 10, 20, 0, 0, 2},
+  // Pilot Seat's cardboard targets: they only run along their roofs.
+  {"cardboard_runner", "CARDBOARD RUNNER", K::Walker, L::Styled, 3, 5, 2, 500, 1, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  {"cardboard_truck", "CARDBOARD TRUCK", K::Walker, L::Styled, 8, 4, 6, 1500, 1, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));
