@@ -47,9 +47,9 @@ pixels. Every sound and every note of music is made by the game itself.
 Gunrunners runs on Linux and Android.
 
 **Android:** install it with [F-Droid](https://f-droid.org) from Paul's
-repository: add `https://snonux.github.io/fdroid/repo` under *Settings →
-Repositories* ([details and QR code](https://github.com/snonux/fdroid)),
-then search for Gunrunners. Play with the on-screen controls or a Bluetooth
+F-Droid repository, <https://github.com/snonux/fdroid> (one-tap link and QR
+code there). Or add `https://snonux.github.io/fdroid/repo` by hand under
+*Settings → Repositories*, then search for Gunrunners. Play with the on-screen controls or a Bluetooth
 or USB gamepad, connected at any time; the on-screen controls step aside
 while you use the pad. Building the APK yourself is described in
 [android/README.md](android/README.md).
