@@ -141,7 +141,7 @@ void Renderer::draw(const Texture& t, float x, float y, const DrawOpts& o)
     int(std::lround(y - t.anchorY() * o.scale)),
     int(std::lround(w)),
     int(std::lround(h))};
-  if (dst.x >= kScreenW || dst.y >= kScreenH || dst.x + dst.w <= 0 || dst.y + dst.h <= 0)
+  if (o.cull && (dst.x >= kScreenW || dst.y >= kScreenH || dst.x + dst.w <= 0 || dst.y + dst.h <= 0))
     return;
   SDL_SetTextureBlendMode(t.get(), o.blend == Blend::Add ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
   SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::min(1.0f, std::max(0.0f, o.alpha)) * 255.0f)));
