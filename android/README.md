@@ -67,7 +67,7 @@ debug key; see "Releasing".
 
 Bluetooth and USB pads go through SDL's GameController API, as on Linux
 (`src/frontend/controls.cpp`): plug in or pair one at any time, even
-mid-level, and it works with the same layout (A jump, X/B/RB/RT fire, Y
+mid-level, and it works with the same layout (X jump, A/B/RB/RT fire, Y
 switch runner, Start pause). Pressing a button or pushing the stick hides
 the touch overlay. Android reports a pad's Back/Select as the system back
 key, so on Android it pauses or backs out of a menu instead of cycling the

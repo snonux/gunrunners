@@ -110,8 +110,8 @@ Input Controls::read() const
   in.right = k[SDL_SCANCODE_RIGHT] || k[SDL_SCANCODE_D];
   in.up = k[SDL_SCANCODE_UP] || k[SDL_SCANCODE_W];
   in.down = k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S];
-  in.jump = k[SDL_SCANCODE_Z] || k[SDL_SCANCODE_SPACE];
-  in.fire = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
+  in.jump = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
+  in.fire = k[SDL_SCANCODE_Z] || k[SDL_SCANCODE_SPACE];
   // Alt+Enter toggles fullscreen, so it must not also pick a menu item.
   in.confirm = (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER]) && !(SDL_GetModState() & KMOD_ALT);
   // AC_BACK is Android's back key: pause in a level, back out of a menu.
@@ -130,9 +130,9 @@ Input Controls::read() const
     in.right = in.right || button(SDL_CONTROLLER_BUTTON_DPAD_RIGHT) || sx > kStickThreshold;
     in.up = in.up || button(SDL_CONTROLLER_BUTTON_DPAD_UP) || sy < -kStickThreshold;
     in.down = in.down || button(SDL_CONTROLLER_BUTTON_DPAD_DOWN) || sy > kStickThreshold;
-    // South face button jumps; west, east or the right trigger fire.
-    in.jump = in.jump || button(SDL_CONTROLLER_BUTTON_A);
-    in.fire = in.fire || button(SDL_CONTROLLER_BUTTON_X) || button(SDL_CONTROLLER_BUTTON_B) ||
+    // West face button jumps; south, east or the right trigger fire.
+    in.jump = in.jump || button(SDL_CONTROLLER_BUTTON_X);
+    in.fire = in.fire || button(SDL_CONTROLLER_BUTTON_A) || button(SDL_CONTROLLER_BUTTON_B) ||
       button(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) || axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > kTriggerThreshold;
     in.confirm = in.confirm || button(SDL_CONTROLLER_BUTTON_START) || button(SDL_CONTROLLER_BUTTON_A);
     in.pause = in.pause || button(SDL_CONTROLLER_BUTTON_START);

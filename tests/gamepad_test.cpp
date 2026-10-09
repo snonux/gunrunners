@@ -66,7 +66,7 @@ int main()
     SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_A, 1);
     pump();
     Input in = controls.read();
-    check(in.jump && in.confirm, "A jumps and confirms");
+    check(in.fire && in.confirm && !in.jump, "A fires and confirms");
     check(!touch.visible(), "a pad button hides the touch overlay");
     SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_A, 0);
 
@@ -85,7 +85,7 @@ int main()
     SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_X, 1);
     pump();
     in = controls.read();
-    check(in.pause && in.swap && in.fire && !in.left, "Start pauses, Y switches runner, X fires");
+    check(in.pause && in.swap && in.jump && !in.fire && !in.left, "Start pauses, Y switches runner, X jumps");
     SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_START, 0);
     SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_Y, 0);
     SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_X, 0);

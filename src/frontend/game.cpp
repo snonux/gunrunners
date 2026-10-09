@@ -530,7 +530,7 @@ void Game::renderSelect()
   r.draw(mTitleFocusLoad ? mLoadButtonFocus : mLoadButton, 1030, 128);
   r.drawText("LOAD GAME", 1140, 138, {20.0f, mTitleFocusLoad ? t.accentA : t.hudText, kInk, true}, Align::Center);
 
-  r.drawText("KEYS  arrows move  -  Z jump  -  X fire  -  C runner  -  Esc menu      PAD  stick  -  A jump  -  X/B/RT fire  -  Y runner  -  Start menu",
+  r.drawText("KEYS  arrows move  -  X jump  -  Z fire  -  C runner  -  Esc menu      PAD  stick  -  X jump  -  A/B/RT fire  -  Y runner  -  Start menu",
     cx, 684, {15.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 

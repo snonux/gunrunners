@@ -117,10 +117,10 @@ void printUsage()
     "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
     "                       (left right up down jump fire confirm pause back swap)\n"
     "\n"
-    "Keys: arrows/WASD move, Z/Space jump, X/Ctrl fire, Enter confirm,\n"
+    "Keys: arrows/WASD move, X/Ctrl jump, Z/Space fire, Enter confirm,\n"
     "      C switch runner, Esc/P pause menu (save, load, quit), T cycle theme,\n"
     "      F11 or Alt+Enter fullscreen\n"
-    "Gamepad: stick/d-pad move, A jump, X/B/RB/RT fire, Y switch runner,\n"
+    "Gamepad: stick/d-pad move, X jump, A/B/RB/RT fire, Y switch runner,\n"
     "      Start pause menu, Back cycle theme");
 }
 
