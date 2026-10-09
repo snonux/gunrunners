@@ -1,5 +1,6 @@
 #pragma once
 
+#include "frontend/bindings.hpp"
 #include "game/input.hpp"
 
 #include <SDL.h>
@@ -36,14 +37,24 @@ public:
   // Input. Esc is part of Input: it opens the pause menu or backs out.
   Action handleEvent(const SDL_Event& ev);
 
-  // Current state of the keyboard and all connected pads combined.
-  Input read() const;
+  // The player's key and button bindings (the CONTROLS menu).
+  void setBindings(const Bindings& b) { mBindings = b; }
+  const Bindings& bindings() const { return mBindings; }
+
+  // Current state of the keyboard and all connected pads combined. In
+  // menus the arrows, Enter, Esc and the d-pad work whatever the bindings.
+  Input read(bool menus = false) const;
+  // The keyboard part, from a key state array indexed by scancode.
+  Input readKeys(const Uint8* keys, bool menus) const;
 
 private:
+  Input readPad(SDL_GameController* pad, bool menus) const;
+
   void open(int deviceIndex);
   void close(SDL_JoystickID id);
 
   std::vector<SDL_GameController*> mPads;
+  Bindings mBindings = Bindings::defaults();
 };
 
 } // namespace gr

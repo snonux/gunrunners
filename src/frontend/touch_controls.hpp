@@ -55,6 +55,16 @@ public:
   Input read();
   // Draws the overlay in the game's 1280x720 logical coordinates.
   void draw(Renderer& renderer) const;
+
+  // Where the player moved the controls in a level (the profile keeps it):
+  // x, y offsets for the stick, then jump, fire, switch and pause.
+  void setLayout(const std::vector<int>& offsets);
+  std::vector<int> layout() const;
+  // The layout editor: every control can be dragged; RESET puts them back,
+  // DONE reads as a back press. takeLayoutChange is true once per change.
+  void setEditing(bool on);
+  bool editing() const { return mEditing; }
+  bool takeLayoutChange();
   bool visible() const { return mVisible; }
 
   // Tests: fingers at logical positions at a time in ms, without SDL events.
@@ -102,6 +112,10 @@ private:
   void swipe(Finger& f);
   void drawAt(Renderer& renderer, float sx, float sy) const;
   Input held() const;
+  bool moved() const;
+  Circle place(Circle c, int element) const;
+  void editPress(Finger& f);
+  void editMove(const Finger& f);
   Circle stickHome() const;
   Circle button(int b) const;
   bool buttonShown(int b) const;
@@ -119,6 +133,9 @@ private:
   std::vector<Finger> mFingers;
   Input mTapped; // presses since the last read()
   Uint32 mNow = 0; // the latest touch event's time, ms
+  std::array<SDL_FPoint, 1 + kButtonCount> mOffset{};
+  bool mEditing = false;
+  bool mLayoutChanged = false;
 
   Texture mStick;
   Texture mDpad;

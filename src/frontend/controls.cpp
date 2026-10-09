@@ -80,7 +80,7 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
     case SDL_KEYDOWN:
       if (ev.key.repeat)
         break;
-      if (ev.key.keysym.sym == SDLK_t)
+      if (ev.key.keysym.scancode == SDL_SCANCODE_T && !mBindings.keyBound(SDL_SCANCODE_T))
         return Action::CycleTheme;
       if (ev.key.keysym.sym == SDLK_F11 ||
           ((ev.key.keysym.sym == SDLK_RETURN || ev.key.keysym.sym == SDLK_KP_ENTER) && (ev.key.keysym.mod & KMOD_ALT)))
@@ -93,7 +93,8 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
       close(ev.cdevice.which);
       break;
     case SDL_CONTROLLERBUTTONDOWN:
-      if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK && !kBackIsBackKey)
+      if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK && !kBackIsBackKey &&
+          !mBindings.padBound(SDL_CONTROLLER_BUTTON_BACK))
         return Action::CycleTheme;
       break;
     default:
@@ -102,44 +103,84 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
   return Action::None;
 }
 
-Input Controls::read() const
+Input Controls::read(bool menus) const
 {
-  const Uint8* k = SDL_GetKeyboardState(nullptr);
+  Input in = readKeys(SDL_GetKeyboardState(nullptr), menus);
+  for (auto* pad : mPads)
+    in = in | readPad(pad, menus);
+  return in;
+}
+
+Input Controls::readKeys(const Uint8* k, bool menus) const
+{
+  auto act = [&](Act a) {
+    for (int key : mBindings.keys[std::size_t(a)])
+      if (key > 0 && k[key])
+        return true;
+    return false;
+  };
   Input in;
-  in.left = k[SDL_SCANCODE_LEFT] || k[SDL_SCANCODE_A];
-  in.right = k[SDL_SCANCODE_RIGHT] || k[SDL_SCANCODE_D];
-  in.up = k[SDL_SCANCODE_UP] || k[SDL_SCANCODE_W];
-  in.down = k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S];
-  in.jump = k[SDL_SCANCODE_X] || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL];
-  in.fire = k[SDL_SCANCODE_Z] || k[SDL_SCANCODE_SPACE];
+  in.left = act(Act::Left);
+  in.right = act(Act::Right);
+  in.up = act(Act::Up);
+  in.down = act(Act::Down);
+  in.jump = act(Act::Jump);
+  in.fire = act(Act::Fire);
+  in.swap = act(Act::Swap);
+  // Fixed keys on top of the bindings: Esc always pauses or backs out, and
+  // menus always answer the arrows and Enter. AC_BACK is Android's back key.
+  in.pause = act(Act::Pause) || k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_AC_BACK];
+  in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_AC_BACK];
   // Alt+Enter toggles fullscreen, so it must not also pick a menu item.
   in.confirm = (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER]) && !(SDL_GetModState() & KMOD_ALT);
-  // AC_BACK is Android's back key: pause in a level, back out of a menu.
-  in.pause = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_P] || k[SDL_SCANCODE_AC_BACK];
-  in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_AC_BACK];
-  in.swap = k[SDL_SCANCODE_C];
-
-  for (auto* pad : mPads)
+  if (menus)
   {
-    auto button = [pad](SDL_GameControllerButton b) { return SDL_GameControllerGetButton(pad, b) != 0; };
-    auto axis = [pad](SDL_GameControllerAxis a) { return SDL_GameControllerGetAxis(pad, a); };
-    const Sint16 sx = axis(SDL_CONTROLLER_AXIS_LEFTX);
-    const Sint16 sy = axis(SDL_CONTROLLER_AXIS_LEFTY);
+    in.left = in.left || k[SDL_SCANCODE_LEFT];
+    in.right = in.right || k[SDL_SCANCODE_RIGHT];
+    in.up = in.up || k[SDL_SCANCODE_UP];
+    in.down = in.down || k[SDL_SCANCODE_DOWN];
+  }
+  return in;
+}
 
-    in.left = in.left || button(SDL_CONTROLLER_BUTTON_DPAD_LEFT) || sx < -kStickThreshold;
-    in.right = in.right || button(SDL_CONTROLLER_BUTTON_DPAD_RIGHT) || sx > kStickThreshold;
-    in.up = in.up || button(SDL_CONTROLLER_BUTTON_DPAD_UP) || sy < -kStickThreshold;
-    in.down = in.down || button(SDL_CONTROLLER_BUTTON_DPAD_DOWN) || sy > kStickThreshold;
-    // West face button jumps; south, east or the right trigger fire.
-    in.jump = in.jump || button(SDL_CONTROLLER_BUTTON_X);
-    in.fire = in.fire || button(SDL_CONTROLLER_BUTTON_A) || button(SDL_CONTROLLER_BUTTON_B) ||
-      button(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) || axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > kTriggerThreshold;
-    in.confirm = in.confirm || button(SDL_CONTROLLER_BUTTON_START) || button(SDL_CONTROLLER_BUTTON_A);
-    in.pause = in.pause || button(SDL_CONTROLLER_BUTTON_START);
-    in.back = in.back || button(SDL_CONTROLLER_BUTTON_B);
-    in.swap = in.swap || button(SDL_CONTROLLER_BUTTON_Y);
-    if (kBackIsBackKey && button(SDL_CONTROLLER_BUTTON_BACK))
-      in.pause = in.back = true;
+Input Controls::readPad(SDL_GameController* pad, bool menus) const
+{
+  auto button = [pad](int b) {
+    if (b == kPadLeftTrigger)
+      return SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > kTriggerThreshold;
+    if (b == kPadRightTrigger)
+      return SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > kTriggerThreshold;
+    return SDL_GameControllerGetButton(pad, SDL_GameControllerButton(b)) != 0;
+  };
+  auto act = [&](Act a) {
+    for (int b : mBindings.pad[std::size_t(a)])
+      if (button(b))
+        return true;
+    return false;
+  };
+  const Sint16 sx = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
+  const Sint16 sy = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
+  Input in;
+  // The left stick always steers; the d-pad by its bindings.
+  in.left = act(Act::Left) || sx < -kStickThreshold;
+  in.right = act(Act::Right) || sx > kStickThreshold;
+  in.up = act(Act::Up) || sy < -kStickThreshold;
+  in.down = act(Act::Down) || sy > kStickThreshold;
+  in.jump = act(Act::Jump);
+  in.fire = act(Act::Fire);
+  in.swap = act(Act::Swap);
+  // Fixed: Start always pauses and confirms, A confirms, B backs out.
+  in.pause = act(Act::Pause) || button(SDL_CONTROLLER_BUTTON_START);
+  in.confirm = button(SDL_CONTROLLER_BUTTON_START) || button(SDL_CONTROLLER_BUTTON_A);
+  in.back = button(SDL_CONTROLLER_BUTTON_B);
+  if (kBackIsBackKey && button(SDL_CONTROLLER_BUTTON_BACK))
+    in.pause = in.back = true;
+  if (menus)
+  {
+    in.left = in.left || button(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+    in.right = in.right || button(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    in.up = in.up || button(SDL_CONTROLLER_BUTTON_DPAD_UP);
+    in.down = in.down || button(SDL_CONTROLLER_BUTTON_DPAD_DOWN);
   }
   return in;
 }

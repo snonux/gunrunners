@@ -50,9 +50,11 @@ add_library(gunrunners_core STATIC
   src/game/savegame.cpp
   src/frontend/bot.cpp
   src/frontend/planner.cpp
+  src/frontend/bindings.cpp
   src/frontend/controls.cpp
   src/frontend/game.cpp
   src/frontend/menus.cpp
+  src/frontend/controls_menu.cpp
   src/frontend/cutscene.cpp
   src/frontend/clips.cpp
   src/frontend/flow.cpp
@@ -89,6 +91,9 @@ add_test(NAME touch_controls COMMAND touch_test)
 add_executable(gamepad_test tests/gamepad_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(gamepad_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME gamepad COMMAND gamepad_test)
+add_executable(bindings_test tests/bindings_test.cpp src/frontend/touch_controls.cpp)
+target_link_libraries(bindings_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME bindings COMMAND bindings_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)

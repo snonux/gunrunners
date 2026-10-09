@@ -58,8 +58,13 @@ debug key; see "Releasing".
   Slower moves are not swipes.
 - **In menus, cutscenes and tallies:** a d-pad, OK (confirm, skip) and
   BACK. BACK never fires or pauses, so it can't quit the title by accident.
-- **TOUCH PAD: SMALL / MEDIUM / LARGE** on the title screen and in the pause
-  menu, saved in the profile.
+- **CONTROLS** on the title screen and in the pause menu has TOUCH PAD:
+  SMALL / MEDIUM / LARGE and EDIT TOUCH LAYOUT. The layout editor shows the
+  play controls over the dimmed screen: drag the stick, Jump, Fire, Switch
+  and Pause anywhere (they stay on screen), RESET puts them back, DONE
+  saves. Both are saved in the profile (`touch.layout` holds the offsets),
+  and RESET TO DEFAULTS in CONTROLS clears them. The same menu rebinds
+  keys and gamepad buttons.
 - The overlay hides when a key or gamepad is used and comes back with the
   next touch. A tap shorter than a frame still counts.
 
@@ -68,7 +73,7 @@ debug key; see "Releasing".
 Bluetooth and USB pads go through SDL's GameController API, as on Linux
 (`src/frontend/controls.cpp`): plug in or pair one at any time, even
 mid-level, and it works with the same layout (X jump, A/B/RB/RT fire, Y
-switch runner, Start pause). Pressing a button or pushing the stick hides
+switch runner, Start pause), which CONTROLS can rebind. Pressing a button or pushing the stick hides
 the touch overlay. Android reports a pad's Back/Select as the system back
 key, so on Android it pauses or backs out of a menu instead of cycling the
 theme. `tests/gamepad_test.cpp` plugs a virtual pad in and out to check

@@ -88,13 +88,17 @@ a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
 quick swipe down switches runner. In menus you get a d-pad with OK and
-BACK. TOUCH PAD on the title screen and in the pause menu picks small,
-medium or large controls. The back key pauses. Leaving the app pauses the
+BACK. CONTROLS on the title screen and in the pause menu sets the size
+(TOUCH PAD: small, medium or large) and has EDIT TOUCH LAYOUT, where you
+drag the stick and each button to where your thumbs want them. The back
+key pauses. Leaving the app pauses the
 game.
 
 ## Controls
 
-Play with the keyboard or a gamepad (both work at the same time):
+Play with the keyboard or a gamepad (both work at the same time). These are
+the defaults; CONTROLS on the title screen or in the pause menu changes them
+(see below):
 
 | Keyboard | Gamepad | Action |
 |----------|---------|--------|
@@ -114,6 +118,16 @@ Most gamepads work out of the box (Xbox, PlayStation, Switch Pro, 8BitDo,
 Steam Deck and generic USB or Bluetooth pads), and you can plug them in
 while playing. Button names above are Xbox style; on PlayStation, A is
 Cross and X is Square.
+
+**Changing the controls.** Pick CONTROLS on the title screen or in the
+pause menu. Each action has two keyboard keys and a gamepad button: choose
+a cell with the arrows (or the d-pad), press Enter (or A), then press the
+new key or button. Esc cancels. A key or button can only do one thing, so
+taking it for one action frees it from the other. RESET TO DEFAULTS brings
+back the table above. Your choice is saved with your profile and works on
+Linux and Android alike. So that no setting can lock you out, the menus
+always answer the arrows, Enter, Esc, the d-pad, A, B and Start, Esc and
+Start always pause, and the left stick always walks.
 
 **Fullscreen** fills your screen with no window frame. Press F11 or
 Alt+Enter, or pick FULLSCREEN on the title screen or in the pause menu. The

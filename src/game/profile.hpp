@@ -3,6 +3,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace gr
 {
@@ -23,6 +24,9 @@ struct Profile
   bool duckMode = false;           // all 42 ducks: quack mode is available
   bool fullscreen = false;         // the window covers the screen, no borders
   int touchSize = 1;               // on-screen gamepad: 0 small, 1 medium, 2 large
+  // Rebound keys and pad buttons, the on-screen gamepad's layout: named
+  // lists of numbers, read by frontend/bindings.cpp and touch_controls.cpp.
+  std::map<std::string, std::vector<int>> controls;
 
   static Profile load(const std::string& dir);
   bool save(const std::string& dir) const;
