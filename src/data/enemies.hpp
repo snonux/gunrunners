@@ -78,6 +78,10 @@ enum class EnemyKind
   Loader,    // a Loader Mech: patrols on magnetic feet, throws crates from a pile
   WeldDrone, // crawls its floor (or up a wall) in runs, leaving a hot seam
   Tether,    // one of a Tether Pair: two drones with a beam strung between them
+  Puck,      // a Puck Drone: slides along the floor in straight lines, bouncing
+  SleeperPod, // a cryo pod in the back wall: lets a mutant out as you come near
+  Mutant,    // out of a Sleeper Pod: staggers after you, lunges to grab
+  LabArm,    // a claw on a ceiling rail: drops on you, lifts you and lets go
   Fish,      // deep water: patrols, then chases whatever is in the water with it
   Jelly,     // deep water: pulses up and drifts down, stings on contact
   SeaMine,   // deep water: bobs on its chain, blows up when something comes close

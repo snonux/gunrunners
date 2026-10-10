@@ -865,6 +865,48 @@ std::vector<float> makeSfx(Sfx id)
         return c * 0.6 * attack(t, 0.001) * decay(t, 0.07);
       });
     }
+    case Sfx::Freeze:
+    {
+      // Ice spreading: a crackle of high clicks over a cold rising shimmer.
+      Noise n(151);
+      Svf bp;
+      Osc o;
+      return render(0.45, [&](double t, double total) {
+        const double crackle = (n.next() > 0.86f ? 1.0 : 0.0) * bp.band(n.next(), 5200.0f, 2.0) * 3.0;
+        const double shimmer = o.step(sweep(1800.0, 3200.0, t / total), Wave::Sine) * 0.12;
+        return (crackle * 0.35 + shimmer) * attack(t, 0.005) * decay(t, 0.18);
+      });
+    }
+    case Sfx::Tink:
+    {
+      // Glass struck: two bright partials ringing out.
+      Osc a, b;
+      return render(0.35, [&](double t, double) {
+        return (a.step(2960.0, Wave::Sine) * 0.3 + b.step(4430.0, Wave::Sine) * 0.15) * attack(t, 0.001) *
+          decay(t, 0.08);
+      });
+    }
+    case Sfx::Whine:
+    {
+      // A small motor spinning up.
+      Osc a, b;
+      return render(0.6, [&](double t, double total) {
+        const double f = sweep(220.0, 1400.0, t / total);
+        return (a.step(f, Wave::Saw) * 0.12 + b.step(f * 1.5, Wave::Square, 0.3) * 0.06) * attack(t, 0.05) *
+          std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::Cheer:
+    {
+      // A crowd a long way off: band-limited noise that swells and fades.
+      Noise n(157);
+      Svf bp;
+      return render(1.6, [&](double t, double total) {
+        const double env = std::sin(std::min(1.0, t / total) * 3.14159);
+        const double wob = 1.0 + 0.3 * std::sin(t * 23.0) * std::sin(t * 7.0);
+        return bp.band(n.next(), 1100.0f, 0.7) * 0.32 * env * wob;
+      });
+    }
     case Sfx::Count:
       break;
   }

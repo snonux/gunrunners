@@ -167,6 +167,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkSanctum();
   linkGolden();
   linkStation();
+  linkCryo();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -319,6 +320,7 @@ void World::update(const PlayerInput& input)
       updateSanctum(input);
       updateGolden();
       updateStation(input);
+      updateCryo(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -380,6 +382,11 @@ void World::updateEnemies()
     }
     if (e.tangle > 0 && tangled(e))
       continue; // lying in the Snare Bolas' cords
+    if (e.frozen > 0)
+    {
+      updateFrozen(e); // a block of ice (level 16): no moves, no bite
+      continue;
+    }
     ++e.timer;
     const EnemyDef& def = enemyDef(e.def);
 
@@ -669,6 +676,18 @@ void World::updateEnemies()
       case EnemyKind::Tether:
         updateTether(e, def);
         break;
+      case EnemyKind::Puck:
+        updatePuck(e, def);
+        break;
+      case EnemyKind::SleeperPod:
+        updateSleeperPod(e, def);
+        break;
+      case EnemyKind::Mutant:
+        updateMutant(e, def);
+        break;
+      case EnemyKind::LabArm:
+        updateLabArm(e, def);
+        break;
       case EnemyKind::Fish:
         updateFish(e, def);
         break;
@@ -683,7 +702,7 @@ void World::updateEnemies()
         break;
     }
 
-    const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
+    const bool frozen = (e.kind == EnemyKind::Stalker && e.attach == 1) || (e.kind == EnemyKind::Puck && e.variant == 1);
     if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
         p.vehicle < 0 && e.box().intersects(p.hitBox()))
       touchPlayer(e);
@@ -759,6 +778,9 @@ void World::updateProjectiles()
       return true;
     // Level 15: crates break to one shot; a Loader Mech's legs are their own target.
     if (mStation.on() && pr.kind != ShotKind::Enemy && shotAtStation(pr, b))
+      return true;
+    // Level 16: the HOST (SPARE) pod only goes tink.
+    if (mCryo.on && pr.kind != ShotKind::Enemy && shotAtCryoEarly(pr, b))
       return true;
     // Level 45: a valve set into a tube turns when shot.
     if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))
@@ -904,6 +926,15 @@ void World::updateProjectiles()
       }
       if (e.kind == EnemyKind::Crab && shotAtCrab(pr, e) == 1)
         return true;
+      // Level 16: the Freeze Ray, frozen blocks, the pods behind their glass.
+      if (mCryo.on && pr.kind != ShotKind::Enemy)
+      {
+        const int r = shotAtCryo(pr, e);
+        if (r == 1)
+          return true;
+        if (r == 2)
+          continue;
+      }
       // Episode 7: the Goo Gun glues what it hits.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GooGun) && shotAtAlien(pr, e))
         return true;

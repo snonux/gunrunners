@@ -13,6 +13,7 @@
 #include "game/savegame.hpp"
 #include "game/space.hpp"
 #include "game/station.hpp"
+#include "game/cryo.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -184,6 +185,10 @@ struct Enemy
   bool hidden = false;  // out of sight and out of reach (the camera in a dark mirror)
   int ox = 0, oy = 0;   // where a leap started (level 12's toads)
   int cool = 0;         // frames until it can attack again
+  // Level 16: frames left frozen in a block of ice (Freeze Ray), and the
+  // block's slide (cells a frame, signed) with the part of a cell carried.
+  int frozen = 0;
+  float vx = 0.0f, fx = 0.0f;
   CellBox box() const { return boxAt(x, y, w, h); }
   unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
@@ -1738,6 +1743,9 @@ public:
   // The open panel pulling at cell (cx, cy), -1 for none; tx, ty its middle.
   int ventPulling(int cx, int cy, int& tx, int& ty) const;
   CellBox tetherBeam(const Enemy& low) const;
+  // Level 16, Cryo Labs: ice floors, frozen blocks, Lab Arms, Air Hockey.
+  const CryoState& cryo() const { return mCryo; }
+  bool onIce() const;
   bool golemFight() const;
   int golemHp() const;
   const Surf& surf() const { return mSurf; }
@@ -2140,6 +2148,29 @@ private:
   void drawStationBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStationFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStationHud(Renderer& r, int frame) const;
+  bool setupCryoEntity(const EntityDef& e);
+  void setupCryoEnemy(Enemy& en, const EntityDef& e);
+  void linkCryo();
+  void resetCryo();
+  bool iceUnder(const CellBox& b) const;
+  bool cryoGround(int mvX, int mvY);
+  bool cryoAir(int mvX);
+  void cryoLanded();
+  void freezeEnemy(Enemy& e);
+  bool shotAtCryoEarly(Projectile& pr, const CellBox& b);
+  int shotAtCryo(Projectile& pr, Enemy& e);
+  void updateFrozen(Enemy& e);
+  void shatterFrozen(Enemy& e);
+  void updatePuck(Enemy& e, const EnemyDef& def);
+  void updateSleeperPod(Enemy& e, const EnemyDef& def);
+  void updateMutant(Enemy& e, const EnemyDef& def);
+  void updateLabArm(Enemy& e, const EnemyDef& def);
+  void updateCryo(const PlayerInput& input);
+  bool cryoCanSave() const;
+  void drawCryoBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawCryoFront(Renderer& r, float camX, float camY, int frame) const;
+  void drawCryoHud(Renderer& r, int frame) const;
+  void drawCryoBreakable(Renderer& r, const Breakable& b, float camX, float camY, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2512,6 +2543,7 @@ private:
   SpaceState mSpace;
   // Episode 3, STATION ZERO.
   StationState mStation;
+  CryoState mCryo;
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.
   std::vector<Boulder> mBoulders;

@@ -191,6 +191,7 @@ void World::setupEntities()
       setupBoulderEnemy(en, e);
       setupSanctumEnemy(en, e);
       setupStationEnemy(en, e);
+      setupCryoEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -285,7 +286,7 @@ void World::setupEntities()
         : by == "vehicle"      ? 5
                                : 0;
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : 0))))));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : (look == "pod" ? 8 : (look == "ice" ? 9 : 0))))))));
       mBreakables.push_back(b);
       continue;
     }
@@ -301,6 +302,8 @@ void World::setupEntities()
       continue;
     }
 
+    if (setupCryoEntity(e))
+      continue;
     if (e.kind == "deco" || e.kind == "billboard")
     {
       Prop pr;
@@ -684,7 +687,8 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
   // goal=collect:N ends the bonus level as soon as N gems are in.
   const auto& goal = mLevel->goal;
   if ((goal.rfind("collect:", 0) == 0 && mStats.gems >= std::atoi(goal.c_str() + 8)) ||
-      (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)))
+      (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)) ||
+      (goal.rfind("goals:", 0) == 0 && mCryo.goalTarget > 0 && mCryo.scored >= mCryo.goalTarget))
   {
     showMessage("GOAL!");
     playSound(Sfx::Teleport);
