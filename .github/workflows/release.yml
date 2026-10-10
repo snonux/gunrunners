@@ -50,6 +50,9 @@ jobs:
             echo "$TAG exists, rebuilding it"; exit 0
           fi
           version=$(gh api "repos/$GITHUB_REPOSITORY/contents/CMakeLists.txt?ref=$GITHUB_SHA" -H "Accept: application/vnd.github.raw" | sed -n "s/^project(Gunrunners VERSION \([0-9.]*\).*/\1/p")
+          # No pipefail here, so a failed fetch leaves version empty; without
+          # this check, tag=v would pass the comparison and create a junk tag.
+          [ -n "$version" ] || { echo "::error::Could not read the version from CMakeLists.txt at $GITHUB_SHA"; exit 1; }
           if [ "v$version" != "$TAG" ]; then
             echo "::error::Tag $TAG does not match version $version in CMakeLists.txt"; exit 1
           fi
