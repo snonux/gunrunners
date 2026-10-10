@@ -160,6 +160,13 @@ swaps, no ziplines, no rideable creatures; the ship is the vehicles thread's).
 - **Secrets:** a crystal you can only see in a reflection; an island above
   the clouds. **Virus:** a green, cracked crystal (swap with it and you catch
   it).
+- **Built** (2026-10-10): `tools/levels/46_crystal_drift.py`, 220 x 40
+  blocks, seven islands with eight-block gaps, each crossed by shooting the
+  crystal on the far island's edge (shots reach about 19 cells ahead, what
+  the camera shows). The cliff is climbed by shooting up through a slab at a
+  crystal over it. The pool on the second island reflects a hidden crystal
+  beside the 42 cache; a chain of three crystals over the fifth island leads
+  to the duck above the clouds. The bot clears it with all six runners.
 
 ## 47 · Silk Canyon
 

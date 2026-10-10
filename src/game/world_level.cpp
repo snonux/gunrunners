@@ -420,6 +420,8 @@ void World::setupEntities()
       continue;
     if (setupStarfallEntity(e))
       continue;
+    if (setupCrystalEntity(e))
+      continue;
     if (setupBoulderEntity(e))
       continue;
     if (setupSanctumEntity(e))

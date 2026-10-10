@@ -1,0 +1,25 @@
+cutscene brief_46
+music theme_crystal_drift
+
+# Clip brief46_islands: 4 layers. Backdrop: Vurr's pale violet upper sky,
+# far islands in the haze, the cloud sea below, panning slowly. Mid: two
+# floating crystal islands with a wide gap between them, bobbing. Characters:
+# the three runners on the left island; a Swap Crystal hovering on the right
+# one, its ring turning. Foreground: MAX's hologram over the gap. 16 frames.
+shot brief46_islands delay=110 repeat=4
+  cue 0 fade=in:600
+  cue 0 sound=holo_on
+  cue 12 say=NOVA "That gap's too wide. Even for me."
+  cue 26 say=MAX "See the crystal on the far side? Shoot it."
+  cue 40 say=MAX "You trade places with it. Don't ask me how."
+  cue 63 hold=1500
+
+# Clip brief46_swap: 3 layers. Backdrop and islands as before. Characters:
+# Dash fires across the gap (frames 0-3), both islands flash (4-5), then
+# Dash stands on the far island and the crystal hovers where Dash stood.
+# 16 frames.
+shot brief46_swap delay=90 repeat=2
+  cue 4 sound=crystal_chime
+  cue 10 say=DASH "Whoa. I'm over here now."
+  cue 22 say=ROCCO "And how do we get over there?"
+  cue 29 fade=out:600

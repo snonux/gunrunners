@@ -138,6 +138,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSpaceBack(r, camX, camY, frame, alpha);
   drawHiveBack(r, camX, camY, frame, alpha);
   drawStarfallBack(r, camX, camY, frame, alpha);
+  drawCrystalBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawSanctumBack(r, camX, camY, frame, alpha);
   if (mGolden)
@@ -355,6 +356,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach; // gliding, fins lit, diving
         else if (e.kind == EnemyKind::RockLeech)
           variant = e.tell > 0 ? 1 : 0; // swelling
+        else if (e.kind == EnemyKind::Blinker)
+          variant = e.attach; // pacing, fading out, there and lunging
+        else if (e.kind == EnemyKind::ShardGolem)
+          variant = e.cool > 0 ? 1 : 0; // turning round
+        else if (e.kind == EnemyKind::PrismBat)
+          variant = 0;
         else if (e.kind == EnemyKind::SpearRunner)
           variant = e.attach == 2 ? 1 : 0; // the spear up
         else if (e.kind == EnemyKind::PitSnake)

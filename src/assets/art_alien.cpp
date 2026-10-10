@@ -307,6 +307,8 @@ Texture bakeAlienSolid(const Renderer& r, const Theme& t, int variant)
 {
   if (isStarfall(t))
     return bakeStarfallSolid(r, t, variant);
+  if (isCrystal(t))
+    return bakeCrystalSolid(r, t, variant);
   if (isHive(t))
     return bakeHiveSolid(r, t, variant);
   VectorImage img(64, 64);
@@ -371,6 +373,8 @@ Texture bakeAlienSolidTop(const Renderer& r, const Theme& t, float topOffset, in
 {
   if (isStarfall(t))
     return bakeStarfallSolidTop(r, t, topOffset, height);
+  if (isCrystal(t))
+    return bakeCrystalSolidTop(r, t, topOffset, height);
   if (isHive(t))
     return bakeHiveSolidTop(r, t, topOffset, height);
   VectorImage img(64, height);
@@ -415,6 +419,8 @@ Texture bakeAlienPlatform(const Renderer& r, const Theme& t)
 {
   if (isStarfall(t))
     return bakeStarfallPlatform(r, t);
+  if (isCrystal(t))
+    return bakeCrystalPlatform(r, t);
   if (isHive(t))
     return bakeHivePlatform(r, t);
   VectorImage img(64, 40);
@@ -445,6 +451,8 @@ Texture bakeAlienSky(const Renderer& r, const Theme& t)
 {
   if (isStarfall(t))
     return bakeStarfallSky(r, t);
+  if (isCrystal(t))
+    return bakeCrystalSky(r, t);
   if (isHive(t))
     return bakeHiveSky(r, t);
   VectorImage img(kScreenW, kScreenH);
@@ -518,6 +526,8 @@ Texture bakeAlienFar(const Renderer& r, const Theme& t, int layerW)
 {
   if (isStarfall(t))
     return bakeStarfallFar(r, t, layerW);
+  if (isCrystal(t))
+    return bakeCrystalFar(r, t, layerW);
   if (isHive(t))
     return bakeHiveFar(r, t, layerW);
   VectorImage img(layerW, kScreenH);
@@ -544,6 +554,8 @@ Texture bakeAlienNear(const Renderer& r, const Theme& t, int layerW)
 {
   if (isStarfall(t))
     return bakeStarfallNear(r, t, layerW);
+  if (isCrystal(t))
+    return bakeCrystalNear(r, t, layerW);
   if (isHive(t))
     return bakeHiveNear(r, t, layerW);
   VectorImage img(layerW, kScreenH);

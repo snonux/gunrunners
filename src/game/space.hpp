@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/collision.hpp"
+
 #include <array>
 #include <cstdint>
 #include <string>
@@ -86,6 +88,27 @@ struct SpaceProp
   int x = 0, y = 0, w = 1, h = 1; // blocks
 };
 
+// Level 46: a Swap Crystal. Shoot it and you and it trade places in a
+// flash. Some drift along a path until they are first swapped.
+struct SwapCrystal
+{
+  std::string id;
+  int x = 0, y = 0;                       // cells, top-left (2 x 3 cells)
+  std::vector<std::pair<int, int>> path;  // cells, top-left: where it drifts, back and forth
+  int speed = 4;                          // frames per cell along the path
+  int leg = 0, step = 0, dir = 1;         // where it is along the path
+  bool drifting = false;
+  bool cracked = false; // the Virus's: swap with it and you catch it
+  bool hidden = false;  // only seen in a pool's reflection (until it is swapped)
+  bool gone = false;    // a cracked one shatters once swapped
+  int cool = 0;         // frames before it rings again
+  int flash = 0;
+  static constexpr int kW = 2, kH = 3;
+  CellBox box() const { return {x, y, kW, kH}; }
+  // What a shot has to touch: a cell wider either side (its glow).
+  CellBox hitBox() const { return {x - 1, y, kW + 2, kH}; }
+};
+
 struct SpaceState
 {
   // Level 44: blocks coated in goo (`@ goo rect=`), per block.
@@ -109,6 +132,14 @@ struct SpaceState
   std::vector<DriftRock> rocks, rocksAtStart;
   std::vector<SpaceProp> props;
   int cloudX = -1;
+  // Level 46: the Swap Crystals (and where they started, for a respawn),
+  // the reflecting pools (cells: x0, x1, surface row).
+  bool crystals = false;
+  std::vector<SwapCrystal> swaps, swapsAtStart;
+  std::vector<std::array<int, 3>> pools;
+  // Shots a Prism Bat split last frame: x, y (cells), direction, damage,
+  // shot kind, the bat's id (the three pieces fly on past it).
+  std::vector<std::array<int, 6>> prisms;
 };
 
 } // namespace gr
