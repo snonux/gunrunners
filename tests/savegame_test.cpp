@@ -18,6 +18,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 using namespace gr;
 
@@ -56,7 +57,9 @@ int main(int argc, char** argv)
 {
   const std::string levelPath = argc > 1 ? argv[1] : "levels/level1.txt";
   const int playFrames = argc > 2 ? std::atoi(argv[2]) : 200;
-  const std::string dir = (std::filesystem::temp_directory_path() / "gunrunners_savegame_test").string();
+  // One directory per run: ctest -j runs the savegame tests side by side.
+  const std::string dir = (std::filesystem::temp_directory_path() /
+    ("gunrunners_savegame_test_" + std::to_string(::getpid()))).string();
   std::filesystem::remove_all(dir);
 
   SDL_Init(0);
