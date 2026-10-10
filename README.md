@@ -90,7 +90,8 @@ Jump left of it, Switch runner above and, at the top, Pause and the Map. You don
 a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
-quick swipe down switches runner. In menus you get a d-pad with OK and
+quick swipe down switches runner. Push the stick up beside a vehicle to climb
+in, and down + Jump to climb out. In menus you get a d-pad with OK and
 BACK. CONTROLS on the title screen and in the pause menu sets the size
 (TOUCH PAD: small, medium or large) and has EDIT TOUCH LAYOUT, where you
 drag the stick and each button to where your thumbs want them. The back
@@ -111,6 +112,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
+| E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too; down + jump gets out) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
 | F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |

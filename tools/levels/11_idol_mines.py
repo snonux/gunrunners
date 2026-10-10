@@ -91,6 +91,7 @@ gem((12, 12), (16, 12), (20, 12), (24, 12), (4, 10))
 # --- 2. The first ride (x35-110) ----------------------------------------------------------
 room(35, 110, 4, 23)
 L.ground(35, 44, 14)           # the dock
+L.at("vehicle", 38, 13, kind="tank")  # optional (vehicles/README)
 
 
 def slope_row(x):

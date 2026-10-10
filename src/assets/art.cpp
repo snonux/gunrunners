@@ -2595,6 +2595,141 @@ Texture bakeSewerNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// --- Deep Dive's sunken reef (theme look "reef") --------------------------------
+
+bool isReef(const Theme& t) { return std::string_view(t.look) == "reef"; }
+
+// Open water: bright under the surface, fading into the deep, with the
+// sun's rays coming down and marine snow drifting in them.
+Texture bakeReefSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyBottom}, {0.35, t.skyMid}, {1.0, t.skyTop}});
+  Rng rng(4242u);
+  for (int i = 0; i < 6; ++i)
+  {
+    const double x = rng.range(-100, kScreenW), w = rng.range(40, 120), lean = rng.range(120, 260);
+    cairo_move_to(cr, x, 0);
+    cairo_line_to(cr, x + w, 0);
+    cairo_line_to(cr, x + w + lean, kScreenH);
+    cairo_line_to(cr, x + lean - w, kScreenH);
+    cairo_close_path(cr);
+    cairo_pattern_t* p = cairo_pattern_create_linear(0, 0, 0, kScreenH);
+    cairo_pattern_add_color_stop_rgba(p, 0, 0.85, 1.0, 1.0, 0.16);
+    cairo_pattern_add_color_stop_rgba(p, 0.7, 0.85, 1.0, 1.0, 0.02);
+    cairo_pattern_add_color_stop_rgba(p, 1, 0.85, 1.0, 1.0, 0.0);
+    cairo_set_source(cr, p);
+    cairo_fill(cr);
+    cairo_pattern_destroy(p);
+  }
+  for (int i = 0; i < 220; ++i)
+  {
+    cairo_arc(cr, rng.uniform() * kScreenW, rng.uniform() * kScreenH, 0.8 + rng.uniform() * 1.6, 0, 2 * kPi);
+    setColor(cr, rgba(220, 245, 255, 40 + rng.irange(0, 90)));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, kScreenW * 0.3, 0, 600, rgb(200, 255, 250), 0.18);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: rock arches and towers in the blue, a wreck on the sea bed.
+Texture bakeReefFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(5151u);
+  const Color far = lerpColor(t.farLayer, t.skyMid, 0.35f);
+  for (double x = 0; x < kLayerW; x += rng.range(140, 260))
+  {
+    const double w = rng.range(90, 200), top = rng.range(280, 520);
+    cairo_move_to(cr, x - w * 0.6, kScreenH);
+    cairo_curve_to(cr, x - w * 0.5, top + 80, x - w * 0.3, top, x, top);
+    cairo_curve_to(cr, x + w * 0.3, top, x + w * 0.5, top + 80, x + w * 0.6, kScreenH);
+    cairo_close_path(cr);
+    setColor(cr, far);
+    cairo_fill(cr);
+  }
+  // A sunken freighter's hull.
+  const double wx = 900, wy = 560;
+  cairo_move_to(cr, wx, wy);
+  cairo_line_to(cr, wx + 520, wy - 60);
+  cairo_line_to(cr, wx + 560, wy + 40);
+  cairo_line_to(cr, wx + 60, wy + 120);
+  cairo_close_path(cr);
+  setColor(cr, lerpColor(far, rgb(10, 20, 30), 0.35f));
+  cairo_fill(cr);
+  for (int k = 0; k < 6; ++k)
+  {
+    cairo_arc(cr, wx + 90 + k * 70, wy + 20 - k * 8, 9, 0, 2 * kPi);
+    setColor(cr, withAlpha(t.accentA, 60));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: kelp swaying up from the bottom, coral fans and brain coral.
+Texture bakeReefNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(6161u);
+  for (double x = 10; x < kLayerW; x += rng.range(50, 130))
+  {
+    const double h = rng.range(220, 520), sway = rng.range(-50, 50);
+    cairo_move_to(cr, x, kScreenH);
+    cairo_curve_to(cr, x + sway, kScreenH - h * 0.4, x - sway, kScreenH - h * 0.7, x + sway * 0.5, kScreenH - h);
+    cairo_set_line_width(cr, rng.range(6, 12));
+    setColor(cr, withAlpha(lerpColor(t.nearLayer, rgb(40, 120, 70), 0.6f), 230));
+    cairo_stroke(cr);
+    for (int l = 0; l < 6; ++l)
+    {
+      const double ly = kScreenH - h * (0.2 + l * 0.13), lx = x + sway * 0.3 * std::sin(l);
+      cairo_save(cr);
+      cairo_translate(cr, lx, ly);
+      cairo_rotate(cr, (l % 2 ? 0.6 : -0.6));
+      cairo_scale(cr, 24, 7);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      setColor(cr, withAlpha(rgb(60, 150, 90), 200));
+      cairo_fill(cr);
+    }
+  }
+  const Color corals[] = {rgb(255, 120, 130), rgb(255, 180, 90), rgb(200, 120, 255), rgb(120, 230, 210)};
+  for (double x = 0; x < kLayerW; x += rng.range(70, 170))
+  {
+    const Color c = corals[rng.irange(0, 3)];
+    if (rng.uniform() < 0.5)
+    {
+      // A fan.
+      for (int b = 0; b < 7; ++b)
+      {
+        const double a = -kPi * 0.5 + (b - 3) * 0.22;
+        strokeLimb(cr, {{x, double(kScreenH)}, {x + std::cos(a) * 90, kScreenH + std::sin(a) * 110}}, 5, withAlpha(c, 220),
+          withAlpha(c, 220), 0.0);
+      }
+    }
+    else
+    {
+      cairo_save(cr);
+      cairo_translate(cr, x, kScreenH - 20);
+      cairo_scale(cr, 50, 34);
+      cairo_arc(cr, 0, 0, 1, kPi, 2 * kPi);
+      cairo_restore(cr);
+      setColor(cr, withAlpha(c, 230));
+      cairo_fill(cr);
+      for (int g = 0; g < 4; ++g)
+      {
+        cairo_arc(cr, x, kScreenH - 20, 12 + g * 9, kPi * 1.1, kPi * 1.9);
+        cairo_set_line_width(cr, 2.5);
+        setColor(cr, withAlpha(lerpColor(c, rgb(0, 0, 0), 0.3f), 200));
+        cairo_stroke(cr);
+      }
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 bool isMaglev(const Theme& t) { return std::string_view(t.look) == "maglev"; }
 
 // Night over Neon City in the rain: a low cloud deck lit from below, the
@@ -3383,6 +3518,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeMaglevSky(r, t);
   if (isSewer(t))
     return bakeSewerSky(r, t);
+  if (isReef(t))
+    return bakeReefSky(r, t);
   VectorImage img(kScreenW, kScreenH);
   cairo_t* cr = img.cr();
   verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.58, t.skyMid}, {1.0, t.skyBottom}});
@@ -3530,6 +3667,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeClubFar(r, t);
   if (isSewer(t))
     return bakeSewerFar(r, t);
+  if (isReef(t))
+    return bakeReefFar(r, t);
   if (isMaglev(t))
     return bakeMaglevFar(r, t);
   if (isCrane(t))
@@ -3656,6 +3795,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeClubNear(r, t);
   if (isSewer(t))
     return bakeSewerNear(r, t);
+  if (isReef(t))
+    return bakeReefNear(r, t);
   if (isMaglev(t))
     return bakeMaglevNear(r, t);
   if (isCrane(t))

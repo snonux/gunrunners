@@ -63,6 +63,7 @@ L.row(24, 27, 31, "=")                       # branch over the far bank
 L.col(40, 22, 33, "H")                       # trunk ladder up to M1
 L.on(3, 38, "P")
 L.on(10, 38, "h")
+L.at("vehicle", 6, 37, kind="mech")          # optional: a walker for the forest floor (vehicles/README)
 L.at("deco", 4, 33, kind="text", text="PUSH WITH THE SWING, JUMP AT THE TOP", w=8, h=1)
 vine("V1", 18, 27, 8, 30)
 L.on(25, 31, "W")

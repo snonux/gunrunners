@@ -123,6 +123,26 @@ std::string bonusFile(const std::string& dataDir, int number)
   return exists(path) ? path : std::string();
 }
 
+namespace
+{
+
+const ExtraLevel kExtras[kExtraLevels] = {
+  {"motor_pool", "MOTOR POOL"},
+  {"deep_dive", "DEEP DIVE"},
+};
+
+} // namespace
+
+const ExtraLevel& extraLevel(int index) { return kExtras[std::clamp(index, 0, kExtraLevels - 1)]; }
+
+std::string extraFile(const std::string& dataDir, int index)
+{
+  if (index < 0 || index >= kExtraLevels)
+    return {};
+  const std::string path = dataDir + "/levels/extra_" + kExtras[index].slug + ".txt";
+  return exists(path) ? path : std::string();
+}
+
 std::string cutsceneFile(const std::string& dataDir, const std::string& name)
 {
   const std::string path = dataDir + "/cutscenes/" + name + ".txt";

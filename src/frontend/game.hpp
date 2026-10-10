@@ -124,10 +124,13 @@ private:
     Levels,
     BonusChannel,
     Reruns,
+    Extras,
   };
 
   void setMode(Mode m);
   void startLevel();
+  // Settings every new world takes from the frontend (vehicle prompts, up boards).
+  void prepareWorld(World& world) const;
   void tickPlay(const Input& raw);
   void tickBonus(const Input& in);
   // select.cpp: runner select and the runner editor.

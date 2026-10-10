@@ -83,6 +83,12 @@ enum class Sfx
   Screech,   // a Drone Warden calling its mites
   Crash,     // a boulder landing, a chute's flaps slamming
   Hiss,      // a Pit Snake about to rear
+  EngineOn,  // climbing into a vehicle
+  EngineOff, // climbing out
+  Cannon,    // the tank's gun
+  Torpedo,   // a submarine's torpedo
+  Stomp,     // a mech landing hard
+  Crunch,    // something crushed under a tank
   Count,
 };
 
