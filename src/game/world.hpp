@@ -388,6 +388,7 @@ enum class PlatformMode
 struct Platform
 {
   std::string id;
+  bool frozen = false; // Golden Touch (level 14's bonus): turned gold where it was
   PlatformMode mode = PlatformMode::Path;
   int x = 0, y = 0, w = 6, h = 2; // cells, top-left; y is the top surface
   int prevX = 0, prevY = 0;
@@ -1143,6 +1144,131 @@ struct Surf
   std::vector<int> restarts; // cells: where a fall puts the boulder back (else every screen)
 };
 
+// Level 14, The Idol Awakens (SPEC 14, world_sanctum.cpp).
+// An altar (`@ altar`, 2 x 1 blocks, solid): hold up beside an offering
+// altar to give gems back; the false one drops its trapdoor into the
+// treasury, or with no gems held, wakes the bonus entrance.
+struct Altar
+{
+  std::string id;
+  int bx = 0, by = 0; // blocks: its left block
+  bool offer = true;
+  int tx0 = 0, ty0 = 0, tx1 = -1, ty1 = 0; // blocks: the false altar's trapdoor
+  bool open = false;  // the trapdoor dropped (or the bonus woke)
+  bool dropped = false; // the false altar went down with its trapdoor
+  int stand = 0;      // frames stood on it
+  int flare = 0;      // the incense flaring after an offering
+  int offered = 0;
+};
+
+// A coin heap (`@ coinheap`): Coin Beetles crawl out as the runner passes.
+struct CoinHeap
+{
+  int x = 0, y = 0; // cells: bottom-left
+  int waves = 2, count = 2;
+  int cool = 0;
+};
+
+// A Glyph Sentinel's row of glyphs, carved in the wall (non-solid).
+struct GlyphRow
+{
+  int enemy = -1;      // the master glyph (an enemy index)
+  int x0 = 0, x1 = 0;  // blocks
+  int row = 0;
+  int heads = 1;       // segments that fire in turn
+  int t = 0;           // frames into the cycle (0: waiting)
+  int cool = 0;
+};
+
+enum class GolemPhase
+{
+  Seated,  // the idol, until the runner is in the arena
+  Rise,    // 60 frames of standing up
+  Stomp,   // phase 1
+  Break,   // 30 frames of falling apart into three heads
+  Heads,   // phase 2
+  Rebuild, // 30 frames of building itself again out of the walls
+  Sweep,   // phase 3
+  Crumble, // 60 frames into a pile of gold
+  Done,
+};
+
+// Kaan-Tolok, the Idol Golem (`@ golem`).
+struct Golem
+{
+  bool on = false;
+  GolemPhase phase = GolemPhase::Seated;
+  CellBox arena{0, 0, 0, 0};          // cells: the inner arena
+  int doorX0 = 0, doorY0 = 0, doorX1 = 0, doorY1 = 0; // blocks
+  int floor = 0;                      // cells: the row under the runner's feet
+  float x = 0.0f;                     // cells: the body's left
+  float prevX = 0.0f;
+  int t = 0;                          // frames into the phase
+  int cycle = 0;                      // frames into the attack cycle
+  int hp = 32;                        // the current phase's
+  int plates = 0, plateHp = 0;        // armor over the chest gem
+  int open = 0;                       // frames the chest gem stays open
+  int sweeps = 0;
+  int tell = 0;                       // frames of the current telegraph left
+  int sweep = 0;                      // frames of a sweep left; sweepHigh
+  int sweepDir = 1;                   // the side it sweeps
+  bool sweepHigh = false;
+  int flash = 0;
+  int wallL = 0, wallR = 0;           // blocks: the walls (phase 3 slides them in)
+  int wallL0 = 0, wallR0 = 0;         // blocks: where they start
+  int slide = 0;                      // frames of a wall slide (dust, then moving)
+  int slid = 0;                       // slides so far
+  bool wink = false;
+  bool lid = false;                   // the gold lid over the left eye is open
+  bool away = false;                  // the runner respawned outside: it waits for them
+  int stomps = 0;
+  int camera = -1;                    // the candid camera in its eye (an enemy index)
+  int exitX = 0, exitY = 0;           // blocks
+  static constexpr int kW = 16, kH = 20;
+  struct Head
+  {
+    float x = 0.0f, y = 0.0f, vx = 1.0f, vy = 0.0f; // cells: x its left, y its bottom row
+    float prevX = 0.0f, prevY = 0.0f;
+    int hp = 8;
+    int bounce = 10; // cells high
+    bool down = true; // on the floor this frame (a landing)
+    int stop = 0;    // rumbling before a charge
+    bool charge = false;
+    bool alive = true;
+    int flash = 0;
+  };
+  std::array<Head, 3> heads;
+  int charger = 0;
+  struct Wave
+  {
+    float x = 0.0f;
+    int dir = 1;
+  };
+  std::vector<Wave> waves;
+  struct Rock
+  {
+    int x = 0;  // cells: its left column
+    int t = 0;  // frames until it lands
+    float y = 0.0f;
+  };
+  std::vector<Rock> rocks;
+  CellBox body() const { return {int(x), floor + 1 - kH, kW, kH}; }
+  // The gem is set low in the chest, where a jump shot reaches it.
+  CellBox chest() const { return {int(x) + 6, floor - 10, 4, 4}; }
+};
+
+// Golden Touch (level 14's bonus, world_golden.cpp): a gold door (or the
+// exit gate) one block wide. A door opens as the runner comes near; touched
+// or shot first, it is gold and never opens. The gate opens once enough of
+// the marked blocks are gold, unless the runner touched it first.
+struct GoldDoor
+{
+  int bx = 0, by0 = 0, by1 = 0; // blocks
+  bool gate = false;
+  int open = 0;      // frames into opening (kDoorFrames: open)
+  bool gold = false; // touched or shot shut
+};
+
 // A chute in the floor (`@ chute`): its flaps open for its boulder and
 // shut 15 frames after it has gone.
 struct Chute
@@ -1486,6 +1612,21 @@ public:
   bool floorLava() const { return mFloorLava; }
   int headBounces() const { return mHeadBounces; }
   bool surfing() const { return mSurfing; }
+  // Level 14: Gold Fever and the golem.
+  bool greedOn() const { return mGreedOn; }
+  int greed() const { return mGreed; }
+  const std::vector<Altar>& altars() const { return mAltars; }
+  const Golem& golem() const { return mGolem; }
+  bool besideAltar(int index) const; // the runner can hold up at it
+  // Level 14's bonus, Golden Touch.
+  bool golden() const { return mGolden; }
+  int goldAt(int bx, int by) const; // 0 unmarked, 1 marked, 2 gilded, 3 a statue
+  int goldMarked() const { return mGoldMarked; }
+  int goldDone() const { return mGoldDone; }
+  bool goldReached() const { return mGoldDone * 100 >= mGoldMarked * mGoldGoal; }
+  const std::vector<GoldDoor>& goldDoors() const { return mGoldDoors; }
+  bool golemFight() const;
+  int golemHp() const;
   const Surf& surf() const { return mSurf; }
   // Level 13: the boulders and the alcoves.
   const std::vector<Boulder>& boulders() const { return mBoulders; }
@@ -1805,7 +1946,38 @@ private:
   void updateWisp(Enemy& e, const EnemyDef& def);
   void updateCrab(Enemy& e, const EnemyDef& def);
   void updateFloorLava(const PlayerInput& input);
+  bool setupSanctumEntity(const EntityDef& e);
+  void setupSanctumEnemy(Enemy& en, const EntityDef& e);
+  void linkSanctum();
+  void updateSanctum(const PlayerInput& input);
+  void updateGolem();
+  void golemPhase(GolemPhase phase);
+  void hurtGolem(int damage, bool full);
+  bool shotAtGolem(Projectile& pr, const CellBox& b);
+  bool shotAtGlyph(Projectile& pr, const CellBox& b);
+  void updateDrummer(Enemy& e, const EnemyDef& def);
+  void updateCoinBeetle(Enemy& e, const EnemyDef& def);
+  void updateSentinel(Enemy& e, const EnemyDef& def);
+  void offerGem(Altar& a);
+  void gainGreed();
+  void setWall(int bx, bool solid);
+  void drawSanctumBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSanctumFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSanctumHud(Renderer& r, int frame) const;
+  void resetSanctum();
+  bool drummed(const Enemy& e) const;
+  void dropGems(int x, int y, int n);
   void setupSurf();
+  bool setupGoldenEntity(const EntityDef& e);
+  void linkGolden();
+  void updateGolden();
+  void gild(int bx, int by);
+  void gildBox(const CellBox& b);
+  bool shotAtGolden(Projectile& pr, const CellBox& b);
+  void gildEnemy(Enemy& e);
+  void setGoldDoor(GoldDoor& d, bool solid);
+  void drawGolden(Renderer& r, float camX, float camY, int frame) const;
+  void drawGoldenHud(Renderer& r, int frame) const;
   void updateSurf(const PlayerInput& input);
   void placeSurf(float x);
   void moveSurfBoulder();
@@ -2047,6 +2219,26 @@ private:
   // frames the runner has stood still; the WRONG WAY sign.
   std::vector<Boulder> mBoulders;
   bool mSurfing = false; // bonus rule: ride the boulder
+  // Golden Touch: per block 0 unmarked, 1 marked, 2 gilded, 3 a statue.
+  bool mGolden = false;
+  int mGoldGoal = 80; // percent of the marked blocks that opens the gate
+  std::vector<std::uint8_t> mGold;
+  int mGoldMarked = 0, mGoldDone = 0;
+  std::vector<GoldDoor> mGoldDoors;
+  bool mGateTold = false;
+  // Level 14: Gold Fever (the greed meter and the altars), the coin heaps,
+  // the glyph rows, the drummers' beat and Kaan-Tolok.
+  bool mGreedOn = false;
+  int mGreed = 0;
+  int mOffered = 0;
+  std::vector<Altar> mAltars;
+  std::vector<CoinHeap> mCoinHeaps;
+  std::vector<GlyphRow> mGlyphRows;
+  std::vector<std::string> mSentinelIds;
+  Golem mGolem;
+  bool mBowFull = false; // the Jade Bow shot being fired is a full draw
+  int mRefillX = -1, mRefillY = 0; // cells: the jade basin (`@ refill`), bottom-left
+  bool mRefillUsed = false;        // this life
   Surf mSurf;
   std::vector<Chute> mChutes;
   std::vector<Alcove> mAlcoves;

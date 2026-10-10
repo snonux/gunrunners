@@ -85,6 +85,10 @@ const EnemyDef kEnemies[] = {
   {"spearrunner", "SPEAR RUNNER", K::SpearRunner, L::Styled, 3, 5, 2, 400, 4, 0, 10, 12, 0, 0},
   {"pitsnake", "PIT SNAKE", K::PitSnake, L::Styled, 2, 2, 2, 300, 0, 45, 12, 6, 0, 0},
   {"cultist", "CULTIST", K::Walker, L::Styled, 3, 5, 1, 100, 3, 0, 0, 0, kEnemyHarmless, 0},
+  {"drummer", "WAR DRUMMER", K::Drummer, L::Styled, 4, 5, 5, 700, 0, 0, 0, 0, 0, 0},
+  {"coinbeetle", "COIN BEETLE", K::CoinBeetle, L::Styled, 2, 2, 1, 200, 1, 30, 8, 0, kEnemyNoTally, 0},
+  {"templecat", "TEMPLE CAT", K::Walker, L::Styled, 4, 4, 1, 100, 2, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  {"sentinel", "GLYPH SENTINEL", K::Sentinel, L::Styled, 4, 4, 6, 600, 0, 45, 24, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
 };
 

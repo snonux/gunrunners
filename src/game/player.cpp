@@ -471,6 +471,8 @@ int World::horizontalSteps() const
     return 2;
   if (p.virus > 0 || (!mFluids.empty() && wading()) || (!mWater.empty() && inWater()))
     return p.oddFrame ? 0 : 1; // infected, or wading through sludge or a stream
+  if (p.weapon == Weapon::Proto && ProtoId(p.proto) == ProtoId::JadeBow && p.charge > 0)
+    return p.oddFrame ? 0 : 1; // drawing the Jade Bow
   return 1;
 }
 
@@ -901,6 +903,8 @@ void World::respawnPlayer()
     resetMine();
   if (!mBoulders.empty())
     resetBoulders();
+  if (mGreedOn || mGolem.on || mRefillX >= 0)
+    resetSanctum();
   showMessage("BACK IN ACTION");
 }
 

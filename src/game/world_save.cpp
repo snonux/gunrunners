@@ -8,7 +8,8 @@ namespace gr
 bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
-    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball && !mSurfing;
+    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball && !mSurfing &&
+    (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done);
 }
 
 SaveGame World::snapshot() const
@@ -235,6 +236,15 @@ SaveGame World::snapshot() const
       s.mine.push_back(rb[3]);
     s.mine.push_back(mDays);
   }
+  if (mGreedOn || mGolem.on || !mCoinHeaps.empty())
+  {
+    s.sanctum = {mGreed, mOffered, mRefillUsed, mGolem.on && mGolem.phase == GolemPhase::Done};
+    for (const auto& a : mAltars)
+      for (int v : {int(a.open), int(a.dropped), a.offered})
+        s.sanctum.push_back(v);
+    for (const auto& h : mCoinHeaps)
+      s.sanctum.push_back(h.waves);
+  }
   if (!mBoulders.empty() || !mCracks.empty())
   {
     // A boulder after the runner comes back up its hole (as on a respawn);
@@ -293,6 +303,7 @@ bool World::restore(const SaveGame& s)
       (!s.light.empty() && s.light.size() != mMirrors.size() + mSunDoors.size()) ||
       (!s.mine.empty() && s.mine.size() != mLevers.size() + mTrapdoors.size() + mRubble.size() + 1) ||
       (!s.boulder.empty() && s.boulder.size() != mBoulders.size() * 3 + mCracks.size() + 1) ||
+      (!s.sanctum.empty() && s.sanctum.size() != 4 + mAltars.size() * 3 + mCoinHeaps.size()) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -397,6 +408,8 @@ bool World::restore(const SaveGame& s)
       e.attach = 0;
     if (e.kind == EnemyKind::SpearRunner)
       e.attach = se.attach; // asleep, fleeing, or past its throw
+    if (e.kind == EnemyKind::CoinBeetle || e.kind == EnemyKind::Sentinel)
+      e.attach = se.attach; // crawling, rattling or hopping; its glyph row
     e.stun = 0;
     e.drawSnap = true;
   }
@@ -675,6 +688,49 @@ bool World::restore(const SaveGame& s)
   {
     c.shut = 0;
     setChute(c, false);
+  }
+  if (!s.sanctum.empty())
+  {
+    std::size_t at = 0;
+    mGreed = s.sanctum[at++];
+    mOffered = s.sanctum[at++];
+    mRefillUsed = s.sanctum[at++] != 0;
+    const bool down = s.sanctum[at++] != 0;
+    for (auto& a : mAltars)
+    {
+      a.open = s.sanctum[at++] != 0;
+      const bool dropped = s.sanctum[at++] != 0;
+      a.offered = s.sanctum[at++];
+      a.stand = a.flare = 0;
+      if (dropped && !a.dropped)
+      {
+        a.dropped = true;
+        for (int ty = a.ty0; ty <= a.ty1 && a.tx1 >= a.tx0; ++ty)
+          for (int tx = a.tx0; tx <= a.tx1; ++tx)
+            mMap.setBlock(tx, ty, Tile::Empty);
+        mMap.setBlock(a.bx, a.by, Tile::Empty);
+        mMap.setBlock(a.bx + 1, a.by, Tile::Empty);
+      }
+      // An empty-handed offering woke the bonus entrance.
+      if (!a.offer && a.open && !a.dropped)
+        for (auto& pr : mProps)
+          if (pr.kind == PropKind::BonusDoor)
+            pr.dormant = false;
+    }
+    for (auto& h : mCoinHeaps)
+    {
+      h.waves = s.sanctum[at++];
+      h.cool = 0;
+    }
+    for (auto& g : mGlyphRows)
+      g.t = g.cool = 0;
+    if (down)
+    {
+      mGolem.phase = GolemPhase::Done;
+      mGolem.lid = true;
+      if (mGolem.camera >= 0)
+        mEnemies[std::size_t(mGolem.camera)].hidden = true;
+    }
   }
   mStill = 0;
   syncTotems();

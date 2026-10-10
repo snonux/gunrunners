@@ -9,6 +9,13 @@
 namespace gr
 {
 
+namespace
+{
+
+constexpr int kBowDraw = 12; // frames of a full draw of the Jade Bow
+
+} // namespace
+
 bool World::onTheBeat() const
 {
   // "On the beat": the first 3 frames of any beat.
@@ -118,6 +125,26 @@ void World::updateProtoShooting(const Button& fire)
     }
     p.charge = 0;
     mLanceOn = false;
+    return;
+  }
+  if (ProtoId(p.proto) == ProtoId::JadeBow)
+  {
+    // Hold to draw, release to loose: a full draw takes 12 frames (Turbo
+    // makes any shot one).
+    if (fire.pressed)
+    {
+      if (++p.charge == kBowDraw)
+        playSound(Sfx::Click);
+      return;
+    }
+    if (p.charge > 0 && (p.shotCooldown == 0 || p.turbo > 0))
+    {
+      mBowFull = p.charge >= kBowDraw || p.turbo > 0;
+      fireShot();
+      mBowFull = false;
+      p.shotCooldown = def.cooldown;
+    }
+    p.charge = 0;
     return;
   }
   p.charge = fire.pressed ? p.charge + 1 : 0;
@@ -251,6 +278,26 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       pr.x = dx < 0 ? ox - pr.w + 1 : ox;
       pr.footRow = dy == 0 ? p.y + 1 : -1;
       playSound(Sfx::Whoosh);
+      break;
+    case ProtoId::JadeBow:
+      // A quick shot, or a full draw: faster, 4 damage, through every enemy
+      // in its line; it breaks an armor plate and flies along a Glyph
+      // Sentinel's glyphs to their master (world_sanctum.cpp).
+      if (mBowFull)
+      {
+        pr.pierce = true;
+        pr.strong = true;
+        if (dx != 0)
+        {
+          pr.w = 3;
+          pr.x = dx < 0 ? ox - pr.w + 1 : ox;
+        }
+      }
+      else
+      {
+        pr.speed = 3;
+        damage = 1;
+      }
       break;
     case ProtoId::BubbleGun:
       // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).

@@ -1683,6 +1683,88 @@ void templeGo(ClipKit& k, int frame, int ticks, float ox, float oy)
   }
 }
 
+// Level 14: the gold chamber door with jade inlays, incense haze drifting
+// across it on a 16-frame loop. `open` (0..1) swings its two wings in.
+void goldDoor(ClipKit& k, int frame, float open, float ox, float oy)
+{
+  const Texture& bg = cached(k, "gold_door_hall", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(40, 24, 10), rgb(90, 60, 24), rgb(40, 26, 12));
+    for (int row = 0; row < 12; ++row)
+      for (int col = 0; col < 14; ++col)
+      {
+        const double x = double(col) * 100.0 - (row % 2 ? 50.0 : 0.0), y = double(row) * 60.0;
+        cairo_rectangle(cr, x + 2, y + 2, 96, 56);
+        setColor(cr, rgba(170 + int(hash2(row, col) % 30u), 120, 50, 50));
+        cairo_fill(cr);
+      }
+    cairo_rectangle(cr, 0, 560, 1280, 160);
+    setColor(cr, rgb(100, 70, 30));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 560, 1280, 10);
+    setColor(cr, rgb(230, 190, 110));
+    cairo_fill(cr);
+  });
+  k.r.draw(bg, ox, oy);
+  // The doorway and its light, then the wings.
+  const float dx = 440.0f + ox, dy = 120.0f + oy, dw = 400.0f, dh = 440.0f;
+  k.r.fillRect(dx - 30, dy - 30, dw + 60, dh + 30, rgb(120, 84, 30));
+  k.r.fillRect(dx, dy, dw, dh, rgb(255, 230, 150));
+  if (open > 0.0f)
+    for (int i = 0; i < 6; ++i)
+      k.r.fillRect(dx + dw * 0.5f - 60.0f * open * float(i + 1), dy, 120.0f * open * float(i + 1), dh + 160,
+        rgba(255, 220, 120, 26), Blend::Add);
+  const float wing = dw * 0.5f * (1.0f - open * 0.85f);
+  for (int side = 0; side < 2; ++side)
+  {
+    const float x = side ? dx + dw - wing : dx;
+    k.r.fillRect(x, dy, wing, dh, rgb(230, 180, 70));
+    k.r.fillRect(x + wing * 0.12f, dy + 40, wing * 0.76f, dh - 80, rgb(210, 160, 56));
+    // Jade inlay: a diamond and a band.
+    k.r.fillRect(x + wing * 0.3f, dy + dh * 0.45f, wing * 0.4f, 40, rgb(70, 200, 140));
+    k.r.fillRect(x + wing * 0.12f, dy + 60, wing * 0.76f, 12, rgb(90, 220, 160));
+    k.r.fillRect(x + wing * 0.12f, dy + dh - 72, wing * 0.76f, 12, rgb(90, 220, 160));
+  }
+  // Incense haze, a 16-frame loop.
+  for (int i = 0; i < 14; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 31) % 1280u) + float(frame % 16) * 12.0f, 1400.0f) - 60.0f;
+    const float y = 200.0f + float(hash2(i, 32) % 300u);
+    k.r.fillRect(x + ox, y + oy, 120, 26, rgba(240, 230, 210, 34));
+  }
+}
+
+void goldDoorScratch(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  goldDoor(k, frame, 0.0f, ox, oy);
+  // The plaster under the gold: a white streak from frame 10.
+  if (frame >= 6)
+  {
+    const float len = std::min(1.0f, float(frame - 6) / 4.0f) * 90.0f;
+    if (frame >= 10)
+      k.r.fillRect(560 + ox, 330 + oy, len, 14, rgb(245, 245, 240));
+    else
+      k.r.fillRect(560 + ox, 334 + oy, len, 6, rgb(255, 250, 220));
+  }
+  k.r.draw(runner(k, 0, 0, 2.6f), 300 + ox, 560 + oy);
+  k.r.draw(runner(k, 1, 0, 2.6f, true), 1000 + ox, 560 + oy);
+  // Nova at the door, a hand up to it; she frowns at what she finds.
+  k.r.draw(runner(k, 2, frame >= 6 && frame <= 10 ? 3 : 0, 2.6f), 560 + ox, 560 + oy);
+  if (frame >= 12)
+    k.r.drawText("...PLASTER?", 560 + ox, 220 + oy, {30.0f, rgb(255, 255, 255), rgb(30, 20, 10)}, Align::Center);
+  (void)ticks;
+}
+
+void goldDoorPull(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  goldDoor(k, frame, std::min(1.0f, float(frame) / 11.0f), ox, oy);
+  // Dash takes Nova's arm and pulls her in; Rocco follows.
+  const float t = float(std::min(frame, 11));
+  k.r.draw(runner(k, 0, 1, 2.6f), 520.0f + t * 12.0f + ox, 560 + oy);
+  k.r.draw(runner(k, 2, 1, 2.6f), 440.0f + t * 14.0f + ox, 560 + oy);
+  k.r.draw(runner(k, 1, frame >= 4 ? 1 : 0, 2.6f), 180.0f + std::max(0.0f, t - 4.0f) * 22.0f + ox, 560 + oy);
+  (void)ticks;
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1758,6 +1840,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return templeRumble(k, frame, ticks, ox, oy);
   if (clip == "brief13_go")
     return templeGo(k, frame, ticks, ox, oy);
+  if (clip == "brief14_door")
+    return goldDoorScratch(k, frame, ticks, ox, oy);
+  if (clip == "brief14_pull")
+    return goldDoorPull(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")
