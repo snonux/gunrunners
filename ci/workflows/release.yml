@@ -3,13 +3,17 @@
 # Release workflow for Gunrunners on Linux and Android; the APK is published
 # through snonux/fdroid. See android/README.md, "Releasing".
 #
-# A pushed vX.Y.Z tag attaches two downloads to the GitHub release of that
-# tag:
+# Run it from the Actions tab (or gh workflow run release.yml -f tag=vX.Y.Z)
+# on main: it creates the tag vX.Y.Z at main if it does not exist yet, which
+# must match the version in CMakeLists.txt. A pushed vX.Y.Z tag works too.
+# The GitHub release of that tag gets two downloads:
 # - gunrunners-vX.Y.Z-linux-x86_64.tar.gz, the Linux game
 #   (tools/linux-package.sh);
 # - gunrunners-vX.Y.Z.apk, the Android game (arm64-v8a, armeabi-v7a and
 #   x86_64 in one file), signed with the app's release key. snonux/fdroid
 #   serves it from there.
+# Dispatching an existing tag rebuilds it; linux_only rebuilds just the
+# tarball, so an APK F-Droid already serves stays as it is.
 #
 # Secrets: ANDROID_KEYSTORE (base64 of the keystore), ANDROID_KEY_ALIAS,
 # ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD; FDROID_DISPATCH_TOKEN is
@@ -19,12 +23,15 @@ name: Release
 on:
   push:
     tags: ['v*']
-  # Rebuild the APK of a tag that already exists, e.g. after fixing a secret.
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to build, e.g. v1.2.3
+        description: Tag to build or create, e.g. v1.2.3
         required: true
+      linux_only:
+        description: Only (re)build the Linux tarball
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -38,9 +45,33 @@ env:
   FDROID_DISPATCH_TOKEN: ${{ secrets.FDROID_DISPATCH_TOKEN }}
 
 jobs:
+  tag:
+    name: Tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Claude sessions cannot push tags, so a dispatch creates a missing one.
+      # Its own job, so both builds check out the tag after it exists.
+      - name: Create the tag if it does not exist yet
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG exists, rebuilding it"; exit 0
+          fi
+          version=$(gh api "repos/$GITHUB_REPOSITORY/contents/CMakeLists.txt?ref=$GITHUB_SHA" -H "Accept: application/vnd.github.raw" | sed -n "s/^project(Gunrunners VERSION \([0-9.]*\).*/\1/p")
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match version $version in CMakeLists.txt"; exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA" >/dev/null
+          echo "Created $TAG at $GITHUB_SHA"
+
   linux:
     name: Linux tarball
     # The oldest supported runner, so the binary runs on older glibc too.
+    needs: tag
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
@@ -79,6 +110,8 @@ jobs:
 
   apk:
     name: Signed APK
+    needs: tag
+    if: ${{ !inputs.linux_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -150,9 +183,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk "gunrunners-$TAG.apk"
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
-            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes || \
-            gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes
+          fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "gunrunners-$TAG.apk"
 
       - name: Refresh the F-Droid repo now
