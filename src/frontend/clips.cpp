@@ -1910,6 +1910,162 @@ void hiveGulp(ClipKit& k, int frame, int ticks, float ox, float oy)
     k.r.draw(runner(k, 0, 0, 2.4f), 1100 + ox, 610 + oy);
 }
 
+// Level 46: two floating islands of crystal over the cloud sea, a gap too
+// wide to jump between them.
+void crystalIslands(ClipKit& k, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.6f + ox, oy, 0.0f);
+  const Texture& isle = cached(k, "crystal_isle", 520, 300, 260, 0, [](cairo_t* cr) {
+    cairo_move_to(cr, 0, 0);
+    cairo_line_to(cr, 520, 0);
+    cairo_line_to(cr, 430, 120);
+    cairo_line_to(cr, 330, 220);
+    cairo_line_to(cr, 260, 300);
+    cairo_line_to(cr, 180, 210);
+    cairo_line_to(cr, 70, 110);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 0, 300, rgb(150, 120, 210), rgb(70, 46, 120), rgb(30, 16, 56), 4);
+    cairo_rectangle(cr, 0, 0, 520, 14);
+    setColor(cr, rgb(220, 205, 255));
+    cairo_fill(cr);
+    for (int i = 0; i < 6; ++i)
+    {
+      const double x = 40.0 + double(i) * 85.0, y = 40.0 + double(hash2(i, 46) % 90u);
+      cairo_move_to(cr, x, y);
+      cairo_line_to(cr, x + 18, y + 40);
+      cairo_line_to(cr, x - 6, y + 52);
+      cairo_close_path(cr);
+      setColor(cr, rgba(110, 240, 230, 150));
+      cairo_fill(cr);
+    }
+  });
+  const float bob = std::sin(float(ticks) * 0.05f) * 6.0f;
+  k.r.draw(isle, 230 + ox, 560 + oy + bob);
+  k.r.draw(isle, 1080 + ox, 560 + oy - bob);
+}
+
+void crystalBrief(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  crystalIslands(k, ticks, ox, oy);
+  const float bob = std::sin(float(ticks) * 0.05f) * 6.0f;
+  // The crystal on the far island, ringing now and then.
+  DrawOpts big;
+  big.scale = 1.8f;
+  drawGlow(k.r, k.art, 1100 + ox, 470 + oy - bob, 140, rgb(200, 150, 255), 0.5f + 0.2f * float(frame % 2));
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "swap_crystal", 0, (ticks / 12) % 2, 2, 3).get(1), 1100 + ox,
+    560 + oy - bob + std::sin(float(ticks) * 0.11f) * 6.0f, big);
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, who == 1 ? 3 : 0, 2.2f), 110.0f + float(who) * 120.0f + ox, 560 + oy + bob);
+  drawMax(k, 640 + ox, 250 + oy, 0.4f, ticks, (ticks / 5) % 9 == 0 ? 0.3f : 0.0f);
+}
+
+// The swap: Dash shoots the crystal across the gap (frames 0-3), a flash
+// (4-5), and Dash is on the far island with the crystal where Dash stood.
+void crystalSwap(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  crystalIslands(k, ticks, ox, oy);
+  const float bob = std::sin(float(ticks) * 0.05f) * 6.0f;
+  const bool swapped = frame >= 5;
+  const float crystalX = swapped ? 300.0f : 1100.0f, crystalBob = swapped ? bob : -bob;
+  DrawOpts big;
+  big.scale = 1.8f;
+  drawGlow(k.r, k.art, crystalX + ox, 470 + oy + crystalBob, 140, rgb(200, 150, 255), frame == 4 || frame == 5 ? 1.0f : 0.4f);
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "swap_crystal", frame == 4 || frame == 5 ? 2 : 0, (ticks / 12) % 2, 2, 3)
+             .get(1),
+    crystalX + ox, 560 + oy + crystalBob, big);
+  k.r.draw(runner(k, 0, 0, 2.2f), (swapped ? 1100.0f : 300.0f) + ox, 560 + oy + (swapped ? -bob : bob));
+  for (int who = 1; who < 3; ++who)
+    k.r.draw(runner(k, who, 0, 2.2f), 110.0f + float(who - 1) * 100.0f + ox, 560 + oy + bob);
+  if (frame < 4)
+  {
+    const float x = 380.0f + float(frame) * 180.0f;
+    k.r.drawLine(x + ox, 480 + oy, x + 120 + ox, 480 + oy, 12, rgb(255, 230, 120), Blend::Add);
+  }
+  if (frame == 4 || frame == 5)
+    for (const float x : {300.0f, 1100.0f})
+      drawGlow(k.r, k.art, x + ox, 480 + oy, 260, rgb(240, 225, 255), 0.9f);
+}
+
+// Level 47: the canyon: a ledge high on the left wall, one lower on the
+// right, and a silk line slung between them.
+void silkCanyon(ClipKit& k, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.4f + ox, oy, 0.0f);
+  const Texture& walls = cached(k, "silk_walls", 1280, 720, 0, 0, [](cairo_t* cr) {
+    // The left wall with its ledge, the right wall with its lower one.
+    cairo_move_to(cr, 0, 0);
+    cairo_line_to(cr, 300, 0);
+    cairo_line_to(cr, 280, 320);
+    cairo_line_to(cr, 330, 330);
+    cairo_line_to(cr, 330, 360);
+    cairo_line_to(cr, 250, 380);
+    cairo_line_to(cr, 270, 720);
+    cairo_line_to(cr, 0, 720);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 0, 720, rgb(210, 140, 80), rgb(110, 56, 26), rgb(46, 22, 12), 4);
+    cairo_move_to(cr, 1280, 0);
+    cairo_line_to(cr, 1010, 0);
+    cairo_line_to(cr, 1030, 520);
+    cairo_line_to(cr, 960, 540);
+    cairo_line_to(cr, 960, 570);
+    cairo_line_to(cr, 1040, 590);
+    cairo_line_to(cr, 1020, 720);
+    cairo_line_to(cr, 1280, 720);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 0, 720, rgb(210, 140, 80), rgb(110, 56, 26), rgb(46, 22, 12), 4);
+    for (int i = 0; i < 9; ++i)
+    {
+      const double y = 60.0 + double(i) * 75.0;
+      cairo_move_to(cr, 0, y);
+      cairo_line_to(cr, 250, y + 8);
+      cairo_move_to(cr, 1030, y + 20);
+      cairo_line_to(cr, 1280, y + 12);
+      cairo_set_line_width(cr, 4);
+      setColor(cr, rgba(250, 210, 140, 80));
+      cairo_stroke(cr);
+    }
+  });
+  k.r.draw(walls, ox, oy);
+  // The line, from over the left ledge down to over the right one.
+  k.r.drawLine(330 + ox, 250 + oy, 960 + ox, 470 + oy, 7, rgba(90, 70, 50, 90));
+  k.r.drawLine(330 + ox, 250 + oy, 960 + ox, 470 + oy, 3.5f, rgb(246, 240, 224));
+}
+
+void silkBrief(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  silkCanyon(k, ticks, ox, oy);
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, who == 2 ? 3 : 0, 1.6f), 90.0f + float(who) * 80.0f + ox, 330 + oy);
+  // A Loom Spider on the line, walking its top.
+  const float t = 0.26f + 0.06f * std::sin(float(ticks) * 0.08f);
+  DrawOpts big;
+  big.scale = 1.5f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "loom_spider", frame % 8 >= 6 ? 1 : 0, (ticks / 6) % 2, 3, 3).get(1),
+    330 + 630 * t + ox, 250 + 220 * t + 72 + oy, big);
+  drawMax(k, 640 + ox, 160 + oy, 0.4f, ticks, (ticks / 5) % 9 == 0 ? 0.3f : 0.0f);
+}
+
+// The ride: Dash hangs from the line and slides down it, faster and
+// faster, and drops onto the far ledge (frames 0-11), then waves.
+void silkRide(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  silkCanyon(k, ticks, ox, oy);
+  const float t = std::min(1.0f, float(frame * frame) / 121.0f);
+  const float x = 330 + 630 * t, y = 250 + 220 * t;
+  if (frame < 11)
+  {
+    DrawOpts o;
+    o.angle = 10.0f;
+    k.r.draw(runner(k, 0, 19, 1.6f), x + ox, y + 150 + oy, o); // hanging
+    if (frame > 3)
+      k.r.drawLine(x - 80 + ox, y - 28 + oy, x - 20 + ox, y - 7 + oy, 4, rgba(255, 250, 230, 160), Blend::Add);
+  }
+  else
+    k.r.draw(runner(k, 0, frame >= 13 ? 3 : 0, 1.6f), 1010 + ox, 540 + oy);
+  for (int who = 1; who < 3; ++who)
+    k.r.draw(runner(k, who, 0, 1.6f), 90.0f + float(who) * 80.0f + ox, 330 + oy);
+}
+
 // Level 13: the temple corridor at sunset, light through the cracks, dust
 // coming down from the ceiling (an 8-frame loop).
 void templeCorridor(ClipKit& k, int frame, int ticks, float ox, float oy)
@@ -2639,6 +2795,14 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return starfallCockpit(k, frame, ticks, ox, oy);
   if (clip == "brief43_rocks")
     return starfallRocks(k, frame, ticks, ox, oy);
+  if (clip == "brief46_islands")
+    return crystalBrief(k, frame, ticks, ox, oy);
+  if (clip == "brief46_swap")
+    return crystalSwap(k, frame, ticks, ox, oy);
+  if (clip == "brief47_canyon")
+    return silkBrief(k, frame, ticks, ox, oy);
+  if (clip == "brief47_ride")
+    return silkRide(k, frame, ticks, ox, oy);
   if (clip == "brief45_hive")
     return hiveBrief(k, frame, ticks, ox, oy);
   if (clip == "brief45_gulp")

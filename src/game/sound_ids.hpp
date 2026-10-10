@@ -81,6 +81,10 @@ enum class Sfx
   Gulp,      // a Gullet Tube swallowing or spitting out
   Inhale,    // a Polyp breathing in
   Screech,   // a Drone Warden calling its mites
+  Swap,      // a Swap Crystal ringing as you trade places with it
+  Blink,     // a Blinker's shimmer before it appears
+  Zip,       // grabbing a Silk Line and sliding off down it
+  Snip,      // a Loom Spider cutting a Silk Line: a twang and a snap
   Crash,     // a boulder landing, a chute's flaps slamming
   Hiss,      // a Pit Snake about to rear
   EngineOn,  // climbing into a vehicle

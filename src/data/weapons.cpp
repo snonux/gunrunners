@@ -101,6 +101,10 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
    "GOO PATCHES ON WALLS YOU CAN CLING TO; GLUES ALIENS"},
   {ProtoId::BileBlaster, "bile_blaster", "BILE BLASTER", 45, M::Tap, 5, 2, 2, 16, 32, rgb(210, 240, 70),
    "SHOTS RIDE THE GULLET TUBES AND COME OUT THE FAR END"},
+  {ProtoId::SwapRifle, "swap_rifle", "SWAP RIFLE", 46, M::Tap, 6, 3, 1, 14, 28, rgb(230, 130, 255),
+   "TRADE PLACES WITH WHAT IT HITS; BOUNCES OFF WALLS ONCE"},
+  {ProtoId::SilkShooter, "silk_shooter", "SILK SHOOTER", 47, M::Tap, 8, 2, 1, 12, 24, rgb(240, 236, 220),
+   "FIRES DOWN AHEAD; WHERE IT HITS ROCK, A SILK LINE TO RIDE"},
 }};
 
 } // namespace

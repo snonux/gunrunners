@@ -59,6 +59,12 @@ enum class EnemyKind
   Warden,    // an armoured flyer patrolling its wing that calls mites down
   VoidRay,   // level 43: a glowing manta that sweeps across in a wave; its fins light up, then it dives (world_starfall.cpp)
   RockLeech, // level 43: clings to an asteroid and spits a slow glob at you as you pass
+  Blinker,   // level 46: blinks to a spot near you (a shimmer shows where first), then lunges (world_crystal.cpp)
+  ShardGolem, // level 46: a slow armoured plodder; shots only hurt it in its glowing back
+  PrismBat,  // level 46: flutters in a figure eight; a shot through it splits in three
+  LoomSpider, // level 47: walks its Silk Line; cuts it under you after a tell, spins it again (world_silk.cpp)
+  CocoonPod, // level 47: hangs on a web; drops its Dropling on you as you pass under
+  Dropling,  // level 47: falls out of its pod on a thread, bites, climbs back up
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go

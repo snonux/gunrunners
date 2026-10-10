@@ -170,6 +170,12 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkCryo();
   if (mSpace.starfall)
     finishStarfallSetup();
+  if (mSpace.crystals)
+    finishCrystalSetup();
+  for (const auto& e : mEnemies)
+    mSpace.silk = mSpace.silk || e.kind == EnemyKind::LoomSpider || e.kind == EnemyKind::CocoonPod;
+  if (mSpace.silk)
+    finishSilkSetup();
   if (mPinball)
     setupPinball();
   if (mSurfing)
@@ -305,6 +311,9 @@ void World::update(const PlayerInput& input)
       updateSpace(input);
       updateHive();
       updateStarfall();
+      updateCrystals();
+      if (mSpace.silk)
+        updateSilk();
       updateBoulders(input);
       updateSanctum(input);
       updateGolden();
@@ -612,6 +621,24 @@ void World::updateEnemies()
       case EnemyKind::RockLeech:
         updateRockLeech(e, def);
         break;
+      case EnemyKind::Blinker:
+        updateBlinker(e, def);
+        break;
+      case EnemyKind::ShardGolem:
+        updateShardGolem(e, def);
+        break;
+      case EnemyKind::PrismBat:
+        updatePrismBat(e, def);
+        break;
+      case EnemyKind::LoomSpider:
+        updateLoomSpider(e, def);
+        break;
+      case EnemyKind::CocoonPod:
+        updateCocoonPod(e, def);
+        break;
+      case EnemyKind::Dropling:
+        updateDropling(e, def);
+        break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);
         break;
@@ -751,8 +778,19 @@ void World::updateProjectiles()
     // Level 43: shots push drifting rocks along and chip at them.
     if (mSpace.starfall && pr.kind != ShotKind::Enemy && shotAtRock(pr))
       return true;
+    // Level 46: a shot at a Swap Crystal swaps you with it.
+    if (mSpace.crystals && pr.kind != ShotKind::Enemy && shotAtCrystal(pr))
+      return true;
+    // Level 47: a cocoon pops open.
+    if (mSpace.silk && pr.kind != ShotKind::Enemy && shotAtCocoon(pr))
+      return true;
     if (mMap.overlapsSolid(b))
     {
+      // The Silk Shooter strings a line where it hits rock.
+      silkShotHit(pr);
+      // The Swap Rifle's shots bounce off a wall once.
+      if (bounceSwapShot(pr))
+        return false;
       if (pr.kind != ShotKind::Enemy)
         hitBreakable(b, pr.damage, pr.vehicle ? 5 : (pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0)));
       if (mGolden && pr.kind != ShotKind::Enemy)
@@ -890,6 +928,12 @@ void World::updateProjectiles()
       // Episode 7: the Goo Gun glues what it hits.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GooGun) && shotAtAlien(pr, e))
         return true;
+      // Level 46: the Swap Rifle swaps you with what it hits; a Shard
+      // Golem is only hurt in its back; a Prism Bat splits a shot in three.
+      if ((e.kind == EnemyKind::ShardGolem || e.kind == EnemyKind::PrismBat ||
+            (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SwapRifle))) &&
+          shotAtCrystalAlien(pr, e))
+        return true;
       // The Bubble Gun traps what fits in a bubble.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && trapEnemy(e))
         return true;
@@ -1004,7 +1048,11 @@ void World::updateProjectiles()
     if (pr.ride > 0 && --pr.ride == 0)
       pr.alive = false;
     const bool comesBack = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::Boomerang);
-    if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget || comesBack ? 12 : 2))
+    // Level 46: a shot up keeps going a while past the top of the view, at
+    // the crystals hovering up there.
+    const bool upAtCrystals = (mSpace.crystals && pr.dy < 0 && !pr.precise) ||
+      (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SilkShooter)); // and on down at the rock
+    if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12 : 2))
       pr.alive = false;
   }
   mProjectiles.erase(

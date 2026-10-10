@@ -166,6 +166,17 @@ void World::updatePlayer(const PlayerInput& raw)
     return;
   }
   mUpHeld = in.up;
+  if (p.silk >= 0)
+  {
+    // Level 47: sliding down a Silk Line (world_silk.cpp).
+    if (p.state == PlayerState::Swing)
+    {
+      updateSilkRide(mvX, mvY, in);
+      updateShooting(in.fire);
+      return;
+    }
+    p.silk = -1;
+  }
   // Deep water (world_sea.cpp): swim, unless a jump is carrying you out.
   if (!mSeas.empty() && p.state != PlayerState::Jumping && p.cart < 0 && mLaunch == 0 && updateSwim(mvX, mvY, in))
   {
@@ -201,6 +212,9 @@ void World::updatePlayer(const PlayerInput& raw)
     // Goo walls: pushing into one in the air sticks you to it (world_space.cpp).
     if (mSpace.goo && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
       tryCling(mvX);
+    // Silk Lines: hands that meet one in the air hang on (world_silk.cpp).
+    if (mSpace.silk && p.vehicle < 0 && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
+      tryGrabSilk();
   }
   if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
   {
@@ -954,6 +968,7 @@ void World::respawnPlayer()
   p.somersault = -1;
   p.hidden = false;
   p.vine = -1;
+  p.silk = -1;
   p.fling = 0;
   p.vineArc = false;
   p.wall = p.kick = 0;
@@ -991,6 +1006,10 @@ void World::respawnPlayer()
     resetVehicles();
   if (mSpace.starfall)
     resetStarfall(); // puts you back in the ship
+  if (mSpace.crystals)
+    resetCrystals();
+  if (mSpace.silk)
+    resetSilk();
   mAir = kAirFrames;
   showMessage("BACK IN ACTION");
 }
