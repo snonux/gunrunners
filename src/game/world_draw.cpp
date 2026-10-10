@@ -140,6 +140,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMaglevBack(r, camX, camY, frame, alpha);
   drawChopperBack(r, camX, camY, frame, alpha);
   drawSeaBack(r, camX, camY, frame);
+  if (mGarden.on)
+    drawGardenWalls(r, camX, camY, frame); // Level 25: the soil behind the burrows
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
@@ -185,6 +187,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGardenBack(r, camX, camY, frame, alpha);
   if (mGlide.on)
     drawGlideBack(r, camX, camY, frame, alpha);
+  if (mCity.on)
+    drawCityBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -296,6 +300,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cape", 0, 0, 2, 2).get(1), x + 32, y + 64);
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cape", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mGarden.on && mLevel->themeKey == "macro_garden")
+      {
+        // Tiny Kingdom's duck wears a pith helmet.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_pith", 0, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
@@ -532,6 +543,20 @@ void World::draw(Renderer& r, int frame, float alpha) const
         else if (e.kind == EnemyKind::Imp)
           variant = (e.aimX > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0))) + (e.variant == 1 ? 4 : 0) +
             8 * std::clamp(e.attach, 0, 4); // glowing, lunging, saluting; hard hat; hotter after each pulse
+        else if (e.kind == EnemyKind::SoldierAnt)
+        {
+          // Level 25: its column's tell (antennae up), angry (mandibles open); the sick column.
+          const auto& cols = mGarden.columns;
+          const bool inCol = e.attach >= 0 && e.attach < int(cols.size());
+          const bool alarm = inCol && cols[std::size_t(e.attach)].tell > 0;
+          const bool angry = !inCol || cols[std::size_t(e.attach)].hostile > 0;
+          variant = (alarm ? 1 : (angry ? 2 : 0)) + (e.carrier ? 3 : 0);
+        }
+        else if (e.kind == EnemyKind::JumpingSpider)
+          variant = std::clamp(e.attach, 0, 2); // crouched, leaping
+        else if (e.kind == EnemyKind::BombardierBeetle)
+          variant = e.attach == 1 ? 1 + std::clamp((enemyDef(e.def).tell - e.tell) * 3 / std::max(1, enemyDef(e.def).tell), 0, 2)
+                                  : (e.cool > enemyDef(e.def).cooldown - 8 ? 4 : 0); // the abdomen swelling; just fired
         else if (e.stun > 0)
           variant = 0;
         int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -591,6 +616,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
           : e.kind == EnemyKind::Poltergeist           ? (e.tell > 0 ? (frame / 2) % 2 : (frame / 10) % 2)
           : e.kind == EnemyKind::Meatball              ? ((e.x % 4) + 4) % 4 // the crust turns as it rolls
           : e.kind == EnemyKind::EggTimer              ? (e.attach != 0 && e.cool <= kEggRing ? (frame / 2) % 2 : (e.x / 2) % 2)
+          : e.kind == EnemyKind::SoldierAnt            ? ((e.x % 4) + 4) % 4 // the march
+          : e.kind == EnemyKind::BombardierBeetle      ? ((e.x % 2) + 2) % 2
           : e.kind == EnemyKind::TumbleMine || e.kind == EnemyKind::WindowBandit ? 0
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
@@ -699,7 +726,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
         continue;
       }
     }
-    if ((e.flags() & kEnemyCarrier) && e.kind != EnemyKind::Meatball) // the moldy meatball is green already
+    if ((e.flags() & kEnemyCarrier) && e.kind != EnemyKind::Meatball && e.kind != EnemyKind::SoldierAnt) // green already
       eo.tint = lerpColor(eo.tint, rgb(120, 255, 80), 0.5f);
     if (e.tangle > 0 && e.kind != EnemyKind::Guardian)
     {
@@ -783,6 +810,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGardenFront(r, camX, camY, frame, alpha);
   if (mGlide.on)
     drawGlideFront(r, camX, camY, frame, alpha);
+  if (mCity.on)
+    drawCityFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1578,6 +1607,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawManorHud(r, frame);
   if (mKitchen.on)
     drawKitchenHud(r, frame);
+  if (mCity.on)
+    drawCityHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

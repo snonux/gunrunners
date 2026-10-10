@@ -160,6 +160,10 @@ enum class Sfx
   GrinderWhir, // the Pepper Grinder spinning up
   Toaster,   // the toaster popping
   CleaverThunk, // a cleaver sticking in a wall
+  Mist,      // the Chrono Mister's spray (a soft, airy hiss)
+  AntAlarm,  // a Soldier Ant column alarmed (a rattle of chittering clicks)
+  BeetleJet, // a Bombardier Beetle firing (a boiling pop and a scalding hiss)
+  Narrator,  // a narrator's subtitle (breathy blips around 200 Hz)
   Count,
 };
 

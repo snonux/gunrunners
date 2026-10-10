@@ -498,6 +498,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
       continue; // the passing train (world_maglev.cpp) and basalt stones (world_lava.cpp) draw themselves
     if (pl.id.rfind("plate:", 0) == 0)
       continue; // a hull plate drifting off (world_hull_draw.cpp)
+    if (pl.id == "seedhead")
+      continue; // Level 25's dandelion seed head (world_garden_draw.cpp)
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;
     const float y = (float(pl.prevY) + (float(pl.y) - float(pl.prevY)) * alpha) * kCellPx - camY;
     const float w = float(pl.w) * kCellPx;

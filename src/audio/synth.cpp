@@ -2034,6 +2034,97 @@ std::vector<float> makeSfx(Sfx id)
         return (k * 0.9 + knock * 0.8 + ring * 0.3) * 0.75 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.05);
       });
     }
+    case Sfx::Mist:
+    {
+      // The Chrono Mister: the pump's soft click, then an airy spray hiss
+      // (noise through a bright, slowly wandering band) easing off.
+      Noise n(653), m(659);
+      Svf spray, body;
+      Osc drift;
+      return render(0.55, [&](double t, double total) {
+        const double c = body.band(m.next(), 1500.0, 4.0) * decay(t, 0.006) * 1.2;
+        const double f = 5200.0 + 900.0 * drift.step(3.0, Wave::Sine);
+        const float x = n.next();
+        const double h = spray.band(x, f, 0.9) * 0.75 + x * 0.06;
+        const double env = attack(t, 0.03) * (0.55 + 0.45 * decay(t, 0.18)) * std::min(1.0, (total - t) / 0.22);
+        return (c + h * env) * 0.42;
+      });
+    }
+    case Sfx::AntAlarm:
+    {
+      // A Soldier Ant column alarmed: a rattle of tiny chitinous clicks, fast
+      // and uneven, under a thin stridulating buzz that rises.
+      Noise n(661), jit(673);
+      Svf click, rasp;
+      Osc buzz;
+      double next = 0.0, last = -1.0;
+      return render(0.5, [&](double t, double total) {
+        if (t >= next)
+        {
+          last = t;
+          next = t + 0.018 + 0.016 * (double(jit.next()) * 0.5 + 0.5);
+        }
+        const double since = t - last;
+        const double c = click.band(n.next(), 3900.0, 5.0) * std::exp(-since / 0.0025) * 1.8;
+        const float saw = buzz.step(sweep(180.0, 260.0, t / total), Wave::Saw);
+        const double b = rasp.band(saw, 2600.0, 3.0) * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 34.0));
+        return (c * 0.8 + b * 0.22) * 0.34 * attack(t, 0.004) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::BeetleJet:
+    {
+      // A Bombardier Beetle firing: a boiling pop (a low thump and a
+      // flurry of bubble blips) and the scalding hiss of the spray.
+      Osc thump, bub;
+      Noise n(677), b(683);
+      Svf hiss;
+      OnePole lp;
+      double next = 0.0, last = -1.0, pitch = 600.0;
+      return render(0.6, [&](double t, double total) {
+        const double k = thump.step(sweep(160.0, 50.0, t / 0.07), Wave::Sine) * decay(t, 0.05) * 1.1;
+        const double crack = lp.lowpass(n.next(), 2400.0) * decay(t, 0.012) * 1.2;
+        if (t >= next && t < 0.32)
+        {
+          last = t;
+          next = t + 0.02 + 0.03 * (double(b.next()) * 0.5 + 0.5);
+          pitch = 380.0 + 520.0 * (double(b.next()) * 0.5 + 0.5);
+        }
+        const double since = t - last;
+        const double blip = since < 0.03 ? bub.step(pitch * (1.0 + since * 30.0), Wave::Sine) * std::exp(-since / 0.008) * 0.7 : 0.0;
+        const double h = hiss.band(n.next(), sweep(4200.0, 2600.0, t / total), 1.2) * attack(t, 0.02) * decay(t, 0.22);
+        return (k + crack + blip + h * 0.9) * 0.55 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Narrator:
+    {
+      // A hushed documentary voice, wordless: three or four breathy blips
+      // around 200 Hz, each a soft voiced vowel buried in breath.
+      Osc voice, vib;
+      Noise n(691);
+      Svf f1, f2, breath;
+      static const double kSyl[4][4] = {
+        // start, length, pitch, vowel formant
+        {0.00, 0.09, 205.0, 650.0},
+        {0.12, 0.07, 190.0, 900.0},
+        {0.22, 0.11, 214.0, 560.0},
+        {0.37, 0.12, 178.0, 760.0}};
+      return render(0.55, [&](double t, double total) {
+        double v = 0.0;
+        for (const auto& s : kSyl)
+        {
+          const double u = (t - s[0]) / s[1];
+          if (u < 0.0 || u > 1.0)
+            continue;
+          const double env = std::sin(kPi * std::sqrt(u));
+          const double p = s[2] * (1.0 - 0.06 * u) * (1.0 + 0.012 * vib.step(5.5, Wave::Sine));
+          const float x = voice.step(p, Wave::Saw);
+          const double vowel = f1.band(x, s[3], 5.0) * 0.6 + f2.band(x, 2300.0, 6.0) * 0.18;
+          const double air = breath.band(n.next(), 1800.0, 0.8) * 0.5;
+          v += (vowel + air) * env;
+        }
+        return v * 0.42 * std::min(1.0, (total - t) / 0.03);
+      });
+    }
     case Sfx::Count:
       break;
   }

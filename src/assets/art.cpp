@@ -1,6 +1,7 @@
 #include "assets/art.hpp"
 
 #include "assets/art_alien.hpp"
+#include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
 #include "render/vector.hpp"
@@ -1843,6 +1844,8 @@ Texture bakeItemIcon(const Renderer& r, const Theme& t, int icon, Color gemColor
 
 Texture bakeLadder(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenLadder(r, t); // a stalk with leaf nubs
   // One block of ladder; the rails straddle the left cell column, so the
   // texture is drawn 16 px left of its block.
   VectorImage img(64, 64);
@@ -2073,6 +2076,8 @@ Texture bakeKitchenPlatform(const Renderer& r, const Theme& t);
 
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isGarden(t))
+    return bakeGardenSolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2503,6 +2508,8 @@ Texture bakeReactorSolidTop(const Renderer& r, const Theme& t)
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2626,6 +2633,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenPlatform(r, t);
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -2676,6 +2685,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
 
 Texture bakeSpikes(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenSpikes(r, t); // bramble thorns
   if (isPlains(t))
     return bakePlainsSpikes(r, t); // thorn grass
   VectorImage img(64, 64);
@@ -7222,6 +7233,8 @@ Texture bakeKitchenNear(const Renderer& r, const Theme& t)
 
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenSky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7385,6 +7398,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7531,6 +7546,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isGarden(t))
+    return bakeGardenNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))

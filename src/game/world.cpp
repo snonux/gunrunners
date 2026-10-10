@@ -180,6 +180,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkTurntable();
   linkGarden();
   linkGlide();
+  linkCity();
+  linkTopDown();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -421,6 +423,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateKitchen(input);
   if (mGarden.on)
     updateGarden(input);
+  if (mCity.on)
+    updateCity(input);
   updateHatches();
   updateProps(input);
 }
@@ -860,6 +864,15 @@ void World::updateEnemies()
       case EnemyKind::BombardierBeetle:
         updateBombardierBeetle(e, def);
         break;
+      case EnemyKind::ModelTank:
+        updateModelTank(e, def);
+        break;
+      case EnemyKind::ToyJet:
+        updateToyJet(e, def);
+        break;
+      case EnemyKind::MaserTruck:
+        updateMaserTruck(e, def);
+        break;
       case EnemyKind::EggTimer:
         updateEggTimer(e, def);
         break;
@@ -961,6 +974,9 @@ void World::updateProjectiles()
       return true;
     // Level 25: anything but the mister scares the rare butterfly off.
     if (mGarden.on && pr.kind != ShotKind::Enemy && shotAtGarden(pr, b))
+      return true;
+    // Level 26: Gorgazilla, and the photo in his trailer.
+    if (mCity.on && pr.kind != ShotKind::Enemy && shotAtCity(pr, b))
       return true;
     // Level 17: a switch lights its grow lamps.
     if (mGreen.on && pr.kind != ShotKind::Enemy && shotAtGreen(pr, b))

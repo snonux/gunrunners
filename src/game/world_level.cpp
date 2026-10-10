@@ -180,6 +180,8 @@ void World::setupEntities()
       continue;
     if (setupKitchenEntity(e))
       continue;
+    if (setupCityEntity(e))
+      continue;
     if (setupGardenEntity(e) || setupGlideEntity(e))
       continue;
     if (setupZeroEntity(e))
@@ -216,6 +218,7 @@ void World::setupEntities()
       setupManorEnemy(en, e);
       setupKitchenEnemy(en, e);
       setupGardenEnemy(en, e);
+      setupCityEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -764,6 +767,8 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
       continue;
     if (l.style == 2 || l.style == 5 || l.style == 6)
       continue; // the maglev's station, ZERO's bulkheads and floor slide in on their own; the manor draws its sides
+    if (mGarden.cycle && (l.id.rfind("day_", 0) == 0 || l.id.rfind("dusk_", 0) == 0))
+      continue; // Level 25's flowers and mushrooms (world_garden_draw.cpp)
     if (l.style == 3 || l.style == 4)
     {
       drawNegativeLayer(r, l, x, y, w, h, frame); // Negative Space's sun and moon blocks (world_light.cpp)

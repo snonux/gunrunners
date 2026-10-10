@@ -128,6 +128,12 @@ void World::updatePlayer(const PlayerInput& raw)
     updateFreeFall(mvX, mvY);
     return;
   }
+  if (mTop.on)
+  {
+    // Top-Down Rampage: eight ways, no gravity (world_topdown.cpp).
+    updateTopDown(mvX, mvY, in);
+    return;
+  }
   if (mBounce)
   {
     // Bounce House: every surface is a trampoline (world_jungle.cpp).
@@ -1107,6 +1113,8 @@ void World::respawnPlayer()
     resetKitchen();
   if (mGarden.on)
     resetGarden();
+  if (mCity.on)
+    resetCity();
   if (mWest.on)
     resetWest();
   if (!mVehicles.empty())

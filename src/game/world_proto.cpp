@@ -119,6 +119,12 @@ void World::updateProtoShooting(const Button& fire)
     updateMister(fire);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::AtomicBreath)
+  {
+    // Held: a beam that burns buildings and sweeps with Up and Down (world_city.cpp).
+    updateBreath(fire);
+    return;
+  }
   if (ProtoId(p.proto) == ProtoId::SunstoneLance)
   {
     // Hold for the beam (world_light.cpp traces it), a shot of ammo every

@@ -16,7 +16,7 @@ bool World::canSave() const
     (!mHull.on || hullCanSave()) && !mOrbit.on && !mTurn.on && (!mGrav.on || gravCanSave()) &&
     (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave()) && (!mWest.on || westCanSave()) &&
     (!mManor.on || manorCanSave()) && (!mKitchen.on || kitchenCanSave()) && (!mGarden.on || gardenCanSave()) &&
-    !mGlide.on;
+    !mGlide.on && !mTop.on && (!mCity.on || cityCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -376,6 +376,8 @@ SaveGame World::snapshot() const
     s.kitchen = kitchenSave();
   if (mGarden.on)
     s.garden = gardenSave();
+  if (mCity.on)
+    s.city = citySave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -465,7 +467,7 @@ bool World::restore(const SaveGame& s)
       (!s.zero.empty() && !validZeroSave(s.zero)) ||
       (!s.west.empty() && !validWestSave(s.west)) ||
       (!s.manor.empty() && !validManorSave(s.manor)) || (!s.kitchen.empty() && !validKitchenSave(s.kitchen)) ||
-      (!s.garden.empty() && !validGardenSave(s.garden)) ||
+      (!s.garden.empty() && !validGardenSave(s.garden)) || (!s.city.empty() && !validCitySave(s.city)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -917,6 +919,8 @@ bool World::restore(const SaveGame& s)
     loadKitchen(s.kitchen);
   if (!s.garden.empty())
     loadGarden(s.garden);
+  if (!s.city.empty())
+    loadCity(s.city);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

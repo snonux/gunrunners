@@ -183,7 +183,7 @@ void World::gardenSay(const std::string& line)
   auto& g = mGarden;
   g.subtitleText = line;
   g.subtitle = 30 + int(line.size()) * 2;
-  playSound(Sfx::Click);
+  playSound(Sfx::Narrator);
 }
 
 // --- The Chrono Mister ---------------------------------------------------------------------
@@ -220,7 +220,7 @@ void World::updateMister(const Button& fire)
   ++g.mist;
   g.mistFace = p.facing;
   if (g.mist == 1)
-    playSound(Sfx::Puff);
+    playSound(Sfx::Mist);
   p.muzzleTicks = 4;
   p.muzzleStance = p.stance;
   mistCone();
@@ -324,7 +324,7 @@ void World::provokeAnts(int column)
     return;
   c.tell = kAntTell;
   c.homing = false;
-  playSound(Sfx::Chitter);
+  playSound(Sfx::AntAlarm);
 }
 
 void World::updateSoldierAnt(Enemy& e, const EnemyDef& def)
@@ -562,7 +562,7 @@ void World::updateBombardierBeetle(Enemy& e, const EnemyDef& def)
     e.attach = 0;
     e.cool = def.cooldown;
     burst(cellCenter(jet), rgb(255, 250, 220), rgb(255, 170, 60), 18, 1.8f);
-    playSound(Sfx::Puff);
+    playSound(Sfx::BeetleJet);
     if (p.state != PlayerState::Dying && jet.intersects(p.hitBox()))
       hurtPlayer(1);
     return;
@@ -767,7 +767,7 @@ void World::updateGarden(const PlayerInput& input)
   const bool still = p.x == p.prevX && p.y == p.prevY && !input.left && !input.right && !input.jump.pressed &&
     !input.fire.pressed && p.state == PlayerState::OnGround;
   g.still = still ? g.still + 1 : 0;
-  if (g.still >= kStillLine && !g.stillSaid)
+  if (g.still >= kStillLine && !g.stillSaid && !g.lines.empty())
   {
     g.stillSaid = true;
     gardenSay("THEY... JUST STAND THERE. MAGNIFICENT.");

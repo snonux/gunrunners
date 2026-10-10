@@ -104,6 +104,8 @@ Input Bot::play(const World& world)
     return turntable(world);
   if (world.glide().on)
     return glide(world);
+  if (world.topDown().on)
+    return topDown(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -171,6 +173,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 26: towers in the way, the station roof, power lines.
+  if (world.city().on && !world.lizardFight())
+  {
+    Input in;
+    if (city(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 23: pin ghosts over the gallery hole for a bridge.
   if (world.manor().on)
   {
@@ -199,6 +211,12 @@ Input Bot::play(const World& world)
   {
     mFighting = true;
     return fightZero(world);
+  }
+  // Level 26: Gorgazilla, once the arena door is shut behind the runner.
+  if (world.lizardFight())
+  {
+    mFighting = true;
+    return fightLizard(world);
   }
   // Level 49: the Hive Mother, once the egg chamber's door is shut.
   if (world.motherFight())

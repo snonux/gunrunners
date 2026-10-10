@@ -6350,6 +6350,594 @@ void lanceChefClip(ClipKit& k, int frame, float t, int ticks, float ox, float oy
   }
 }
 
+// --- Level 25: Tiny Kingdom (Channel 31, Nature) ------------------------------------
+
+// A big leaf lit from behind by golden light, 1280 x 720: the low sun
+// glowing through it, its midrib and veins brighter than the blade, the
+// gold showing round its edges and bokeh floating over them.
+const Texture& goldenLeaf(ClipKit& k)
+{
+  return cached(k, "e5_golden_leaf", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* sky = cairo_pattern_create_radial(1000, 140, 30, 760, 360, 980);
+    cairo_pattern_add_color_stop_rgb(sky, 0.0, 1.0, 0.96, 0.78);
+    cairo_pattern_add_color_stop_rgb(sky, 0.35, 0.95, 0.72, 0.3);
+    cairo_pattern_add_color_stop_rgb(sky, 1.0, 0.36, 0.24, 0.08);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, sky);
+    cairo_fill(cr);
+    cairo_pattern_destroy(sky);
+    // The leaf, tip to the upper right.
+    cairo_save(cr);
+    cairo_translate(cr, 640, 380);
+    cairo_rotate(cr, -0.36);
+    auto leaf = [cr]() {
+      cairo_move_to(cr, -720, 30);
+      cairo_curve_to(cr, -460, -330, 330, -350, 700, -10);
+      cairo_curve_to(cr, 330, 300, -440, 330, -720, 30);
+      cairo_close_path(cr);
+    };
+    leaf();
+    cairo_pattern_t* body = cairo_pattern_create_radial(420, -120, 40, 100, 0, 900);
+    cairo_pattern_add_color_stop_rgb(body, 0.0, 0.92, 0.96, 0.46);
+    cairo_pattern_add_color_stop_rgb(body, 0.4, 0.58, 0.8, 0.22);
+    cairo_pattern_add_color_stop_rgb(body, 1.0, 0.2, 0.4, 0.1);
+    cairo_set_source(cr, body);
+    cairo_fill(cr);
+    cairo_pattern_destroy(body);
+    // Veins: the midrib, the side veins curving to the tip, a fine net.
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    for (int i = -9; i <= 8; ++i)
+    {
+      const double x = double(i) * 70.0 + 20.0;
+      for (const double side : {-1.0, 1.0})
+      {
+        const double reach = 250.0 * (1.0 - std::pow(std::abs(x - 10.0) / 720.0, 2.0));
+        cairo_move_to(cr, x, side * 2.0);
+        cairo_curve_to(cr, x + 40, side * reach * 0.4, x + 110, side * reach * 0.8, x + 170, side * reach * 0.95);
+      }
+    }
+    setRgbaC(cr, rgb(244, 252, 170), 0.55);
+    cairo_set_line_width(cr, 3.0);
+    cairo_stroke(cr);
+    std::uint32_t sd = 7121u;
+    for (int i = 0; i < 260; ++i)
+    {
+      sd = sd * 1664525u + 1013904223u;
+      const double x = -650.0 + double(sd >> 8) / double(1u << 24) * 1300.0;
+      sd = sd * 1664525u + 1013904223u;
+      const double y = -240.0 + double(sd >> 8) / double(1u << 24) * 480.0;
+      cairo_move_to(cr, x, y);
+      cairo_rel_line_to(cr, double(int(sd % 31u)) - 15.0, double(int((sd >> 5) % 31u)) - 15.0);
+    }
+    setRgbaC(cr, rgb(230, 250, 150), 0.18);
+    cairo_set_line_width(cr, 1.2);
+    cairo_stroke(cr);
+    cairo_move_to(cr, -720, 30);
+    cairo_curve_to(cr, -300, 0, 300, -10, 700, -10);
+    setRgbaC(cr, rgb(255, 255, 200), 0.85);
+    cairo_set_line_width(cr, 8.0);
+    cairo_stroke(cr);
+    // The sun through its rim.
+    leaf();
+    setRgbaC(cr, rgb(255, 230, 140), 0.45);
+    cairo_set_line_width(cr, 14.0);
+    cairo_stroke(cr);
+    leaf();
+    setRgbaC(cr, rgb(90, 120, 30), 0.8);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+    // Bokeh.
+    for (int i = 0; i < 34; ++i)
+    {
+      sd = sd * 1664525u + 1013904223u;
+      const double x = double(sd >> 8) / double(1u << 24) * 1280.0;
+      sd = sd * 1664525u + 1013904223u;
+      const double y = double(sd >> 8) / double(1u << 24) * 720.0;
+      const double rr = 14.0 + double(sd % 40u);
+      cairo_arc(cr, x, y, rr, 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 236, 170), 0.08 + double(sd % 7u) * 0.025);
+      cairo_fill(cr);
+    }
+    cairo_pattern_t* vig = cairo_pattern_create_radial(640, 360, 300, 640, 360, 820);
+    cairo_pattern_add_color_stop_rgba(vig, 0, 0, 0, 0, 0);
+    cairo_pattern_add_color_stop_rgba(vig, 1, 0.1, 0.05, 0, 0.6);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, vig);
+    cairo_fill(cr);
+    cairo_pattern_destroy(vig);
+  });
+}
+
+// "CH 31" in a thin, high-contrast serif, drawn stem by stem and serif by
+// serif (no serif face is on every platform). Caps 150 units tall on a
+// baseline at y = 150, 545 units wide from x = 0.
+void ch31Glyphs(cairo_t* cr, Color c, double alpha)
+{
+  setRgbaC(cr, c, alpha);
+  const double hair = 3.6, stem = 11.0;
+  auto box = [cr](double x, double y, double w, double h) { cairo_rectangle(cr, x, y, w, h); };
+  // A stem's serif: a hairline slab with little brackets into the stem.
+  auto serif = [cr, hair, stem](double sx, double y, bool top) {
+    cairo_rectangle(cr, sx - 12.0, top ? y : y - hair, stem + 24.0, hair);
+    const double dy = top ? 1.0 : -1.0, y0 = top ? y + hair : y - hair;
+    cairo_move_to(cr, sx - 7.0, y0);
+    cairo_curve_to(cr, sx - 1.0, y0, sx, y0 + dy * 2.0, sx, y0 + dy * 9.0);
+    cairo_line_to(cr, sx, y0);
+    cairo_close_path(cr);
+    cairo_move_to(cr, sx + stem + 7.0, y0);
+    cairo_curve_to(cr, sx + stem + 1.0, y0, sx + stem, y0 + dy * 2.0, sx + stem, y0 + dy * 9.0);
+    cairo_line_to(cr, sx + stem, y0);
+    cairo_close_path(cr);
+  };
+  // C: a ring thick on the left, hairline top and bottom, open on the
+  // right, with beak serifs at its tips.
+  cairo_save(cr);
+  cairo_move_to(cr, 70, 75);
+  cairo_line_to(cr, 70 + 220 * std::cos(-0.85), 75 + 220 * std::sin(-0.85));
+  cairo_line_to(cr, -60, -120);
+  cairo_line_to(cr, -60, 270);
+  cairo_line_to(cr, 70 + 220 * std::cos(0.85), 75 + 220 * std::sin(0.85));
+  cairo_close_path(cr);
+  cairo_clip(cr);
+  cairo_save(cr);
+  cairo_translate(cr, 70, 75);
+  cairo_scale(cr, 68, 77);
+  cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+  cairo_restore(cr);
+  cairo_new_sub_path(cr);
+  cairo_save(cr);
+  cairo_translate(cr, 76, 75);
+  cairo_scale(cr, 60, 73.5);
+  cairo_arc_negative(cr, 0, 0, 1, 0, -2 * kPi);
+  cairo_restore(cr);
+  cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+  cairo_fill(cr);
+  cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+  cairo_restore(cr);
+  setRgbaC(cr, c, alpha);
+  box(70 + 68 * std::cos(-0.85) - 4.0, 75 - 77 * std::sin(0.85) - 2.0, 4.6, 30);
+  box(70 + 68 * std::cos(0.85) - 4.0, 75 + 77 * std::sin(0.85) - 28.0, 4.6, 30);
+  cairo_fill(cr);
+  // H.
+  const double hx = 160;
+  box(hx + 10, 0, stem, 150);
+  box(hx + 99, 0, stem, 150);
+  box(hx + 21, 72, 78, hair);
+  serif(hx + 10, 0, true);
+  serif(hx + 10, 150, false);
+  serif(hx + 99, 0, true);
+  serif(hx + 99, 150, false);
+  cairo_fill(cr);
+  // 3: two bowls, hairline on the left, swelling on the right, ball
+  // terminals at both ends.
+  const double tx = 335;
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+  cairo_arc(cr, tx + 55, 40, 36, -kPi * 0.92, kPi * 0.5);
+  cairo_arc(cr, tx + 55, 113, 39, -kPi * 0.5, kPi * 0.9);
+  cairo_set_line_width(cr, hair);
+  cairo_stroke(cr);
+  cairo_arc(cr, tx + 55, 40, 36, -kPi * 0.3, kPi * 0.35);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, tx + 55, 113, 39, -kPi * 0.3, kPi * 0.4);
+  cairo_set_line_width(cr, 10.0);
+  cairo_stroke(cr);
+  box(tx + 38, 74.2, 18, hair);
+  cairo_fill(cr);
+  cairo_arc(cr, tx + 55 + 36 * std::cos(-kPi * 0.92) + 5, 40 + 36 * std::sin(-kPi * 0.92) + 3, 7.5, 0, 2 * kPi);
+  cairo_fill(cr);
+  cairo_arc(cr, tx + 55 + 39 * std::cos(kPi * 0.9) + 5, 113 + 39 * std::sin(kPi * 0.9) - 3, 7.5, 0, 2 * kPi);
+  cairo_fill(cr);
+  // 1: a stem with a hairline flag and a slab foot.
+  const double ox = 460;
+  box(ox + 44, 0, stem, 150);
+  serif(ox + 44, 150, false);
+  cairo_fill(cr);
+  cairo_move_to(cr, ox + 46, 2);
+  cairo_line_to(cr, ox + 16, 26);
+  cairo_set_line_width(cr, hair);
+  cairo_stroke(cr);
+}
+
+// The ident's numerals, 900 x 300, centred.
+const Texture& ch31Title(ClipKit& k)
+{
+  return cached(k, "e5_ch31", 900, 300, 450, 150, [](cairo_t* cr) {
+    cairo_translate(cr, 450 - 545 * 0.7, 150 - 75 * 1.4);
+    cairo_scale(cr, 1.4, 1.4);
+    // A soft shadow under the ivory, then the letters.
+    for (int i = 3; i >= 1; --i)
+    {
+      cairo_save(cr);
+      cairo_translate(cr, 2.0 * i, 2.5 * i);
+      ch31Glyphs(cr, rgb(40, 24, 4), 0.14);
+      cairo_restore(cr);
+    }
+    ch31Glyphs(cr, rgb(255, 250, 232), 1.0);
+  });
+}
+
+// "NATURE" grown in vine, 1000 x 260, centred: the letters' strokes twisted
+// green stems with leaves sprouting along them, an underline stem running
+// through the bottoms they all grow from.
+const Texture& natureVine(ClipKit& k)
+{
+  return cached(k, "e5_nature_vine", 1000, 260, 500, 130, [](cairo_t* cr) {
+    selectGameFont(cr, false);
+    cairo_set_font_size(cr, 132);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "NATURE", &te);
+    const double x0 = 500 - te.x_advance / 2, base = 182;
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    // The runner stem along the baseline, waving.
+    cairo_move_to(cr, x0 - 40, base + 14);
+    for (int i = 0; i < 8; ++i)
+    {
+      const double xa = x0 - 40 + (te.x_advance + 80) * double(i) / 8.0, xb = xa + (te.x_advance + 80) / 8.0;
+      cairo_curve_to(cr, xa + 25, base + (i % 2 ? 26 : 2), xb - 25, base + (i % 2 ? 26 : 2), xb, base + 14);
+    }
+    setRgbaC(cr, rgb(40, 74, 22), 1.0);
+    cairo_set_line_width(cr, 10);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, rgb(120, 176, 60), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    // The letters: dark stem, green body, a light twist along them.
+    cairo_move_to(cr, x0, base);
+    cairo_text_path(cr, "NATURE");
+    cairo_path_t* glyphs = cairo_copy_path(cr);
+    setRgbaC(cr, rgb(30, 60, 18), 1.0);
+    cairo_set_line_width(cr, 11);
+    cairo_stroke_preserve(cr);
+    cairo_pattern_t* lg = cairo_pattern_create_linear(0, base - 100, 0, base);
+    cairo_pattern_add_color_stop_rgb(lg, 0, 0.62, 0.84, 0.3);
+    cairo_pattern_add_color_stop_rgb(lg, 1, 0.26, 0.5, 0.14);
+    cairo_set_source(cr, lg);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(lg);
+    const double dash[2] = {6.0, 9.0};
+    cairo_set_dash(cr, dash, 2, 0.0);
+    setRgbaC(cr, rgb(200, 236, 130), 0.9);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_set_dash(cr, nullptr, 0, 0.0);
+    // Leaves along the strokes, alternating sides.
+    cairo_new_path(cr);
+    cairo_append_path(cr, glyphs);
+    cairo_path_t* flat = cairo_copy_path_flat(cr);
+    cairo_new_path(cr);
+    double run = 0.0, px = 0.0, py = 0.0;
+    int n = 0;
+    for (int i = 0; i < flat->num_data; i += flat->data[i].header.length)
+    {
+      const cairo_path_data_t& d = flat->data[i];
+      if (d.header.type == CAIRO_PATH_MOVE_TO)
+      {
+        px = flat->data[i + 1].point.x;
+        py = flat->data[i + 1].point.y;
+        continue;
+      }
+      if (d.header.type != CAIRO_PATH_LINE_TO)
+        continue;
+      const double qx = flat->data[i + 1].point.x, qy = flat->data[i + 1].point.y;
+      run += std::hypot(qx - px, qy - py);
+      if (run > 46.0)
+      {
+        run = 0.0;
+        const double ang = std::atan2(qy - py, qx - px) + (n % 2 ? 1.1 : -1.1);
+        ++n;
+        cairo_save(cr);
+        cairo_translate(cr, qx, qy);
+        cairo_rotate(cr, ang);
+        cairo_move_to(cr, 0, 0);
+        cairo_curve_to(cr, 6, -9, 18, -8, 24, 0);
+        cairo_curve_to(cr, 18, 8, 6, 9, 0, 0);
+        cairo_restore(cr);
+        setRgbaC(cr, n % 3 ? rgb(134, 198, 70) : rgb(170, 220, 90), 1.0);
+        cairo_fill_preserve(cr);
+        setRgbaC(cr, rgb(30, 60, 18), 1.0);
+        cairo_set_line_width(cr, 1.6);
+        cairo_stroke(cr);
+      }
+      px = qx;
+      py = qy;
+    }
+    cairo_path_destroy(flat);
+    cairo_path_destroy(glyphs);
+  });
+}
+
+// The vine's growing tip: a tendril curled into a spiral, (0, 0) at its base.
+const Texture& vineTip(ClipKit& k)
+{
+  return cached(k, "e5_vine_tip", 80, 80, 10, 60, [](cairo_t* cr) {
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_move_to(cr, 10, 60);
+    double a = kPi, rr = 24.0;
+    for (int i = 0; i < 40; ++i)
+    {
+      a += 0.22;
+      rr *= 0.95;
+      cairo_line_to(cr, 40 + std::cos(a) * rr, 36 + std::sin(a) * rr);
+    }
+    setRgbaC(cr, rgb(30, 60, 18), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, rgb(150, 210, 80), 1.0);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+  });
+}
+
+// Shot: the Channel 31 ident. A leaf in golden light; "CH 31" fades up in a
+// thin serif over frames 0-5; "NATURE" grows on as a vine, left to right,
+// over frames 6-11.
+void identCh31(ClipKit& k, int ticks, float ox, float oy)
+{
+  // The shot's frame, smoothly (90 ms a frame).
+  const float abs = float(ticks) / 5.4f;
+  k.r.draw(goldenLeaf(k), ox, oy);
+  const float up = std::clamp(abs / 6.0f, 0.0f, 1.0f);
+  DrawOpts to;
+  to.alpha = up * up * (3.0f - 2.0f * up);
+  to.scale = 1.0f + 0.04f * (1.0f - up);
+  drawGlow(k.r, k.art, 640.0f + ox, 250.0f + oy, 420.0f, rgb(255, 230, 160), 0.25f * to.alpha);
+  k.r.draw(ch31Title(k), 640.0f + ox, 250.0f + oy - 8.0f * (1.0f - up), to);
+  const float u = std::clamp((abs - 6.0f) / 5.0f, 0.0f, 1.0f);
+  if (u > 0.0f)
+  {
+    const float wx = 640.0f + ox, wy = 520.0f + oy;
+    const float left = wx - 470.0f, right = left + 940.0f * u;
+    clipTo(k, 0.0f, 0.0f, right, H);
+    k.r.draw(natureVine(k), wx, wy);
+    unclip(k);
+    if (u < 1.0f)
+    {
+      DrawOpts tip;
+      tip.angle = std::sin(float(ticks) * 0.5f) * 12.0f;
+      k.r.draw(vineTip(k), right, wy + 64.0f, tip);
+    }
+  }
+  k.r.drawText("MAXTV  CHANNEL 31  NATURE", 640 + ox, 676 + oy, {18.0f, rgb(255, 246, 220), rgb(70, 50, 10)}, Align::Center);
+  scanlines(k, 30);
+}
+
+// The garden at ant height, 1400 x 720 (wider than the screen for the pan):
+// golden air thick with bokeh, giant soft blades and flower heads far off,
+// moss and loam along the bottom.
+const Texture& bokehGarden(ClipKit& k)
+{
+  return cached(k, "e5_bokeh_garden", 1400, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1400, 720, rgb(250, 226, 160), rgb(206, 196, 110), rgb(70, 104, 44));
+    std::uint32_t sd = 3301u;
+    auto rnd = [&sd](double a, double b) {
+      sd = sd * 1664525u + 1013904223u;
+      return a + (b - a) * double(sd >> 8) / double(1u << 24);
+    };
+    radialGlow(cr, 1100, 120, 520, rgb(255, 244, 200), 0.7);
+    // Far blades, soft and pale.
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    for (int i = 0; i < 40; ++i)
+    {
+      const double x = rnd(-40, 1440), top = rnd(60, 380), lean = rnd(-90, 90);
+      cairo_move_to(cr, x - 16, 720);
+      cairo_curve_to(cr, x - 10, 500, x + lean * 0.5, top + 80, x + lean, top);
+      cairo_curve_to(cr, x + lean * 0.5 + 6, top + 90, x + 10, 500, x + 16, 720);
+      cairo_close_path(cr);
+      setRgbaC(cr, lerpColor(rgb(150, 180, 80), rgb(240, 220, 150), float(rnd(0.0, 0.6))), rnd(0.25, 0.5));
+      cairo_fill(cr);
+    }
+    // Flower heads, out of focus.
+    static const Color kHeads[4] = {rgb(255, 130, 110), rgb(255, 250, 240), rgb(170, 150, 255), rgb(255, 210, 90)};
+    for (int i = 0; i < 9; ++i)
+    {
+      const double x = rnd(40, 1360), y = rnd(120, 360), rr = rnd(30, 70);
+      radialGlow(cr, x, y, rr * 1.6, kHeads[i % 4], 0.55);
+      cairo_arc(cr, x, y, rr * 0.25, 0, 2 * kPi);
+      setRgbaC(cr, rgb(250, 200, 60), 0.5);
+      cairo_fill(cr);
+    }
+    // Bokeh.
+    for (int i = 0; i < 70; ++i)
+    {
+      const double x = rnd(0, 1400), y = rnd(0, 560), rr = rnd(8, 40);
+      cairo_arc(cr, x, y, rr, 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 246, 200), rnd(0.08, 0.26));
+      cairo_fill_preserve(cr);
+      setRgbaC(cr, rgb(255, 255, 230), 0.12);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+    }
+    // The ground: moss over loam, with pebbles the size of boulders.
+    cairo_move_to(cr, 0, 500);
+    for (int x = 0; x <= 1400; x += 50)
+      cairo_line_to(cr, x, 496 + std::sin(x * 0.02) * 6 + rnd(-3, 3));
+    cairo_line_to(cr, 1400, 720);
+    cairo_line_to(cr, 0, 720);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 490, 0, 720);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.42, 0.56, 0.2);
+    cairo_pattern_add_color_stop_rgb(g, 0.25, 0.26, 0.32, 0.12);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.16, 0.11, 0.06);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (int i = 0; i < 7; ++i)
+    {
+      const double x = rnd(40, 1360), rx = rnd(30, 70);
+      cairo_save(cr);
+      cairo_translate(cr, x, 590);
+      cairo_scale(cr, rx, rx * 0.45);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      cairo_pattern_t* pg = cairo_pattern_create_radial(x - rx * 0.3, 574, 4, x, 590, rx);
+      cairo_pattern_add_color_stop_rgb(pg, 0, 0.78, 0.74, 0.66);
+      cairo_pattern_add_color_stop_rgb(pg, 1, 0.36, 0.32, 0.28);
+      cairo_set_source(cr, pg);
+      cairo_fill(cr);
+      cairo_pattern_destroy(pg);
+    }
+  });
+}
+
+// A grass blade, `h` px tall, anchored at its base's middle; rim-lit gold
+// on its sunny edge. `dark` for the out-of-focus foreground one.
+const Texture& habitatBlade(ClipKit& k, int h, int lean, bool dark)
+{
+  const std::string key = "e5_blade" + std::to_string(h) + "_" + std::to_string(lean) + (dark ? "d" : "");
+  const int w = 140 + std::abs(lean);
+  const double bx = lean < 0 ? 70.0 - lean : 70.0;
+  return cached(k, key, w, h + 10, float(bx), float(h + 4), [h, lean, bx, dark](cairo_t* cr) {
+    const double base = h + 4, top = 6, tipX = bx + lean;
+    cairo_move_to(cr, bx - 20, base);
+    cairo_curve_to(cr, bx - 18, base - h * 0.5, tipX - lean * 0.4 - 8, top + h * 0.25, tipX, top);
+    cairo_curve_to(cr, tipX - lean * 0.4 + 10, top + h * 0.3, bx + 18, base - h * 0.45, bx + 20, base);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(bx - 22, 0, bx + 22, 0);
+    if (dark)
+    {
+      cairo_pattern_add_color_stop_rgb(g, 0, 0.1, 0.2, 0.06);
+      cairo_pattern_add_color_stop_rgb(g, 1, 0.24, 0.38, 0.12);
+    }
+    else
+    {
+      cairo_pattern_add_color_stop_rgb(g, 0, 0.24, 0.46, 0.14);
+      cairo_pattern_add_color_stop_rgb(g, 0.6, 0.5, 0.72, 0.24);
+      cairo_pattern_add_color_stop_rgb(g, 1, 0.36, 0.58, 0.18);
+    }
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, dark ? rgb(10, 20, 6) : rgb(34, 70, 20), 0.9);
+    cairo_set_line_width(cr, 2.0);
+    cairo_stroke(cr);
+    // The midrib and the gold on the sunny edge.
+    cairo_move_to(cr, bx, base);
+    cairo_curve_to(cr, bx, base - h * 0.5, tipX - lean * 0.4, top + h * 0.28, tipX, top + 4);
+    setRgbaC(cr, dark ? rgb(80, 110, 40) : rgb(210, 236, 140), dark ? 0.35 : 0.6);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    cairo_move_to(cr, bx + 19, base);
+    cairo_curve_to(cr, bx + 17, base - h * 0.45, tipX - lean * 0.4 + 9, top + h * 0.3, tipX, top);
+    setRgbaC(cr, rgb(255, 226, 130), dark ? 0.25 : 0.8);
+    cairo_set_line_width(cr, 3.0);
+    cairo_stroke(cr);
+  });
+}
+
+// A dew drop, 40 px, the garden upside down in it and a glint on top.
+const Texture& dewDropBig(ClipKit& k)
+{
+  return cached(k, "e5_dew", 60, 70, 30, 40, [](cairo_t* cr) {
+    cairo_move_to(cr, 30, 8);
+    cairo_curve_to(cr, 40, 22, 50, 32, 50, 44);
+    cairo_curve_to(cr, 50, 58, 40, 64, 30, 64);
+    cairo_curve_to(cr, 20, 64, 10, 58, 10, 44);
+    cairo_curve_to(cr, 10, 32, 20, 22, 30, 8);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 20, 0, 64);
+    cairo_pattern_add_color_stop_rgba(g, 0, 0.5, 0.7, 0.3, 0.55);
+    cairo_pattern_add_color_stop_rgba(g, 0.55, 0.98, 0.9, 0.62, 0.7);
+    cairo_pattern_add_color_stop_rgba(g, 1, 0.5, 0.66, 0.26, 0.8);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, rgb(255, 255, 240), 0.7);
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+    cairo_arc(cr, 23, 38, 5, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 255, 255), 0.95);
+    cairo_fill(cr);
+    cairo_arc(cr, 36, 56, 3, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 255, 230), 0.6);
+    cairo_fill(cr);
+  });
+}
+
+// Shot: the runners in their natural habitat. The bokeh garden panning
+// right 1 px a frame; grass blades between them swaying (8-frame loop);
+// the three runners tiny at their feet, Rocco scratching his head (4-frame
+// loop); in front, a dew drop sliding down a blade (16 frames).
+void runnersHabitat(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  // The shot's frame, smoothly (100 ms a frame), across the repeats.
+  const float abs = float(ticks) / 6.0f;
+  const float pan = abs;
+  k.r.draw(bokehGarden(k), ox - pan, oy);
+  drawGlow(k.r, k.art, 1040.0f + ox, 110.0f + oy, 520.0f, rgb(255, 230, 160), 0.3f);
+  // The blades, swaying on an 8-frame loop, each a little out of phase:
+  // three shapes, each baked bent for the eight frames of the sway (a
+  // rotated texture would step its edges).
+  struct Shape
+  {
+    int h, lean;
+  };
+  static constexpr Shape kShapes[3] = {{470, -60}, {410, 40}, {250, 30}};
+  struct Blade
+  {
+    float x;
+    int shape, phase;
+    bool front;
+  };
+  static constexpr Blade kBlades[] = {{110, 0, 0, false}, {300, 1, 2, false}, {430, 0, 5, false},
+    {560, 2, 1, true}, {820, 1, 6, false}, {890, 2, 4, true}, {990, 0, 3, false}, {1190, 1, 7, false}};
+  const float groundY = 540.0f + oy;
+  auto blade = [&](const Blade& b) {
+    const Shape& sh = kShapes[b.shape];
+    const int f = (frame + b.phase) % 8;
+    const int bend = int(std::lround(std::sin(float(2.0 * kPi) * float(f) / 8.0f) * float(sh.h) * 0.045f));
+    k.r.draw(habitatBlade(k, sh.h, sh.lean + bend, false), b.x + ox - pan * 1.4f, groundY + 8.0f);
+  };
+  for (const Blade& b : kBlades)
+    if (!b.front)
+      blade(b);
+  // The runners, tiny, standing in the moss.
+  const float s = 0.6f, gy = groundY;
+  const float rx[3] = {600.0f, 700.0f, 806.0f};
+  for (int who = 0; who < 3; ++who)
+  {
+    const float x = rx[who] + ox - pan * 1.4f;
+    k.r.fillRect(x - 22.0f, gy - 2.0f, 44.0f, 5.0f, rgba(20, 30, 10, 60));
+    k.r.draw(runner(k, who, who == 2 ? 3 : (frame % 8 < 4 ? 0 : 8), s, who == 2), x, gy);
+  }
+  {
+    // Rocco's free hand scratching the top of his head, round and round.
+    static constexpr float kScratch[4][2] = {{-3.0f, -1.0f}, {0.0f, -3.0f}, {3.0f, -1.0f}, {0.0f, 0.5f}};
+    const float x = rx[1] + ox - pan * 1.4f;
+    const float shx = x + 4.0f, shy = gy - 68.0f * s;
+    const float hx = x + 1.0f + kScratch[frame % 4][0], hy = gy - 96.0f * s + kScratch[frame % 4][1];
+    const float ex = x + 15.0f, ey = gy - 86.0f * s;
+    k.r.drawLine(shx, shy, ex, ey, 5.0f, kInk);
+    k.r.drawLine(ex, ey, hx, hy, 5.0f, kInk);
+    k.r.drawLine(shx, shy, ex, ey, 2.8f, rgb(150, 96, 62));
+    k.r.drawLine(ex, ey, hx, hy, 2.8f, rgb(150, 96, 62));
+  }
+  for (const Blade& b : kBlades)
+    if (b.front)
+      blade(b);
+  // The foreground blade, big and soft, and the dew drop sliding down its
+  // midrib (the curve the blade was painted along, bent with it).
+  constexpr int kFgH = 760, kFgLean = -110;
+  const float fx = 1120.0f + ox - pan * 2.0f, fy = 740.0f + oy;
+  k.r.draw(habitatBlade(k, kFgH, kFgLean, true), fx, fy);
+  const float d = std::fmod(abs, 16.0f) / 16.0f;
+  const float v = 0.12f + 0.88f * d * d; // 0 the tip, 1 the base
+  const float q = 1.0f - v;              // along the painted curve, base to tip
+  const float h = float(kFgH), lean = float(kFgLean);
+  auto bez = [q](float p0, float p1, float p2, float p3) {
+    const float m = 1.0f - q;
+    return m * m * m * p0 + 3.0f * m * m * q * p1 + 3.0f * m * q * q * p2 + q * q * q * p3;
+  };
+  const float bxp = bez(0.0f, 0.0f, lean * 0.6f, lean);
+  const float byp = bez(0.0f, -h * 0.5f, -h + h * 0.28f + 2.0f, -h + 2.0f);
+  const float dx = fx + bxp, dy = fy + byp;
+  DrawOpts dop;
+  dop.alpha = std::min(1.0f, d * 8.0f) * std::min(1.0f, (1.0f - d) * 6.0f);
+  drawGlow(k.r, k.art, dx, dy, 40.0f, rgb(255, 250, 220), 0.35f * dop.alpha);
+  k.r.draw(dewDropBig(k), dx, dy - 20.0f, dop);
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -6398,6 +6986,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return identCh24(k, frame, ticks, ox, oy);
   if (clip == "lance_chef")
     return lanceChefClip(k, frame, t, ticks, ox, oy);
+  if (clip == "ident_ch31")
+    return identCh31(k, ticks, ox, oy);
+  if (clip == "runners_habitat") // before starts(clip, "runners") below
+    return runnersHabitat(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

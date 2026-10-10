@@ -132,6 +132,7 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("manor", s.manor);
   list("kitchen", s.kitchen);
   list("garden", s.garden);
+  list("city", s.city);
   list("explored", s.explored);
   list("vehicles", s.vehicles);
   o << "end\n";
@@ -257,7 +258,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.allLitAt;
     else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
              key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "explored" || key == "vehicles")
+             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "explored" || key == "vehicles")
     {
       auto& v = key == "floods" ? s.floods
               : key == "valves" ? s.valves
@@ -280,6 +281,7 @@ std::optional<SaveGame> readSave(const std::string& path)
               : key == "manor" ? s.manor
               : key == "kitchen" ? s.kitchen
               : key == "garden" ? s.garden
+              : key == "city" ? s.city
               : key == "explored" ? s.explored
               : key == "vehicles" ? s.vehicles
                                 : s.bubbled;

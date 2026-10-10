@@ -20,6 +20,7 @@
 #include "game/reactor.hpp"
 #include "game/west.hpp"
 #include "game/garden.hpp"
+#include "game/city.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
@@ -1800,6 +1801,13 @@ public:
   int gardenClock() const; // frames into the garden's day/dusk cycle
   bool gardenDusk() const;
   const GlideState& glide() const { return mGlide; }
+  const CityState& city() const { return mCity; }
+  const TopDownState& topDown() const { return mTop; }
+  bool lizardFight() const;    // Level 26: the runner is in the arena and Gorgazilla is up
+  int lizardHp() const;        // his hearts left over all three phases
+  CellBox lizardBox() const;
+  bool lizardHittable() const; // not submerged, staggering or done
+  int buildingAt(int cx, int cy) const; // the standing building over a cell, or -1
   const Player& twin() const { return mTwin; } // Both Sides: the bottom runner
   bool zeroFight() const;              // the runner is in the arena and ZERO is up
   int zeroHp() const;                  // ZERO's hearts left over all three phases
@@ -2429,6 +2437,7 @@ private:
   std::vector<int> gardenSave() const;
   bool validGardenSave(const std::vector<int>& v) const;
   void loadGarden(const std::vector<int>& v);
+  void drawGardenWalls(Renderer& r, float camX, float camY, int frame) const; // behind the tiles
   void drawGardenBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawGardenFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawGardenHud(Renderer& r, int frame) const;
@@ -2438,6 +2447,42 @@ private:
   void updateGlide(const PlayerInput& input);
   void drawGlideBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawGlideFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 26, Kaiju Tonight (world_city.cpp, world_city_draw.cpp).
+  bool setupCityEntity(const EntityDef& e);
+  void setupCityEnemy(Enemy& en, const EntityDef& e);
+  void linkCity();
+  void breakBuilding(int index);
+  void rateBreak(const Building& b);
+  void snapLine(PowerLine& l);
+  bool sectorDark(int sector) const;
+  void layTower(Building& b);
+  void updateBuildings();
+  void updateBreath(const Button& fire);
+  void breathBeam();
+  void updateModelTank(Enemy& e, const EnemyDef& def);
+  void updateToyJet(Enemy& e, const EnemyDef& def);
+  void updateMaserTruck(Enemy& e, const EnemyDef& def);
+  void startJetRun(JetFormation& f);
+  void updateJets();
+  int lizardPier() const;
+  void damageLizard(int amount);
+  void shutArenaDoor(bool shut);
+  void moveLizard(float dx);
+  void updateLizard();
+  void updateCity(const PlayerInput& input);
+  bool shotAtCity(Projectile& pr, const CellBox& b);
+  void resetCity();
+  bool cityCanSave() const;
+  std::vector<int> citySave() const;
+  bool validCitySave(const std::vector<int>& v) const;
+  void loadCity(const std::vector<int>& v);
+  void drawCityBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawCityFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawCityHud(Renderer& r, int frame) const;
+  // Its Top-Down Rampage bonus (world_topdown.cpp).
+  void linkTopDown();
+  void updateTopDown(int mvX, int mvY, const PlayerInput& in);
+  void updateTopTank(Enemy& e, const EnemyDef& def);
   // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
   bool setupKitchenEntity(const EntityDef& e);
   void setupKitchenEnemy(Enemy& en, const EntityDef& e);
@@ -2898,6 +2943,8 @@ private:
   TurnState mTurn;
   GardenState mGarden;
   GlideState mGlide;
+  CityState mCity;
+  TopDownState mTop;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

@@ -48,6 +48,11 @@ public:
   bool kitchen(const World& world, Input& in);
   bool garden(const World& world, Input& in); // bot_garden.cpp
   Input glide(const World& world);
+  bool city(const World& world, Input& in); // bot_city.cpp
+  Input fightLizard(const World& world);
+  Input topDown(const World& world);
+  std::deque<Input> mTopQueue;
+  Input mTopPrev;
   std::deque<Input> mGlideQueue;
   Input mKitchenPrev;
   std::deque<Input> mTurnQueue;

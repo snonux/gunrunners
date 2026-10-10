@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 33> kVariants{{
+const std::array<Variant, 34> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -489,15 +489,30 @@ const std::array<Variant, 33> kVariants{{
    {ThemeId::LostTemple,
     "TINY KINGDOM",
     "A BACK GARDEN AT ANT HEIGHT, FILMED IN TIME-LAPSE",
-    rgb(120, 190, 230), rgb(190, 225, 170), rgb(240, 230, 160),
-    rgb(104, 76, 52), rgb(150, 114, 78), rgb(56, 38, 26),
-    rgb(120, 200, 90), rgb(220, 255, 160),
-    rgb(110, 170, 70), rgb(60, 110, 40),
-    rgb(200, 60, 50), rgb(255, 170, 130),
-    rgb(255, 150, 200), rgb(255, 220, 80),
-    rgb(90, 150, 80), rgb(50, 100, 50),
+    rgb(122, 176, 206), rgb(246, 222, 168), rgb(255, 196, 112),
+    rgb(98, 66, 44), rgb(146, 104, 68), rgb(46, 30, 20),
+    rgb(104, 172, 64), rgb(232, 250, 150),
+    rgb(126, 190, 78), rgb(58, 112, 42),
+    rgb(160, 64, 56), rgb(244, 170, 130),
+    rgb(255, 150, 200), rgb(255, 214, 90),
+    rgb(112, 156, 84), rgb(70, 112, 56),
     rgb(120, 60, 40), rgb(180, 100, 60), rgb(60, 28, 20), rgb(255, 240, 120),
-    rgb(255, 250, 230), ""}},
+    rgb(255, 250, 230), "garden"}},
+  // Level 26: a 1950s monster-movie model city on a soundstage at night,
+  // a painted Technicolor sky, grey model streets and pastel buildings.
+  {"model_city",
+   {ThemeId::LostTemple,
+    "KAIJU TONIGHT",
+    "A MODEL CITY ON A SOUNDSTAGE, AND TONIGHT YOU ARE THE MONSTER",
+    rgb(26, 30, 72), rgb(120, 70, 120), rgb(250, 150, 90),
+    rgb(92, 92, 100), rgb(140, 140, 148), rgb(44, 44, 52),
+    rgb(120, 120, 128), rgb(220, 220, 210),
+    rgb(110, 150, 90), rgb(60, 90, 50),
+    rgb(80, 120, 70), rgb(160, 220, 140),
+    rgb(255, 120, 60), rgb(120, 220, 255),
+    rgb(70, 70, 80), rgb(40, 40, 48),
+    rgb(90, 90, 100), rgb(150, 150, 160), rgb(40, 40, 50), rgb(255, 230, 140),
+    rgb(255, 245, 225), ""}},
 }};
 
 } // namespace

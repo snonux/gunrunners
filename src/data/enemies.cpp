@@ -217,6 +217,9 @@ const EnemyDef kEnemies[] = {
   {"soldier_ant", "SOLDIER ANT", K::SoldierAnt, L::Styled, 3, 2, 1, 150, 2, 30, 10, 0, kEnemyHarmless, 0},
   {"jumping_spider", "JUMPING SPIDER", K::JumpingSpider, L::Styled, 4, 3, 4, 600, 2, 40, 15, 0, kEnemyHarmless, 0},
   {"bombardier_beetle", "BOMBARDIER BEETLE", K::BombardierBeetle, L::Styled, 4, 3, 5, 500, 4, 30, 12, 0, kEnemyHarmless, 0},
+  {"model_tank", "MODEL TANK", K::ModelTank, L::Styled, 3, 2, 2, 200, 2, 30, 10, 0, kEnemyHarmless, 0},
+  {"toy_jet", "TOY JET", K::ToyJet, L::Styled, 3, 2, 1, 300, 1, 45, 30, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  {"maser_truck", "MASER TRUCK", K::MaserTruck, L::Styled, 6, 4, 10, 1200, 4, 45, 22, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

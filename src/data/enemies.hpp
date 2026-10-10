@@ -121,6 +121,10 @@ enum class EnemyKind
   SoldierAnt,       // marches in a column; hit or touched, the column turns on you
   JumpingSpider,    // stalks at a distance, crouches, leaps where you stood
   BombardierBeetle, // patrols; a boiling jet out of its back at a runner behind it
+  // Level 26, Kaiju Tonight (world_city.cpp).
+  ModelTank,  // patrols in a squad; the squad's tanks fire up at 45 degrees in turn
+  ToyJet,     // strafes in a formation of three, dropping a shot over the runner
+  MaserTruck, // patrols; a ring grows on its dish, then a beam along its row
 };
 
 enum EnemyFlag : unsigned

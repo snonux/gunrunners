@@ -892,6 +892,36 @@ void Planner::buildField(const World& w, const Goal& goal)
         for (int x = t.bx * kCellsPerTile; x < (t.bx + 1) * kCellsPerTile; ++x)
           if (x >= 0 && y >= 0 && x < W && y < H)
             blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
+  // Level 26: a model building breaks when jumped into (Rocco walks
+  // through), so it is no wall to the field, and the station roof's street
+  // slab with it; a tower that still stands is the bridge it will lie as.
+  for (const auto& b : w.city().buildings)
+  {
+    auto set = [&](int bx0, int by0, int bx1, int by1, char v) {
+      for (int y = by0 * kCellsPerTile; y < (by1 + 1) * kCellsPerTile; ++y)
+        for (int x = bx0 * kCellsPerTile; x < (bx1 + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = v;
+    };
+    if (b.standing() || b.state == BuildingState::Crumbling || b.state == BuildingState::Leaning ||
+        b.state == BuildingState::Falling)
+    {
+      set(b.x0, b.y0, b.x1, b.y1, 0);
+      if (b.ux0 >= 0 && b.state != BuildingState::Leaning && b.state != BuildingState::Falling)
+        set(b.ux0, b.uy0, b.ux1, b.uy1, 0);
+    }
+    if (b.kind == BuildingKind::Tower && b.state != BuildingState::Lying)
+      set(b.bx0, b.by0, b.bx1, b.by1, 1);
+  }
+  // Its canal and bay: no floor.
+  for (const auto& pd : w.city().ponds)
+    for (int y = std::max(0, pd.y); y <= std::min(H - 1, pd.y + pd.h); ++y)
+      for (int x = std::max(0, pd.x); x <= std::min(W - 1, pd.x + pd.w - 1); ++x)
+      {
+        blocked[std::size_t(y * W + x)] = 1;
+        if (y > pd.y)
+          top[std::size_t(y * W + x)] = 0;
+      }
   // Level 15: a crate one shot breaks is no wall to the field.
   for (const auto& c : w.station().crates)
     if (c.alive && !c.loose && !c.held)
@@ -2213,6 +2243,9 @@ void Planner::plan(const World& world)
       for (const auto& pl : world.manor().platforms)
         powered = int(unsigned(powered) * 131u + unsigned(pl.bx * 97 + pl.by));
     }
+    // Level 26: buildings broken, towers fallen.
+    for (const auto& b : world.city().buildings)
+      powered = int(unsigned(powered) * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u)));
     // Level 22: barrels blown (bridges down, rock gone).
     for (const auto& b : world.west().barrels)
       powered = powered * 2 + b.blown;
@@ -2368,6 +2401,14 @@ void Planner::plan(const World& world)
     for (const auto& b : w.breakables())
       cracks = cracks * 7 + b.hp;
     k = mix(k, std::uint64_t(cracks));
+    // Level 26: which buildings stand, how cracked the roof under the runner is.
+    if (w.city().on)
+    {
+      std::uint64_t c = 0;
+      for (const auto& b : w.city().buildings)
+        c = c * 7 + std::uint64_t(int(b.state)) + std::uint64_t(std::min(b.cracks, 1));
+      k = mix(k, c);
+    }
     // Level 15: crates (shot, thrown, sucked out), charges out, open panels.
     if (w.station().on())
     {
