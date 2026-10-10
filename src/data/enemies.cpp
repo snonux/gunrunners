@@ -97,6 +97,12 @@ const EnemyDef kEnemies[] = {
   // it lights its fins and dives. Rock Leech: range is how far it spits.
   {"void_ray", "VOID RAY", K::VoidRay, L::Styled, 4, 2, 3, 800, 0, 40, 10, 18, 0, 0},
   {"rock_leech", "ROCK LEECH", K::RockLeech, L::Styled, 2, 2, 2, 500, 0, 60, 12, 30, 0, 0},
+  // Level 46: Crystal Drift. Blinker: range is how far (cells) it notices
+  // you; Shard Golem: stepEvery is its plod; Prism Bat: range is how wide
+  // its figure eight is.
+  {"blinker", "BLINKER", K::Blinker, L::Styled, 3, 4, 3, 700, 3, 50, 12, 22, 0, 0},
+  {"shard_golem", "SHARD GOLEM", K::ShardGolem, L::Styled, 4, 5, 5, 1200, 4, 0, 0, 0, 0, 0},
+  {"prism_bat", "PRISM BAT", K::PrismBat, L::Styled, 3, 2, 2, 400, 0, 0, 0, 7, 0, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
   // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).

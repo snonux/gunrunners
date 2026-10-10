@@ -744,6 +744,30 @@ std::vector<float> makeSfx(Sfx id)
           std::min(1.0, t / 0.03) * std::min(1.0, (total - t) / 0.1);
       });
     }
+    case Sfx::Swap:
+    {
+      // A struck crystal: two bright bell partials, a glassy shimmer up.
+      Osc a, b, c;
+      return render(0.6, [&](double t, double) {
+        const double bell = a.step(1568.0, Wave::Sine, 0.0) * 0.3 + b.step(2349.0 * 1.003, Wave::Sine, 0.0) * 0.18;
+        const double up = c.step(sweep(800.0, 3200.0, std::min(1.0, t / 0.2)), Wave::Triangle, 0.0) * 0.12 *
+          std::exp(-t * 10.0);
+        return (bell * std::exp(-t * 5.0) + up) * attack(t, 0.003);
+      });
+    }
+    case Sfx::Blink:
+    {
+      // A warp: a falling then rising whistle through noise.
+      Osc a;
+      Noise n(131);
+      Svf f;
+      return render(0.35, [&](double t, double total) {
+        const double k = t / total;
+        const double fr = k < 0.5 ? sweep(1800.0, 500.0, k * 2.0) : sweep(500.0, 2200.0, (k - 0.5) * 2.0);
+        return (a.step(fr, Wave::Sine, 0.0) * 0.25 + f.band(n.next(), float(fr), 4.0) * 0.2) *
+          std::min(1.0, (total - t) / 0.05);
+      });
+    }
     case Sfx::EngineOn:
     {
       // A starter motor catching, then the engine settling.

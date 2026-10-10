@@ -973,6 +973,8 @@ void World::respawnPlayer()
     resetVehicles();
   if (mSpace.starfall)
     resetStarfall(); // puts you back in the ship
+  if (mSpace.crystals)
+    resetCrystals();
   mAir = kAirFrames;
   showMessage("BACK IN ACTION");
 }

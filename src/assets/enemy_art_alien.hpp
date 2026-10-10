@@ -19,5 +19,8 @@ bool drawHiveArt(cairo_t* cr, const Theme& t, const std::string& key, double w, 
 // Level 43, Starfall: its aliens, the asteroids, the probe, the pad and the
 // clouds (enemy_art_starfall.cpp).
 bool drawStarfallArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
+// Level 46, Crystal Drift: the Swap Crystals and its aliens
+// (enemy_art_crystal.cpp).
+bool drawCrystalArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
 
 } // namespace gr
