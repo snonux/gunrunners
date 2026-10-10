@@ -104,6 +104,10 @@ public:
   // The on-screen menu pad (d-pad, OK, BACK in menus), kept in the profile.
   bool menuPad() const;
   void setMenuPad(bool on);
+  // In a level: the thumbs scheme (left thumb moves and jumps, right thumb
+  // shoots and aims) or the Jump and Fire buttons. CONTROLS switches it;
+  // thumbs by default.
+  bool touchThumbs() const;
 
 private:
   enum class Mode

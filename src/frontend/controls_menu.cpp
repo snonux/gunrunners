@@ -21,6 +21,7 @@ constexpr int kPadColumn = Bindings::kKeySlots;
 enum class RowKind
 {
   Action,
+  TouchScheme,
   TouchSize,
   TouchLayout,
   Reset,
@@ -41,6 +42,7 @@ std::vector<Game::ControlRow> Game::controlRows() const
     rows.push_back({RowKind::Action, Act(a)});
   if (mOptions.touch)
   {
+    rows.push_back({RowKind::TouchScheme, Act::Count});
     rows.push_back({RowKind::TouchSize, Act::Count});
     rows.push_back({RowKind::TouchLayout, Act::Count});
   }
@@ -151,6 +153,10 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
       mListening = true;
       mListenTicks = 0;
       break;
+    case RowKind::TouchScheme:
+      mProfile.controls["touch.thumbs"] = {touchThumbs() ? 0 : 1};
+      mProfile.save(saveDir());
+      break;
     case RowKind::TouchSize:
       cycleTouchSize();
       break;
@@ -160,6 +166,7 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
     case RowKind::Reset:
       mBindings = Bindings::defaults();
       mProfile.controls.erase("touch.layout");
+      mProfile.controls.erase("touch.thumbs");
       mProfile.touchSize = 1;
       saveBindings();
       notice("CONTROLS RESET TO THE DEFAULTS");
@@ -207,7 +214,7 @@ void Game::renderControls()
     r.drawText(heads[c], colX[c], 168, {15.0f, t.accentB, kInk}, Align::Center);
 
   const auto rows = controlRows();
-  const float step = rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
+  const float step = rows.size() > 15 ? 25.0f : rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
   // While it listens, a tap anywhere gives up (like BACK).
   if (mListening)
     tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::back); });
@@ -250,7 +257,9 @@ void Game::renderControls()
     {
       if (sel)
         r.fillRect(400, y - 3, 480, step - 4, withAlpha(t.accentA, 60));
-      const std::string label = row.kind == RowKind::TouchSize ? touchSizeLabel()
+      const std::string label = row.kind == RowKind::TouchScheme
+        ? (touchThumbs() ? "TOUCH: LEFT MOVES AND JUMPS, RIGHT SHOOTS" : "TOUCH: JUMP AND FIRE BUTTONS")
+        : row.kind == RowKind::TouchSize                      ? touchSizeLabel()
         : row.kind == RowKind::TouchLayout                    ? "EDIT TOUCH LAYOUT"
                                                               : "RESET TO DEFAULTS";
       r.drawText(label, 640, y, sel ? chosen : plain, Align::Center);
@@ -280,7 +289,7 @@ void Game::renderControls()
     if (mOptions.touch)
       help += " (or TAP)";
   }
-  r.drawText(help, 640, rows.size() > 13 ? 596.0f : 584.0f, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
+  r.drawText(help, 640, rows.size() > 15 ? 601.0f : rows.size() > 13 ? 596.0f : 584.0f, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
     Align::Center);
 }
 

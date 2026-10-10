@@ -122,6 +122,12 @@ bool Game::menuPad() const
   return it != mProfile.controls.end() && !it->second.empty() && it->second[0] != 0;
 }
 
+bool Game::touchThumbs() const
+{
+  auto it = mProfile.controls.find("touch.thumbs");
+  return it == mProfile.controls.end() || it->second.empty() || it->second[0] != 0;
+}
+
 void Game::setMenuPad(bool on)
 {
   if (menuPad() == on)

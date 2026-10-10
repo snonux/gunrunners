@@ -43,8 +43,9 @@ debug key; see "Releasing".
 - **In a level:** a floating stick on the left half of the screen (it
   centres wherever the thumb lands and keeps steering if the thumb slides
   across, its centre following a thumb that goes far out so turning round
-  is quick), and on the right Fire in the corner, Jump left of it, Switch
-  runner above and Pause at the top. Drawn
+  is quick), and on the right the shooting zone (thumbs, below) or, in the
+  buttons scheme, Fire in the corner and Jump left of it with Switch runner
+  above; Use, Map and Pause at the top. Drawn
   faintly so the level shows through.
 - **Made to hit without looking:** the controls hug the physical screen's
   edges, so on phones wider than 16:9 they sit in the black bars beside the
@@ -52,7 +53,24 @@ debug key; see "Releasing".
   presses the button whose rim is nearest; Pause needs a closer touch. A
   thumb keeps its button however far it drifts and switches only when it
   slides right onto another one.
-- **Swipes, on the right half in a level:** a quick swipe up (80 units in
+- **Thumbs (the default scheme), in a level:** no Jump or Fire button.
+  The left-half stick walks and turns, down crouches, up jumps (the Input
+  carries `upJump`, and `Game::tickPlay` drops that jump on a ladder unless
+  the stick is diagonal, so up climbs there). A touch on the right half
+  fires: it waits 50 ms for a flick (60 units within 220 ms), which sets
+  the aim (up, down, left, right) and fires; with no flick it fires the
+  current aim. A flick while firing lets go of fire for one tick so the
+  next shot goes the new way. The aim stays until the next flick and shows
+  as an arrow by the fire mark in the corner. Up aims are `up` held while
+  firing, down is `down` (a crouched shot on the ground, straight down from
+  a hang bar or the jetpack, which is all the engine shoots downwards);
+  left and right set `aimLeft` / `aimRight`, and `Game::tickPlay` presses
+  that direction for the one logic frame a turn on the spot takes, unless
+  the stick is steering. Switch runner, Use, Map and Pause sit in a row
+  along the top. `TouchControls::advance` gets the time every tick. TOUCH
+  in CONTROLS switches to the buttons scheme below (`touch.thumbs` 0;
+  RESET TO DEFAULTS goes back to thumbs).
+- **Swipes, on the right half in a level (buttons scheme):** a quick swipe up (80 units in
   under 220 ms) jumps and holds jump until the finger lifts, so a thumb on
   Fire can jump without letting go; a quick swipe down switches runner.
   Slower moves are not swipes.

@@ -304,6 +304,15 @@ void Game::tickPlay(const Input& raw)
       mBotInput = mBot.play(*mWorld);
     in = mBotInput | raw;
   }
+  // Touch (thumbs): the stick pushed up jumps, but on a ladder it climbs
+  // (a diagonal still jumps off).
+  const auto& player = mWorld->player();
+  if (in.upJump && player.state == PlayerState::Ladder && !in.left && !in.right)
+    in.jump = false;
+  // A shot aimed left or right turns the runner that way first, unless the
+  // stick is steering (turning on the spot takes one logic frame).
+  if (in.fire && (in.aimLeft || in.aimRight) && !in.left && !in.right && player.facing != (in.aimLeft ? -1 : 1))
+    (in.aimLeft ? in.left : in.right) = true;
   mLatched.left = in.left;
   mLatched.right = in.right;
   mLatched.up = in.up;

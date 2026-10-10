@@ -102,6 +102,9 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "quickload") in.quickLoad = true;
       else if (b == "map") in.map = true;
       else if (b == "use") in.use = true;
+      else if (b == "aimleft") in.aimLeft = true;
+      else if (b == "aimright") in.aimRight = true;
+      else if (b == "upjump") in.up = in.jump = in.upJump = true;
       else return false;
     }
     out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
@@ -141,7 +144,7 @@ void printUsage()
     "                       ~/.local/share/gunrunners/saves)\n"
     "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
     "                       (left right up down jump fire confirm pause back swap\n"
-    "                       quicksave quickload use)\n"
+    "                       quicksave quickload use; touch: aimleft aimright upjump)\n"
     "  --tap LIST           headless: taps on the 1280x720 screen, e.g. 120:640x300\n"
     "  --drag LIST          headless: finger drags by dx x dy, e.g. 200:0x-120\n"
     "\n"
@@ -165,6 +168,7 @@ void syncTouch(TouchControls& touch, Game& game)
     game.setTouchLayout(touch.layout());
   else
     touch.setLayout(game.touchLayout());
+  touch.setThumbs(game.touchThumbs());
   if (touch.takeMenuPadChange())
     game.setMenuPad(touch.menuPad());
   else
@@ -633,6 +637,8 @@ int runWindowed(const CliOptions& o)
         SDL_StartTextInput();
 #endif
       const Input keysAndPads = controls.read(!game.inLevel(), game.wantsText());
+      if (touch)
+        touch->advance(SDL_GetTicks());
       running = game.tick(touch ? keysAndPads | touch->read() : keysAndPads);
       if (touch)
         syncTouch(*touch, game);

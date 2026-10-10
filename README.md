@@ -164,13 +164,19 @@ After that, `./build/gunrunners` starts the game.
 
 ## Touch controls (Android)
 
-In a level, the left half of the screen is a stick: put your thumb down
-anywhere there and slide it. On the right are Fire (the big corner button),
-Jump left of it, Switch runner above and, at the top, Pause and the Map. You don't have to hit them exactly:
-a touch near them presses the nearest one, a thumb that drifts keeps its
-button, and sliding onto another button switches to it. Or swipe: a quick
-swipe up anywhere on the right half jumps (also with a thumb on Fire), a
-quick swipe down switches runner. Push the stick up beside a vehicle to climb
+In a level your left thumb moves and your right thumb shoots. The left half
+of the screen is a stick: put your thumb down anywhere there and slide it
+to walk or turn, down to crouch, up (or a quick flick up) to jump, up and
+over for a running jump. On a ladder, up climbs. Touch anywhere on the right
+half to fire; a quick flick there aims (up, down, left or right) and fires
+that way, and the aim stays for the next shots until you flick again (a
+flick down shoots crouched, or straight down where the game can, from a
+hang bar or the jetpack). Switch runner, Use (get in or out of a vehicle),
+the Map and Pause sit in a row along the top, out of both thumbs' way. If
+you'd rather have buttons, TOUCH in CONTROLS switches to Fire (the big corner
+button) and Jump left of it, with swipes on the right half (up jumps, down
+switches runner); a touch near a button presses the nearest one, a thumb
+that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb
 in, and down + Jump to climb out. Menus take your finger directly: tap
 an item to pick it, drag to scroll a list, tap a card on runner select to
 turn to it and tap it again to run, drag the map to pan it and tap it to
