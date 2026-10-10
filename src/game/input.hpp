@@ -18,6 +18,8 @@ struct Input
   bool pause = false; // Esc / P, gamepad Start: open or close the pause menu
   bool back = false;  // Esc / Backspace, gamepad B: leave a menu
   bool swap = false;  // C, gamepad Y: switch to the next runner mid-level
+  bool quickSave = false; // F5: save to the quick save slot
+  bool quickLoad = false; // F9: load the quick save
 
   Input operator|(const Input& o) const
   {
@@ -32,6 +34,8 @@ struct Input
     r.pause = pause || o.pause;
     r.back = back || o.back;
     r.swap = swap || o.swap;
+    r.quickSave = quickSave || o.quickSave;
+    r.quickLoad = quickLoad || o.quickLoad;
     return r;
   }
 };

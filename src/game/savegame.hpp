@@ -110,6 +110,8 @@ struct SaveGame
 std::string defaultSaveDir();
 // slot is 0-based; files are named slot1.sav .. slot5.sav.
 std::string slotPath(const std::string& dir, int slot);
+// The quick save slot (F5 / F9), apart from the five: quick.sav.
+std::string quickSavePath(const std::string& dir);
 
 // Writes atomically (temp file + rename), creating the directory if needed.
 bool writeSave(const SaveGame& save, const std::string& path, std::string* error = nullptr);

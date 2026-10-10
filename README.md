@@ -110,7 +110,9 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
-| Esc / P | Start | pause menu: resume, save, load, change runner, quit |
+| Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
+| F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
+| F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
 | Enter | A (or Start) | confirm in menus |
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
 | T | Back / Select | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
@@ -153,7 +155,8 @@ trying the controls.
   caches and the number 42 somewhere.
 - **Savegames.** Five slots, from the pause menu or LOAD GAME on the title
   screen. A save keeps everything: your runner, score, health, weapons,
-  items and what is left of the level.
+  items and what is left of the level. A sixth, the quick save, needs no
+  menu: F5 saves and F9 loads (both rebindable, and also in the pause menu).
 
 ## Plays like Duke Nukem II
 

@@ -168,6 +168,12 @@ bool Game::tick(const Input& raw)
   switch (mMode)
   {
     case Mode::Title:
+      // F9 on the title screen picks the quick save straight back up.
+      if (edge(&Input::quickLoad))
+      {
+        quickLoad();
+        break;
+      }
       tickTitle(in);
       break;
     case Mode::Cutscene:
@@ -256,6 +262,13 @@ bool Game::tick(const Input& raw)
       break;
     }
     case Mode::Play:
+      if (edge(&Input::quickLoad))
+      {
+        quickLoad();
+        break;
+      }
+      if (edge(&Input::quickSave))
+        quickSave();
       if (edge(&Input::pause) && mWorld->state() == WorldState::Playing)
       {
         sound(Sfx::MenuSelect);
