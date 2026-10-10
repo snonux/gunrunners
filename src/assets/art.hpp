@@ -1,5 +1,6 @@
 #pragma once
 
+#include "data/characters.hpp"
 #include "data/theme.hpp"
 #include "render/renderer.hpp"
 
@@ -89,8 +90,13 @@ enum ItemIcon
 
 struct Art
 {
-  std::array<CharacterArt, 3> characters;
-  std::array<Color, 3> characterColor;
+  // A runner's poses, baked the first time they are needed (a runner made
+  // in the editor can show up at any time). The portrait alone is cheaper
+  // for menus that show many runners.
+  const CharacterArt& runner(const CharacterDef& def) const;
+  const Texture& portrait(const CharacterDef& def) const;
+  Color runnerColor(const CharacterDef& def) const;
+
   std::array<Sprite, 2> walker;
   std::array<Sprite, 2> flyer;
   Sprite turret;
@@ -140,6 +146,12 @@ struct Art
   Texture hudSlot;
 
   static Art build(const Theme& theme, const Renderer& renderer);
+
+private:
+  const Renderer* mRenderer = nullptr;
+  mutable std::map<std::string, std::pair<CharacterArt, long>> mRunners; // with when last used
+  mutable std::map<std::string, Texture> mPortraits;
+  mutable long mRunnerClock = 0;
 };
 
 // Additive soft light at screen position (cx, cy).
@@ -159,6 +171,11 @@ Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bo
 // The same, straight onto a Cairo context in design units (the feet at
 // (32, 96), about 130 units tall), for print-size art such as the covers.
 void drawCharacterPose(cairo_t* cr, int kind, int pose);
+// Any runner of the roster (kind above is Dash, Rocco or Nova, the cast of
+// the cutscenes). Extra poses: 10-17 the run cycle, 18 climb, 19 hang,
+// 20 jetpack.
+Texture bakeRunnerPose(const Renderer& r, const CharacterDef& def, int pose, float scale, bool mirror = false);
+void drawRunnerPose(cairo_t* cr, const CharacterDef& def, int pose);
 // Rounded translucent panel for menus and overlays.
 Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, double radius);
 

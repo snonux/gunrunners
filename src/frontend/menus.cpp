@@ -255,7 +255,7 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     mArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
     buildPanels();
   }
-  auto world = std::make_unique<World>(mLevel, std::clamp(s.character, 0, kCharacterCount - 1), theme(), *mArt);
+  auto world = std::make_unique<World>(mLevel, std::clamp(s.character, 0, characterCount() - 1), theme(), *mArt);
   if (!world->restore(s))
   {
     sound(Sfx::Hurt);
@@ -423,7 +423,7 @@ bool Game::tickMenu(const Input& in)
       break;
 
     case Menu::Runner:
-      mRunnerCursor = (mRunnerCursor + dir + side + kCharacterCount) % kCharacterCount;
+      mRunnerCursor = (mRunnerCursor + dir + side + characterCount()) % characterCount();
       if (cancel)
       {
         openMenu(Menu::Pause);
@@ -455,8 +455,10 @@ void Game::renderNotice()
   if (mNoticeTicks <= 0)
     return;
   const float a = std::min(1.0f, float(mNoticeTicks) / 20.0f);
-  mRenderer.fillRect(340, 640, 600, 44, rgba(8, 6, 22, int(210 * a)));
-  mRenderer.drawText(mNotice, 640, 648, {22.0f, theme().accentA, kInk, true}, Align::Center, a);
+  // Runner select has its EDIT button down there.
+  const float y = mMode == Mode::Select && mMenu == Menu::None ? 128.0f : 640.0f;
+  mRenderer.fillRect(340, y, 600, 44, rgba(8, 6, 22, int(230 * a)));
+  mRenderer.drawText(mNotice, 640, y + 8, {22.0f, theme().accentA, kInk, true}, Align::Center, a);
 }
 
 void Game::renderMenu()
@@ -533,23 +535,31 @@ void Game::renderMenu()
     r.draw(mMenuPanel, 380, 120);
     r.drawText("CHANGE RUNNER", 640, 140, {40.0f, t.accentA, kInk, true}, Align::Center);
     const int current = mWorld ? mWorld->characterIndex() : mCursor;
-    for (int i = 0; i < kCharacterCount; ++i)
+    // Three at a time, the chosen one in the middle.
+    const int n = characterCount();
+    for (int k = -1; k <= 1; ++k)
     {
+      if (n < 3 && k != 0)
+        continue;
+      const int i = (mRunnerCursor + k + n) % n;
       const auto& def = characterByIndex(i);
-      const bool sel = i == mRunnerCursor;
-      const float x = 470.0f + float(i) * 170.0f;
+      const bool sel = k == 0;
+      const float x = 640.0f + float(k) * 170.0f;
       if (sel)
         drawGlow(r, *mArt, x, 330, 120, t.accentA, 0.35f);
       DrawOpts o;
       o.scale = 0.55f;
       if (!sel)
         o.tint = rgb(130, 126, 150);
-      r.draw(mArt->characters[std::size_t(i)].portrait, x, 210, o);
+      r.draw(mArt->portrait(def), x, 210, o);
       r.drawText(def.name, x, 360, {26.0f, sel ? t.accentA : t.hudText, kInk, true}, Align::Center);
       r.drawText(i == current ? "PLAYING" : weaponName(def.startWeapon), x, 396, {15.0f, rgb(190, 188, 214)},
         Align::Center);
     }
-    r.drawText("Health carries over as a share of the new runner's hearts.", 640, 450, hint, Align::Center);
+    char count[32];
+    std::snprintf(count, sizeof(count), "< %d / %d >", mRunnerCursor + 1, n);
+    r.drawText(count, 640, 424, {18.0f, t.accentB, kInk, true}, Align::Center);
+    r.drawText("Health carries over as a share of the new runner's hearts.", 640, 466, hint, Align::Center);
     r.drawText("LEFT/RIGHT choose   ENTER / A swap   ESC / B back", 640, 560, hint, Align::Center);
     return;
   }
@@ -571,10 +581,10 @@ void Game::renderMenu()
       r.drawText("- EMPTY -", 640, y + 16, {22.0f, rgb(150, 148, 170)}, Align::Center);
       continue;
     }
-    const auto& def = characterByIndex(std::clamp(s->character, 0, kCharacterCount - 1));
+    const CharacterDef def = savedRunner(s->character, s->runner);
     DrawOpts o;
     o.scale = 0.2f;
-    r.draw(mArt->characters[std::size_t(std::clamp(s->character, 0, kCharacterCount - 1))].portrait, 280, y + 2, o);
+    r.draw(mArt->portrait(def), 280, y + 2, o);
     r.drawText(def.name, 320, y + 6, {24.0f, sel ? t.accentA : t.hudText, kInk, true});
     r.drawText(s->levelName.empty() ? "STAGE 1" : s->levelName, 320, y + 34, {15.0f, rgb(190, 188, 214)});
     std::snprintf(buf, sizeof(buf), "SCORE %07d   %d:%02d   LETTERS %s", s->score, s->frames / 15 / 60,

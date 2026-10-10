@@ -68,7 +68,7 @@ int main(int argc, char** argv)
     const Art art = Art::build(theme, renderer);
     const auto level = std::make_shared<const Level>(Level::loadFile(levelPath));
 
-    for (int character = 0; character < kCharacterCount; ++character)
+    for (int character = 0; character < characterCount(); ++character)
     {
       World world(level, character, theme, art);
       Bot bot;
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
             same = fresh.explored(tx, ty) == world.explored(tx, ty);
         check(same && world.explored(level->startTx, level->startTy), "explored map after load");
       }
-      const std::string b = slotPath(dir, 4);
+      const std::string b = dir + "/reloaded.sav";
       check(writeSave(fresh.snapshot(), b), "write reloaded save");
       const std::string sa = withoutTimestamp(slurp(a)), sb = withoutTimestamp(slurp(b));
       check(sa == sb, "reloaded world saves identically");
@@ -134,6 +134,55 @@ int main(int argc, char** argv)
         fresh.update(p);
       }
       check(fresh.player().hp > 0 || fresh.player().state == PlayerState::Dying, "plays on after loading");
+    }
+
+    // A custom runner: stored in runners.txt, and carried in the save so
+    // the save still loads once the runner is deleted.
+    {
+      RunnerParts parts;
+      parts.body = 1;
+      parts.hair = 2;
+      parts.glow = 5;
+      const CharacterDef custom = makeCustomRunner("c0test01", "Tin Can!", parts, Weapon::Rocket, 4, 4, 2);
+      check(custom.name == "TIN CAN!" && custom.maxHp == 10 && custom.startAmmo == 12, "custom runner stats");
+      const CharacterDef greedy = makeCustomRunner("c0test02", "", parts, Weapon::Laser, 5, 5, 5);
+      check(runnerPointsLeft(greedy.healthPips, greedy.jumpPips, greedy.powerPips) == 0 && greedy.name == "RUNNER",
+        "custom runner stays within the budget");
+      const int index = putCustomRunner(custom);
+      check(index == kDefaultRunners && characterByIndex(index).id == "c0test01", "custom runner joins the roster");
+      check(saveCustomRunners(dir), "write runners.txt");
+      clearCustomRunners();
+      loadCustomRunners(dir);
+      check(characterCount() == kDefaultRunners + 1 && encodeRunner(characterByIndex(index)) == encodeRunner(custom),
+        "runners.txt round trip");
+
+      World world(level, index, theme, art);
+      check(world.player().hp == 10 && world.player().ammo == 12, "custom runner starts with its stats");
+      Bot bot;
+      for (int f = 0; f < 60; ++f)
+      {
+        const Input in = bot.play(world);
+        PlayerInput p;
+        p.right = in.right;
+        p.left = in.left;
+        p.jump = {in.jump, in.jump};
+        p.fire = {in.fire, in.fire};
+        world.update(p);
+      }
+      const std::string a = dir + "/custom.sav";
+      check(writeSave(world.snapshot(), a), "write custom runner save");
+      removeCustomRunner("c0test01");
+      check(runnerIndexById("c0test01") < 0, "custom runner deleted");
+      const auto loaded = readSave(a);
+      check(loaded && !loaded->runner.empty(), "save carries the custom runner");
+      if (loaded)
+      {
+        World fresh(level, 0, theme, art);
+        check(fresh.restore(*loaded), "restore a deleted custom runner's save");
+        check(fresh.character().name == "TIN CAN!" && fresh.character().maxHp == 10, "the runner comes back");
+        check(characterByIndex(fresh.characterIndex()).transient, "brought back without being saved again");
+        clearCustomRunners();
+      }
     }
 
     // A truncated file is no save at all.

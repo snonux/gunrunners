@@ -44,6 +44,9 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   , mCursor(options.autoplay ? 0 : options.character)
 {
   mCampaign = options.levelPath.empty();
+  loadCustomRunners(saveDir());
+  mCursor = std::clamp(mCursor, 0, characterCount() - 1);
+  mSelectScroll = float(mCursor);
   buildPanels();
   if (!campaign())
   {
@@ -195,72 +198,12 @@ bool Game::tick(const Input& raw)
       }
       break;
     case Mode::Select:
-    {
-      if (mOptions.autoplay)
-        in = mBot.menu(mCursor, mOptions.character, mModeTicks) | raw;
-      if (campaign())
-      {
-        // Campaign runner select: the title screen has LOAD GAME.
-        if (edge(&Input::left))
-        {
-          mCursor = (mCursor + kCharacterCount - 1) % kCharacterCount;
-          sound(Sfx::MenuMove);
-        }
-        if (edge(&Input::right))
-        {
-          mCursor = (mCursor + 1) % kCharacterCount;
-          sound(Sfx::MenuMove);
-        }
-        if ((edge(&Input::confirm) || edge(&Input::jump)) && mModeTicks > 20)
-        {
-          sound(Sfx::MenuSelect);
-          beginCampaignLevel(mPendingLevel, mPendingNewGame);
-        }
-        else if (edge(&Input::back) || edge(&Input::pause))
-        {
-          goTitle();
-        }
-        break;
-      }
-      if (edge(&Input::up) || edge(&Input::down))
-      {
-        mTitleFocusLoad = !mTitleFocusLoad;
-        sound(Sfx::MenuMove);
-      }
-      if (!mTitleFocusLoad && edge(&Input::left))
-      {
-        mCursor = (mCursor + kCharacterCount - 1) % kCharacterCount;
-        sound(Sfx::MenuMove);
-      }
-      if (!mTitleFocusLoad && edge(&Input::right))
-      {
-        mCursor = (mCursor + 1) % kCharacterCount;
-        sound(Sfx::MenuMove);
-      }
-      const bool go = edge(&Input::confirm) || edge(&Input::jump);
-      if (go && mModeTicks > 20)
-      {
-        sound(Sfx::MenuSelect);
-        if (mTitleFocusLoad)
-        {
-          mSlotsForSave = false;
-          openMenu(Menu::Slots);
-        }
-        else
-        {
-          startLevel();
-        }
-      }
-      else if (edge(&Input::back) && mTitleFocusLoad)
-      {
-        mTitleFocusLoad = false;
-      }
-      else if (edge(&Input::pause) && !in.confirm)
-      {
-        return false; // Esc on the title screen quits
-      }
+      if (!tickSelect(in, raw))
+        return false;
       break;
-    }
+    case Mode::Editor:
+      tickEditor(in);
+      break;
     case Mode::Play:
       if (edge(&Input::quickLoad))
       {
@@ -282,7 +225,7 @@ bool Game::tick(const Input& raw)
         break;
       }
       if (edge(&Input::swap))
-        switchRunner((mWorld->characterIndex() + 1) % kCharacterCount);
+        switchRunner((mWorld->characterIndex() + 1) % characterCount());
       tickPlay(raw);
       break;
     case Mode::Bonus:
@@ -303,7 +246,7 @@ void Game::finishTally()
     const auto& s = mWorld->stats();
     std::fprintf(stderr,
       "cleared: %s, %.1f s, deaths %d, hits %s, bots %d/%d, gems %d/%d, merch %d/%d, letters %s, score %d (+%d bonus)\n",
-      mWorld->character().name, double(s.frames) / 15.0, s.deaths, s.tookDamage ? "taken" : "none", s.kills,
+      mWorld->character().name.c_str(), double(s.frames) / 15.0, s.deaths, s.tookDamage ? "taken" : "none", s.kills,
       s.enemiesTotal, s.gems, s.gemsTotal, s.merch, s.merchTotal, s.letters.empty() ? "-" : s.letters.c_str(),
       mShownScore, mShownScore - mScoreBeforeBonus);
     if (campaign())
@@ -432,8 +375,10 @@ void Game::tickBonus(const Input& /*in*/)
 void Game::buildPanels()
 {
   const auto& t = theme();
-  mCardPanel = makePanel(mRenderer, 340, 470, rgba(10, 8, 26, 170), rgba(255, 255, 255, 70), 22);
-  mCardPanelSelected = makePanel(mRenderer, 340, 470, rgba(14, 10, 34, 215), t.accentA, 22);
+  mCardPanel = makePanel(mRenderer, 340, 440, rgba(10, 8, 26, 170), rgba(255, 255, 255, 70), 22);
+  mCardPanelSelected = makePanel(mRenderer, 340, 440, rgba(14, 10, 34, 215), t.accentA, 22);
+  mActionButton = makePanel(mRenderer, 260, 44, rgba(10, 8, 26, 170), rgba(255, 255, 255, 80), 14);
+  mActionButtonFocus = makePanel(mRenderer, 260, 44, rgba(14, 10, 34, 225), t.accentA, 14);
   mBannerPanel = makePanel(mRenderer, 760, 170, rgba(8, 6, 22, 200), t.accentA, 24);
   mBonusPanel = makePanel(mRenderer, 860, 560, rgba(8, 6, 22, 220), t.accentA, 28);
   mMenuPanel = makePanel(mRenderer, 520, 470, rgba(8, 6, 22, 230), t.accentA, 26);
@@ -479,6 +424,9 @@ void Game::render()
     case Mode::Select:
       renderSelect();
       break;
+    case Mode::Editor:
+      renderEditor();
+      break;
     case Mode::Play:
       mWorld->draw(mRenderer, mFrame, alpha);
       renderPlayOverlay();
@@ -491,67 +439,6 @@ void Game::render()
   if (mMenu != Menu::None)
     renderMenu();
   renderNotice();
-}
-
-void Game::renderSelect()
-{
-  auto& r = mRenderer;
-  const auto& t = theme();
-  drawBackdrop(r, *mArt, float(mFrame) * 1.5f, 0.0f, 0.0f);
-  r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(4, 2, 12, 110));
-  r.draw(mArt->vignette, 0, 0);
-
-  const float bounce = std::sin(float(mFrame) * 0.06f) * 5.0f;
-  const float cx = float(kScreenW) / 2.0f;
-  r.drawText("GUNRUNNERS", cx + 7, 22 + bounce + 7, {104.0f, withAlpha(t.platform, 200), 0, true}, Align::Center);
-  r.drawText("GUNRUNNERS", cx, 22 + bounce, {104.0f, t.accentA, kInk, true}, Align::Center);
-  r.drawText("CHOOSE YOUR RUNNER", cx, 150, {26.0f, t.hudText, kInk}, Align::Center);
-
-  for (int i = 0; i < kCharacterCount; ++i)
-  {
-    const auto& def = characterByIndex(i);
-    const bool selected = i == mCursor;
-    const float x = 100.0f + float(i) * 370.0f;
-    const float y = 196.0f;
-    if (selected)
-      drawGlow(r, *mArt, x + 170, y + 200, 300, t.accentA, 0.18f + 0.06f * std::sin(float(mFrame) * 0.12f));
-    r.draw(selected ? mCardPanelSelected : mCardPanel, x, y);
-
-    DrawOpts portrait;
-    if (!selected)
-      portrait.tint = rgb(120, 116, 140);
-    const float hop = selected ? -std::abs(std::sin(float(mFrame) * 0.1f)) * 10.0f : 0.0f;
-    r.draw(mArt->characters[std::size_t(i)].portrait, x + 170, y - 18 + hop, portrait);
-
-    r.drawText(def.name, x + 170, y + 238, {40.0f, selected ? t.accentA : t.hudText, kInk, true}, Align::Center);
-    std::string role = def.role;
-    role += "  -  ";
-    role += weaponName(def.startWeapon);
-    r.drawText(role, x + 170, y + 290, {17.0f, rgb(180, 178, 200)}, Align::Center);
-    const char* labels[3] = {"HEALTH", "JUMP", "POWER"};
-    const int pips[3] = {def.healthPips, def.jumpPips, def.powerPips};
-    for (int s = 0; s < 3; ++s)
-    {
-      const float sy = y + 336 + float(s) * 38;
-      r.drawText(labels[s], x + 28, sy, {17.0f, rgb(205, 205, 222)});
-      for (int k = 0; k < 5; ++k)
-        r.fillRect(x + 128 + float(k) * 38, sy + 5, 32, 13, k < pips[s] ? t.accentB : rgba(255, 255, 255, 40));
-    }
-  }
-
-  if (campaign())
-  {
-    char buf[96];
-    std::snprintf(buf, sizeof(buf), "LEVEL %d  -  %s", mPendingLevel, campaignLevel(mPendingLevel).title);
-    r.drawText(buf, cx, 640, {20.0f, t.accentB, kInk, true}, Align::Center);
-    return;
-  }
-
-  // LOAD GAME button, reached with up/down.
-  r.draw(mTitleFocusLoad ? mLoadButtonFocus : mLoadButton, 1030, 128);
-  r.drawText("LOAD GAME", 1140, 138, {20.0f, mTitleFocusLoad ? t.accentA : t.hudText, kInk, true}, Align::Center);
-
-  r.drawText(keysHint(), cx, 684, {15.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 
 void Game::renderPlayOverlay()
@@ -602,7 +489,7 @@ void Game::renderBonus()
   r.drawText("LEVEL COMPLETE", 646, y + 30, {64.0f, withAlpha(t.platform, 200), 0, true}, Align::Center, a);
   r.drawText("LEVEL COMPLETE", 640, y + 24, {64.0f, t.accentA, kInk, true}, Align::Center, a);
   char buf[128];
-  std::snprintf(buf, sizeof(buf), "%s  -  %d:%02d  -  BOTS %d/%d  -  GEMS %d/%d", mWorld->character().name,
+  std::snprintf(buf, sizeof(buf), "%s  -  %d:%02d  -  BOTS %d/%d  -  GEMS %d/%d", mWorld->character().name.c_str(),
     s.frames / 15 / 60, (s.frames / 15) % 60, s.kills, s.enemiesTotal, s.gems, s.gemsTotal);
   r.drawText(buf, 640, y + 118, {22.0f, t.hudText}, Align::Center, a);
 
