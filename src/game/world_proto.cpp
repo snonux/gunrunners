@@ -213,6 +213,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     spawnProjectile(ShotKind::Normal, ox, oy, dx, dy);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::TamersWhip)
+  {
+    // Not a projectile: a crack of the whip (world_plains.cpp).
+    crackWhip(ox, oy, dx != 0 ? dx : p.facing);
+    return;
+  }
   if (ProtoId(p.proto) == ProtoId::BreachCharge)
   {
     // Not a projectile: a sticky charge (world_station.cpp).

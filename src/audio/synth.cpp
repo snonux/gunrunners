@@ -780,6 +780,18 @@ std::vector<float> makeSfx(Sfx id)
           attack(t, 0.01) * std::min(1.0, (total - t) / 0.12);
       });
     }
+    case Sfx::Crack:
+    {
+      // A whip: a swish rising into a sharp, bright crack.
+      Noise n(149);
+      Svf f;
+      return render(0.3, [&](double t, double) {
+        const double swish = f.band(n.next(), float(sweep(600.0, 3000.0, std::min(1.0, t / 0.08))), 1.5) * 0.25 *
+          (t < 0.08 ? t / 0.08 : 0.0);
+        const double crack = t >= 0.08 ? n.next() * 0.7 * std::exp(-(t - 0.08) * 70.0) : 0.0;
+        return swish + crack;
+      });
+    }
     case Sfx::Snip:
     {
       // A plucked strand going slack: a low twang bending down, a snap.

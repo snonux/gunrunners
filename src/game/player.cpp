@@ -215,6 +215,9 @@ void World::updatePlayer(const PlayerInput& raw)
     // Silk Lines: hands that meet one in the air hang on (world_silk.cpp).
     if (mSpace.silk && p.vehicle < 0 && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
       tryGrabSilk();
+    // Bounders: land on one's back and you are riding it (world_plains.cpp).
+    if (mSpace.plains && tryMountBounder())
+      return;
   }
   if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
   {

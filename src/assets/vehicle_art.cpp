@@ -448,6 +448,129 @@ void angler(cairo_t* cr, double w, double h, int variant, int frame)
   cairo_fill(cr);
 }
 
+// Bounder (level 48): a big, friendly, flea-like alien with a saddle on its
+// back. Long hind legs folded under it (stretched out in a leap, tucked up
+// coming down), little front legs, a round head with antennae. The rider
+// is drawn by the game on the saddle. Frames: 0, 1 trotting, 2 leaping,
+// 3 coming down.
+void bounder(cairo_t* cr, double w, double h, int /*variant*/, int frame)
+{
+  const double x0 = kM, y0 = kM;
+  const Color shell = rgb(236, 150, 90), belly = rgb(255, 214, 160);
+  const bool leap = frame == 2, fall = frame == 3;
+  const double bodyTop = y0 + h * (leap ? 0.38 : 0.44), bodyBot = y0 + h * (leap ? 0.74 : 0.84);
+  const double cy = (bodyTop + bodyBot) * 0.5, ry = (bodyBot - bodyTop) * 0.5, rx = w * 0.42;
+  const double cx = x0 + w * 0.46;
+  // Hind leg (the far one first, darker): thigh, shin, foot.
+  auto hindLeg = [&](double dx, Color c) {
+    const double hipX = cx - rx * 0.45 + dx, hipY = cy + ry * 0.2;
+    double kx = hipX - w * 0.2, ky = hipY - h * 0.16, fx = hipX - w * 0.06, fy = y0 + h;
+    if (leap)
+    {
+      kx = hipX - w * 0.2;
+      ky = hipY + h * 0.1;
+      fx = hipX - w * 0.34;
+      fy = y0 + h * 0.98;
+    }
+    else if (fall)
+    {
+      kx = hipX - w * 0.14;
+      ky = hipY - h * 0.1;
+      fy = y0 + h * 0.92;
+    }
+    else if (frame == 1)
+    {
+      kx -= w * 0.04;
+      fx += w * 0.04;
+    }
+    strokeLimb(cr, {{hipX, hipY}, {kx, ky}, {fx, fy}}, 11, c, kInk, kLine);
+    circle(cr, fx, fy - 3, 7);
+    fillOutline(cr, darken(c, 0.2f), kInk, 1.6);
+  };
+  auto frontLeg = [&](double dx, Color c) {
+    const double sx = cx + rx * 0.5 + dx, sy = cy + ry * 0.5;
+    const double reach = leap ? w * 0.12 : (frame == 1 ? w * 0.03 : 0.0);
+    strokeLimb(cr, {{sx, sy}, {sx + w * 0.08 + reach, sy + h * 0.06}, {sx + w * 0.04 + reach, leap ? y0 + h * 0.86 : y0 + h}},
+      7, c, kInk, kLine);
+  };
+  hindLeg(w * 0.08, darken(shell, 0.3f));
+  frontLeg(-w * 0.06, darken(shell, 0.3f));
+  // The body: a glossy shell in plates, a pale belly.
+  cairo_save(cr);
+  cairo_translate(cr, cx, cy);
+  cairo_scale(cr, rx, ry);
+  circle(cr, 0, 0, 1);
+  cairo_restore(cr);
+  fillGradientOutline(cr, bodyTop, bodyBot, lighten(shell, 0.25f), darken(shell, 0.25f), kInk, kLine);
+  cairo_save(cr);
+  cairo_translate(cr, cx + rx * 0.1, cy + ry * 0.45);
+  cairo_scale(cr, rx * 0.75, ry * 0.42);
+  circle(cr, 0, 0, 1);
+  cairo_restore(cr);
+  setColor(cr, belly);
+  cairo_fill(cr);
+  for (int k = 1; k <= 3; ++k)
+  {
+    // Plate seams across the back.
+    const double sx = cx - rx + rx * 0.5 * k;
+    cairo_move_to(cr, sx, cy - ry * 0.95 + std::abs(sx - cx) / rx * ry * 0.3);
+    cairo_curve_to(cr, sx + 8, cy - ry * 0.2, sx + 8, cy + ry * 0.2, sx, cy + ry * 0.5);
+    cairo_set_line_width(cr, 2.0);
+    setColor(cr, withAlpha(darken(shell, 0.4f), 170));
+    cairo_stroke(cr);
+  }
+  // A shine.
+  cairo_save(cr);
+  cairo_translate(cr, cx - rx * 0.25, cy - ry * 0.55);
+  cairo_scale(cr, rx * 0.35, ry * 0.15);
+  circle(cr, 0, 0, 1);
+  cairo_restore(cr);
+  setColor(cr, rgba(255, 255, 255, 120));
+  cairo_fill(cr);
+  // The saddle and its strap.
+  const double sx = x0 + w * 0.45, sy = bodyTop + 4;
+  roundedRect(cr, sx - w * 0.17, sy - 8, w * 0.34, 16, 7);
+  fillOutline(cr, rgb(120, 60, 40), kInk, 1.8);
+  cairo_move_to(cr, sx - w * 0.04, sy + 6);
+  cairo_line_to(cr, sx - w * 0.02, bodyBot - ry * 0.5);
+  cairo_set_line_width(cr, 4.0);
+  setColor(cr, rgb(110, 54, 36));
+  cairo_stroke(cr);
+  hindLeg(0.0, shell);
+  frontLeg(0.0, shell);
+  // The head: round, big friendly eyes, antennae bobbing.
+  const double hx = cx + rx * 0.95, hy = cy - ry * 0.15, hr = h * 0.1;
+  const double bob = frame == 1 ? 4.0 : 0.0;
+  for (int k = 0; k < 2; ++k)
+  {
+    const double ax = hx + hr * (0.1 + k * 0.4), ay = hy - hr * 0.8;
+    cairo_move_to(cr, ax, ay);
+    cairo_curve_to(cr, ax + 6, ay - 24, ax + 24 + k * 8, ay - 30 - bob, ax + 30 + k * 10, ay - 22 - bob);
+    cairo_set_line_width(cr, 2.6);
+    setColor(cr, kInk);
+    cairo_stroke(cr);
+    circle(cr, ax + 30 + k * 10, ay - 22 - bob, 4);
+    setColor(cr, rgb(255, 230, 120));
+    cairo_fill(cr);
+  }
+  circle(cr, hx, hy, hr);
+  fillGradientOutline(cr, hy - hr, hy + hr, lighten(shell, 0.3f), shell, kInk, kLine);
+  circle(cr, hx + hr * 0.35, hy - hr * 0.15, hr * 0.42);
+  setColor(cr, rgb(255, 255, 255));
+  cairo_fill(cr);
+  circle(cr, hx + hr * 0.48, hy - hr * 0.12, hr * 0.22);
+  setColor(cr, rgb(30, 20, 40));
+  cairo_fill(cr);
+  circle(cr, hx + hr * 0.42, hy - hr * 0.24, hr * 0.08);
+  setColor(cr, rgb(255, 255, 255));
+  cairo_fill(cr);
+  // A smile.
+  cairo_arc(cr, hx + hr * 0.4, hy + hr * 0.3, hr * 0.3, 0.2, 1.6);
+  cairo_set_line_width(cr, 2.0);
+  setColor(cr, kInk);
+  cairo_stroke(cr);
+}
+
 } // namespace
 
 bool drawVehicleArt(cairo_t* cr, const std::string& key, double w, double h, int variant, int frame)
@@ -464,6 +587,7 @@ bool drawVehicleArt(cairo_t* cr, const std::string& key, double w, double h, int
     {"veh_submarine", sub},
     {"veh_spaceship", ship},
     {"veh_mech", mech},
+    {"veh_bounder", bounder},
     {"piranha", piranha},
     {"jellyfish", jellyfish},
     {"sea_mine", seaMine},

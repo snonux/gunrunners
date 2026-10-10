@@ -204,13 +204,24 @@ swaps, no ziplines, no rideable creatures; the ship is the vehicles thread's).
   one's back to ride it: it jumps twice as high, stomps aliens flat and runs
   over thorns that hurt on foot. It won't fit through low tunnels and won't
   climb ladders; down + jump gets off. A lost Bounder trots back to its pen.
-- **Prototype: Tamer's Whip.** A short crack that stuns aliens, and from 6
-  blocks away calls a Bounder to you.
+- **Prototype: Tamer's Whip.** A short crack that stuns aliens, and from up
+  to 16 blocks away calls a Bounder to you. (Built with 16 rather than 6:
+  a Bounder is 3 blocks wide, so 6 blocks was barely out of reach.)
 - **Aliens:** **Thorn Hog** (charges along the ground; Bounders jump it);
   **Sky Gulper** (a floating mouth that swallows you and spits you back a few
   blocks; it can't swallow a runner on a Bounder).
 - **Secrets:** a Bounder-only high ledge; a tunnel only reachable on foot.
   **Virus:** a green thornbush.
+- **Built** (2026-10-10): `tools/levels/48_bounder_plains.py`, 240 x 36
+  blocks: on foot past a Thorn Hog to the first pen; on a Bounder over
+  thorn fields, a mesa, a gully and a rock wall (hogs and Sky Gulpers on
+  the way); off at a low tunnel and through it on foot; a second pen and a
+  second ride over high ground and a deep gully; off at the last cliff and
+  up its ladder to the exit. A Bounder hops 18 cells with jump held. The
+  Bounder-only ledge (gems, merch, the 42) is 8 blocks up; the crawlway
+  under the tunnel (the duck) is down a hole and a ladder just outside its
+  mouth. The green thornbush is up on the mesa. The bot clears it with all
+  six runners.
 
 ## 49 · The Hive Mother (boss)
 
