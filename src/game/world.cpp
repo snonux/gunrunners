@@ -285,6 +285,8 @@ void World::update(const PlayerInput& input)
         updatePinball(input);
       else if (mSurfing && !mSurf.free)
         updateSurf(input);
+      else if (mStation.recoil)
+        updateDrift(input);
       else
         updatePlayer(input);
       updateVehicles(input);

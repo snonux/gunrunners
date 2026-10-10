@@ -1727,6 +1727,7 @@ public:
   const std::vector<GoldDoor>& goldDoors() const { return mGoldDoors; }
   // Episode 3, STATION ZERO: hull panels and vents, rails, crates, charges.
   const StationState& station() const { return mStation; }
+  bool recoilOnly() const { return mStation.recoil; }
   bool holdingRail() const;
   // The open panel pulling at cell (cx, cy), -1 for none; tx, ty its middle.
   int ventPulling(int cx, int cy, int& tx, int& ty) const;
@@ -2113,6 +2114,11 @@ private:
   void updateTether(Enemy& e, const EnemyDef& def);
   void updateStation(const PlayerInput& input);
   bool stationCanSave() const;
+  void setupDrift();
+  void updateDrift(const PlayerInput& input);
+  void moveAsteroids();
+  bool driftBlocked(const CellBox& b) const;
+  void drawAsteroids(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStationBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStationFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStationHud(Renderer& r, int frame) const;

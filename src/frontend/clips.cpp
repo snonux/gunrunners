@@ -2045,6 +2045,175 @@ void goldDoor(ClipKit& k, int frame, float open, float ox, float oy)
   }
 }
 
+// Level 15: Station Zero's hangar mouth, a frosted hull frame with the
+// docking clamps inside it.
+void hangarMouth(ClipKit& k, float ox, float oy)
+{
+  const Texture& mouth = cached(k, "e3_hangar_mouth", 1280, 720, 0, 0, [](cairo_t* cr) {
+    // Hull above and below the mouth, in plates.
+    for (int band = 0; band < 2; ++band)
+    {
+      const double y0 = band == 0 ? 0.0 : 560.0, h = band == 0 ? 150.0 : 160.0;
+      cairo_rectangle(cr, 0, y0, 1280, h);
+      setColor(cr, rgb(70, 78, 96));
+      cairo_fill(cr);
+      for (int col = 0; col < 14; ++col)
+        for (int row = 0; row < 3; ++row)
+        {
+          cairo_rectangle(cr, col * 96.0 + 3, y0 + row * h / 3 + 3, 90, h / 3 - 6);
+          setColor(cr, rgb(84 + int(hash2(col, row + band * 9) % 16u), 92, 112));
+          cairo_fill(cr);
+        }
+    }
+    // The left wall of the mouth.
+    cairo_rectangle(cr, 0, 150, 120, 410);
+    setColor(cr, rgb(60, 66, 82));
+    cairo_fill(cr);
+    // Inside: the dim, warm-lit bay.
+    cairo_rectangle(cr, 120, 150, 1160, 410);
+    setColor(cr, rgba(255, 190, 120, 26));
+    cairo_fill(cr);
+    // Hazard stripes along the lips.
+    for (const double y : {140.0, 560.0})
+      for (int s = 0; s < 64; ++s)
+      {
+        cairo_move_to(cr, s * 20.0, y + 10);
+        cairo_line_to(cr, s * 20.0 + 10, y + 10);
+        cairo_line_to(cr, s * 20.0 + 20, y);
+        cairo_line_to(cr, s * 20.0 + 10, y);
+        cairo_close_path(cr);
+        setColor(cr, s % 2 ? rgb(20, 20, 26) : rgb(255, 196, 30));
+        cairo_fill(cr);
+      }
+    // Rails along the floor lip, frosted.
+    for (const double y : {548.0, 530.0})
+    {
+      cairo_rectangle(cr, 120, y, 1160, 6);
+      setColor(cr, rgb(150, 160, 180));
+      cairo_fill(cr);
+      cairo_rectangle(cr, 120, y - 3, 1160, 3);
+      setColor(cr, rgba(235, 248, 255, 200));
+      cairo_fill(cr);
+    }
+    // Frost creeping in from the corners.
+    for (int i = 0; i < 40; ++i)
+    {
+      const double x = double(hash2(i, 51) % 1280u), y = i % 2 ? 150.0 + double(hash2(i, 52) % 30u) : 530.0 - double(hash2(i, 53) % 30u);
+      cairo_arc(cr, x, y, 4.0 + double(hash2(i, 54) % 8u), 0, 6.283);
+      setColor(cr, rgba(230, 245, 255, 90));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(mouth, ox, oy);
+}
+
+// Level 15's briefing: Nova's ship glides in from the right and settles
+// into the docking clamps; ice crystals drift past.
+void stationDock(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) + ox, oy, 0.0f);
+  hangarMouth(k, ox, oy);
+  static const std::string kShip = "veh_spaceship";
+  const float t = std::min(1.0f, float(frame) / 44.0f), e = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+  const float x = 1560.0f - (1560.0f - 700.0f) * e, y = 470.0f;
+  DrawOpts big;
+  big.scale = 1.6f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, kShip, 0, (ticks / 6) % 2, 8, 4).get(1), x + ox, y + oy, big);
+  if (t < 1.0f)
+    drawGlow(k.r, k.art, x + 230 + ox, y - 70 + oy, 70.0f * (1.0f - e) + 20.0f, rgb(140, 220, 255), 0.8f);
+  // The clamps: yellow arms that swing shut on frame 44.
+  const float shut = frame >= 44 ? 1.0f : 0.0f;
+  for (const float cx : {560.0f, 840.0f})
+  {
+    k.r.fillRect(cx - 14 + ox, 150 + oy, 28, 70 + 70 * shut, rgb(255, 196, 30));
+    k.r.fillRect(cx - 24 + ox, 210 + 70 * shut + oy, 48, 14, rgb(60, 64, 76));
+  }
+  // Ice crystals, an 8-frame loop.
+  for (int i = 0; i < 26; ++i)
+  {
+    const float px = std::fmod(float(hash2(i, 61) % 1280u) - float(frame % 8) * 6.0f + 1280.0f, 1280.0f);
+    const float py = float(hash2(i, 62) % 720u) + float(frame % 8) * 2.0f;
+    const float s = 3.0f + float(hash2(i, 63) % 5u);
+    k.r.fillRect(px - s * 0.5f + ox, py - s * 0.5f + oy, s, s, rgba(230, 245, 255, 200));
+  }
+}
+
+// Level 15's briefing: the frosted airlock, the crew in the hatch, MAX's
+// hologram flickering out, and the wall speaker that talks.
+void stationIntercom(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& lock = cached(k, "e3_airlock", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(40, 46, 60), rgb(58, 66, 84), rgb(30, 34, 44));
+    for (int col = 0; col < 10; ++col)
+      for (int row = 0; row < 6; ++row)
+      {
+        cairo_rectangle(cr, col * 128.0 + 4, row * 120.0 + 4, 120, 112);
+        setColor(cr, rgba(140, 150, 170, 30 + int(hash2(col, row + 70) % 20u)));
+        cairo_fill(cr);
+      }
+    // The hatch: a thick round frame, hazard-banded, open on a lit tube.
+    cairo_arc(cr, 640, 380, 270, 0, 6.283);
+    setColor(cr, rgb(90, 98, 116));
+    cairo_fill(cr);
+    cairo_arc(cr, 640, 380, 215, 0, 6.283);
+    setColor(cr, rgb(200, 210, 224));
+    cairo_fill(cr);
+    cairo_arc(cr, 640, 380, 200, 0, 6.283);
+    setColor(cr, rgb(150, 170, 196));
+    cairo_fill(cr);
+    for (int s = 0; s < 24; ++s)
+    {
+      const double a0 = s * 6.283 / 24.0, a1 = a0 + 6.283 / 48.0;
+      cairo_arc(cr, 640, 380, 245, a0, a1);
+      cairo_arc_negative(cr, 640, 380, 225, a1, a0);
+      cairo_close_path(cr);
+      setColor(cr, rgb(255, 196, 30));
+      cairo_fill(cr);
+    }
+    // Frost round the edges of the room.
+    for (int i = 0; i < 90; ++i)
+    {
+      const double edge = double(hash2(i, 71) % 4u);
+      const double r = 6.0 + double(hash2(i, 72) % 18u);
+      double x = double(hash2(i, 73) % 1280u), y = double(hash2(i, 74) % 720u);
+      if (edge == 0)
+        y = r * 0.5;
+      else if (edge == 1)
+        y = 720 - r * 0.5;
+      else if (edge == 2)
+        x = r * 0.5;
+      else
+        x = 1280 - r * 0.5;
+      cairo_arc(cr, x, y, r, 0, 6.283);
+      setColor(cr, rgba(235, 248, 255, 120));
+      cairo_fill(cr);
+    }
+    // The wall speaker.
+    cairo_rectangle(cr, 1040, 250, 120, 150);
+    setColor(cr, rgb(30, 32, 40));
+    cairo_fill(cr);
+    for (int g = 0; g < 9; ++g)
+    {
+      cairo_rectangle(cr, 1052, 262 + g * 14, 96, 6);
+      setColor(cr, rgb(70, 74, 88));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(lock, ox, oy);
+  // The crew in the hatch.
+  k.r.draw(runner(k, 1, 0, 2.2f), 520 + ox, 560 + oy);
+  k.r.draw(runner(k, 0, 0, 2.2f), 640 + ox, 570 + oy);
+  k.r.draw(runner(k, 2, 0, 2.2f, true), 760 + ox, 560 + oy);
+  // MAX on the left, the signal breaking up.
+  if (frame % 3 != 2)
+    drawMax(k, 200 + ox, 360 + oy, 0.55f, ticks, 0.7f);
+  // The speaker's LED pulses with the voice.
+  static const float kPulse[6] = {1.0f, 0.55f, 0.9f, 0.3f, 0.8f, 0.45f};
+  const float a = kPulse[frame % 6];
+  k.r.fillRect(1094 + ox, 412 + oy, 12, 12, rgb(255, 40, 40));
+  drawGlow(k.r, k.art, 1100 + ox, 418 + oy, 20.0f + 20.0f * a, rgb(255, 60, 40), a);
+}
+
 void goldDoorScratch(ClipKit& k, int frame, int ticks, float ox, float oy)
 {
   goldDoor(k, frame, 0.0f, ox, oy);
@@ -2358,6 +2527,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return templeRumble(k, frame, ticks, ox, oy);
   if (clip == "brief13_go")
     return templeGo(k, frame, ticks, ox, oy);
+  if (clip == "brief15_dock")
+    return stationDock(k, frame, ticks, ox, oy);
+  if (clip == "brief15_intercom")
+    return stationIntercom(k, frame, ticks, ox, oy);
   if (clip == "brief14_door")
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")

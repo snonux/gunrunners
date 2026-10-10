@@ -213,6 +213,64 @@ void tetherDrone(cairo_t* cr, double w, double h, int variant, int frame)
   cairo_fill(cr);
 }
 
+// An asteroid of the belt (Level 15's bonus): a lumpy rock filling its
+// w x h box, cratered, frost on its sunny side. Variant: which rock.
+void beltAsteroid(cairo_t* cr, double w, double h, int variant)
+{
+  const double cx = kM + w * 0.5, cy = kM + h * 0.5, rx = w * 0.5, ry = h * 0.5;
+  const Color base = variant == 1 ? rgb(132, 110, 98) : (variant == 2 ? rgb(100, 104, 120) : rgb(118, 112, 106));
+  unsigned seed = 2654435761u * unsigned(variant + 7) + unsigned(w * 13 + h);
+  auto rnd = [&seed](double lo, double hi) {
+    seed = seed * 1664525u + 1013904223u;
+    return lo + (hi - lo) * double(seed >> 8) / double(1u << 24);
+  };
+  constexpr int n = 12;
+  double pts[n][2];
+  for (int k = 0; k < n; ++k)
+  {
+    const double a = k * 2 * kPi / n, d = rnd(0.8, 1.0);
+    pts[k][0] = cx + std::cos(a) * rx * d;
+    pts[k][1] = cy + std::sin(a) * ry * d;
+  }
+  cairo_move_to(cr, (pts[0][0] + pts[1][0]) * 0.5, (pts[0][1] + pts[1][1]) * 0.5);
+  for (int k = 1; k <= n; ++k)
+  {
+    const auto& p = pts[k % n];
+    const auto& q = pts[(k + 1) % n];
+    cairo_curve_to(cr, p[0], p[1], p[0], p[1], (p[0] + q[0]) * 0.5, (p[1] + q[1]) * 0.5);
+  }
+  cairo_close_path(cr);
+  cairo_pattern_t* g = cairo_pattern_create_radial(cx - rx * 0.3, cy - ry * 0.35, 0, cx, cy, std::max(rx, ry) * 1.1);
+  cairo_pattern_add_color_stop_rgb(g, 0, std::min(255, redOf(base) + 70) / 255.0, std::min(255, greenOf(base) + 70) / 255.0,
+    std::min(255, blueOf(base) + 80) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(base) * 0.4 / 255.0, greenOf(base) * 0.4 / 255.0, blueOf(base) * 0.45 / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill_preserve(cr);
+  cairo_pattern_destroy(g);
+  setColor(cr, kInk);
+  cairo_set_line_width(cr, kLine);
+  cairo_stroke(cr);
+  // Craters, each with a lit lower rim.
+  const int craters = 2 + int(w * h / 9000.0);
+  for (int c = 0; c < craters; ++c)
+  {
+    const double x = cx + rnd(-0.5, 0.5) * rx, y = cy + rnd(-0.5, 0.5) * ry;
+    const double r = std::min(rx, ry) * rnd(0.12, 0.26);
+    circle(cr, x, y, r);
+    setRgba(cr, rgb(40, 36, 40), 0.55);
+    cairo_fill(cr);
+    cairo_arc(cr, x, y, r, kPi * 0.1, kPi * 0.9);
+    cairo_set_line_width(cr, std::max(1.5, r * 0.25));
+    setRgba(cr, rgb(220, 210, 200), 0.6);
+    cairo_stroke(cr);
+  }
+  // Frost on the sunny side.
+  cairo_arc(cr, cx, cy, std::min(rx, ry) * 0.85, kPi * 1.1, kPi * 1.45);
+  cairo_set_line_width(cr, 4);
+  setRgba(cr, rgb(230, 245, 255), 0.7);
+  cairo_stroke(cr);
+}
+
 } // namespace
 
 bool drawStationArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame)
@@ -224,6 +282,8 @@ bool drawStationArt(cairo_t* cr, const Theme& t, const std::string& key, double 
     weldDrone(cr, w, h, variant, frame);
   else if (key == "tether_pair")
     tetherDrone(cr, w, h, variant, frame);
+  else if (key == "belt_asteroid")
+    beltAsteroid(cr, w, h, variant);
   else
     return false;
   return true;

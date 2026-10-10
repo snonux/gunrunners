@@ -42,9 +42,11 @@ void crateAt(Renderer& r, float x, float y, int gems, float alpha)
 
 } // namespace
 
-void World::drawStationBack(Renderer& r, float camX, float camY, int frame, float /*alpha*/) const
+void World::drawStationBack(Renderer& r, float camX, float camY, int frame, float alpha) const
 {
   const auto& st = mStation;
+  if (st.recoil)
+    drawAsteroids(r, camX, camY, frame, alpha);
   if (!st.on())
     return;
   // Handrails: a steel bar on posts at hand height.
