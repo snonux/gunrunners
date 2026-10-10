@@ -501,6 +501,10 @@ bool World::restore(const SaveGame& s)
       e.attach = se.attach; // asleep, fleeing, or past its throw
     if (e.kind == EnemyKind::CoinBeetle || e.kind == EnemyKind::Sentinel)
       e.attach = se.attach; // crawling, rattling or hopping; its glyph row
+    if (e.kind == EnemyKind::WeldDrone)
+      e.attach = se.attach; // still climbing its wall, or over the top
+    if (e.kind == EnemyKind::Tether && se.attach < 0)
+      e.attach = -1; // its partner is gone: alone and ramming
     if (e.kind == EnemyKind::Loader)
     {
       e.ox = se.attach; // its legs
