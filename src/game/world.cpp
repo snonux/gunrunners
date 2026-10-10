@@ -25,7 +25,7 @@ int weaponBit(Weapon w) { return 1 << int(w); }
 World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme& theme, const Art& art)
   : mLevel(std::move(level))
   , mMap(*mLevel)
-  , mCharacter(&characterByIndex(characterIndex))
+  , mCharacter(characterByIndex(characterIndex))
   , mCharacterIndex(characterIndex)
   , mTheme(theme)
   , mArt(art)
@@ -35,9 +35,10 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   p.y = p.prevY = mRespawnY = mLevel->startTy * kCellsPerTile + 1;
   mSafeX = p.x;
   mSafeY = p.y;
-  p.hp = p.maxHp = mCharacter->maxHp;
-  p.weapon = mCharacter->startWeapon;
-  p.ammo = mCharacter->startAmmo;
+  p.hp = p.maxHp = mCharacter.maxHp;
+  p.weapon = mCharacter.startWeapon;
+  p.ammo = mCharacter.startAmmo;
+  p.rapidFire = mCharacter.startRapidFire;
   mLevelProto = protoIndex(mLevel->weapon);
   mLayerMask.assign(std::size_t(mLevel->width * mLevel->height), 0);
   mExplored = std::make_shared<std::vector<std::uint8_t>>(std::size_t(mLevel->width * mLevel->height), 0);
@@ -182,6 +183,11 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
 
 Camera::Target World::cameraTarget() const
 {
+  if (const Vehicle* v = riding())
+  {
+    const CellBox b = v->box();
+    return {b.left(), b.top(), b.right(), b.bottom(), false};
+  }
   const CellBox b = mPlayer.box();
   if (mFlight)
     return {b.left(), b.top(), b.right(), b.bottom() + 12, false}; // keep the street in view below
@@ -250,6 +256,11 @@ void World::update(const PlayerInput& input)
     pr.prevX = pr.x;
     pr.prevY = pr.y;
   }
+  for (auto& v : mVehicles)
+  {
+    v.prevX = v.x;
+    v.prevY = v.y;
+  }
 
   ++mStateFrames;
   switch (mState)
@@ -273,6 +284,8 @@ void World::update(const PlayerInput& input)
         updateSurf(input);
       else
         updatePlayer(input);
+      updateVehicles(input);
+      updateSea();
       updateClub();
       updateDark(input);
       updateSludge(input);
@@ -283,6 +296,8 @@ void World::update(const PlayerInput& input)
       updateLight(input);
       updateMine(input);
       updateLava(input);
+      updateSpace(input);
+      updateHive();
       updateBoulders(input);
       updateSanctum(input);
       updateGolden();
@@ -290,7 +305,8 @@ void World::update(const PlayerInput& input)
       updateProps(input);
       updatePlayerInteractions();
       updateSpawners();
-      if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && !mMap.overlapsHazard(mPlayer.box()) &&
+      if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && mPlayer.vehicle < 0 &&
+          !mMap.overlapsHazard(mPlayer.box()) &&
           (mFluids.empty() || wadeFluid() < 0))
       {
         mSafeX = mPlayer.x;
@@ -328,7 +344,7 @@ void World::updateEnemies()
 {
   const auto& p = mPlayer;
   const CellBox pbox = p.box();
-  const bool playerVulnerable = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting;
+  const bool playerVulnerable = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting && p.tube < 0;
 
   for (auto& e : mEnemies)
   {
@@ -558,6 +574,24 @@ void World::updateEnemies()
       case EnemyKind::Crab:
         updateCrab(e, def);
         break;
+      case EnemyKind::Skitter:
+        updateSkitter(e, def);
+        break;
+      case EnemyKind::Spitpod:
+        updateSpitpod(e, def);
+        break;
+      case EnemyKind::Gloop:
+        updateGloop(e, def);
+        break;
+      case EnemyKind::Mite:
+        updateMite(e, def);
+        break;
+      case EnemyKind::Polyp:
+        updatePolyp(e, def);
+        break;
+      case EnemyKind::Warden:
+        updateWarden(e, def);
+        break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);
         break;
@@ -576,11 +610,23 @@ void World::updateEnemies()
       case EnemyKind::Sentinel:
         updateSentinel(e, def);
         break;
+      case EnemyKind::Fish:
+        updateFish(e, def);
+        break;
+      case EnemyKind::Jelly:
+        updateJelly(e, def);
+        break;
+      case EnemyKind::SeaMine:
+        updateSeaMine(e, def);
+        break;
+      case EnemyKind::Angler:
+        updateAngler(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
     if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
-        e.box().intersects(p.hitBox()))
+        p.vehicle < 0 && e.box().intersects(p.hitBox()))
       touchPlayer(e);
   }
 }
@@ -652,10 +698,13 @@ void World::updateProjectiles()
       return true;
     if (mGolden && pr.kind != ShotKind::Enemy && shotAtGolden(pr, b))
       return true;
+    // Level 45: a valve set into a tube turns when shot.
+    if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))
+      return true;
     if (mMap.overlapsSolid(b))
     {
       if (pr.kind != ShotKind::Enemy)
-        hitBreakable(b, pr.damage, pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0));
+        hitBreakable(b, pr.damage, pr.vehicle ? 5 : (pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0)));
       if (mGolden && pr.kind != ShotKind::Enemy)
         gildBox(b);
       const Vec2 c = cellCenter(b);
@@ -668,6 +717,8 @@ void World::updateProjectiles()
         stickFlare(pr, -1);
       if (pr.footRow >= 0)
         stickSpear(pr);
+      shotAtSpace(pr);
+      shotAtHive(pr);
       return true;
     }
     if ((!mFluids.empty() || !mDevNull.empty()) && shotAtSludge(pr))
@@ -676,6 +727,8 @@ void World::updateProjectiles()
       return true;
     if (pr.kind == ShotKind::Enemy)
     {
+      if (mPlayer.vehicle >= 0 && shotAtVehicle(b))
+        return true;
       if (b.intersects(mPlayer.hitBox()) && mPlayer.state != PlayerState::Dying)
       {
         if (mPlayer.turbo > 0 && mPlayer.cart >= 0)
@@ -774,6 +827,9 @@ void World::updateProjectiles()
         continue;
       }
       if (e.kind == EnemyKind::Crab && shotAtCrab(pr, e) == 1)
+        return true;
+      // Episode 7: the Goo Gun glues what it hits.
+      if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GooGun) && shotAtAlien(pr, e))
         return true;
       // The Bubble Gun traps what fits in a bubble.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && trapEnemy(e))
@@ -948,6 +1004,8 @@ void World::killEnemy(Enemy& e)
     dropLoot(e);
   if (e.kind == EnemyKind::CoinBeetle)
     dropGems(e.x, e.y, 2);
+  if (e.kind == EnemyKind::Gloop)
+    alienKilled(e);
   if (e.kind == EnemyKind::Leech)
     for (const auto& c : mCables)
       if (c.breaker >= 0 && &c - mCables.data() == e.attach)
@@ -956,6 +1014,8 @@ void World::killEnemy(Enemy& e)
         mBreakers[std::size_t(c.breaker)].leechKilled = true;
         mBreakers[std::size_t(c.breaker)].leechIn = -1;
       }
+  if (e.kind == EnemyKind::SeaMine)
+    blowSeaMine(e);
   if (e.kind == EnemyKind::Camera)
   {
     mStats.camera = true;

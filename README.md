@@ -5,8 +5,9 @@
   <img src="docs/media/cover_back.jpg" width="420" alt="Gunrunners box art, back">
 </p>
 
-A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three
-runners (Dash, Rocco or Nova) and blast your way to the exit.
+A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
+runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
+own in the runner editor, and blast your way to the exit.
 
 A 42-level campaign in six episodes: every level has its own twist, its
 own prototype weapon, its own soundtrack, a bonus level behind a flickering
@@ -90,7 +91,8 @@ Jump left of it, Switch runner above and, at the top, Pause and the Map. You don
 a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
-quick swipe down switches runner. In menus you get a d-pad with OK and
+quick swipe down switches runner. Push the stick up beside a vehicle to climb
+in, and down + Jump to climb out. In menus you get a d-pad with OK and
 BACK. CONTROLS on the title screen and in the pause menu sets the size
 (TOUCH PAD: small, medium or large) and has EDIT TOUCH LAYOUT, where you
 drag the stick and each button to where your thumbs want them. The back
@@ -111,6 +113,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
+| E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too; down + jump gets out) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
 | F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
@@ -166,14 +169,20 @@ The movement is a frame-accurate port of Duke Nukem II's (via
 [RigelEngine](https://github.com/lethal-guitar/RigelEngine)): the same jump
 arc, ladders, hang bars, the flamethrower jetpack, Duke's weapons with
 limited ammo, colour-coded item boxes, the letters G-U-N and the
-end-of-level bonus tally. The three runners differ in health and jump
-height; Rocco starts with rockets and Nova with the laser.
+end-of-level bonus tally. The runners differ in health and jump height
+and in what they start with: Rocco has rockets, Nova and Bolt the laser,
+Jade a full flamethrower and Skye rapid fire.
 
 On top of that:
 
-- **Switch runners mid-level.** Press C (gamepad Y) to swap between Dash,
-  Rocco and Nova right where you stand. Your weapon, ammo and items carry
-  over.
+- **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
+  runner right where you stand. Your weapon, ammo and items carry over.
+- **Runner editor.** NEW RUNNER on the runner select screen makes your own:
+  human or robot, build, hair (or head kit), face (or optics), outfit,
+  colours, name, starting gun, and ten stat points to spread over health,
+  jump and power. REMIX starts from a built-in runner, EDIT changes one of
+  yours. Your runners live in `runners.txt` next to the savegames, and a
+  save remembers its runner even after you delete it.
 - **The map.** Press M (gamepad Back) for a map of the level that fills
   itself in as you explore: walls, ledges, ladders, hazards, doors still
   shut, checkpoints and the exit once you have seen them, and where you

@@ -319,6 +319,10 @@ void World::syncPlatformCollision()
   for (const auto& pl : mPlatforms)
     if (!pl.hidden)
       mMap.addPlatform(pl.box());
+  // A moored submarine's deck (world_vehicle.cpp).
+  for (const auto& v : mVehicles)
+    if (v.kind == VehicleKind::Sub && !v.occupied && v.wreck == 0)
+      mMap.addPlatform({v.x + 1, v.y - v.h + 1, v.w - 2, 1});
 }
 
 // --- Hatches, breakables, spawners ----------------------------------------------
@@ -353,8 +357,11 @@ bool World::hitBreakable(const CellBox& shot, int damage, int kind)
       (b.y1 - b.y0 + 1) * kCellsPerTile};
     if (!area.intersects(shot))
       continue;
-    if ((b.by == 1 && kind != 1) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3) || (b.by == 4 && kind != 4))
-      return true; // only explosions (heavy hits, the Bass Cannon) break this
+    // Kind 5 is a vehicle's gun or a mech's stomp: it counts as an explosion
+    // and a heavy hit too.
+    if ((b.by == 1 && kind != 1 && kind != 5) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3) ||
+        (b.by == 4 && kind != 4) || (b.by == 5 && kind != 5))
+      return true; // only explosions (heavy hits, the Bass Cannon, vehicles) break this
     b.hp -= std::max(1, damage);
     const Vec2 c = cellCenter(shot);
     burst(c, rgb(220, 240, 255), rgb(140, 200, 255), 8, 1.4f);

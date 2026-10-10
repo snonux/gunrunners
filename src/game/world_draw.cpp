@@ -125,6 +125,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawProps(r, camX, camY, frame, false);
   drawMaglevBack(r, camX, camY, frame, alpha);
   drawChopperBack(r, camX, camY, frame, alpha);
+  drawSeaBack(r, camX, camY, frame);
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
@@ -133,6 +134,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLightBack(r, camX, camY, frame, alpha);
   drawMineBack(r, camX, camY, frame, alpha);
   drawLavaBack(r, camX, camY, frame, alpha);
+  drawSpaceBack(r, camX, camY, frame, alpha);
+  drawHiveBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawSanctumBack(r, camX, camY, frame, alpha);
   if (mGolden)
@@ -319,6 +322,16 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.carrier ? 1 : 0;
         else if (e.kind == EnemyKind::Crab)
           variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.variant ? 3 : 0); // claws open, flipped; party hat
+        else if (e.kind == EnemyKind::Skitter)
+          variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // clicking, leaping
+        else if (e.kind == EnemyKind::Spitpod)
+          variant = e.tell > 0 ? 1 : 0; // the bulb swells
+        else if (e.kind == EnemyKind::Gloop)
+          variant = e.attach == 1 ? 2 : (e.tell > 0 ? 1 : 0); // squashed, in the air
+        else if (e.kind == EnemyKind::Polyp)
+          variant = e.attach; // shut, puckering, breathing in
+        else if (e.kind == EnemyKind::Warden)
+          variant = e.tell > 0 ? 1 : 0; // its belly glows while it calls
         else if (e.kind == EnemyKind::SpearRunner)
           variant = e.attach == 2 ? 1 : 0; // the spear up
         else if (e.kind == EnemyKind::PitSnake)
@@ -408,8 +421,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFlightShip(r, camX, camY, frame, alpha);
   else if (mPinball)
     drawPinball(r, camX, camY, frame, alpha);
-  else
+  else if (mPlayer.vehicle < 0)
     drawPlayer(r, camX, camY, frame, alpha);
+  drawVehicles(r, camX, camY, frame, alpha);
   // Sludge goes over the runner's feet and anything swimming in it.
   drawSludgeFront(r, camX, camY, frame, alpha);
   drawMaglevFront(r, camX, camY, frame, alpha);
@@ -419,6 +433,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLightFront(r, camX, camY, frame, alpha);
   drawMineFront(r, camX, camY, frame, alpha);
   drawLavaFront(r, camX, camY, frame, alpha);
+  drawSpaceFront(r, camX, camY, frame, alpha);
+  drawHiveFront(r, camX, camY, frame, alpha);
   drawBoulderFront(r, camX, camY, frame, alpha);
   drawSanctumFront(r, camX, camY, frame, alpha);
 
@@ -483,6 +499,22 @@ void World::draw(Renderer& r, int frame, float alpha) const
           // A wobbling soap bubble.
           const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
           r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
+          continue;
+        }
+        if (pr.proto == int(ProtoId::BileBlaster))
+        {
+          // A gob of bile with a trail of drops.
+          const float s = pr.strong ? 1.4f : 1.0f;
+          drawGlow(r, mArt, cx, cy, 34.0f * s, rgb(210, 240, 70), 0.6f);
+          r.draw(styledEnemySprite(mArt, r, mTheme, "bile_blob", 0, (frame / 3) % 2, 1, 1).get(pr.dx < 0 ? -1 : 1), cx,
+            cy + 16.0f);
+          continue;
+        }
+        if (pr.proto == int(ProtoId::GooGun))
+        {
+          // A wobbling glob of goo (world_space.cpp splats it on walls).
+          r.draw(styledEnemySprite(mArt, r, mTheme, "goo_blob", 0, (frame / 4) % 2, 1, 1).get(pr.dx < 0 ? -1 : 1), cx,
+            cy + 16.0f);
           continue;
         }
         if (pr.proto == int(ProtoId::SnareBolas))
@@ -551,10 +583,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
     r.drawText(t.text, t.pos.x * S - camX, t.pos.y * S - camY - 40.0f, {22.0f, t.color, kHudInk}, Align::Center, a);
   }
 
+  drawSeaFront(r, camX, camY, frame);
   drawProps(r, camX, camY, frame, true);
 
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
+  drawVehicleHud(r, frame);
+  drawAirHud(r, frame);
   drawBeatHud(r, frame);
   drawClubHud(r, frame);
   drawTideHud(r, frame);
@@ -662,8 +697,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
 void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alpha) const
 {
   const auto& p = mPlayer;
-  if (p.hidden)
-    return;
+  if (p.hidden || p.tube >= 0)
+    return; // in a Gullet Tube, drawHiveFront draws you
   // Mercy frames: Duke blinks the sprite on and off, then flashes it white.
   // Strobing at the logic rate looks harsh in HD, so the runner turns
   // see-through with a gentle pulse instead, and glows white at the end.
@@ -671,7 +706,7 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
   const bool flashWhite = p.mercy > 0 && p.mercy <= 10;
   const float pulse = 0.5f + 0.5f * std::sin(float(frame) * 0.35f);
 
-  const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
+  const auto& ca = mArt.runner(mCharacter);
   const Sprite* spr = &ca.idle[std::size_t((frame / 30) % 2)];
   DrawOpts o;
   float lift = 0.0f;
@@ -729,6 +764,9 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
       break;
     case PlayerVisual::Jetpack:
       spr = &ca.jetpack;
+      break;
+    case PlayerVisual::Clinging:
+      spr = &ca.cling;
       break;
     case PlayerVisual::Dying:
       spr = &ca.hurt;
@@ -849,7 +887,7 @@ void World::drawHud(Renderer& r, int frame) const
   // Health.
   float x = 12.0f;
   r.draw(mArt.hudPanels[0], x, top);
-  r.drawText(mCharacter->name, x + 16, top + 6, label);
+  r.drawText(mCharacter.name, x + 16, top + 6, label);
   for (int i = 0; i < p.maxHp; ++i)
   {
     const bool full = i < p.hp;

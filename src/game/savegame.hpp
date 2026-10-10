@@ -47,6 +47,9 @@ struct SaveGame
   int levelNumber = 0;
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
+  // A custom runner's look and stats (encodeRunner), so the save still
+  // loads after the runner was edited or deleted. Empty for the built-in.
+  std::string runner;
   int theme = 0;
 
   // Player: placed on the last solid ground they stood on.
@@ -113,6 +116,10 @@ struct SaveGame
   std::vector<int> sanctum;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
+  // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing
+  // and whether it is wrecked, then the one being driven (-1 none) and the
+  // runner's air (see World::snapshot).
+  std::vector<int> vehicles;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

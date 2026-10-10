@@ -8,7 +8,7 @@ namespace gr
 bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
-    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball && !mSurfing &&
+    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && !mPinball && !mSurfing &&
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done);
 }
 
@@ -17,6 +17,8 @@ SaveGame World::snapshot() const
   SaveGame s;
   s.levelName = mLevel->name;
   s.character = mCharacterIndex;
+  if (mCharacter.custom)
+    s.runner = encodeRunner(mCharacter);
 
   const auto& p = mPlayer;
   s.x = mSafeX;
@@ -101,6 +103,10 @@ SaveGame World::snapshot() const
       es.y = e.railX1 + 2;
     }
     if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
+      es.attach = 0;
+    // Episode 7's aliens come back on their feet (not mid-leap or on a wall).
+    if (e.kind == EnemyKind::Skitter || e.kind == EnemyKind::Spitpod || e.kind == EnemyKind::Gloop ||
+        e.kind == EnemyKind::Polyp)
       es.attach = 0;
     // A Spear Runner about to throw comes back fleeing; a Pit Snake back
     // coiled in its hole.
@@ -261,24 +267,34 @@ SaveGame World::snapshot() const
     s.boulder.push_back(mWrongWay);
   }
   s.explored = exploredRuns();
+  if (!mVehicles.empty() || !mSeas.empty())
+  {
+    for (const auto& v : mVehicles)
+    {
+      const int fields[] = {v.x, v.y, v.facing, v.hp, v.fuel, v.homeX, v.homeY, v.homeFacing, v.wreck > 0 ? 1 : 0};
+      s.vehicles.insert(s.vehicles.end(), std::begin(fields), std::end(fields));
+    }
+    s.vehicles.push_back(p.vehicle);
+    s.vehicles.push_back(mAir);
+  }
   return s;
 }
 
 bool World::switchCharacter(int index)
 {
-  if (!canSave() || index < 0 || index >= kCharacterCount || index == mCharacterIndex)
+  if (!canSave() || index < 0 || index >= characterCount() || index == mCharacterIndex)
     return false;
   auto& p = mPlayer;
   const auto& next = characterByIndex(index);
   // Same fraction of hearts, rounded up so a switch never kills you.
   p.hp = std::max(1, (p.hp * next.maxHp + p.maxHp - 1) / p.maxHp);
   p.maxHp = next.maxHp;
-  mCharacter = &next;
+  mCharacter = next;
   mCharacterIndex = index;
 
   const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 2.0f) * kCellSize};
-  burst(c, mArt.characterColor[std::size_t(index)], rgb(255, 255, 255), 24, 2.0f);
-  flashAt(c, 90.0f, mArt.characterColor[std::size_t(index)], 16);
+  burst(c, mArt.runnerColor(next), rgb(255, 255, 255), 24, 2.0f);
+  flashAt(c, 90.0f, mArt.runnerColor(next), 16);
   playSound(Sfx::Teleport);
   showMessage(std::string(next.name) + " STEPS IN");
   return true;
@@ -304,6 +320,7 @@ bool World::restore(const SaveGame& s)
       (!s.mine.empty() && s.mine.size() != mLevers.size() + mTrapdoors.size() + mRubble.size() + 1) ||
       (!s.boulder.empty() && s.boulder.size() != mBoulders.size() * 3 + mCracks.size() + 1) ||
       (!s.sanctum.empty() && s.sanctum.size() != 4 + mAltars.size() * 3 + mCoinHeaps.size()) ||
+      (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -314,14 +331,14 @@ bool World::restore(const SaveGame& s)
     if (s.enemies[i].def < 0 || s.enemies[i].def >= enemyDefCount())
       return false;
 
-  mCharacter = &characterByIndex(std::clamp(s.character, 0, kCharacterCount - 1));
-  mCharacterIndex = std::clamp(s.character, 0, kCharacterCount - 1);
+  mCharacterIndex = resolveSavedRunner(s.character, s.runner);
+  mCharacter = characterByIndex(mCharacterIndex);
   auto& p = mPlayer;
   p = Player{};
   p.x = p.prevX = mSafeX = s.x;
   p.y = p.prevY = mSafeY = s.y;
   p.facing = s.facing < 0 ? -1 : 1;
-  p.maxHp = mCharacter->maxHp;
+  p.maxHp = mCharacter.maxHp;
   p.hp = std::min(std::max(1, s.hp), p.maxHp);
   p.weapon = Weapon(s.weapon);
   p.ammo = s.ammo;
@@ -769,6 +786,34 @@ bool World::restore(const SaveGame& s)
   mStateFrames = 0;
   updateLayers(false); // the beat signs follow the restored music clock
   restoreExplored(s.explored);
+  if (!s.vehicles.empty())
+  {
+    std::size_t at = 0;
+    for (auto& v : mVehicles)
+    {
+      v.x = v.prevX = s.vehicles[at++];
+      v.y = v.prevY = s.vehicles[at++];
+      v.facing = s.vehicles[at++] < 0 ? -1 : 1;
+      v.hp = std::clamp(s.vehicles[at++], 1, vehicleDef(v.kind).hp);
+      v.fuel = std::clamp(s.vehicles[at++], 0, vehicleDef(v.kind).fuel);
+      v.homeX = s.vehicles[at++];
+      v.homeY = s.vehicles[at++];
+      v.homeFacing = s.vehicles[at++] < 0 ? -1 : 1;
+      v.wreck = s.vehicles[at++] != 0 ? 1 : 0; // a wreck is back home on the next frame
+      v.occupied = false;
+      v.vx = v.vy = v.ax = v.ay = 0;
+      v.air = -1;
+    }
+    const int ride = s.vehicles[at++];
+    mAir = std::clamp(s.vehicles[at++], 0, kAirFrames);
+    if (ride >= 0 && ride < int(mVehicles.size()) && mVehicles[std::size_t(ride)].wreck == 0)
+    {
+      boardVehicle(ride);
+      mTexts.clear();
+      mParticles.clear();
+    }
+    syncPlatformCollision();
+  }
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   return true;
 }

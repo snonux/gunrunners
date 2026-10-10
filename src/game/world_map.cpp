@@ -335,7 +335,7 @@ void World::drawMapMarks(Renderer& r, float ox, float oy, float s, int frame) co
   r.fillRect(px - dot * 0.5f, py - dot * 0.5f, dot, dot, mTheme.accentA);
   const float ax = px + float(mPlayer.facing) * dot * 1.4f;
   r.drawLine(px, py, ax, py, std::max(2.0f, dot * 0.3f), rgb(255, 255, 255));
-  r.drawText(mCharacter->name, px, py - dot - 30.0f, {17.0f, rgb(255, 255, 255), rgb(10, 8, 20), true}, Align::Center);
+  r.drawText(mCharacter.name, px, py - dot - 30.0f, {17.0f, rgb(255, 255, 255), rgb(10, 8, 20), true}, Align::Center);
 }
 
 } // namespace gr

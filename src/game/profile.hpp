@@ -21,6 +21,7 @@ struct Profile
   std::set<std::string> cutscenes; // seen cutscenes
   std::map<int, int> scores;       // best score per level (level 6's billboard shows level 2's)
   int reached = 1;                 // highest level started
+  int spaceReached = 0;            // highest DEEP SPACE level started (43..49), 0 none
   bool duckMode = false;           // all 42 ducks: quack mode is available
   bool fullscreen = false;         // the window covers the screen, no borders
   int touchSize = 1;               // on-screen gamepad: 0 small, 1 medium, 2 large

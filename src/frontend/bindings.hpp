@@ -21,6 +21,7 @@ enum class Act
   Jump,
   Fire,
   Swap,
+  Use, // get in or out of a vehicle
   Pause,
   QuickSave,
   QuickLoad,

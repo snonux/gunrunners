@@ -21,6 +21,10 @@ add_library(gunrunners_core STATIC
   src/render/vector.cpp
   src/assets/art.cpp
   src/assets/enemy_art.cpp
+  src/assets/art_alien.cpp
+  src/assets/enemy_art_alien.cpp
+  src/assets/enemy_art_hive.cpp
+  src/assets/vehicle_art.cpp
   src/data/level.cpp
   src/data/theme.cpp
   src/data/characters.cpp
@@ -48,6 +52,8 @@ add_library(gunrunners_core STATIC
   src/game/world_light.cpp
   src/game/world_mine.cpp
   src/game/world_lava.cpp
+  src/game/world_space.cpp
+  src/game/world_hive.cpp
   src/game/world_boulder.cpp
   src/game/world_surf.cpp
   src/game/world_sanctum.cpp
@@ -56,15 +62,21 @@ add_library(gunrunners_core STATIC
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
   src/game/world_map.cpp
+  src/game/world_vehicle.cpp
+  src/game/world_vehicle_draw.cpp
+  src/game/world_sea.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
   src/frontend/bot.cpp
+  src/frontend/bot_drive.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
   src/frontend/game.cpp
   src/frontend/menus.cpp
+  src/frontend/select.cpp
+  src/frontend/runner_editor.cpp
   src/frontend/controls_menu.cpp
   src/frontend/map_view.cpp
   src/frontend/cutscene.cpp
@@ -106,6 +118,18 @@ add_test(NAME gamepad COMMAND gamepad_test)
 add_executable(bindings_test tests/bindings_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(bindings_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME bindings COMMAND bindings_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_executable(runner_editor_test tests/runner_editor_test.cpp)
+target_link_libraries(runner_editor_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME runner_editor COMMAND runner_editor_test)
+add_executable(vehicle_test tests/vehicle_test.cpp)
+target_link_libraries(vehicle_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME vehicles COMMAND vehicle_test ${CMAKE_SOURCE_DIR}/levels)
+# The bot drives the extra levels' vehicles to the exit.
+foreach(extra motor_pool deep_dive)
+  add_test(NAME bot_extra_${extra} COMMAND gunrunners --headless --autoplay --skip-menu --no-cutscenes
+    --quit-after-clear --frames 20000 --level ${CMAKE_SOURCE_DIR}/levels/extra_${extra}.txt)
+  set_tests_properties(bot_extra_${extra} PROPERTIES PASS_REGULAR_EXPRESSION "cleared:")
+endforeach()
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)
@@ -130,5 +154,10 @@ add_test(NAME savegame_sun_mirrors COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 add_test(NAME savegame_idol_mines COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/11_idol_mines.txt 400)
 # Over the stone chains past the first toads, Serpent Spears in hand.
 add_test(NAME savegame_lava_heart COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/12_lava_heart.txt 400)
+add_test(NAME savegame_crash_garden COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/44_crash_garden.txt 400)
+add_test(NAME savegame_hive_gullets COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/45_hive_gullets.txt 400)
+add_executable(hive_test tests/hive_test.cpp)
+target_link_libraries(hive_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME hive_tubes COMMAND hive_test)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
 add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)

@@ -1,0 +1,23 @@
+cutscene brief_45
+music theme_hive_gullets
+
+# Clip brief45_hive: 4 layers. Backdrop: the hive's cavity, pink ribs
+# arching over, blue veins, the heartbeat flashing (lub-dub). Mid: a gullet
+# mouth in the right wall, its lips pulsing open and shut. Characters: the
+# three runners, wary. Foreground: MAX's hologram. 16 frames.
+shot brief45_hive delay=110 repeat=4
+  cue 0 fade=in:600
+  cue 0 sound=heartbeat_thump
+  cue 12 say=MAX "You're inside the hive now. Those tubes are its throat."
+  cue 30 say=DASH "So we let it swallow us?"
+  cue 44 say=MAX "It spits you out somewhere else. Usually."
+  cue 63 hold=1500
+
+# Clip brief45_gulp: 3 layers. Backdrop: the cavity. Mid: a tube from a
+# mouth on the left, up and across to the right. Characters: Dash walks
+# into the mouth (frames 0-2), shoots along the tube curled up (3-13) and
+# lands on the right. 16 frames.
+shot brief45_gulp delay=90 repeat=2
+  cue 0 sound=wet_gulp
+  cue 14 say=ROCCO "Usually?"
+  cue 27 fade=out:600

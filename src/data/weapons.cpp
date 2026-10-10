@@ -96,6 +96,11 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
    "HIT STREAKS RAISE THE DAMAGE METER"},
   {ProtoId::Encore, "encore", "THE ENCORE", 42, M::Tap, 0, 3, 2, 30, 30, rgb(255, 255, 255),
    "EVERY PROTOTYPE YOU FOUND; UP + FIRE TO SWITCH"},
+  // Episode 7, DEEP SPACE.
+  {ProtoId::GooGun, "goo_gun", "GOO GUN", 44, M::Tap, 4, 2, 1, 12, 24, rgb(150, 255, 90),
+   "GOO PATCHES ON WALLS YOU CAN CLING TO; GLUES ALIENS"},
+  {ProtoId::BileBlaster, "bile_blaster", "BILE BLASTER", 45, M::Tap, 5, 2, 2, 16, 32, rgb(210, 240, 70),
+   "SHOTS RIDE THE GULLET TUBES AND COME OUT THE FAR END"},
 }};
 
 } // namespace
