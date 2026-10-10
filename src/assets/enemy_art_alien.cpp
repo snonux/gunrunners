@@ -367,7 +367,8 @@ bool drawAlienArt(cairo_t* cr, const Theme& t, const std::string& key, double w,
       drawStarfallArt(cr, t, key, w, h, variant, frame) ||  // 43's
       drawCrystalArt(cr, t, key, w, h, variant, frame) ||   // 46's
       drawSilkArt(cr, t, key, w, h, variant, frame) ||      // 47's
-      drawPlainsArt(cr, t, key, w, h, variant, frame);      // and 48's
+      drawPlainsArt(cr, t, key, w, h, variant, frame) ||    // 48's
+      drawMotherArt(cr, t, key, w, h, variant, frame);      // and 49's
   it->second(Box{cr, t, w, h, variant, frame});
   return true;
 }

@@ -13,6 +13,7 @@ namespace
 {
 
 constexpr int kBowDraw = 12; // frames of a full draw of the Jade Bow
+constexpr int kSeedFull = 16; // frames to charge the Star Seed in full
 
 } // namespace
 
@@ -151,6 +152,26 @@ void World::updateProtoShooting(const Button& fire)
       mBowFull = p.charge >= kBowDraw || p.turbo > 0;
       fireShot();
       mBowFull = false;
+      p.shotCooldown = def.cooldown;
+    }
+    p.charge = 0;
+    return;
+  }
+  if (ProtoId(p.proto) == ProtoId::StarSeed)
+  {
+    // Hold to charge, release to throw the star: the longer the charge, the
+    // more it hurts (Turbo makes any star a full one).
+    if (fire.pressed)
+    {
+      if (++p.charge == kSeedFull)
+        playSound(Sfx::Click);
+      return;
+    }
+    if (p.charge > 0 && (p.shotCooldown == 0 || p.turbo > 0))
+    {
+      mSeedCharge = p.turbo > 0 ? kSeedFull : std::min(p.charge, kSeedFull);
+      fireShot();
+      mSeedCharge = 0;
       p.shotCooldown = def.cooldown;
     }
     p.charge = 0;
@@ -332,6 +353,17 @@ void World::fireProto(int ox, int oy, int dx, int dy)
         pr.speed = 3;
         damage = 1;
       }
+      break;
+    case ProtoId::StarSeed:
+      // A slow star through every alien in its line: 2 damage, up to 6
+      // with a full charge, and bigger.
+      pr.pierce = true;
+      pr.w = pr.h = 2;
+      if (pr.dy < 0)
+        pr.y = oy - 1;
+      damage += mSeedCharge / 4;
+      pr.strong = mSeedCharge >= kSeedFull;
+      playSound(Sfx::Whoosh);
       break;
     case ProtoId::SilkShooter:
       // Down ahead at 45 degrees; where it hits rock a line runs from the
