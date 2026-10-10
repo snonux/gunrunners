@@ -68,6 +68,8 @@ Input Bot::play(const World& world)
     return floorLava(world);
   if (world.surfing() && !world.surf().free)
     return surf(world);
+  if (world.recoilOnly())
+    return drift(world);
   // Level 13: the bonus patch shows on the boulder that rolls over the
   // runner sheltering in its alcove and teeters at the chute: wait there.
   if (mPlanner.wantsBonus())
@@ -1280,6 +1282,104 @@ Input Bot::surf(const World& world)
   mSurfPrev = mSurfQueue.front();
   mSurfQueue.pop_front();
   return mSurfPrev;
+}
+
+// Asteroid Belt (recoil_only): head for the nearest gem left (the beacon
+// once none are). Tries a shot (8 ways or none) now and another 3 frames
+// on, over 18 frames, and keeps the pair that ends nearest, slowest there.
+Input Bot::drift(const World& world)
+{
+  if (!mDriftQueue.empty())
+  {
+    mDriftPrev = mDriftQueue.front();
+    mDriftQueue.pop_front();
+    return mDriftPrev;
+  }
+  constexpr int kHorizon = 18, kSecond = 3, kCommit = 3;
+  static const int kDirs[9][2] = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+  const auto& p0 = world.player();
+  auto mid = [](const Player& p) { return std::pair<float, float>{float(p.x) + 1.5f, float(p.y) - 2.0f}; };
+  float tx = 0, ty = 0;
+  {
+    const auto [px, py] = mid(p0);
+    float best = 1e9f;
+    for (const auto& it : world.items())
+      if (!it.taken && it.kind == ItemKind::Gem)
+      {
+        const float dd = std::hypot(float(it.x) + 1.0f - px, float(it.y) + 1.0f - py);
+        if (dd < best)
+        {
+          best = dd;
+          tx = float(it.x) + 1.0f;
+          ty = float(it.y) + 1.0f;
+        }
+      }
+    if (best >= 1e9f)
+    {
+      tx = float(world.level().exitTx * kCellsPerTile) + 1.0f;
+      ty = float(world.level().exitTy * kCellsPerTile) + 1.0f;
+    }
+  }
+  auto inputAt = [&](int a, int b, int f) {
+    const int k = f == 0 ? a : (f == kSecond ? b : 0);
+    Input in;
+    if (k != 0)
+    {
+      in.right = kDirs[k][0] > 0;
+      in.left = kDirs[k][0] < 0;
+      in.down = kDirs[k][1] > 0;
+      in.up = kDirs[k][1] < 0;
+      in.fire = true;
+    }
+    return in;
+  };
+  double bestScore = -1e18;
+  int bestA = 0, bestB = 0;
+  const int gems0 = world.stats().gems;
+  int gemsLeft = 0;
+  for (const auto& it : world.items())
+    gemsLeft += !it.taken && it.kind == ItemKind::Gem;
+  for (int a = 0; a < 9; ++a)
+    for (int b = 0; b < 9; ++b)
+    {
+      auto sim = world.cloneForSim();
+      Input prev = mDriftPrev;
+      double closest = 1e9;
+      int gotAt = -1;
+      for (int f = 0; f < kHorizon; ++f)
+      {
+        const Input in = inputAt(a, b, f);
+        sim->update(asPlayerInput(in, prev));
+        prev = in;
+        if (sim->state() != WorldState::Playing)
+          break;
+        const auto [px, py] = mid(sim->player());
+        closest = std::min(closest, double(std::hypot(px - tx, py - ty)));
+        if (gotAt < 0 && sim->stats().gems > gems0)
+          gotAt = f;
+      }
+      const auto& d = sim->station().drift;
+      const auto [px, py] = mid(sim->player());
+      const double end = std::hypot(px - tx, py - ty);
+      // Moving toward the target is good; arriving fast is not.
+      const double toward = ((tx - px) * d.vx + (ty - py) * d.vy) / std::max(1.0, end);
+      double score = -end * 4.0 - closest * 2.0 + toward * 6.0 - std::hypot(d.vx, d.vy) * (end < 12.0 ? 8.0 : 0.0);
+      if (gotAt >= 0)
+        score += 10000.0 - gotAt * 50.0 + (sim->stats().gems - gems0) * 2000.0;
+      if (sim->state() == WorldState::Exiting)
+        score += gemsLeft > sim->stats().gems - gems0 ? -1e7 : 5000.0;
+      if (score > bestScore)
+      {
+        bestScore = score;
+        bestA = a;
+        bestB = b;
+      }
+    }
+  for (int f = 0; f < kCommit; ++f)
+    mDriftQueue.push_back(inputAt(bestA, bestB, f));
+  mDriftPrev = mDriftQueue.front();
+  mDriftQueue.pop_front();
+  return mDriftPrev;
 }
 
 Input Bot::floorLava(const World& world)

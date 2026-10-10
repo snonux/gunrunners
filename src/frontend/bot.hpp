@@ -36,6 +36,7 @@ public:
   // world, looking one head further on.
   Input floorLava(const World& world);
   Input surf(const World& world);
+  Input drift(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
@@ -58,6 +59,8 @@ private:
   std::deque<Input> mLavaQueue;
   Input mLavaPrev;
   std::deque<Input> mSurfQueue;
+  std::deque<Input> mDriftQueue;
+  Input mDriftPrev;
   Input mSurfPrev;
   std::deque<Input> mRideQueue;
   bool mRiding = false;

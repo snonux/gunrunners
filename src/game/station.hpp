@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace gr
@@ -96,6 +97,30 @@ struct Seam
   bool green = false;
 };
 
+// Asteroid Belt (Level 15's bonus, rules=recoil_only): a rock tumbling on
+// a slow loop (`@ asteroid w= h= path= speed=`). Touching it bounces the
+// runner; it never hurts.
+struct Asteroid
+{
+  int w = 2, h = 2;                       // blocks
+  std::vector<std::pair<int, int>> path;  // blocks, its top-left, a loop
+  float speed = 0.25f;                    // cells a frame
+  float fx = 0, fy = 0;                   // cells, top-left
+  float angle = 0, spin = 0;              // degrees (drawn tumbling)
+  int seg = 0;                            // the path point it is heading for
+  int look = 0;
+};
+
+// The runner adrift: no ground, no gravity, no jump. Every shot pushes the
+// other way.
+struct DriftState
+{
+  float fx = 0, fy = 0, vx = 0, vy = 0; // cells: the runner's bottom-left
+  int cool = 0;                         // frames until the next shot
+  int bump = 0;                         // frames since a bounce (for the sound)
+  int shots = 0;
+};
+
 struct StationState
 {
   std::vector<HullPanel> panels;
@@ -115,6 +140,10 @@ struct StationState
   std::vector<int> sleepers; // enemies it wakes
   int camera = -1;          // the candid camera outside the bay doors
   int cameraPanel = -1;     // shown while this panel is open
+  // Asteroid Belt.
+  bool recoil = false;
+  DriftState drift;
+  std::vector<Asteroid> asteroids;
   bool on() const { return !panels.empty() || !crates.empty(); }
 };
 

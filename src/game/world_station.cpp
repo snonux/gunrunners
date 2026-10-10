@@ -117,6 +117,22 @@ bool World::setupStationEntity(const EntityDef& e)
     }
     return true;
   }
+  if (e.kind == "asteroid" && e.hasPos)
+  {
+    Asteroid a;
+    a.w = std::clamp(e.num("w", 3), 1, 8);
+    a.h = std::clamp(e.num("h", 3), 1, 8);
+    a.path = e.path("path");
+    if (a.path.empty())
+      a.path.push_back({e.x, e.y});
+    a.speed = std::clamp(e.real("speed", 0.25f), 0.0f, 2.0f);
+    a.look = int(st.asteroids.size() % 3);
+    a.spin = (st.asteroids.size() % 2 ? 1.0f : -1.0f) * (0.6f + 0.2f * float(st.asteroids.size() % 4));
+    a.fx = float(e.x * kCellsPerTile);
+    a.fy = float(e.y * kCellsPerTile);
+    st.asteroids.push_back(a);
+    return true;
+  }
   if (e.kind == "setpiece")
   {
     st.setOn = true;
@@ -163,6 +179,8 @@ void World::setupStationEnemy(Enemy& en, const EntityDef& e)
 void World::linkStation()
 {
   auto& st = mStation;
+  if (st.recoil)
+    setupDrift();
   for (auto& p : st.panels)
     for (std::size_t i = 0; i < st.vents.size(); ++i)
       if (st.vents[i].id == p.ventId)

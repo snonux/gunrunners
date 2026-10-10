@@ -105,6 +105,7 @@ void World::setupEntities()
   mPinball = lv.rules.find("pinball") != std::string::npos;
   mFloorLava = lv.rules.find("floor_lava") != std::string::npos;
   mSurfing = lv.rules.find("boulder_surf") != std::string::npos;
+  mStation.recoil = lv.rules.find("recoil_only") != std::string::npos;
   mGolden = lv.rules.find("golden_touch") != std::string::npos;
   if (mGolden)
   {
