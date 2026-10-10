@@ -205,6 +205,9 @@ void World::updatePlayer(const PlayerInput& raw)
     updateShooting(in.fire);
     return;
   }
+  // Level 28: the "uh-oh" sign after an air-run, a bonk (world_toon.cpp).
+  if (mToon.on && toonHolds(in))
+    return;
   if (mLaunch > 0)
     updateLaunch(mvX);
   else
@@ -212,6 +215,8 @@ void World::updatePlayer(const PlayerInput& raw)
     const bool wasAir = p.state == PlayerState::Jumping || p.state == PlayerState::Falling;
     updateLadderAttachment(mvX, mvY);
     updatePlayerMovement(mvX, mvY, in.jump, in.fire);
+    if (mToon.on)
+      toonAfterMove(mvX);
     if (!mCarts.empty() && (p.state == PlayerState::Falling || (wasAir && p.state == PlayerState::OnGround)))
       boardCarts();
     // Swing vines: hands that meet one in the air grab it (world_jungle.cpp).
@@ -336,9 +341,13 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       const CellBox b = p.box();
       const bool headroom = !mMap.touchingCeiling(b) && !mMap.touchingCeiling({b.x, b.y - 1, b.w, b.h});
       // No jumping out of sludge: you wade, or step up onto the bank.
-      if (p.jumpRequested && headroom && !(wading() && mFluids.size() > 0))
+      if (p.jumpRequested && headroom && !(wading() && mFluids.size() > 0) && !(mToon.on && toonNoJump()))
       {
         jump();
+      }
+      else if (mToon.on && !mMap.onSolidGround(p.box()) && toonAirRun(mvX))
+      {
+        // Level 28: off a ledge holding the way, the runner runs on air.
       }
       else if (!mMap.onSolidGround(p.box()) && !(!mFluids.empty() && buoyed()))
       {
@@ -733,6 +742,8 @@ bool World::tryAttachToClimbable()
 void World::updateShooting(const Button& fire)
 {
   auto& p = mPlayer;
+  if (mInk.on)
+    return; // the Inkwell: fire draws (world_toon.cpp)
   if (p.weapon == Weapon::Proto)
   {
     updateProtoShooting(fire);
@@ -1121,6 +1132,8 @@ void World::respawnPlayer()
     resetCity();
   if (mNoir.on || mFilm.on)
     resetNoir();
+  if (mToon.on)
+    resetToon();
   if (mWest.on)
     resetWest();
   if (!mVehicles.empty())

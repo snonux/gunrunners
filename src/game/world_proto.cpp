@@ -66,6 +66,12 @@ void World::updateProtoShooting(const Button& fire)
     mGreen.trim = 0;
     return;
   }
+  // Level 28: tap for the blaster, hold to throw the Portable Hole (world_toon.cpp).
+  if (ProtoId(p.proto) == ProtoId::PortableHole)
+  {
+    updateHoleShooting(fire);
+    return;
+  }
   const ProtoDef& def = protoDef(p.proto);
   bool shoot = false;
   switch (def.mode)
@@ -276,6 +282,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
   {
     // Not a projectile: a crack of the whip (world_plains.cpp).
     crackWhip(ox, oy, dx != 0 ? dx : p.facing);
+    return;
+  }
+  if (ProtoId(p.proto) == ProtoId::PortableHole)
+  {
+    // Not a projectile: a hole you throw (world_toon.cpp).
+    throwHole(ox, oy);
     return;
   }
   if (ProtoId(p.proto) == ProtoId::BreachCharge)

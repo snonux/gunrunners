@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 35> kVariants{{
+const std::array<Variant, 36> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -529,6 +529,21 @@ const std::array<Variant, 35> kVariants{{
     rgb(40, 40, 44), rgb(22, 22, 24),
     rgb(80, 80, 84), rgb(170, 170, 175), rgb(30, 30, 32), rgb(255, 255, 255),
     rgb(235, 235, 235), ""}},
+  // Level 28: a rubber-hose cartoon of the 1930s: a cream paper sky, ink
+  // outlines, painted pastel hills and a striped big top.
+  {"rubber_hose_toon",
+   {ThemeId::LostTemple,
+    "TOON TOWN THROWDOWN",
+    "A RUBBER-HOSE CARTOON WHERE GRAVITY HASN'T BEEN INVENTED YET",
+    rgb(250, 236, 200), rgb(246, 218, 170), rgb(236, 190, 140),
+    rgb(196, 120, 80), rgb(236, 168, 110), rgb(40, 24, 20),
+    rgb(30, 22, 20), rgb(255, 250, 230),
+    rgb(120, 170, 110), rgb(60, 90, 56),
+    rgb(30, 20, 30), rgb(90, 70, 110),
+    rgb(230, 60, 60), rgb(70, 140, 220),
+    rgb(170, 200, 150), rgb(120, 160, 110),
+    rgb(30, 24, 22), rgb(250, 245, 235), rgb(20, 14, 12), rgb(255, 255, 255),
+    rgb(30, 22, 20), ""}},
 }};
 
 } // namespace

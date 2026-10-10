@@ -183,6 +183,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkCity();
   linkTopDown();
   linkNoir();
+  linkToon();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -463,6 +464,10 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateNoir(input);
   if (mFilm.on)
     updateFilm(input);
+  if (mToon.on)
+    updateToon(input);
+  if (mInk.on)
+    updateInk(input);
   updateHatches();
   updateProps(input);
 }
@@ -920,6 +925,15 @@ void World::updateEnemies()
       case EnemyKind::Crow:
         updateCrow(e, def);
         break;
+      case EnemyKind::GrinningBomb:
+        updateGrinningBomb(e, def);
+        break;
+      case EnemyKind::PianoBird:
+        updatePianoBird(e, def);
+        break;
+      case EnemyKind::RubberGoon:
+        updateRubberGoon(e, def);
+        break;
       case EnemyKind::EggTimer:
         updateEggTimer(e, def);
         break;
@@ -931,7 +945,8 @@ void World::updateEnemies()
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
     const bool frozen = (e.kind == EnemyKind::Stalker && e.attach == 1) || (e.kind == EnemyKind::Puck && e.variant == 1) ||
       (mGreen.grow && mGreen.size >= 2 && e.kind == EnemyKind::Glob && e.w <= 2) ||
-      (e.kind == EnemyKind::Flatfoot && e.dive > 0); // a Silent Picture extra flat on the floor
+      (e.kind == EnemyKind::Flatfoot && e.dive > 0) || // a Silent Picture extra flat on the floor
+      (e.kind == EnemyKind::RubberGoon && e.dive > 0); // a Rubber Goon squashed flat
     if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
         p.vehicle < 0 && e.box().intersects(p.hitBox()))
       touchPlayer(e);
@@ -1025,6 +1040,9 @@ void World::updateProjectiles()
       return true;
     // Level 26: Gorgazilla, and the photo in his trailer.
     if (mCity.on && pr.kind != ShotKind::Enemy && shotAtCity(pr, b))
+      return true;
+    // Level 28: Buddy Boom.
+    if (mToon.on && pr.kind != ShotKind::Enemy && shotAtToon(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1264,6 +1282,8 @@ void World::updateProjectiles()
         filmShotHit(e); // the Silent Picture: his hat goes flying
       if (!shotHitsEnemy(e, pr.dx, quiet ? pr.damage * 3 : pr.damage))
         return true; // a Bouncer took it on the chest
+      if (mToon.on)
+        toonShotHit(e); // a Rubber Goon goes flat
       if (wasAlive && !e.alive && pr.kind == ShotKind::Proto)
         ++mStats.protoKills;
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::DeflectorBracer))

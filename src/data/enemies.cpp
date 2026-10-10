@@ -227,6 +227,9 @@ const EnemyDef kEnemies[] = {
   {"flatfoot", "FLATFOOT", K::Flatfoot, L::Styled, 3, 5, 3, 500, 2, 45, 8, 0, 0, 0},
   {"goon", "GOON", K::Goon, L::Styled, 3, 5, 3, 400, 2, 45, 12, 0, kEnemyNoTally, 0},
   {"crow", "CROW", K::Crow, L::Styled, 2, 2, 1, 100, 0, 0, 10, 0, kEnemyHarmless, 0},
+  {"grinning_bomb", "GRINNING BOMB", K::GrinningBomb, L::Styled, 3, 3, 1, 300, 1, 0, 10, 0, kEnemyHarmless, 0},
+  {"piano_bird", "PIANO BIRD", K::PianoBird, L::Styled, 4, 3, 3, 500, 1, 45, 22, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  {"rubber_goon", "RUBBER GOON", K::RubberGoon, L::Styled, 4, 6, 6, 600, 2, 30, 12, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

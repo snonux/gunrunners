@@ -215,6 +215,8 @@ bool World::exitPowered() const
     return false; // the front door is the way out in the reflection only; Both Sides exits by itself
   if (mCity.lizard.on && mCity.lizard.state < LizardState::Sit)
     return false; // the liner sails once Gorgazilla is beaten
+  if (mToon.buddy.on && mToon.buddy.state != BuddyState::Done)
+    return false; // the iris opens once Buddy Boom is in the ink
   if (mWest.noon.on && mWest.noon.phase != DuelPhase::Done)
     return false; // High Noon: the way out opens after the twentieth duel
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();

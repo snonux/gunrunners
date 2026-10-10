@@ -51,6 +51,10 @@ public:
   bool city(const World& world, Input& in); // bot_city.cpp
   bool noir(const World& world, Input& in); // bot_noir.cpp
   Input fightLizard(const World& world);
+  Input fightBuddy(const World& world); // bot_toon.cpp
+  Input inkwell(const World& world);
+  std::deque<Input> mInkQueue;
+  Input mInkPrev;
   Input topDown(const World& world);
   std::deque<Input> mTopQueue;
   Input mTopPrev;

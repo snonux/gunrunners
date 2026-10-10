@@ -191,6 +191,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawCityBack(r, camX, camY, frame, alpha);
   if (mNoir.on)
     drawNoirBack(r, camX, camY, frame, alpha);
+  if (mToon.on || mInk.on)
+    drawToonBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -834,6 +836,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawCityFront(r, camX, camY, frame, alpha);
   if (mNoir.on || mFilm.on)
     drawNoirFront(r, camX, camY, frame, alpha);
+  if (mToon.on || mInk.on)
+    drawToonFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1641,6 +1645,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawCityHud(r, frame);
   if (mNoir.on || mFilm.on)
     drawNoirHud(r, frame);
+  if (mToon.on || mInk.on)
+    drawToonHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

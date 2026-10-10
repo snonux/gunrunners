@@ -129,6 +129,9 @@ enum class EnemyKind
   Flatfoot,   // patrols with a flashlight; spots a runner who is not hidden and blows the whistle
   Goon,       // comes out of a door during an alarm, chases, fires a three-shot burst
   Crow,       // sits on a ledge; caws (an alarm) at a runner who is not hidden close by
+  GrinningBomb, // chases; close by it frowns, lunges and goes off on contact
+  PianoBird,  // flies east along a row and drops a piano where the runner will be
+  RubberGoon, // patrols; punches with an arm that stretches; squashed flat by every hit
 };
 
 enum EnemyFlag : unsigned

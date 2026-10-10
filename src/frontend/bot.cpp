@@ -106,6 +106,8 @@ Input Bot::play(const World& world)
     return glide(world);
   if (world.topDown().on)
     return topDown(world);
+  if (world.ink().on)
+    return inkwell(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -227,6 +229,12 @@ Input Bot::play(const World& world)
   {
     mFighting = true;
     return fightLizard(world);
+  }
+  // Level 28: Buddy Boom, once the big top's door is shut behind the runner.
+  if (world.buddyFight())
+  {
+    mFighting = true;
+    return fightBuddy(world);
   }
   // Level 49: the Hive Mother, once the egg chamber's door is shut.
   if (world.motherFight())

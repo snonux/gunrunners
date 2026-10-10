@@ -67,7 +67,7 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
   {ProtoId::Silencer, "silencer", "SILENCER", 27, M::Tap, 12, 3, 1, 12, 24, rgb(150, 150, 170),
    "SILENT; TRIPLE DAMAGE ON UNAWARE ENEMIES"},
   {ProtoId::PortableHole, "portable_hole", "PORTABLE HOLE", 28, M::Place, 0, 2, 0, 6, 12, rgb(40, 30, 50),
-   "THROW A HOLE INTO A WALL OR FLOOR"},
+   "HOLD FIRE: A HOLE IN A WALL OR FLOOR"},
   {ProtoId::TriToneBlaster, "tri_tone_blaster", "TRI-TONE BLASTER", 29, M::Tap, 0, 2, 1, 20, 40, rgb(255, 80, 80),
    "UP + FIRE CHANGES THE COLOUR"},
   {ProtoId::HarpoonLine, "harpoon_line", "HARPOON LINE", 30, M::Tap, 0, 3, 2, 12, 24, rgb(220, 230, 240),

@@ -22,6 +22,7 @@
 #include "game/garden.hpp"
 #include "game/city.hpp"
 #include "game/noir.hpp"
+#include "game/toon.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
@@ -1813,6 +1814,18 @@ public:
   bool inFlashlight(const Enemy& e, int cx, int cy) const;
   int noirSpotX(const NoirSpot& s) const;
   bool filmHolds() const; // a pratfall, a slide or the ladder gag: no control
+  // Level 28 (world_toon.cpp): cartoon physics, the Portable Hole, Buddy
+  // Boom; the Inkwell bonus.
+  const ToonState& toon() const { return mToon; }
+  const InkState& ink() const { return mInk; }
+  bool airRunning() const;  // on air (or holding up the "uh-oh" sign)
+  bool holeBusy() const;    // a Portable Hole open or in flight
+  bool buddyFight() const;  // the runner is in the big top and Buddy Boom is up
+  int buddyHp() const;      // his hearts left over all three phases
+  bool buddyHittable() const;
+  CellBox buddyBox() const;
+  CellBox buddyNose() const;
+  int segmentUnder(int cx) const; // the arena floor segment under cell x, -1 if none
   bool lizardFight() const;    // Level 26: the runner is in the arena and Gorgazilla is up
   int lizardHp() const;        // his hearts left over all three phases
   CellBox lizardBox() const;
@@ -2522,6 +2535,48 @@ private:
   void drawNoirBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawNoirFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawNoirHud(Renderer& r, int frame) const;
+  // Level 28, Toon Town Throwdown (world_toon.cpp, world_toon_draw.cpp),
+  // and its Inkwell bonus (rules=ink).
+  bool setupToonEntity(const EntityDef& e);
+  void setupToonEnemy(Enemy& en, const EntityDef& e);
+  void linkToon();
+  bool toonAirRun(int mvX);
+  bool toonNoJump() const;
+  bool toonHolds(const PlayerInput& in);
+  int tunnelAhead(int dir, bool real) const;
+  void toonAfterMove(int mvX);
+  void updateHoleShooting(const Button& fire);
+  void throwHole(int ox, int oy);
+  void refundHole();
+  void openHole(bool wall, int x0, int y0, int x1, int y1);
+  void closeHole(bool pickedUp);
+  bool landHole(int cx, int cy, bool wall, int dir);
+  void updateHole();
+  void updateGrinningBomb(Enemy& e, const EnemyDef& def);
+  void updatePianoBird(Enemy& e, const EnemyDef& def);
+  void updateRubberGoon(Enemy& e, const EnemyDef& def);
+  void squashGoon(Enemy& e);
+  bool toonShotHit(Enemy& e);
+  void updatePianos();
+  void spawnPianoBird(int x);
+  void toonPond();
+  void shutBuddyDoor(bool shut);
+  void setSegment(int s, bool there);
+  void setBuddyLine(bool solid);
+  void damageBuddy(int amount);
+  void buddyFall(bool holed);
+  void updateBuddy();
+  bool shotAtToon(Projectile& pr, const CellBox& hit);
+  void updateToon(const PlayerInput& input);
+  void resetToon();
+  bool toonCanSave() const;
+  std::vector<int> toonSave() const;
+  bool validToonSave(const std::vector<int>& s) const;
+  void loadToon(const std::vector<int>& s);
+  void updateInk(const PlayerInput& input);
+  void drawToonBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawToonFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawToonHud(Renderer& r, int frame) const;
   // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
   bool setupKitchenEntity(const EntityDef& e);
   void setupKitchenEnemy(Enemy& en, const EntityDef& e);
@@ -2986,6 +3041,8 @@ private:
   TopDownState mTop;
   NoirState mNoir;
   FilmState mFilm;
+  ToonState mToon;
+  InkState mInk;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

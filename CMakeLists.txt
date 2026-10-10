@@ -112,6 +112,8 @@ add_library(gunrunners_core STATIC
   src/game/world_city_draw.cpp
   src/game/world_noir.cpp
   src/game/world_noir_draw.cpp
+  src/game/world_toon.cpp
+  src/game/world_toon_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -136,6 +138,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_kitchen.cpp
   src/frontend/bot_garden.cpp
   src/frontend/bot_city.cpp
+  src/frontend/bot_toon.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -308,3 +311,7 @@ add_test(NAME savegame_the_long_rain COMMAND savegame_test ${CMAKE_SOURCE_DIR}/l
 add_executable(noir_test tests/noir_test.cpp)
 target_link_libraries(noir_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME noir COMMAND noir_test ${CMAKE_SOURCE_DIR}/levels/27_bonus_silent_picture.txt)
+add_test(NAME savegame_toon_town_throwdown COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/28_toon_town_throwdown.txt 330)
+add_executable(toon_test tests/toon_test.cpp)
+target_link_libraries(toon_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME toon COMMAND toon_test ${CMAKE_SOURCE_DIR}/levels/28_bonus_inkwell.txt)
