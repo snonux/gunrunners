@@ -45,6 +45,7 @@ add_library(gunrunners_core STATIC
   src/game/world_chopper.cpp
   src/game/world_jungle.cpp
   src/game/world_temple.cpp
+  src/game/world_light.cpp
   src/game/world_cheats.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
@@ -115,3 +116,4 @@ add_test(NAME savegame_chopper_down COMMAND savegame_test ${CMAKE_SOURCE_DIR}/le
 add_test(NAME savegame_canopy_road COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/08_canopy_road.txt 600)
 # A stone key in hand, the dud plate pressed, a Guardian down.
 add_test(NAME savegame_hall_of_traps COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/09_hall_of_traps.txt 400)
+add_test(NAME savegame_sun_mirrors COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/10_sun_mirrors.txt 400)

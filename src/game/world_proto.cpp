@@ -92,6 +92,34 @@ void World::updateProtoShooting(const Button& fire)
     mPaint.clear();
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::SunstoneLance)
+  {
+    // Hold for the beam (world_light.cpp traces it), a shot of ammo every
+    // 4 frames; a tap under 4 frames fires a glint instead.
+    if (fire.pressed)
+    {
+      ++p.charge;
+      mLanceOn = p.charge >= 4;
+      if (mLanceOn && p.charge % 4 == 0 && --p.ammo <= 0)
+      {
+        p.ammo = 0;
+        p.weapon = Weapon::Normal;
+        p.proto = -1;
+        p.charge = 0;
+        mLanceOn = false;
+        showMessage("OUT OF AMMO - BACK TO THE BLASTER");
+      }
+      return;
+    }
+    if (p.charge > 0 && p.charge < 4 && (p.shotCooldown == 0 || p.turbo > 0))
+    {
+      fireShot();
+      p.shotCooldown = def.cooldown;
+    }
+    p.charge = 0;
+    mLanceOn = false;
+    return;
+  }
   p.charge = fire.pressed ? p.charge + 1 : 0;
   if (shoot && ProtoId(p.proto) == ProtoId::SparkDisc)
   {

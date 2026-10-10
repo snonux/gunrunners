@@ -41,6 +41,9 @@ enum class EnemyKind
   DartFace,  // a face in the ceiling that drops a dart on its own rhythm
   Scarabs,   // a carpet of beetles flowing along its floor toward you
   Hunter,    // Trapmaster's cultists: walk to the idol, take a coin, leave
+  Wraith,    // drifts through walls toward you; only light hurts it
+  Monk,      // patrols behind a mirror shield: sends shots and sunbeams back
+  Moth,      // drifts to the nearest sunbeam; a few of them block it
 };
 
 enum EnemyFlag : unsigned

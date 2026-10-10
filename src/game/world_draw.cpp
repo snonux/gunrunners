@@ -130,6 +130,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawPlatforms(r, camX, camY, frame, alpha);
   drawJungleBack(r, camX, camY, frame, alpha);
   drawTempleBack(r, camX, camY, frame, alpha);
+  drawLightBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -220,7 +221,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
     for (const auto& b : mBreakables)
       inside = inside || (!b.broken && e.x / kCellsPerTile >= b.x0 && e.x / kCellsPerTile <= b.x1 &&
                            e.y / kCellsPerTile >= b.y0 && e.y / kCellsPerTile <= b.y1);
-    if (inside || e.y < 0 || (e.kind == EnemyKind::Decoupler && e.attach == 0))
+    if (inside || e.hidden || e.y < 0 || (e.kind == EnemyKind::Decoupler && e.attach == 0))
       continue; // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
       x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives (the Viper's leaves rustle)
@@ -229,6 +230,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     DrawOpts eo;
     if (def.tint != 0)
       eo.tint = def.tint;
+    if (e.kind == EnemyKind::Wraith)
+      eo.alpha = 0.72f; // half there
     switch (def.look)
     {
       case EnemyLook::Walker:
@@ -284,6 +287,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the eyes glow
         else if (e.kind == EnemyKind::Scarabs)
           variant = e.carrier ? 1 : 0;
+        else if (e.kind == EnemyKind::Wraith)
+          variant = e.tell > 0 || e.dive > 0 ? 1 : 0; // smoking edges
+        else if (e.kind == EnemyKind::Monk)
+          variant = e.aimX > 0 ? 2 : (e.attach > 0 ? 3 : (e.tell > 0 || e.dive > 0 ? 1 : 0)); // frozen; lowered; planted
+        else if (e.kind == EnemyKind::Moth)
+          variant = 0;
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -368,6 +377,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawChopperFront(r, camX, camY, frame, alpha);
   drawJungleFront(r, camX, camY, frame, alpha);
   drawTempleFront(r, camX, camY, frame, alpha);
+  drawLightFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -855,6 +865,7 @@ void World::drawHud(Renderer& r, int frame) const
       r.fillRect(sx + 4, top + 56, 36.0f * float(p.rapidFire) / 700.0f, 3, rgb(255, 220, 80));
   }
   drawTempleHud(r, x + 68.0f, top); // Level 9's stone keys, in the second slot
+  drawLightHud(r, frame);           // Negative Space's sun and moon
 
   // G-U-N letters.
   x += float(kHudInventoryW) + 10.0f;

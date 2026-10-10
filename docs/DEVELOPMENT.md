@@ -216,7 +216,7 @@ docs/          design directions and media
 
 ## Next steps
 
-- The rest of Episode 2 (Levels 10-14), then Episodes 3-6 (Levels 15-42),
+- The rest of Episode 2 (Levels 11-14), then Episodes 3-6 (Levels 15-42),
   episode by episode, each with its twists,
   prototypes, bosses, bonus levels and cutscenes.
 - Artist-made HD sprites to replace the programmer art (PNG or SVG; the

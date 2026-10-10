@@ -75,7 +75,9 @@ int macroFrames(int m, const World& w)
     bool tide = false;
     for (const auto& f : w.fluids())
       tide = tide || f.tide;
-    return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() ? 0 : 24;
+    return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() && w.sunDoors().empty()
+      ? 0
+      : 24;
   }
   if (m == kWaitLaunch)
   {
@@ -425,6 +427,18 @@ void Planner::buildField(const World& w, const Goal& goal)
       for (int x = c.tx * kCellsPerTile; x < (c.tx + 1) * kCellsPerTile; ++x)
         if (x >= 0 && y >= 0 && x < W && y < H)
           blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 1;
+  // Level 10: sun doors that will open (the light is set up, or a Monk will
+  // do it) and the ones the need test opens.
+  for (std::size_t di = 0; di < w.sunDoors().size() && di < mDoorOpen.size(); ++di)
+  {
+    const SunDoor& d = w.sunDoors()[di];
+    if (!mDoorOpen[di] || d.open)
+      continue;
+    for (int y = d.y * kCellsPerTile; y < (d.y + d.h) * kCellsPerTile; ++y)
+      for (int x = d.x * kCellsPerTile; x < (d.x + d.w) * kCellsPerTile; ++x)
+        if (x >= 0 && y >= 0 && x < W && y < H)
+          blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
+  }
   // Shutters whose breaker is on are rolling up: the search waits for them.
   for (const auto& d : w.doors())
     if (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on)
@@ -720,7 +734,10 @@ void Planner::buildField(const World& w, const Goal& goal)
   const CellBox goalBox = goal.kind == 0 ? CellBox{goal.x, goal.y - 5, 2, 6}
     : goal.kind == 3                      ? CellBox{goal.x, goal.y, goal.w, goal.h}
     : goal.kind == 4                      ? boxAt(goal.x, goal.y, 2, 4)
+    : goal.kind == 5 && goal.w == 1       ? CellBox{goal.x - 2, goal.y, 6, 18}     // under it, to shoot up
     : goal.kind == 5                      ? CellBox{goal.x - 14, goal.y - 3, 30, 6} // in range for a level shot
+    : goal.kind == 8 && goal.w > 0        ? CellBox{goal.x - 22, goal.y - 2, 18, 3} // on its floor, left of it
+    : goal.kind == 8                      ? CellBox{goal.x + 6, goal.y - 2, 18, 3}  // on its floor, right of it
                                           : CellBox{goal.x, goal.y - 1, 2, 2};
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -730,7 +747,7 @@ void Planner::buildField(const World& w, const Goal& goal)
         continue;
       if (!boxAt(x, y, 3, 5).intersects(goalBox))
         continue;
-      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5) && support[i] != 0)
+      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5 || goal.kind == 8) && support[i] != 0)
         continue;
       // A bonus entrance can be up in the air: jumping into it is fine.
       if (goal.kind == 3 && support[i] > lift[i])
@@ -858,6 +875,212 @@ int Planner::heuristic(const World& w) const
   return best >= kInf ? kInf : best + extra;
 }
 
+bool Planner::solveMirrors(const World& w, int door)
+{
+  // A depth-first search over the mirrors in the order a beam meets them:
+  // each one the beam reaches gets every angle, cheapest turn first, until
+  // the beam ends on the door.
+  const auto& mirrors = w.mirrors();
+  std::vector<int> angles(mirrors.size());
+  for (std::size_t i = 0; i < mirrors.size(); ++i)
+    angles[i] = mirrors[i].to;
+  std::vector<char> fixed(mirrors.size(), 0);
+  std::vector<int> order;
+  std::function<bool(const SunBeam&)> dfs = [&](const SunBeam& b) {
+    int stop = -1;
+    const int r = w.traceBeamFor(b.x, b.y, b.dir, angles, fixed, &stop);
+    if (r == door)
+      return true;
+    if (r != -2 || stop < 0)
+      return false;
+    const int now = mirrors[std::size_t(stop)].to;
+    fixed[std::size_t(stop)] = 1;
+    order.push_back(stop);
+    for (int k : {0, 1, 7, 2, 6, 3, 5, 4})
+    {
+      angles[std::size_t(stop)] = (now + k) % 8;
+      if (dfs(b))
+        return true;
+    }
+    order.pop_back();
+    fixed[std::size_t(stop)] = 0;
+    angles[std::size_t(stop)] = now;
+    return false;
+  };
+  for (std::size_t bi = 0; bi < w.sunBeams().size(); ++bi)
+  {
+    order.clear();
+    std::fill(fixed.begin(), fixed.end(), 0);
+    for (std::size_t i = 0; i < mirrors.size(); ++i)
+      angles[i] = mirrors[i].to;
+    if (dfs(w.sunBeams()[bi]))
+    {
+      mWant.assign(mirrors.size(), -1);
+      for (int i : order)
+        mWant[std::size_t(i)] = angles[std::size_t(i)];
+      mOrder = order;
+      mSolveBeam = int(bi);
+      return true;
+    }
+  }
+  mWant.assign(mirrors.size(), -1);
+  mOrder.clear();
+  mSolveBeam = -1;
+  return false;
+}
+
+bool Planner::lightGoal(const World& w, Goal& g)
+{
+  const auto& doors = w.sunDoors();
+  const auto& p = w.player();
+  const int feet = p.y / kCellsPerTile;
+  std::vector<char> target(doors.size(), 0); // a hatch the stone sun opens
+  for (const auto& d : doors)
+    if (d.opens >= 0)
+      target[std::size_t(d.opens)] = 1;
+  int door = -1;
+  if (g.kind == 3)
+  {
+    // The bonus entrance down in the vault: the cracked disc over it first,
+    // once you are up on its floor (until then, the way up comes first).
+    int crack = -1;
+    for (std::size_t i = 0; i < doors.size() && crack < 0; ++i)
+    {
+      const auto& d = doors[i];
+      if (d.crack && !d.open && g.y / kCellsPerTile > d.y && std::abs(g.x / kCellsPerTile - d.x) < 8)
+        crack = int(i);
+    }
+    if (crack < 0)
+      return false;
+    if (feet <= doors[std::size_t(crack)].y)
+      door = crack;
+    else
+    {
+      g = {};
+      g.x = w.level().exitTx * kCellsPerTile;
+      g.y = (w.level().exitTy + 1) * kCellsPerTile - 1;
+    }
+  }
+  if (door < 0)
+  {
+    // Route doors at or under the runner's floor, lowest first; the first
+    // one the exit cannot do without is the one to open.
+    std::vector<int> cands;
+    std::uint64_t key = 1;
+    for (std::size_t i = 0; i < doors.size(); ++i)
+    {
+      const auto& d = doors[i];
+      key = key * 3 + (d.open ? 2 : 0);
+      if (d.open || !d.latch || d.crack || target[i] || d.y + d.h - 1 > feet + 1)
+        continue;
+      cands.push_back(int(i));
+      key = key * 3 + 1;
+    }
+    std::sort(cands.begin(), cands.end(), [&](int a, int b) { return doors[std::size_t(a)].y > doors[std::size_t(b)].y; });
+    if (key != mLightKey)
+    {
+      mLightKey = key;
+      mLightDoor = -1;
+      Goal exit = chooseGoal(w);
+      exit.kind = 0;
+      exit.x = w.level().exitTx * kCellsPerTile;
+      exit.y = (w.level().exitTy + 1) * kCellsPerTile - 1;
+      for (int c : cands)
+      {
+        mDoorOpen.assign(doors.size(), 0);
+        for (int o : cands)
+          if (o != c)
+          {
+            mDoorOpen[std::size_t(o)] = 1;
+            if (doors[std::size_t(o)].opens >= 0)
+              mDoorOpen[std::size_t(doors[std::size_t(o)].opens)] = 1;
+          }
+        buildField(w, exit);
+        if (heuristic(w) >= kInf)
+        {
+          mLightDoor = c;
+          break;
+        }
+      }
+      mDoorOpen.assign(doors.size(), 0);
+      mDist.clear(); // the real goal's field is built next
+      static const bool debug = std::getenv("GR_PLANNER_DEBUG") != nullptr;
+      if (debug)
+        std::fprintf(stderr, "light: door %d needed (of %zu candidates)\n", mLightDoor, cands.size());
+    }
+    door = mLightDoor;
+    if (door < 0)
+      return false;
+  }
+  const SunDoor& d = doors[std::size_t(door)];
+  // Solve the mirrors for it (again when a mirror or a door changed).
+  std::uint64_t sk = std::uint64_t(door + 1);
+  for (const auto& m : w.mirrors())
+    sk = sk * 9 + std::uint64_t(m.to);
+  for (const auto& od : doors)
+    sk = sk * 2 + od.open;
+  if (sk != mSolveKey)
+  {
+    mSolveKey = sk;
+    mSolved = solveMirrors(w, door);
+  }
+  const int pending = d.opens >= 0 ? d.opens : door;
+  if (mSolved)
+  {
+    // The next mirror the beam meets that is not set yet.
+    for (int i : mOrder)
+    {
+      const Mirror& m = w.mirrors()[std::size_t(i)];
+      if (m.to == mWant[std::size_t(i)])
+        continue;
+      const int k = ((mWant[std::size_t(i)] - m.to) % 8 + 8) % 8;
+      const int dir = k <= 4 ? 1 : -1;
+      g = {8, m.x * kCellsPerTile, (m.y + 2) * kCellsPerTile - 1, dir, (m.to + dir + 8) % 8, i};
+      return true;
+    }
+    // All set: moths in the way of the beam come off it.
+    if (mSolveBeam >= 0 && std::size_t(mSolveBeam) < w.beamPaths().size())
+    {
+      const BeamPath& path = w.beamPaths()[std::size_t(mSolveBeam)];
+      if (!path.pts.empty())
+      {
+        const auto [ex, ey] = path.pts.back();
+        const bool atDoor = ex / kCellsPerTile >= d.x - 1 && ex / kCellsPerTile <= d.x + d.w &&
+          ey / kCellsPerTile >= d.y - 1 && ey / kCellsPerTile <= d.y + d.h;
+        int best = -1, bestD = 6 * 6 * 4;
+        for (std::size_t i = 0; i < w.enemies().size() && !atDoor; ++i)
+        {
+          const Enemy& e = w.enemies()[i];
+          if (!e.alive || e.kind != EnemyKind::Moth)
+            continue;
+          const int dd = (e.x + 1 - ex) * (e.x + 1 - ex) + (e.y - ey) * (e.y - ey);
+          if (dd < bestD)
+          {
+            bestD = dd;
+            best = int(i);
+          }
+        }
+        if (best >= 0)
+        {
+          const Enemy& e = w.enemies()[std::size_t(best)];
+          g = {5, e.x / 2 * 2, e.y / 2 * 2, 1, 0, best};
+          return true;
+        }
+      }
+    }
+  }
+  // Nothing to turn (it is opening, or a Monk will reflect the light onto
+  // it): go to it and wait. The field takes it, and the route doors after
+  // it, as open.
+  mPendingDoor = pending;
+  mRouteOpen.assign(doors.size(), 0);
+  for (std::size_t i = 0; i < doors.size(); ++i)
+    if (!doors[i].open && doors[i].latch && !doors[i].crack)
+      mRouteOpen[i] = 1; // (a hatch the stone sun opens included)
+  mRouteOpen[std::size_t(pending)] = 1;
+  return true;
+}
+
 Input Planner::next(const World& world)
 {
   if (mQueue.empty())
@@ -912,6 +1135,14 @@ void Planner::plan(const World& world)
   {
     if (mSkipProto && goal.kind == 2)
       goal = chooseGoal(world);
+    // Level 10: a sun door in the way: turn a mirror, clear moths off the
+    // beam, or go and wait for it.
+    mPendingDoor = -1;
+    if (!world.sunDoors().empty() && (goal.kind == 0 || goal.kind == 3))
+      lightGoal(world, goal);
+    mDoorOpen.assign(world.sunDoors().size(), 0);
+    if (mPendingDoor >= 0)
+      mDoorOpen = mRouteOpen;
     // The field also changes when a wall breaks or the Bass Cannon arrives.
     int broken = 0;
     for (const auto& b : world.breakables())
@@ -931,6 +1162,10 @@ void Planner::plan(const World& world)
       powered = powered * 2 + d.open;
     for (const auto& d : world.secretDoors())
       powered = powered * 2 + d.open;
+    // Level 10: sun doors, and the one the field takes as opening.
+    for (const auto& d : world.sunDoors())
+      powered = powered * 2 + d.open;
+    powered = powered * 31 + mPendingDoor + 1;
     const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
       (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
     if (mDist.empty() || keyHash != mGoalKeyHash)
@@ -951,6 +1186,20 @@ void Planner::plan(const World& world)
     }
     mSkipProto = true;
     mSkipHadKey = world.player().hasKey;
+  }
+  // Level 10: at a door that is about to open (or that a Monk will open),
+  // stand and wait.
+  if (mPendingDoor >= 0 && std::size_t(mPendingDoor) < world.sunDoors().size())
+  {
+    const SunDoor& d = world.sunDoors()[std::size_t(mPendingDoor)];
+    const CellBox near{d.x * kCellsPerTile - 8, d.y * kCellsPerTile - 8, d.w * kCellsPerTile + 16,
+      d.h * kCellsPerTile + 16};
+    if (!d.open && near.intersects(p0.box()) && stable(world))
+    {
+      for (int f = 0; f < 8; ++f)
+        mQueue.push_back(Input{});
+      return;
+    }
   }
 
   struct Node
@@ -1051,6 +1300,18 @@ void Planner::plan(const World& world)
           std::abs(e.y - p.y) < 16)
         k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.hp) << 16) | (std::uint64_t(e.tell + e.dive * 32) << 24) |
                      (std::uint64_t(e.tangle) << 40) | (std::uint64_t(e.dir > 0) << 48));
+    // Level 10: mirrors (where they are turning to), sun doors (how long
+    // lit), and the Monks, Wraiths and moths close by.
+    for (const auto& m : w.mirrors())
+      k = mix(k, std::uint64_t(m.to) | (std::uint64_t(m.turn) << 4));
+    for (const auto& d : w.sunDoors())
+      k = mix(k, std::uint64_t(d.open) | (std::uint64_t(std::min(d.lit, 15)) << 1) | (std::uint64_t(d.hold) << 8));
+    for (const auto& e : w.enemies())
+      if (e.alive && (e.kind == EnemyKind::Monk || e.kind == EnemyKind::Wraith || e.kind == EnemyKind::Moth) &&
+          std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                     (std::uint64_t(e.tell + e.dive * 16 + e.attach * 256) << 32) | (std::uint64_t(e.aimX) << 48) |
+                     (std::uint64_t(e.dir > 0) << 60));
     if (const auto& h = w.hunter(); h.on)
     {
       k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
@@ -1088,7 +1349,9 @@ void Planner::plan(const World& world)
     const bool keyTaken = goal.kind == 6 && nw.stoneKeysHeld() > world.stoneKeysHeld();
     const bool pressed = goal.kind == 7 && std::size_t(goal.index) < nw.plates().size() &&
       nw.plates()[std::size_t(goal.index)].presses > world.plates()[std::size_t(goal.index)].presses;
-    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed ||
+    const bool turned = goal.kind == 8 && std::size_t(goal.index) < nw.mirrors().size() &&
+      nw.mirrors()[std::size_t(goal.index)].to == goal.h;
+    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
     if (ni != 0 && success)
     {

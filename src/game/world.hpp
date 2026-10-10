@@ -165,6 +165,7 @@ struct Enemy
   bool trapped = false; // held in a Bubble Gun bubble
   int tangle = 0;       // frames left lying in the Snare Bolas' cords
   int tangleRoll = 0;   // cells left to roll first (sign: direction)
+  bool hidden = false;  // out of sight and out of reach (the camera in a dark mirror)
   CellBox box() const { return boxAt(x, y, w, h); }
   unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
@@ -916,6 +917,72 @@ struct TrapCursor
   bool up = false, down = false; // last frame's keys, for edges
 };
 
+// --- Level 10: Sun Mirrors (world_light.cpp) --------------------------------
+
+// Eight directions, 45 degrees apart, counter-clockwise from east.
+constexpr int kDirX[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+constexpr int kDirY[8] = {0, -1, -1, -1, 0, 1, 1, 1};
+
+// A sunbeam coming in through a roof slit or a sun pipe.
+struct SunBeam
+{
+  std::string id;
+  int x = 0, y = 0; // blocks
+  int dir = 6;
+};
+
+// A statue whose head is a one-sided mirror. Shots turn it.
+struct Mirror
+{
+  std::string id;
+  int x = 0, y = 0; // blocks: the head (the pedestal is under it)
+  int angle = 0;    // where its face points
+  int to = 0;       // the angle it is turning to
+  int turn = 0;     // frames of turning left
+  bool lit = false; // a sunbeam reflects off it this frame
+  // A beam travelling in direction d leaves in this direction, or -1 if it
+  // meets the mirror's back.
+  static int reflect(int angle, int d)
+  {
+    const int rel = ((d - angle) % 8 + 8) % 8;
+    if (rel < 3 || rel > 5)
+      return -1;
+    return ((2 * angle - d + 4) % 8 + 8) % 8;
+  }
+};
+
+// A slab (or floor hatch) that opens after 15 lit frames in a row.
+struct SunDoor
+{
+  std::string id;
+  int x = 0, y = 0, w = 1, h = 3; // blocks
+  bool latch = true;              // stays open once opened
+  bool crack = false;             // the vault's cracked disc
+  int opens = -1;                 // the door it opens instead of itself (the stone sun)
+  std::string opensId;
+  int lit = 0;                    // lit frames in a row
+  bool litNow = false;
+  bool open = false;
+  int hold = 0;                   // latch=0: frames it stays open after the light goes
+  std::vector<Tile> under;        // the map's tiles under the slab, for when it opens
+  bool covers(int bx, int by) const { return bx >= x && bx < x + w && by >= y && by < y + h; }
+};
+
+// A beam's path for drawing: corners in blocks.
+struct BeamPath
+{
+  std::vector<std::pair<int, int>> pts;
+  bool lance = false;
+};
+
+// Dome floor 2's green-rimmed mirror: stare into it and catch the virus.
+struct CursedMirror
+{
+  int x = 0, y = 0; // blocks: its top
+  int need = 30;
+  int stare = 0;
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -1130,6 +1197,19 @@ public:
   const std::vector<CollapseTile>& collapseTiles() const { return mCollapse; }
   int stoneKeysHeld() const;
   bool trapmaster() const { return mTrapmaster; }
+  const std::vector<SunBeam>& sunBeams() const { return mSunBeams; }
+  const std::vector<Mirror>& mirrors() const { return mMirrors; }
+  const std::vector<SunDoor>& sunDoors() const { return mSunDoors; }
+  const std::vector<BeamPath>& beamPaths() const { return mBeamPaths; }
+  bool lanceOn() const { return mLanceOn; }
+  bool negative() const { return mNegative; }
+  int negativePhase() const; // 0 sun, 1 moon
+  // Level 10, for the bot: where a sunbeam from (x, y) going `dir` ends up
+  // with these mirror angles (doors as they are, no Monks or moths): the
+  // sun door it lights, -1 for none, or -2 at the first mirror not yet
+  // `fixed` (its index in *stop).
+  int traceBeamFor(int x, int y, int dir, const std::vector<int>& angles, const std::vector<char>& fixed,
+    int* stop) const;
   const TrapCursor& trapCursor() const { return mCursor; }
   // Level 6's billboard shows the best level 2 score, if there is one.
   void setHiScore(int score) { mHiScore = score; }
@@ -1363,6 +1443,23 @@ private:
   void drawTempleFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawTempleProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
   void drawTempleHud(Renderer& r, float x, float top) const;
+  // Level 10 (world_light.cpp).
+  bool setupLightEntity(const EntityDef& e);
+  void setupLightEnemy(Enemy& en, const EntityDef& e);
+  void updateLight(const PlayerInput& input);
+  void traceBeam(int x, int y, int dir, int maxSteps, int bounces, bool lance, BeamPath& path);
+  void updateSunDoors();
+  void setSunDoor(SunDoor& d, bool open);
+  void updateWraith(Enemy& e, const EnemyDef& def);
+  void updateMonk(Enemy& e, const EnemyDef& def);
+  void updateMoth(Enemy& e, const EnemyDef& def);
+  bool shotAtLight(Projectile& pr, const CellBox& b); // mirrors: true if the shot is used up
+  int shotAtLightEnemy(Projectile& pr, Enemy& e); // Wraiths, Monks, moths: 0 not handled, 1 used up, 2 passes through
+  bool lightHides(const Enemy& e) const; // the camera in an unlit mirror's pedestal
+  void drawNegativeLayer(Renderer& r, const Layer& l, float x, float y, float w, float h, int frame) const;
+  void drawLightBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawLightFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawLightHud(Renderer& r, int frame) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1531,6 +1628,17 @@ private:
   TrapCursor mCursor;
   int mWave = 0, mWaveNext = 0;  // Trapmaster: hunters sent so far and when the next comes
   int mIdolX = -1;               // Trapmaster: cells, where the hunters walk to
+  // Level 10: sunbeams, mirrors, sun doors, the Lance's beam, the cursed
+  // mirror and Negative Space.
+  std::vector<SunBeam> mSunBeams;
+  std::vector<Mirror> mMirrors;
+  std::vector<SunDoor> mSunDoors;
+  std::vector<BeamPath> mBeamPaths; // this frame's beams, for drawing and the moths
+  std::vector<CursedMirror> mCursed;
+  std::vector<std::array<int, 3>> mReflects; // shots a Monk sends back next frame: x, y, dir
+  bool mLanceOn = false;            // the Sunstone Lance's beam is out
+  int mLanceDir = 0;
+  bool mNegative = false;           // bonus rule: sun and moon blocks swap every 75 frames
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up

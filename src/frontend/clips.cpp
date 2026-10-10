@@ -1269,6 +1269,118 @@ void templeWait(ClipKit& k, int frame, int ticks, float ox, float oy)
     }
 }
 
+// Level 10's briefing: a marble hall, a shaft of sunlight across MAX.
+void sunHall(ClipKit& k, float ox, float oy)
+{
+  const Texture& hall = cached(k, "sun_hall", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(214, 204, 186), rgb(240, 232, 216), rgb(200, 190, 172));
+    // Marble columns with gilt capitals.
+    for (int i = 0; i < 5; ++i)
+    {
+      const double x = 60 + i * 300.0;
+      cairo_rectangle(cr, x, 90, 80, 560);
+      setColor(cr, rgb(232, 226, 214));
+      cairo_fill(cr);
+      for (int f = 1; f < 4; ++f)
+      {
+        cairo_rectangle(cr, x + f * 20.0 - 2, 110, 4, 540);
+        setColor(cr, rgb(200, 192, 178));
+        cairo_fill(cr);
+      }
+      cairo_rectangle(cr, x - 16, 70, 112, 26);
+      setColor(cr, rgb(214, 172, 80));
+      cairo_fill(cr);
+    }
+    // Gold leaf along the cornice, and the floor.
+    cairo_rectangle(cr, 0, 40, 1280, 14);
+    setColor(cr, rgb(214, 172, 80));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 640, 1280, 80);
+    setColor(cr, rgb(196, 184, 164));
+    cairo_fill(cr);
+    for (int x = 0; x < 1280; x += 160)
+    {
+      cairo_rectangle(cr, x, 640, 2, 80);
+      setColor(cr, rgb(170, 158, 140));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(hall, ox * 0.3f, oy * 0.3f);
+}
+
+void sunBeam(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  sunHall(k, ox, oy);
+  // The shaft of sunlight from the roof slit, motes drifting in it.
+  const float sx = 700.0f + ox;
+  for (int i = 0; i < 3; ++i)
+    k.r.drawLine(sx - 40.0f + float(i) * 6.0f, 0, sx + 60.0f + float(i) * 6.0f, 720, 70.0f - float(i) * 22.0f,
+      rgba(255, 230, 150, 40 + i * 30), Blend::Add);
+  for (int i = 0; i < 26; ++i)
+  {
+    const float y = std::fmod(float(hash2(i, 31) % 700u) + float(frame % 12) * 6.0f + float(ticks) * 0.4f, 700.0f);
+    const float x = sx - 30.0f + float(hash2(i, 32) % 80u) + y * 0.14f;
+    k.r.fillRect(x, y + oy, 4, 4, rgba(255, 250, 220, 200));
+  }
+  // MAX on the pedestal, scrambling where the light crosses him.
+  k.r.fillRect(600 + ox, 520 + oy, 200, 130, rgb(236, 230, 218));
+  k.r.fillRect(590 + ox, 510 + oy, 220, 16, rgb(214, 172, 80));
+  const int f = frame % 16;
+  drawMax(k, 700 + ox, 330 + oy, 0.7f, ticks, f >= 6 && f <= 9 ? 0.7f : 0.0f);
+  // The runners around it.
+  for (int who = 0; who < 3; ++who)
+  {
+    const float x = who == 0 ? 330.0f : (who == 1 ? 1060.0f : 470.0f);
+    k.r.draw(runner(k, who, 0, 2.6f, who == 1), x + ox, 650 + oy);
+  }
+  // A mirror statue's edge sliding past in the foreground.
+  const float mx = -200.0f + float(frame) * 2.0f + float(ticks % 4) * 0.5f;
+  k.r.fillRect(mx + ox, 120 + oy, 140, 600, rgb(244, 240, 232));
+  k.r.fillRect(mx + 110 + ox, 120 + oy, 30, 600, rgb(214, 206, 192));
+  drawGlow(k.r, k.art, mx + 70 + ox, 220 + oy, 120, rgb(255, 240, 200), 0.6f);
+}
+
+void sunUp(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)ticks;
+  // The dome from below: gilt ribs to the oculus, beams crossing.
+  const Texture& dome = cached(k, "sun_dome", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(250, 244, 226), rgb(226, 214, 190), rgb(186, 172, 150));
+    for (int r = 6; r >= 1; --r)
+    {
+      cairo_arc(cr, 640, 140, r * 120.0, 0, 2 * kPi);
+      setColor(cr, lerpColor(rgb(236, 228, 210), rgb(200, 188, 166), float(r) / 6.0f));
+      cairo_fill(cr);
+    }
+    for (int i = 0; i < 16; ++i)
+    {
+      const double a = i * kPi / 8;
+      cairo_move_to(cr, 640 + std::cos(a) * 80, 140 + std::sin(a) * 80);
+      cairo_line_to(cr, 640 + std::cos(a) * 900, 140 + std::sin(a) * 900);
+      cairo_set_line_width(cr, 8);
+      setColor(cr, rgb(214, 172, 80));
+      cairo_stroke(cr);
+    }
+    cairo_arc(cr, 640, 140, 80, 0, 2 * kPi);
+    setColor(cr, rgb(255, 252, 236));
+    cairo_fill(cr);
+  });
+  k.r.draw(dome, ox * 0.2f, oy * 0.2f);
+  // Beams crossing the dome from mirror to mirror.
+  const float pts[5][2] = {{120, 700}, {420, 420}, {860, 520}, {1100, 260}, {640, 140}};
+  for (int i = 0; i < 4; ++i)
+  {
+    k.r.drawLine(pts[i][0] + ox, pts[i][1] + oy, pts[i + 1][0] + ox, pts[i + 1][1] + oy, 26.0f,
+      rgba(255, 210, 120, 60), Blend::Add);
+    k.r.drawLine(pts[i][0] + ox, pts[i][1] + oy, pts[i + 1][0] + ox, pts[i + 1][1] + oy, 6.0f,
+      rgba(255, 250, 220, 220), Blend::Add);
+  }
+  // The runners looking up, low in the frame, the camera tilting up.
+  const float tilt = float(frame) * 2.0f;
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, 0, 3.2f, who == 2), 360.0f + float(who) * 280.0f + ox, 900.0f + tilt + oy);
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1328,6 +1440,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return templeDoor(k, frame, ticks, ox, oy);
   if (clip == "brief09_wait")
     return templeWait(k, frame, ticks, ox, oy);
+  if (clip == "brief10_beam")
+    return sunBeam(k, frame, ticks, ox, oy);
+  if (clip == "brief10_up")
+    return sunUp(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")

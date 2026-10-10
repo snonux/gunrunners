@@ -256,6 +256,7 @@ void World::update(const PlayerInput& input)
       updateChopper(input);
       updateJungle(input);
       updateTemple(input);
+      updateLight(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -500,6 +501,15 @@ void World::updateEnemies()
         // Trapmaster's cultists walk to the idol (world_temple.cpp moves them).
         break;
       }
+      case EnemyKind::Wraith:
+        updateWraith(e, def);
+        break;
+      case EnemyKind::Monk:
+        updateMonk(e, def);
+        break;
+      case EnemyKind::Moth:
+        updateMoth(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -607,6 +617,8 @@ void World::updateProjectiles()
       return false;
     }
     shotAtProps(b);
+    if (!mMirrors.empty() && shotAtLight(pr, b))
+      return true;
     if (!mBubbles.empty() && shotAtBubbles(b))
       return true;
     if ((!mJRopes.empty() || !mFruits.empty()) && shotAtJungle(pr))
@@ -642,10 +654,20 @@ void World::updateProjectiles()
     }
     for (auto& e : mEnemies)
     {
-      if (!e.alive || !e.active || e.trapped || !e.box().intersects(b))
+      if (!e.alive || !e.active || e.trapped || e.hidden || !e.box().intersects(b))
         continue;
       if (std::find(pr.hit.begin(), pr.hit.end(), e.id) != pr.hit.end())
         continue;
+      // Level 10: only light hurts a Wraith, a Monk's shield sends shots back,
+      // a moth's swarm scatters.
+      if (e.kind == EnemyKind::Wraith || e.kind == EnemyKind::Monk || e.kind == EnemyKind::Moth)
+      {
+        const int r = shotAtLightEnemy(pr, e);
+        if (r == 1)
+          return true;
+        if (r == 2)
+          continue;
+      }
       // The Bubble Gun traps what fits in a bubble.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && trapEnemy(e))
         return true;

@@ -2415,8 +2415,137 @@ Texture bakeTombNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isObservatory(const Theme& t) { return std::string_view(t.look) == "observatory"; }
+
+// Under the dome: white marble, gold leaf on the ribs, and the light coming
+// down from the oculus in crossing shafts.
+Texture bakeObservatorySky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.5, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(1010u);
+  // The dome's ribs, gilded, curving up to the oculus.
+  const double cx = kScreenW * 0.5, cy = -kScreenH * 0.35;
+  for (int k = -6; k <= 6; ++k)
+  {
+    cairo_move_to(cr, cx + k * 40.0, cy + 260);
+    cairo_curve_to(cr, cx + k * 120.0, cy + 500, cx + k * 210.0, cy + 760, cx + k * 260.0, kScreenH + 40.0);
+    cairo_set_line_width(cr, 10);
+    setColor(cr, withAlpha(t.trim, 90));
+    cairo_stroke_preserve(cr);
+    cairo_set_line_width(cr, 3);
+    setColor(cr, withAlpha(t.trimGlow, 140));
+    cairo_stroke(cr);
+  }
+  // Coffers between the ribs.
+  for (int row = 0; row < 5; ++row)
+    for (int k = -6; k < 6; ++k)
+    {
+      const double y = 60 + row * 120.0, x = cx + (k + 0.5) * (70 + row * 34.0);
+      cairo_rectangle(cr, x - 18 - row * 4, y, 36 + row * 8, 40 + row * 6);
+      setColor(cr, withAlpha(t.skyTop, 70));
+      cairo_fill(cr);
+    }
+  // Shafts of sunlight crossing the hall.
+  for (int i = 0; i < 4; ++i)
+  {
+    const double x0 = rng.range(100, kScreenW - 100), lean = rng.range(-300, 300);
+    cairo_move_to(cr, x0 - 30, 0);
+    cairo_line_to(cr, x0 + 30, 0);
+    cairo_line_to(cr, x0 + lean + 120, kScreenH);
+    cairo_line_to(cr, x0 + lean - 120, kScreenH);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(rgb(255, 236, 170), 34));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, cx, 0, 260, rgb(255, 250, 220), 0.6);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: a gallery of marble columns with brass armillary spheres between them.
+Texture bakeObservatoryFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  const Color col = lerpColor(t.farLayer, t.skyMid, 0.35f);
+  for (double x = 60; x < kLayerW - 120; x += 320)
+  {
+    cairo_rectangle(cr, x, 140, 60, kScreenH - 140);
+    setColor(cr, col);
+    cairo_fill(cr);
+    for (int k = 1; k < 4; ++k)
+    {
+      cairo_rectangle(cr, x + k * 15.0 - 2, 160, 4, kScreenH - 160);
+      setColor(cr, withAlpha(t.skyTop, 110));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, x - 14, 120, 88, 22); // the capital
+    setColor(cr, lighten(col, 0.1f));
+    cairo_fill(cr);
+    cairo_rectangle(cr, x - 14, 120, 88, 4);
+    setColor(cr, withAlpha(t.trim, 200));
+    cairo_fill(cr);
+    // An armillary sphere on a stand.
+    const double sx = x + 170, sy = kScreenH - 190;
+    cairo_rectangle(cr, sx - 6, sy + 50, 12, 140);
+    setColor(cr, withAlpha(t.trim, 160));
+    cairo_fill(cr);
+    for (int ring = 0; ring < 3; ++ring)
+    {
+      cairo_save(cr);
+      cairo_translate(cr, sx, sy);
+      cairo_rotate(cr, ring * 1.05);
+      cairo_scale(cr, 1.0, 0.35 + ring * 0.2);
+      cairo_arc(cr, 0, 0, 48, 0, 2 * kPi);
+      cairo_restore(cr);
+      cairo_set_line_width(cr, 4);
+      setColor(cr, withAlpha(t.trim, 170));
+      cairo_stroke(cr);
+    }
+    cairo_arc(cr, sx, sy, 10, 0, 2 * kPi);
+    setColor(cr, withAlpha(t.trimGlow, 200));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: brass lamps on chains and motes of dust in the light.
+Texture bakeObservatoryNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(3131u);
+  for (double x = 120; x < kLayerW - 60; x += rng.range(300, 520))
+  {
+    const double len = rng.range(80, 220);
+    cairo_move_to(cr, x, 0);
+    cairo_line_to(cr, x, len);
+    cairo_set_line_width(cr, 3);
+    setColor(cr, withAlpha(t.nearLayer, 220));
+    cairo_stroke(cr);
+    cairo_move_to(cr, x - 22, len);
+    cairo_line_to(cr, x + 22, len);
+    cairo_line_to(cr, x + 12, len + 26);
+    cairo_line_to(cr, x - 12, len + 26);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(t.trim, 230));
+    cairo_fill(cr);
+    radialGlow(cr, x, len + 30, 40, t.trimGlow, 0.35);
+  }
+  for (int i = 0; i < 110; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kLayerW), rng.range(0, kScreenH), rng.range(1, 2.5), 0, 2 * kPi);
+    setColor(cr, withAlpha(rgb(255, 240, 190), 70 + rng.irange(0, 80)));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isObservatory(t))
+    return bakeObservatorySky(r, t);
   if (isTomb(t))
     return bakeTombSky(r, t);
   if (isCrane(t))
@@ -2560,6 +2689,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isObservatory(t))
+    return bakeObservatoryFar(r, t);
   if (isTomb(t))
     return bakeTombFar(r, t);
   if (isClub(t))
@@ -2678,6 +2809,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isObservatory(t))
+    return bakeObservatoryNear(r, t);
   if (isTomb(t))
     return bakeTombNear(r, t);
   if (isClub(t))

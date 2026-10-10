@@ -99,6 +99,7 @@ void World::setupEntities()
   mFlight = lv.rules.find("flight") != std::string::npos;
   mBounce = lv.rules.find("bounce") != std::string::npos;
   mTrapmaster = lv.rules.find("trapmaster") != std::string::npos;
+  mNegative = lv.rules.find("negative") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -144,7 +145,7 @@ void World::setupEntities()
       l.switchId = e.str("switch");
       l.switchState = e.num("state", 1);
       const std::string style = e.str("style", "sign");
-      l.style = style == "sign" ? 0 : (style == "station" ? 2 : 1);
+      l.style = style == "sign" ? 0 : (style == "station" ? 2 : (style == "sun" ? 3 : (style == "moon" ? 4 : 1)));
       l.scriptSolid = e.num("solid", 1) != 0;
       l.color = namedColor(e.str("color"), kSignColors[mLayers.size() % 3]);
       l.solid = true;
@@ -171,6 +172,7 @@ void World::setupEntities()
       setupChopperEnemy(en, e);
       setupJungleEnemy(en, e);
       setupTempleEnemy(en, e);
+      setupLightEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -392,6 +394,8 @@ void World::setupEntities()
     if (setupChopperEntity(e))
       continue;
     if (setupTempleEntity(e))
+      continue;
+    if (setupLightEntity(e))
       continue;
     if (setupJungleEntity(e))
       continue;
@@ -666,6 +670,11 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
       continue;
     if (l.style == 2)
       continue; // the maglev's station slides in on its own (world_maglev.cpp)
+    if (l.style == 3 || l.style == 4)
+    {
+      drawNegativeLayer(r, l, x, y, w, h, frame); // Negative Space's sun and moon blocks (world_light.cpp)
+      continue;
+    }
     const Color c = l.color;
     if (!l.solid)
     {
@@ -766,7 +775,20 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
           const auto& p = mPlayer;
           if (p.hidden)
             break;
-          const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
+          if (pr.text == "odd")
+          {
+            // Level 10's odd mirror: a tall gilt glass that only shows you
+            // (someone) while you stand in front of it.
+            r.fillRect(x - 6, y - 6, w + 12, h + 12, rgb(200, 160, 70));
+            r.fillRect(x, y, w, h, rgb(190, 205, 215));
+            r.fillRect(x + 6, y + 6, 6, h - 12, rgba(255, 255, 255, 150));
+            if (!pr.box().intersects(pbox))
+              break;
+          }
+          // The odd mirror (Level 10) shows the next runner along: Dash sees
+          // Nova, Nova sees Rocco, Rocco sees Dash.
+          const int who = pr.text == "odd" ? (mCharacterIndex + 2) % 3 : mCharacterIndex;
+          const auto& ca = mArt.characters[std::size_t(who)];
           const Sprite* spr = &ca.idle[0];
           if (pr.timer >= 0)
             spr = (pr.timer / 6) % 2 ? &ca.lookUp : &ca.idle[0];

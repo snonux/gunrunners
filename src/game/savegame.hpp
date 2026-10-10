@@ -99,6 +99,8 @@ struct SaveGame
   // Hall of Traps (level 9): each stone key (taken), each key door (open),
   // each secret wall (open), then each plate's presses (see World::snapshot).
   std::vector<int> temple;
+  // Sun Mirrors (level 10): each mirror's angle, then each sun door (open).
+  std::vector<int> light;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.
