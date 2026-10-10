@@ -20,6 +20,8 @@ enum PauseItem
   kResume,
   kSave,
   kLoad,
+  kQuickSave,
+  kQuickLoad,
   kChangeRunner,
   kCheats,
   kFullscreen,
@@ -30,7 +32,7 @@ enum PauseItem
 };
 
 const char* const kPauseLabels[kPauseItemCount] = {
-  "RESUME", "SAVE GAME", "LOAD GAME", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "CONTROLS", "QUIT TO TITLE",
+  "RESUME", "SAVE GAME", "LOAD GAME", "QUICK SAVE", "QUICK LOAD", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "CONTROLS", "QUIT TO TITLE",
   "QUIT GAME"};
 
 // Entered on the pause menu, Konami style: up, up, down, down, left, right,
@@ -155,11 +157,29 @@ void Game::switchRunner(int index)
 
 void Game::saveToSlot(int slot)
 {
-  if (!mWorld || !mWorld->canSave() || mMainWorld || mBonusOnly)
+  if (!saveTo(slotPath(saveDir(), slot)))
+    return;
+  closeMenu();
+  mWorld->notify("GAME SAVED TO SLOT " + std::to_string(slot + 1));
+}
+
+void Game::quickSave()
+{
+  if (!saveTo(quickSavePath(saveDir())))
+    return;
+  // From the pause menu or a hotkey mid-level; a hotkey leaves the music be.
+  if (mMenu != Menu::None)
+    closeMenu();
+  mWorld->notify("QUICK SAVED");
+}
+
+bool Game::saveTo(const std::string& path)
+{
+  if (mMode != Mode::Play || !mWorld || !mWorld->canSave() || mMainWorld || mBonusOnly)
   {
     sound(Sfx::Hurt);
     notice("YOU CAN'T SAVE RIGHT NOW");
-    return;
+    return false;
   }
   SaveGame s = mWorld->snapshot();
   s.theme = mThemeIndex;
@@ -168,18 +188,16 @@ void Game::saveToSlot(int slot)
     s.levelFile = mLevelPath;
     s.levelNumber = mLevelNumber;
   }
-  const std::string dir = mOptions.saveDir.empty() ? defaultSaveDir() : mOptions.saveDir;
   std::string error;
-  if (!writeSave(s, slotPath(dir, slot), &error))
+  if (!writeSave(s, path, &error))
   {
     sound(Sfx::Hurt);
     notice("SAVE FAILED: " + error);
     std::fprintf(stderr, "save failed: %s\n", error.c_str());
-    return;
+    return false;
   }
   sound(Sfx::Checkpoint);
-  closeMenu();
-  mWorld->notify("GAME SAVED TO SLOT " + std::to_string(slot + 1));
+  return true;
 }
 
 bool Game::loadFromSlot(int slot)
@@ -191,25 +209,40 @@ bool Game::loadFromSlot(int slot)
     notice("SLOT " + std::to_string(slot + 1) + " IS EMPTY");
     return false;
   }
-  if (campaign() && !save->levelFile.empty() && (!mLevel || save->levelFile != mLevelPath))
+  return loadSave(*save, "GAME LOADED FROM SLOT " + std::to_string(slot + 1));
+}
+
+bool Game::quickLoad()
+{
+  const auto save = readSave(quickSavePath(saveDir()));
+  if (!save)
+  {
+    sound(Sfx::Hurt);
+    notice("NO QUICK SAVE YET - F5 OR THE PAUSE MENU MAKES ONE");
+    return false;
+  }
+  return loadSave(*save, "QUICK SAVE LOADED");
+}
+
+bool Game::loadSave(SaveGame s, const std::string& message)
+{
+  // A copy: loading a level refreshes mSlots, which may hold the original.
+  if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath))
   {
     // Campaign saves bring their level along.
-    const SaveGame copy = *save;
     mWorld.reset();
     mMainWorld.reset();
     mBonusOnly = false;
-    if (!loadLevel(copy.levelFile))
+    if (!loadLevel(s.levelFile))
       return false;
-    mLevelNumber = copy.levelNumber;
-    mSlots[std::size_t(slot)] = copy;
+    mLevelNumber = s.levelNumber;
   }
-  if (!mLevel || save->levelName != mLevel->name)
+  if (!mLevel || s.levelName != mLevel->name)
   {
     sound(Sfx::Hurt);
     notice("THAT SAVE IS FROM ANOTHER LEVEL");
     return false;
   }
-  const SaveGame s = *save; // setTheme below rebuilds things; keep a copy
   if (s.theme >= 0 && s.theme < themeTotal() && s.theme != mThemeIndex)
   {
     // A fresh world comes next, so only the art needs rebuilding (the
@@ -238,7 +271,7 @@ bool Game::loadFromSlot(int slot)
   sound(Sfx::Teleport);
   closeMenu();
   playLevelMusic();
-  mWorld->notify("GAME LOADED FROM SLOT " + std::to_string(slot + 1));
+  mWorld->notify(message);
   return true;
 }
 
@@ -312,6 +345,12 @@ bool Game::tickMenu(const Input& in)
           case kLoad:
             mSlotsForSave = false;
             openMenu(Menu::Slots);
+            break;
+          case kQuickSave:
+            quickSave();
+            break;
+          case kQuickLoad:
+            quickLoad();
             break;
           case kChangeRunner:
             openMenu(Menu::Runner);
@@ -453,24 +492,27 @@ void Game::renderMenu()
     r.draw(mMenuPanel, 380, 120);
     r.drawText("PAUSED", 640, 140, {48.0f, t.accentA, kInk, true}, Align::Center);
     const auto items = pauseItems();
-    const float step = items.size() > 6 ? 44.0f : 50.0f;
-    for (int i = 0; i < int(items.size()); ++i)
+    // Up to eleven items share the panel: the more there are, the closer.
+    const int n = int(items.size());
+    const float step = n > 1 ? std::min(50.0f, 324.0f / float(n - 1)) : 50.0f;
+    const float size = step < 40.0f ? 24.0f : 28.0f;
+    for (int i = 0; i < n; ++i)
     {
       const bool sel = i == mMenuCursor;
-      const float y = 216.0f + float(i) * step;
+      const float y = 206.0f + float(i) * step;
       if (sel)
       {
-        r.fillRect(420, y - 6, 440, 42, withAlpha(t.accentA, 60));
+        r.fillRect(420, y - 6, 440, std::min(42.0f, step - 2.0f), withAlpha(t.accentA, 60));
         drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
       }
       const int item = items[std::size_t(i)];
       const std::string label =
         item == kFullscreen ? (mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF")
                              : kPauseLabels[item];
-      r.drawText(label, 640, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel},
+      r.drawText(label, 640, y, {size, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);
     }
-    r.drawText("UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 560, hint, Align::Center);
+    r.drawText("UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 566, hint, Align::Center);
     return;
   }
 

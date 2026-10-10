@@ -56,6 +56,10 @@ debug key; see "Releasing".
   under 220 ms) jumps and holds jump until the finger lifts, so a thumb on
   Fire can jump without letting go; a quick swipe down switches runner.
   Slower moves are not swipes.
+- **Quick save and load:** QUICK SAVE and QUICK LOAD in the pause menu
+  use their own slot (`quick.sav`), apart from the five save slots. A
+  keyboard or gamepad can trigger them directly (F5 and F9 by default,
+  rebindable in CONTROLS).
 - **In menus, cutscenes and tallies:** a d-pad, OK (confirm, skip) and
   BACK. BACK never fires or pauses, so it can't quit the title by accident.
 - **CONTROLS** on the title screen and in the pause menu has TOUCH PAD:

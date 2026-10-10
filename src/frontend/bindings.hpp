@@ -8,7 +8,7 @@
 namespace gr
 {
 
-// What the player can rebind: the eight in-level actions, each with two
+// What the player can rebind: the in-level actions, each with two
 // keyboard keys and any number of gamepad buttons. Menus keep fixed keys
 // on top (arrows, Enter, Esc; d-pad, A, B, Start), so no binding can lock
 // anyone out of them, and Esc always pauses a level.
@@ -22,6 +22,8 @@ enum class Act
   Fire,
   Swap,
   Pause,
+  QuickSave,
+  QuickLoad,
   Count,
 };
 constexpr int kActCount = int(Act::Count);

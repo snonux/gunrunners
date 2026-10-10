@@ -176,6 +176,11 @@ private:
   void refreshSlots();
   void saveToSlot(int slot);
   bool loadFromSlot(int slot);
+  // The quick save slot, apart from the five (F5 / F9 by default).
+  void quickSave();
+  bool quickLoad();
+  bool saveTo(const std::string& path);
+  bool loadSave(SaveGame s, const std::string& message);
   void switchRunner(int index);
   void setTheme(int index);
   void notice(const std::string& text);

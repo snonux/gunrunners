@@ -76,6 +76,20 @@ void keyboard()
   keys[SDL_SCANCODE_LEFT] = 0;
   keys[SDL_SCANCODE_ESCAPE] = 1;
   check(c.readKeys(keys, false).pause, "Esc always pauses");
+  keys[SDL_SCANCODE_ESCAPE] = 0;
+  keys[SDL_SCANCODE_F5] = 1;
+  check(c.readKeys(keys, false).quickSave, "F5 quick saves by default");
+  keys[SDL_SCANCODE_F5] = 0;
+  keys[SDL_SCANCODE_F9] = 1;
+  check(c.readKeys(keys, false).quickLoad, "F9 quick loads by default");
+  keys[SDL_SCANCODE_F9] = 0;
+  b.bindKey(Act::QuickSave, 0, SDL_SCANCODE_F6);
+  c.setBindings(b);
+  keys[SDL_SCANCODE_F6] = 1;
+  check(c.readKeys(keys, false).quickSave, "quick save rebinds to F6");
+  keys[SDL_SCANCODE_F6] = 0;
+  keys[SDL_SCANCODE_F5] = 1;
+  check(!c.readKeys(keys, false).quickSave, "...and F5 no longer saves");
 }
 
 void pad()

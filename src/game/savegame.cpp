@@ -43,6 +43,11 @@ std::string slotPath(const std::string& dir, int slot)
   return dir + "/slot" + std::to_string(slot + 1) + ".sav";
 }
 
+std::string quickSavePath(const std::string& dir)
+{
+  return dir + "/quick.sav";
+}
+
 bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
 {
   namespace fs = std::filesystem;

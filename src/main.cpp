@@ -78,6 +78,8 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "pause") in.pause = true;
       else if (b == "back") in.back = true;
       else if (b == "swap") in.swap = true;
+      else if (b == "quicksave") in.quickSave = true;
+      else if (b == "quickload") in.quickLoad = true;
       else return false;
     }
     out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
@@ -115,11 +117,12 @@ void printUsage()
     "                       (default: $XDG_DATA_HOME/gunrunners/saves or\n"
     "                       ~/.local/share/gunrunners/saves)\n"
     "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
-    "                       (left right up down jump fire confirm pause back swap)\n"
+    "                       (left right up down jump fire confirm pause back swap\n"
+    "                       quicksave quickload)\n"
     "\n"
     "Keys: arrows/WASD move, X/Ctrl jump, Z/Space fire, Enter confirm,\n"
     "      C switch runner, Esc/P pause menu (save, load, quit), T cycle theme,\n"
-    "      F11 or Alt+Enter fullscreen\n"
+    "      F5 quick save, F9 quick load, F11 or Alt+Enter fullscreen\n"
     "Gamepad: stick/d-pad move, X jump, A/B/RB/RT fire, Y switch runner,\n"
     "      Start pause menu, Back cycle theme\n"
     "CONTROLS on the title screen or in the pause menu rebinds keys and buttons");

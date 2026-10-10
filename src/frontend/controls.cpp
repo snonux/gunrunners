@@ -127,6 +127,8 @@ Input Controls::readKeys(const Uint8* k, bool menus) const
   in.jump = act(Act::Jump);
   in.fire = act(Act::Fire);
   in.swap = act(Act::Swap);
+  in.quickSave = act(Act::QuickSave);
+  in.quickLoad = act(Act::QuickLoad);
   // Fixed keys on top of the bindings: Esc always pauses or backs out, and
   // menus always answer the arrows and Enter. AC_BACK is Android's back key.
   in.pause = act(Act::Pause) || k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_AC_BACK];
@@ -169,6 +171,8 @@ Input Controls::readPad(SDL_GameController* pad, bool menus) const
   in.jump = act(Act::Jump);
   in.fire = act(Act::Fire);
   in.swap = act(Act::Swap);
+  in.quickSave = act(Act::QuickSave);
+  in.quickLoad = act(Act::QuickLoad);
   // Fixed: Start always pauses and confirms, A confirms, B backs out.
   in.pause = act(Act::Pause) || button(SDL_CONTROLLER_BUTTON_START);
   in.confirm = button(SDL_CONTROLLER_BUTTON_START) || button(SDL_CONTROLLER_BUTTON_A);
