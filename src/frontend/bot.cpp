@@ -120,7 +120,10 @@ Input Bot::play(const World& world)
   // A vehicle marked for the bot (bot_drive.cpp). A lost life puts them
   // all back where they were: they can be driven again.
   if (world.player().state == PlayerState::Dying)
+  {
     mVehDone.clear();
+    mVehField = -1; // and back at a checkpoint: how far to go starts over
+  }
   const int botV = world.riding() ? -1 : botVehicle(world);
   if (world.riding() || botV >= 0)
   {

@@ -4,6 +4,7 @@
 // first time they are used and cached in the ClipKit.
 
 #include "assets/art.hpp"
+#include "assets/enemy_art.hpp"
 #include "base/math.hpp"
 #include "data/theme.hpp"
 #include "frontend/cutscene.hpp"
@@ -1695,6 +1696,88 @@ void gooWall(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.fillRect(ox, 640 + oy, 700, 10, rgb(80, 210, 160));
 }
 
+// Level 43: in orbit over Vurr. The old courier ship's cockpit, the runners
+// beaming in one by one, MAX crackling over the console.
+void starfallCockpit(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.4f + ox, oy, 0.0f);
+  // The canopy: two struts arching over, a console along the bottom.
+  for (int s : {-1, 1})
+  {
+    const float x0 = 640.0f + float(s) * 700.0f, x1 = 640.0f + float(s) * 260.0f;
+    k.r.drawLine(x0 + ox, 760 + oy, x1 + ox, -40 + oy, 46, rgb(40, 44, 60));
+    k.r.drawLine(x0 + ox, 760 + oy, x1 + ox, -40 + oy, 8, rgb(110, 116, 140));
+  }
+  k.r.fillRect(ox, 560 + oy, W, 200, rgb(30, 32, 46));
+  k.r.fillRect(ox, 560 + oy, W, 10, rgb(110, 116, 140));
+  for (int i = 0; i < 14; ++i)
+  {
+    const bool lit = (hash2(i, ticks / 20) % 3u) != 0u;
+    k.r.fillRect(70.0f + float(i) * 82.0f + ox, 600 + oy, 40, 14,
+      lit ? (i % 3 ? rgb(90, 220, 255) : rgb(255, 190, 70)) : rgb(50, 60, 80));
+  }
+  // The runners beam in: a column of light, then the runner.
+  for (int who = 0; who < 3; ++who)
+  {
+    const int in = frame - who * 2;
+    if (in < 0)
+      continue;
+    const float x = 420.0f + float(who) * 210.0f + ox, y = 600 + oy;
+    if (in < 3)
+    {
+      k.r.fillRect(x - 50, oy, 100, 600, rgba(170, 230, 255, 160 - in * 40));
+      drawGlow(k.r, k.art, x, y - 120, 160, rgb(170, 230, 255), 0.8f - float(in) * 0.2f);
+    }
+    if (in >= 1)
+      k.r.draw(runner(k, who, 0, 2.4f, who == 2), x, y);
+  }
+  drawMax(k, 1130 + ox, 420 + oy, 0.38f, ticks, (ticks / 4) % 6 == 0 ? 0.5f : 0.1f);
+}
+
+// The courier ship side-on, lasers firing, a big asteroid splitting.
+void starfallRocks(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 2.0f + ox, oy, 0.0f);
+  static const std::string kShip = "veh_spaceship", kRock = "drift_rock";
+  // Small rocks tumbling past.
+  for (int i = 0; i < 7; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 431) % 1500u) - float(ticks) * 3.0f + 15000.0f, 1500.0f) - 100.0f;
+    const float y = 80.0f + float(hash2(i, 432) % 560u);
+    k.r.draw(styledEnemySprite(k.art, k.r, k.theme, kRock, i % 3, 0, 2, 2).get(1), x + ox, y + oy);
+  }
+  const float bob = std::sin(float(ticks) * 0.08f) * 8.0f;
+  DrawOpts big;
+  big.scale = 1.6f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, kShip, 0, (ticks / 6) % 2, 8, 4).get(1), 330 + ox, 420 + oy + bob, big);
+  if (frame % 2 == 0)
+    for (int g : {0, 1})
+    {
+      const float y = 372.0f + float(g) * 36.0f + bob, x = 480.0f + float((ticks % 45) * 14);
+      k.r.drawLine(x + ox, y + oy, x + 90 + ox, y + oy, 10, rgb(140, 240, 255), Blend::Add);
+    }
+  DrawOpts rock;
+  rock.scale = 2.0f;
+  if (frame < 8)
+  {
+    // Taking the hits, a little further off each time.
+    const float x = 980.0f + float(frame) * 6.0f;
+    k.r.draw(styledEnemySprite(k.art, k.r, k.theme, kRock, 0, 0, 6, 6).get(1), x + ox, 520 + oy, rock);
+    if (frame % 2 == 0)
+      drawGlow(k.r, k.art, x - 150 + ox, 400 + oy, 70, rgb(255, 230, 180), 0.8f);
+  }
+  else
+  {
+    // Split: the halves tumble up and down out of the way.
+    const float t = float(frame - 8);
+    for (int s : {-1, 1})
+      k.r.draw(styledEnemySprite(k.art, k.r, k.theme, kRock, 1 + (s > 0), 0, 4, 4).get(1), 1030.0f + t * 10.0f + ox,
+        460.0f + float(s) * (60.0f + t * 34.0f) + oy, rock);
+    if (frame < 11)
+      drawGlow(k.r, k.art, 1030 + ox, 420 + oy, 200, rgb(255, 210, 150), 0.8f - (t * 0.25f));
+  }
+}
+
 // Level 45: inside the hive. A ribbed pink cavity, veins glowing on the
 // heartbeat.
 void hiveCavity(ClipKit& k, int ticks, float ox, float oy)
@@ -2263,6 +2346,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return crashLanding(k, frame, ticks, ox, oy);
   if (clip == "brief44_goo")
     return gooWall(k, frame, ticks, ox, oy);
+  if (clip == "brief43_cockpit")
+    return starfallCockpit(k, frame, ticks, ox, oy);
+  if (clip == "brief43_rocks")
+    return starfallRocks(k, frame, ticks, ox, oy);
   if (clip == "brief45_hive")
     return hiveBrief(k, frame, ticks, ox, oy);
   if (clip == "brief45_gulp")
