@@ -77,12 +77,28 @@ Input Bot::play(const World& world)
         mPlanner.reset();
         return Input{};
       }
+  // Level 14: beside the altar the planner went to, hold up (gems go, or
+  // the false altar wakes the bonus entrance).
+  const int altar = mPlanner.altarToHold(world);
+  if (altar >= 0 && world.besideAltar(altar))
+  {
+    mPlanner.reset();
+    Input in;
+    in.up = true;
+    return in;
+  }
   // Fight from the deck; anywhere below it (fallen down the mast shaft)
   // the planner climbs back up first.
   if (world.bossFight() && world.player().y <= world.boss().deckY + 1)
   {
     mFighting = true;
     return fightBoss(world);
+  }
+  // Level 14: Kaan-Tolok, once the arena door is shut behind the runner.
+  if (world.golemFight())
+  {
+    mFighting = true;
+    return fightGolem(world);
   }
   if (mFighting)
   {
@@ -342,6 +358,214 @@ Input Bot::fightBoss(const World& world)
         world.player().hp, targetX, best, bestScore);
     for (int f = 0; f < 4; ++f)
       mFightQueue.push_back(moveInput(kMoves[best], f));
+  }
+  Input in = mFightQueue.front();
+  mFightQueue.pop_front();
+  mFightPrev = in;
+  return in;
+}
+
+namespace
+{
+
+// Kaan-Tolok's fighter: moves of four frames; fireAt is the frame the
+// trigger goes down (-1: not at all), so a jump can shoot from its top.
+struct GolemMove
+{
+  int dir;
+  bool down, jump;
+  int fireAt;
+};
+const GolemMove kGolemMoves[] = {
+  {0, false, false, -1}, // wait
+  {-1, false, false, -1},
+  {1, false, false, -1},
+  {0, false, true, -1},
+  {-1, false, true, -1},
+  {1, false, true, -1},
+  {0, true, false, -1},  // crouch
+  {0, false, false, 0},  // shoot
+  {0, false, true, 3},   // jump, shoot from the top
+  {0, true, false, 0},   // crouch and shoot
+  {-1, false, false, 0}, // turn left and shoot
+  {1, false, false, 0},
+  {-1, false, true, 3},  // jump left, shoot
+  {1, false, true, 3},
+};
+
+Input golemInput(const GolemMove& m, int f)
+{
+  Input in;
+  in.left = m.dir < 0;
+  in.right = m.dir > 0;
+  in.down = m.down;
+  in.jump = m.jump;
+  in.fire = m.fireAt == f;
+  return in;
+}
+
+// A shockwave coming at the runner, close enough to jump now.
+bool waveNear(const World& w)
+{
+  const auto& p = w.player();
+  for (const auto& wv : w.golem().waves)
+  {
+    const float d = (float(p.x) + 1.5f - wv.x) * float(-wv.dir);
+    if (d > -2.0f && d < 9.0f)
+      return true;
+  }
+  return false;
+}
+
+// The nearest of the bouncing heads, or null.
+const Golem::Head* nearestHead(const World& w)
+{
+  const auto& p = w.player();
+  const Golem::Head* best = nullptr;
+  for (const auto& h : w.golem().heads)
+    if (h.alive && (!best || std::abs(h.x + 3.0f - float(p.x)) < std::abs(best->x + 3.0f - float(p.x))))
+      best = &h;
+  return best;
+}
+
+} // namespace
+
+Input Bot::fightGolem(const World& world)
+{
+  if (mFightQueue.empty())
+  {
+    constexpr int kAhead = 48;
+    const int hp0 = world.player().hp, golem0 = world.golemHp();
+    int best = 0;
+    long bestScore = std::numeric_limits<long>::min();
+    for (int m = 0; m < int(sizeof(kGolemMoves) / sizeof(kGolemMoves[0])); ++m)
+    {
+      const auto firstPtr = world.cloneForSim();
+      World& first = *firstPtr;
+      Input prev = mFightPrev;
+      bool dead = false;
+      for (int f = 0; f < 4 && !dead; ++f)
+      {
+        const Input in = golemInput(kGolemMoves[m], f);
+        first.update(asPlayerInput(in, prev));
+        prev = in;
+        dead = first.player().state == PlayerState::Dying;
+      }
+      const long firstScore = 200L * (golem0 - first.golemHp());
+      long moveScore = std::numeric_limits<long>::min();
+      for (int follow = 0; follow < 8 && !dead; ++follow)
+      {
+        World sim(first);
+        Input fp = prev;
+        long score = firstScore;
+        int golemHp = sim.golemHp();
+        bool down = false;
+        for (int f = 0; f < kAhead; ++f)
+        {
+          Input in;
+          const auto& sp = sim.player();
+          const auto& g = sim.golem();
+          const float gcx = g.x + float(Golem::kW) * 0.5f, pcx = float(sp.x) + 1.5f;
+          const int toGolem = gcx < pcx ? -1 : 1;
+          const bool ground = sp.state == PlayerState::OnGround;
+          const Golem::Head* head = nearestHead(sim);
+          auto face = [&](int dir) {
+            in.left = dir < 0 && sp.facing > 0;
+            in.right = dir > 0 && sp.facing < 0;
+          };
+          switch (follow)
+          {
+            case 0: // duel: face it, jump-shoot while the gem shows
+            case 1: // back off first
+            case 2: // close in first
+              if (follow == 1 && f < 12)
+              {
+                in.left = toGolem > 0;
+                in.right = toGolem < 0;
+              }
+              else if (follow == 2 && f < 8)
+              {
+                in.left = toGolem < 0;
+                in.right = toGolem > 0;
+              }
+              else
+                face(toGolem);
+              in.jump = ground && (waveNear(sim) || (g.open > 0 && f % 8 == 0));
+              in.fire = f % 2 == 1;
+              break;
+            case 3: // crouch (a high sweep)
+              in.down = true;
+              face(toGolem);
+              in.fire = f % 2 == 1;
+              break;
+            case 4: // hop
+              in.jump = ground && f % 6 == 0;
+              face(toGolem);
+              in.fire = f % 2 == 1;
+              break;
+            case 5: // shoot the nearest head, jumping it when it comes low
+            case 6: // run from it
+              if (head)
+              {
+                const int dir = head->x + 3.0f < pcx ? -1 : 1;
+                const float dist = std::abs(head->x + 3.0f - pcx);
+                if (follow == 5)
+                  face(dir);
+                else
+                {
+                  in.left = dir > 0;
+                  in.right = dir < 0;
+                }
+                in.jump = ground && dist < 10.0f && head->y > float(sim.golem().floor - 5);
+              }
+              in.fire = f % 2 == 1;
+              break;
+            case 7: // stand and shoot
+              face(head ? (head->x + 3.0f < pcx ? -1 : 1) : toGolem);
+              in.fire = f % 2 == 1;
+              break;
+          }
+          sim.update(asPlayerInput(in, fp));
+          fp = in;
+          score += long(golemHp - sim.golemHp()) * (180 - 3 * f);
+          golemHp = sim.golemHp();
+          if (!down && (sim.golem().phase == GolemPhase::Crumble || sim.golem().phase == GolemPhase::Done))
+          {
+            down = true;
+            score += 100000L - 1000L * f;
+          }
+          if (sim.player().state == PlayerState::Dying || sim.state() != WorldState::Playing)
+            break;
+        }
+        const auto& sp = sim.player();
+        const long lost = std::max(0, hp0 - sp.hp);
+        score += -lost * (400L + 1200L / std::max(1, sp.hp));
+        // Keep a little way off the body, where the gem is in reach.
+        const auto& g = sim.golem();
+        if (g.phase == GolemPhase::Stomp || g.phase == GolemPhase::Sweep)
+        {
+          const float gap = std::abs(float(sp.x) + 1.5f - (g.x + float(Golem::kW) * 0.5f)) - float(Golem::kW) * 0.5f;
+          score -= long(std::abs(gap - 9.0f) * 3.0f);
+        }
+        if (sp.state == PlayerState::Dying)
+          score -= 1000000L;
+        moveScore = std::max(moveScore, score);
+      }
+      if (dead)
+        continue;
+      if (moveScore > bestScore)
+      {
+        bestScore = moveScore;
+        best = m;
+      }
+    }
+    static const bool debug = std::getenv("GR_FIGHT_DEBUG") != nullptr;
+    if (debug)
+      std::fprintf(stderr, "golem f%d phase %d hp %d at %d,%d runner hp %d -> move %d (%ld)\n", world.stats().frames,
+        int(world.golem().phase), world.golemHp(), world.player().x, world.player().y, world.player().hp, best,
+        bestScore);
+    for (int f = 0; f < 4; ++f)
+      mFightQueue.push_back(golemInput(kGolemMoves[best], f));
   }
   Input in = mFightQueue.front();
   mFightQueue.pop_front();

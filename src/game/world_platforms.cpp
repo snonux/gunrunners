@@ -178,7 +178,7 @@ void World::updatePlatforms()
     auto& a = mPlatforms[i];
     if (a.mode == PlatformMode::Path)
     {
-      if (a.path.size() < 2)
+      if (a.path.size() < 2 || a.frozen)
         continue;
       if (a.powered >= 0 && !mBreakers[std::size_t(a.powered)].on)
         continue;

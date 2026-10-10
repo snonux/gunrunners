@@ -25,6 +25,7 @@ public:
   Input menu(int cursor, int target, int ticksInMenu) const;
   // Black Halo's arena: short look-ahead fights instead of the planner.
   Input fightBoss(const World& world);
+  Input fightGolem(const World& world);
   // Pilot Seat: fly at the cardboard.
   Input fly(const World& world);
   // Trapmaster: spring the trap that will catch the most hunters.

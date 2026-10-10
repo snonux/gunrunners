@@ -463,6 +463,39 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         const Alcove& a = w.alcoves()[std::size_t(b.teeter)];
         return {9, a.x0 + 2, a.feet, a.x1 - a.x0 - 3, 1, b.teeter};
       }
+  // Level 14's bonus, Golden Touch: until the gate opens, gild the marked
+  // blocks left to right (the drops on the way only go one way), standing
+  // on the leftmost one the search can still get to.
+  if (w.golden() && !w.goldReached())
+  {
+    const auto& p = w.player();
+    const int bw = lv.width;
+    int best = -1, bestKey = 0;
+    for (int ty = 1; ty < lv.height; ++ty)
+      for (int tx = 0; tx < bw; ++tx)
+      {
+        if (w.goldAt(tx, ty) != 1 || w.map().solid(tx * kCellsPerTile, (ty - 1) * kCellsPerTile))
+          continue;
+        const int id = ty * bw + tx;
+        if (std::find(mPaintSkip.begin(), mPaintSkip.end(), id) != mPaintSkip.end())
+          continue;
+        const int key = tx * 1000 + std::abs(tx * kCellsPerTile - p.x) + 3 * std::abs(ty * kCellsPerTile - 1 - p.y);
+        if (best < 0 || key < bestKey)
+        {
+          best = id;
+          bestKey = key;
+        }
+      }
+    if (best >= 0)
+      return {12, (best % bw) * kCellsPerTile, (best / bw) * kCellsPerTile - 1, 2, 1, best};
+  }
+  // Level 14: Gold Fever's altars.
+  if (w.greedOn())
+  {
+    const Goal a = altarGoal(w);
+    if (a.kind != 0)
+      return a;
+  }
   if (mTakeBonus && !mSkipBonus)
     for (const auto& pr : w.props())
       if (pr.kind == PropKind::BonusDoor && !pr.used && !pr.dormant)
@@ -555,6 +588,63 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   return g;
 }
 
+// Level 14: for the bonus, every gem goes to the offering altar next to the
+// false one, then the runner holds up empty-handed at the false altar; on
+// the way to Kaan-Tolok, gems go back at the last altar until the greed
+// meter is under 10, so the golem has no armor.
+// On the bonus route, a false altar dropping its floor (lingering on it
+// with gems) loses the bonus door.
+static bool dropsFalse(const World& w)
+{
+  for (const auto& a : w.altars())
+    if (!a.offer && a.dropped)
+      return true;
+  return false;
+}
+
+Planner::Goal Planner::altarGoal(const World& w) const
+{
+  const auto& altars = w.altars();
+  const auto& p = w.player();
+  int fa = -1, last = -1;
+  for (std::size_t i = 0; i < altars.size(); ++i)
+  {
+    if (!altars[i].offer)
+      fa = int(i);
+    else if (last < 0 || altars[i].bx > altars[std::size_t(last)].bx)
+      last = int(i);
+  }
+  auto at = [&](int kind, int i) {
+    const Altar& a = altars[std::size_t(i)];
+    return Goal{kind, a.bx * kCellsPerTile - 2, (a.by + 1) * kCellsPerTile - 1, 1, 1, i};
+  };
+  if (mTakeBonus && !mSkipBonus && fa >= 0 && !altars[std::size_t(fa)].open)
+  {
+    if (w.stats().gems == 0)
+      return at(10, fa);
+    int best = -1;
+    for (std::size_t i = 0; i < altars.size(); ++i)
+      if (altars[i].offer &&
+          (best < 0 || std::abs(altars[i].bx - altars[std::size_t(fa)].bx) <
+                         std::abs(altars[std::size_t(best)].bx - altars[std::size_t(fa)].bx)))
+        best = int(i);
+    if (best >= 0)
+      return at(10, best);
+  }
+  if (last >= 0 && w.greed() >= 10 && w.stats().gems > 0 && !w.golemFight() &&
+      p.x < altars[std::size_t(last)].bx * kCellsPerTile + 24)
+    return at(11, last);
+  return {};
+}
+
+int Planner::altarToHold(const World& w) const
+{
+  if (!w.greedOn())
+    return -1;
+  const Goal g = altarGoal(w);
+  return g.kind >= 10 ? g.index : -1;
+}
+
 void Planner::buildField(const World& w, const Goal& goal)
 {
   const CollisionMap& map = w.map();
@@ -608,6 +698,14 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (x >= 0 && y >= 0 && x < W && y < H)
           blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   }
+  // Golden Touch: a gold door that can still open opens as the runner comes;
+  // the gate opens once the gold is in.
+  for (const auto& d : w.goldDoors())
+    if (!d.gold && (!d.gate || w.goldReached()))
+      for (int y = d.by0 * kCellsPerTile; y < (d.by1 + 1) * kCellsPerTile; ++y)
+        for (int x = d.bx * kCellsPerTile; x < (d.bx + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   // Shutters whose breaker is on are rolling up: the search waits for them.
   for (const auto& d : w.doors())
     if (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on)
@@ -1015,7 +1113,7 @@ void Planner::buildField(const World& w, const Goal& goal)
   using QE = std::pair<int, int>;
   std::priority_queue<QE, std::vector<QE>, std::greater<QE>> q;
   const CellBox goalBox = goal.kind == 0 ? CellBox{goal.x, goal.y - 5, 2, 6}
-    : goal.kind == 3 || goal.kind == 9    ? CellBox{goal.x, goal.y, goal.w, goal.h}
+    : goal.kind == 3 || goal.kind >= 9    ? CellBox{goal.x, goal.y, goal.w, goal.h}
     : goal.kind == 4                      ? boxAt(goal.x, goal.y, 2, 4)
     : goal.kind == 5 && goal.w == 1       ? CellBox{goal.x - 2, goal.y, 6, 18}     // under it, to shoot up
     : goal.kind == 5                      ? CellBox{goal.x - 14, goal.y - 3, 30, 6} // in range for a level shot
@@ -1030,7 +1128,7 @@ void Planner::buildField(const World& w, const Goal& goal)
         continue;
       if (!boxAt(x, y, 3, 5).intersects(goalBox))
         continue;
-      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5 || goal.kind == 8 || goal.kind == 9) && support[i] != 0)
+      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5 || goal.kind == 8 || goal.kind >= 9) && support[i] != 0)
         continue;
       // A bonus entrance can be up in the air: jumping into it is fine.
       if (goal.kind == 3 && support[i] > lift[i])
@@ -1415,10 +1513,17 @@ void Planner::plan(const World& world)
   Goal goal = chooseGoal(world);
   // A prototype the field cannot reach, or one the search keeps failing to
   // get to, is skipped.
-  if ((goal.kind == 3 || goal.kind == 7 || goal.kind == 9) && mGoalKind == goal.kind && mFails >= 6)
+  if ((goal.kind == 3 || goal.kind == 7 || goal.kind == 9 || goal.kind == 10) && mGoalKind == goal.kind && mFails >= 6)
   {
     mSkipBonus = true;
     mSkipBonusAt = p0.x;
+    goal = chooseGoal(world);
+  }
+  // Golden Touch: a block the search keeps failing to reach is left.
+  while (goal.kind == 12 && mGoalKind == 12 && mGoalIndex == goal.index && mFails >= 4)
+  {
+    mPaintSkip.push_back(goal.index);
+    mFails = 0;
     goal = chooseGoal(world);
   }
   if (goal.kind == 2 && mGoalKind == 2 && mFails >= 6)
@@ -1466,6 +1571,15 @@ void Planner::plan(const World& world)
     // Level 10: sun doors, and the one the field takes as opening.
     for (const auto& d : world.sunDoors())
       powered = powered * 2 + d.open;
+    // Golden Touch: statues set, doors opened or gilded.
+    if (world.golden())
+    {
+      for (const auto& e : world.enemies())
+        powered = powered * 2 + e.alive;
+      for (const auto& d : world.goldDoors())
+        powered = powered * 3 + (d.gold ? 2 : d.open > 0);
+      powered = powered * 2 + world.goldReached();
+    }
     powered = powered * 31 + mPendingDoor + 1;
     const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
       (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
@@ -1476,9 +1590,16 @@ void Planner::plan(const World& world)
       mGoalKind = goal.kind;
       mGoalIndex = goal.index;
     }
-    if ((goal.kind != 2 && goal.kind != 3 && goal.kind != 7 && goal.kind != 9) || heuristic(world) < kInf)
+    if (goal.kind == 12 && heuristic(world) >= kInf)
+    {
+      mPaintSkip.push_back(goal.index);
+      goal = chooseGoal(world);
+      continue;
+    }
+    if ((goal.kind != 2 && goal.kind != 3 && goal.kind != 7 && goal.kind != 9 && goal.kind != 10) ||
+        heuristic(world) < kInf)
       break;
-    if (goal.kind == 3 || goal.kind == 7 || goal.kind == 9)
+    if (goal.kind == 3 || goal.kind == 7 || goal.kind == 9 || goal.kind == 10)
     {
       mSkipBonus = true;
       mSkipBonusAt = -1;
@@ -1688,7 +1809,9 @@ void Planner::plan(const World& world)
       nw.plates()[std::size_t(goal.index)].presses > world.plates()[std::size_t(goal.index)].presses;
     const bool turned = goal.kind == 8 && std::size_t(goal.index) < nw.mirrors().size() &&
       nw.mirrors()[std::size_t(goal.index)].to == goal.h;
-    const bool sheltered = goal.kind == 9 && nw.inShelter(goal.index);
+    const bool sheltered = (goal.kind == 9 && nw.inShelter(goal.index)) ||
+      ((goal.kind == 10 || goal.kind == 11) && nw.besideAltar(goal.index)) ||
+      (goal.kind == 12 && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1);
     const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
     if (ni != 0 && success)
@@ -1743,7 +1866,7 @@ void Planner::plan(const World& world)
         child->update(toPlayerInput(in, prev));
         prev = in;
         ++ran;
-        if (child->player().state == PlayerState::Dying || child->bonusFailed())
+        if (child->player().state == PlayerState::Dying || child->bonusFailed() || (goal.kind == 10 && dropsFalse(*child)))
         {
           dead = true;
           break;
