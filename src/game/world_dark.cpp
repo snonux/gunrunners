@@ -207,6 +207,8 @@ bool World::exitPowered() const
     return false; // the exit drops from the crane cab once Black Halo is down
   if (mGolem.on && mGolem.phase != GolemPhase::Done)
     return false; // the idol's mouth opens once Kaan-Tolok falls
+  if (mSpace.mother.on && mSpace.mother.phase != MotherPhase::Done)
+    return false; // the hatch in her throne opens once the Hive Mother falls
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();
 }
 

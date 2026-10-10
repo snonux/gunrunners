@@ -68,6 +68,8 @@ enum class EnemyKind
   ThornHog,  // level 48: paces the plains, lowers its tusks and charges (world_plains.cpp)
   SkyGulper, // level 48: a floating mouth; swallows a runner on foot and spits them back
   Thornbush, // level 48: a bush in the grass; carrier=1 is the green one with the Virus
+  EggGuard,  // level 49: an egg that hatches as you come near, then charges you (world_mother.cpp)
+  SporeNurse, // level 49: drifts about; heals the Hive Mother until it is shot
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go

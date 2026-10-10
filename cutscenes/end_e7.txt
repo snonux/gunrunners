@@ -1,0 +1,31 @@
+cutscene end_e7
+music theme_episode_end
+
+# Clip e7_mother_falls: the Hive Mother dazed on her throne, shaking in
+# flashes (frames 0-5), then sinking into the resin in bursts of amber
+# (6-13); the runners watch from the left. 14 frames.
+shot e7_mother_falls delay=100 repeat=1
+  cue 0 fade=in:600
+  cue 0 sound=groan
+  cue 6 sound=explosion
+  cue 13 hold=800
+
+# Clip e7_star_seed: Nova holds up the Star Seed, a star of gold light that
+# fills the chamber; Dash and Rocco look up at it. An 8-frame loop.
+shot e7_star_seed delay=110 repeat=0
+  cue 0 sound=choir
+  cue 0 say=NOVA "Got it. It's warm. It's humming."
+  cue 0 wait=button
+shot e7_star_seed delay=110 repeat=0
+  cue 0 say=ROCCO "Great. Can it hum us home?"
+  cue 0 wait=button
+
+# Clip e7_takeoff: Vurr at dusk under its two moons, the hive's dome on the
+# horizon. The courier ship lifts off the violet plain (frames 0-5), noses
+# up and climbs away into the stars (6-15), MAX on the radio. 16 frames.
+shot e7_takeoff delay=100 repeat=1
+  cue 0 sound=thruster
+  cue 3 say=MAX "Signal locked. Bring the Seed home, runners."
+  cue 3 hold=2500
+  cue 6 sound=whoosh
+  cue 15 fade=out:800

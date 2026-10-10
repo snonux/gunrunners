@@ -244,6 +244,24 @@ swaps, no ziplines, no rideable creatures; the ship is the vehicles thread's).
   vehicles thread's ship, if it is in by then) and the episode-end cutscene
   rolls.
 
+- **Built** (2026-10-10): `tools/levels/49_hive_mother.py`, 150 x 36
+  blocks: the root tunnel (the Star Seed, the first eggs, a Spore Nurse), a
+  goo wall up to the gallery, the gallery east (the cache with the 42, gems,
+  merch and the duck up three ledges under its roof; the green Egg Guard),
+  a drop into the antechamber (checkpoint, two hearts) and the egg chamber.
+  Phases as above, built simpler where the bot needs it: her bowed crown is
+  in reach of a jump shot or a shot from the low ledges, the sacs take
+  standing shots from her front while she breathes in, and ledges 3 blocks
+  up (one-way) clear her charge. The Hive Remembers stays in as optional
+  help: goo on the chamber's west wall reaches her upright crown, and two
+  Swap Crystals up high swap you out of her charge; the gullet tubes were
+  left out (the ledges do their job). She has 58 hp in all (18 crown,
+  16 sacs, 24 back), the nurses heal her while they live, and the bot beats
+  her with all six runners in about a minute. The Star Seed charges for 16
+  frames (2 damage, up to 6) and goes through every alien in its line. The
+  episode ending: she sinks into her throne, Nova holds up the Star Seed,
+  and the courier ship lifts off Vurr under its two moons.
+
 ## Build order
 
 1. Episode shell: levels 43-49 in the level table, the DEEP SPACE title

@@ -34,6 +34,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_crystal.cpp
   src/assets/enemy_art_silk.cpp
   src/assets/enemy_art_plains.cpp
+  src/assets/enemy_art_mother.cpp
   src/assets/vehicle_art.cpp
   src/data/level.cpp
   src/data/theme.cpp
@@ -68,6 +69,7 @@ add_library(gunrunners_core STATIC
   src/game/world_crystal.cpp
   src/game/world_silk.cpp
   src/game/world_plains.cpp
+  src/game/world_mother.cpp
   src/game/world_boulder.cpp
   src/game/world_surf.cpp
   src/game/world_sanctum.cpp
@@ -89,6 +91,7 @@ add_library(gunrunners_core STATIC
   src/game/savegame.cpp
   src/frontend/bot.cpp
   src/frontend/bot_drive.cpp
+  src/frontend/bot_mother.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
@@ -192,10 +195,14 @@ add_test(NAME silk_lines COMMAND silk_test)
 add_executable(plains_test tests/plains_test.cpp)
 target_link_libraries(plains_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME plains_bounders COMMAND plains_test)
+add_executable(mother_test tests/mother_test.cpp)
+target_link_libraries(mother_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME mother_boss COMMAND mother_test)
 add_test(NAME savegame_crystal_drift COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/46_crystal_drift.txt 500)
 add_test(NAME savegame_silk_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/47_silk_canyon.txt 500)
 # Level 48: on the first Bounder, over the thorns.
 add_test(NAME savegame_bounder_plains COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/48_bounder_plains.txt 400)
+add_test(NAME savegame_hive_mother COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/49_hive_mother.txt 400)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
 add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)
 add_test(NAME savegame_hangar_bay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt 300)
