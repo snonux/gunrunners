@@ -104,6 +104,8 @@ Input Bot::play(const World& world)
     return hockey(world);
   if (world.grav().gun)
     return gunGravity(world);
+  if (world.west().noon.on && world.west().noon.phase != DuelPhase::Done)
+    return highNoon(world);
   // Level 13: the bonus patch shows on the boulder that rolls over the
   // runner sheltering in its alcove and teeters at the chute: wait there.
   if (mPlanner.wantsBonus())
@@ -128,6 +130,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (reactor(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 22: barrels about to blow, burning fuses, duels, Tumble Mines.
+  if (world.west().on)
+  {
+    Input in;
+    if (west(world, in))
     {
       mPlanner.reset();
       return in;

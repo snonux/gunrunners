@@ -18,6 +18,7 @@
 #include "game/green.hpp"
 #include "game/hull.hpp"
 #include "game/reactor.hpp"
+#include "game/west.hpp"
 #include "game/zero.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
@@ -264,6 +265,7 @@ struct Projectile
   bool spike = false;   // a Space Barnacle's spike (drawn as a needle along its flight)
   int phase = -1;       // a Phase Rifle shot: the wall it is passing through (-1 none yet, -2 done)
   bool echo = false;    // fired by an Echo (drawn as a hologram's shot)
+  bool ricochet = false; // a Six-Shooter bullet that already glanced off metal
   int anchorX = -1, anchorY = -1; // a Silk Shooter shot: the hands it was fired from
   bool alive = true;
   int age = 0;
@@ -420,6 +422,7 @@ struct Zone
   CellBox box;
   int dx = 0, dy = 0;
   int num = 1, den = 1;
+  int period = 0, on = 0; // gusts: it blows for the first `on` of every `period` frames (0: always)
 };
 
 // Moving and weighted platforms (SPEC 3.2): one-way tops the player and
@@ -1783,6 +1786,7 @@ public:
   const ReactorState& reactor() const { return mReactor; }
   // Level 21, ZERO: the bulkheads' states, Echoes, the eye.
   const ZeroState& zero() const { return mZero; }
+  const WestState& west() const { return mWest; }
   bool zeroFight() const;              // the runner is in the arena and ZERO is up
   int zeroHp() const;                  // ZERO's hearts left over all three phases
   bool overSafeSegment() const;        // in Overload: the runner stands on a segment that stays
@@ -2358,6 +2362,35 @@ private:
   void drawZeroBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawZeroFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawZeroHud(Renderer& r, int frame) const;
+  // Level 22, Dry Gulch (world_west.cpp, world_west_draw.cpp).
+  bool setupWestEntity(const EntityDef& e);
+  void setupWestEnemy(Enemy& en, const EntityDef& e);
+  void linkWest();
+  void lightFuseBlock(int bx, int by);
+  void igniteBarrel(int i);
+  bool lightWestAt(const CellBox& box);
+  void westBlast(int cx, int cy, int radius, int damage, int hurt);
+  void blowBarrel(int i);
+  void updateFuses();
+  void snapWest();
+  void updateDuelist(Enemy& e, const EnemyDef& def);
+  void updateTumbleMine(Enemy& e, const EnemyDef& def);
+  void updateWindowBandit(Enemy& e, const EnemyDef& def);
+  int shotAtWest(Projectile& pr, const CellBox& b); // 0 go on, 1 the shot is spent, 2 it glanced off (skip the rest)
+  bool sixShooterFire();
+  void startDuel();
+  void restartDuel(const char* why);
+  void updateHighNoon();
+  bool westRunnerHit();
+  void updateWest(const PlayerInput& input);
+  void resetWest();
+  bool westCanSave() const;
+  std::vector<int> westSave() const;
+  bool validWestSave(const std::vector<int>& v) const;
+  void loadWest(const std::vector<int>& v);
+  void drawWestBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWestFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWestHud(Renderer& r, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2752,6 +2785,7 @@ private:
   std::optional<CollisionMap> mViewMap; // the turned map a turned runner moves on (world_grav.cpp)
   ReactorState mReactor;
   ZeroState mZero;
+  WestState mWest;
   std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.

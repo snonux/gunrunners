@@ -165,6 +165,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   }
   if (mZero.on)
     drawZeroBack(r, camX, camY, frame, alpha);
+  if (mWest.on)
+    drawWestBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -629,6 +631,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawReactorFront(r, camX, camY, frame);
   if (mZero.on)
     drawZeroFront(r, camX, camY, frame, alpha);
+  if (mWest.on)
+    drawWestFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1363,6 +1367,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawReactorHud(r, frame);
   if (mZero.on)
     drawZeroHud(r, frame);
+  if (mWest.on)
+    drawWestHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

@@ -174,6 +174,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkGrav();
   linkReactor();
   linkZero();
+  linkWest();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -219,6 +220,12 @@ Camera::Target World::cameraTarget() const
     // The Hive Mother: her crown and the arena floor both in view.
     const int floor = mSpace.mother.floor;
     return {b.left(), std::min(b.top(), floor - 15), b.right(), std::max(b.bottom(), floor), false};
+  }
+  if (mWest.noon.on)
+  {
+    // High Noon: both marks in view, the bell tower in the middle.
+    const int mid = (mWest.noon.runnerX + mWest.noon.markX + 3) / 2;
+    return {mid - 1, b.top(), mid + 1, b.bottom(), false};
   }
   if (zeroFight() || (mZero.boss.on && mZero.boss.phase == ZeroPhase::Reveal))
   {
@@ -391,6 +398,8 @@ void World::updateMovingWorld(const PlayerInput& input)
   updateReactor(input);
   if (mZero.on)
     updateZero(input);
+  if (mWest.on)
+    updateWest(input);
   updateHatches();
   updateProps(input);
 }
@@ -796,6 +805,15 @@ void World::updateEnemies()
       case EnemyKind::Echo:
         updateEcho(e, def);
         break;
+      case EnemyKind::Duelist:
+        updateDuelist(e, def);
+        break;
+      case EnemyKind::TumbleMine:
+        updateTumbleMine(e, def);
+        break;
+      case EnemyKind::WindowBandit:
+        updateWindowBandit(e, def);
+        break;
     }
 
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
@@ -908,6 +926,15 @@ void World::updateProjectiles()
     // goes on through one wall.
     if (mZero.on && pr.kind != ShotKind::Enemy && shotAtZero(pr, b))
       return true;
+    // Level 22: barrels, fuses, metal (a Six-Shooter bullet glances off).
+    if (mWest.on && pr.kind != ShotKind::Enemy)
+    {
+      const int west = shotAtWest(pr, b);
+      if (west == 1)
+        return true;
+      if (west == 2)
+        return false;
+    }
     if (mMap.overlapsSolid(b) && !(mZero.on && phaseThrough(pr, b)))
     {
       // The Silk Shooter strings a line where it hits rock.
@@ -1218,6 +1245,9 @@ void World::damageEnemy(Enemy& e, int damage)
   // Level 20: nothing in a Shield Drone's bubble can be hurt.
   if (mReactor.on && reactorBlocksDamage(e))
     return;
+  // High Noon (rules=onehit): every hit kills.
+  if (mWest.oneHit)
+    damage = std::max(damage, e.hp);
   e.hp -= damage;
   e.flash = 8;
   if (e.hp <= 0)

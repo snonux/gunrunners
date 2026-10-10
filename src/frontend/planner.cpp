@@ -415,6 +415,22 @@ Planner::Goal Planner::chooseGoal(const World& w) const
     if (bestD >= 0)
       return best;
   }
+  // Level 22: a fuse on the way (bot=1) is lit from its stand spot.
+  if (w.west().on)
+  {
+    const auto& ws = w.west();
+    const int px = w.player().x / kCellsPerTile;
+    for (std::size_t i = 0; i < ws.fuses.size(); ++i)
+    {
+      const auto& f = ws.fuses[i];
+      if (!f.bot || f.standX < 0 || f.lit() ||
+          (f.barrel >= 0 && (ws.barrels[std::size_t(f.barrel)].blown || ws.barrels[std::size_t(f.barrel)].t >= 0)))
+        continue;
+      if (px > f.cells[0].x + 2)
+        continue;
+      return {16, f.standX * kCellsPerTile, f.cells[0].y * kCellsPerTile - 3, 4, 5, int(i)};
+    }
+  }
   // Level 21's Wireframe bonus: gems, the nearest first.
   if (w.zero().wireframe && lv.goal.rfind("collect:", 0) == 0)
   {
@@ -2096,6 +2112,9 @@ void Planner::plan(const World& world)
     for (const auto& pl : world.green().plants)
       powered = powered * 2 + (pl.shown > 0);
     powered = powered * 31 + mPendingDoor + 1;
+    // Level 22: barrels blown (bridges down, rock gone).
+    for (const auto& b : world.west().barrels)
+      powered = powered * 2 + b.blown;
     // Level 19: which way each chamber is turned, and the gates.
     for (const auto& z : world.grav().zones)
       powered = powered * 2 + (z.dir == Grav::Up);
@@ -2198,6 +2217,17 @@ void Planner::plan(const World& world)
       for (const auto& d : w.zero().doors)
         zk = zk * 11 + std::uint64_t(d.pos * 10.0f);
       k = mix(k, zk);
+    }
+    // Level 22: fuse cells burning or burnt, barrels hissing or blown.
+    if (w.west().on)
+    {
+      std::uint64_t wk = 9;
+      for (const auto& f : w.west().fuses)
+        for (const auto& c : f.cells)
+          wk = wk * 3 + std::uint64_t(c.state);
+      for (const auto& b : w.west().barrels)
+        wk = wk * 3 + (b.blown ? 2u : b.t >= 0 ? 1u : 0u);
+      k = mix(k, wk);
     }
     // Growth Spurt: the runner's size.
     if (w.green().grow)
@@ -2421,7 +2451,9 @@ void Planner::plan(const World& world)
          world.green().lamps[std::size_t(goal.index)].left);
     const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered || lit ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone ||
-      (goal.kind == 15 && nw.stats().gems > world.stats().gems);
+      (goal.kind == 15 && nw.stats().gems > world.stats().gems) ||
+      (goal.kind == 16 && std::size_t(goal.index) < nw.west().fuses.size() &&
+        (nw.west().fuses[std::size_t(goal.index)].lit() || nw.west().anyBurning()));
     if (ni != 0 && success)
     {
       found = ni;

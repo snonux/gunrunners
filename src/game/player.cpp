@@ -805,6 +805,13 @@ void World::fireShot()
   p.recoil = 1;
   p.muzzleTicks = 6;
   p.muzzleStance = p.stance;
+  if (mWest.on)
+  {
+    // Level 22: the saloon piano and High Noon's false starts (world_west.cpp).
+    mWest.fired = true;
+    mWest.firedX = p.x + off[0];
+    mWest.firedY = p.y + off[1];
+  }
   if (mZero.on)
   {
     // Level 21: an Echo will fire this shot again (world_zero.cpp).
@@ -918,6 +925,9 @@ void World::hurtPlayer(int amount)
 {
   auto& p = mPlayer;
   if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.turbo > 0 || mGod || p.tube >= 0)
+    return;
+  // High Noon: a hit only restarts the duel.
+  if (mWest.noon.on && westRunnerHit())
     return;
   if (p.vehicle >= 0)
   {
@@ -1082,6 +1092,8 @@ void World::respawnPlayer()
   mReactor.arcs.clear();
   if (mZero.on)
     resetZero();
+  if (mWest.on)
+    resetWest();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

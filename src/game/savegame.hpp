@@ -138,6 +138,7 @@ struct SaveGame
   // ZERO (level 21): the corridor's state (shifts done), the kill switch,
   // the Echo pads armed, the broken things that came back.
   std::vector<int> zero;
+  std::vector<int> west; // Level 22 (World::westSave)
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

@@ -14,7 +14,7 @@ bool World::canSave() const
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
     (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave()) &&
-    (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave());
+    (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave()) && (!mWest.on || westCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -355,6 +355,8 @@ SaveGame World::snapshot() const
     s.reactor = reactorSave();
   if (mZero.on)
     s.zero = zeroSave();
+  if (mWest.on)
+    s.west = westSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -442,6 +444,7 @@ bool World::restore(const SaveGame& s)
       (!s.grav.empty() && !validGravSave(s.grav)) ||
       (!s.reactor.empty() && !validReactorSave(s.reactor)) ||
       (!s.zero.empty() && !validZeroSave(s.zero)) ||
+      (!s.west.empty() && !validWestSave(s.west)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -858,6 +861,8 @@ bool World::restore(const SaveGame& s)
     loadReactor(s.reactor);
   if (!s.zero.empty())
     loadZero(s.zero);
+  if (!s.west.empty())
+    loadWest(s.west);
   if (!s.grav.empty())
   {
     auto& g = mGrav;
