@@ -9,7 +9,8 @@ bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
     mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && !mPinball && !mSurfing &&
-    (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done);
+    (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
+    (!mStation.on() || stationCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -63,6 +64,9 @@ SaveGame World::snapshot() const
       continue; // a spawned enemy that is gone for good
     SaveGame::EnemyState es{e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active};
     es.attach = e.attach;
+    // A Loader Mech's legs (it holds nothing: saving waits for the throw).
+    if (e.kind == EnemyKind::Loader)
+      es.attach = e.ox;
     // Mid-leap Hoppers and working Decouplers come back at rest.
     if (e.kind == EnemyKind::Hopper)
       es.attach = 0;
@@ -251,6 +255,16 @@ SaveGame World::snapshot() const
     for (const auto& h : mCoinHeaps)
       s.sanctum.push_back(h.waves);
   }
+  if (mStation.on())
+  {
+    s.station = {mStation.setFired};
+    for (const auto& pn : mStation.panels)
+      for (int v : {pn.cool, int(pn.dented)})
+        s.station.push_back(v);
+    for (const auto& c : mStation.crates)
+      for (int v : {int(c.alive), c.bx, c.by})
+        s.station.push_back(v);
+  }
   if (!mBoulders.empty() || !mCracks.empty())
   {
     // A boulder after the runner comes back up its hole (as on a respawn);
@@ -320,6 +334,7 @@ bool World::restore(const SaveGame& s)
       (!s.mine.empty() && s.mine.size() != mLevers.size() + mTrapdoors.size() + mRubble.size() + 1) ||
       (!s.boulder.empty() && s.boulder.size() != mBoulders.size() * 3 + mCracks.size() + 1) ||
       (!s.sanctum.empty() && s.sanctum.size() != 4 + mAltars.size() * 3 + mCoinHeaps.size()) ||
+      (!s.station.empty() && s.station.size() != 1 + mStation.panels.size() * 2 + mStation.crates.size() * 3) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -427,6 +442,11 @@ bool World::restore(const SaveGame& s)
       e.attach = se.attach; // asleep, fleeing, or past its throw
     if (e.kind == EnemyKind::CoinBeetle || e.kind == EnemyKind::Sentinel)
       e.attach = se.attach; // crawling, rattling or hopping; its glyph row
+    if (e.kind == EnemyKind::Loader)
+    {
+      e.ox = se.attach; // its legs
+      e.aimX = -1;
+    }
     e.stun = 0;
     e.drawSnap = true;
   }
@@ -705,6 +725,38 @@ bool World::restore(const SaveGame& s)
   {
     c.shut = 0;
     setChute(c, false);
+  }
+  if (!s.station.empty())
+  {
+    auto& st = mStation;
+    std::size_t at = 0;
+    st.setFired = s.station[at++] != 0;
+    if (st.setFired)
+      for (int i : st.sleepers)
+        mEnemies[std::size_t(i)].hidden = false;
+    for (auto& pn : st.panels)
+    {
+      pn.cool = s.station[at++];
+      pn.dented = s.station[at++] != 0;
+      pn.open = 0;
+    }
+    for (auto& c : st.crates)
+      if (c.alive && !c.loose)
+        mMap.setBlock(c.bx, c.by, Tile::Empty);
+    for (auto& c : st.crates)
+    {
+      c.alive = s.station[at++] != 0;
+      c.bx = s.station[at++];
+      c.by = s.station[at++];
+      c.loose = c.thrown = c.held = false;
+      if (c.alive)
+        mMap.setBlock(c.bx, c.by, Tile::Solid);
+    }
+    st.charges.clear();
+    st.debris.clear();
+    st.seams.clear();
+    st.caught = -1;
+    st.detonate = 0;
   }
   if (!s.sanctum.empty())
   {

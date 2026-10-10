@@ -138,6 +138,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawHiveBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawSanctumBack(r, camX, camY, frame, alpha);
+  drawStationBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -324,6 +325,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.variant ? 3 : 0); // claws open, flipped; party hat
         else if (e.kind == EnemyKind::Skitter)
           variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // clicking, leaping
+        else if (e.kind == EnemyKind::Loader)
+          variant = (e.ox <= 0 ? 1 : 0) + (e.tell > 0 || e.aimX >= 0 ? 2 : 0); // legless; lifting a crate
+        else if (e.kind == EnemyKind::WeldDrone)
+          variant = e.attach != 0 ? 2 : (e.tell > 0 ? 1 : 0); // on a wall; the torch flares
+        else if (e.kind == EnemyKind::Tether)
+          variant = e.attach < 0 && e.tell > 0 ? 1 : 0; // wobbling before a ram
         else if (e.kind == EnemyKind::Spitpod)
           variant = e.tell > 0 ? 1 : 0; // the bulb swells
         else if (e.kind == EnemyKind::Gloop)
@@ -437,6 +444,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawHiveFront(r, camX, camY, frame, alpha);
   drawBoulderFront(r, camX, camY, frame, alpha);
   drawSanctumFront(r, camX, camY, frame, alpha);
+  drawStationFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1017,6 +1025,7 @@ void World::drawHud(Renderer& r, int frame) const
   }
 
   drawSanctumHud(r, frame);
+  drawStationHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

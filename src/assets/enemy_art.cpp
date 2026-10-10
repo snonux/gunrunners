@@ -10,6 +10,7 @@
 #include "assets/enemy_art.hpp"
 
 #include "assets/enemy_art_alien.hpp"
+#include "assets/enemy_art_station.hpp"
 #include "assets/vehicle_art.hpp"
 
 #include "render/vector.hpp"
@@ -2629,7 +2630,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
   const Ctx c{img.cr(), t, w, h, variant, frame};
   if (DrawFn fn = routineFor(key))
     fn(c);
-  else if (!drawAlienArt(c.cr, t, key, w, h, variant, frame) && !drawVehicleArt(c.cr, key, w, h, variant, frame))
+  else if (!drawAlienArt(c.cr, t, key, w, h, variant, frame) && !drawStationArt(c.cr, t, key, w, h, variant, frame) && !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;
   const float ax = float(kM + w * 0.5), ay = float(kM + h);

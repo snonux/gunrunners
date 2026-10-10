@@ -551,7 +551,7 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
-    if (b.look != 0 && b.look != 3 && b.look != 6)
+    if (b.look != 0 && b.look != 3 && b.look != 6 && b.look != 7)
     {
       const float x = float(b.x0) * kTilePx - camX, y = float(b.y0) * kTilePx - camY;
       const float w = float(b.x1 - b.x0 + 1) * kTilePx, h = float(b.y1 - b.y0 + 1) * kTilePx;
@@ -649,6 +649,30 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
             r.drawLine(x + 18.0f, y + 18.0f, x + 46.0f, y + 46.0f, 4.0f, rgba(240, 236, 220, 210));
             r.drawLine(x + 46.0f, y + 18.0f, x + 18.0f, y + 46.0f, 4.0f, rgba(240, 236, 220, 210));
           }
+          continue;
+        }
+        if (b.look == 7)
+        {
+          // Level 15: a shuttle's service hatch, bolted shut: a scuffed
+          // plate, rivets, a hazard band on its top edge and a blast mark
+          // that says a charge will take it.
+          r.fillRect(x + 2.0f, y + 2.0f, 60.0f, 60.0f, rgb(84, 90, 104));
+          r.fillRect(x + 2.0f, y + 2.0f, 60.0f, 3.0f, rgb(170, 178, 196));
+          r.fillRect(x + 2.0f, y + 59.0f, 60.0f, 3.0f, rgb(36, 40, 50));
+          for (const float rx : {x + 8.0f, x + 52.0f})
+            for (const float ry : {y + 10.0f, y + 52.0f})
+            {
+              r.fillRect(rx, ry, 4.0f, 4.0f, rgb(40, 44, 54));
+              r.fillRect(rx, ry, 4.0f, 1.5f, rgb(210, 214, 224));
+            }
+          if (ty == b.y0)
+            for (int s = 0; s < 4; ++s)
+              r.fillRect(x + 4.0f + float(s) * 15.0f, y + 6.0f, 8.0f, 5.0f, rgb(255, 196, 30));
+          if (ty == b.y1 && tx == b.x0)
+            drawGlow(r, mArt, x + 32.0f, y + 32.0f, 26.0f, rgb(255, 140, 40), 0.25f);
+          const int dmg = std::max(0, 3 - b.hp);
+          for (int k = 0; k < dmg; ++k)
+            r.drawLine(x + float(hsh % 30u) + 10.0f, y + 10.0f, x + 40.0f, y + 56.0f, 2.0f, rgba(255, 255, 255, 120));
           continue;
         }
         if (b.look == 3)
