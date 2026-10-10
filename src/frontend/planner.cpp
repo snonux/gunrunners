@@ -742,6 +742,13 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (x >= 0 && y >= 0 && x < W && y < H)
           blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   }
+  // Level 15: a crate one shot breaks is no wall to the field.
+  for (const auto& c : w.station().crates)
+    if (c.alive && !c.loose && !c.held)
+      for (int y = c.by * kCellsPerTile; y < (c.by + 1) * kCellsPerTile; ++y)
+        for (int x = c.bx * kCellsPerTile; x < (c.bx + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   // Level 13: a Totem Stack is a wall the search shoots down a head at a time.
   for (const auto& e : w.enemies())
     if (e.alive && e.kind == EnemyKind::Totem)
@@ -1302,6 +1309,10 @@ int Planner::heuristic(const World& w) const
   for (const auto& e : w.enemies())
     if (e.alive && e.kind == EnemyKind::Totem && e.x + e.w > p.x - 2)
       extra += 12 * e.hp;
+  // Level 15: every crate still standing is a shot to come.
+  for (const auto& c : w.station().crates)
+    if (c.alive && !c.loose)
+      extra += 6;
   for (int bi : mWalls)
     if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
       extra += (w.breakables()[std::size_t(bi)].by == 1 ? 60 : 12) * std::max(0, w.breakables()[std::size_t(bi)].hp);
@@ -1737,6 +1748,19 @@ void Planner::plan(const World& world)
     for (const auto& b : w.breakables())
       cracks = cracks * 7 + b.hp;
     k = mix(k, std::uint64_t(cracks));
+    // Level 15: crates (shot, thrown, sucked out), charges out, open panels.
+    if (w.station().on())
+    {
+      const auto& st = w.station();
+      std::uint64_t c = 0;
+      for (const auto& cr : st.crates)
+        c = c * 3 + (cr.alive ? 1 + cr.loose : 0);
+      k = mix(k, c);
+      k = mix(k, std::uint64_t(st.charges.size()) | (std::uint64_t(st.caught + 1) << 8) |
+                   (std::uint64_t(st.detonate) << 16));
+      for (const auto& pn : st.panels)
+        k = mix(k, std::uint64_t(pn.open) | (std::uint64_t(pn.cool) << 16));
+    }
     k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
     for (const auto& pl : w.platforms())
       k = mix(k, std::uint64_t(pl.y) | (std::uint64_t(pl.x) << 16) | (std::uint64_t(pl.braked) << 32));

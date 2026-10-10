@@ -969,6 +969,8 @@ void World::respawnPlayer()
     resetBoulders();
   if (mGreedOn || mGolem.on || mRefillX >= 0)
     resetSanctum();
+  if (mStation.on())
+    resetStation();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

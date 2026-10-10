@@ -12,6 +12,7 @@
 #include "game/input.hpp"
 #include "game/savegame.hpp"
 #include "game/space.hpp"
+#include "game/station.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -1725,6 +1726,13 @@ public:
   int goldDone() const { return mGoldDone; }
   bool goldReached() const { return mGoldDone * 100 >= mGoldMarked * mGoldGoal; }
   const std::vector<GoldDoor>& goldDoors() const { return mGoldDoors; }
+  // Episode 3, STATION ZERO: hull panels and vents, rails, crates, charges.
+  const StationState& station() const { return mStation; }
+  bool recoilOnly() const { return mStation.recoil; }
+  bool holdingRail() const;
+  // The open panel pulling at cell (cx, cy), -1 for none; tx, ty its middle.
+  int ventPulling(int cx, int cy, int& tx, int& ty) const;
+  CellBox tetherBeam(const Enemy& low) const;
   bool golemFight() const;
   int golemHp() const;
   const Surf& surf() const { return mSurf; }
@@ -2092,6 +2100,36 @@ private:
   void dropGems(int x, int y, int n);
   void setupSurf();
   bool setupGoldenEntity(const EntityDef& e);
+  bool setupStationEntity(const EntityDef& e);
+  void setupStationEnemy(Enemy& en, const EntityDef& e);
+  void linkStation();
+  void resetStation();
+  int panelAt(const CellBox& b) const;
+  void breachPanel(int index);
+  void ventOut(int kind, float x, float y, int variant);
+  bool pullBox(int& x, int& y, int w, int h, int tx, int ty, int cells) const;
+  void updateVents();
+  void breakCrate(Crate& c);
+  bool shotAtStation(Projectile& pr, const CellBox& b);
+  void updateCrates();
+  void placeCharge(int ox, int oy);
+  void blastAt(int cx, int cy);
+  void detonateCharges();
+  void updateCharges();
+  bool breachTrigger(const Button& fire);
+  void updateLoader(Enemy& e, const EnemyDef& def);
+  void updateWeldDrone(Enemy& e, const EnemyDef& def);
+  void updateTether(Enemy& e, const EnemyDef& def);
+  void updateStation(const PlayerInput& input);
+  bool stationCanSave() const;
+  void setupDrift();
+  void updateDrift(const PlayerInput& input);
+  void moveAsteroids();
+  bool driftBlocked(const CellBox& b) const;
+  void drawAsteroids(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawStationBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawStationFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawStationHud(Renderer& r, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2437,6 +2475,8 @@ private:
   int mHeadBounces = 0, mLavaPops = 0; // for the bot's look-ahead
   // Episode 7, DEEP SPACE.
   SpaceState mSpace;
+  // Episode 3, STATION ZERO.
+  StationState mStation;
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.
   std::vector<Boulder> mBoulders;
