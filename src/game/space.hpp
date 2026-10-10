@@ -144,6 +144,72 @@ struct SilkCocoon
   CellBox box() const { return {x, y, kW, kH}; }
 };
 
+// Level 49: the Hive Mother, the episode's boss (world_mother.cpp). She
+// sits on her throne at the arena's far end: first her crown (it glows when
+// it can be hurt; she bows it low to lay an egg), then the sacs on her
+// flanks (open while she breathes in and pulls you toward her mouth), then
+// she charges across the arena and is only hurt while dazed after hitting
+// a wall.
+enum class MotherPhase
+{
+  Asleep,
+  Wake,
+  Crown,
+  Inhale,
+  Charge,
+  Dying,
+  Done,
+};
+
+struct HiveMother
+{
+  bool on = false;
+  MotherPhase phase = MotherPhase::Asleep;
+  CellBox arena{0, 0, 0, 0}; // cells: inside the walls
+  int floor = 0;             // cells: the row a runner's feet are on in the arena
+  int doorX0 = 0, doorY0 = 0, doorX1 = 0, doorY1 = 0; // blocks
+  int throneX = 0;           // cells: her left on the throne
+  float x = 0.0f, prevX = 0.0f; // cells: her left
+  int dir = -1;              // the way she faces (charges)
+  int t = 0;                 // frames into the phase
+  int cycle = 0;             // frames into the attack cycle
+  int hp = 0;                // the current phase's
+  int flash = 0;
+  int run = 0;               // charge: 0 rearing up, 1 running, 2 dazed against a wall
+  int heal = 0;              // frames a Spore Nurse's healing beam still shows
+  int healX = 0, healY = 0;  // cells: from where
+  bool away = false;         // the runner respawned outside: she waits for them
+  static constexpr int kW = 16, kH = 14;
+  static constexpr int kHpCrown = 18, kHpInhale = 16, kHpCharge = 24;
+  bool bowed() const { return phase == MotherPhase::Crown && cycle >= 10 && cycle < 70; }
+  bool crownLit() const { return phase == MotherPhase::Crown && cycle < 100; }
+  bool inhaling() const { return phase == MotherPhase::Inhale && cycle >= 20 && cycle < 110; }
+  bool low() const { return phase == MotherPhase::Charge && run >= 1; } // on all fours
+  CellBox body() const
+  {
+    const int h = low() ? 6 : kH;
+    return boxAt(int(x), floor, kW, h);
+  }
+  CellBox crown() const
+  {
+    // Upright: on top of her head; bowed: low in front of her.
+    if (bowed())
+      return dir < 0 ? CellBox{int(x) - 3, floor - 9, 6, 5} : CellBox{int(x) + kW - 3, floor - 9, 6, 5};
+    return CellBox{int(x) + 5, floor - 19, 6, 4};
+  }
+  CellBox sac(int k) const
+  {
+    // k 0 her front flank, 1 her back.
+    const bool front = k == 0;
+    const int sx = (dir < 0) == front ? int(x) - 1 : int(x) + kW - 2;
+    return CellBox{sx, floor - 4, 3, 4};
+  }
+  CellBox mouth() const
+  {
+    return dir < 0 ? CellBox{int(x) - 2, floor - 10, 4, 6} : CellBox{int(x) + kW - 2, floor - 10, 4, 6};
+  }
+};
+
 struct SpaceState
 {
   // Level 44: blocks coated in goo (`@ goo rect=`), per block.
@@ -183,6 +249,8 @@ struct SpaceState
   // starts, which way, how long it is; frames it still shows).
   bool plains = false;
   int whipX = 0, whipY = 0, whipDir = 1, whipLen = 0, whipShow = 0;
+  // Level 49: the Hive Mother.
+  HiveMother mother;
 };
 
 } // namespace gr

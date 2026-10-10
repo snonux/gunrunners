@@ -11,6 +11,7 @@ bool World::canSave() const
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
     mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && mPlayer.silk < 0 && !mPinball && !mSurfing &&
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
+    (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
     (!mHull.on || hullCanSave()) && !mOrbit.on;
 }
@@ -129,6 +130,16 @@ SaveGame World::snapshot() const
     if (e.kind == EnemyKind::ThornHog)
       es.attach = 0;
     if (e.kind == EnemyKind::SkyGulper && e.attach != 0)
+    {
+      es.attach = 0;
+      es.x = e.ox;
+      es.y = e.oy;
+    }
+    // Level 49: an Egg Guard comes back an egg or prowling, a Spore Nurse
+    // back where its drift is centred.
+    if (e.kind == EnemyKind::EggGuard)
+      es.attach = e.attach == 0 ? 0 : 1;
+    if (e.kind == EnemyKind::SporeNurse && e.attach != 0)
     {
       es.attach = 0;
       es.x = e.ox;
@@ -517,13 +528,17 @@ bool World::restore(const SaveGame& s)
       e.attach = se.attach; // asleep, fleeing, or past its throw
     if (e.kind == EnemyKind::CoinBeetle || e.kind == EnemyKind::Sentinel)
       e.attach = se.attach; // crawling, rattling or hopping; its glyph row
+    if (e.kind == EnemyKind::WeldDrone)
+      e.attach = se.attach; // still climbing its wall, or over the top
+    if (e.kind == EnemyKind::Tether && se.attach < 0)
+      e.attach = -1; // its partner is gone: alone and ramming
     if (e.kind == EnemyKind::Loader)
     {
       e.ox = se.attach; // its legs
       e.aimX = -1;
     }
-    if (e.kind == EnemyKind::SleeperPod)
-      e.attach = se.attach; // frosted, thawed or empty
+    if (e.kind == EnemyKind::SleeperPod || e.kind == EnemyKind::EggGuard)
+      e.attach = se.attach; // frosted, thawed or empty; an egg or hatched
     if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant || e.kind == EnemyKind::LabArm)
       e.attach = 0;
     if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob ||

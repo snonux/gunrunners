@@ -107,6 +107,8 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
    "FIRES DOWN AHEAD; WHERE IT HITS ROCK, A SILK LINE TO RIDE"},
   {ProtoId::TamersWhip, "tamers_whip", "TAMER'S WHIP", 48, M::Tap, 7, 0, 2, 30, 60, rgb(230, 170, 90),
    "A CRACK THAT STUNS ALIENS AND CALLS A BOUNDER TO YOU"},
+  {ProtoId::StarSeed, "star_seed", "STAR SEED", 49, M::Charge, 8, 1, 2, 16, 32, rgb(255, 236, 140),
+   "HOLD FIRE TO CHARGE A SLOW STAR THAT GOES THROUGH EVERY ALIEN"},
 }};
 
 } // namespace

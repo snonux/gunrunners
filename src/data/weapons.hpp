@@ -62,6 +62,7 @@ enum class ProtoId
   SwapRifle,
   SilkShooter,
   TamersWhip,
+  StarSeed,
   Count,
 };
 

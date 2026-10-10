@@ -442,6 +442,8 @@ void World::setupEntities()
       continue;
     if (setupSanctumEntity(e))
       continue;
+    if (setupMotherEntity(e))
+      continue;
     if (setupGoldenEntity(e))
       continue;
     if (setupStationEntity(e))

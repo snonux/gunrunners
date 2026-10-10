@@ -1053,6 +1053,8 @@ void World::respawnPlayer()
     resetBoulders();
   if (mGreedOn || mGolem.on || mRefillX >= 0)
     resetSanctum();
+  if (mSpace.mother.on)
+    resetMother();
   if (mStation.on())
     resetStation();
   if (mCryo.on)

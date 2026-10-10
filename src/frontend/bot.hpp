@@ -26,6 +26,8 @@ public:
   // Black Halo's arena: short look-ahead fights instead of the planner.
   Input fightBoss(const World& world);
   Input fightGolem(const World& world);
+  // Level 49: the Hive Mother (bot_mother.cpp).
+  Input fightMother(const World& world);
   // Pilot Seat: fly at the cardboard.
   Input fly(const World& world);
   // Trapmaster: spring the trap that will catch the most hunters.

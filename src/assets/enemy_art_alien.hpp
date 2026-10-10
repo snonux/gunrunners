@@ -28,5 +28,8 @@ bool drawSilkArt(cairo_t* cr, const Theme& t, const std::string& key, double w, 
 // Level 48, Bounder Plains: the Thorn Hog, Sky Gulper and thornbushes
 // (enemy_art_plains.cpp).
 bool drawPlainsArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
+// Level 49, The Hive Mother: her, her throne, the Egg Guards and Spore
+// Nurses (enemy_art_mother.cpp).
+bool drawMotherArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
 
 } // namespace gr
