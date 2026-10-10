@@ -91,6 +91,16 @@ SaveGame World::snapshot() const
       es.x = e.railX0;
       es.y = e.railX1;
     }
+    // A Magma Toad comes back under the lava at home, an Ember Wisp
+    // drifting, a Basalt Crab right way up.
+    if (e.kind == EnemyKind::Toad)
+    {
+      es.attach = 0;
+      es.x = e.railX0;
+      es.y = e.railX1 + 2;
+    }
+    if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
+      es.attach = 0;
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
@@ -99,8 +109,25 @@ SaveGame World::snapshot() const
     s.enemies.push_back(es);
   }
   for (const auto& pl : mPlatforms)
+  {
     s.platforms.push_back(
       {pl.x, pl.y, pl.balance, pl.slackLeft, pl.idle, pl.moveTick, pl.target, pl.step, pl.braked});
+    // Level 12: a ferry's crossing, and when the bridge began to rise (it
+    // comes back risen).
+    auto& sp = s.platforms.back();
+    if (pl.mode == PlatformMode::Sink)
+    {
+      sp.balance = pl.ferry;
+      sp.slackLeft = pl.ferryWait;
+      sp.idle = pl.parked ? 1 : 0;
+    }
+    if (pl.mode == PlatformMode::Rise)
+    {
+      sp.balance = pl.riseAt < 0 ? -1 : 0;
+      if (pl.riseAt >= 0)
+        sp.y = pl.homeY;
+    }
+  }
   for (const auto& h : mHatches)
     s.hatches.push_back(h.open);
   for (const auto& b : mBreakables)
@@ -334,6 +361,14 @@ bool World::restore(const SaveGame& s)
       e.attach = 0; // lands where it was
     if (e.kind == EnemyKind::Decoupler)
       e.attach = se.attach; // asleep in its coupling, or gone with the rear cars
+    if (e.kind == EnemyKind::Toad)
+    {
+      e.attach = 0;
+      e.hidden = true;
+      e.platform = -1;
+    }
+    if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
+      e.attach = 0;
     e.stun = 0;
     e.drawSnap = true;
   }
@@ -369,6 +404,19 @@ bool World::restore(const SaveGame& s)
     pl.bell = 0;
     pl.parked = pl.waitRider && !pl.path.empty() &&
       (std::make_pair(pl.x, pl.y) == pl.path.front() || std::make_pair(pl.x, pl.y) == pl.path.back());
+    if (pl.mode == PlatformMode::Sink)
+    {
+      pl.acc = 0;
+      pl.ferry = pl.ferry > 0 ? std::clamp(sp.balance, 1, 3) : 0;
+      pl.ferryWait = sp.slackLeft;
+      pl.parked = sp.idle != 0;
+      pl.balance = pl.slackLeft = pl.idle = 0;
+    }
+    if (pl.mode == PlatformMode::Rise)
+    {
+      pl.riseAt = sp.balance < 0 ? -1 : 0;
+      pl.balance = 0;
+    }
   }
   syncPlatformCollision();
   for (std::size_t i = 0; i < s.hatches.size(); ++i)

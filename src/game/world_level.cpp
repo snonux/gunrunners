@@ -101,6 +101,7 @@ void World::setupEntities()
   mTrapmaster = lv.rules.find("trapmaster") != std::string::npos;
   mNegative = lv.rules.find("negative") != std::string::npos;
   mPinball = lv.rules.find("pinball") != std::string::npos;
+  mFloorLava = lv.rules.find("floor_lava") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -175,6 +176,7 @@ void World::setupEntities()
       setupTempleEnemy(en, e);
       setupLightEnemy(en, e);
       setupMineEnemy(en, e);
+      setupLavaEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -388,6 +390,8 @@ void World::setupEntities()
     }
 
     if (setupDarkEntity(e))
+      continue;
+    if (setupLavaEntity(e))
       continue;
     if (setupSludgeEntity(e))
       continue;
@@ -974,6 +978,11 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
       case PropKind::Idol:
         if (onScreen)
           drawTempleProp(r, pr, x, y, w, h, frame, foreground);
+        break;
+      case PropKind::Serpent:
+      case PropKind::Marshmallow:
+        if (onScreen && !foreground)
+          drawLavaProp(r, pr, x, y, w, h, frame);
         break;
       case PropKind::Trunk: // drawn over its blocks (world_jungle.cpp)
       case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)

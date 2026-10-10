@@ -243,6 +243,15 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       playSound(Sfx::Whoosh);
       break;
     }
+    case ProtoId::SerpentSpear:
+      // Pierces up to three; sticks in the first wall as a foothold whose
+      // top is the row under the thrower's feet (world_lava.cpp).
+      pr.pierceLeft = 2;
+      pr.w = 3;
+      pr.x = dx < 0 ? ox - pr.w + 1 : ox;
+      pr.footRow = dy == 0 ? p.y + 1 : -1;
+      playSound(Sfx::Whoosh);
+      break;
     case ProtoId::BubbleGun:
       // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).
       pr.w = pr.h = 2;

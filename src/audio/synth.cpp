@@ -611,6 +611,52 @@ std::vector<float> makeSfx(Sfx id)
           std::exp(-t * 14.0);
       });
     }
+    case Sfx::Sizzle:
+    {
+      // Hot rock meeting something wet: a hiss that fades.
+      Noise n(109);
+      OnePole f;
+      return render(0.5, [&](double t, double total) {
+        return f.highpass(n.next(), 2800.0) * 0.45 * std::exp(-t * 5.0) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Magma:
+    {
+      // A thick bubble: a low plop that bends up.
+      Osc a;
+      return render(0.28, [&](double t, double) {
+        return a.step(sweep(70.0, 190.0, std::min(1.0, t / 0.12)), Wave::Sine, 0.0) * 0.6 * std::exp(-t * 11.0);
+      });
+    }
+    case Sfx::Sink:
+    {
+      // Stone grinding down: a rumble with grit.
+      Osc a;
+      Noise n(111);
+      Svf f;
+      return render(0.45, [&](double t, double total) {
+        const double grind = f.low(n.next(), 300.0f, 1.1) * 0.5;
+        return (a.step(55.0, Wave::Saw, 0.0) * 0.18 + grind) * std::min(1.0, t / 0.05) *
+          std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::Croak:
+    {
+      Osc a;
+      return render(0.25, [&](double t, double) {
+        const double wob = std::fmod(t, 0.04) < 0.02 ? 1.0 : 0.6;
+        return a.step(sweep(140.0, 90.0, std::min(1.0, t / 0.25)), Wave::Square, 0.0) * 0.22 * wob *
+          std::exp(-t * 6.0);
+      });
+    }
+    case Sfx::Snap:
+    {
+      Noise n(113);
+      Osc a;
+      return render(0.12, [&](double t, double) {
+        return (n.next() * 0.4 + a.step(900.0, Wave::Square, 0.0) * 0.15) * std::exp(-t * 40.0);
+      });
+    }
     case Sfx::Count:
       break;
   }

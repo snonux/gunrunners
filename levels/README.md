@@ -47,7 +47,10 @@ before they come back; the HUD shows which is up; `pinball`: you are the
 ball on a pinball table: hold jump or fire to pull the plunger back and let
 go to launch, then jump works the left flipper and fire the right one;
 light every lantern to open the gate, the way out, while the drain only
-sends you back to the plunger),
+sends you back to the plunger; `floor_lava`: every floor is lava, landing
+on an enemy's head bounces you 10 cells up (14 with jump held), lava puts
+you back on the last head you bounced on (no damage) and enemies are
+harmless),
 `timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -143,6 +146,10 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | enemy keys `cartbandit` (`rail`), `mole` | | a Cart Bandit rides its own rail level with you (one at a time; a cap in its cart finishes it); a Rock Mole burrows, surfaces next to a wall near you (only one out at a time, never with a Bandit on screen) and lobs a rock |
 | `breakable` … `look=rock` | | cracked rock with a chalk cross; with `by=explosion` only a Blasting Cap breaks it |
 | `platform` … `wait=rider` | | a lift that parks at each end: stand on it and it rings and goes; stand on the far landing and it comes for you |
+| `fluid` … `kind=lava`, `shallow=1`, `wade=1`, `hearth=1` | | lava: touching it costs 2 hearts (`shallow` 1, never your last) and pops you back to the last solid ground you stood on; `wade` lava holds you up and burns a heart every 20 frames; a `hearth` roasts the marshmallow |
+| `platform` … `mode=sink`, `dock=1`; `mode=rise`, `trigger=a..b`, `delay`, `start` | | a basalt stone that sinks under a runner (Rocco faster), a crab (twice as fast) or a sitting toad, and rises back when free; it stops a block under the lava. With `dock=1` and a path it is a ferry: board it and 15 frames later it crosses (still sinking with its load), then goes back empty after a while. A `rise` segment waits at row `start` under the lava and comes up to its row once you stand on blocks a..b, `delay` frames after the others |
+| `serpent`, `marshmallow` | `x y dir=l\|r`; `x y` | a carved serpent head on the wall; the marshmallow (up takes it on a stick; face the hearth for 45 frames and it roasts into a heart, once per level) |
+| enemy keys `toad` (`cycle=1 arc= phase=`), `wisp` (`fixed=1`), `crab` (`hat=1`) | | a Magma Toad waits in the lava and leaps onto the stone you are on (or beside), sits there (it weighs the stone down) and dives back; shoot it in the air; `cycle` toads hop straight up on a 45-frame clock (the bonus). An Ember Wisp drifts toward you and swells when close, then bursts (back off and it fizzles). A Basalt Crab rides a stone or ferry, armored front and top: hit it from behind, or with a spear from below, to flip it for double damage |
 | `flipper`, `pbumper`, `lamp`, `plunger`, `gate`, `drain`, `pwall` | `x y side=l\|r len=`; `x y`; `rect`; `path=` (block corners) | the `pinball` rule's table: flippers (their pivots), bumpers, lanterns to light, the plunger, the gate that opens when every lantern is lit, the drain back to the plunger, and slanted rails |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2

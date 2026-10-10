@@ -160,6 +160,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   setupEntities();
   linkPlatforms();
   linkMine();
+  linkLava();
   if (mPinball)
     setupPinball();
   mLevelEnemyCount = mEnemies.size();
@@ -263,6 +264,7 @@ void World::update(const PlayerInput& input)
       updateTemple(input);
       updateLight(input);
       updateMine(input);
+      updateLava(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -525,10 +527,19 @@ void World::updateEnemies()
       case EnemyKind::Mole:
         updateMole(e, def);
         break;
+      case EnemyKind::Toad:
+        updateToad(e, def);
+        break;
+      case EnemyKind::Wisp:
+        updateWisp(e, def);
+        break;
+      case EnemyKind::Crab:
+        updateCrab(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
-    if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) &&
+    if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
         e.box().intersects(p.hitBox()))
       touchPlayer(e);
   }
@@ -608,9 +619,13 @@ void World::updateProjectiles()
         mPuddles.push_back({pr.x - 3, pr.y, 6, 30}); // a glowstick splashes
       if (pr.flare)
         stickFlare(pr, -1);
+      if (pr.footRow >= 0)
+        stickSpear(pr);
       return true;
     }
     if ((!mFluids.empty() || !mDevNull.empty()) && shotAtSludge(pr))
+      return true;
+    if (!mLavas.empty() && shotAtLava(pr))
       return true;
     if (pr.kind == ShotKind::Enemy)
     {
@@ -693,6 +708,20 @@ void World::updateProjectiles()
         if (r == 2)
           continue;
       }
+      // Level 12: a toad hit in the air drops back into the lava; a crab's
+      // shell takes shots from the front and above.
+      if (e.kind == EnemyKind::Toad && (e.attach == 2 || e.attach == 4))
+      {
+        damageEnemy(e, e.hp);
+        if (!pr.pierce && pr.pierceLeft <= 0)
+          return true;
+        if (!pr.pierce)
+          --pr.pierceLeft;
+        pr.hit.push_back(e.id);
+        continue;
+      }
+      if (e.kind == EnemyKind::Crab && shotAtCrab(pr, e) == 1)
+        return true;
       // The Bubble Gun traps what fits in a bubble.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && trapEnemy(e))
         return true;

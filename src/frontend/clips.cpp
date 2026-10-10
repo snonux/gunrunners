@@ -1506,6 +1506,98 @@ void mineHop(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.drawText("42", 640 + ox, 700 - 190 + oy, {90.0f, rgb(240, 200, 70), rgb(60, 40, 20)}, Align::Center);
 }
 
+// Level 12: basalt columns over the magma, ash coming down.
+void magmaLedge(ClipKit& k, int ticks, float ox, float oy)
+{
+  const Texture& bg = cached(k, "magma_ledge", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(40, 16, 14), rgb(90, 30, 16), rgb(230, 90, 30));
+    // Basalt columns, hexagonal tops catching the glow.
+    for (int i = 0; i < 16; ++i)
+    {
+      const double x = double(i) * 84.0 - 20.0 + double(hash2(i, 3) % 30u);
+      const double top = 120.0 + double(hash2(i, 4) % 260u), w = 70.0 + double(hash2(i, 5) % 20u);
+      cairo_rectangle(cr, x, top, w, 720 - top);
+      setColor(cr, rgb(34 + int(hash2(i, 6) % 14u), 30, 34));
+      cairo_fill(cr);
+      cairo_rectangle(cr, x, top, w, 10);
+      setColor(cr, rgb(120, 60, 40));
+      cairo_fill(cr);
+      cairo_rectangle(cr, x + w - 8, top, 8, 720 - top);
+      setColor(cr, rgba(255, 120, 40, 50));
+      cairo_fill(cr);
+    }
+    // The lava along the bottom.
+    cairo_rectangle(cr, 0, 600, 1280, 120);
+    setColor(cr, rgb(250, 110, 30));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 600, 1280, 12);
+    setColor(cr, rgb(255, 210, 90));
+    cairo_fill(cr);
+  });
+  k.r.draw(bg, ox, oy);
+  // Ash, a 12-frame loop.
+  for (int i = 0; i < 60; ++i)
+  {
+    const float x = float(hash2(i, 9) % 1280u) + std::sin(float(ticks) * 0.05f + float(i)) * 10.0f;
+    const float y = std::fmod(float(hash2(i, 10) % 720u) + float(ticks % 120) * 6.0f, 720.0f);
+    k.r.fillRect(x + ox, y + oy, 4, 4, rgba(200, 190, 180, 140));
+  }
+  // The lava's slow churn.
+  for (int i = 0; i < 12; ++i)
+  {
+    const float x = float(i) * 110.0f + std::sin(float(ticks) * 0.04f + float(i) * 1.7f) * 30.0f;
+    k.r.fillRect(x + ox, 640 + oy + float(i % 3) * 22.0f, 70, 10, rgba(255, 220, 120, 120));
+  }
+}
+
+void magmaHeat(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  magmaLedge(k, ticks, ox, oy);
+  // The runners on a ledge over the lava; Rocco lifts a foot on frame 12.
+  k.r.fillRect(140 + ox, 520 + oy, 1000, 80, rgb(30, 26, 30));
+  k.r.fillRect(140 + ox, 520 + oy, 1000, 8, rgb(130, 64, 40));
+  for (int who = 0; who < 3; ++who)
+  {
+    const float x = 340.0f + float(who) * 300.0f + ox;
+    const float lift = who == 1 && frame >= 12 ? 18.0f : 0.0f;
+    k.r.draw(runner(k, who, 0, 2.6f, who == 2), x, 520 + oy - lift);
+    if (who == 1)
+      for (int puff = 0; puff < 3; ++puff)
+      {
+        const int f = (ticks / 2 + puff * 2) % 6;
+        k.r.fillRect(x - 30 + float(puff) * 26.0f, 500 + oy - float(f) * 14.0f, 18 + float(f) * 3.0f,
+          18 + float(f) * 3.0f, rgba(200, 200, 200, 120 - f * 18));
+      }
+  }
+  // The heat haze: a band wobbling 2 px a frame.
+  for (int y = 0; y < 120; y += 6)
+  {
+    const float wob = std::sin(float(ticks) * 0.6f + float(y) * 0.3f) * 2.0f;
+    k.r.fillRect(wob + ox, 400 + float(y) + oy, 1280, 3, rgba(255, 160, 80, 22));
+  }
+  // MAX from Dash's wrist, flickering in the haze.
+  const float flicker = (ticks / 3) % 5 == 0 ? 0.35f : 0.0f;
+  drawMax(k, 170 + ox, 300 + oy, 0.4f, ticks, flicker);
+}
+
+void magmaHop(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  magmaLedge(k, ticks, ox, oy);
+  // Rocco hops from foot to foot on the ledge.
+  k.r.fillRect(160 + ox, 520 + oy, 420, 80, rgb(30, 26, 30));
+  k.r.fillRect(160 + ox, 520 + oy, 420, 8, rgb(130, 64, 40));
+  k.r.draw(runner(k, 1, (frame / 2) % 2 == 0 ? 0 : 2, 2.6f), 360 + ox, 520 + oy - ((frame / 2) % 2 == 0 ? 0.0f : 24.0f));
+  // Nova on a basalt stone that sinks 2 px a frame.
+  const float sink = float(std::min(frame, 11)) * 3.0f;
+  const float sy = 560.0f + sink + oy;
+  k.r.fillRect(820 + ox, sy, 200, 70, rgb(44, 38, 42));
+  k.r.fillRect(820 + ox, sy, 200, 10, rgb(140, 70, 44));
+  k.r.draw(runner(k, 2, 0, 2.6f, true), 920 + ox, sy);
+  // The lava closing over the stone's sides.
+  k.r.fillRect(780 + ox, 600 + oy, 280, 120, rgba(250, 110, 30, 200));
+  k.r.fillRect(780 + ox, 600 + oy, 280, 12, rgb(255, 210, 90));
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1573,6 +1665,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return mineTunnel(k, frame, ticks, ox, oy);
   if (clip == "brief11_hop")
     return mineHop(k, frame, ticks, ox, oy);
+  if (clip == "brief12_heat")
+    return magmaHeat(k, frame, ticks, ox, oy);
+  if (clip == "brief12_hop")
+    return magmaHop(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")

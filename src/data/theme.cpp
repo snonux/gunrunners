@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 10> kVariants{{
+const std::array<Variant, 11> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -186,6 +186,19 @@ const std::array<Variant, 10> kVariants{{
     rgb(64, 44, 30), rgb(40, 28, 18),
     rgb(110, 80, 60), rgb(170, 130, 90), rgb(50, 36, 26), rgb(255, 90, 60),
     rgb(255, 240, 200), "mine"}},
+  {"basalt_magma",
+   {ThemeId::LostTemple,
+    "LAVA HEART",
+    "BASALT COLUMNS OVER A LAKE OF MAGMA",
+    rgb(20, 8, 8), rgb(70, 20, 12), rgb(150, 50, 20),
+    rgb(70, 64, 70), rgb(118, 108, 114), rgb(36, 32, 38),
+    rgb(255, 120, 40), rgb(255, 210, 110),
+    rgb(90, 80, 86), rgb(50, 44, 50),
+    rgb(255, 80, 40), rgb(255, 190, 130),
+    rgb(255, 200, 60), rgb(255, 120, 40),
+    rgb(60, 30, 26), rgb(34, 18, 16),
+    rgb(120, 100, 96), rgb(180, 150, 140), rgb(50, 40, 40), rgb(255, 120, 40),
+    rgb(255, 240, 220), "magma"}},
 }};
 
 } // namespace
