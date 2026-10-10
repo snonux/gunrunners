@@ -186,7 +186,22 @@ void World::updateProtoShooting(const Button& fire)
     p.charge = 0;
     return; // set the charges off instead of placing another
   }
-  p.charge = fire.pressed ? p.charge + 1 : 0;
+  if (ProtoId(p.proto) == ProtoId::PepperGrinder)
+  {
+    // Level 24: it spins up for 15 frames before the first pepper (Turbo
+    // skips that) and down over 8 after the trigger lets go.
+    if (fire.pressed)
+    {
+      if (p.charge == 0)
+        playSound(Sfx::GrinderWhir);
+      p.charge = std::min(kGrinderSpin, p.charge + 1);
+    }
+    else
+      p.charge = std::max(0, p.charge - 2);
+    shoot = shoot && (p.charge >= kGrinderSpin || p.turbo > 0);
+  }
+  else
+    p.charge = fire.pressed ? p.charge + 1 : 0;
   if (shoot && ProtoId(p.proto) == ProtoId::SparkDisc)
   {
     // At most two discs out at a time.

@@ -19,5 +19,5 @@ shot ident_ch31 delay=90 repeat=1
 shot runners_habitat delay=100 repeat=4
   cue 0 music=theme_string_quartet
   cue 2 say=NARRATOR "And here, the runners, in their natural habitat."
-  cue 15 hold=2000
-  cue 15 fade=out:500
+  cue 63 hold=2000
+  cue 63 fade=out:500

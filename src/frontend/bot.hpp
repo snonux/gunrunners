@@ -44,6 +44,11 @@ public:
   // Planetoids: from each planetoid, try every walk-then-jump in copies of
   // the world and take the one that gets a ship part or lands nearest one.
   Input orbit(const World& world);
+  Input turntable(const World& world); // bot_kitchen.cpp
+  bool kitchen(const World& world, Input& in);
+  Input mKitchenPrev;
+  std::deque<Input> mTurnQueue;
+  Input mTurnPrev;
   // Air Hockey: stand still, face the pucks, crouch and shoot.
   Input hockey(const World& world);
   // Gun Gravity: try shots (each turns gravity) then walks and jumps in

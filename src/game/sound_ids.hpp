@@ -154,6 +154,12 @@ enum class Sfx
   GlassChime, // the broken mirror shot (a cracked chime)
   CoffinSlam, // the coffin lid lifting and slamming
   Thunder,   // lightning over the manor
+  BellDing,  // a chef's bell rung (Level 24's belts flip after it)
+  Sneeze,    // an enemy sneezing from the Pepper Grinder
+  EggRing,   // an Egg Timer ringing out its last frames
+  GrinderWhir, // the Pepper Grinder spinning up
+  Toaster,   // the toaster popping
+  CleaverThunk, // a cleaver sticking in a wall
   Count,
 };
 

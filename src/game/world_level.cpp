@@ -178,6 +178,8 @@ void World::setupEntities()
     }
     if (setupManorEntity(e))
       continue;
+    if (setupKitchenEntity(e))
+      continue;
     if (setupZeroEntity(e))
       continue;
     if (setupWestEntity(e))
@@ -210,6 +212,7 @@ void World::setupEntities()
       setupZeroEnemy(en, e);
       setupWestEnemy(en, e);
       setupManorEnemy(en, e);
+      setupKitchenEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -711,7 +714,7 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
     showMessage("TIME'S UP!");
     return;
   }
-  if (mPlayer.y > mMap.height() + 1 || mPlayer.state == PlayerState::Dying)
+  if ((mPlayer.y > mMap.height() + 1 && !mTurn.on) || mPlayer.state == PlayerState::Dying)
   {
     // Falling off or "dying" in a bonus level just ends it: nothing is lost.
     mBonusFailed = true;

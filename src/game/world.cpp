@@ -176,6 +176,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkZero();
   linkWest();
   linkManor();
+  linkKitchen();
+  linkTurntable();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -326,10 +328,14 @@ void World::update(const PlayerInput& input)
         updateDrift(input);
       else if (mOrbit.on)
         updateOrbit(input);
+      else if (mTurn.on)
+        updateTurntable(input);
       else if (mGrav.on)
         updateGravPlayer(input);
       else if (mManor.flip > 0)
         updatePlayer(PlayerInput{}); // stepping through a mirror: no control
+      else if (mKitchen.hand > 0)
+        ; // in the chef's hand (updateKitchen moves the runner)
       else
         updatePlayer(input);
       if (mManor.split.on)
@@ -407,6 +413,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateWest(input);
   if (mManor.on)
     updateManor(input);
+  if (mKitchen.on)
+    updateKitchen(input);
   updateHatches();
   updateProps(input);
 }
@@ -831,6 +839,15 @@ void World::updateEnemies()
       case EnemyKind::HauntedArmor:
         updateHauntedArmor(e, def);
         break;
+      case EnemyKind::Meatball:
+        updateMeatball(e, def);
+        break;
+      case EnemyKind::CleaverBot:
+        updateCleaverBot(e, def);
+        break;
+      case EnemyKind::EggTimer:
+        updateEggTimer(e, def);
+        break;
       case EnemyKind::Poltergeist:
         updatePoltergeist(e, def);
         break;
@@ -947,6 +964,8 @@ void World::updateProjectiles()
     if (mZero.on && pr.kind != ShotKind::Enemy && shotAtZero(pr, b))
       return true;
     // Level 23: levers, the broken mirror, the coffin, Lance's portrait.
+    if (mKitchen.on && pr.kind != ShotKind::Enemy && shotAtKitchen(pr, b))
+      return true;
     if (mManor.on && pr.kind != ShotKind::Enemy && shotAtManor(pr, b))
       return true;
     // Level 22: barrels, fuses, metal (a Six-Shooter bullet glances off).
@@ -979,6 +998,8 @@ void World::updateProjectiles()
         stickFlare(pr, -1);
       if (pr.footRow >= 0)
         stickSpear(pr);
+      if (pr.thrown == 4 && mKitchen.on)
+        stickCleaver(pr);
       shotAtSpace(pr);
       shotAtHive(pr);
       return true;
@@ -1101,6 +1122,10 @@ void World::updateProjectiles()
         if (r == 2)
           continue;
       }
+      // Level 24: the Pepper Grinder's sneeze, an Egg Timer wound back.
+      if ((mKitchen.on || (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::PepperGrinder))) &&
+          pr.kind != ShotKind::Enemy)
+        shotAtKitchenEnemy(pr, e);
       // Level 23: Silver Crossbow bolts pin; Turbo knocks armour over.
       if (mManor.on && pr.kind != ShotKind::Enemy)
       {

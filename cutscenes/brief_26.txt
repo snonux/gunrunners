@@ -22,5 +22,5 @@ shot lizard_wave delay=90 repeat=4
   cue 0 music=theme_monster_brass
   cue 1 sound=rubber_squeak
   cue 8 say=LANCE "Tonight, YOU are the monster!"
-  cue 15 hold=1800
-  cue 15 fade=out:400
+  cue 63 hold=1800
+  cue 63 fade=out:400

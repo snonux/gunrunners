@@ -980,7 +980,9 @@ void World::updateWest(const PlayerInput& input)
     pz.taken = true;
     addScore(pz.score, cellCenter(zb));
     playSound(Sfx::LettersComplete);
-    showMessage(pz.kind == "gold_revolver" ? "THE GOLD-PLATED REVOLVER - SECRET FOUND" : "PRIZE");
+    showMessage(pz.kind == "gold_revolver" ? "THE GOLD-PLATED REVOLVER - SECRET FOUND"
+                : pz.kind == "golden_whisk"  ? "THE GOLDEN WHISK - SECRET FOUND"
+                                              : "PRIZE");
   }
 
   // The tonic's label.

@@ -21,5 +21,5 @@ shot lance_chef delay=90 repeat=4
   cue 0 music=theme_accordion
   cue 6 sound=spoon_ding
   cue 8 say=LANCE "Today's special!"
-  cue 15 hold=1800
-  cue 15 fade=out:400
+  cue 63 hold=1800
+  cue 63 fade=out:400

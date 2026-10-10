@@ -19,6 +19,7 @@
 #include "game/hull.hpp"
 #include "game/reactor.hpp"
 #include "game/west.hpp"
+#include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
 #include "game/sound_ids.hpp"
@@ -1792,6 +1793,8 @@ public:
   const ZeroState& zero() const { return mZero; }
   const WestState& west() const { return mWest; }
   const ManorState& manor() const { return mManor; }
+  const KitchenState& kitchen() const { return mKitchen; }
+  const TurnState& turntable() const { return mTurn; }
   const Player& twin() const { return mTwin; } // Both Sides: the bottom runner
   bool zeroFight() const;              // the runner is in the arena and ZERO is up
   int zeroHp() const;                  // ZERO's hearts left over all three phases
@@ -2399,7 +2402,39 @@ private:
   void drawManorBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawManorFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawManorHud(Renderer& r, int frame) const;
+  void drawManorWall(Renderer& r, float camX, float camY, int frame) const; // the inside walls, behind everything
   void drawSplit(Renderer& r, int frame, float alpha) const;
+  // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
+  bool setupKitchenEntity(const EntityDef& e);
+  void setupKitchenEnemy(Enemy& en, const EntityDef& e);
+  void setMeatballSize(Enemy& e, int size);
+  void linkKitchen();
+  int beltUnder(int x, int w, int bottom) const; // the belt under a box's bottom row, -1 none
+  void openFlapsFor(const CellBox& box, int dir);
+  void moveBelts();
+  void updateMeatball(Enemy& e, const EnemyDef& def);
+  void updateCleaverBot(Enemy& e, const EnemyDef& def);
+  void updateEggTimer(Enemy& e, const EnemyDef& def);
+  bool shotAtKitchen(Projectile& pr, const CellBox& b);
+  int shotAtKitchenEnemy(Projectile& pr, Enemy& e); // 0 go on
+  void stickCleaver(const Projectile& pr);
+  void updateKitchen(const PlayerInput& input);
+  bool kitchenRunnerHit();
+  void resetKitchen();
+  bool kitchenCanSave() const;
+  std::vector<int> kitchenSave() const;
+  bool validKitchenSave(const std::vector<int>& v) const;
+  void loadKitchen(const std::vector<int>& v);
+  // Its Turntable bonus (world_turntable.cpp).
+  void linkTurntable();
+  void updateTurntable(const PlayerInput& input);
+  bool turnSolid(int bx, int by, bool gem) const;
+  void turnCollide(float& x, float& y, float& vx, float& vy, float r, bool gem, bool* ground) const;
+  void drawTurntableBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTurntableFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawKitchenBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawKitchenFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawKitchenHud(Renderer& r, int frame) const;
   // Level 22, Dry Gulch (world_west.cpp, world_west_draw.cpp).
   bool setupWestEntity(const EntityDef& e);
   void setupWestEnemy(Enemy& en, const EntityDef& e);
@@ -2825,6 +2860,8 @@ private:
   ZeroState mZero;
   WestState mWest;
   ManorState mManor;
+  KitchenState mKitchen;
+  TurnState mTurn;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

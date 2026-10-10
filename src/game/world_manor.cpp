@@ -686,7 +686,7 @@ void World::unpinGhosts(bool all)
 // --- Shots ---------------------------------------------------------------------------------
 
 // Levers, the broken mirror, the coffin and Lance's portrait take shots.
-bool World::shotAtManor(Projectile& pr, const CellBox& b)
+bool World::shotAtManor(Projectile& /*pr*/, const CellBox& b)
 {
   auto& m = mManor;
   for (std::size_t i = 0; i < m.levers.size(); ++i)

@@ -927,6 +927,8 @@ void World::hurtPlayer(int amount)
   if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.turbo > 0 || mGod || p.tube >= 0)
     return;
   // Stepping through a mirror: nothing touches you.
+  if (mKitchen.on && kitchenRunnerHit())
+    return;
   if (mManor.on && manorRunnerHit())
     return;
   // High Noon: a hit only restarts the duel.
@@ -1097,6 +1099,8 @@ void World::respawnPlayer()
     resetZero();
   if (mManor.on)
     resetManor();
+  if (mKitchen.on)
+    resetKitchen();
   if (mWest.on)
     resetWest();
   if (!mVehicles.empty())

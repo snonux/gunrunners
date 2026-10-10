@@ -1723,6 +1723,199 @@ std::vector<float> makeSfx(Sfx id)
           std::min(1.0, (total - t) / 0.03);
       });
     }
+    case Sfx::MirrorFlip:
+    {
+      // Stepping through a mirror: a glass chime played backwards (the
+      // partials swell in and cut off), a shimmer of tremolo over it and a
+      // soft low whoomp as the world turns over.
+      Osc a, b, c, d, lfo, low;
+      Noise n(503);
+      Svf air;
+      return render(0.75, [&](double t, double total) {
+        const double u = std::clamp(t / 0.4, 0.0, 1.0);
+        const double swell = u * u * (t < 0.4 ? 1.0 : decay(t - 0.4, 0.025));
+        const double trem = 0.7 + 0.3 * lfo.step(sweep(6.0, 22.0, u), Wave::Sine);
+        const double f = midiFreq(84.0) * (1.0 + 0.004 * std::sin(t * 40.0));
+        const double glass = a.step(f, Wave::Sine) * 0.45 + b.step(f * 2.76, Wave::Sine) * 0.25 +
+          c.step(f * 5.4, Wave::Sine) * 0.14 + d.step(f * 0.5, Wave::Sine) * 0.2;
+        const double hiss = air.band(n.next(), sweep(3000.0, 8000.0, u), 2.0) * 0.18;
+        const double whoomp = t > 0.38 ? low.step(sweep(140.0, 50.0, (t - 0.38) / 0.25), Wave::Sine) * decay(t - 0.38, 0.12) : 0.0;
+        return (glass * trem + hiss) * swell * 0.32 + whoomp * 0.4 * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::Lever:
+    {
+      // A heavy iron lever: a rusty creak as it moves, then a deep clunk
+      // and the rattle of the mechanism behind the wall.
+      Osc saw, thump;
+      Noise n(509);
+      Svf creak, clank, ratl;
+      return render(0.75, [&](double t, double total) {
+        const double c = t < 0.34 ? creak.band(float(saw.step(70.0 + 50.0 * std::sin(t * 23.0) + 30.0 * t, Wave::Saw)),
+                                      900.0 + 500.0 * std::sin(t * 9.0), 6.0) *
+            std::sin(kPi * t / 0.34)
+                                  : 0.0;
+        const double tc = t - 0.34;
+        const double k = tc > 0 ? thump.step(sweep(110.0, 45.0, tc / 0.15), Wave::Sine) * decay(tc, 0.09) : 0.0;
+        const double hit = tc > 0 ? clank.band(n.next(), 1400.0, 3.0) * decay(tc, 0.02) : 0.0;
+        const double rat = tc > 0.08 ? ratl.band(n.next(), 2200.0, 4.0) * (std::fmod(tc, 0.05) < 0.012 ? 1.0 : 0.15) *
+            decay(tc - 0.08, 0.12)
+                                     : 0.0;
+        return (c * 0.5 + k * 0.75 + hit * 0.6 + rat * 0.35) * 0.78 * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::GhostHiss:
+    {
+      // A cold hiss: breath through a long "haaah" formant sliding down,
+      // and a thin wavering whistle under it.
+      Noise n(521);
+      Svf f1, f2;
+      OnePole hp;
+      Osc whistle, vib;
+      return render(0.8, [&](double t, double total) {
+        const double env = std::min(1.0, t / 0.06) * std::min(1.0, (total - t) / 0.35);
+        const double u = t / total;
+        const float x = n.next();
+        const double breath = f1.band(x, sweep(2600.0, 900.0, u), 3.0) * 0.6 + f2.band(x, sweep(5200.0, 3000.0, u), 4.0) * 0.4 +
+          hp.highpass(x, 6000.0) * 0.25;
+        const double w = whistle.step(sweep(950.0, 620.0, u) * (1.0 + 0.02 * vib.step(7.0, Wave::Sine)), Wave::Sine) * 0.12;
+        return (breath * 0.55 + w) * env;
+      });
+    }
+    case Sfx::ArmorClank:
+    {
+      // A suit of armour waking: a cascade of plate on plate (inharmonic
+      // metal hits) and a heavy step.
+      static const double kHits[6] = {0.0, 0.06, 0.11, 0.19, 0.24, 0.33};
+      std::vector<float> out(std::size_t(samples(0.75)), 0.0f);
+      for (int h = 0; h < 6; ++h)
+      {
+        const double base = 420.0 + 90.0 * double((h * 37) % 5);
+        addTone(out, kHits[h], 0.35, base, Wave::Sine, 0.16, 0.05);
+        addTone(out, kHits[h], 0.3, base * 2.63, Wave::Sine, 0.1, 0.035);
+        addTone(out, kHits[h], 0.25, base * 4.17, Wave::Sine, 0.07, 0.02);
+      }
+      Noise n(523);
+      Osc o;
+      for (int i = 0; i < int(out.size()); ++i)
+      {
+        const double t = double(i) / kRate - 0.36;
+        if (t > 0)
+          out[std::size_t(i)] += float((o.step(sweep(95.0, 50.0, t / 0.2), Wave::Sine) * 0.5 + n.next() * 0.25) * decay(t, 0.07));
+      }
+      return out;
+    }
+    case Sfx::Swoosh:
+    {
+      // A halberd cutting the air: a band of noise sweeping up and down.
+      Noise n(541);
+      Svf bp;
+      return render(0.38, [&](double t, double total) {
+        const double u = t / total;
+        const double f = u < 0.45 ? sweep(350.0, 2600.0, u / 0.45) : sweep(2600.0, 500.0, (u - 0.45) / 0.55);
+        return bp.band(n.next(), f, 2.4) * std::pow(std::sin(kPi * u), 1.5) * 0.6;
+      });
+    }
+    case Sfx::Throw:
+    {
+      // A Poltergeist flinging something: a short whoosh and an eerie
+      // rising whistle, like a breath drawn in.
+      Noise n(547);
+      Svf bp;
+      Osc w;
+      return render(0.4, [&](double t, double total) {
+        const double u = t / total;
+        const double whoosh = bp.band(n.next(), sweep(500.0, 1800.0, u), 1.8) * std::sin(kPi * u);
+        const double whistle = w.step(sweep(500.0, 1100.0, u), Wave::Sine) * std::sin(kPi * u) * 0.15;
+        return whoosh * 0.5 + whistle;
+      });
+    }
+    case Sfx::BoltThunk:
+    {
+      // A crossbow bolt driving home: a dull thunk and the shaft's twang.
+      Osc body, twang, tw2;
+      Noise n(557);
+      OnePole lp;
+      return render(0.45, [&](double t, double) {
+        const double k = body.step(sweep(160.0, 70.0, t / 0.06), Wave::Sine) * decay(t, 0.05);
+        const double click = lp.lowpass(n.next(), 3000.0) * decay(t, 0.006);
+        const double f = 210.0 * (1.0 + 0.03 * decay(t, 0.05));
+        const double tw = (twang.step(f, Wave::Triangle) * 0.6 + tw2.step(f * 2.01, Wave::Sine) * 0.25) * decay(t, 0.12) *
+          (0.75 + 0.25 * std::sin(t * 2.0 * kPi * 18.0));
+        return (k * 0.8 + click * 0.6 + tw * 0.3) * 0.8 * attack(t, 0.001);
+      });
+    }
+    case Sfx::GlassChime:
+    {
+      // The broken mirror shot: a crack, then a glass chime gone sour
+      // (pairs of partials a little apart, beating).
+      std::vector<float> out(std::size_t(samples(1.4)), 0.0f);
+      const double f = midiFreq(81.0);
+      for (const double m : {1.0, 2.76, 5.4})
+      {
+        addTone(out, 0.02, 1.3, f * m, Wave::Sine, 0.13 / m, 0.5 / m);
+        addTone(out, 0.02, 1.3, f * m * 1.013, Wave::Sine, 0.11 / m, 0.45 / m);
+      }
+      Noise n(563);
+      Svf bp;
+      for (int i = 0; i < samples(0.12); ++i)
+      {
+        const double t = double(i) / kRate;
+        out[std::size_t(i)] += float(bp.band(n.next(), 4500.0, 1.5) * decay(t, 0.02) * 0.7);
+      }
+      return out;
+    }
+    case Sfx::CoffinSlam:
+    {
+      // Shooting the coffin: the lid creaks up, something breathes in the
+      // dark inside, and two and a half seconds later the lid slams.
+      Osc saw, low, slamO;
+      Noise n(569), m(571);
+      Svf creak, breath;
+      OnePole lp;
+      return render(2.9, [&](double t, double total) {
+        double v = 0.0;
+        if (t < 0.45)
+          v += creak.band(float(saw.step(55.0 + 40.0 * std::sin(t * 17.0) + 60.0 * t, Wave::Saw)), 700.0 + 300.0 * t, 7.0) *
+            std::sin(kPi * t / 0.45) * 0.55;
+        if (t > 0.7 && t < 1.9)
+        {
+          const double u = (t - 0.7) / 1.2;
+          v += breath.band(m.next(), sweep(500.0, 300.0, u), 3.0) * std::sin(kPi * u) * 0.35;
+          v += low.step(55.0, Wave::Saw) * std::sin(kPi * u) * 0.05;
+        }
+        const double ts = t - 2.35;
+        if (ts > 0)
+        {
+          v += slamO.step(sweep(120.0, 38.0, ts / 0.3), Wave::Sine) * decay(ts, 0.14) * 0.9;
+          v += lp.lowpass(n.next(), sweep(5000.0, 300.0, ts / 0.2)) * decay(ts, 0.06) * 0.9;
+        }
+        return v * 0.62 * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::Thunder:
+    {
+      // Lightning over the manor: a sharp crack, then a long roll that
+      // grumbles away (noise held in random steps through a falling filter).
+      Noise n(577), m(587);
+      Svf lp;
+      OnePole hp, lp2;
+      double held = 0.0;
+      int counter = 0;
+      return render(3.2, [&](double t, double total) {
+        if (counter-- <= 0)
+        {
+          held = m.next();
+          counter = int(lerp(3.0, 40.0, t / total));
+        }
+        const double crack = hp.highpass(n.next(), 1500.0) * decay(t, 0.05) * 1.2;
+        const double roll = lp.low(float(held * 0.7 + n.next() * 0.3), sweep(1800.0, 90.0, t / total), 1.3) *
+          (0.55 + 0.45 * std::sin(t * 7.0 + std::sin(t * 2.3) * 3.0));
+        const double body = lp2.lowpass(n.next(), 120.0) * 2.0;
+        const double env = attack(t, 0.004) * (0.35 * decay(t, 0.2) + 0.65 * decay(t, 1.1)) * std::min(1.0, (total - t) / 0.3);
+        return (crack * 0.35 + roll * 0.75 + body * 0.4) * env;
+      });
+    }
     case Sfx::Count:
       break;
   }

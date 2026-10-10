@@ -13,12 +13,12 @@ shot ident_ch13 delay=80 repeat=1
   cue 11 hold=1200
 
 # clip lance_cape: backdrop the manor on a hill, lightning layer flashes on
-#   frame 3; mid Lance in a cape, lit from below (a flashlight under his chin,
-#   flicker loop of 4 frames), cape swirls (8-frame loop); 16 frames
+#   frame 3; mid Lance in a cape, lit from below (a flashlight under his chin
+#   flickers, frames 0-3 looping), cape swirls (8-frame loop); 16 frames
 shot lance_cape delay=90 repeat=4
   cue 0 music=theme_theremin
   cue 3 sound=thunder
   cue 3 flash=white:120
   cue 4 say=LANCE "Mwa-ha-ha. Ratings!"
-  cue 15 hold=1800
-  cue 15 fade=out:400
+  cue 63 hold=1800
+  cue 63 fade=out:400

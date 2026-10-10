@@ -6,6 +6,7 @@
 #include "render/vector.hpp"
 
 #include <cmath>
+#include <functional>
 #include <string_view>
 #include <tuple>
 #include <vector>
@@ -2061,9 +2062,15 @@ bool isWestern(const Theme& t);
 Texture bakeWesternSolid(const Renderer& r, const Theme& t, int variant);
 Texture bakeWesternSolidTop(const Renderer& r, const Theme& t);
 Texture bakeWesternPlatform(const Renderer& r, const Theme& t);
+bool isManor(const Theme& t);
+Texture bakeManorSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakeManorSolidTop(const Renderer& r, const Theme& t);
+Texture bakeManorPlatform(const Renderer& r, const Theme& t);
 
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isManor(t))
+    return bakeManorSolid(r, t, variant);
   if (isWestern(t))
     return bakeWesternSolid(r, t, variant);
   if (isServers(t))
@@ -2490,6 +2497,8 @@ Texture bakeReactorSolidTop(const Renderer& r, const Theme& t)
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isManor(t))
+    return bakeManorSolidTop(r, t);
   if (isWestern(t))
     return bakeWesternSolidTop(r, t);
   if (isServers(t))
@@ -2609,6 +2618,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isManor(t))
+    return bakeManorPlatform(r, t);
   if (isWestern(t))
     return bakeWesternPlatform(r, t);
   if (isServers(t))
@@ -5832,8 +5843,582 @@ Texture bakeWesternNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Level 23's haunted manor (theme look "manor"): grey ashlar stone in
+// courses, dark oak floorboards on the slabs, oak shelves for the one-way
+// floors, and outside the windows a stormy night: torn clouds round a
+// hidden moon, the manor itself on its hill, and a graveyard of crooked
+// stones and dead trees.
+bool isManor(const Theme& t) { return std::string_view(t.look) == "manor"; }
+
+namespace
+{
+
+// A dead tree in silhouette: a crooked trunk from (x, base) up `h` px that
+// forks into bare, bent branches.
+void manorDeadTree(cairo_t* cr, Rng& rng, double x, double base, double h, Color body)
+{
+  std::function<void(double, double, double, double, double, int)> branch = [&](double x0, double y0, double a,
+                                                                                  double len, double wd, int depth) {
+    const double x1 = x0 + std::cos(a) * len, y1 = y0 + std::sin(a) * len;
+    const double mx = (x0 + x1) * 0.5 + rng.range(-6, 6), my = (y0 + y1) * 0.5 + rng.range(-6, 6);
+    cairo_move_to(cr, x0, y0);
+    cairo_curve_to(cr, mx, my, mx, my, x1, y1);
+    setColor(cr, body);
+    cairo_set_line_width(cr, wd);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_stroke(cr);
+    if (depth <= 0 || wd < 1.2)
+      return;
+    const int kids = depth > 2 ? 2 : (rng.uniform() < 0.5f ? 2 : 3);
+    for (int k = 0; k < kids; ++k)
+      branch(x1, y1, a + rng.range(-0.75f, 0.75f) + (k - (kids - 1) * 0.5) * 0.5, len * rng.range(0.55f, 0.8f),
+        wd * 0.62, depth - 1);
+  };
+  branch(x, base + 4, -kPi * 0.5 + rng.range(-0.12f, 0.12f), h * 0.45, std::max(3.0, h * 0.07), 5);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+}
+
+// The manor in silhouette, standing on y = base with its middle at cx:
+// a long hall with a steep roof, two towers with pointed caps, chimneys,
+// and a few lit windows (`lit` warm yellow, one sickly green).
+void manorSilhouette(cairo_t* cr, Rng& rng, double cx, double base, double s, Color body, Color lit)
+{
+  auto rect = [&](double x, double y, double w, double h) { cairo_rectangle(cr, cx + x * s, base - y * s, w * s, h * s); };
+  // The main hall and its roof.
+  rect(-150, 120, 300, 120);
+  cairo_move_to(cr, cx - 160 * s, base - 120 * s);
+  cairo_line_to(cr, cx - 110 * s, base - 190 * s);
+  cairo_line_to(cr, cx + 110 * s, base - 190 * s);
+  cairo_line_to(cr, cx + 160 * s, base - 120 * s);
+  cairo_close_path(cr);
+  // Two towers with spires, the left one taller.
+  rect(-200, 230, 60, 230);
+  cairo_move_to(cr, cx - 210 * s, base - 230 * s);
+  cairo_line_to(cr, cx - 170 * s, base - 330 * s);
+  cairo_line_to(cr, cx - 130 * s, base - 230 * s);
+  cairo_close_path(cr);
+  rect(130, 180, 56, 180);
+  cairo_move_to(cr, cx + 122 * s, base - 180 * s);
+  cairo_line_to(cr, cx + 158 * s, base - 262 * s);
+  cairo_line_to(cr, cx + 194 * s, base - 180 * s);
+  cairo_close_path(cr);
+  // A gable over the door, chimneys.
+  cairo_move_to(cr, cx - 40 * s, base - 120 * s);
+  cairo_line_to(cr, cx, base - 220 * s);
+  cairo_line_to(cr, cx + 40 * s, base - 120 * s);
+  cairo_close_path(cr);
+  rect(-80, 222, 14, 50);
+  rect(60, 214, 14, 44);
+  setColor(cr, body);
+  cairo_fill(cr);
+  // Finials on the spires and a weathervane.
+  cairo_move_to(cr, cx - 170 * s, base - 330 * s);
+  cairo_line_to(cr, cx - 170 * s, base - 352 * s);
+  cairo_move_to(cr, cx - 178 * s, base - 344 * s);
+  cairo_line_to(cr, cx - 162 * s, base - 344 * s);
+  cairo_move_to(cr, cx + 158 * s, base - 262 * s);
+  cairo_line_to(cr, cx + 158 * s, base - 280 * s);
+  setColor(cr, body);
+  cairo_set_line_width(cr, 2.0 * s);
+  cairo_stroke(cr);
+  // Windows: arched slits, most dark, a few lit.
+  auto window = [&](double x, double y, Color c, double a) {
+    const double w = 12 * s, h = 22 * s;
+    cairo_move_to(cr, cx + x * s, base - y * s + h);
+    cairo_line_to(cr, cx + x * s, base - y * s + w * 0.5);
+    cairo_arc(cr, cx + x * s + w * 0.5, base - y * s + w * 0.5, w * 0.5, kPi, 2 * kPi);
+    cairo_line_to(cr, cx + x * s + w, base - y * s + h);
+    cairo_close_path(cr);
+    cairo_set_source_rgba(cr, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a);
+    cairo_fill(cr);
+  };
+  for (int row = 0; row < 2; ++row)
+    for (int i = 0; i < 8; ++i)
+    {
+      const double x = -136 + i * 36, y = 100 - row * 46;
+      const float roll = rng.uniform();
+      if (roll < 0.28f)
+      {
+        radialGlow(cr, cx + (x + 6) * s, base - (y - 11) * s, 26 * s, lit, 0.35);
+        window(x, y, lit, 0.95);
+      }
+      else
+        window(x, y, darken(body, 0.5f), 0.9);
+    }
+  window(-176, 200, lit, 0.9);
+  radialGlow(cr, cx - 170 * s, base - 189 * s, 30 * s, lit, 0.3);
+  window(-176, 140, darken(body, 0.5f), 0.9);
+  window(152, 150, rgb(140, 255, 150), 0.9);
+  radialGlow(cr, cx + 158 * s, base - 139 * s, 34 * s, rgb(140, 255, 150), 0.35);
+}
+
+// A gravestone in silhouette: kind 0 a rounded slab, 1 a cross, 2 an
+// obelisk; leaning by `lean` radians.
+void manorStone(cairo_t* cr, double x, double base, double h, int kind, double lean, Color body)
+{
+  cairo_save(cr);
+  cairo_translate(cr, x, base);
+  cairo_rotate(cr, lean);
+  if (kind == 0)
+  {
+    const double w = h * 0.62;
+    cairo_move_to(cr, -w * 0.5, 4);
+    cairo_line_to(cr, -w * 0.5, -h + w * 0.5);
+    cairo_arc(cr, 0, -h + w * 0.5, w * 0.5, kPi, 2 * kPi);
+    cairo_line_to(cr, w * 0.5, 4);
+    cairo_close_path(cr);
+  }
+  else if (kind == 1)
+  {
+    cairo_rectangle(cr, -h * 0.09, -h, h * 0.18, h + 4);
+    cairo_rectangle(cr, -h * 0.32, -h * 0.78, h * 0.64, h * 0.17);
+  }
+  else
+  {
+    cairo_move_to(cr, -h * 0.16, 4);
+    cairo_line_to(cr, -h * 0.11, -h * 0.86);
+    cairo_line_to(cr, 0, -h);
+    cairo_line_to(cr, h * 0.11, -h * 0.86);
+    cairo_line_to(cr, h * 0.16, 4);
+    cairo_close_path(cr);
+  }
+  setColor(cr, body);
+  cairo_fill(cr);
+  cairo_restore(cr);
+}
+
+// A torn storm cloud: a cluster of soft lobes, dark underneath, its upper
+// edges silvered by the moon.
+void manorCloud(cairo_t* cr, Rng& rng, double cx, double cy, double w, double h, Color body, Color rim, double rimA)
+{
+  const int lobes = 7 + int(rng.uniform() * 5);
+  for (int pass = 0; pass < 2; ++pass)
+    for (int i = 0; i < lobes; ++i)
+    {
+      Rng lr(std::uint32_t(cx * 13 + cy * 7 + i * 101) | 1u);
+      const double u = (double(i) + 0.5) / double(lobes);
+      const double lx = cx - w * 0.5 + u * w + lr.range(-w * 0.04f, w * 0.04f);
+      const double bulge = std::sin(u * kPi);
+      const double rr = h * (0.35 + 0.45 * bulge) * lr.range(0.8f, 1.15f);
+      const double ly = cy - rr * 0.35 * bulge + lr.range(-h * 0.1f, h * 0.1f);
+      cairo_new_path(cr);
+      cairo_save(cr);
+      cairo_translate(cr, lx, ly);
+      cairo_scale(cr, 1.5, 1.0);
+      cairo_arc(cr, 0, 0, rr, 0, 2 * kPi);
+      cairo_restore(cr);
+      if (pass == 0)
+      {
+        // The rim: the lobe's top edge, offset up a little, in moonlight.
+        cairo_save(cr);
+        cairo_translate(cr, 0, -2.5);
+        cairo_pattern_t* g = cairo_pattern_create_linear(0, ly - rr, 0, ly + rr * 0.2);
+        cairo_pattern_add_color_stop_rgba(g, 0, redOf(rim) / 255.0, greenOf(rim) / 255.0, blueOf(rim) / 255.0, rimA);
+        cairo_pattern_add_color_stop_rgba(g, 1, redOf(rim) / 255.0, greenOf(rim) / 255.0, blueOf(rim) / 255.0, 0.0);
+        cairo_set_source(cr, g);
+        cairo_fill(cr);
+        cairo_pattern_destroy(g);
+        cairo_restore(cr);
+      }
+      else
+      {
+        cairo_pattern_t* g = cairo_pattern_create_linear(0, ly - rr, 0, ly + rr);
+        const Color top = lerpColor(body, rim, 0.18f), under = darken(body, 0.35f);
+        cairo_pattern_add_color_stop_rgba(g, 0, redOf(top) / 255.0, greenOf(top) / 255.0, blueOf(top) / 255.0, 0.96);
+        cairo_pattern_add_color_stop_rgba(g, 1, redOf(under) / 255.0, greenOf(under) / 255.0, blueOf(under) / 255.0, 0.98);
+        cairo_set_source(cr, g);
+        cairo_fill(cr);
+        cairo_pattern_destroy(g);
+      }
+    }
+}
+
+} // namespace
+
+// Grey ashlar in two courses a block, the joints staggered, each stone a
+// little different, chamfered light on top and left, mortar dark. Variant 1
+// a cracked stone and moss in the joints, 2 a cobweb in a corner.
+Texture bakeManorSolid(const Renderer& r, const Theme& t, int variant)
+{
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  Rng rng(std::uint32_t(variant * 7919 + 2323));
+  cairo_rectangle(cr, 0, 0, 64, 64);
+  setColor(cr, darken(t.rockDark, 0.2f));
+  cairo_fill(cr);
+  struct Stone
+  {
+    double x, y, w, h;
+  };
+  const Stone stones[5] = {{0, 0, 40, 32}, {40, 0, 24, 32}, {0, 32, 18, 32}, {18, 32, 46, 32}, {-24, 0, 24, 32}};
+  for (int i = 0; i < 4; ++i)
+  {
+    const Stone& s = stones[i];
+    const double x = s.x + 1.2, y = s.y + 1.2, w = s.w - 2.4, h = s.h - 2.4;
+    const Color base = lerpColor(t.rock, rng.uniform() < 0.5f ? t.rockLight : t.rockDark, rng.range(0.0f, 0.3f));
+    roundedRect(cr, x, y, w, h, 2.5);
+    cairo_pattern_t* g = cairo_pattern_create_linear(x, y, x + w * 0.4, y + h);
+    const Color hi = lighten(base, 0.12f), lo = darken(base, 0.18f);
+    cairo_pattern_add_color_stop_rgb(g, 0, redOf(hi) / 255.0, greenOf(hi) / 255.0, blueOf(hi) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1, redOf(lo) / 255.0, greenOf(lo) / 255.0, blueOf(lo) / 255.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The chamfer: light along the top and left, shade along the bottom.
+    cairo_move_to(cr, x + 1, y + h - 2);
+    cairo_line_to(cr, x + 1, y + 1);
+    cairo_line_to(cr, x + w - 2, y + 1);
+    setColor(cr, withAlpha(t.rockLight, 150));
+    cairo_set_line_width(cr, 1.6);
+    cairo_stroke(cr);
+    cairo_move_to(cr, x + 2, y + h - 0.8);
+    cairo_line_to(cr, x + w - 0.8, y + h - 0.8);
+    cairo_line_to(cr, x + w - 0.8, y + 2);
+    setColor(cr, withAlpha(darken(t.rockDark, 0.3f), 170));
+    cairo_stroke(cr);
+    // Pits and tooling marks.
+    for (int k = 0; k < 7; ++k)
+    {
+      cairo_arc(cr, x + 3 + rng.uniform() * (w - 6), y + 3 + rng.uniform() * (h - 6), 0.5 + rng.uniform() * 1.1, 0,
+        2 * kPi);
+      setColor(cr, rng.uniform() < 0.6f ? withAlpha(t.rockDark, 140) : withAlpha(t.rockLight, 110));
+      cairo_fill(cr);
+    }
+  }
+  if (variant == 1)
+  {
+    // A crack across the big stone, and moss in the joints.
+    cairo_move_to(cr, 44, 36);
+    cairo_line_to(cr, 39, 45);
+    cairo_line_to(cr, 43, 51);
+    cairo_line_to(cr, 36, 62);
+    setColor(cr, withAlpha(darken(t.rockDark, 0.4f), 220));
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+    for (int k = 0; k < 14; ++k)
+    {
+      const double mx = k < 7 ? rng.range(0, 64) : 40 + rng.range(-1.5f, 1.5f);
+      const double my = k < 7 ? 32 + rng.range(-1.5f, 1.5f) : rng.range(0, 32);
+      cairo_arc(cr, mx, my, rng.range(1.0f, 2.4f), 0, 2 * kPi);
+      setColor(cr, rng.uniform() < 0.5f ? rgb(60, 92, 56) : rgb(84, 120, 70));
+      cairo_fill(cr);
+    }
+  }
+  else if (variant == 2)
+  {
+    // A cobweb strung across the top left corner.
+    cairo_set_line_width(cr, 0.7);
+    setColor(cr, rgba(220, 220, 236, 120));
+    for (int k = 0; k <= 5; ++k)
+    {
+      const double a = k * kPi * 0.5 / 5.0;
+      cairo_move_to(cr, 1, 1);
+      cairo_line_to(cr, 1 + std::cos(a) * 26, 1 + std::sin(a) * 26);
+    }
+    cairo_stroke(cr);
+    for (int ring = 1; ring <= 4; ++ring)
+    {
+      const double rr = ring * 6.0;
+      cairo_move_to(cr, 1 + rr, 1);
+      for (int k = 1; k <= 5; ++k)
+      {
+        const double a = k * kPi * 0.5 / 5.0, ap = (k - 0.5) * kPi * 0.5 / 5.0;
+        cairo_curve_to(cr, 1 + std::cos(ap) * rr * 0.8, 1 + std::sin(ap) * rr * 0.8, 1 + std::cos(ap) * rr * 0.8,
+          1 + std::sin(ap) * rr * 0.8, 1 + std::cos(a) * rr, 1 + std::sin(a) * rr);
+      }
+      cairo_stroke(cr);
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// The floor where you stand: dark polished oak boards seen edge on, a
+// shine along their top, seams every half block, a moulding under them and
+// its shadow on the stone.
+Texture bakeManorSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  // The shadow on the stone under the moulding.
+  cairo_rectangle(cr, 0, y + 12, 64, 7);
+  cairo_pattern_t* sh = cairo_pattern_create_linear(0, y + 12, 0, y + 19);
+  cairo_pattern_add_color_stop_rgba(sh, 0, 0, 0, 0, 0.55);
+  cairo_pattern_add_color_stop_rgba(sh, 1, 0, 0, 0, 0.0);
+  cairo_set_source(cr, sh);
+  cairo_fill(cr);
+  cairo_pattern_destroy(sh);
+  // The moulding.
+  cairo_rectangle(cr, 0, y + 8, 64, 5);
+  setColor(cr, darken(t.platformDark, 0.2f));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, y + 8, 64, 1.4);
+  setColor(cr, withAlpha(lighten(t.platform, 0.1f), 200));
+  cairo_fill(cr);
+  // The boards.
+  Rng rng(2333u);
+  for (const double x0 : {0.0, 32.0})
+  {
+    const Color c = lerpColor(t.platform, t.platformDark, x0 > 1 ? 0.25f : 0.05f);
+    cairo_rectangle(cr, x0, y - 3, 32, 11);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, y - 3, 0, y + 8);
+    const Color hi = lighten(c, 0.3f);
+    cairo_pattern_add_color_stop_rgb(g, 0, redOf(hi) / 255.0, greenOf(hi) / 255.0, blueOf(hi) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 0.35, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.platformDark) / 255.0, greenOf(t.platformDark) / 255.0,
+      blueOf(t.platformDark) / 255.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (int i = 0; i < 2; ++i)
+    {
+      const double gy = y + rng.range(0, 6);
+      cairo_move_to(cr, x0 + rng.range(1, 6), gy);
+      cairo_curve_to(cr, x0 + 12, gy + rng.range(-1, 1), x0 + 20, gy + rng.range(-1, 1), x0 + rng.range(24, 31), gy);
+      setColor(cr, withAlpha(darken(t.platformDark, 0.2f), 120));
+      cairo_set_line_width(cr, 0.8);
+      cairo_stroke(cr);
+    }
+    cairo_rectangle(cr, x0, y - 3, 1.2, 11);
+    setColor(cr, withAlpha(darken(t.platformDark, 0.5f), 220));
+    cairo_fill(cr);
+  }
+  // The polish: a cold highlight along the top edge.
+  cairo_rectangle(cr, 0, y - 3, 64, 1.6);
+  setColor(cr, rgba(230, 220, 255, 170));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
+// A one-way floor: a dark oak shelf or landing, its front edge moulded, on
+// a carved corbel.
+Texture bakeManorPlatform(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, 40);
+  cairo_t* cr = img.cr();
+  // The corbel: a scroll bracket under the middle.
+  cairo_move_to(cr, 24, 12);
+  cairo_line_to(cr, 40, 12);
+  cairo_curve_to(cr, 40, 22, 36, 26, 33, 30);
+  cairo_curve_to(cr, 30, 33, 26, 30, 28, 27);
+  cairo_curve_to(cr, 30, 25, 30, 20, 24, 16);
+  cairo_close_path(cr);
+  setColor(cr, darken(t.platformDark, 0.15f));
+  cairo_fill_preserve(cr);
+  setColor(cr, darken(t.platformDark, 0.6f));
+  cairo_set_line_width(cr, 1.2);
+  cairo_stroke(cr);
+  // The board.
+  cairo_rectangle(cr, 0, 0, 64, 12);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 12);
+  const Color hi = lighten(t.platform, 0.3f);
+  cairo_pattern_add_color_stop_rgb(g, 0, redOf(hi) / 255.0, greenOf(hi) / 255.0, blueOf(hi) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 0.4, redOf(t.platform) / 255.0, greenOf(t.platform) / 255.0, blueOf(t.platform) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.platformDark) / 255.0, greenOf(t.platformDark) / 255.0,
+    blueOf(t.platformDark) / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // The moulding's two grooves along the front.
+  for (const double gy : {5.0, 8.5})
+  {
+    cairo_rectangle(cr, 0, gy, 64, 1.0);
+    setColor(cr, withAlpha(darken(t.platformDark, 0.5f), 200));
+    cairo_fill(cr);
+  }
+  cairo_rectangle(cr, 0, 0, 64, 1.5);
+  setColor(cr, rgba(230, 220, 255, 170));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, 12, 64, 1.2);
+  setColor(cr, withAlpha(darken(t.platformDark, 0.6f), 230));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// A stormy night: near-black overhead, bruised violet low down, banks of
+// torn cloud silvered by a moon half hidden behind them, a few stars in the
+// gaps, and the rain.
+Texture bakeManorSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.5, t.skyMid}, {0.85, t.skyBottom}, {1.0, rgb(96, 86, 120)}});
+  Rng rng(2341u);
+  for (int i = 0; i < 60; ++i)
+  {
+    cairo_arc(cr, rng.range(0, float(kScreenW)), rng.range(0, 300), rng.uniform() < 0.15f ? 1.4 : 0.8, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 0.9, 0.9, 1.0, 0.2 + 0.5 * rng.uniform());
+    cairo_fill(cr);
+  }
+  // The moon, low over the right, its halo through the murk.
+  const double mx = 980, my = 170;
+  radialGlow(cr, mx, my, 360, rgb(170, 160, 220), 0.35);
+  radialGlow(cr, mx, my, 120, rgb(230, 230, 255), 0.5);
+  cairo_arc(cr, mx, my, 54, 0, 2 * kPi);
+  cairo_pattern_t* mg = cairo_pattern_create_radial(mx - 16, my - 18, 6, mx, my, 54);
+  cairo_pattern_add_color_stop_rgb(mg, 0, 1.0, 1.0, 0.96);
+  cairo_pattern_add_color_stop_rgb(mg, 1, 0.78, 0.78, 0.86);
+  cairo_set_source(cr, mg);
+  cairo_fill(cr);
+  cairo_pattern_destroy(mg);
+  for (int i = 0; i < 6; ++i)
+  {
+    cairo_arc(cr, mx + rng.range(-34, 30), my + rng.range(-30, 30), rng.range(4, 11), 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 0.55, 0.55, 0.65, 0.35);
+    cairo_fill(cr);
+  }
+  // Banks of cloud, the far ones paler, then the heavy ones across the moon.
+  const Color rim = rgb(214, 210, 250);
+  for (int i = 0; i < 7; ++i)
+    manorCloud(cr, rng, rng.range(-100, float(kScreenW) + 100), rng.range(260, 470), rng.range(300, 520),
+      rng.range(40, 70), lerpColor(t.skyMid, t.skyBottom, 0.4f), rim, 0.25);
+  for (int i = 0; i < 6; ++i)
+  {
+    const double cx = i == 0 ? mx - 60 : rng.range(-100, float(kScreenW) + 100);
+    const double cy = i == 0 ? my + 40 : rng.range(60, 300);
+    manorCloud(cr, rng, cx, cy, rng.range(320, 600), rng.range(46, 84), darken(t.skyMid, 0.25f), rim,
+      std::abs(cx - mx) < 400 ? 0.8 : 0.35);
+  }
+  // Rain: thin slanting streaks.
+  cairo_set_line_width(cr, 1.0);
+  for (int i = 0; i < 260; ++i)
+  {
+    const double x = rng.range(-80, float(kScreenW)), y = rng.range(0, float(kScreenH)), l = rng.range(14, 34);
+    cairo_move_to(cr, x, y);
+    cairo_line_to(cr, x + l * 0.3, y + l);
+    cairo_set_source_rgba(cr, 0.75, 0.75, 0.9, 0.08 + 0.12 * rng.uniform());
+    cairo_stroke(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: hills under the storm, the manor on the highest of them with its
+// lit windows, a ruined chapel on another, the far ridge in the murk.
+Texture bakeManorFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2347u);
+  auto hills = [&](double baseY, double amp, double f1, double f2, double ph, Color c) {
+    cairo_move_to(cr, 0, kScreenH);
+    for (double x = 0; x <= kLayerW; x += 16)
+    {
+      const double u = x / double(kLayerW) * 2 * kPi;
+      cairo_line_to(cr, x, baseY - amp * (0.6 * std::sin(u * f1 + ph) + 0.4 * std::sin(u * f2 + ph * 2.0)));
+    }
+    cairo_line_to(cr, kLayerW, kScreenH);
+    cairo_close_path(cr);
+    setColor(cr, c);
+    cairo_fill(cr);
+  };
+  hills(540, 40, 3, 7, 0.4, lerpColor(t.farLayer, t.skyBottom, 0.45f));
+  // The hill the manor stands on, and the manor (twice, so the strip tiles).
+  const Color body = t.farLayer;
+  for (const double hx : {760.0, 760.0 + kLayerW})
+  {
+    cairo_move_to(cr, hx - 520, kScreenH);
+    cairo_curve_to(cr, hx - 300, 560, hx - 160, 470, hx, 468);
+    cairo_curve_to(cr, hx + 160, 470, hx + 300, 560, hx + 520, kScreenH);
+    cairo_close_path(cr);
+    setColor(cr, body);
+    cairo_fill(cr);
+  }
+  Rng mr(2351u);
+  manorSilhouette(cr, mr, 760, 474, 0.85, body, rgb(255, 214, 120));
+  // The chapel ruin and its leaning cross.
+  cairo_rectangle(cr, 1900, 520, 90, 80);
+  cairo_move_to(cr, 1890, 520);
+  cairo_line_to(cr, 1945, 470);
+  cairo_line_to(cr, 2000, 520);
+  cairo_close_path(cr);
+  cairo_rectangle(cr, 1990, 470, 26, 130);
+  setColor(cr, body);
+  cairo_fill(cr);
+  cairo_arc(cr, 1945, 548, 14, kPi, 2 * kPi);
+  cairo_rectangle(cr, 1931, 548, 28, 30);
+  setColor(cr, darken(body, 0.5f));
+  cairo_fill(cr);
+  manorStone(cr, 2003, 470, 40, 1, 0.12, body);
+  hills(620, 24, 5, 9, 1.7, lerpColor(t.farLayer, rgb(0, 0, 0), 0.15f));
+  // Mist pooled in the hollows.
+  cairo_rectangle(cr, 0, 520, kLayerW, kScreenH - 520);
+  cairo_pattern_t* mist = cairo_pattern_create_linear(0, 520, 0, kScreenH);
+  cairo_pattern_add_color_stop_rgba(mist, 0, 0.6, 0.58, 0.75, 0.0);
+  cairo_pattern_add_color_stop_rgba(mist, 0.5, 0.6, 0.58, 0.75, 0.16);
+  cairo_pattern_add_color_stop_rgba(mist, 1, 0.6, 0.58, 0.75, 0.05);
+  cairo_set_source(cr, mist);
+  cairo_fill(cr);
+  cairo_pattern_destroy(mist);
+  (void)rng;
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: the graveyard below the house: an iron fence with spear-point
+// railings, crooked stones and crosses, bare trees, rimmed in moonlight.
+Texture bakeManorNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2357u);
+  const Color body = t.nearLayer, rim = rgba(190, 180, 240, 150);
+  auto ground = [&](double x) {
+    return 630.0 + 18.0 * std::sin(x / double(kLayerW) * 2 * kPi * 2) + 9.0 * std::sin(x / double(kLayerW) * 2 * kPi * 9 + 1.3);
+  };
+  // Trees first, behind the stones.
+  for (double x = rng.range(80, 200); x < kLayerW - 120; x += rng.range(380, 700))
+    manorDeadTree(cr, rng, x, ground(x), rng.range(220, 340), body);
+  cairo_move_to(cr, 0, kScreenH);
+  for (double x = 0; x <= kLayerW; x += 16)
+    cairo_line_to(cr, x, ground(x));
+  cairo_line_to(cr, kLayerW, kScreenH);
+  cairo_close_path(cr);
+  setColor(cr, body);
+  cairo_fill(cr);
+  cairo_move_to(cr, 0, ground(0));
+  for (double x = 16; x <= kLayerW; x += 16)
+    cairo_line_to(cr, x, ground(x));
+  setColor(cr, rim);
+  cairo_set_line_width(cr, 1.6);
+  cairo_stroke(cr);
+  // Stones.
+  for (double x = rng.range(20, 80); x < kLayerW - 40; x += rng.range(60, 170))
+  {
+    const int kind = rng.uniform() < 0.55f ? 0 : (rng.uniform() < 0.6f ? 1 : 2);
+    const double h = kind == 2 ? rng.range(60, 90) : rng.range(30, 56);
+    manorStone(cr, x, ground(x) + 3, h, kind, rng.range(-0.22f, 0.22f), body);
+  }
+  // The fence: rails and spear-headed bars, with a gate left open.
+  for (double x0 = 1200; x0 < 2300; x0 += 22)
+  {
+    if (x0 > 1640 && x0 < 1720)
+      continue;
+    const double base = ground(x0) + 4;
+    cairo_rectangle(cr, x0, base - 70, 3.5, 70);
+    cairo_move_to(cr, x0 - 3, base - 70);
+    cairo_line_to(cr, x0 + 1.75, base - 82);
+    cairo_line_to(cr, x0 + 6.5, base - 70);
+    cairo_close_path(cr);
+  }
+  setColor(cr, body);
+  cairo_fill(cr);
+  for (const double ry : {60.0, 20.0})
+  {
+    cairo_move_to(cr, 1200, ground(1200) + 4 - ry);
+    for (double x = 1216; x <= 1640; x += 16)
+      cairo_line_to(cr, x, ground(x) + 4 - ry);
+    cairo_move_to(cr, 1720, ground(1720) + 4 - ry);
+    for (double x = 1736; x <= 2300; x += 16)
+      cairo_line_to(cr, x, ground(x) + 4 - ry);
+  }
+  cairo_set_line_width(cr, 3.0);
+  cairo_stroke(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isManor(t))
+    return bakeManorSky(r, t);
   if (isWestern(t))
     return bakeWesternSky(r, t);
   if (isServers(t))
@@ -5993,6 +6578,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isManor(t))
+    return bakeManorFar(r, t);
   if (isWestern(t))
     return bakeWesternFar(r, t);
   if (isServers(t))
@@ -6135,6 +6722,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isManor(t))
+    return bakeManorNear(r, t);
   if (isWestern(t))
     return bakeWesternNear(r, t);
   if (isServers(t))

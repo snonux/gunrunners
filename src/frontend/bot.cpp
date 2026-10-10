@@ -100,6 +100,8 @@ Input Bot::play(const World& world)
     return drift(world);
   if (world.orbit().on)
     return orbit(world);
+  if (world.turntable().on)
+    return turntable(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -142,6 +144,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (west(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 24: the pantry detour (ring the bell, ride the belt in).
+  if (world.kitchen().on)
+  {
+    Input in;
+    if (kitchen(world, in))
     {
       mPlanner.reset();
       return in;

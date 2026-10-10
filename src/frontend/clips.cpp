@@ -5,6 +5,7 @@
 
 #include "assets/art.hpp"
 #include "assets/enemy_art.hpp"
+#include "assets/enemy_art_manor.hpp"
 #include "assets/enemy_art_west.hpp"
 #include "assets/enemy_art_zero.hpp"
 #include "base/math.hpp"
@@ -5475,6 +5476,391 @@ void lanceCowboyClip(ClipKit& k, int frame, int frames, float t, int ticks, floa
   k.r.draw(weed, tx + ox, 570 - bounce + oy, o);
 }
 
+// --- Level 23: Channel 13, Horror ----------------------------------------------
+
+// The drips under "CH 13": where each hangs from the letters (x from the
+// word's middle), how long it is baked, and how fast it grows.
+struct Ch13Drip
+{
+  float x, len, speed, width;
+};
+
+constexpr Ch13Drip kCh13Drips[] = {{-300, 18, 1.0f, 12}, {-236, 34, 0.7f, 9}, {-170, 12, 1.4f, 10},
+                                   {-84, 26, 0.9f, 13},  {-20, 16, 1.2f, 9},  {60, 40, 0.6f, 12},
+                                   {118, 14, 1.5f, 10},  {190, 28, 0.8f, 11}, {262, 20, 1.1f, 9}};
+constexpr float kCh13Base = 236.0f; // the baseline in the baked word (y)
+
+// "CH 13" in green slime: a glossy bevelled fill, a dark rind, and the drips
+// hanging from it baked short (they grow live).
+const Texture& ch13Word(ClipKit& k)
+{
+  return cached(k, "e4_ch13_slime", 800, 320, 400, 0, [](cairo_t* cr) {
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 200);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "CH 13", &te);
+    cairo_move_to(cr, 400 - te.x_advance / 2, kCh13Base);
+    cairo_text_path(cr, "CH 13");
+    for (const auto& d : kCh13Drips)
+    {
+      const double x = 400 + d.x;
+      cairo_new_sub_path(cr);
+      cairo_move_to(cr, x - d.width * 0.5, kCh13Base - 14);
+      cairo_line_to(cr, x - d.width * 0.35, kCh13Base + d.len);
+      cairo_arc(cr, x, kCh13Base + d.len, d.width * 0.45, kPi, 2 * kPi);
+      cairo_line_to(cr, x + d.width * 0.5, kCh13Base - 14);
+      cairo_close_path(cr);
+      cairo_new_sub_path(cr);
+      cairo_arc(cr, x, kCh13Base + d.len + d.width * 0.2, d.width * 0.55, 0, 2 * kPi);
+    }
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    cairo_save(cr);
+    cairo_translate(cr, 6, 8);
+    setRgbaC(cr, rgb(0, 30, 10), 0.6);
+    cairo_fill_preserve(cr);
+    cairo_restore(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 60, 0, 300);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.75, 1.0, 0.55);
+    cairo_pattern_add_color_stop_rgb(g, 0.45, 0.3, 0.9, 0.3);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.08, 0.42, 0.12);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, rgb(4, 30, 10), 1.0);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    // Wet highlights along the tops of the letters.
+    cairo_move_to(cr, 400 - te.x_advance / 2, kCh13Base);
+    cairo_text_path(cr, "CH 13");
+    cairo_save(cr);
+    cairo_clip(cr);
+    for (int i = 0; i < 9; ++i)
+    {
+      cairo_move_to(cr, 70 + i * 74, 90);
+      cairo_curve_to(cr, 90 + i * 74, 80, 110 + i * 74, 84, 120 + i * 74, 96);
+    }
+    setRgbaC(cr, rgb(240, 255, 220), 0.7);
+    cairo_set_line_width(cr, 7);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+  });
+}
+
+// A drop of slime, 24 x 32, its top at (12, 0).
+const Texture& slimeDrop(ClipKit& k)
+{
+  return cached(k, "e4_slime_drop", 24, 32, 12, 0, [](cairo_t* cr) {
+    cairo_move_to(cr, 12, 0);
+    cairo_curve_to(cr, 14, 10, 22, 16, 22, 22);
+    cairo_arc(cr, 12, 22, 10, 0, kPi);
+    cairo_curve_to(cr, 2, 16, 10, 10, 12, 0);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 24, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.5, 1.0, 0.45);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.08, 0.45, 0.12);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, rgb(4, 30, 10), 1.0);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_arc(cr, 9, 22, 2.5, 0, 2 * kPi);
+    setRgbaC(cr, rgb(240, 255, 220), 0.8);
+    cairo_fill(cr);
+  });
+}
+
+// "HORROR" in bone-white capitals with a blood-red rim, slightly unsteady.
+const Texture& horrorWord(ClipKit& k)
+{
+  return cached(k, "e4_horror_word", 900, 160, 450, 80, [](cairo_t* cr) {
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 118);
+    const char* word = "HORROR";
+    double x = 0;
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, word, &te);
+    x = 450 - te.x_advance / 2;
+    for (int i = 0; word[i]; ++i)
+    {
+      const char s[2] = {word[i], 0};
+      cairo_text_extents_t ce;
+      cairo_text_extents(cr, s, &ce);
+      cairo_save(cr);
+      cairo_translate(cr, x + ce.x_advance * 0.5, 80 + 42);
+      cairo_rotate(cr, (i % 2 ? 1 : -1) * 0.05 * (1 + i % 3));
+      cairo_move_to(cr, -ce.x_advance * 0.5, 0);
+      cairo_text_path(cr, s);
+      cairo_restore(cr);
+      x += ce.x_advance;
+    }
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    setRgbaC(cr, rgb(150, 0, 16), 1.0);
+    cairo_set_line_width(cr, 10);
+    cairo_stroke_preserve(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 40, 0, 130);
+    cairo_pattern_add_color_stop_rgb(g, 0, 1.0, 0.98, 0.92);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.75, 0.7, 0.62);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// Shot: the Channel 13 ident. Black; "CH 13" in green slime, its drips
+// creeping down 2 px a frame (and now and then a drop falling); "HORROR"
+// flickers in on frames 6-11 like a failing tube.
+void identCh13(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(0, 0, 0));
+  drawGlow(k.r, k.art, 640 + ox, 250 + oy, 520.0f, rgb(40, 200, 80), 0.18f + 0.04f * std::sin(float(ticks) * 0.1f));
+  const float wx = 640.0f + ox, wy = 60.0f + oy;
+  // The drips grow live: 2 px every clip frame (80 ms, five ticks).
+  const float grow = float(ticks) / 5.0f * 2.0f;
+  int di = 0;
+  for (const auto& d : kCh13Drips)
+  {
+    const float cycle = 260.0f + float(di) * 37.0f;
+    const float extra = std::fmod(grow * d.speed, cycle);
+    const float x = wx + d.x, top = wy + kCh13Base + d.len - 4.0f;
+    k.r.fillRect(x - d.width * 0.32f, top, d.width * 0.64f, extra, rgb(40, 170, 60));
+    k.r.fillRect(x - d.width * 0.32f, top, d.width * 0.16f, extra, rgb(120, 230, 110));
+    DrawOpts o;
+    o.scale = d.width / 18.0f;
+    k.r.draw(slimeDrop(k), x, top + extra - 4.0f, o);
+    // A drop let go: it falls on.
+    const float since = std::fmod(grow * d.speed, cycle) < 40.0f && grow * d.speed > cycle ? std::fmod(grow * d.speed, cycle) : -1.0f;
+    if (since >= 0.0f)
+      k.r.draw(slimeDrop(k), x, top + cycle + since * 6.0f, o);
+    ++di;
+  }
+  k.r.draw(ch13Word(k), wx, wy);
+  if (frame >= 6)
+  {
+    // A failing tube: on, off, half on, then steady with a rare blink.
+    const unsigned hsh = hash2(ticks / 3, 13);
+    bool on = true;
+    float a = 1.0f;
+    if (frame < 10)
+    {
+      on = hsh % 3u != 0u;
+      a = 0.4f + float(hsh % 60u) / 100.0f;
+    }
+    else
+      on = hsh % 29u != 0u;
+    if (on)
+    {
+      DrawOpts o;
+      o.alpha = a;
+      drawGlow(k.r, k.art, 640 + ox, 520 + oy, 360.0f, rgb(255, 40, 40), 0.18f * a);
+      k.r.draw(horrorWord(k), 640 + ox, 520 + oy, o);
+    }
+  }
+  // The station's line, and old film over it all.
+  k.r.drawText("MAXTV  CHANNEL 13  AFTER DARK", 640 + ox, 640 + oy, {18.0f, rgb(90, 160, 100)}, Align::Center);
+  for (int i = 0; i < 10; ++i)
+  {
+    const unsigned h = hash2(i, ticks / 4 + 313);
+    k.r.fillRect(float(h % 1280u), float((h / 1280u) % 720u), 2.0f, 2.0f + float(h % 4u), rgba(120, 200, 130, 90));
+  }
+  scanlines(k, 40);
+}
+
+// The manor on its hill under the storm, 1280 x 720: the sky, the moon
+// in the clouds, the hill, the house with its lit windows, a dead tree and
+// the gate posts in the foreground.
+const Texture& manorHill(ClipKit& k)
+{
+  return cached(k, "e4_manor_hill", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 720);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.03, 0.02, 0.08);
+    cairo_pattern_add_color_stop_rgb(g, 0.55, 0.14, 0.11, 0.26);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.3, 0.27, 0.42);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    radialGlow(cr, 1010, 140, 300, rgb(170, 160, 230), 0.35);
+    cairo_arc(cr, 1010, 140, 58, 0, 2 * kPi);
+    setRgbaC(cr, rgb(240, 240, 250), 1.0);
+    cairo_fill(cr);
+    std::uint32_t sd = 2323u;
+    auto rnd = [&]() {
+      sd = sd * 1664525u + 1013904223u;
+      return double(sd >> 8) / double(1u << 24);
+    };
+    // Clouds: dark banks with moonlit rims.
+    for (int i = 0; i < 14; ++i)
+    {
+      const double cx = rnd() * 1400 - 60, cy = 60 + rnd() * 280, w = 200 + rnd() * 300, h = 30 + rnd() * 40;
+      for (int pass = 0; pass < 2; ++pass)
+      {
+        cairo_save(cr);
+        cairo_translate(cr, cx, cy - (pass == 0 ? 4 : 0));
+        cairo_scale(cr, w * 0.5, h * 0.5);
+        cairo_new_path(cr);
+        cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+        cairo_restore(cr);
+        if (pass == 0)
+          setRgbaC(cr, rgb(200, 196, 240), std::abs(cx - 1010) < 300 ? 0.55 : 0.18);
+        else
+          setRgbaC(cr, rgb(30, 24, 52), 0.92);
+        cairo_fill(cr);
+      }
+    }
+    // The hill and the house.
+    const Color body = rgb(14, 10, 24);
+    cairo_move_to(cr, 0, 720);
+    cairo_curve_to(cr, 200, 560, 420, 470, 640, 462);
+    cairo_curve_to(cr, 860, 470, 1080, 560, 1280, 640);
+    cairo_line_to(cr, 1280, 720);
+    cairo_close_path(cr);
+    setRgbaC(cr, body, 1.0);
+    cairo_fill(cr);
+    paintHauntedManor(cr, 720, 474, 0.95, body, rgb(255, 214, 120));
+    // A winding path up to the door.
+    cairo_move_to(cr, 560, 720);
+    cairo_curve_to(cr, 640, 640, 560, 560, 712, 476);
+    setRgbaC(cr, rgb(60, 54, 80), 0.6);
+    cairo_set_line_width(cr, 10);
+    cairo_stroke(cr);
+    // A dead tree on the left, its branches clawing at the sky.
+    std::function<void(double, double, double, double, double, int)> branch = [&](double x0, double y0, double a,
+                                                                                    double len, double wd, int depth) {
+      const double x1 = x0 + std::cos(a) * len, y1 = y0 + std::sin(a) * len;
+      cairo_move_to(cr, x0, y0);
+      cairo_line_to(cr, x1, y1);
+      setRgbaC(cr, body, 1.0);
+      cairo_set_line_width(cr, wd);
+      cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+      cairo_stroke(cr);
+      if (depth > 0)
+        for (int c = 0; c < 2; ++c)
+          branch(x1, y1, a + (c == 0 ? -0.5 : 0.45) + (rnd() - 0.5) * 0.4, len * 0.72, wd * 0.62, depth - 1);
+    };
+    branch(170, 640, -kPi * 0.5 - 0.08, 150, 22, 6);
+  });
+}
+
+// Lance in a cape: pose 8, arms thrown wide (the mic still in one hand),
+// a flashlight tucked under his chin; the cape (behind him) swirls through
+// 8 frames; lit from below, his face is all ghoulish shadows. mouth:
+// talking (fangs show).
+const Texture& lanceCaped(ClipKit& k, int swirl, bool mouth)
+{
+  const std::string key = "e4_lance_cape" + std::to_string(swirl) + (mouth ? "o" : "c");
+  // Design coords plus 90 px each side and 40 on top (feet at (120, 480)).
+  return cached(k, key, 420, 560, 210, 520, [&](cairo_t* cr) {
+    cairo_translate(cr, 90, 40);
+    cairo_push_group(cr);
+    const double sw = double(swirl) / 8.0;
+    paintCapeCollar(cr, 128, 172, 170, 100);
+    paintVampireCape(cr, 122, 168, 330, 300, sw, 0.55 + 0.25 * std::sin(sw * 2 * kPi));
+    paintLance(cr, 8, mouth);
+    // The flashlight, tucked under his chin, pointing up at it.
+    const double tx = 130, ty = 176;
+    strokeLimb(cr, {{136, 222}, {tx, ty}}, 14, rgb(40, 40, 46), rgb(10, 8, 20), 2.2);
+    cairo_new_path(cr);
+    cairo_save(cr);
+    cairo_translate(cr, tx, ty);
+    cairo_scale(cr, 11, 5);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(255, 250, 220), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(10, 8, 20), 1.0);
+    cairo_set_line_width(cr, 2.0);
+    cairo_stroke(cr);
+    // Lit from below: dark from the brow up, warm light on the chin and
+    // the underside of everything near the torch.
+    cairo_set_operator(cr, CAIRO_OPERATOR_ATOP);
+    cairo_rectangle(cr, -90, -40, 420, 560);
+    cairo_pattern_t* dark = cairo_pattern_create_linear(0, 20, 0, 260);
+    cairo_pattern_add_color_stop_rgba(dark, 0, 0.02, 0.0, 0.08, 0.72);
+    cairo_pattern_add_color_stop_rgba(dark, 0.45, 0.02, 0.0, 0.08, 0.45);
+    cairo_pattern_add_color_stop_rgba(dark, 1, 0.02, 0.0, 0.08, 0.15);
+    cairo_set_source(cr, dark);
+    cairo_fill(cr);
+    cairo_pattern_destroy(dark);
+    cairo_rectangle(cr, -90, -40, 420, 560);
+    cairo_pattern_t* lit = cairo_pattern_create_radial(tx, ty, 4, tx, ty - 30, 110);
+    cairo_pattern_add_color_stop_rgba(lit, 0, 1.0, 0.9, 0.6, 0.6);
+    cairo_pattern_add_color_stop_rgba(lit, 1, 1.0, 0.9, 0.6, 0.0);
+    cairo_set_source(cr, lit);
+    cairo_fill(cr);
+    cairo_pattern_destroy(lit);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+    cairo_pop_group_to_source(cr);
+    cairo_paint(cr);
+    if (mouth)
+    {
+      // Fangs.
+      for (const double fx : {137.0, 156.0})
+      {
+        cairo_move_to(cr, fx - 3.5, 133);
+        cairo_line_to(cr, fx, 146);
+        cairo_line_to(cr, fx + 3.5, 133);
+        cairo_close_path(cr);
+        setRgbaC(cr, rgb(255, 255, 255), 1.0);
+        cairo_fill_preserve(cr);
+        setRgbaC(cr, rgb(10, 8, 20), 1.0);
+        cairo_set_line_width(cr, 1.0);
+        cairo_stroke(cr);
+      }
+    }
+  });
+}
+
+// Shot: Lance at the manor. The manor on its hill under the storm, rain
+// slanting; lightning splits the sky on frame 3; Lance in his cape, lit
+// from below by a flashlight that flickers (4-frame loop), the cape
+// swirling (8-frame loop).
+void lanceCapeClip(ClipKit& k, int frame, float t, int ticks, float ox, float oy)
+{
+  k.r.draw(manorHill(k), ox, oy);
+  const bool bolt = frame % 16 == 3, after = frame % 16 == 4;
+  if (bolt || after)
+  {
+    // The sky lights up, and the bolt: a jagged fork down behind the house.
+    k.r.fillRect(0, 0, W, 480, rgba(200, 200, 255, bolt ? 90 : 35));
+    std::uint32_t sd = 1313u + std::uint32_t(ticks / 120);
+    float x = 380.0f + float(sd % 200u), y = 0.0f;
+    while (y < 440.0f)
+    {
+      sd = sd * 1664525u + 1013904223u;
+      const float nx = x + float(int(sd >> 24) % 60 - 30), ny = y + 30.0f + float((sd >> 16) % 30u);
+      k.r.drawLine(x + ox, y + oy, nx + ox, ny + oy, bolt ? 7.0f : 3.0f, rgba(200, 200, 255, bolt ? 140 : 60), Blend::Add);
+      k.r.drawLine(x + ox, y + oy, nx + ox, ny + oy, bolt ? 3.0f : 1.5f, rgb(255, 255, 255), Blend::Add);
+      if ((sd >> 8) % 4u == 0)
+        k.r.drawLine(nx + ox, ny + oy, nx + 50.0f + ox, ny + 40.0f + oy, 1.5f, rgba(220, 220, 255, 160), Blend::Add);
+      x = nx;
+      y = ny;
+    }
+    drawGlow(k.r, k.art, x + ox, 300 + oy, 300.0f, rgb(200, 200, 255), bolt ? 0.5f : 0.2f);
+  }
+  // Rain.
+  for (int i = 0; i < 90; ++i)
+  {
+    const unsigned h = hash2(i, 23);
+    const float rx = std::fmod(float(h % 1400u) + float(ticks) * 3.0f, 1400.0f) - 60.0f;
+    const float ry = std::fmod(float((h >> 11) % 720u) + float(ticks) * 18.0f, 760.0f) - 40.0f;
+    k.r.drawLine(rx + ox, ry + oy, rx + 6.0f + ox, ry + 26.0f + oy, 1.5f, rgba(190, 190, 230, 70));
+  }
+  // Lance, the flashlight flickering under his chin.
+  const bool talking = t > 0.06f && t < 0.5f && (ticks / 7) % 2 == 0;
+  static constexpr float kFlicker[4] = {1.0f, 0.75f, 0.95f, 0.6f};
+  const float fl = kFlicker[frame % 4];
+  const float lx = 400.0f + ox, ly = 690.0f + oy + std::sin(float(ticks) * 0.05f) * 2.0f;
+  drawGlow(k.r, k.art, lx + 6.0f, ly - 360.0f, 260.0f, rgb(255, 200, 120), 0.18f * fl);
+  k.r.draw(lanceCaped(k, frame % 8, talking), lx, ly);
+  drawGlow(k.r, k.art, lx + 10.0f, ly - 304.0f, 60.0f * fl, rgb(255, 230, 160), 0.5f * fl);
+  // The flashlight's beam up into his face, flickering.
+  k.r.drawLine(lx + 10.0f, ly - 304.0f, lx + 6.0f, ly - 380.0f, 56.0f * fl, rgba(255, 240, 190, int(36 * fl)), Blend::Add);
+  if (bolt)
+    k.r.fillRect(0, 0, W, H, rgba(220, 220, 255, 40));
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -5515,6 +5901,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return identCh7(k, frame, frames, ticks, ox, oy);
   if (clip == "lance_cowboy")
     return lanceCowboyClip(k, frame, frames, t, ticks, ox, oy);
+  if (clip == "ident_ch13")
+    return identCh13(k, frame, ticks, ox, oy);
+  if (clip == "lance_cape")
+    return lanceCapeClip(k, frame, t, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

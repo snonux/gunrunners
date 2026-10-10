@@ -166,6 +166,9 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return (slap * 1.1 + b * 0.9) * 0.6 * attack(t, 0.001);
     });
   }
+  // Level 23's briefing: the storm over the manor.
+  if (id == "thunder")
+    return makeSfx(Sfx::Thunder);
   if (id == "light_clunk")
     return makeSfx(Sfx::LightClunk);
   if (id == "crowd_cheer")

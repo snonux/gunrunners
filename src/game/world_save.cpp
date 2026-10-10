@@ -13,9 +13,9 @@ bool World::canSave() const
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
-    (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave()) &&
+    (!mHull.on || hullCanSave()) && !mOrbit.on && !mTurn.on && (!mGrav.on || gravCanSave()) &&
     (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave()) && (!mWest.on || westCanSave()) &&
-    (!mManor.on || manorCanSave());
+    (!mManor.on || manorCanSave()) && (!mKitchen.on || kitchenCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -174,6 +174,13 @@ SaveGame World::snapshot() const
     // a Haunted Armor asleep or awake.
     if (e.kind == EnemyKind::PortraitGhost || e.kind == EnemyKind::HauntedArmor)
       es.attach = e.attach == 0 ? 0 : 1;
+    // Level 24: a meatball's size and mould; an Egg Timer's dial (0 asleep).
+    if (e.kind == EnemyKind::Meatball)
+      es.attach = e.variant + (e.carrier ? 4 : 0);
+    if (e.kind == EnemyKind::EggTimer)
+      es.attach = e.attach == 0 ? 0 : std::max(1, e.cool) + 1;
+    if (e.kind == EnemyKind::CleaverBot)
+      es.attach = 0;
     // Level 20: sparks are put back on their wires (s.reactor); an Imp keeps
     // how fast it has got (attach: pulses lived through).
     if (i >= mLevelEnemyCount)
@@ -364,6 +371,8 @@ SaveGame World::snapshot() const
     s.west = westSave();
   if (mManor.on)
     s.manor = manorSave();
+  if (mKitchen.on)
+    s.kitchen = kitchenSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -452,7 +461,7 @@ bool World::restore(const SaveGame& s)
       (!s.reactor.empty() && !validReactorSave(s.reactor)) ||
       (!s.zero.empty() && !validZeroSave(s.zero)) ||
       (!s.west.empty() && !validWestSave(s.west)) ||
-      (!s.manor.empty() && !validManorSave(s.manor)) ||
+      (!s.manor.empty() && !validManorSave(s.manor)) || (!s.kitchen.empty() && !validKitchenSave(s.kitchen)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -584,6 +593,25 @@ bool World::restore(const SaveGame& s)
     }
     if (e.kind == EnemyKind::Imp)
       e.tell = e.dive = e.aimX = e.cool = 0; // not mid-lunge or saluting
+    if (e.kind == EnemyKind::Meatball)
+    {
+      const int hp = e.hp, x = e.x;
+      e.carrier = se.attach >= 4;
+      e.variant = 0;
+      e.w = e.h = 3;
+      setMeatballSize(e, se.attach % 4);
+      e.hp = hp;
+      e.x = e.prevX = x; // the saved x is already the grown one
+      e.cool = 0;
+      e.ox = 0;
+    }
+    if (e.kind == EnemyKind::EggTimer)
+    {
+      e.attach = se.attach == 0 ? 0 : 1;
+      e.cool = std::max(1, se.attach - 1);
+    }
+    if (e.kind == EnemyKind::CleaverBot)
+      e.attach = e.cool = 0;
     if (e.kind == EnemyKind::PortraitGhost || e.kind == EnemyKind::HauntedArmor)
     {
       e.attach = se.attach;
@@ -881,6 +909,8 @@ bool World::restore(const SaveGame& s)
     loadWest(s.west);
   if (!s.manor.empty())
     loadManor(s.manor);
+  if (!s.kitchen.empty())
+    loadKitchen(s.kitchen);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

@@ -204,6 +204,13 @@ const EnemyDef kEnemies[] = {
   {"portrait_ghost", "PORTRAIT GHOST", K::PortraitGhost, L::Styled, 4, 4, 3, 600, 2, 40, 10, 0, kEnemyNoTally, 0},
   {"haunted_armor", "HAUNTED ARMOR", K::HauntedArmor, L::Styled, 3, 6, 8, 900, 2, 36, 12, 0, kEnemyHarmless, 0},
   {"poltergeist", "POLTERGEIST", K::Poltergeist, L::Styled, 2, 2, 3, 700, 0, 30, 12, 16, kEnemyHarmless, 0},
+  // Level 24. Meatball: stepEvery its roll (contact is world_kitchen.cpp's:
+  // a small one bounces the runner back, bigger ones hurt); Cleaver Bot:
+  // cooldown between lobs, tell its raised arm; Egg Timer: its walk (it
+  // only hurts when it pops).
+  {"meatball", "MEATBALL", K::Meatball, L::Styled, 3, 3, 2, 300, 2, 0, 0, 0, kEnemyHarmless, 0},
+  {"cleaver_bot", "CLEAVER BOT", K::CleaverBot, L::Styled, 3, 5, 5, 700, 0, 36, 12, 24, 0, 0},
+  {"egg_timer", "EGG TIMER", K::EggTimer, L::Styled, 3, 3, 4, 500, 2, 0, 12, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

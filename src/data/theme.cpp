@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 30> kVariants{{
+const std::array<Variant, 31> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -453,6 +453,21 @@ const std::array<Variant, 30> kVariants{{
     rgb(160, 80, 84), rgb(96, 50, 48),
     rgb(150, 112, 74), rgb(196, 160, 112), rgb(80, 54, 34), rgb(255, 80, 50),
     rgb(255, 240, 210), "western"}},
+  // Level 23: a haunted manor on a stormy night, grey stone, dark oak
+  // panelling and faded purple damask; its reflection turns them green.
+  {"haunted_manor",
+   {ThemeId::LostTemple,
+    "FRIGHT NIGHT MANOR",
+    "A HAUNTED MANSION AND ITS REFLECTION, ON A STORMY NIGHT",
+    rgb(6, 6, 18), rgb(34, 28, 62), rgb(78, 70, 110),
+    rgb(86, 82, 100), rgb(132, 126, 148), rgb(38, 34, 50),
+    rgb(170, 140, 230), rgb(210, 190, 255),
+    rgb(112, 70, 46), rgb(58, 34, 24),
+    rgb(200, 40, 70), rgb(255, 150, 170),
+    rgb(176, 120, 255), rgb(110, 255, 150),
+    rgb(38, 32, 62), rgb(14, 12, 26),
+    rgb(150, 156, 176), rgb(220, 228, 244), rgb(58, 60, 78), rgb(120, 255, 150),
+    rgb(238, 230, 255), "manor"}},
 }};
 
 } // namespace

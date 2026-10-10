@@ -101,6 +101,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   if (mZero.wireframe)
     drawWireframeBackdrop(r, camX, camY, frame); // the Wireframe bonus's debug view (world_zero_draw.cpp)
   drawStarfallSky(r, camX, camY, frame);
+  if (mManor.on)
+    drawManorWall(r, camX, camY, frame); // Level 23: the inside walls and windows
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -175,6 +177,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWestBack(r, camX, camY, frame, alpha);
   if (mManor.on)
     drawManorBack(r, camX, camY, frame, alpha);
+  if (mKitchen.on)
+    drawKitchenBack(r, camX, camY, frame, alpha);
+  if (mTurn.on)
+    drawTurntableBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -278,6 +284,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.fillRect(x + 24, y + 13, 34, 4, rgb(190, 140, 30));
         r.fillRect(x + 48, y + 6, 7, 6, rgb(255, 250, 210));
         drawGlow(r, mArt, x + 56, y + 9, 28, rgb(255, 250, 200), 0.7f);
+        continue;
+      }
+      if (mManor.on && mLevel->themeKey == "haunted_manor")
+      {
+        // Fright Night Manor's duck wears a vampire cape.
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cape", 0, 0, 2, 2).get(1), x + 32, y + 64);
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cape", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mWest.on && mLevel->themeKey == "western_gulch")
@@ -491,6 +505,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 && (frame / 3) % 2 == 0 ? 1 : 0; // blinking red
         else if (e.kind == EnemyKind::WindowBandit)
           variant = 0;
+        else if (e.kind == EnemyKind::PortraitGhost)
+          variant = e.stun > 0 ? 4 : (e.attach == 2 ? 2 : (e.attach == 3 ? 3 : 1)); // tell, lunge; pinned
+        else if (e.kind == EnemyKind::HauntedArmor)
+          variant = e.dive > 0 ? 3 : (e.attach == 2 ? 2 : (e.attach == 1 && e.stun == 0 ? 1 : 0)); // walking, visor, swing
+        else if (e.kind == EnemyKind::Poltergeist)
+          variant = std::clamp(e.variant, 0, 2) + (e.tell > 0 && e.stun == 0 ? 3 : 0); // book, tureen, candelabra; rattling
         else if (e.kind == EnemyKind::Imp)
           variant = (e.aimX > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0))) + (e.variant == 1 ? 4 : 0) +
             8 * std::clamp(e.attach, 0, 4); // glowing, lunging, saluting; hard hat; hotter after each pulse
@@ -548,6 +568,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
           : e.kind == EnemyKind::RepairSwarm           ? (frame / 3) % 4
           : e.kind == EnemyKind::LatticeTurret         ? (frame / 6) % 3
           : e.kind == EnemyKind::Duelist               ? (frame / 2) % 2
+          : e.kind == EnemyKind::PortraitGhost         ? (frame / 6) % 2
+          : e.kind == EnemyKind::HauntedArmor          ? (e.attach == 1 ? (e.x / 3) % 2 : 0)
+          : e.kind == EnemyKind::Poltergeist           ? (e.tell > 0 ? (frame / 2) % 2 : (frame / 10) % 2)
           : e.kind == EnemyKind::TumbleMine || e.kind == EnemyKind::WindowBandit ? 0
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
@@ -561,6 +584,46 @@ void World::draw(Renderer& r, int frame, float alpha) const
         }
         if (e.kind == EnemyKind::Raver && e.dive > 0)
           hop = 14.0f; // hops on the beat
+        if (e.kind == EnemyKind::PortraitGhost)
+        {
+          // Level 23: seen only in the reflection; in the real manor a
+          // ghost is a faint warp in the air, and a black silhouette in the
+          // lightning. Pinned, it is a ledge anyone can see.
+          const bool unseen = !mManor.split.on && mManor.side == kSideReal && e.stun == 0;
+          if (unseen && mManor.flash > 0)
+          {
+            eo.tint = rgb(8, 6, 16);
+            eo.alpha = 0.9f;
+          }
+          else if (unseen)
+            eo.alpha = e.attach == 2 || e.attach == 3 ? 0.2f : 0.1f;
+          else
+            eo.alpha = 0.9f;
+          if (e.stun == 0)
+            hop = 4.0f + std::sin(float(frame) * 0.1f + float(e.id)) * 5.0f; // hovering
+        }
+        if (e.kind == EnemyKind::Poltergeist && e.tell > 0 && e.stun == 0)
+        {
+          // The rattle: it lifts a cell and shakes.
+          hop = kCellPx * std::min(1.0f, float(kPolterTell - e.tell + 1) / 4.0f);
+          x += (frame / 2) % 2 ? 3.0f : -3.0f;
+        }
+        if ((e.kind == EnemyKind::PortraitGhost || e.kind == EnemyKind::HauntedArmor || e.kind == EnemyKind::Poltergeist) &&
+            e.stun > 0 && e.stun <= 15 && (frame / 3) % 2 == 0)
+          eo.alpha *= 0.35f; // a pin about to give
+        if (e.kind == EnemyKind::HauntedArmor && e.dive > 0)
+        {
+          // The halberd's sweep: an arc three blocks deep in front of it.
+          const float a = float(e.dive) / 6.0f;
+          const float hx = x + float(e.dir) * float(e.w) * kCellPx * 0.3f, hy = y - float(e.h) * kCellPx * 0.6f;
+          for (int k = 0; k < 9; ++k)
+          {
+            const float t0 = -1.1f + float(k) * 0.26f, t1 = t0 + 0.26f;
+            const float rr = 3.0f * kTilePx;
+            r.drawLine(hx + float(e.dir) * std::cos(t0) * rr, hy + std::sin(t0) * rr, hx + float(e.dir) * std::cos(t1) * rr,
+              hy + std::sin(t1) * rr, 10.0f * a, rgba(230, 240, 255, int(150 * a)), Blend::Add);
+          }
+        }
         if (e.kind == EnemyKind::TumbleMine)
         {
           // Rolling: turned by how far it has gone, round its middle (the
@@ -638,6 +701,16 @@ void World::draw(Renderer& r, int frame, float alpha) const
         o.angle = eo.angle; // turned over on a ceiling (level 19)
       r.draw(*tex, x, y - hop, o);
     }
+    if (e.stun > 0 && (e.kind == EnemyKind::HauntedArmor || e.kind == EnemyKind::Poltergeist))
+    {
+      // Level 23: the Silver Crossbow bolt that pins it, sticking out.
+      const float bx = x - float(e.dir) * 6.0f, by = y - hop - float(e.h) * kCellPx * 0.55f;
+      const float d = float(-e.dir);
+      r.drawLine(bx, by, bx + d * 40.0f, by - 4.0f, 4.0f, rgb(20, 18, 30));
+      r.drawLine(bx, by, bx + d * 40.0f, by - 4.0f, 2.0f, rgb(220, 226, 240));
+      r.drawLine(bx + d * 32.0f, by - 3.0f, bx + d * 42.0f, by - 10.0f, 3.0f, rgb(250, 250, 255));
+      r.drawLine(bx + d * 32.0f, by - 3.0f, bx + d * 42.0f, by + 3.0f, 3.0f, rgb(250, 250, 255));
+    }
   }
 
   // Power cuts: the dark goes over the level but under the runner.
@@ -682,6 +755,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWestFront(r, camX, camY, frame, alpha);
   if (mManor.on)
     drawManorFront(r, camX, camY, frame, alpha);
+  if (mKitchen.on)
+    drawKitchenFront(r, camX, camY, frame, alpha);
+  if (mTurn.on)
+    drawTurntableFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -690,6 +767,40 @@ void World::draw(Renderer& r, int frame, float alpha) const
     float cy = lerpCells(pr.prevY, pr.y, alpha) + float(pr.h) * kCellPx * 0.5f - camY;
     if (mZero.on && drawZeroShot(r, mArt, pr, cx, cy, frame))
       continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
+    if (pr.thrown > 0)
+    {
+      // Level 23: a Poltergeist's book, plate or candlestick, tumbling; a
+      // carrier plate glows green.
+      const float a = float(frame + pr.age * 3) * 0.35f * float(pr.dx < 0 ? -1 : 1);
+      const float rad = 32.0f;
+      DrawOpts o;
+      o.angle = pr.thrown == 1 ? std::sin(a) * 20.0f : a * 57.2958f;
+      const float ang = o.angle / 57.2958f;
+      if (pr.carrier)
+      {
+        drawGlow(r, mArt, cx, cy, 70.0f, rgb(120, 255, 60), 0.6f + 0.2f * std::sin(float(frame) * 0.4f));
+        o.tint = rgb(170, 255, 140);
+      }
+      else
+        drawGlow(r, mArt, cx, cy, 40.0f, rgb(120, 255, 150), 0.25f);
+      r.draw(styledEnemySprite(mArt, r, mTheme, "manor_thrown", std::clamp(pr.thrown - 1, 0, 2), (frame / 3) % 2, 2, 2)
+               .get(pr.dx < 0 ? -1 : 1),
+        cx - rad * std::sin(ang), cy + rad * std::cos(ang), o);
+      continue;
+    }
+    if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SilverCrossbow))
+    {
+      // Level 23: a silver crossbow bolt.
+      const float d = float(pr.dx < 0 ? -1 : 1), by = cy - 6.0f;
+      drawGlow(r, mArt, cx, by, 30.0f, rgb(220, 230, 255), 0.4f);
+      r.drawLine(cx - d * 26.0f, by, cx + d * 22.0f, by, 5.0f, rgb(20, 18, 30));
+      r.drawLine(cx - d * 26.0f, by, cx + d * 20.0f, by, 2.5f, rgb(230, 234, 246));
+      r.drawLine(cx + d * 14.0f, by - 6.0f, cx + d * 26.0f, by, 3.0f, rgb(255, 255, 255));
+      r.drawLine(cx + d * 14.0f, by + 6.0f, cx + d * 26.0f, by, 3.0f, rgb(255, 255, 255));
+      r.drawLine(cx - d * 26.0f, by - 6.0f, cx - d * 16.0f, by, 3.0f, rgb(240, 240, 250));
+      r.drawLine(cx - d * 26.0f, by + 6.0f, cx - d * 16.0f, by, 3.0f, rgb(240, 240, 250));
+      continue;
+    }
     if (pr.spike)
     {
       // A Space Barnacle's spike: a short dark needle along its flight.
@@ -1120,6 +1231,12 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     y = (fy - std::cos(a) * off) * kCellPx - camY;
     o.angle = a * 57.2958f;
   }
+  if (mTurn.on)
+  {
+    // Turntable: upright on screen (gravity stays down), feet under the middle.
+    x = (mTurn.prevSx + (mTurn.sx - mTurn.prevSx) * alpha) * kCellPx - camX;
+    y = (mTurn.prevSy + (mTurn.sy - mTurn.prevSy) * alpha + 2.0f) * kCellPx - camY;
+  }
   if (mOrbit.on)
   {
     // Planetoids: standing out from the little world's surface, feet on it.
@@ -1422,6 +1539,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawWestHud(r, frame);
   if (mManor.on)
     drawManorHud(r, frame);
+  if (mKitchen.on)
+    drawKitchenHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

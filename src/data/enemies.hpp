@@ -113,6 +113,10 @@ enum class EnemyKind
   PortraitGhost, // leaves its portrait, chases through walls, lunges; pinned it is a platform
   HauntedArmor,  // wakes as you pass, walks after you, swings its halberd
   Poltergeist,   // lives in a glowing object and throws things at you
+  // Level 24, Too Many Cooks (world_kitchen.cpp).
+  Meatball,      // rolls along belts, grows in sauce, bounces small runners back
+  CleaverBot,    // stands on a rim and lobs cleavers that stick in walls
+  EggTimer,      // walks at you and pops when its dial runs out
 };
 
 enum EnemyFlag : unsigned
