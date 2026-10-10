@@ -65,6 +65,9 @@ enum class EnemyKind
   LoomSpider, // level 47: walks its Silk Line; cuts it under you after a tell, spins it again (world_silk.cpp)
   CocoonPod, // level 47: hangs on a web; drops its Dropling on you as you pass under
   Dropling,  // level 47: falls out of its pod on a thread, bites, climbs back up
+  ThornHog,  // level 48: paces the plains, lowers its tusks and charges (world_plains.cpp)
+  SkyGulper, // level 48: a floating mouth; swallows a runner on foot and spits them back
+  Thornbush, // level 48: a bush in the grass; carrier=1 is the green one with the Virus
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go

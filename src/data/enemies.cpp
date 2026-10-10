@@ -109,6 +109,12 @@ const EnemyDef kEnemies[] = {
   {"loom_spider", "LOOM SPIDER", K::LoomSpider, L::Styled, 3, 3, 3, 600, 2, 0, 8, 10, 0, 0},
   {"cocoon_pod", "COCOON POD", K::CocoonPod, L::Styled, 2, 3, 3, 300, 0, 30, 0, 3, 0, 0},
   {"dropling", "DROPLING", K::Dropling, L::Styled, 2, 2, 1, 100, 0, 0, 8, 0, kEnemyNoTally, 0},
+  // Level 48: Bounder Plains. Thorn Hog: range is how near (cells, on its
+  // floor) sets it charging. Sky Gulper: range is how far (cells) it sways
+  // to either side of where it starts; it hurts no one, it swallows.
+  {"thorn_hog", "THORN HOG", K::ThornHog, L::Styled, 4, 3, 3, 400, 2, 30, 10, 16, 0, 0},
+  {"sky_gulper", "SKY GULPER", K::SkyGulper, L::Styled, 4, 4, 5, 700, 0, 40, 0, 10, kEnemyHarmless, 0},
+  {"thornbush", "THORNBUSH", K::Thornbush, L::Styled, 3, 2, 1, 50, 0, 0, 0, 0, kEnemyNoTally, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
   // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).

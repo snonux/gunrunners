@@ -376,6 +376,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.cool > 0 ? 1 : 0; // split open, its Dropling out
         else if (e.kind == EnemyKind::Dropling)
           variant = e.attach == 2 ? 1 : 0; // biting
+        else if (e.kind == EnemyKind::ThornHog)
+          variant = e.stun > 0 ? 3 : (e.attach == 2 ? 2 : (e.attach == 1 ? 1 : 0)); // dazed, charging, pawing
+        else if (e.kind == EnemyKind::SkyGulper)
+          variant = e.cool > enemyDef(e.def).cooldown - 12 ? 1 : 0; // mouth shut on a gulp
+        else if (e.kind == EnemyKind::Thornbush)
+          variant = e.carrier ? 1 : 0; // the green one
         else if (e.kind == EnemyKind::SpearRunner)
           variant = e.attach == 2 ? 1 : 0; // the spear up
         else if (e.kind == EnemyKind::PitSnake)
@@ -478,6 +484,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMineFront(r, camX, camY, frame, alpha);
   drawLavaFront(r, camX, camY, frame, alpha);
   drawSpaceFront(r, camX, camY, frame, alpha);
+  drawPlainsFront(r, camX, camY, frame, alpha);
   drawHiveFront(r, camX, camY, frame, alpha);
   drawBoulderFront(r, camX, camY, frame, alpha);
   drawSanctumFront(r, camX, camY, frame, alpha);

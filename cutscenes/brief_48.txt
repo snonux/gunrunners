@@ -1,0 +1,24 @@
+cutscene brief_48
+music theme_bounder_plains
+
+# Clip brief48_plains: 4 layers. Backdrop: Vurr's violet plains at dusk
+# under its two moons, panning slowly. Mid: a strip of grass across the
+# front, thorns in the middle, a log pen on the right. Characters: the
+# three runners on the left; a Bounder in its pen hopping now and then; a
+# Thorn Hog pacing past the thorns. Foreground: MAX's hologram. 8 frames.
+shot brief48_plains delay=110 repeat=6
+  cue 0 fade=in:600
+  cue 0 sound=holo_on
+  cue 10 say=NOVA "Is that a flea? Why is it the size of a car?"
+  cue 24 say=MAX "That's a Bounder. Friendly. Jump on its back."
+  cue 38 say=MAX "The whip calls one over. Mind the hogs."
+  cue 47 hold=1500
+
+# Clip brief48_ride: 3 layers. Backdrop and plains as before. Characters:
+# Nova jumps onto a Bounder's back (frames 0-3) and it leaps in a long arc
+# over the thorns (4-13) and lands beyond them (14-15). 16 frames.
+shot brief48_ride delay=90 repeat=2
+  cue 2 sound=bounder_jump
+  cue 16 say=NOVA "Okay. I'm keeping this one."
+  cue 24 say=ROCCO "It likes you. It never liked me."
+  cue 29 fade=out:600

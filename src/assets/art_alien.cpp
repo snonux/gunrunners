@@ -311,6 +311,8 @@ Texture bakeAlienSolid(const Renderer& r, const Theme& t, int variant)
     return bakeCrystalSolid(r, t, variant);
   if (isSilk(t))
     return bakeSilkSolid(r, t, variant);
+  if (isPlains(t))
+    return bakePlainsSolid(r, t, variant);
   if (isHive(t))
     return bakeHiveSolid(r, t, variant);
   VectorImage img(64, 64);
@@ -379,6 +381,8 @@ Texture bakeAlienSolidTop(const Renderer& r, const Theme& t, float topOffset, in
     return bakeCrystalSolidTop(r, t, topOffset, height);
   if (isSilk(t))
     return bakeSilkSolidTop(r, t, topOffset, height);
+  if (isPlains(t))
+    return bakePlainsSolidTop(r, t, topOffset, height);
   if (isHive(t))
     return bakeHiveSolidTop(r, t, topOffset, height);
   VectorImage img(64, height);
@@ -427,6 +431,8 @@ Texture bakeAlienPlatform(const Renderer& r, const Theme& t)
     return bakeCrystalPlatform(r, t);
   if (isSilk(t))
     return bakeSilkPlatform(r, t);
+  if (isPlains(t))
+    return bakePlainsPlatform(r, t);
   if (isHive(t))
     return bakeHivePlatform(r, t);
   VectorImage img(64, 40);
@@ -461,6 +467,8 @@ Texture bakeAlienSky(const Renderer& r, const Theme& t)
     return bakeCrystalSky(r, t);
   if (isSilk(t))
     return bakeSilkSky(r, t);
+  if (isPlains(t))
+    return bakePlainsSky(r, t);
   if (isHive(t))
     return bakeHiveSky(r, t);
   VectorImage img(kScreenW, kScreenH);
@@ -538,6 +546,8 @@ Texture bakeAlienFar(const Renderer& r, const Theme& t, int layerW)
     return bakeCrystalFar(r, t, layerW);
   if (isSilk(t))
     return bakeSilkFar(r, t, layerW);
+  if (isPlains(t))
+    return bakePlainsFar(r, t, layerW);
   if (isHive(t))
     return bakeHiveFar(r, t, layerW);
   VectorImage img(layerW, kScreenH);
@@ -568,6 +578,8 @@ Texture bakeAlienNear(const Renderer& r, const Theme& t, int layerW)
     return bakeCrystalNear(r, t, layerW);
   if (isSilk(t))
     return bakeSilkNear(r, t, layerW);
+  if (isPlains(t))
+    return bakePlainsNear(r, t, layerW);
   if (isHive(t))
     return bakeHiveNear(r, t, layerW);
   VectorImage img(layerW, kScreenH);
