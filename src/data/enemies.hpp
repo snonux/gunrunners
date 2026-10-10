@@ -94,6 +94,10 @@ enum class EnemyKind
   Jelly,     // deep water: pulses up and drifts down, stings on contact
   SeaMine,   // deep water: bobs on its chain, blows up when something comes close
   Angler,    // deep water: waits behind its lure, then lunges
+  // Level 19, Gravity Lab (world_grav.cpp).
+  FlipWalker,  // patrols on its chamber's down; falls when the chamber turns over
+  Probe,       // a Gravity Probe: hovers its distance, aimed shots, a field that pulls you in
+  TestSubject, // chases on its chamber's down; crouches and copies your jumps
 };
 
 enum EnemyFlag : unsigned

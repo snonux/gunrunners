@@ -250,6 +250,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     placeCharge(ox, oy);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::GravGrenade)
+  {
+    // Not a projectile: a grenade that hangs as a vortex (world_grav.cpp).
+    throwVortex(ox, oy, dx, dy);
+    return;
+  }
   if (ProtoId(p.proto) == ProtoId::BlastingCaps)
   {
     // Not a projectile: a cap with a fuse (world_mine.cpp).

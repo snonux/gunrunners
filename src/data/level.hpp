@@ -25,6 +25,7 @@ enum class Tile : unsigned char
   Pipe,       // hang from it, move hand over hand
   ForceField, // solid until the access card is used on it
   Grate,      // solid to walk on; sludge rises through it (level 5)
+  SpikesDown, // hanging from a ceiling: upper half solid, lower half hurts (level 19)
 };
 
 struct Spawn
@@ -87,6 +88,7 @@ struct Level
   std::vector<std::pair<int, int>> decorations;
   int startTx = 1, startTy = 1;
   int exitTx = 2, exitTy = 1;
+  bool hasExit = false; // an X in the map (bonus levels end otherwise)
 
   Tile at(int tx, int ty) const;
   void set(int tx, int ty, Tile t);

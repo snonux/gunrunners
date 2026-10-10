@@ -78,6 +78,8 @@ doesn't fit), every shot shrinks them a step, and from 1.5 x up they break
 within r + 4 blocks, walking follows its surface all the way round, a jump
 launches along the surface normal and between the fields the runner drifts
 in a straight line (lost for 8 s, it is beamed back to the last planetoid);
+`gun_gravity`: down is wherever the runner's last straight shot went (any of
+the four walls; walking and jumping follow the current floor);
 `goal=collect:N` counts the `@ part`s instead of gems),
 `timer=` in seconds and `goal=exit`, `goal=collect:N`, `goal=score:N`,
 `goal=goals:N` (`zero_friction`: N pucks into the `@ hockeygoal`s) or
@@ -215,6 +217,13 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `deco` … `kind=mast\|dish\|truss\|wing\|airlock\|ufo\|girder` | `rect` | `theme=station_hull` scenery drawn over the tiles there (the tiles decide what is solid) |
 | `breakable` … `look=ufo` | | the crashed UFO's hatch; when it opens its tiny alien gives a thumbs-up |
 | `planetoid`, `part` | `x y r=`; `x y` | `radial_gravity`: a little world of radius r blocks, and one of the alien ship's parts (taken within 2.5 cells of the runner's middle) |
+| `gravzone` | `ID rect=x0,y0,x1,y1 dir=down\|up switch=SID` | Level 19's chambers: everything in the rect falls toward `dir` (a zone inside another wins). A runner whose middle enters a chamber takes its down at once (outside every chamber it keeps the one it has); a turned runner hangs from the ceiling, walks along it and jumps away from it, left staying left. Released items fall the chamber's way too |
+| `switch` | `ID x y kind=panel` | turns its chamber (`switch=` on the zone, or the zone it sits in) over when the runner overlaps it and presses up, or shoots it, or a Grav Grenade touches it; it rests 10 frames after each. Two flips within 15 frames give the runner dizzy stars |
+| `testgate` | `ID x y h=3 opens=ID,ID` or `hits=SID` | a gate (solid blocks x, y.. y+h-1) that slides open once the enemies it names are dead, or once switch SID is hit twice within 15 frames (the closet) |
+| `fakewall` | `x y h=` | drawn as wall, walked through (put `#` in the map: the tiles are cleared) |
+| `deco` | `kind=arrow x y`; `kind=mug\|desk\|chain\|window\|42 x y` or `rect=` | the Gravity Lab's orange wall arrows (they point the chamber's way and turn when it flips), and its scenery (station_gravlab) |
+| header `weapon=grav_grenade` | | the Grav Grenade: lobbed toward the runner's down, it stops at the first thing it touches (or after 12 frames) and hangs 45 frames as a vortex pulling enemies within 6 blocks to its middle at a cell a frame, then pops (2 damage within 2 blocks) |
+| enemy keys `flip_walker`, `gravity_probe`, `test_subject` (`carrier=1`) | | Level 19: the Flip Walker patrols its chamber's floor, turns to face a runner on it 8 frames before walking at it, and falls when the chamber turns over (a fall of 5+ blocks costs it 2 hearts, 10+ kills it); the Gravity Probe ignores gravity, hovers 6 blocks from you, glows 12 frames before each aimed shot and pulls you along your floor toward it a quarter cell a frame within 8 blocks (not in Turbo); the Test Subject chases you along its chamber's floor and, when you jump in its chamber, crouches 8 frames and copies the jump with your own arc (spikes kill it) |
 | enemy keys `space_barnacle` (`face=`), `eva_ram`, `rivet_mites` (`carrier=1`) | | Level 18's hull: the Space Barnacle opens a glowing crack for 12 frames when you come within 4 blocks, then fires six spikes in a ring (8 blocks); the EVA Ram hovers to your row, flashes its thruster 15 frames once you stand on the hull, and rams along it 3 cells a frame up to 12 blocks (a heart and 3 blocks of push; Rocco stands his ground), then coasts 30 frames; Rivet Mites are a swarm of five on a plate (one enemy): they crawl to its rivets and work them out, and one within a cell of you glows green 10 frames and hops on (a carrier infects) |
 | `hockeygoal`, `puckspawn` | `rect=`; `x y` | `zero_friction`: a goal mouth (a puck in it scores and comes back to the `puckspawn`, or the nearest free spot) |
 | enemy keys `puck_drone` (`goalie=1 phase=`), `sleeper_pod` (`carrier=1`), `pod_mutant`, `lab_arm` (`rail=x0,x1`) | | Level 16's labs: a Puck Drone spins up 10 frames, then slides at you along its floor, turning at walls and ledges, and rests 30 frames after 3 bounces (only a crouched shot hits it); a `goalie=1` one stands in front of a goal and hops 6 cells every 48 frames (`phase` frames in), saving every puck that hits it. A Sleeper Pod's frost melts as you come within 5 blocks and its mutant comes out while fewer than 3 are about (shots pass the pod); the Pod Mutant staggers after you, raises its arms 10 frames and lunges 4 cells. A Lab Arm rides its section of the rail above you, glows red 12 frames, drops, holds the runner 15 frames while lifting them 2 blocks and lets go; it takes 6 hits or its power box |
@@ -256,6 +265,7 @@ hanging), and jumps 6 to 9 cells high depending on the runner.
 | `#`  | solid block |
 | `=`  | one-way platform (jump up through it, land on top) |
 | `^`  | spikes: the top half hurts, the bottom half is solid |
+| `v`  | spikes hanging from a ceiling: the top half is solid, the bottom half hurts |
 | `H`  | ladder: press up to grab it, jump off at the top |
 | `-`  | hang bar (pipe): you grab it automatically when jumping into it; down aims down, up pulls your legs in, down+jump drops |
 | `D`  | force field: solid and deadly until you touch it while carrying the access card |

@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <queue>
 #include <unordered_map>
 
@@ -657,7 +658,21 @@ int Planner::altarToHold(const World& w) const
 
 void Planner::buildField(const World& w, const Goal& goal)
 {
-  const CollisionMap& map = w.map();
+  // Level 19: the map with its turned-over view stacked under it (rows Hc
+  // and on): a runner hanging from a ceiling is one standing on the turned
+  // map's floor. Switches flip between the two; walking into a chamber whose
+  // down is the other way turns the runner over.
+  const auto& gs = w.grav();
+  const bool stacked = gs.on && !gs.gun && !gs.zones.empty();
+  std::optional<CollisionMap> stack;
+  if (stacked)
+  {
+    stack.emplace(w.map());
+    stack->makeStack(w.map());
+  }
+  const CollisionMap& map = stacked ? *stack : w.map();
+  const int Hc = w.map().height();
+  mStackHc = stacked ? Hc : 0;
   mW = map.width();
   mH = map.height();
   const int W = mW, H = mH;
@@ -748,6 +763,13 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (x >= 0 && y >= 0 && x < W && y < H)
           blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   }
+  // Level 19: a test gate opens once its subjects are down (see heuristic).
+  for (const auto& t : w.grav().gates)
+    if (!t.open && !t.enemies.empty())
+      for (int y = t.by * kCellsPerTile; y < (t.by + t.h) * kCellsPerTile; ++y)
+        for (int x = t.bx * kCellsPerTile; x < (t.bx + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   // Level 15: a crate one shot breaks is no wall to the field.
   for (const auto& c : w.station().crates)
     if (c.alive && !c.loose && !c.held)
@@ -1058,6 +1080,22 @@ void Planner::buildField(const World& w, const Goal& goal)
       }
     }
 
+  // Level 19: each position's chamber (by the box's middle, in the map),
+  // and whether its down is up.
+  std::vector<int> zoneOf;
+  std::vector<char> zoneUp;
+  if (stacked)
+  {
+    zoneOf.assign(std::size_t(W * H), -1);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        zoneOf[std::size_t(y * W + x)] = w.gravZoneAt(x + 1, y < Hc ? y - 2 : 2 * Hc + 1 - y);
+    for (const auto& z : gs.zones)
+      zoneUp.push_back(z.dir == Grav::Up);
+  }
+  // The same box, turned over: a row of one half to the row of the other.
+  auto flipRow = [&](int y) { return 2 * Hc + 3 - y; };
+
   const int A = kAirBudget + 1;
   const int N = W * H * A;
   auto node = [&](int x, int y, int a) { return (y * W + x) * A + a; };
@@ -1086,6 +1124,17 @@ void Planner::buildField(const World& w, const Goal& goal)
         auto add = [&](int tx, int ty, int ta, int cost) {
           if (tx < 0 || tx >= W || ty < 0 || ty >= H)
             return;
+          if (stacked)
+          {
+            // Into another chamber whose down is the other way: turned over.
+            const int zf = zoneOf[i], zt = zoneOf[std::size_t(ty * W + tx)];
+            if (zt >= 0 && zt != zf && (zoneUp[std::size_t(zt)] != 0) != (ty >= Hc))
+            {
+              ty = flipRow(ty);
+              if (ty < 0 || ty >= H)
+                return;
+            }
+          }
           const std::size_t j = std::size_t(ty * W + tx);
           if (!valid[j])
             return;
@@ -1117,6 +1166,25 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (!oneWay)
           add(x, y + 1, a, 1);
       }
+    }
+  // Level 19: up on a switch (on the ground) turns its chamber over, and
+  // the runner with it.
+  if (stacked)
+    for (const auto& sw : gs.switches)
+    {
+      const CellBox sb{sw.bx * kCellsPerTile, sw.by * kCellsPerTile, 2, 2};
+      for (int y = 0; y < H; ++y)
+        for (int x = std::max(0, sb.x - 2); x <= std::min(W - 1, sb.x + 1); ++x)
+        {
+          const std::size_t i = std::size_t(y * W + x);
+          const CellBox real = y < Hc ? boxAt(x, y, 3, 5) : CellBox{x, 2 * Hc - 1 - y, 3, 5};
+          if (!valid[i] || support[i] != 0 || !real.intersects(sb))
+            continue;
+          const int ty = flipRow(y);
+          if (ty < 0 || ty >= H || !valid[std::size_t(ty * W + x)])
+            continue;
+          list.push_back({node(x, y, 0), node(x, ty, 0), 8});
+        }
     }
   // The launch: 14 cells up, 2 a frame sideways, and still 2 a frame
   // sideways on the way down.
@@ -1298,7 +1366,8 @@ void Planner::buildField(const World& w, const Goal& goal)
       const std::size_t i = std::size_t(y * W + x);
       if (!valid[i])
         continue;
-      if (!boxAt(x, y, 3, 5).intersects(goalBox))
+      const CellBox body = stacked && y >= Hc ? CellBox{x, 2 * Hc - 1 - y, 3, 5} : boxAt(x, y, 3, 5);
+      if (!body.intersects(goalBox))
         continue;
       if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5 || goal.kind == 8 || goal.kind >= 9) && support[i] != 0)
         continue;
@@ -1368,6 +1437,15 @@ void Planner::dumpField() const
   }
 }
 
+int Planner::fieldRow(const World& w) const
+{
+  // Level 19: hanging from a ceiling is the stacked turned-over map's floor.
+  const auto& p = w.player();
+  if (mStackHc > 0 && p.grav == Grav::Up)
+    return 2 * mStackHc - 1 - p.y;
+  return p.y;
+}
+
 int Planner::heuristic(const World& w) const
 {
   const auto& p = w.player();
@@ -1415,6 +1493,12 @@ int Planner::heuristic(const World& w) const
   for (const auto& e : w.enemies())
     if (e.alive && e.kind == EnemyKind::Totem && e.x + e.w > p.x - 2)
       extra += 12 * e.hp;
+  // Level 19: every Test Subject still behind its gate is a shot to come.
+  for (const auto& t : w.grav().gates)
+    if (!t.open)
+      for (int en : t.enemies)
+        if (std::size_t(en) < w.enemies().size() && w.enemies()[std::size_t(en)].alive)
+          extra += 20 * std::max(1, w.enemies()[std::size_t(en)].hp);
   // Level 15: every crate still standing is a shot to come.
   for (const auto& c : w.station().crates)
     if (c.alive && !c.loose)
@@ -1458,7 +1542,10 @@ int Planner::heuristic(const World& w) const
         return best + int((whole.len - p.silkS) / 2.0f) + extra;
     }
   }
-  const int base = (p.y * mW + p.x) * A;
+  const int py = fieldRow(w);
+  if (py < 0 || py >= mH)
+    return kInf;
+  const int base = (py * mW + p.x) * A;
   int best = kInf;
   for (int a = 0; a < A; ++a)
     best = std::min(best, mDist[std::size_t(base + a)]);
@@ -1470,7 +1557,7 @@ int Planner::heuristic(const World& w) const
       for (int dy = -r; dy <= r; ++dy)
         for (int dx = -r; dx <= r; ++dx)
         {
-          const int x = p.x + dx, y = p.y + dy;
+          const int x = p.x + dx, y = py + dy;
           if (x < 0 || y < 0 || x >= mW || y >= mH)
             continue;
           for (int a = 0; a < A; ++a)
@@ -1924,6 +2011,11 @@ void Planner::plan(const World& world)
     for (const auto& pl : world.green().plants)
       powered = powered * 2 + (pl.shown > 0);
     powered = powered * 31 + mPendingDoor + 1;
+    // Level 19: which way each chamber is turned, and the gates.
+    for (const auto& z : world.grav().zones)
+      powered = powered * 2 + (z.dir == Grav::Up);
+    for (const auto& t : world.grav().gates)
+      powered = powered * 2 + t.open;
     // Level 46: where the Swap Crystals are (a drifting one is anywhere on
     // its path until swapped).
     for (const auto& c : world.swapCrystals())
@@ -1992,6 +2084,14 @@ void Planner::plan(const World& world)
     k = mix(k, std::uint64_t(int(p.state)) | (std::uint64_t(std::min(p.frames, 12)) << 8) |
                  (std::uint64_t(p.facing > 0) << 16) | (std::uint64_t(w.clock() % period) << 20));
     k = mix(k, std::uint64_t(p.hp) | (std::uint64_t(int(p.weapon)) << 8) | (std::uint64_t(p.hasKey) << 12));
+    // Level 19: the runner's down, and the chambers'.
+    if (w.grav().on)
+    {
+      std::uint64_t gk = std::uint64_t(int(p.grav)) + 1;
+      for (const auto& z : w.grav().zones)
+        gk = gk * 2 + (z.dir == Grav::Up);
+      k = mix(k, gk);
+    }
     int alive = 0;
     for (const auto& e : w.enemies())
       alive += e.alive;

@@ -109,6 +109,10 @@ enum class Sfx
   Rivet,     // a rivet working loose and popping out (a metallic ping)
   Hop,       // a Rivet Mite or the runner on a planetoid leaping (a tiny chirp)
   FlagUp,    // a flag planted: a flap of cloth and a little fanfare
+  GravFlip,  // a chamber turning over: a rising whoosh with a klaxon blip
+  Thud,      // landing after a flip (a soft body thump)
+  Vortex,    // the Grav Grenade's vortex opening (a deep swirling hum)
+  ProbeShot, // a Gravity Probe's aimed shot (a hollow electronic blip)
   Count,
 };
 

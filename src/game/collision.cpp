@@ -72,6 +72,8 @@ bool CollisionMap::solid(int cx, int cy) const
       return cy >= 0 && cy < height();
     case Tile::Spikes:
       return (cy & 1) == 1; // the base of the spike block
+    case Tile::SpikesDown:
+      return (cy & 1) == 0; // hung from the ceiling
     case Tile::ForceField:
       return mForceFieldsOn;
     default:
@@ -104,7 +106,8 @@ bool CollisionMap::climbable(int cx, int cy) const
 
 bool CollisionMap::hazard(int cx, int cy) const
 {
-  return tileAt(cx, cy) == Tile::Spikes && (cy & 1) == 0;
+  const Tile t = tileAt(cx, cy);
+  return (t == Tile::Spikes && (cy & 1) == 0) || (t == Tile::SpikesDown && (cy & 1) == 1);
 }
 
 bool CollisionMap::forceField(int cx, int cy) const
@@ -204,6 +207,67 @@ MoveResult CollisionMap::moveVertically(int x, int& bottomY, int w, int h, int a
     bottomY += step;
   }
   return MoveResult::Completed;
+}
+
+void CollisionMap::makeView(const CollisionMap& src, int g)
+{
+  const int W = src.mW, H = src.mH;
+  const bool side = g == 2 || g == 3;
+  mW = side ? H : W;
+  mH = side ? W : H;
+  mTiles.assign(std::size_t(mW * mH), Tile::Empty);
+  mForceFieldsOn = src.mForceFieldsOn;
+  for (int ty = 0; ty < H; ++ty)
+    for (int tx = 0; tx < W; ++tx)
+    {
+      Tile t = src.mTiles[std::size_t(ty * W + tx)];
+      // Spikes point the other way up when the world is turned over.
+      if (g == 1 && (t == Tile::Spikes || t == Tile::SpikesDown))
+        t = t == Tile::Spikes ? Tile::SpikesDown : Tile::Spikes;
+      else if (side && (t == Tile::Spikes || t == Tile::SpikesDown))
+        t = Tile::Solid;
+      const int vx = g == 1 ? tx : (g == 2 ? ty : H - 1 - ty);
+      const int vy = g == 1 ? H - 1 - ty : (g == 2 ? W - 1 - tx : tx);
+      mTiles[std::size_t(vy * mW + vx)] = t;
+    }
+  auto turn = [&](const CellBox& b) {
+    const int Wc = W * kCellsPerTile, Hc = H * kCellsPerTile;
+    if (g == 1)
+      return CellBox{b.x, Hc - b.y - b.h, b.w, b.h};
+    if (g == 2)
+      return CellBox{b.y, Wc - b.x - b.w, b.h, b.w};
+    return CellBox{Hc - b.y - b.h, b.x, b.h, b.w};
+  };
+  mPlatforms.clear();
+  for (const auto& b : src.mPlatforms)
+    mPlatforms.push_back(turn(b));
+  mFloats.clear();
+  for (const auto& b : src.mFloats)
+    mFloats.push_back(turn(b));
+}
+
+void CollisionMap::makeStack(const CollisionMap& src)
+{
+  CollisionMap up = src;
+  up.makeView(src, 1);
+  mW = src.mW;
+  mH = src.mH * 2;
+  mForceFieldsOn = src.mForceFieldsOn;
+  mTiles = src.mTiles;
+  mTiles.insert(mTiles.end(), up.mTiles.begin(), up.mTiles.end());
+  mPlatforms = src.mPlatforms;
+  mFloats = src.mFloats;
+  const int Hc = src.mH * kCellsPerTile;
+  for (auto b : up.mPlatforms)
+  {
+    b.y += Hc;
+    mPlatforms.push_back(b);
+  }
+  for (auto b : up.mFloats)
+  {
+    b.y += Hc;
+    mFloats.push_back(b);
+  }
 }
 
 } // namespace gr

@@ -171,6 +171,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkGreen();
   linkHull();
   linkOrbit();
+  linkGrav();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -305,6 +306,8 @@ void World::update(const PlayerInput& input)
         updateDrift(input);
       else if (mOrbit.on)
         updateOrbit(input);
+      else if (mGrav.on)
+        updateGravPlayer(input);
       else
         updatePlayer(input);
       updateVehicles(input);
@@ -336,6 +339,7 @@ void World::update(const PlayerInput& input)
       updateCryo(input);
       updateGreen(input);
       updateHull(input);
+      updateGrav(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -739,6 +743,15 @@ void World::updateEnemies()
       case EnemyKind::Angler:
         updateAngler(e, def);
         break;
+      case EnemyKind::FlipWalker:
+        updateFlipWalker(e, def);
+        break;
+      case EnemyKind::Probe:
+        updateProbe(e, def);
+        break;
+      case EnemyKind::TestSubject:
+        updateTestSubject(e, def);
+        break;
     }
 
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
@@ -825,6 +838,9 @@ void World::updateProjectiles()
       return true;
     // Level 18: Rivet Mites are their own targets.
     if (mHull.on && pr.kind != ShotKind::Enemy && shotAtHull(pr, b))
+      return true;
+    // Level 19: a shot throws a gravity switch.
+    if (mGrav.on && pr.kind != ShotKind::Enemy && shotAtGrav(pr, b))
       return true;
     // Level 17: a switch lights its grow lamps.
     if (mGreen.on && pr.kind != ShotKind::Enemy && shotAtGreen(pr, b))
@@ -1244,12 +1260,19 @@ void World::updateItems()
     if (!it.floating)
     {
       // Released items hop out of their box, then drop to the floor.
+      // (In a chamber turned over (level 19), up.)
+      int down = 1;
+      if (mGrav.on)
+      {
+        const int z = gravZoneAt(it.x + 1, it.y);
+        down = z >= 0 && mGrav.zones[std::size_t(z)].dir == Grav::Up ? -1 : 1;
+      }
       if (it.vx != 0 && it.frames <= 6)
         mMap.moveHorizontally(it.x, it.y, 2, 2, it.vx);
       if (it.frames <= 2)
-        mMap.moveVertically(it.x, it.y, 2, 2, -1);
+        mMap.moveVertically(it.x, it.y, 2, 2, -down);
       else
-        mMap.moveVertically(it.x, it.y, 2, 2, it.frames > 5 ? 2 : 1);
+        mMap.moveVertically(it.x, it.y, 2, 2, (it.frames > 5 ? 2 : 1) * down);
       if (it.y > mMap.height() + 2)
         it.taken = true;
       if (!mFluids.empty())

@@ -2380,8 +2380,54 @@ Texture bakeGreenhouseSolidTop(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, float(kTopOff));
 }
 
+// Level 19's test chambers (theme look "gravlab"): a clean white lip on the
+// steel, an orange-and-charcoal safety band under it. No frost: the lab is
+// kept warm. Drawn turned over on the ceilings too (world_grav_draw.cpp).
+bool isGravlab(const Theme& t) { return std::string_view(t.look) == "gravlab"; }
+
+Texture bakeGravlabSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  // The safety band.
+  cairo_save(cr);
+  cairo_rectangle(cr, 0, y + 5, 64, 9);
+  cairo_clip(cr);
+  setColor(cr, t.trim);
+  cairo_paint(cr);
+  for (int x = -16; x < 80; x += 16)
+  {
+    cairo_move_to(cr, x, y + 14);
+    cairo_line_to(cr, x + 7, y + 14);
+    cairo_line_to(cr, x + 16, y + 5);
+    cairo_line_to(cr, x + 9, y + 5);
+    cairo_close_path(cr);
+    setColor(cr, rgb(44, 46, 56));
+    cairo_fill(cr);
+  }
+  cairo_restore(cr);
+  cairo_rectangle(cr, 0, y + 14, 64, 2);
+  setColor(cr, withAlpha(t.rockDark, 200));
+  cairo_fill(cr);
+  // The white lip, lit from the strip lights.
+  cairo_rectangle(cr, 0, y - 1, 64, 6);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y - 1, 0, y + 5);
+  cairo_pattern_add_color_stop_rgb(g, 0, 1.0, 1.0, 1.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.rockLight) / 255.0, greenOf(t.rockLight) / 255.0, blueOf(t.rockLight) / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  cairo_rectangle(cr, 0, y - 2, 64, 1.4);
+  setColor(cr, withAlpha(t.rockDark, 160));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isGravlab(t))
+    return bakeGravlabSolidTop(r, t);
   if (isHull(t))
     return bakeHullSolidTop(r, t);
   if (std::string_view(t.look) == "greenhouse")
@@ -4421,8 +4467,177 @@ Texture bakeHullNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Level 19's lab (theme look "gravlab"): a white panelled hall under
+// strip lights, the big test rigs far off, conduits and lamps up close.
+Texture bakeGravlabSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.45, t.skyMid}, {1.0, t.skyBottom}});
+  // Wall panels: soft rounded tiles with a light top edge and a shadow below.
+  for (int y = 0; y < kScreenH; y += 144)
+    for (int x = (y / 144) % 2 ? -96 : 0; x < kScreenW; x += 192)
+    {
+      roundedRect(cr, x + 5, y + 5, 182, 134, 10);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + 144);
+      cairo_pattern_add_color_stop_rgba(g, 0, 1, 1, 1, 0.55);
+      cairo_pattern_add_color_stop_rgba(g, 1, 1, 1, 1, 0.12);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setColor(cr, withAlpha(t.skyBottom, 150));
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+  // Ceiling strip lights and their glow.
+  for (int k = 0; k < 4; ++k)
+  {
+    roundedRect(cr, 70 + k * 320.0, 22, 220, 12, 6);
+    setColor(cr, rgb(255, 255, 255));
+    cairo_fill(cr);
+    radialGlow(cr, 180 + k * 320.0, 30, 220, rgb(255, 255, 255), 0.35);
+  }
+  // A thin orange safety line along the wall.
+  cairo_rectangle(cr, 0, 600, kScreenW, 6);
+  setColor(cr, withAlpha(t.accentA, 120));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: the big gravity rigs (ringed centrifuges on gantries) and the
+// observation decks, pale grey behind the haze.
+Texture bakeGravlabFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1901u);
+  const Color body = lerpColor(t.farLayer, t.skyMid, 0.25f), edge = lerpColor(t.farLayer, rgb(90, 100, 120), 0.3f);
+  for (double x = 160; x < kLayerW - 200; x += rng.range(560, 700))
+  {
+    const double cx = x, cy = rng.range(330, 400), rad = rng.range(150, 190);
+    // The stand.
+    cairo_move_to(cr, cx - rad * 0.55, kScreenH);
+    cairo_line_to(cr, cx - 24, cy);
+    cairo_line_to(cr, cx + 24, cy);
+    cairo_line_to(cr, cx + rad * 0.55, kScreenH);
+    cairo_close_path(cr);
+    setColor(cr, body);
+    cairo_fill(cr);
+    // Two rings and their spokes.
+    for (int ring = 0; ring < 2; ++ring)
+    {
+      const double rr = rad * (ring == 0 ? 1.0 : 0.62);
+      cairo_arc(cr, cx, cy, rr, 0, 2 * kPi);
+      setColor(cr, edge);
+      cairo_set_line_width(cr, ring == 0 ? 22 : 14);
+      cairo_stroke(cr);
+      cairo_arc(cr, cx, cy, rr, 0, 2 * kPi);
+      setColor(cr, lighten(body, 0.25f));
+      cairo_set_line_width(cr, ring == 0 ? 8 : 5);
+      cairo_stroke(cr);
+    }
+    for (int k = 0; k < 6; ++k)
+    {
+      const double a = k * kPi / 3.0 + 0.3;
+      cairo_move_to(cr, cx + std::cos(a) * 30, cy + std::sin(a) * 30);
+      cairo_line_to(cr, cx + std::cos(a) * rad, cy + std::sin(a) * rad);
+    }
+    setColor(cr, edge);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    cairo_arc(cr, cx, cy, 34, 0, 2 * kPi);
+    setColor(cr, body);
+    cairo_fill_preserve(cr);
+    setColor(cr, edge);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // A test pod riding the outer ring, its lamp lit.
+    const double pa = rng.range(0, 2 * kPi);
+    roundedRect(cr, cx + std::cos(pa) * rad - 18, cy + std::sin(pa) * rad - 14, 36, 28, 8);
+    setColor(cr, lighten(body, 0.35f));
+    cairo_fill_preserve(cr);
+    setColor(cr, edge);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    radialGlow(cr, cx + std::cos(pa) * rad, cy + std::sin(pa) * rad, 14, t.accentA, 0.8);
+  }
+  // Observation decks between the rigs: a long bank of lit windows.
+  for (double x = 420; x < kLayerW - 300; x += rng.range(560, 700))
+  {
+    const double y = rng.range(150, 200), w = rng.range(220, 300);
+    cairo_rectangle(cr, x, y, w, 70);
+    setColor(cr, body);
+    cairo_fill(cr);
+    for (double wx = x + 12; wx < x + w - 30; wx += 38)
+    {
+      cairo_rectangle(cr, wx, y + 14, 30, 34);
+      setColor(cr, withAlpha(lerpColor(t.accentB, rgb(255, 255, 255), 0.55f), 200));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, x, y + 64, w, 4);
+    setColor(cr, withAlpha(t.accentA, 90));
+    cairo_fill(cr);
+    cairo_rectangle(cr, x + w * 0.5 - 6, y + 70, 12, kScreenH - y - 70);
+    setColor(cr, body);
+    cairo_fill(cr);
+  }
+  // Haze over it all.
+  cairo_rectangle(cr, 0, 0, kLayerW, kScreenH);
+  setColor(cr, withAlpha(t.skyMid, 110));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: lamp hoods hanging on long rods and cable bundles dropping out of
+// sight, all pale and vertical so nothing reads as a ledge to stand on.
+Texture bakeGravlabNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1907u);
+  const Color rod = withAlpha(t.nearLayer, 150);
+  for (double x = rng.range(80, 200); x < kLayerW; x += rng.range(380, 520))
+  {
+    // A lamp hood on its rod, a pool of light under it.
+    const double len = rng.range(60, 200);
+    cairo_rectangle(cr, x - 2, 0, 4, len);
+    setColor(cr, rod);
+    cairo_fill(cr);
+    cairo_move_to(cr, x - 34, len + 20);
+    cairo_line_to(cr, x - 14, len);
+    cairo_line_to(cr, x + 14, len);
+    cairo_line_to(cr, x + 34, len + 20);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(darken(t.nearLayer, 0.1f), 170));
+    cairo_fill(cr);
+    radialGlow(cr, x, len + 26, 90, rgb(255, 255, 255), 0.4);
+    cairo_rectangle(cr, x - 28, len + 18, 56, 4);
+    setColor(cr, rgba(255, 255, 255, 230));
+    cairo_fill(cr);
+  }
+  for (double x = rng.range(200, 300); x < kLayerW; x += rng.range(500, 700))
+  {
+    // A bundle of cables, an orange tag on each.
+    for (int k = 0; k < 3; ++k)
+    {
+      const double cx = x + k * 9, len = kScreenH * rng.range(0.5f, 0.9f);
+      cairo_move_to(cr, cx, 0);
+      cairo_curve_to(cr, cx + 6, len * 0.4, cx - 6, len * 0.7, cx + 2, len);
+      setColor(cr, withAlpha(t.nearLayer, 130));
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+      cairo_rectangle(cr, cx - 4, len * 0.3 + k * 30, 9, 14);
+      setColor(cr, withAlpha(t.accentA, 150));
+      cairo_fill(cr);
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isGravlab(t))
+    return bakeGravlabSky(r, t);
   if (isHull(t))
     return bakeHullSky(r, t);
   if (isGreenhouse(t))
@@ -4574,6 +4789,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isGravlab(t))
+    return bakeGravlabFar(r, t);
   if (isHull(t))
     return bakeHullFar(r, t);
   if (isGreenhouse(t))
@@ -4708,6 +4925,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isGravlab(t))
+    return bakeGravlabNear(r, t);
   if (isHull(t))
     return bakeHullNear(r, t);
   if (isGreenhouse(t))

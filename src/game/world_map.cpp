@@ -249,6 +249,17 @@ Texture World::bakeMap(Renderer& r, float s, int bx0, int by0, int bw, int bh) c
         setColor(cr, kMapSpikes);
         cairo_fill(cr);
         break;
+      case Tile::SpikesDown:
+        cairo_move_to(cr, x, y);
+        for (int i = 0; i < 3; ++i)
+        {
+          cairo_line_to(cr, x + d * (i + 0.5) / 3.0, y + d * 0.65);
+          cairo_line_to(cr, x + d * (i + 1.0) / 3.0, y);
+        }
+        cairo_close_path(cr);
+        setColor(cr, kMapSpikes);
+        cairo_fill(cr);
+        break;
       case Tile::ForceField:
         if (!mMap.forceFieldsOn())
           break;

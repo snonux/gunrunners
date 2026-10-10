@@ -171,6 +171,37 @@ std::vector<float> makeNamedSfx(const std::string& id)
       c[i] += b[i];
     return c;
   }
+  // Level 19's lab: a run of computer bleeps, a two-tone klaxon blip, the
+  // big wall arrow clunking round onto its new heading.
+  if (has(id, "lab_bleeps"))
+  {
+    std::vector<float> out(std::size_t(samples(1.6)), 0.0f);
+    Noise n(seed);
+    for (int k = 0; k < 9; ++k)
+    {
+      const double note = 84.0 + std::floor((n.next() + 1.0f) * 6.0) * 2.0;
+      addTone(out, 0.05 + 0.16 * k + (k % 3 == 2 ? 0.05 : 0.0), 0.07, midiFreq(note), k % 2 ? Wave::Sine : Wave::Square,
+        k % 2 ? 0.14 : 0.06, 0.03);
+    }
+    return out;
+  }
+  if (has(id, "klaxon_short"))
+  {
+    Osc o;
+    return render(0.5, [&](double t, double) {
+      const double f = t < 0.22 ? 620.0 : 465.0;
+      const double seg = std::fmod(t, 0.25);
+      return o.step(f, Wave::Square, 0.4) * 0.14 * std::min(1.0, seg / 0.006) * std::min(1.0, std::max(0.0, 0.22 - seg) / 0.02);
+    });
+  }
+  if (has(id, "arrow_clunk"))
+  {
+    auto c = click(260.0, 0.3, 0.45, seed);
+    const auto b = boom(0.35, seed, 0.5);
+    for (std::size_t i = 0; i < c.size() && i < b.size(); ++i)
+      c[i] += b[i];
+    return c;
+  }
   // Clicks and mechanisms.
   if (has(id, "click") || has(id, "clunk") || has(id, "clamp") || has(id, "switch") || has(id, "plate") ||
       has(id, "arrow") || has(id, "trapdoor") || has(id, "door") || has(id, "slam") || has(id, "bump"))

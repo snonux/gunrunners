@@ -48,6 +48,8 @@ int Player::height() const
 CellBox Player::hitBox() const
 {
   CellBox b = box();
+  if (grav != Grav::Down)
+    return b; // turned over or on a wall (level 19): the whole box
   switch (visual)
   {
     case PlayerVisual::PullingLegsUp:
@@ -1063,6 +1065,8 @@ void World::respawnPlayer()
     resetGreen();
   if (mHull.on)
     resetHull();
+  if (mGrav.on)
+    resetGrav();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)
@@ -1127,7 +1131,7 @@ void World::updatePlayerInteractions()
   }
 
   const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
-  if (!mPinball && exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce) && exitPowered())
+  if (!mPinball && (mLevel->hasExit || !mBonusLevel) && exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce) && exitPowered())
   {
     p.state = PlayerState::Teleporting;
     setVisual(PlayerVisual::Standing);

@@ -44,6 +44,9 @@ public:
   Input orbit(const World& world);
   // Air Hockey: stand still, face the pucks, crouch and shoot.
   Input hockey(const World& world);
+  // Gun Gravity: try shots (each turns gravity) then walks and jumps in
+  // copies of the world, and take the one that gets a gem or ends nearest one.
+  Input gunGravity(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
@@ -70,6 +73,8 @@ private:
   Input mDriftPrev;
   std::deque<Input> mOrbitQueue;
   Input mOrbitPrev;
+  std::deque<Input> mGunQueue;
+  Input mGunPrev;
   Input mSurfPrev;
   std::deque<Input> mRideQueue;
   bool mRiding = false;

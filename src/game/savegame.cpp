@@ -125,6 +125,7 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("station", s.station);
   list("green", s.green);
   list("hull", s.hull);
+  list("grav", s.grav);
   list("explored", s.explored);
   list("vehicles", s.vehicles);
   o << "end\n";
@@ -250,7 +251,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.allLitAt;
     else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
              key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "explored" || key == "vehicles")
+             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "explored" || key == "vehicles")
     {
       auto& v = key == "floods" ? s.floods
               : key == "valves" ? s.valves
@@ -266,6 +267,7 @@ std::optional<SaveGame> readSave(const std::string& path)
               : key == "station" ? s.station
               : key == "green" ? s.green
               : key == "hull" ? s.hull
+              : key == "grav" ? s.grav
               : key == "explored" ? s.explored
               : key == "vehicles" ? s.vehicles
                                 : s.bubbled;
