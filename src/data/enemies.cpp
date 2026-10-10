@@ -93,6 +93,10 @@ const EnemyDef kEnemies[] = {
   {"hive_mite", "HIVE MITE", K::Mite, L::Styled, 2, 2, 1, 100, 1, 0, 0, 40, kEnemyNoTally, 0},
   {"polyp", "POLYP", K::Polyp, L::Styled, 4, 4, 4, 500, 0, 75, 12, 16, 0, 0},
   {"drone_warden", "DRONE WARDEN", K::Warden, L::Styled, 4, 3, 8, 1500, 2, 160, 14, 18, 0, 0},
+  // Level 43: Starfall. Void Ray: range is how close (cells) it gets before
+  // it lights its fins and dives. Rock Leech: range is how far it spits.
+  {"void_ray", "VOID RAY", K::VoidRay, L::Styled, 4, 2, 3, 800, 0, 40, 10, 18, 0, 0},
+  {"rock_leech", "ROCK LEECH", K::RockLeech, L::Styled, 2, 2, 2, 500, 0, 60, 12, 30, 0, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
   // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).

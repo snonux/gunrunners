@@ -16,5 +16,8 @@ bool drawAlienArt(cairo_t* cr, const Theme& t, const std::string& key, double w,
 // Level 45, Hive Gullets: its aliens, the Gullet Tubes' mouths, valves and
 // pores (enemy_art_hive.cpp), drawn the same way.
 bool drawHiveArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
+// Level 43, Starfall: its aliens, the asteroids, the probe, the pad and the
+// clouds (enemy_art_starfall.cpp).
+bool drawStarfallArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
 
 } // namespace gr

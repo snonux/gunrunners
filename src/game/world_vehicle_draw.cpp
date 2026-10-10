@@ -233,7 +233,10 @@ void World::drawVehicleHud(Renderer& r, int frame) const
     r.fillRect(x + 100.0f, y + 54.0f, 300.0f * frac, 12.0f, low ? rgb(255, 80, 60) : rgb(120, 230, 120));
   }
   char buf[64];
-  std::snprintf(buf, sizeof(buf), "%s GETS OUT", mUseLabel.c_str());
+  if (v->pilot && !canLeaveVehicle())
+    std::snprintf(buf, sizeof(buf), "LAND TO GET OUT");
+  else
+    std::snprintf(buf, sizeof(buf), "%s GETS OUT", mUseLabel.c_str());
   r.drawText(buf, x + 420.0f, y + 6.0f, {13.0f, rgb(190, 188, 214), kHudInk}, Align::Right);
 }
 

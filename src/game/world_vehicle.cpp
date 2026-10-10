@@ -123,6 +123,7 @@ bool World::setupVehicleEntity(const EntityDef& e)
   v.hp = e.num("hp", d.hp);
   v.fuel = d.fuel;
   v.bot = e.num("bot", 0) != 0;
+  v.pilot = e.num("pilot", 0) != 0;
   const auto drop = e.list("drop");
   if (drop.size() >= 2)
   {
@@ -141,6 +142,8 @@ bool World::vehicleFits(VehicleKind k, int x, int y) const
   const CellBox b = boxAt(x, y, d.w, d.h);
   if (b.x < 0 || b.right() >= mMap.width() || b.y < 0 || mMap.overlapsSolid(b))
     return false;
+  if (mSpace.starfall && b.bottom() >= mMap.height())
+    return false; // open space: the map's floor is as much a wall as its top
   if (k == VehicleKind::Sub)
   {
     // In the water, with no more than the conning tower above the surface.
@@ -207,6 +210,8 @@ bool World::canLeaveVehicle() const
 {
   const Vehicle* v = riding();
   int x = 0, y = 0;
+  if (v && v->pilot && !mMap.onSolidGround(v->box()))
+    return false; // nothing to climb out onto in space
   return v && exitSpot(mMap, *v, x, y);
 }
 
@@ -259,6 +264,11 @@ void World::leaveVehicle(bool thrown)
     return;
   Vehicle& v = mVehicles[std::size_t(p.vehicle)];
   int x = 0, y = 0;
+  if (!thrown && v.pilot && !mMap.onSolidGround(v.box()))
+  {
+    showMessage("NO AIR OUT THERE - LAND FIRST");
+    return;
+  }
   if (!exitSpot(mMap, v, x, y))
   {
     if (!thrown)
@@ -348,7 +358,15 @@ void World::wreckVehicle(Vehicle& v)
 {
   v.hp = 0;
   const CellBox b = v.box();
-  if (v.occupied)
+  if (v.occupied && v.pilot)
+  {
+    // Level 43: no climbing out in space. The runner goes up with it.
+    killPlayer();
+    mPlayer.deathPhase = 2;
+    mPlayer.frames = 0;
+    mPlayer.hidden = true;
+  }
+  else if (v.occupied)
     leaveVehicle(true);
   v.occupied = false;
   v.wreck = kWreckFrames;

@@ -106,8 +106,8 @@ SaveGame World::snapshot() const
       es.attach = 0;
     // Episode 7's aliens come back on their feet (not mid-leap or on a wall).
     if (e.kind == EnemyKind::Skitter || e.kind == EnemyKind::Spitpod || e.kind == EnemyKind::Gloop ||
-        e.kind == EnemyKind::Polyp)
-      es.attach = 0;
+        e.kind == EnemyKind::Polyp || e.kind == EnemyKind::VoidRay || e.kind == EnemyKind::RockLeech)
+      es.attach = 0; // (a Void Ray mid-dive comes back gliding)
     // A Spear Runner about to throw comes back fleeing; a Pit Snake back
     // coiled in its hole.
     if (e.kind == EnemyKind::SpearRunner && e.attach == 2)

@@ -305,6 +305,8 @@ bool isAlien(const Theme& t) { return lookOf(t).rfind("alien", 0) == 0; }
 // Flesh-rock: rounded cells packed together, a vein of light now and then.
 Texture bakeAlienSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isStarfall(t))
+    return bakeStarfallSolid(r, t, variant);
   if (isHive(t))
     return bakeHiveSolid(r, t, variant);
   VectorImage img(64, 64);
@@ -367,6 +369,8 @@ Texture bakeAlienSolid(const Renderer& r, const Theme& t, int variant)
 // The surface: a fringe of glowing moss with little bulbs.
 Texture bakeAlienSolidTop(const Renderer& r, const Theme& t, float topOffset, int height)
 {
+  if (isStarfall(t))
+    return bakeStarfallSolidTop(r, t, topOffset, height);
   if (isHive(t))
     return bakeHiveSolidTop(r, t, topOffset, height);
   VectorImage img(64, height);
@@ -409,6 +413,8 @@ Texture bakeAlienSolidTop(const Renderer& r, const Theme& t, float topOffset, in
 // One-way: a shelf fungus.
 Texture bakeAlienPlatform(const Renderer& r, const Theme& t)
 {
+  if (isStarfall(t))
+    return bakeStarfallPlatform(r, t);
   if (isHive(t))
     return bakeHivePlatform(r, t);
   VectorImage img(64, 40);
@@ -437,6 +443,8 @@ Texture bakeAlienPlatform(const Renderer& r, const Theme& t)
 // horizon and a lot of stars.
 Texture bakeAlienSky(const Renderer& r, const Theme& t)
 {
+  if (isStarfall(t))
+    return bakeStarfallSky(r, t);
   if (isHive(t))
     return bakeHiveSky(r, t);
   VectorImage img(kScreenW, kScreenH);
@@ -508,6 +516,8 @@ Texture bakeAlienSky(const Renderer& r, const Theme& t)
 // Far: a forest of giant mushrooms against the horizon.
 Texture bakeAlienFar(const Renderer& r, const Theme& t, int layerW)
 {
+  if (isStarfall(t))
+    return bakeStarfallFar(r, t, layerW);
   if (isHive(t))
     return bakeHiveFar(r, t, layerW);
   VectorImage img(layerW, kScreenH);
@@ -532,6 +542,8 @@ Texture bakeAlienFar(const Renderer& r, const Theme& t, int layerW)
 // Near: hanging glow-fronds from above and spores in the air.
 Texture bakeAlienNear(const Renderer& r, const Theme& t, int layerW)
 {
+  if (isStarfall(t))
+    return bakeStarfallNear(r, t, layerW);
   if (isHive(t))
     return bakeHiveNear(r, t, layerW);
   VectorImage img(layerW, kScreenH);
