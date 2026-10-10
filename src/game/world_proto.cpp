@@ -201,6 +201,9 @@ void World::updateProtoShooting(const Button& fire)
     for (const auto& pr : mProjectiles)
       shoot = shoot && !(pr.alive && pr.kind == ShotKind::Proto && pr.proto == p.proto);
   }
+  // Level 22: six in the Six-Shooter's cylinder, then it spins.
+  if (shoot && ProtoId(p.proto) == ProtoId::SixShooter)
+    shoot = sixShooterFire();
   if (shoot)
   {
     fireShot();

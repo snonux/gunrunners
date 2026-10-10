@@ -177,6 +177,8 @@ void World::setupEntities()
     }
     if (setupZeroEntity(e))
       continue;
+    if (setupWestEntity(e))
+      continue;
 
     const int def = enemyIndex(e.kind == "enemy" ? e.str("kind") : e.kind);
     if (def >= 0 && (e.hasPos || hasRect))
@@ -203,6 +205,7 @@ void World::setupEntities()
       setupGravEnemy(en, e);
       setupReactorEnemy(en, e);
       setupZeroEnemy(en, e);
+      setupWestEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -430,6 +433,8 @@ void World::setupEntities()
       const auto slash = push.find('/');
       z.num = std::max(1, std::atoi(push.substr(0, slash).c_str()));
       z.den = slash == std::string::npos ? 1 : std::max(1, std::atoi(push.substr(slash + 1).c_str()));
+      z.period = std::max(0, e.num("period", 0));
+      z.on = std::clamp(e.num("on", z.period), 0, std::max(0, z.period));
       mZones.push_back(z);
       continue;
     }
@@ -679,7 +684,8 @@ void World::updateProps(const PlayerInput& input)
   // Wind pushes the player (and only the player) while inside.
   if (alive && p.state != PlayerState::Ladder && p.state != PlayerState::Pipe)
     for (const auto& z : mZones)
-      if (z.kind == ZoneKind::Wind && z.box.intersects(pbox) && (mStats.frames % z.den) < z.num)
+      if (z.kind == ZoneKind::Wind && z.box.intersects(pbox) && (mStats.frames % z.den) < z.num &&
+          (z.period == 0 || mStats.frames % z.period < z.on))
       {
         if (z.dx != 0)
           mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), z.dx);

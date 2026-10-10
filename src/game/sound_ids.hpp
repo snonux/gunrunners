@@ -132,6 +132,18 @@ enum class Sfx
   WallFall,  // the painted flat tipping over (a creak and a huge flat slap)
   LightClunk, // a bank of studio lights switching on
   Applause,  // the studio audience cheering
+  FuseLit,   // a fuse catching (a match strike and a fizz)
+  BarrelHiss, // a TNT barrel about to blow (a sharp hiss, 12 frames)
+  Ricochet,  // a Six-Shooter bullet off metal (a whining ping)
+  Reload,    // the Six-Shooter's cylinder spinning (a ratchet and a click)
+  Piano1,    // the saloon piano's four keys (honky-tonk, rising)
+  Piano2,
+  Piano3,
+  Piano4,
+  HonkyTonk, // the first bar of the theme on the saloon piano
+  PosterSpin, // a wanted poster spinning on its nail
+  Gust,      // a gust down the mine tunnel
+  DuelDraw,  // a Duelist drawing (a holster slap and a hammer click)
   Count,
 };
 

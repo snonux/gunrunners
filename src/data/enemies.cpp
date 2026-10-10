@@ -191,6 +191,12 @@ const EnemyDef kEnemies[] = {
   {"lattice_turret", "LATTICE TURRET", K::LatticeTurret, L::Styled, 4, 3, 6, 800, 2, 30, 10, 0, kEnemyRobot, 0},
   {"repair_swarm", "REPAIR SWARM", K::RepairSwarm, L::Styled, 3, 3, 3, 400, 2, 0, 0, 0, kEnemyRobot, 0},
   {"echo", "ECHO", K::Echo, L::Styled, 3, 5, 4, 1000, 1, 0, 8, 0, kEnemyNoTally | kEnemyHarmless, 0},
+  // Level 22. Duelist: cooldown from his shot to his next, tell the draw
+  // glint. Tumble Mine: stepEvery its roll (1 a frame in a gust); it
+  // explodes itself on contact. Window Bandit: cooldown his cycle.
+  {"duelist", "DUELIST", K::Duelist, L::Styled, 3, 5, 4, 1000, 0, 45, 8, 0, 0, 0},
+  {"tumble_mine", "TUMBLE MINE", K::TumbleMine, L::Styled, 4, 4, 1, 300, 2, 0, 8, 0, kEnemyHarmless, 0},
+  {"window_bandit", "WINDOW BANDIT", K::WindowBandit, L::Styled, 3, 3, 2, 400, 0, 40, 12, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

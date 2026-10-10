@@ -52,6 +52,11 @@ public:
   // Reactor Core: hold up at a valve, raise the Bracer as a ring comes, or
   // wait in a booth for it; false when the planner should drive.
   bool reactor(const World& world, Input& in);
+  // Dry Gulch (bot_west.cpp): back off from a barrel about to blow, wait out
+  // a burning fuse, fight a Duelist or a Tumble Mine close by; false when
+  // the planner should drive. High Noon: fire on the second ring.
+  bool west(const World& world, Input& in);
+  Input highNoon(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
@@ -69,6 +74,8 @@ private:
 
   Planner mPlanner;
   std::deque<Input> mFightQueue;
+  std::deque<Input> mWestQueue;
+  Input mWestPrev;
   std::deque<Input> mTrapQueue;
   std::deque<Input> mPinQueue;
   std::deque<Input> mLavaQueue;

@@ -1,6 +1,6 @@
 Gunrunners is a jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt) or build your own in the runner editor, switch between them mid-level, and blast your way to the exit.
 
-* A campaign of 42 levels in six episodes, each level with its own twist, its own prototype weapon and its own soundtrack. Playable now: all of Episode 1, Neon Overdrive (Levels 1-7), Levels 8 to 14 of Episode 2, and all of Episode 3 (Levels 15 to 21); the rest of the 42 levels follow in updates.
+* A campaign of 42 levels in six episodes, each level with its own twist, its own prototype weapon and its own soundtrack. Playable now: all of Episode 1, Neon Overdrive (Levels 1-7), Levels 8 to 14 of Episode 2, all of Episode 3 (Levels 15 to 21), and Level 22, Dry Gulch, opening Episode 4; the rest of the 42 levels follow in updates.
 * Bonus levels behind flickering TVs, with crazy rules and a timer.
 * Secrets: a rubber duck in every level, candid cameras, hidden gem caches.
 * An Arsenal of prototypes, Bonus Stars, five savegame slots.

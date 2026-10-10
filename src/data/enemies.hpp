@@ -106,6 +106,10 @@ enum class EnemyKind
   LatticeTurret, // rides its ceiling rail above you and fires straight down
   RepairSwarm,   // a cloud of nanobots: hovers to what was broken and builds it back
   Echo,          // a hologram replaying your own moves and shots from a while ago
+  // Level 22, Dry Gulch (world_west.cpp).
+  Duelist,       // stands and faces you; the bell rings twice, then he draws
+  TumbleMine,    // rolls with the wind, rolls over short gaps, blows up on contact
+  WindowBandit,  // pops up in a window to fire, ducked he can't be hit
 };
 
 enum EnemyFlag : unsigned

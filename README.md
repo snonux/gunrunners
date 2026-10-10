@@ -26,7 +26,8 @@ Switches and the Grav Grenade), with its Gun Gravity bonus, and Level 20,
 Reactor Core (the Core Pulse and the Deflector Bracer), with its Stop
 Motion bonus, and Level 21, ZERO (Live Rewiring, the Phase Rifle and
 ZERO itself), with its Wireframe bonus and the Episode 3 ending.
-Episodes 4-6 are being built now.
+Episode 4 has begun with Level 22, Dry Gulch (Fuses and the Six-Shooter),
+and its High Noon bonus. Episodes 4-6 are being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|
