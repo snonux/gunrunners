@@ -107,6 +107,10 @@ struct SaveGame
   // Boulder Run (level 13): each boulder (0 waiting, 1 gone; halted;
   // still able to teeter), then each crack (open), then the WRONG WAY sign.
   std::vector<int> boulder;
+  // The Idol Awakens (level 14): the greed meter, gems offered, the jade
+  // basin used, Kaan-Tolok down; each altar (open, dropped, gems offered),
+  // then each coin heap's waves left.
+  std::vector<int> sanctum;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
 };

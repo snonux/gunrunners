@@ -50,6 +50,8 @@ add_library(gunrunners_core STATIC
   src/game/world_lava.cpp
   src/game/world_boulder.cpp
   src/game/world_surf.cpp
+  src/game/world_sanctum.cpp
+  src/game/world_golden.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
@@ -129,3 +131,4 @@ add_test(NAME savegame_idol_mines COMMAND savegame_test ${CMAKE_SOURCE_DIR}/leve
 # Over the stone chains past the first toads, Serpent Spears in hand.
 add_test(NAME savegame_lava_heart COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/12_lava_heart.txt 400)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
+add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)

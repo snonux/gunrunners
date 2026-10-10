@@ -2254,6 +2254,281 @@ void totem(const Ctx& c)
   }
 }
 
+// War Drummer (level 14): a broad priest in a jaguar pelt behind a big
+// drum on a gold dais; variant 1 is the beat, the drumskin aglow.
+void warDrummer(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color pelt = rgb(214, 150, 60), skin = rgb(150, 96, 60), gold = rgb(240, 196, 80);
+  // The dais.
+  roundedRect(cr, x0, y0 + h * 0.86, w, h * 0.14, 4);
+  fillGradientOutline(cr, y0 + h * 0.86, y0 + h, lighten(gold, 0.2f), gold, kInk, kLine);
+  // The priest behind the drum.
+  roundedRect(cr, x0 + w * 0.22, y0 + h * 0.2, w * 0.56, h * 0.5, 14);
+  fillGradientOutline(cr, y0 + h * 0.2, y0 + h * 0.7, lighten(pelt, 0.15f), pelt, kInk, kLine);
+  for (int k = 0; k < 5; ++k)
+  {
+    circle(cr, x0 + w * (0.3 + 0.1 * k), y0 + h * (0.3 + 0.06 * (k % 2)), 3.5);
+    setColor(cr, rgb(90, 50, 20));
+    cairo_fill(cr);
+  }
+  circle(cr, x0 + w * 0.5, y0 + h * 0.13, w * 0.15);
+  fillOutline(cr, skin, kInk, kLine);
+  // A gold headdress.
+  cairo_move_to(cr, x0 + w * 0.32, y0 + h * 0.08);
+  cairo_line_to(cr, x0 + w * 0.5, y0 - 6);
+  cairo_line_to(cr, x0 + w * 0.68, y0 + h * 0.08);
+  cairo_close_path(cr);
+  fillOutline(cr, gold, kInk, kLine);
+  for (double ex : {0.44, 0.56})
+  {
+    circle(cr, x0 + w * ex, y0 + h * 0.13, 2.5);
+    setColor(cr, rgb(30, 20, 10));
+    cairo_fill(cr);
+  }
+  // The arms, mallets up or down on the beat.
+  const double up = c.variant == 1 ? 0.0 : -h * 0.12;
+  for (int side : {-1, 1})
+  {
+    const double sx = x0 + w * (0.5 + side * 0.26);
+    strokeLimb(cr, {{sx, y0 + h * 0.3}, {sx + side * w * 0.08, y0 + h * 0.42 + up * 0.5}, {x0 + w * (0.5 + side * 0.18), y0 + h * 0.5 + up}},
+      8, skin, kInk, kLine);
+    circle(cr, x0 + w * (0.5 + side * 0.18), y0 + h * 0.5 + up, 6);
+    fillOutline(cr, rgb(250, 240, 220), kInk, 1.4);
+  }
+  // The drum.
+  roundedRect(cr, x0 + w * 0.12, y0 + h * 0.56, w * 0.76, h * 0.3, 8);
+  fillGradientOutline(cr, y0 + h * 0.56, y0 + h * 0.86, rgb(170, 60, 40), rgb(110, 34, 24), kInk, kLine);
+  for (int k = 0; k < 5; ++k)
+  {
+    cairo_move_to(cr, x0 + w * (0.16 + 0.17 * k), y0 + h * 0.6);
+    cairo_line_to(cr, x0 + w * (0.24 + 0.17 * k), y0 + h * 0.82);
+  }
+  setColor(cr, gold);
+  cairo_set_line_width(cr, 2.0);
+  cairo_stroke(cr);
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.5, y0 + h * 0.57);
+  cairo_scale(cr, 1.0, 0.25);
+  circle(cr, 0, 0, w * 0.38);
+  cairo_restore(cr);
+  fillOutline(cr, c.variant == 1 ? rgb(255, 240, 180) : rgb(230, 210, 170), kInk, 1.6);
+  if (c.variant == 1)
+    radialGlow(cr, x0 + w * 0.5, y0 + h * 0.57, w * 0.5, rgb(255, 200, 90), 0.6);
+}
+
+// Coin Beetle (level 14): a scarab whose shell is a heap of gold coins;
+// variant 1 rattles (shell up), 2 hops (legs tucked).
+void coinBeetle(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color gold = rgb(240, 196, 80);
+  if (c.variant != 2)
+    for (int k = 0; k < 3; ++k)
+    {
+      const double lx = x0 + w * (0.25 + 0.25 * k);
+      strokeLimb(cr, {{lx, y0 + h * 0.7}, {lx + (c.frame ? 4 : -4), y0 + h}}, 3, rgb(60, 40, 20), kInk, 1.0);
+    }
+  const double lift = c.variant == 1 ? -6.0 : 0.0;
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.45, y0 + h * 0.58 + lift);
+  cairo_scale(cr, 1.0, 0.62);
+  circle(cr, 0, 0, w * 0.42);
+  cairo_restore(cr);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.85, rgb(255, 236, 150), gold, kInk, kLine);
+  for (int k = 0; k < 3; ++k)
+  {
+    circle(cr, x0 + w * (0.28 + 0.17 * k), y0 + h * 0.52 + lift + (k % 2) * 4, 5);
+    fillOutline(cr, rgb(255, 222, 120), rgb(150, 104, 30), 1.2);
+  }
+  // The head and its mandibles at the front (+x).
+  circle(cr, x0 + w * 0.86, y0 + h * 0.62, w * 0.14);
+  fillOutline(cr, rgb(60, 40, 20), kInk, 1.4);
+  circle(cr, x0 + w * 0.9, y0 + h * 0.56, 2.2);
+  setColor(cr, rgb(255, 80, 40));
+  cairo_fill(cr);
+}
+
+// Glyph Sentinel (level 14): the master glyph, a carved gold face set in
+// the wall; variant 1 has its eyes and mouth lit.
+void glyphSentinel(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  roundedRect(cr, x0 + 4, y0 + 4, w - 8, h - 8, 10);
+  fillGradientOutline(cr, y0, y0 + h, rgb(250, 214, 110), rgb(170, 120, 40), kInk, kLine);
+  roundedRect(cr, x0 + 14, y0 + 14, w - 28, h - 28, 6);
+  fillOutline(cr, rgb(120, 80, 24), kInk, 1.6);
+  const Color lit = c.variant == 1 ? rgb(255, 250, 200) : rgb(60, 36, 10);
+  for (double ex : {0.34, 0.66})
+  {
+    roundedRect(cr, x0 + w * ex - 10, y0 + h * 0.34, 20, 12, 3);
+    fillOutline(cr, lit, kInk, 1.4);
+  }
+  roundedRect(cr, x0 + w * 0.3, y0 + h * 0.62, w * 0.4, 12, 3);
+  fillOutline(cr, lit, kInk, 1.4);
+  if (c.variant == 1)
+    radialGlow(cr, x0 + w * 0.5, y0 + h * 0.5, w * 0.6, rgb(255, 220, 120), 0.6);
+}
+
+// Kaan-Tolok, the Idol Golem (level 14), 16 x 20 cells: a gold idol of
+// stacked blocks with jade inlay. Variant 0 sits cross-legged as the idol,
+// 1 stands, 2 lifts a foot to stomp, 3 raises an open hand, 4 a fist.
+void idolGolem(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color gold = rgb(240, 196, 80), dark = rgb(160, 110, 34), jade = rgb(80, 200, 140);
+  auto block = [&](double x, double y, double bw, double bh) {
+    roundedRect(cr, x, y, bw, bh, 10);
+    fillGradientOutline(cr, y, y + bh, lighten(gold, 0.25f), dark, kInk, kLine);
+  };
+  const bool seated = c.variant == 0;
+  // Legs (or the folded base when seated).
+  if (seated)
+  {
+    block(x0 + w * 0.04, y0 + h * 0.8, w * 0.92, h * 0.2);
+    for (int k = 0; k < 6; ++k)
+    {
+      cairo_rectangle(cr, x0 + w * (0.1 + 0.14 * k), y0 + h * 0.84, w * 0.06, h * 0.03);
+      setColor(cr, jade);
+      cairo_fill(cr);
+    }
+  }
+  else
+  {
+    const double liftL = c.variant == 2 ? h * 0.08 : 0.0;
+    block(x0 + w * 0.14, y0 + h * 0.72 - liftL, w * 0.26, h * 0.28);
+    block(x0 + w * 0.6, y0 + h * 0.72, w * 0.26, h * 0.28);
+  }
+  // Torso.
+  const double ty = seated ? h * 0.44 : h * 0.42;
+  block(x0 + w * 0.12, y0 + ty, w * 0.76, h * (seated ? 0.38 : 0.32));
+  for (int k = 0; k < 4; ++k)
+  {
+    cairo_rectangle(cr, x0 + w * 0.18, y0 + ty + 20 + k * 40, w * 0.64, 6);
+    setColor(cr, withAlpha(dark, 160));
+    cairo_fill(cr);
+  }
+  // The gem's setting (the gem itself is drawn live over it).
+  roundedRect(cr, x0 + w * 0.36, y0 + h * 0.43, w * 0.28, h * 0.22, 8);
+  fillOutline(cr, rgb(110, 76, 20), kInk, kLine);
+  // Arms.
+  for (int side : {-1, 1})
+  {
+    const double sx = x0 + w * (0.5 + side * 0.44), sy = y0 + ty + 30;
+    const bool raised = (c.variant == 3 || c.variant == 4) && side == 1;
+    if (raised)
+    {
+      block(sx - w * 0.07, y0 + h * 0.02, w * 0.14, ty + 40 - h * 0.02);
+      if (c.variant == 3)
+      {
+        // An open hand: four fingers.
+        for (int f = 0; f < 4; ++f)
+          block(sx - w * 0.08 + f * w * 0.045, y0 - 8, w * 0.04, h * 0.08);
+      }
+      else
+        block(sx - w * 0.09, y0 - 10, w * 0.18, h * 0.1);
+    }
+    else if (seated)
+      block(sx - w * 0.06 + side * -w * 0.04, sy, w * 0.12, h * 0.36);
+    else
+      block(sx - w * 0.06, sy, w * 0.12, h * 0.4);
+  }
+  // Head: brow, eye sockets (the eyes are drawn live), nose, and the
+  // mouth the exit opens in.
+  block(x0 + w * 0.06, y0 + h * 0.02, w * 0.88, h * 0.4);
+  cairo_rectangle(cr, x0 + w * 0.12, y0 + h * 0.17, w * 0.76, 10);
+  setColor(cr, dark);
+  cairo_fill(cr);
+  for (double ex : {0.25, 0.75})
+  {
+    roundedRect(cr, x0 + w * ex - 36, y0 + 136, 72, 72, 10);
+    fillOutline(cr, rgb(40, 24, 8), kInk, kLine);
+  }
+  block(x0 + w * 0.44, y0 + h * 0.25, w * 0.12, h * 0.08);
+  roundedRect(cr, x0 + w * 0.3, y0 + h * 0.35, w * 0.4, h * 0.05, 6);
+  fillOutline(cr, rgb(70, 40, 10), kInk, kLine);
+  for (int k = 0; k < 5; ++k)
+  {
+    cairo_rectangle(cr, x0 + w * (0.32 + 0.08 * k), y0 + h * 0.35, w * 0.03, h * 0.02);
+    setColor(cr, rgb(250, 240, 210));
+    cairo_fill(cr);
+  }
+  // Jade ear spools.
+  for (double ex : {0.04, 0.96})
+  {
+    circle(cr, x0 + w * ex, y0 + h * 0.2, 18);
+    fillOutline(cr, jade, kInk, kLine);
+  }
+}
+
+// One of Kaan-Tolok's three heads (level 14): a carved gold block with a
+// jade gem on its face; the variant picks the face.
+void golemHead(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color gold = rgb(240, 196, 80), dark = rgb(160, 110, 34);
+  roundedRect(cr, x0 + 4, y0 + 4, w - 8, h - 8, 18);
+  fillGradientOutline(cr, y0, y0 + h, lighten(gold, 0.25f), dark, kInk, kLine);
+  cairo_rectangle(cr, x0 + 14, y0 + h * 0.28, w - 28, 10);
+  setColor(cr, dark);
+  cairo_fill(cr);
+  for (double ex : {0.3, 0.7})
+  {
+    roundedRect(cr, x0 + w * ex - 14, y0 + h * 0.34, 28, 22, 5);
+    fillOutline(cr, c.variant == 1 ? rgb(255, 120, 60) : rgb(40, 24, 8), kInk, 1.6);
+  }
+  roundedRect(cr, x0 + w * 0.3, y0 + h * 0.66, w * 0.4, 16, 5);
+  fillOutline(cr, rgb(70, 40, 10), kInk, 1.6);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.16, 12 + c.variant * 2);
+  fillOutline(cr, rgb(80, 220, 150), kInk, 1.6);
+}
+
+// Temple Cat (level 14's bonus): a sleek temple cat with a jade collar,
+// padding along; the golden touch turns it into a statue.
+void templeCat(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color fur = rgb(70, 54, 44), jade = rgb(80, 220, 150);
+  const double step = c.frame ? 4.0 : -4.0;
+  for (double lx : {0.22, 0.38, 0.62, 0.78})
+    strokeLimb(cr, {{x0 + w * lx, y0 + h * 0.6}, {x0 + w * lx + (lx < 0.5 ? step : -step), y0 + h}}, 6, fur, kInk, 1.4);
+  // The tail, curling up behind.
+  strokeLimb(cr, {{x0 + w * 0.14, y0 + h * 0.55}, {x0 + 2, y0 + h * 0.3}, {x0 + w * 0.08, y0 + h * 0.05}}, 5, fur, kInk,
+    1.4);
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.48, y0 + h * 0.56);
+  cairo_scale(cr, 1.0, 0.5);
+  circle(cr, 0, 0, w * 0.34);
+  cairo_restore(cr);
+  fillGradientOutline(cr, y0 + h * 0.38, y0 + h * 0.74, lighten(fur, 0.2f), fur, kInk, kLine);
+  // Head, ears, eyes, the collar.
+  circle(cr, x0 + w * 0.8, y0 + h * 0.36, w * 0.17);
+  fillOutline(cr, fur, kInk, kLine);
+  for (double ex : {0.7, 0.88})
+  {
+    cairo_move_to(cr, x0 + w * ex - 7, y0 + h * 0.26);
+    cairo_line_to(cr, x0 + w * ex, y0 + h * 0.06);
+    cairo_line_to(cr, x0 + w * ex + 7, y0 + h * 0.26);
+    cairo_close_path(cr);
+    fillOutline(cr, fur, kInk, 1.4);
+  }
+  for (double ex : {0.76, 0.88})
+  {
+    circle(cr, x0 + w * ex, y0 + h * 0.34, 3);
+    setColor(cr, rgb(255, 220, 80));
+    cairo_fill(cr);
+  }
+  cairo_rectangle(cr, x0 + w * 0.66, y0 + h * 0.48, w * 0.26, 5);
+  setColor(cr, jade);
+  cairo_fill(cr);
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -2313,6 +2588,12 @@ DrawFn routineFor(const std::string& key)
     {"cultist", cultist},
     {"pitsnake", pitSnake},
     {"totem", totem},
+    {"drummer", warDrummer},
+    {"coinbeetle", coinBeetle},
+    {"sentinel", glyphSentinel},
+    {"golem", idolGolem},
+    {"golem_head", golemHead},
+    {"templecat", templeCat},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

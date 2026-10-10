@@ -318,7 +318,7 @@ void World::drawMapMarks(Renderer& r, float ox, float oy, float s, int frame) co
     r.fillRect(x - dot * 0.3f, y - dot, dot * 0.6f, dot * 2.0f, cp.active ? mTheme.accentB : rgb(150, 150, 170));
   }
 
-  if ((!mBoss.on || mBoss.exitT >= 0) && explored(mLevel->exitTx, mLevel->exitTy))
+  if ((!mBoss.on || mBoss.exitT >= 0) && (!mGolem.on || mGolem.phase == GolemPhase::Done) && explored(mLevel->exitTx, mLevel->exitTy))
   {
     const float x = ox + (float(mLevel->exitTx) + 0.5f) * s;
     const float y = oy + (float(mLevel->exitTy) + 0.5f) * s;

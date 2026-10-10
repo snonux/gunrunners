@@ -12,10 +12,11 @@ A 42-level campaign in six episodes: every level has its own twist, its
 own prototype weapon, its own soundtrack, a bonus level behind a flickering
 TV, secrets and a briefing cutscene. Six episodes of seven levels each.
 **Playable now:** all of Episode 1 (Levels 1-7) with its bonus levels and
-ending, and the first six levels of Episode 2 (Level 8, Canopy Road,
+ending, and all seven levels of Episode 2 (Level 8, Canopy Road,
 Level 9, Hall of Traps, Level 10, Sun Mirrors, Level 11, Idol Mines,
-Level 12, Lava Heart, and Level 13, Boulder Run).
-The rest of Episode 2 is being built now, then Episodes 3-6.
+Level 12, Lava Heart, Level 13, Boulder Run, and Level 14, The Idol
+Awakens, with the Idol Golem). Episode 2's ending is being built now,
+then Episodes 3-6.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

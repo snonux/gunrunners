@@ -53,6 +53,9 @@ enum class EnemyKind
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go
+  Drummer,   // drums on a dais: enemies near it move faster while it plays
+  CoinBeetle, // crawls at you out of a coin heap, hops; drops two gems
+  Sentinel,  // a glyph carved in the wall: its row of glyphs lights up, then beams
 };
 
 enum EnemyFlag : unsigned
