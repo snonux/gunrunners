@@ -98,6 +98,7 @@ void World::setupEntities()
   mLightTrail = lv.rules.find("lighttrail") != std::string::npos;
   mFlight = lv.rules.find("flight") != std::string::npos;
   mBounce = lv.rules.find("bounce") != std::string::npos;
+  mTrapmaster = lv.rules.find("trapmaster") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -169,6 +170,7 @@ void World::setupEntities()
       setupMaglevEnemy(en, e);
       setupChopperEnemy(en, e);
       setupJungleEnemy(en, e);
+      setupTempleEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -346,6 +348,14 @@ void World::setupEntities()
         pr.kind = PropKind::Gate;
       else if (kind == "nest")
         pr.kind = PropKind::Nest;
+      else if (kind == "skeleton")
+        pr.kind = PropKind::Skeleton;
+      else if (kind == "glyph")
+        pr.kind = PropKind::Glyph;
+      else if (kind == "torch")
+        pr.kind = PropKind::Torch;
+      else if (kind == "idol")
+        pr.kind = PropKind::Idol;
       else if (kind == "cat")
       {
         pr.kind = PropKind::Cat;
@@ -380,6 +390,8 @@ void World::setupEntities()
     if (setupMaglevEntity(e))
       continue;
     if (setupChopperEntity(e))
+      continue;
+    if (setupTempleEntity(e))
       continue;
     if (setupJungleEntity(e))
       continue;
@@ -929,6 +941,13 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
       case PropKind::Nest:
         if (onScreen)
           drawJungleProp(r, pr, x, y, w, h, frame, foreground);
+        break;
+      case PropKind::Skeleton:
+      case PropKind::Glyph:
+      case PropKind::Torch:
+      case PropKind::Idol:
+        if (onScreen)
+          drawTempleProp(r, pr, x, y, w, h, frame, foreground);
         break;
       case PropKind::Trunk: // drawn over its blocks (world_jungle.cpp)
       case PropKind::Graffiti: // glows once a flare finds it (world_dark.cpp)

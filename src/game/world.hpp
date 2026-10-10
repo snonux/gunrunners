@@ -163,6 +163,8 @@ struct Enemy
   int variant = 0;      // a look from the level (the gator's sunglasses)
   int stun = 0;         // frames left dazed (out of a popped bubble)
   bool trapped = false; // held in a Bubble Gun bubble
+  int tangle = 0;       // frames left lying in the Snare Bolas' cords
+  int tangleRoll = 0;   // cells left to roll first (sign: direction)
   CellBox box() const { return boxAt(x, y, w, h); }
   unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
@@ -330,6 +332,10 @@ enum class PropKind
   Trunk,         // Canopy Road: a tree trunk behind the canopy (over its rect)
   Gate,          // Canopy Road: the temple gate around the exit
   Nest,          // Canopy Road: the nest on the tallest tree
+  Skeleton,      // Hall of Traps: an explorer who didn't make it (press up beside him)
+  Glyph,         // Hall of Traps: a carved glyph over a wing's door (its text)
+  Torch,         // Hall of Traps: a wall torch
+  Idol,          // Trapmaster: the idol the hunters walk to
 };
 
 struct Prop
@@ -827,6 +833,89 @@ struct Fruit
   CellBox box() const { return {int(std::floor(x)) - 1, int(std::floor(y)) - 1, 2, 2}; }
 };
 
+// --- Level 9: Hall of Traps (world_temple.cpp) --------------------------------
+
+// A pressure plate: a red glyph in the floor. Anything standing on it
+// presses it (the runner, an enemy, a beetle); rolling stones don't.
+struct Plate
+{
+  std::string id;
+  int x = 0, y = 0, w = 2; // cells: left, the floor row it is set in, width
+  bool down = false;
+  int presses = 0;
+  int pressedAt = -1000; // frame of the last press
+};
+
+enum class TrapKind
+{
+  Stone,  // a 2 x 2 block stone that rolls along its groove
+  Blade,  // a blade in a wall slit: one sweep
+  Spikes, // a spike strip: tips peek, then up
+};
+
+struct Trap
+{
+  std::string id;
+  TrapKind kind = TrapKind::Stone;
+  int plate = -1;           // fired by this plate; -1: on a cycle
+  int cycle = 0, phase = 0; // cycle traps: period and offset (frames)
+  int startX = -1;          // cycle traps: the cycle starts when the runner passes this cell column
+  int startAt = 0;          // frame the cycle started, -1 not yet
+  int tell = 10, active = 6, rearm = 30; // frames
+  CellBox box{0, 0, 0, 0};  // blades and spikes: the cells they cover
+  int x0 = 0, x1 = 0, row = 0, dir = -1; // stones: the groove (cells), the stone's bottom row, roll direction
+  int state = 0;            // 0 armed, 1 telegraph, 2 firing, 3 re-arming (a stone in its catch slot)
+  int t = 0;                // frames into the state
+  int sx = 0;               // stones: the stone's left cell
+  std::vector<int> hit;     // enemies hurt by this firing
+  bool hitRunner = false;
+  CellBox stoneBox() const { return {sx, row - 3, 4, 4}; }
+  CellBox reach() const { return kind == TrapKind::Stone ? stoneBox() : box; }
+};
+
+// A floor tile that cracks under you, falls, and comes back.
+struct CollapseTile
+{
+  int tx = 0, ty = 0;
+  int state = 0; // 0 whole, 1 cracked, 2 fallen
+  int t = 0;
+};
+
+struct StoneKey
+{
+  std::string id;
+  int x = 0, y = 0; // cells, top-left of its block
+  bool taken = false;
+};
+
+// A 1 x 3 slab that sinks once the runner arrives with every stone key.
+struct KeyDoor
+{
+  int tx = 0, ty = 0, h = 3; // blocks
+  int keys = 3;
+  int sink = -1; // frames of sinking, -1 shut
+  bool open = false;
+  int nag = 0;   // frames before it says again how many keys it wants
+};
+
+// Wall blocks a plate opens without a sound (and the bonus patch it wakes).
+struct SecretDoor
+{
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // blocks
+  int plate = -1;
+  int presses = 1;
+  bool open = false;
+  bool bonus = false; // wakes the bonus patch instead of opening a wall
+};
+
+// Trapmaster (Level 9's bonus): the traps' glyph cursor.
+struct TrapCursor
+{
+  int at = 0;  // the plate selected
+  int pan = 0; // cells the camera has panned
+  bool up = false, down = false; // last frame's keys, for edges
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -1032,6 +1121,16 @@ public:
   const std::vector<Load>& loads() const { return mLoads; }
   const std::vector<JungleRope>& jungleRopes() const { return mJRopes; }
   bool inWater() const; // Canopy Road's stream: wading at half speed
+  // Level 9: plates, traps and the stone keys (the bot fetches them).
+  const std::vector<Plate>& plates() const { return mPlates; }
+  const std::vector<Trap>& traps() const { return mTraps; }
+  const std::vector<StoneKey>& stoneKeys() const { return mStoneKeys; }
+  const std::vector<KeyDoor>& keyDoors() const { return mKeyDoors; }
+  const std::vector<SecretDoor>& secretDoors() const { return mSecretDoors; }
+  const std::vector<CollapseTile>& collapseTiles() const { return mCollapse; }
+  int stoneKeysHeld() const;
+  bool trapmaster() const { return mTrapmaster; }
+  const TrapCursor& trapCursor() const { return mCursor; }
   // Level 6's billboard shows the best level 2 score, if there is one.
   void setHiScore(int score) { mHiScore = score; }
   const std::vector<TrailBlock>& trail() const { return mTrailBlocks; }
@@ -1241,6 +1340,29 @@ private:
   void drawJungleBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawJungleFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawJungleProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
+  // Level 9 (world_temple.cpp).
+  bool setupTempleEntity(const EntityDef& e);
+  void setupTempleEnemy(Enemy& en, const EntityDef& e);
+  void updateTemple(const PlayerInput& input);
+  void updatePlates();
+  void fireTrap(Trap& t);
+  void updateTraps();
+  void trapHits(Trap& t);
+  void updateCollapse();
+  void updateKeys();
+  void updateGuardian(Enemy& e, const EnemyDef& def);
+  void updateDartFace(Enemy& e, const EnemyDef& def);
+  void updateScarabs(Enemy& e, const EnemyDef& def);
+  bool tangled(Enemy& e); // the Snare Bolas: true while it lies tangled (no AI)
+  void tangle(Enemy& e, int dir);
+  bool shotAtTemple(Projectile& pr, Enemy& e); // true: the shot is used up on it
+  void killBeetles(Enemy& e, int n);
+  void resetTemple(); // after a respawn
+  void updateTrapmaster(const PlayerInput& input);
+  void drawTempleBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTempleFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTempleProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame, bool foreground) const;
+  void drawTempleHud(Renderer& r, float x, float top) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1394,6 +1516,21 @@ private:
   bool mBounce = false;  // bonus rule: every surface is a trampoline
   int mBounceH = 8;      // cells: the next bounce's height
   int mBounceKick = 0;   // frames of a wall's bounce back left (sign: direction)
+  // Level 9: plates, traps, collapsing floors, stone keys, the key door,
+  // the secret walls, the drum egg and Trapmaster.
+  std::vector<Plate> mPlates;
+  std::vector<Trap> mTraps;
+  std::vector<CollapseTile> mCollapse;
+  std::vector<StoneKey> mStoneKeys;
+  std::vector<KeyDoor> mKeyDoors;
+  std::vector<SecretDoor> mSecretDoors;
+  std::vector<int> mDrumPlates;  // the final hall's entry plates, in rhythm order
+  std::vector<int> mDrumTaps;    // frames they were pressed, in order
+  int mDrumEgg = 0;              // frames left of the traps playing drums
+  bool mTrapmaster = false;      // bonus rule: you work the traps
+  TrapCursor mCursor;
+  int mWave = 0, mWaveNext = 0;  // Trapmaster: hunters sent so far and when the next comes
+  int mIdolX = -1;               // Trapmaster: cells, where the hunters walk to
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up

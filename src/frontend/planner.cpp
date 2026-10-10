@@ -130,6 +130,11 @@ bool stable(const World& w)
   const Player& p = w.player();
   if (w.bounce())
     return true; // Bounce House: you never stand, anywhere will do
+  // Level 9: a floor tile that cracks under you is no place to stop.
+  if (p.state == PlayerState::OnGround)
+    for (const auto& c : w.collapseTiles())
+      if (c.ty * kCellsPerTile == p.y + 1 && c.tx * kCellsPerTile + 1 >= p.x && c.tx * kCellsPerTile <= p.x + 2)
+        return false;
   return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe ||
     p.state == PlayerState::Swing;
 }
@@ -222,6 +227,13 @@ int clockPeriod(const World& w)
       period = std::max(period, 300); // the tide clock
   if (!w.gantries().empty())
     period = std::max(period, 1 << 12); // the train: gantries, rings and couplings run on time
+  // Level 9: traps on a cycle, Dart Faces on their rhythm.
+  for (const auto& t : w.traps())
+    if (t.plate < 0 && t.cycle > 0)
+      period = std::max(period, t.cycle);
+  for (const auto& e : w.enemies())
+    if (e.alive && e.kind == EnemyKind::DartFace)
+      period = std::max(period, 30);
   return period;
 }
 
@@ -272,6 +284,14 @@ Planner::Goal Planner::chooseGoal(const World& w) const
       if (b.alive && b.content == ItemKind::Key)
         return {1, b.x, b.y};
   }
+  // Level 9: the bonus patch wakes on a plate's third press.
+  if (mTakeBonus && !mSkipBonus)
+    for (const auto& d : w.secretDoors())
+      if (d.bonus && !d.open && d.plate >= 0 && std::size_t(d.plate) < w.plates().size())
+      {
+        const Plate& pl = w.plates()[std::size_t(d.plate)];
+        return {7, pl.x, pl.y - 1, 0, 0, d.plate};
+      }
   if (mTakeBonus && !mSkipBonus)
     for (const auto& pr : w.props())
       if (pr.kind == PropKind::BonusDoor && !pr.used && !pr.dormant)
@@ -342,6 +362,25 @@ Planner::Goal Planner::chooseGoal(const World& w) const
     if (!behind)
       return {4, b.x, b.y, 2, 4, int(i)};
   }
+  // Level 9: a key door still wanting stone keys: fetch the nearest.
+  for (const auto& d : w.keyDoors())
+  {
+    if (d.open || d.sink >= 0 || w.stoneKeysHeld() >= d.keys)
+      continue;
+    Goal best;
+    int bestD = -1;
+    for (const auto& k : w.stoneKeys())
+    {
+      const int dist = std::abs(k.x - p.x) + std::abs(k.y - p.y);
+      if (!k.taken && (bestD < 0 || dist < bestD))
+      {
+        bestD = dist;
+        best = {6, k.x, k.y + 1};
+      }
+    }
+    if (bestD >= 0)
+      return best;
+  }
   return g;
 }
 
@@ -373,6 +412,19 @@ void Planner::buildField(const World& w, const Goal& goal)
       // Sludge surfaces and bubbles come and go: not ground to the field.
       top[std::size_t(y * W + x)] = b || (map.solidTop(x, y) && !map.floatTop(x, y));
     }
+  // Level 9: a key door opens for a runner with every stone key, and the
+  // collapsing floor counts as floor (the search finds out when it falls).
+  for (const auto& d : w.keyDoors())
+    if (!d.open && w.stoneKeysHeld() >= d.keys)
+      for (int y = d.ty * kCellsPerTile; y < (d.ty + d.h) * kCellsPerTile; ++y)
+        for (int x = d.tx * kCellsPerTile; x < (d.tx + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
+  for (const auto& c : w.collapseTiles())
+    for (int y = c.ty * kCellsPerTile; y < (c.ty + 1) * kCellsPerTile; ++y)
+      for (int x = c.tx * kCellsPerTile; x < (c.tx + 1) * kCellsPerTile; ++x)
+        if (x >= 0 && y >= 0 && x < W && y < H)
+          blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 1;
   // Shutters whose breaker is on are rolling up: the search waits for them.
   for (const auto& d : w.doors())
     if (d.solid && d.breaker >= 0 && w.breakers()[std::size_t(d.breaker)].on)
@@ -774,6 +826,10 @@ int Planner::heuristic(const World& w) const
     if (!l.cage && (l.landX1 + 1) * kCellsPerTile + 40 > p.x)
       extra += 20 * std::max(0, rope.hp);
   }
+  // A key door that will open: getting to it and waiting while it sinks.
+  for (const auto& d : w.keyDoors())
+    if (!d.open && w.stoneKeysHeld() >= d.keys)
+      extra += d.sink < 0 ? 40 : 20 - std::min(d.sink, 20);
   for (int bi : mWalls)
     if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
       extra += 12 * std::max(0, w.breakables()[std::size_t(bi)].hp);
@@ -835,7 +891,7 @@ void Planner::plan(const World& world)
   Goal goal = chooseGoal(world);
   // A prototype the field cannot reach, or one the search keeps failing to
   // get to, is skipped.
-  if (goal.kind == 3 && mGoalKind == 3 && mFails >= 6)
+  if ((goal.kind == 3 || goal.kind == 7) && mGoalKind == goal.kind && mFails >= 6)
   {
     mSkipBonus = true;
     mSkipBonusAt = p0.x;
@@ -869,6 +925,12 @@ void Planner::plan(const World& world)
       powered = powered * 2 + b.down;
     for (const auto& l : world.loads())
       powered = powered * 3 + std::min(l.state, 2);
+    // Level 9: stone keys, the key door, secret walls a plate opened.
+    powered = powered * 5 + world.stoneKeysHeld();
+    for (const auto& d : world.keyDoors())
+      powered = powered * 2 + d.open;
+    for (const auto& d : world.secretDoors())
+      powered = powered * 2 + d.open;
     const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
       (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
     if (mDist.empty() || keyHash != mGoalKeyHash)
@@ -878,9 +940,9 @@ void Planner::plan(const World& world)
       mGoalKind = goal.kind;
       mGoalIndex = goal.index;
     }
-    if ((goal.kind != 2 && goal.kind != 3) || heuristic(world) < kInf)
+    if ((goal.kind != 2 && goal.kind != 3 && goal.kind != 7) || heuristic(world) < kInf)
       break;
-    if (goal.kind == 3)
+    if (goal.kind == 3 || goal.kind == 7)
     {
       mSkipBonus = true;
       mSkipBonusAt = -1;
@@ -964,6 +1026,31 @@ void Planner::plan(const World& world)
       k = mix(k, std::uint64_t(rope.hp) | (std::uint64_t(rope.cut) << 8));
     for (const auto& l : w.loads())
       k = mix(k, std::uint64_t(l.state) | (std::uint64_t(l.fall) << 4));
+    // Level 9: traps close by, the floor cracking, keys and plates, and the
+    // Guardians and beetles near you.
+    for (const auto& t : w.traps())
+    {
+      const CellBox r = t.reach();
+      if (std::abs(r.x - p.x) < 80 || (t.kind == TrapKind::Stone && p.x > t.x0 - 40 && p.x < t.x1 + 40))
+        k = mix(k, std::uint64_t(t.state) | (std::uint64_t(t.t) << 4) | (std::uint64_t(t.sx) << 16));
+    }
+    for (const auto& c : w.collapseTiles())
+      if (c.state != 0 && std::abs(c.tx * kCellsPerTile - p.x) < 40)
+        k = mix(k, std::uint64_t(c.tx) | (std::uint64_t(c.state) << 12) | (std::uint64_t(c.t) << 16));
+    if (!w.plates().empty() || !w.stoneKeys().empty())
+    {
+      std::uint64_t pk = std::uint64_t(w.stoneKeysHeld());
+      for (const auto& pl : w.plates())
+        pk = pk * 7 + std::uint64_t(std::min(pl.presses, 3) * 2 + pl.down);
+      for (const auto& d : w.keyDoors())
+        pk = pk * 31 + std::uint64_t(d.sink + 1);
+      k = mix(k, pk);
+    }
+    for (const auto& e : w.enemies())
+      if (e.alive && (e.kind == EnemyKind::Guardian || e.kind == EnemyKind::Scarabs) && std::abs(e.x - p.x) < 40 &&
+          std::abs(e.y - p.y) < 16)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.hp) << 16) | (std::uint64_t(e.tell + e.dive * 32) << 24) |
+                     (std::uint64_t(e.tangle) << 40) | (std::uint64_t(e.dir > 0) << 48));
     if (const auto& h = w.hunter(); h.on)
     {
       k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
@@ -998,7 +1085,10 @@ void Planner::plan(const World& world)
       (nw.breakers()[std::size_t(goal.index)].on || nw.breakers()[std::size_t(goal.index)].throwing > 0);
     const bool leechGone = goal.kind == 5 && std::size_t(goal.index) < nw.enemies().size() &&
       !nw.enemies()[std::size_t(goal.index)].alive;
-    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) ||
+    const bool keyTaken = goal.kind == 6 && nw.stoneKeysHeld() > world.stoneKeysHeld();
+    const bool pressed = goal.kind == 7 && std::size_t(goal.index) < nw.plates().size() &&
+      nw.plates()[std::size_t(goal.index)].presses > world.plates()[std::size_t(goal.index)].presses;
+    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
     if (ni != 0 && success)
     {

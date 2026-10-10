@@ -38,7 +38,9 @@ Halo, eight ways at 2 cells a frame with no gravity, fire is its chaingun
 and down + fire lobs a rocket; `bounce`: every surface is a trampoline and
 you never stand, each landing bounces you back to the last height, 2 cells
 higher with jump held, 3 lower with down, 1 lower with neither, 4 to 18
-cells, and walls bounce you back),
+cells, and walls bounce you back; `trapmaster`: you are off the map, up
+and down move a cursor along the plates, fire springs the plate's trap and
+left and right pan the camera, while treasure hunters walk in from the left),
 `timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -108,6 +110,15 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `water` | `rect` | shallow water: wading through it halves your speed |
 | enemy keys `howler` (`look=dash`, `carrier=1`), `viper`, `cutter` (`bridge=ID`) | | the Howler lobs fruit that rolls along the ground (a carrier's fruit gives you the virus; `look=dash` throws Dash a banana); the Viper drops from its branch when you pass under and strikes; the Bridge Cutter runs to its bridge's post when you near it and chops it down in three |
 | `deco` `kind=trunk\|gate\|nest` | `rect`, `text=hollow` (trunk) | Canopy Road: bark over solid blocks (a hollow trunk shows its inside), the temple gate, a bird's nest |
+| `plate` | `id`, `x y` (the floor block it is set in), `w` | a pressure plate: anything standing on it (the runner, any walking enemy, a beetle) presses it and fires its traps; declare plates before what they fire |
+| `trap` | `id`, `kind=stone\|blade\|spikes`, `plate=` or `cycle=`/`phase=`/`start=` (block x the cycle waits for), `tell`, `active`, `rearm` (frames); stones: `groove=x0..x1`, `row` (the stone's bottom row), `dir=l\|r`; blades: `x y` (the slit; sweeps x-1..x+1 over the three rows above y) or `rect`; spikes: `rect` | traps hurt everything in their path: a stone (2x2 blocks, 2 hearts and a knockback) rolls the length of its groove and is back 120 frames later, a blade sweeps once, spikes come up; their paths glow red when you are close |
+| `collapse` | `rect` | the solid blocks in it crack when you stand on them, fall 12 frames later and are back 90 frames after |
+| `stonekey`, `keydoor` | `id`, `x y`; door: `keys`, `h` | stone keys (HUD) and the slab that sinks when you arrive with enough of them |
+| `secret`, `wake` | `rect` (secret), `plate`, `presses` | a wall that opens without a sound on a plate's Nth press; `wake` wakes the bonus patch instead |
+| `drums` | `plates=A,B,C,D` | step on them in the rhythm of the theme's first bar and the cycle traps play drums for a while |
+| `idol` | `x y` | Trapmaster: where the hunters take their coin |
+| enemy keys `guardian` (`sentry=1`, `patrol=x0..x1`, `dir`), `dartface` (`phase`, `silent=1`), `scarabs` (`count`, `carrier=1`) | | the Stone Guardian clubs you up close and shrugs off shots to its face (hit it from behind, with a trap, or tangle it with the Snare Bolas); a Dart Face in the ceiling drops a dart every 30 frames from its phase; a Scarab Tide flows along its floor toward you (a shot kills three beetles, a stone all of them) |
+| `deco` `kind=skeleton\|glyph\|torch` | `x y w h`, `text` (glyph) | Hall of Traps: the explorer's skeleton (press up beside it), red glyph text, a torch |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

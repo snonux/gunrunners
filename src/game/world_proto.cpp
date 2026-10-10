@@ -194,6 +194,21 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       pr.sx = pr.sy = 0;
       playSound(Sfx::Whoosh);
       break;
+    case ProtoId::SnareBolas:
+    {
+      // A flat lob, about ten blocks (world_temple.cpp pins what it hits).
+      pr.precise = true;
+      pr.w = pr.h = 2;
+      pr.y = oy - 1;
+      pr.fx = float(pr.x);
+      pr.fy = float(pr.y);
+      const int dir = dx == 0 ? p.facing : dx;
+      pr.vx = dy < 0 ? 0.4f * float(dir) : float(dir);
+      pr.vy = dy < 0 ? -1.0f : -0.55f;
+      pr.gy = 0.125f;
+      playSound(Sfx::Whoosh);
+      break;
+    }
     case ProtoId::BubbleGun:
       // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).
       pr.w = pr.h = 2;

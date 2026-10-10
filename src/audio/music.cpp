@@ -1248,6 +1248,7 @@ const Style kStyles[] = {
   {"bonus_light_trail",        128, 4, 9, Mode::Minor,  0, Groove::Pulse,    BassPat::Pulse16,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Pluck,     ArpPat::Trance,  Inst::Square,    Inst::Saw,       1, 0.0f, 0.3f, 0.3f, 0, 16},
   {"bonus_pilot_seat",         132, 4, 4, Mode::Mixo,   9, Groove::Rotor,    BassPat::Rock,     Inst::SynthBass, Inst::Brass,     Comp::Stabs,      Inst::None,      ArpPat::None,    Inst::Trumpet,   Inst::Dist,      1, 0.0f, 0.25f, 0.0f, 0, 16},
   {"bonus_bounce",             132, 4, 0, Mode::Major,  7, Groove::Jungle,   BassPat::Rolling,  Inst::Upright,   Inst::None,      Comp::None,       Inst::Marimba,   ArpPat::Bounce,  Inst::Kalimba,   Inst::Pluck,     2, 0.2f, 0.25f, 0.0f, 0, 16},
+  {"bonus_trapmaster",        112, 4, 4, Mode::Phryg, 8, Groove::Creep,    BassPat::Octaves,  Inst::SubBass,   Inst::Strings,   Comp::Stabs,      Inst::Marimba,   ArpPat::Sparse,  Inst::Clarinet,  Inst::Choir,     1, 0.0f, 0.3f, 0.1f, 0, 16},
 };
 // clang-format on
 

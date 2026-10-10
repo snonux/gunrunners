@@ -58,6 +58,8 @@ Input Bot::play(const World& world)
 {
   if (world.flight())
     return fly(world);
+  if (world.trapmaster())
+    return trapmaster(world);
   // Fight from the deck; anywhere below it (fallen down the mast shaft)
   // the planner climbs back up first.
   if (world.bossFight() && world.player().y <= world.boss().deckY + 1)
@@ -293,6 +295,76 @@ Input Bot::fightBoss(const World& world)
   Input in = mFightQueue.front();
   mFightQueue.pop_front();
   mFightPrev = in;
+  return in;
+}
+
+Input Bot::trapmaster(const World& world)
+{
+  // Every few frames, try each armed trap in a copy of the world: walk the
+  // cursor to its plate, fire, and see how much score it brings in over
+  // the next 50 frames compared with doing nothing.
+  if (mTrapQueue.empty())
+  {
+    const int n = int(world.plates().size());
+    auto steps = [&](int to) {
+      std::vector<Input> seq;
+      int at = world.trapCursor().at;
+      while (at != to)
+      {
+        const int fwd = (to - at + n) % n, back = (at - to + n) % n;
+        Input in;
+        in.down = fwd <= back;
+        in.up = !in.down;
+        seq.push_back(in);
+        seq.push_back(Input{});
+        at = in.down ? (at + 1) % n : (at + n - 1) % n;
+      }
+      Input fire;
+      fire.fire = true;
+      seq.push_back(fire);
+      seq.push_back(Input{});
+      return seq;
+    };
+    auto run = [&](const std::vector<Input>& seq) {
+      auto sim = world.cloneForSim();
+      Input prev;
+      for (int f = 0; f < 60; ++f)
+      {
+        const Input in = f < int(seq.size()) ? seq[std::size_t(f)] : Input{};
+        sim->update(asPlayerInput(in, prev));
+        prev = in;
+        if (sim->state() != WorldState::Playing)
+          break;
+      }
+      return sim->stats().score;
+    };
+    const int base = run({});
+    int best = -1, bestGain = 0;
+    std::vector<Input> bestSeq;
+    for (int i = 0; i < n; ++i)
+    {
+      bool armed = false;
+      for (const auto& t : world.traps())
+        armed = armed || (t.plate == i && t.state == 0);
+      if (!armed)
+        continue;
+      const auto seq = steps(i);
+      const int gain = run(seq) - base;
+      // Nearer plates win ties (they cost fewer frames).
+      if (gain > bestGain || (gain == bestGain && gain > 0 && seq.size() < bestSeq.size()))
+      {
+        best = i;
+        bestGain = gain;
+        bestSeq = seq;
+      }
+    }
+    if (best >= 0)
+      mTrapQueue.assign(bestSeq.begin(), bestSeq.end());
+    else
+      mTrapQueue.assign(3, Input{});
+  }
+  const Input in = mTrapQueue.front();
+  mTrapQueue.pop_front();
   return in;
 }
 

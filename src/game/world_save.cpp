@@ -162,6 +162,18 @@ SaveGame World::snapshot() const
       s.jungle.push_back(state == 1 ? (mLoads[std::size_t(rope.load)].cage ? 3 : 2) : state);
     }
   }
+  if (!mStoneKeys.empty() || !mKeyDoors.empty() || !mSecretDoors.empty() || !mPlates.empty())
+  {
+    // A key door already sinking counts as open.
+    for (const auto& k : mStoneKeys)
+      s.temple.push_back(k.taken);
+    for (const auto& d : mKeyDoors)
+      s.temple.push_back(d.open || d.sink >= 0);
+    for (const auto& d : mSecretDoors)
+      s.temple.push_back(d.open);
+    for (const auto& pl : mPlates)
+      s.temple.push_back(std::min(pl.presses, 99));
+  }
   return s;
 }
 
@@ -199,6 +211,8 @@ bool World::restore(const SaveGame& s)
       (!s.train.empty() && s.train.size() != 9 + mLevelGantries) ||
       (!s.chopper.empty() && s.chopper.size() != kChopperSave + mLatches.size() + mRappels.size()) ||
       (!s.jungle.empty() && s.jungle.size() != mBridges.size() + mJRopes.size() * 2) ||
+      (!s.temple.empty() &&
+        s.temple.size() != mStoneKeys.size() + mKeyDoors.size() + mSecretDoors.size() + mPlates.size()) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -460,6 +474,34 @@ bool World::restore(const SaveGame& s)
           mMap.setBlock(tx, l.landRow, Tile::Platform);
     }
   }
+  if (!s.temple.empty())
+  {
+    std::size_t at = 0;
+    for (auto& k : mStoneKeys)
+      k.taken = s.temple[at++] != 0;
+    for (auto& d : mKeyDoors)
+      if (s.temple[at++] != 0)
+      {
+        d.open = true;
+        for (int ty = d.ty; ty < d.ty + d.h; ++ty)
+          mMap.setBlock(d.tx, ty, Tile::Empty);
+      }
+    for (auto& d : mSecretDoors)
+      if (s.temple[at++] != 0)
+      {
+        d.open = true;
+        if (!d.bonus)
+          for (int ty = d.y0; ty <= d.y1; ++ty)
+            for (int tx = d.x0; tx <= d.x1; ++tx)
+              mMap.setBlock(tx, ty, Tile::Empty);
+      }
+    for (auto& pl : mPlates)
+      pl.presses = std::max(0, s.temple[at++]);
+  }
+  // Scarab Tides: the carpet is as wide as the beetles left.
+  for (auto& e : mEnemies)
+    if (e.kind == EnemyKind::Scarabs)
+      e.w = std::max(2, e.hp + e.hp / 3);
   mFruits.clear();
   for (auto& b : mBridges)
     b.drop = 8;

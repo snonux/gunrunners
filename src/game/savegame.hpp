@@ -96,6 +96,9 @@ struct SaveGame
   // Canopy Road (level 8): each bridge (down or up), then each rope (hp
   // left, 0 = cut) with its load's state.
   std::vector<int> jungle;
+  // Hall of Traps (level 9): each stone key (taken), each key door (open),
+  // each secret wall (open), then each plate's presses (see World::snapshot).
+  std::vector<int> temple;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

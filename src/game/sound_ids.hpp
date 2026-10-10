@@ -59,6 +59,12 @@ enum class Sfx
   Whoosh,    // the Boomerang in the air
   Yell,      // the jungle yell (ten swings on one vine)
   Boing,     // Bounce House: a trampoline landing
+  Rumble,    // a rolling stone about to go
+  Slice,     // a trap blade's sweep
+  Click,     // a pressure plate
+  Drum,      // the Hall of Traps' drum egg
+  Dart,      // a Dart Face's dart
+  Skitter,   // a Scarab Tide on the move
   Count,
 };
 

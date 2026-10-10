@@ -1344,6 +1344,223 @@ void cutter(const Ctx& c)
   fillOutline(cr, rgb(210, 216, 226), kInk, 1.6);
 }
 
+// Stone Guardian (level 9): a sandstone temple warrior with a jackal's
+// headdress and a stone club. Variant 0 holds the club down, 1 raises it
+// (the tell), 2 swings it out in front, 3 lies face down in the Snare
+// Bolas' cords.
+void guardian(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const Color stone = rgb(196, 160, 104), shade = rgb(140, 108, 66), band = rgb(60, 120, 150);
+  if (c.variant == 3)
+  {
+    // Face down along the floor, the club dropped beside it.
+    const double y = kM + c.h, x0 = 0, len = kM * 2 + c.w;
+    roundedRect(cr, x0 + 18, y - 44, len - 60, 40, 12);
+    fillGradientOutline(cr, y - 44, y - 4, lighten(stone, 0.1f), shade, kInk, kLine);
+    roundedRect(cr, len - 54, y - 50, 44, 46, 10); // the head
+    fillOutline(cr, stone, kInk, kLine);
+    roundedRect(cr, len - 46, y - 64, 30, 18, 4); // the headdress
+    fillOutline(cr, band, kInk, kLine);
+    roundedRect(cr, x0 + 4, y - 18, 70, 14, 6); // the club
+    fillOutline(cr, shade, kInk, kLine);
+    for (int k = 0; k < 4; ++k)
+      strokeLimb(cr, {{x0 + 40 + k * 32.0, y - 50}, {x0 + 52 + k * 32.0, y - 2}}, 3, rgb(150, 110, 60), kInk, 1.0);
+    return;
+  }
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  // Legs and kilt.
+  for (double lx : {0.24, 0.56})
+  {
+    roundedRect(cr, x0 + w * lx, y0 + h * 0.7, w * 0.2, h * 0.3, 6);
+    fillGradientOutline(cr, y0 + h * 0.7, y0 + h, stone, shade, kInk, kLine);
+  }
+  cairo_move_to(cr, x0 + w * 0.2, y0 + h * 0.56);
+  cairo_line_to(cr, x0 + w * 0.8, y0 + h * 0.56);
+  cairo_line_to(cr, x0 + w * 0.86, y0 + h * 0.76);
+  cairo_line_to(cr, x0 + w * 0.14, y0 + h * 0.76);
+  cairo_close_path(cr);
+  fillOutline(cr, rgb(236, 220, 170), kInk, kLine);
+  // The torso, broad and square, with a collar.
+  roundedRect(cr, x0 + w * 0.16, y0 + h * 0.26, w * 0.68, h * 0.32, 10);
+  fillGradientOutline(cr, y0 + h * 0.26, y0 + h * 0.58, lighten(stone, 0.12f), stone, kInk, kLine);
+  roundedRect(cr, x0 + w * 0.24, y0 + h * 0.26, w * 0.52, h * 0.06, 4);
+  fillOutline(cr, band, kInk, 1.6);
+  for (int k = 0; k < 4; ++k)
+  {
+    cairo_rectangle(cr, x0 + w * (0.28 + k * 0.12), y0 + h * 0.27, w * 0.05, h * 0.04);
+    setColor(cr, rgb(230, 190, 70));
+    cairo_fill(cr);
+  }
+  // The back arm.
+  strokeLimb(cr, {{x0 + w * 0.2, y0 + h * 0.32}, {x0 + w * 0.08, y0 + h * 0.56}}, 9, shade, kInk, kLine);
+  // The head: a jackal's muzzle under a striped headdress.
+  cairo_move_to(cr, x0 + w * 0.3, y0 + h * 0.06);
+  cairo_line_to(cr, x0 + w * 0.7, y0 + h * 0.06);
+  cairo_line_to(cr, x0 + w * 0.76, y0 + h * 0.26);
+  cairo_line_to(cr, x0 + w * 0.24, y0 + h * 0.26);
+  cairo_close_path(cr);
+  fillOutline(cr, band, kInk, kLine);
+  for (int k = 1; k < 4; ++k)
+  {
+    cairo_move_to(cr, x0 + w * (0.3 - k * 0.015), y0 + h * (0.06 + k * 0.05));
+    cairo_line_to(cr, x0 + w * (0.7 + k * 0.015), y0 + h * (0.06 + k * 0.05));
+    cairo_set_line_width(cr, 3);
+    setColor(cr, rgb(230, 190, 70));
+    cairo_stroke(cr);
+  }
+  for (double ex : {0.36, 0.56})
+  {
+    cairo_move_to(cr, x0 + w * ex, y0 + h * 0.06); // ears
+    cairo_line_to(cr, x0 + w * (ex + 0.04), y0 - h * 0.04);
+    cairo_line_to(cr, x0 + w * (ex + 0.08), y0 + h * 0.06);
+    cairo_close_path(cr);
+    fillOutline(cr, stone, kInk, 1.6);
+  }
+  cairo_move_to(cr, x0 + w * 0.6, y0 + h * 0.12);
+  cairo_line_to(cr, x0 + w * 0.94, y0 + h * 0.16);
+  cairo_line_to(cr, x0 + w * 0.92, y0 + h * 0.21);
+  cairo_line_to(cr, x0 + w * 0.6, y0 + h * 0.22);
+  cairo_close_path(cr);
+  fillOutline(cr, stone, kInk, kLine);
+  const double glow = c.variant > 0 ? 0.9 : 0.5;
+  radialGlow(cr, x0 + w * 0.64, y0 + h * 0.14, 12, rgb(255, 60, 40), glow);
+  circle(cr, x0 + w * 0.64, y0 + h * 0.14, 3.5);
+  setColor(cr, rgb(255, 200, 150));
+  cairo_fill(cr);
+  // The club arm: down, raised over the head, or swung out front.
+  double hx = x0 + w * 0.86, hy = y0 + h * 0.6, cx = hx, cy = hy + h * 0.2;
+  if (c.variant == 1)
+  {
+    hx = x0 + w * 0.7;
+    hy = y0 - h * 0.02;
+    cx = x0 + w * 0.42;
+    cy = y0 - h * 0.14;
+  }
+  else if (c.variant == 2)
+  {
+    hx = x0 + w * 1.04;
+    hy = y0 + h * 0.36;
+    cx = x0 + w * 1.5;
+    cy = y0 + h * 0.4;
+  }
+  strokeLimb(cr, {{x0 + w * 0.8, y0 + h * 0.32}, {(x0 + w * 0.86 + hx) * 0.5, (y0 + h * 0.46 + hy) * 0.5}, {hx, hy}}, 9,
+    stone, kInk, kLine);
+  strokeLimb(cr, {{hx, hy}, {cx, cy}}, 14, shade, kInk, kLine);
+  circle(cr, cx, cy, 13);
+  fillOutline(cr, shade, kInk, kLine);
+  if (c.variant == 2)
+    for (int k = 0; k < 3; ++k)
+      strokeLimb(cr, {{x0 + w * (0.9 + k * 0.1), y0 + h * 0.08}, {x0 + w * (1.2 + k * 0.1), y0 + h * 0.3}}, 2.5,
+        rgba(255, 255, 255, 160), rgba(255, 255, 255, 0), 0.0);
+}
+
+// Dart Face (level 9): a carved face in the ceiling with a dart in its
+// mouth. Variant 1: the eyes glow before it spits.
+void dartFace(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  roundedRect(cr, x0 - 4, y0 - 4, w + 8, h + 8, 8);
+  fillGradientOutline(cr, y0, y0 + h, rgb(210, 172, 116), rgb(150, 112, 70), kInk, kLine);
+  // Brow, eyes, nose and the round mouth.
+  cairo_rectangle(cr, x0 + w * 0.1, y0 + h * 0.18, w * 0.8, h * 0.08);
+  setColor(cr, rgb(120, 86, 50));
+  cairo_fill(cr);
+  for (double ex : {0.3, 0.7})
+  {
+    if (c.variant == 1)
+      radialGlow(cr, x0 + w * ex, y0 + h * 0.38, 14, rgb(255, 60, 30), 0.9);
+    circle(cr, x0 + w * ex, y0 + h * 0.38, 5);
+    setColor(cr, c.variant == 1 ? rgb(255, 210, 160) : rgb(40, 26, 18));
+    cairo_fill(cr);
+  }
+  cairo_move_to(cr, x0 + w * 0.5, y0 + h * 0.42);
+  cairo_line_to(cr, x0 + w * 0.42, y0 + h * 0.62);
+  cairo_line_to(cr, x0 + w * 0.58, y0 + h * 0.62);
+  cairo_close_path(cr);
+  setColor(cr, rgb(130, 96, 56));
+  cairo_fill(cr);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.8, 7);
+  fillOutline(cr, rgb(30, 18, 12), kInk, 1.6);
+  cairo_rectangle(cr, x0 + w * 0.5 - 1.5, y0 + h * 0.74, 3, 12);
+  setColor(cr, rgb(220, 220, 200));
+  cairo_fill(cr);
+}
+
+// Scarab Tide (level 9): a carpet of beetles, one every two cells, legs
+// scuttling on alternate frames. Variant 1 (the carrier) glows green.
+void scarabs(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const bool carrier = c.variant == 1;
+  const Color shell = carrier ? rgb(90, 200, 60) : rgb(40, 110, 110), sheen = carrier ? rgb(200, 255, 140) : rgb(120, 220, 210);
+  const double y = kM + c.h;
+  if (carrier)
+    radialGlow(cr, kM + c.w * 0.5, y - 10, c.w * 0.6, rgb(120, 255, 80), 0.25);
+  int k = 0;
+  for (double x = kM + 4; x < kM + c.w - 8; x += 26, ++k)
+  {
+    const double bx = x + ((k % 2) ? 6 : 0), by = y - 14 - ((k % 3) == 1 ? 6 : 0);
+    for (int l = -1; l <= 1; ++l)
+    {
+      const double sway = (c.frame + k) % 2 ? 4 : -4;
+      strokeLimb(cr, {{bx + 12 + l * 6, by + 4}, {bx + 12 + l * 9 + sway, by + 14}}, 1.6, kInk, kInk, 0.0);
+    }
+    cairo_save(cr);
+    cairo_translate(cr, bx + 12, by);
+    cairo_scale(cr, 1.0, 0.7);
+    circle(cr, 0, 0, 12);
+    cairo_restore(cr);
+    fillGradientOutline(cr, by - 9, by + 9, sheen, shell, kInk, 1.8);
+    cairo_move_to(cr, bx + 12, by - 8);
+    cairo_line_to(cr, bx + 12, by + 8);
+    cairo_set_line_width(cr, 1.4);
+    setColor(cr, kInk);
+    cairo_stroke(cr);
+    circle(cr, bx + 24, by, 4);
+    fillOutline(cr, darken(shell, 0.4f), kInk, 1.2);
+  }
+}
+
+// Treasure Hunter (Trapmaster): a hooded cultist with a sack over his
+// shoulder and a lantern, walking to the idol.
+void treasureHunter(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const double step = c.frame ? 0.06 : -0.06;
+  strokeLimb(cr, {{x0 + w * 0.42, y0 + h * 0.7}, {x0 + w * (0.36 + step), y0 + h}}, 8, rgb(70, 50, 40), kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.58, y0 + h * 0.7}, {x0 + w * (0.64 - step), y0 + h}}, 8, rgb(70, 50, 40), kInk, kLine);
+  // The sack on his back.
+  circle(cr, x0 + w * 0.2, y0 + h * 0.42, w * 0.22);
+  fillOutline(cr, rgb(170, 140, 90), kInk, kLine);
+  // The robe.
+  cairo_move_to(cr, x0 + w * 0.34, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.68, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.8, y0 + h * 0.78);
+  cairo_line_to(cr, x0 + w * 0.22, y0 + h * 0.78);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.24, y0 + h * 0.78, rgb(150, 40, 50), rgb(90, 20, 30), kInk, kLine);
+  // The hood, a dark face and two eyes.
+  circle(cr, x0 + w * 0.52, y0 + h * 0.17, w * 0.2);
+  fillOutline(cr, rgb(130, 34, 44), kInk, kLine);
+  circle(cr, x0 + w * 0.58, y0 + h * 0.18, w * 0.12);
+  setColor(cr, rgb(30, 20, 24));
+  cairo_fill(cr);
+  for (double ex : {0.55, 0.64})
+  {
+    circle(cr, x0 + w * ex, y0 + h * 0.17, 2.5);
+    setColor(cr, rgb(255, 220, 120));
+    cairo_fill(cr);
+  }
+  // The lantern out in front.
+  strokeLimb(cr, {{x0 + w * 0.62, y0 + h * 0.34}, {x0 + w * 0.9, y0 + h * 0.48}}, 6, rgb(150, 40, 50), kInk, kLine);
+  radialGlow(cr, x0 + w * 0.94, y0 + h * 0.56, 20, rgb(255, 190, 80), 0.7);
+  roundedRect(cr, x0 + w * 0.88, y0 + h * 0.5, w * 0.13, h * 0.1, 3);
+  fillOutline(cr, rgb(255, 220, 120), kInk, 1.6);
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -1382,6 +1599,10 @@ DrawFn routineFor(const std::string& key)
     {"howler", howler},
     {"viper", viper},
     {"cutter", cutter},
+    {"guardian", guardian},
+    {"dartface", dartFace},
+    {"scarabs", scarabs},
+    {"treasure_hunter", treasureHunter},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

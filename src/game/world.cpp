@@ -245,6 +245,8 @@ void World::update(const PlayerInput& input)
         updateVines();
       if (mFlight)
         updateFlight(input);
+      else if (mTrapmaster)
+        updateTrapmaster(input);
       else
         updatePlayer(input);
       updateClub();
@@ -253,6 +255,7 @@ void World::update(const PlayerInput& input)
       updateMaglev(input);
       updateChopper(input);
       updateJungle(input);
+      updateTemple(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -310,6 +313,8 @@ void World::updateEnemies()
       --e.stun; // dazed out of a popped bubble
       continue;
     }
+    if (e.tangle > 0 && tangled(e))
+      continue; // lying in the Snare Bolas' cords
     ++e.timer;
     const EnemyDef& def = enemyDef(e.def);
 
@@ -481,6 +486,20 @@ void World::updateEnemies()
       case EnemyKind::Cutter:
         updateCutter(e, def);
         break;
+      case EnemyKind::Guardian:
+        updateGuardian(e, def);
+        break;
+      case EnemyKind::DartFace:
+        updateDartFace(e, def);
+        break;
+      case EnemyKind::Scarabs:
+        updateScarabs(e, def);
+        break;
+      case EnemyKind::Hunter:
+      {
+        // Trapmaster's cultists walk to the idol (world_temple.cpp moves them).
+        break;
+      }
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -648,6 +667,10 @@ void World::updateProjectiles()
         playSound(Sfx::Land);
         return true;
       }
+      // Level 9: the Snare Bolas, a Stone Guardian's front, the beetles.
+      if ((pr.proto == int(ProtoId::SnareBolas) || e.kind == EnemyKind::Guardian || e.kind == EnemyKind::Scarabs) &&
+          shotAtTemple(pr, e))
+        return true;
       const bool wasAlive = e.alive;
       if (!shotHitsEnemy(e, pr.dx, pr.damage))
         return true; // a Bouncer took it on the chest
@@ -767,6 +790,11 @@ void World::damageEnemy(Enemy& e, int damage)
 {
   if (!e.alive)
     return;
+  if (e.kind == EnemyKind::Scarabs)
+  {
+    killBeetles(e, std::max(3, damage)); // a hit takes out up to three in a line
+    return;
+  }
   e.hp -= damage;
   e.flash = 8;
   if (e.hp <= 0)

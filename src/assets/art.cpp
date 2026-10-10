@@ -2268,8 +2268,157 @@ Texture bakeCraneNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isTomb(const Theme& t) { return std::string_view(t.look) == "tomb"; }
+
+// Inside the temple: courses of sandstone blocks going off into the dark,
+// bands of carved glyphs, and the warm light of torches.
+Texture bakeTombSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {1.0, t.skyTop}});
+  Rng rng(4409u);
+  for (int y = 0; y < kScreenH; y += 40)
+    for (int x = (y / 40) % 2 ? -50 : 0; x < kScreenW; x += 100)
+    {
+      cairo_rectangle(cr, x + 2, y + 2, 96, 36);
+      setColor(cr, withAlpha(lerpColor(t.skyMid, t.skyBottom, rng.uniform() * 0.5f), 40 + rng.irange(0, 30)));
+      cairo_fill(cr);
+    }
+  // Two bands of glyphs.
+  for (int band = 0; band < 2; ++band)
+  {
+    const double y = 180 + band * 380.0;
+    cairo_rectangle(cr, 0, y, kScreenW, 70);
+    setColor(cr, withAlpha(t.skyBottom, 40));
+    cairo_fill(cr);
+    for (double x = rng.range(0, 30); x < kScreenW; x += rng.range(40, 70))
+    {
+      const int g = rng.irange(0, 4);
+      setColor(cr, withAlpha(t.skyTop, 160));
+      cairo_set_line_width(cr, 4);
+      if (g == 0)
+      {
+        cairo_arc(cr, x + 14, y + 22, 9, 0, 2 * kPi); // an eye
+        cairo_stroke(cr);
+        cairo_arc(cr, x + 14, y + 22, 3, 0, 2 * kPi);
+        cairo_fill(cr);
+      }
+      else if (g == 1)
+      {
+        cairo_move_to(cr, x + 14, y + 8); // an ankh
+        cairo_line_to(cr, x + 14, y + 60);
+        cairo_move_to(cr, x + 2, y + 30);
+        cairo_line_to(cr, x + 26, y + 30);
+        cairo_stroke(cr);
+        cairo_arc(cr, x + 14, y + 18, 7, 0, 2 * kPi);
+        cairo_stroke(cr);
+      }
+      else if (g == 2)
+      {
+        cairo_move_to(cr, x, y + 50); // a wave
+        for (int k = 0; k < 3; ++k)
+          cairo_line_to(cr, x + 5 + k * 10, y + (k % 2 ? 50 : 40));
+        cairo_stroke(cr);
+        cairo_rectangle(cr, x + 4, y + 10, 20, 16);
+        cairo_stroke(cr);
+      }
+      else
+      {
+        cairo_move_to(cr, x + 2, y + 60); // a bird
+        cairo_line_to(cr, x + 10, y + 20);
+        cairo_line_to(cr, x + 26, y + 14);
+        cairo_line_to(cr, x + 18, y + 34);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+      }
+    }
+  }
+  for (int i = 0; i < 7; ++i)
+    radialGlow(cr, rng.range(0, kScreenW), rng.range(100, kScreenH - 100), rng.range(160, 300), t.trimGlow, 0.08);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: a colonnade in shadow, with seated statues between the pillars.
+Texture bakeTombFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(7717u);
+  const Color shade = lerpColor(t.farLayer, t.skyTop, 0.3f);
+  for (double x = 40; x < kLayerW - 120; x += 300)
+  {
+    // A pillar: lotus capital, fluted shaft.
+    cairo_rectangle(cr, x, 120, 70, kScreenH - 120);
+    setColor(cr, shade);
+    cairo_fill(cr);
+    cairo_move_to(cr, x - 20, 120);
+    cairo_line_to(cr, x + 90, 120);
+    cairo_line_to(cr, x + 70, 160);
+    cairo_line_to(cr, x, 160);
+    cairo_close_path(cr);
+    setColor(cr, lighten(shade, 0.08f));
+    cairo_fill(cr);
+    for (int k = 1; k < 4; ++k)
+    {
+      cairo_rectangle(cr, x + k * 17.0, 170, 4, kScreenH - 170);
+      setColor(cr, withAlpha(t.skyTop, 90));
+      cairo_fill(cr);
+    }
+    // A seated statue between this pillar and the next.
+    const double sx = x + 150, base = kScreenH - 40;
+    setColor(cr, lerpColor(shade, t.skyTop, 0.25f));
+    cairo_rectangle(cr, sx - 40, base - 40, 80, 40); // plinth
+    cairo_fill(cr);
+    cairo_rectangle(cr, sx - 26, base - 150, 52, 110); // body
+    cairo_fill(cr);
+    cairo_move_to(cr, sx - 34, base - 150); // headdress
+    cairo_line_to(cr, sx + 34, base - 150);
+    cairo_line_to(cr, sx + 24, base - 220);
+    cairo_line_to(cr, sx - 24, base - 220);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+    radialGlow(cr, sx, base - 190, 14, t.hazard, rng.uniform() < 0.5 ? 0.0 : 0.5); // some eyes still glow
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: hanging chains, roots through the cracks, dust in the torchlight.
+Texture bakeTombNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(6061u);
+  for (double x = 80; x < kLayerW - 40; x += rng.range(260, 480))
+  {
+    const double len = rng.range(120, 360);
+    for (double y = 0; y < len; y += 14)
+    {
+      cairo_rectangle(cr, x - 4, y, 8, 11);
+      setColor(cr, withAlpha(t.nearLayer, 230));
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+  }
+  for (double x = 0; x < kLayerW; x += rng.range(60, 160))
+  {
+    const double len = rng.range(30, 110);
+    strokeLimb(cr, {{x, 0}, {x + rng.range(-10, 10), len * 0.5}, {x + rng.range(-16, 16), len}}, 3,
+      withAlpha(t.nearLayer, 200), withAlpha(t.nearLayer, 200), 0.0);
+  }
+  for (int i = 0; i < 90; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kLayerW), rng.range(0, kScreenH), rng.range(1, 2.5), 0, 2 * kPi);
+    setColor(cr, withAlpha(t.trimGlow, 60 + rng.irange(0, 60)));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isTomb(t))
+    return bakeTombSky(r, t);
   if (isCrane(t))
     return bakeCraneSky(r, t);
   if (isClub(t))
@@ -2411,6 +2560,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isTomb(t))
+    return bakeTombFar(r, t);
   if (isClub(t))
     return bakeClubFar(r, t);
   if (isSewer(t))
@@ -2527,6 +2678,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isTomb(t))
+    return bakeTombNear(r, t);
   if (isClub(t))
     return bakeClubNear(r, t);
   if (isSewer(t))

@@ -31,10 +31,11 @@ public:
 private:
   struct Goal
   {
-    int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech
+    int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech,
+                  // 6 a stone key, 7 a plate to press (the bonus patch's)
     int x = 0, y = 0;
     int w = 0, h = 0; // kind 3: the entrance's box
-    int index = -1;   // kind 4: the breaker, kind 5: the Leech (enemy index)
+    int index = -1;   // kind 4: the breaker, kind 5: the Leech (enemy index), kind 7: the plate
   };
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;

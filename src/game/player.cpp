@@ -885,6 +885,8 @@ void World::respawnPlayer()
     resetBossCycle();
   if (!mBridges.empty() || !mFruits.empty() || mBounce)
     resetJungle();
+  if (!mTraps.empty() || !mCollapse.empty())
+    resetTemple();
   showMessage("BACK IN ACTION");
 }
 

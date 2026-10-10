@@ -129,6 +129,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
   drawJungleBack(r, camX, camY, frame, alpha);
+  drawTempleBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -277,6 +278,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach == 2 ? 1 : 0; // hanging from the branch
         else if (e.kind == EnemyKind::Cutter)
           variant = e.tell > 0 ? 1 : 0; // the machete up
+        else if (e.kind == EnemyKind::Guardian)
+          variant = e.tangle > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)); // club up, swinging; face down
+        else if (e.kind == EnemyKind::DartFace)
+          variant = e.tell > 0 ? 1 : 0; // the eyes glow
+        else if (e.kind == EnemyKind::Scarabs)
+          variant = e.carrier ? 1 : 0;
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -329,7 +336,17 @@ void World::draw(Renderer& r, int frame, float alpha) const
     }
     if (e.flags() & kEnemyCarrier)
       eo.tint = lerpColor(eo.tint, rgb(120, 255, 80), 0.5f);
+    if (e.tangle > 0 && e.kind != EnemyKind::Guardian)
+    {
+      // Toppled in the Snare Bolas' cords.
+      eo.angle = 90.0f * float(e.tangleRoll < 0 ? -1 : 1);
+      hop = float(e.w) * kCellPx * 0.5f; // lying on the floor, not half in it
+    }
     r.draw(*tex, x, y - hop, eo);
+    if (e.tangle > 0)
+      for (int k = 0; k < 3; ++k) // the cords
+        r.drawLine(x - 30.0f + float(k) * 22.0f, y - 6.0f, x - 14.0f + float(k) * 22.0f, y - 40.0f, 3.0f,
+          rgb(150, 110, 60));
     if (e.flash > 0)
     {
       DrawOpts o;
@@ -350,6 +367,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMaglevFront(r, camX, camY, frame, alpha);
   drawChopperFront(r, camX, camY, frame, alpha);
   drawJungleFront(r, camX, camY, frame, alpha);
+  drawTempleFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -412,6 +430,19 @@ void World::draw(Renderer& r, int frame, float alpha) const
           // A wobbling soap bubble.
           const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
           r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
+          continue;
+        }
+        if (pr.proto == int(ProtoId::SnareBolas))
+        {
+          // Two stone weights on a spinning cord.
+          const float a = float(frame) * 0.9f;
+          const float ex = std::cos(a) * 22.0f, ey = std::sin(a) * 22.0f;
+          r.drawLine(cx - ex, cy - ey, cx + ex, cy + ey, 3.0f, rgb(150, 110, 60));
+          for (const float s : {-1.0f, 1.0f})
+          {
+            r.fillRect(cx + s * ex - 7.0f, cy + s * ey - 7.0f, 14.0f, 14.0f, rgb(120, 96, 70));
+            r.fillRect(cx + s * ex - 4.0f, cy + s * ey - 7.0f, 8.0f, 4.0f, rgb(180, 150, 110));
+          }
           continue;
         }
         if (pr.proto == int(ProtoId::Boomerang))
@@ -823,6 +854,7 @@ void World::drawHud(Renderer& r, int frame) const
     if (s == 0)
       r.fillRect(sx + 4, top + 56, 36.0f * float(p.rapidFire) / 700.0f, 3, rgb(255, 220, 80));
   }
+  drawTempleHud(r, x + 68.0f, top); // Level 9's stone keys, in the second slot
 
   // G-U-N letters.
   x += float(kHudInventoryW) + 10.0f;
