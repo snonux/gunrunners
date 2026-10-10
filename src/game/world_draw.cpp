@@ -90,6 +90,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   }
   else
     drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx);
+  drawStarfallSky(r, camX, camY, frame);
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -136,6 +137,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLavaBack(r, camX, camY, frame, alpha);
   drawSpaceBack(r, camX, camY, frame, alpha);
   drawHiveBack(r, camX, camY, frame, alpha);
+  drawStarfallBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawSanctumBack(r, camX, camY, frame, alpha);
   drawStationBack(r, camX, camY, frame, alpha);
@@ -198,7 +200,17 @@ void World::draw(Renderer& r, int frame, float alpha) const
       // Drifts and twitches so it reads as alive, and dangerous.
       x += std::sin(float(frame + int(i) * 13) * 0.05f) * 10.0f;
       y += std::sin(float(frame) * 0.31f) * 2.0f;
-      drawGlow(r, mArt, x + 32, y + 32, 70, rgb(120, 255, 60), 0.4f + 0.2f * std::sin(float(frame) * 0.13f));
+      drawGlow(r, mArt, x + 32, y + 32, 70, rgb(120, 255, 60), 0.4f + 0.2f * std::sin(float(frame) * 0.13f));      if (it.variant == 2)
+      {
+        // Level 43: a green comet, its tail streaming away behind it.
+        for (int k = 6; k >= 1; --k)
+        {
+          const float tx = x + 32.0f + float(k) * 22.0f, ty = y + 32.0f - float(k) * 9.0f;
+          const float wob = std::sin(float(frame) * 0.2f + float(k)) * 4.0f;
+          drawGlow(r, mArt, tx, ty + wob, 46.0f - float(k) * 5.0f, rgb(140, 255, 90), 0.5f - float(k) * 0.06f);
+        }
+        r.drawLine(x + 40, y + 30, x + 170, y - 24, 10.0f, rgba(150, 255, 110, 90), Blend::Add);
+      }
     }
     else if (it.kind == ItemKind::Proto)
     {
@@ -220,6 +232,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.fillRect(x + 24, y + 13, 34, 4, rgb(190, 140, 30));
         r.fillRect(x + 48, y + 6, 7, 6, rgb(255, 250, 210));
         drawGlow(r, mArt, x + 56, y + 9, 28, rgb(255, 250, 200), 0.7f);
+        continue;
+      }
+      if (mSpace.starfall)
+      {
+        // Starfall's duck floats in a space helmet.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_helmet", 0, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
     }
@@ -339,6 +358,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach; // shut, puckering, breathing in
         else if (e.kind == EnemyKind::Warden)
           variant = e.tell > 0 ? 1 : 0; // its belly glows while it calls
+        else if (e.kind == EnemyKind::VoidRay)
+          variant = e.attach; // gliding, fins lit, diving
+        else if (e.kind == EnemyKind::RockLeech)
+          variant = e.tell > 0 ? 1 : 0; // swelling
         else if (e.kind == EnemyKind::SpearRunner)
           variant = e.attach == 2 ? 1 : 0; // the spear up
         else if (e.kind == EnemyKind::PitSnake)

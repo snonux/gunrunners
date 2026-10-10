@@ -232,6 +232,9 @@ Input Bot::drive(const World& world)
     ++mDriveStall;
   // There (or stuck for good): climb out.
   const bool dropHere = v->dropX >= 0 && here <= 2 && world.canLeaveVehicle();
+  // (In open space there is no getting out: keep flying.)
+  if (mDriveStall > 240 && v->pilot && !world.canLeaveVehicle())
+    mDriveStall = 0;
   if (dropHere || mDriveStall > 240)
   {
     mVehDone[std::size_t(index)] = 1;

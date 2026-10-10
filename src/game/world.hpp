@@ -1441,6 +1441,7 @@ struct Vehicle
   int barrel = 0;     // which gun fired last
   bool occupied = false;
   bool bot = false;           // bot=1: the autopilot drives it
+  bool pilot = false;         // pilot=1: the runner starts in it, respawns in it and only gets out on the ground
   int dropX = -1, dropY = -1; // cells: where the autopilot climbs out
   CellBox box() const { return boxAt(x, y, w, h); }
 };
@@ -1752,6 +1753,9 @@ public:
   CellBox mouthTrigger(const GulletTube& t) const;
   void tubeExit(const GulletTube& t, int branch, int& x, int& y) const;
   static constexpr int kBreathPeriod = 90; // the hive breathes in for 40 frames of every 90
+  // Level 43: open space and its drifting rocks.
+  bool hasStarfall() const { return mSpace.starfall; }
+  const std::vector<DriftRock>& driftRocks() const { return mSpace.rocks; }
   bool inLava(const CellBox& b) const;
   // Fifteenths of a cell a sink platform goes down per frame with its load now.
   int sinkRate(const Platform& pl) const;
@@ -2157,6 +2161,18 @@ private:
   void resetHive();
   void drawHiveBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawHiveFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 43 (world_starfall.cpp).
+  bool setupStarfallEntity(const EntityDef& e);
+  void finishStarfallSetup();
+  void boardPilotShip(); // a `pilot=1` ship: the runner starts (and respawns) in it
+  void updateStarfall();
+  bool shotAtRock(Projectile& pr);
+  void hitRock(std::size_t i, int damage, int pushX, int pushY);
+  void updateVoidRay(Enemy& e, const EnemyDef& def);
+  void updateRockLeech(Enemy& e, const EnemyDef& def);
+  void resetStarfall();
+  void drawStarfallSky(Renderer& r, float camX, float camY, int frame) const;
+  void drawStarfallBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   // Level 13 (world_boulder.cpp).
   bool setupBoulderEntity(const EntityDef& e);
   void setupBoulderEnemy(Enemy& en, const EntityDef& e);

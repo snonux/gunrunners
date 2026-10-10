@@ -167,6 +167,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkSanctum();
   linkGolden();
   linkStation();
+  if (mSpace.starfall)
+    finishStarfallSetup();
   if (mPinball)
     setupPinball();
   if (mSurfing)
@@ -299,6 +301,7 @@ void World::update(const PlayerInput& input)
       updateLava(input);
       updateSpace(input);
       updateHive();
+      updateStarfall();
       updateBoulders(input);
       updateSanctum(input);
       updateGolden();
@@ -594,6 +597,12 @@ void World::updateEnemies()
       case EnemyKind::Warden:
         updateWarden(e, def);
         break;
+      case EnemyKind::VoidRay:
+        updateVoidRay(e, def);
+        break;
+      case EnemyKind::RockLeech:
+        updateRockLeech(e, def);
+        break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);
         break;
@@ -714,6 +723,9 @@ void World::updateProjectiles()
       return true;
     // Level 45: a valve set into a tube turns when shot.
     if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))
+      return true;
+    // Level 43: shots push drifting rocks along and chip at them.
+    if (mSpace.starfall && pr.kind != ShotKind::Enemy && shotAtRock(pr))
       return true;
     if (mMap.overlapsSolid(b))
     {
@@ -1106,7 +1118,8 @@ void World::updateItems()
       --it.pickupDelay;
       continue;
     }
-    if (canCollect && it.box().intersects(p.box()))
+    // At the wheel, whatever the vehicle flies through is yours.
+    if (canCollect && it.box().intersects(riding() ? riding()->box() : p.box()))
       collectItem(it);
   }
   mItems.erase(

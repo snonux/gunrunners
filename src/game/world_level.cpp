@@ -98,6 +98,7 @@ void World::setupEntities()
   mAutorun = lv.rules.find("autorun") != std::string::npos;
   mLightTrail = lv.rules.find("lighttrail") != std::string::npos;
   mFlight = lv.rules.find("flight") != std::string::npos;
+  mSpace.starfall = lv.flag("space");
   mBounce = lv.rules.find("bounce") != std::string::npos;
   mTrapmaster = lv.rules.find("trapmaster") != std::string::npos;
   mNegative = lv.rules.find("negative") != std::string::npos;
@@ -252,7 +253,7 @@ void World::setupEntities()
       it.kind = ItemKind::Virus;
       it.x = it.prevX = cx;
       it.y = it.prevY = cy;
-      it.variant = e.str("skin") == "spiked_drink" ? 1 : 0;
+      it.variant = e.str("skin") == "spiked_drink" ? 1 : (e.str("skin") == "comet" ? 2 : 0);
       it.floating = true;
       mItems.push_back(it);
       continue;
@@ -417,6 +418,8 @@ void World::setupEntities()
     if (setupSpaceEntity(e))
       continue;
     if (setupHiveEntity(e))
+      continue;
+    if (setupStarfallEntity(e))
       continue;
     if (setupBoulderEntity(e))
       continue;

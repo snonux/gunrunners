@@ -973,6 +973,8 @@ void World::respawnPlayer()
     resetStation();
   if (!mVehicles.empty())
     resetVehicles();
+  if (mSpace.starfall)
+    resetStarfall(); // puts you back in the ship
   mAir = kAirFrames;
   showMessage("BACK IN ACTION");
 }
@@ -1010,8 +1012,8 @@ void World::updatePlayerInteractions()
 
   for (auto& cp : mCheckpoints)
   {
-    if (cp.active || !cp.box().intersects(hit))
-      continue;
+    if (cp.active || !cp.box().intersects(riding() ? riding()->box() : hit))
+      continue; // (flying past a beacon counts)
     cp.active = true;
     mRespawnX = cp.x;
     mRespawnY = cp.y;
