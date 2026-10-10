@@ -9,7 +9,8 @@ namespace gr
 // Episode 7, DEEP SPACE: the planet Vurr's own tiles and backdrops
 // (art_alien.cpp). A theme whose look starts with "alien" gets organic
 // tiles in its palette; the rest of the look picks the backdrop
-// ("alien_garden": Crash Garden's fungus forest at twilight).
+// ("alien_garden": Crash Garden's fungus forest at twilight, "alien_hive":
+// inside the hive, Level 45).
 bool isAlien(const Theme& t);
 Texture bakeAlienSolid(const Renderer& r, const Theme& t, int variant);
 Texture bakeAlienSolidTop(const Renderer& r, const Theme& t, float topOffset, int height);

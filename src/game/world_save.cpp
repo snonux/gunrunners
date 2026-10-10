@@ -8,7 +8,8 @@ namespace gr
 bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
-    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball && !mSurfing;
+    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && !mPinball &&
+    !mSurfing;
 }
 
 SaveGame World::snapshot() const
@@ -104,7 +105,8 @@ SaveGame World::snapshot() const
     if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
       es.attach = 0;
     // Episode 7's aliens come back on their feet (not mid-leap or on a wall).
-    if (e.kind == EnemyKind::Skitter || e.kind == EnemyKind::Spitpod || e.kind == EnemyKind::Gloop)
+    if (e.kind == EnemyKind::Skitter || e.kind == EnemyKind::Spitpod || e.kind == EnemyKind::Gloop ||
+        e.kind == EnemyKind::Polyp)
       es.attach = 0;
     // A Spear Runner about to throw comes back fleeing; a Pit Snake back
     // coiled in its hole.

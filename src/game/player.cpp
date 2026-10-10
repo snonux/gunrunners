@@ -147,6 +147,12 @@ void World::updatePlayer(const PlayerInput& raw)
       playSound(Sfx::Jump);
     }
   }
+  if (p.tube >= 0)
+  {
+    // Level 45: inside a Gullet Tube (world_hive.cpp).
+    updateTubeRide();
+    return;
+  }
   if (p.cart >= 0)
   {
     // Level 11: riding a mine cart (world_mine.cpp).
@@ -793,7 +799,8 @@ void World::switchOrientationWithPositionChange()
 void World::hurtPlayer(int amount)
 {
   auto& p = mPlayer;
-  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0 || mGod)
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0 || mGod ||
+      p.tube >= 0)
     return;
   p.hp -= amount;
   mStats.tookDamage = true;
@@ -922,6 +929,8 @@ void World::respawnPlayer()
     resetMine();
   if (mSpace.goo)
     resetSpace();
+  if (mSpace.hive)
+    resetHive();
   if (!mBoulders.empty())
     resetBoulders();
   showMessage("BACK IN ACTION");

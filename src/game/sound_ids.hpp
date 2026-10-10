@@ -78,6 +78,9 @@ enum class Sfx
   Squelch,   // goo: sticking to a goo wall, a Goo Gun splat, a Gloop splitting
   Chitter,   // a Skitter's click before it leaps
   Spit,      // a Spitpod lobbing acid
+  Gulp,      // a Gullet Tube swallowing or spitting out
+  Inhale,    // a Polyp breathing in
+  Screech,   // a Drone Warden calling its mites
   Crash,     // a boulder landing, a chute's flaps slamming
   Hiss,      // a Pit Snake about to rear
   Count,

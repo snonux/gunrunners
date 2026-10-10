@@ -398,6 +398,8 @@ void World::setupEntities()
       continue;
     if (setupSpaceEntity(e))
       continue;
+    if (setupHiveEntity(e))
+      continue;
     if (setupBoulderEntity(e))
       continue;
     if (setupSludgeEntity(e))

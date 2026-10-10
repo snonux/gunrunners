@@ -134,6 +134,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMineBack(r, camX, camY, frame, alpha);
   drawLavaBack(r, camX, camY, frame, alpha);
   drawSpaceBack(r, camX, camY, frame, alpha);
+  drawHiveBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
@@ -323,6 +324,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the bulb swells
         else if (e.kind == EnemyKind::Gloop)
           variant = e.attach == 1 ? 2 : (e.tell > 0 ? 1 : 0); // squashed, in the air
+        else if (e.kind == EnemyKind::Polyp)
+          variant = e.attach; // shut, puckering, breathing in
+        else if (e.kind == EnemyKind::Warden)
+          variant = e.tell > 0 ? 1 : 0; // its belly glows while it calls
         else if (e.kind == EnemyKind::SpearRunner)
           variant = e.attach == 2 ? 1 : 0; // the spear up
         else if (e.kind == EnemyKind::PitSnake)
@@ -420,6 +425,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMineFront(r, camX, camY, frame, alpha);
   drawLavaFront(r, camX, camY, frame, alpha);
   drawSpaceFront(r, camX, camY, frame, alpha);
+  drawHiveFront(r, camX, camY, frame, alpha);
   drawBoulderFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
@@ -483,6 +489,15 @@ void World::draw(Renderer& r, int frame, float alpha) const
           // A wobbling soap bubble.
           const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
           r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
+          continue;
+        }
+        if (pr.proto == int(ProtoId::BileBlaster))
+        {
+          // A gob of bile with a trail of drops.
+          const float s = pr.strong ? 1.4f : 1.0f;
+          drawGlow(r, mArt, cx, cy, 34.0f * s, rgb(210, 240, 70), 0.6f);
+          r.draw(styledEnemySprite(mArt, r, mTheme, "bile_blob", 0, (frame / 3) % 2, 1, 1).get(pr.dx < 0 ? -1 : 1), cx,
+            cy + 16.0f);
           continue;
         }
         if (pr.proto == int(ProtoId::GooGun))
@@ -669,8 +684,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
 void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alpha) const
 {
   const auto& p = mPlayer;
-  if (p.hidden)
-    return;
+  if (p.hidden || p.tube >= 0)
+    return; // in a Gullet Tube, drawHiveFront draws you
   // Mercy frames: Duke blinks the sprite on and off, then flashes it white.
   // Strobing at the logic rate looks harsh in HD, so the runner turns
   // see-through with a gentle pulse instead, and glows white at the end.
