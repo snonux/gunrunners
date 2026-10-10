@@ -79,6 +79,14 @@ const EnemyDef kEnemies[] = {
   {"toad", "MAGMA TOAD", K::Toad, L::Styled, 3, 3, 3, 400, 1, 60, 15, 20, 0, 0},
   {"wisp", "EMBER WISP", K::Wisp, L::Styled, 2, 2, 2, 300, 4, 20, 15, 4, kEnemyHarmless, 0},
   {"crab", "BASALT CRAB", K::Crab, L::Styled, 4, 3, 6, 900, 4, 30, 10, 3, 0, 0},
+  // Level 44: Crash Garden. Skitter: range is how far ahead (cells) it
+  // notices you before the leap. Spitpod: range is how far it lobs. Gloop:
+  // range is how close you must be before it hops after you; the small ones
+  // are its halves.
+  {"skitter", "SKITTER", K::Skitter, L::Styled, 3, 2, 2, 300, 1, 30, 8, 14, 0, 0},
+  {"spitpod", "SPITPOD", K::Spitpod, L::Styled, 3, 4, 3, 400, 0, 45, 12, 22, 0, 0},
+  {"gloop", "GLOOP", K::Gloop, L::Styled, 3, 3, 2, 300, 1, 18, 8, 18, 0, 0},
+  {"gloop_small", "GLOOPLET", K::Gloop, L::Styled, 2, 2, 1, 100, 1, 14, 6, 18, kEnemyNoTally, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

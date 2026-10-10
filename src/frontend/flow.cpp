@@ -122,8 +122,11 @@ std::vector<std::string> Game::titleItems() const
   const int reached = std::clamp(mProfile.reached, 1, kCampaignLevels);
   if (reached > 1 && !levelFile(dataDir(), reached).empty())
     items.emplace_back("CONTINUE");
+  // Episode 7 is a side episode: open from the start, with its own progress.
+  if (firstSpaceLevel(dataDir()) > 0)
+    items.emplace_back("DEEP SPACE");
   items.emplace_back("LOAD GAME");
-  if (reached > 1)
+  if (reached > 1 || mProfile.spaceReached > 0)
     items.emplace_back("LEVEL SELECT");
   items.emplace_back("ARSENAL");
   if (!mProfile.stars.empty())
@@ -166,6 +169,16 @@ void Game::tickTitle(const Input& raw)
   {
     mPendingLevel = item == "NEW GAME" ? 1 : (item == "CONTINUE" ? std::clamp(mProfile.reached, 1, kCampaignLevels) : 0);
     mPendingNewGame = item == "NEW GAME";
+    if (mOptions.autoplay)
+      mCursor = 0;
+    setMode(Mode::Select);
+  }
+  else if (item == "DEEP SPACE")
+  {
+    // Carry on from the furthest space level started, if it has been built.
+    const int furthest = std::clamp(mProfile.spaceReached, kSpaceFirst, kAllLevels);
+    mPendingLevel = !levelFile(dataDir(), furthest).empty() ? furthest : firstSpaceLevel(dataDir());
+    mPendingNewGame = false;
     if (mOptions.autoplay)
       mCursor = 0;
     setMode(Mode::Select);
@@ -221,13 +234,14 @@ void Game::renderTitle()
   r.drawText("42 LEVELS  -  42 PROTOTYPES  -  ONE SHOW", cx, 186, {22.0f, t.hudText, kInk}, Align::Center);
 
   const auto items = titleItems();
-  // Eleven items at most (every unlock, a window): they close up a little.
+  // Twelve items at most (every unlock, a window): they close up a little.
   const bool crowded = items.size() > 10;
-  const float top = crowded ? 222.0f : 236.0f;
+  const float top = crowded ? 218.0f : 236.0f;
+  const float step = items.size() > 11 ? 34.5f : (crowded ? 38.0f : 44.0f);
   for (std::size_t i = 0; i < items.size(); ++i)
   {
     const bool sel = int(i) == mTitleCursor;
-    const float y = top + float(i) * (crowded ? 38.0f : 44.0f);
+    const float y = top + float(i) * step;
     if (sel)
     {
       r.fillRect(cx - 200, y - 4, 400, 40, withAlpha(t.accentA, 60));
@@ -237,8 +251,8 @@ void Game::renderTitle()
   }
 
   char buf[160];
-  std::snprintf(buf, sizeof(buf), "ARSENAL %d/42     BONUS STARS %d/42     DUCKS %d/42     CAMERAS %d/20",
-    int(mProfile.protos.size()), int(mProfile.stars.size()), int(mProfile.ducks.size()),
+  std::snprintf(buf, sizeof(buf), "ARSENAL %d/%d     BONUS STARS %d/42     DUCKS %d/42     CAMERAS %d/20",
+    int(mProfile.protos.size()), kProtoCount, int(mProfile.stars.size()), int(mProfile.ducks.size()),
     int(mProfile.cameras.size()));
   r.drawText(buf, cx, 640, {17.0f, t.accentB, kInk}, Align::Center);
   r.drawText("UP/DOWN choose   ENTER / A select   ESC quit", cx, 676, {15.0f, rgb(200, 200, 220), kInk},
@@ -329,9 +343,10 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
   if (mAudio)
     mAudio->preloadMusic(mLevel->music);
   applyLevelLook(episodeOfLevel(number), mLevel->themeKey);
-  if (number > mProfile.reached)
+  int& reached = spaceLevel(number) ? mProfile.spaceReached : mProfile.reached;
+  if (number > reached)
   {
-    mProfile.reached = number;
+    reached = number;
     mProfile.save(saveDir());
   }
   std::vector<std::string> cuts;
@@ -363,7 +378,10 @@ void Game::recordClear()
     mProfile.cameras.insert(n);
   if (mWorld->bonusStar())
     mProfile.stars.insert(n);
-  mProfile.reached = std::max(mProfile.reached, std::min(kCampaignLevels, n + 1));
+  if (spaceLevel(n))
+    mProfile.spaceReached = std::max(mProfile.spaceReached, std::min(kAllLevels, n + 1));
+  else
+    mProfile.reached = std::max(mProfile.reached, std::min(kCampaignLevels, n + 1));
   mProfile.duckMode = mProfile.ducks.size() >= std::size_t(kCampaignLevels);
   if (!mProfile.save(saveDir()))
     std::fprintf(stderr, "could not save the profile to %s\n", saveDir().c_str());
@@ -538,19 +556,34 @@ void Game::leaveBonus()
 void Game::tickArsenal(const Input& in)
 {
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
-  const int col = mArsenalCursor % 7, row = mArsenalCursor / 7;
-  int c = col, r = row;
+  // The grid has a cell per level; levels without a prototype (the space
+  // ship's) are skipped.
+  int next = mArsenalCursor;
   if (edge(&Input::left))
-    c = (c + 6) % 7;
+    next = (next + kProtoCount - 1) % kProtoCount;
   if (edge(&Input::right))
-    c = (c + 1) % 7;
-  if (edge(&Input::up))
-    r = (r + 5) % 6;
-  if (edge(&Input::down))
-    r = (r + 1) % 6;
-  if (c != col || r != row)
+    next = (next + 1) % kProtoCount;
+  if (edge(&Input::up) || edge(&Input::down))
   {
-    mArsenalCursor = r * 7 + c;
+    const int step = edge(&Input::up) ? -7 : 7;
+    const int rows = kEpisodes * 7;
+    for (int k = 1; k <= kEpisodes; ++k)
+    {
+      const int want = ((protoDef(mArsenalCursor).level - 1 + step * k) % rows + rows) % rows + 1;
+      int found = -1;
+      for (int i = 0; i < kProtoCount && found < 0; ++i)
+        if (protoDef(i).level == want)
+          found = i;
+      if (found >= 0)
+      {
+        next = found;
+        break;
+      }
+    }
+  }
+  if (next != mArsenalCursor)
+  {
+    mArsenalCursor = next;
     sound(Sfx::MenuMove);
   }
   if (edge(&Input::back) || edge(&Input::pause) || edge(&Input::confirm) || (mOptions.autoplay && mModeTicks > 200))
@@ -568,17 +601,19 @@ void Game::renderArsenal()
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(4, 2, 12, 190));
   r.drawText("THE ARSENAL", 640, 22, {56.0f, t.accentA, kInk, true}, Align::Center);
   char buf[160];
-  std::snprintf(buf, sizeof(buf), "%d OF 42 PROTOTYPES RETURNED TO THE CLIENT", int(mProfile.protos.size()));
+  std::snprintf(buf, sizeof(buf), "%d OF %d PROTOTYPES RETURNED TO THE CLIENT", int(mProfile.protos.size()),
+    kProtoCount);
   r.drawText(buf, 640, 92, {18.0f, t.hudText, kInk}, Align::Center);
 
   // One row per episode, one cell per level.
-  const float gx = 186.0f, gy = 132.0f, cw = 82.0f, ch = 72.0f;
+  const float gx = 186.0f, gy = 124.0f, cw = 82.0f, ch = 74.0f * 6.0f / float(kEpisodes);
   for (int i = 0; i < kProtoCount; ++i)
   {
     const auto& def = protoDef(i);
     const bool logged = mProfile.protos.count(def.key) > 0;
     const bool sel = i == mArsenalCursor;
-    const float x = gx + float(i % 7) * cw, y = gy + float(i / 7) * ch;
+    const int slot = def.level - 1;
+    const float x = gx + float(slot % 7) * cw, y = gy + float(slot / 7) * ch;
     r.fillRect(x, y, cw - 8, ch - 8, sel ? withAlpha(t.accentA, 90) : rgba(255, 255, 255, logged ? 30 : 12));
     if (logged)
     {
@@ -638,8 +673,9 @@ void Game::openList(ListKind kind)
   switch (kind)
   {
     case ListKind::Levels:
-      for (int n = 1; n <= std::min(mProfile.reached, kCampaignLevels); ++n)
-        if (!levelFile(dataDir(), n).empty())
+      for (int n = 1; n <= kAllLevels; ++n)
+        if (n <= (spaceLevel(n) ? mProfile.spaceReached : std::min(mProfile.reached, kCampaignLevels)) &&
+            !levelFile(dataDir(), n).empty())
         {
           std::snprintf(id, sizeof(id), "%d", n);
           std::snprintf(label, sizeof(label), "%02d  %s%s", n, campaignLevel(n).title, mProfile.stars.count(n) ? "  *" : "");
@@ -767,7 +803,7 @@ void Game::renderContinued()
   r.drawText("TO BE CONTINUED...", 640, 250, {80.0f, t.accentA, kInk, true}, Align::Center, a);
   char buf[128];
   std::snprintf(buf, sizeof(buf), "LEVEL %d  -  %s  -  IS STILL BEING BUILT", mLevelNumber,
-    campaignLevel(std::clamp(mLevelNumber, 1, kCampaignLevels)).title);
+    campaignLevel(std::clamp(mLevelNumber, 1, kAllLevels)).title);
   r.drawText(buf, 640, 370, {22.0f, t.hudText, kInk}, Align::Center, a);
   r.drawText("Stay tuned. Your progress and the Arsenal are saved.", 640, 410, {18.0f, rgb(200, 200, 220)},
     Align::Center, a);

@@ -1598,6 +1598,103 @@ void magmaHop(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.fillRect(780 + ox, 600 + oy, 280, 12, rgb(255, 210, 90));
 }
 
+// --- Episode 7, DEEP SPACE ---------------------------------------------------------
+
+// The courier ship nose-down in the fungus forest, smoking, its cockpit
+// canopy open.
+void crashedShip(ClipKit& k, int ticks, float ox, float oy)
+{
+  const Texture& ship = cached(k, "crash_ship", 620, 360, 0, 0, [](cairo_t* cr) {
+    cairo_translate(cr, 310, 200);
+    cairo_rotate(cr, 0.32);
+    // Hull.
+    cairo_move_to(cr, -260, -30);
+    cairo_curve_to(cr, -180, -90, 120, -100, 250, -20);
+    cairo_curve_to(cr, 270, 0, 250, 30, 200, 50);
+    cairo_line_to(cr, -240, 50);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, -100, 50, rgb(190, 196, 214), rgb(90, 92, 116), rgb(20, 16, 34), 4);
+    // Scorch and a stripe.
+    cairo_rectangle(cr, -200, -10, 380, 14);
+    setColor(cr, rgb(255, 120, 60));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 60, -60, 160, 90);
+    setColor(cr, rgba(30, 20, 30, 130));
+    cairo_fill(cr);
+    // The open canopy.
+    cairo_move_to(cr, 90, -62);
+    cairo_curve_to(cr, 120, -150, 200, -150, 230, -90);
+    cairo_line_to(cr, 90, -62);
+    fillOutline(cr, rgba(140, 230, 255, 150), rgb(20, 16, 34), 3);
+    // A crumpled wing.
+    cairo_move_to(cr, -120, 20);
+    cairo_line_to(cr, -40, 20);
+    cairo_line_to(cr, -150, 120);
+    cairo_line_to(cr, -210, 110);
+    cairo_close_path(cr);
+    fillOutline(cr, rgb(120, 124, 150), rgb(20, 16, 34), 3);
+  });
+  k.r.draw(ship, 420 + ox, 260 + oy);
+  // Smoke out of the engine, rising and spreading.
+  for (int i = 0; i < 10; ++i)
+  {
+    const int f = (ticks / 3 + i * 7) % 70;
+    const float x = 470.0f + float(f) * 1.6f + std::sin(float(f) * 0.2f + float(i)) * 12.0f;
+    const float y = 330.0f - float(f) * 4.0f, s = 20.0f + float(f) * 0.9f;
+    k.r.fillRect(x - s * 0.5f + ox, y - s * 0.5f + oy, s, s, rgba(70, 60, 90, 150 - f * 2));
+  }
+  // Sparks off the hull.
+  if ((ticks / 4) % 6 == 0)
+    drawGlow(k.r, k.art, 640 + ox, 380 + oy, 30, rgb(255, 200, 90), 0.9f);
+}
+
+void crashLanding(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.6f + ox, oy, 0.0f);
+  crashedShip(k, ticks, ox, oy);
+  // Glowing moss in front.
+  k.r.fillRect(ox, 600 + oy, W, 120, rgb(34, 18, 54));
+  k.r.fillRect(ox, 600 + oy, W, 10, rgb(80, 210, 160));
+  // The runners climbing out, one by one.
+  for (int who = 0; who < 3; ++who)
+  {
+    const int out = frame - who * 4;
+    if (out < 0)
+      continue;
+    const float x = 760.0f + float(who) * 150.0f, drop = std::max(0.0f, 1.0f - float(out) / 4.0f) * 160.0f;
+    k.r.draw(runner(k, who, 0, 2.4f, true), x + ox, 600 + oy - drop);
+  }
+  // MAX, crackling over the radio: a flickering hologram from Dash's wrist.
+  const float flicker = (ticks / 4) % 7 == 0 ? 0.5f : 0.1f;
+  drawMax(k, 1100 + ox, 260 + oy, 0.45f, ticks, flicker);
+}
+
+void gooWall(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.6f + 200.0f + ox, oy, 0.0f);
+  // A wall of the planet's flesh-rock, coated in glowing goo.
+  k.r.fillRect(700 + ox, oy, 580, H, rgb(44, 26, 64));
+  for (int i = 0; i < 18; ++i)
+    k.r.fillRect(720 + float(hash2(i, 5) % 540u) + ox, float(hash2(i, 6) % 700u) + oy, 26, 18, rgb(64, 40, 88));
+  const float wob = std::sin(float(ticks) * 0.1f) * 4.0f;
+  k.r.fillRect(684 + wob * 0.5f + ox, oy, 40, H, rgba(140, 250, 90, 220));
+  k.r.fillRect(700 + ox, oy, 8, H, rgba(220, 255, 180, 160));
+  for (int d = 0; d < 5; ++d)
+  {
+    const float y = std::fmod(float(hash2(d, 8) % 720u) + float(ticks) * 1.5f, 720.0f);
+    k.r.fillRect(686 + ox, y + oy, 10, 26, rgba(170, 255, 120, 230));
+  }
+  drawGlow(k.r, k.art, 700 + ox, 360 + oy, 260, rgb(130, 255, 90), 0.25f);
+  // Nova slides down the goo, back to the wall, then kicks off.
+  const bool kicked = frame >= 8;
+  const float t = kicked ? float(frame - 8) : 0.0f;
+  const float y = kicked ? 380.0f - t * 40.0f + t * t * 4.0f : 260.0f + float(frame) * 12.0f;
+  const float x = kicked ? 620.0f - t * 40.0f : 630.0f;
+  k.r.draw(runner(k, 2, kicked ? 2 : 10, 2.4f, true), x + ox, y + oy);
+  k.r.fillRect(ox, 640 + oy, 700, 80, rgb(34, 18, 54));
+  k.r.fillRect(ox, 640 + oy, 700, 10, rgb(80, 210, 160));
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1669,6 +1766,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return magmaHeat(k, frame, ticks, ox, oy);
   if (clip == "brief12_hop")
     return magmaHop(k, frame, ticks, ox, oy);
+  if (clip == "brief44_crash")
+    return crashLanding(k, frame, ticks, ox, oy);
+  if (clip == "brief44_goo")
+    return gooWall(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")

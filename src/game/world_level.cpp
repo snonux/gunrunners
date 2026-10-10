@@ -393,6 +393,8 @@ void World::setupEntities()
       continue;
     if (setupLavaEntity(e))
       continue;
+    if (setupSpaceEntity(e))
+      continue;
     if (setupSludgeEntity(e))
       continue;
     if (setupMaglevEntity(e))

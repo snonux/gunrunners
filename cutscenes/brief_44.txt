@@ -1,0 +1,24 @@
+cutscene brief_44
+music theme_crash_garden
+
+# Clip brief44_crash: 4 layers. Backdrop: Vurr's fungus forest at
+# twilight, two moons and the ringed giant. Mid: the courier ship nose-down
+# in the moss, smoke rising from its engine (70-frame loop), sparks off the
+# hull. Characters: the runners drop out of the open canopy one by one.
+# Foreground: MAX on Dash's wrist, crackling. 16 frames.
+shot brief44_crash delay=110 repeat=4
+  cue 0 fade=in:600
+  cue 0 sound=crash_thud
+  cue 10 sound=sparks_crackle
+  cue 14 say=MAX "Is everyone in one piece?"
+  cue 30 say=ROCCO "The ship isn't."
+  cue 44 say=MAX "The Star Seed's signal is up past those cliffs. Find a way up."
+  cue 63 hold=1500
+
+# Clip brief44_goo: 3 layers. Backdrop: the forest. Mid: a rock wall
+# coated in glowing goo, drips running down. Characters: Nova slides down
+# the goo with her back to it, then kicks off it (frame 8). 12 frames.
+shot brief44_goo delay=100 repeat=2
+  cue 0 sound=goo_squelch
+  cue 8 say=NOVA "Sticky. Useful."
+  cue 23 fade=out:600

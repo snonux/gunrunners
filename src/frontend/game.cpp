@@ -29,6 +29,7 @@ const char* stateName(PlayerState s)
     case PlayerState::Dying: return "dying";
     case PlayerState::Teleporting: return "exit";
     case PlayerState::Swing: return "swing";
+    case PlayerState::Cling: return "cling";
   }
   return "?";
 }
@@ -311,11 +312,13 @@ void Game::finishTally()
     mWorld.reset();
     const int n = mLevelNumber;
     std::vector<std::string> next;
+    // The main story and the space episode each end with their own scenes.
+    const bool last = n == kCampaignLevels || n == kAllLevels;
     if (n == kCampaignLevels)
       next = {"finale", "post_credits"};
     else if (n == episode(episodeOfLevel(n)).last)
       next = {"end_e" + std::to_string(episodeOfLevel(n))};
-    playCutscenes(next, n == kCampaignLevels ? After::Title : After::NextLevel);
+    playCutscenes(next, last ? After::Title : After::NextLevel);
     return;
   }
   mWorld.reset();

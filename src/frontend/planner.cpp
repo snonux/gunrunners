@@ -222,7 +222,7 @@ bool stable(const World& w)
       if (c.ty * kCellsPerTile == p.y + 1 && c.tx * kCellsPerTile + 1 >= p.x && c.tx * kCellsPerTile <= p.x + 2)
         return false;
   return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe ||
-    p.state == PlayerState::Swing;
+    p.state == PlayerState::Swing || p.state == PlayerState::Cling;
 }
 
 // A vine macro's input this frame: push along the swing until a launch
@@ -761,6 +761,20 @@ void Planner::buildField(const World& w, const Goal& goal)
       for (int x = 0; x < W; ++x)
         spearAt[std::size_t(y * W + x)] = spearCell(x, y);
   std::vector<int> support(std::size_t(W * H), kInf), lift(std::size_t(W * H), jumpH);
+  // Level 44: beside a goo wall you cling, and a kick off it is a jump from
+  // there (back to the same wall, or across a chimney): like ground.
+  std::vector<std::uint8_t> clingAt(std::size_t(W * H));
+  if (w.hasGoo())
+  {
+    auto gooCell = [&](int cx, int cy) {
+      return cx >= 0 && cy >= 0 && map.solid(cx, cy) && w.gooBlockAt(cx / kCellsPerTile, cy / kCellsPerTile);
+    };
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        for (int yy = y - 3; yy <= y - 2; ++yy)
+          if (gooCell(x - 1, yy) || gooCell(x + 3, yy))
+            clingAt[std::size_t(y * W + x)] = 1;
+  }
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
     {
@@ -790,8 +804,9 @@ void Planner::buildField(const World& w, const Goal& goal)
       }
       for (int k = 0; k < 64 && y + 1 + k < H; ++k)
       {
-        // A foothold you could stick below counts as ground to jump from.
-        if (k > 0 && spearAt[std::size_t((y + k) * W + x)])
+        // A foothold you could stick below counts as ground to jump from,
+        // and so does a goo wall to cling to.
+        if (k > 0 && (spearAt[std::size_t((y + k) * W + x)] || clingAt[std::size_t((y + k) * W + x)]))
         {
           support[i] = k;
           break;
@@ -810,6 +825,8 @@ void Planner::buildField(const World& w, const Goal& goal)
         support[i] = 0;
         spearOnly[i] = 1;
       }
+      if (clingAt[i])
+        support[i] = 0;
       for (int yy = y - 4; yy <= y; ++yy)
         if (map.ladder(x + 1, yy))
           ladder[i] = 1;
@@ -1488,6 +1505,10 @@ void Planner::plan(const World& world)
     if (p.state == PlayerState::Swing)
       k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
     k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+    // Level 44: on a goo wall, or kicked off one.
+    if (w.hasGoo())
+      k = mix(k, std::uint64_t(p.wall + 2) | (std::uint64_t(p.kick + 8) << 4) | (std::uint64_t(p.kickArc) << 8) |
+                   (std::uint64_t(w.gooPatches().size()) << 12));
     for (const auto& b : w.bridges())
       k = mix(k, std::uint64_t(b.down) | (std::uint64_t(b.chops) << 1) | (std::uint64_t(std::min(b.heavy, 63)) << 4) |
                    (std::uint64_t(b.left + 1) << 12) | (std::uint64_t(b.creak) << 24));

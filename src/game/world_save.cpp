@@ -101,6 +101,9 @@ SaveGame World::snapshot() const
     }
     if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
       es.attach = 0;
+    // Episode 7's aliens come back on their feet (not mid-leap or on a wall).
+    if (e.kind == EnemyKind::Skitter || e.kind == EnemyKind::Spitpod || e.kind == EnemyKind::Gloop)
+      es.attach = 0;
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
