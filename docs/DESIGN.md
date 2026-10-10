@@ -11,6 +11,15 @@ across all three directions:
 | Dash   | The all-rounder | Duke's own jump (7 cells), 9 hearts        | Blaster |
 | Rocco  | The heavy       | Lowest jump (6 cells), 12 hearts           | Blaster plus 12 rockets |
 | Nova   | The acrobat     | Highest jump (9 cells), only 7 hearts      | Blaster plus 16 laser shots |
+| Jade   | The pyro        | Duke's jump (7 cells), 10 hearts           | Blaster plus 48 flamethrower shots |
+| Skye   | The scout       | High jump (8 cells), 8 hearts              | Blaster with rapid fire for the first 47 seconds |
+| Bolt   | The machine (a robot) | Lowest jump (6 cells), 11 hearts     | Blaster plus a full laser (32) |
+
+Players can add their own runners in the runner editor: parts (body, build,
+hair or head kit, face or optics, outfit, sleeves) and colours from fixed
+lists, a starting gun, and 10 points for HEALTH (6-12 hearts), JUMP (6-9
+cells) and POWER (8-32 shots of the starting gun, or up to 47 s of rapid
+fire with the blaster).
 
 All three can pick up every weapon (laser, rockets, flamethrower), as in
 Duke II; the starting weapon only gives each a different opening.

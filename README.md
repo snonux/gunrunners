@@ -5,16 +5,17 @@
   <img src="docs/media/cover_back.jpg" width="420" alt="Gunrunners box art, back">
 </p>
 
-A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of three
-runners (Dash, Rocco or Nova) and blast your way to the exit.
+A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
+runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
+own in the runner editor, and blast your way to the exit.
 
 A 42-level campaign in six episodes: every level has its own twist, its
 own prototype weapon, its own soundtrack, a bonus level behind a flickering
 TV, secrets and a briefing cutscene. Six episodes of seven levels each.
 **Playable now:** all of Episode 1 (Levels 1-7) with its bonus levels and
-ending, and the first five levels of Episode 2 (Level 8, Canopy Road,
-Level 9, Hall of Traps, Level 10, Sun Mirrors, Level 11, Idol Mines, and
-Level 12, Lava Heart).
+ending, and the first six levels of Episode 2 (Level 8, Canopy Road,
+Level 9, Hall of Traps, Level 10, Sun Mirrors, Level 11, Idol Mines,
+Level 12, Lava Heart, and Level 13, Boulder Run).
 The rest of Episode 2 is being built now, then Episodes 3-6.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
@@ -85,7 +86,7 @@ After that, `./build/gunrunners` starts the game.
 
 In a level, the left half of the screen is a stick: put your thumb down
 anywhere there and slide it. On the right are Fire (the big corner button),
-Jump left of it, Switch runner above and, at the top, Pause. You don't have to hit them exactly:
+Jump left of it, Switch runner above and, at the top, Pause and the Map. You don't have to hit them exactly:
 a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
@@ -113,9 +114,10 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
 | F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
+| M | Back / Select (LB on Android) | the level map: what you have explored so far |
 | Enter | A (or Start) | confirm in menus |
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
-| T | Back / Select | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
+| T | | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
 | F11 / Alt+Enter | | fullscreen on or off |
 
 Most gamepads work out of the box (Xbox, PlayStation, Switch Pro, 8BitDo,
@@ -164,14 +166,27 @@ The movement is a frame-accurate port of Duke Nukem II's (via
 [RigelEngine](https://github.com/lethal-guitar/RigelEngine)): the same jump
 arc, ladders, hang bars, the flamethrower jetpack, Duke's weapons with
 limited ammo, colour-coded item boxes, the letters G-U-N and the
-end-of-level bonus tally. The three runners differ in health and jump
-height; Rocco starts with rockets and Nova with the laser.
+end-of-level bonus tally. The runners differ in health and jump height
+and in what they start with: Rocco has rockets, Nova and Bolt the laser,
+Jade a full flamethrower and Skye rapid fire.
 
 On top of that:
 
-- **Switch runners mid-level.** Press C (gamepad Y) to swap between Dash,
-  Rocco and Nova right where you stand. Your weapon, ammo and items carry
-  over.
+- **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
+  runner right where you stand. Your weapon, ammo and items carry over.
+- **Runner editor.** NEW RUNNER on the runner select screen makes your own:
+  human or robot, build, hair (or head kit), face (or optics), outfit,
+  colours, name, starting gun, and ten stat points to spread over health,
+  jump and power. REMIX starts from a built-in runner, EDIT changes one of
+  yours. Your runners live in `runners.txt` next to the savegames, and a
+  save remembers its runner even after you delete it.
+- **The map.** Press M (gamepad Back) for a map of the level that fills
+  itself in as you explore: walls, ledges, ladders, hazards, doors still
+  shut, checkpoints and the exit once you have seen them, and where you
+  are. It pauses the game. It opens zoomed in on your runner; Enter (A)
+  shows the whole level, the arrows or the stick pan, and M, Esc or B
+  closes it. Savegames keep the map. Dark sectors only map where they are
+  lit or right around you.
 - **Turbo Mode.** A white box with an orange core maxes out every stat for
   15 seconds: no damage, double speed, a huge jump, nonstop fire, double
   damage.

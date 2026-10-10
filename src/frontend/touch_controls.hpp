@@ -15,8 +15,8 @@ namespace gr
 // touch screen). Two layouts:
 //
 // - In a level: a floating stick on the left half (it centres wherever the
-//   thumb lands) and Jump, Fire, Switch runner and Pause on the right,
-//   mapped like a pad's A, B, Y and Start.
+//   thumb lands) and Jump, Fire, Switch runner, Pause and Map on the
+//   right, mapped like a pad's A, B, Y, Start and Back.
 // - In menus, cutscenes and tallies: a fixed d-pad, OK and BACK.
 //
 // Three sizes (the TOUCH PAD setting). The overlay hides itself when a
@@ -57,7 +57,7 @@ public:
   void draw(Renderer& renderer) const;
 
   // Where the player moved the controls in a level (the profile keeps it):
-  // x, y offsets for the stick, then jump, fire, switch and pause.
+  // x, y offsets for the stick, then jump, fire, switch, pause and map.
   void setLayout(const std::vector<int>& offsets);
   std::vector<int> layout() const;
   // The layout editor: every control can be dragged; RESET puts them back,
@@ -87,6 +87,7 @@ private:
     kFire, // B; BACK in menus
     kSwap, // Y
     kPause,
+    kMap, // left of pause
     kButtonCount,
   };
   struct Circle

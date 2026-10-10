@@ -134,6 +134,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMineBack(r, camX, camY, frame, alpha);
   drawLavaBack(r, camX, camY, frame, alpha);
   drawSpaceBack(r, camX, camY, frame, alpha);
+  drawBoulderBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -322,6 +323,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the bulb swells
         else if (e.kind == EnemyKind::Gloop)
           variant = e.attach == 1 ? 2 : (e.tell > 0 ? 1 : 0); // squashed, in the air
+        else if (e.kind == EnemyKind::SpearRunner)
+          variant = e.attach == 2 ? 1 : 0; // the spear up
+        else if (e.kind == EnemyKind::PitSnake)
+          variant = e.attach == 3 ? 0 : e.attach; // coiled, hissing, reared
+        else if (e.kind == EnemyKind::Totem)
+          variant = e.tell; // which head's mouth glows
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -413,6 +420,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawMineFront(r, camX, camY, frame, alpha);
   drawLavaFront(r, camX, camY, frame, alpha);
   drawSpaceFront(r, camX, camY, frame, alpha);
+  drawBoulderFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -670,7 +678,7 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
   const bool flashWhite = p.mercy > 0 && p.mercy <= 10;
   const float pulse = 0.5f + 0.5f * std::sin(float(frame) * 0.35f);
 
-  const auto& ca = mArt.characters[std::size_t(mCharacterIndex)];
+  const auto& ca = mArt.runner(mCharacter);
   const Sprite* spr = &ca.idle[std::size_t((frame / 30) % 2)];
   DrawOpts o;
   float lift = 0.0f;
@@ -851,7 +859,7 @@ void World::drawHud(Renderer& r, int frame) const
   // Health.
   float x = 12.0f;
   r.draw(mArt.hudPanels[0], x, top);
-  r.drawText(mCharacter->name, x + 16, top + 6, label);
+  r.drawText(mCharacter.name, x + 16, top + 6, label);
   for (int i = 0; i < p.maxHp; ++i)
   {
     const bool full = i < p.hp;

@@ -6,6 +6,7 @@
 #include "frontend/bindings.hpp"
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
+#include "frontend/runner_editor.hpp"
 #include "game/profile.hpp"
 #include "game/input.hpp"
 #include "game/savegame.hpp"
@@ -87,6 +88,12 @@ public:
   bool touchEditing() const { return mMenu == Menu::TouchEdit; }
   const std::vector<int>& touchLayout() const;
   void setTouchLayout(const std::vector<int>& offsets);
+  // The runner editor's name entry takes typing from a real keyboard: the
+  // window code hands over text, Backspace and Enter instead of keys.
+  bool wantsText() const;
+  void typeText(const std::string& text);
+  void textBackspace();
+  void textDone();
 
 private:
   enum class Mode
@@ -99,6 +106,7 @@ private:
     Arsenal,
     List,      // level select, bonus channel, reruns
     Continued, // the campaign ran out of built levels
+    Editor,    // the runner editor, from runner select
   };
   // What happens once the queued cutscenes have played (flow.cpp).
   enum class After
@@ -122,7 +130,20 @@ private:
   void startLevel();
   void tickPlay(const Input& raw);
   void tickBonus(const Input& in);
+  // select.cpp: runner select and the runner editor.
+  enum class SelectFocus
+  {
+    Cards,
+    Load,   // LOAD GAME (stand-alone levels)
+    Action, // EDIT / REMIX under the card
+  };
+  int selectCards() const;
+  bool tickSelect(Input& in, const Input& raw);
   void renderSelect();
+  // index: the runner to edit or remix; -1 a new one.
+  void openEditor(int index);
+  void tickEditor(const Input& in);
+  void renderEditor();
   void renderPlayOverlay();
   void renderBonus();
   void finishTally();
@@ -167,6 +188,7 @@ private:
     Cheats,
     Controls,
     TouchEdit,
+    Map,
   };
   bool tickMenu(const Input& in);
   // The pause menu's items; CHEATS shows up once the code was entered.
@@ -186,6 +208,13 @@ private:
   void notice(const std::string& text);
   void renderMenu();
   void renderNotice();
+  // map_view.cpp: the level map, a pause-style overlay.
+  void openMap();
+  void tickMap(const Input& in, bool close, bool ok);
+  void renderMap();
+  void freeMap();
+  float mapFitScale() const;
+  float mapScale() const;
   // controls_menu.cpp
   struct ControlRow;
   std::vector<ControlRow> controlRows() const;
@@ -239,7 +268,10 @@ private:
   // Menus.
   Menu mMenu = Menu::None;
   bool mSlotsForSave = false;
-  bool mTitleFocusLoad = false; // title screen: the LOAD GAME button has focus
+  SelectFocus mSelectFocus = SelectFocus::Cards;
+  float mSelectScroll = 0.0f; // the carousel's position, in cards
+  std::unique_ptr<RunnerEditor> mEditor;
+  int mEditorReturn = 0; // runner select's card when the editor opened
   int mMenuCursor = 0;
   int mSlotCursor = 0;
   int mRunnerCursor = 0;
@@ -256,8 +288,24 @@ private:
   void cycleTouchSize();
   std::string touchSizeLabel() const;
 
+  // The map overlay: zoomed in (else the whole level), the block in the
+  // middle of the view, and the textures baked when it opened.
+  struct MapChunk
+  {
+    int bx = 0, by = 0;
+    Texture tex;
+  };
+  bool mMapClose = true;
+  float mMapX = 0.0f, mMapY = 0.0f;
+  int mMapPanTicks = 0;
+  const World* mMapWorld = nullptr; // what the textures show
+  int mMapTheme = -1;
+  bool mMapWholeBaked = false, mMapChunksBaked = false;
+  Texture mMapWhole;
+  std::vector<MapChunk> mMapChunks;
+
   // CONTROLS menu.
-  Bindings mBindings;
+  Bindings mBindings = Bindings::defaults(); // the profile's, in the campaign
   int mControlsCursor = 0;
   int mControlsColumn = 0; // key 1, key 2, pad
   bool mListening = false;
@@ -285,6 +333,8 @@ private:
   Texture mSlotPanel;
   Texture mLoadButton;
   Texture mLoadButtonFocus;
+  Texture mActionButton;
+  Texture mActionButtonFocus;
 };
 
 } // namespace gr

@@ -61,6 +61,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   o << "level " << s.levelName << '\n';
   o << "saved " << (s.savedAt.empty() ? now() : s.savedAt) << '\n';
   o << "character " << s.character << '\n';
+  if (!s.runner.empty())
+    o << "runner " << s.runner << '\n';
   o << "theme " << s.theme << '\n';
   o << "player " << s.x << ' ' << s.y << ' ' << s.facing << ' ' << s.hp << ' ' << s.weapon << ' ' << s.ammo << ' '
     << s.rapidFire << ' ' << int(s.hasKey) << '\n';
@@ -118,6 +120,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("temple", s.temple);
   list("light", s.light);
   list("mine", s.mine);
+  list("boulder", s.boulder);
+  list("explored", s.explored);
   o << "end\n";
 
   const std::string tmp = path + ".tmp";
@@ -172,6 +176,8 @@ std::optional<SaveGame> readSave(const std::string& path)
       s.savedAt = rest();
     else if (key == "character")
       in >> s.character;
+    else if (key == "runner")
+      s.runner = rest();
     else if (key == "theme")
       in >> s.theme;
     else if (key == "player" && in >> s.x >> s.y >> s.facing >> s.hp >> s.weapon >> s.ammo >> s.rapidFire >> a)
@@ -239,7 +245,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.allLitAt;
     else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
              key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine")
+             key == "mine" || key == "boulder" || key == "explored")
     {
       auto& v = key == "floods" ? s.floods
               : key == "valves" ? s.valves
@@ -250,6 +256,8 @@ std::optional<SaveGame> readSave(const std::string& path)
               : key == "temple" ? s.temple
               : key == "light" ? s.light
               : key == "mine" ? s.mine
+              : key == "boulder" ? s.boulder
+              : key == "explored" ? s.explored
                                 : s.bubbled;
       int n = 0;
       in >> n;

@@ -61,6 +61,7 @@ std::unique_ptr<World> World::cloneForSim() const
 {
   auto w = std::make_unique<World>(*this);
   w->mSimulation = true;
+  w->mExplored.reset(); // the map is the real run's
   w->mParticles.clear();
   w->mTexts.clear();
   w->mFlashes.clear();
@@ -102,6 +103,7 @@ void World::setupEntities()
   mNegative = lv.rules.find("negative") != std::string::npos;
   mPinball = lv.rules.find("pinball") != std::string::npos;
   mFloorLava = lv.rules.find("floor_lava") != std::string::npos;
+  mSurfing = lv.rules.find("boulder_surf") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -177,6 +179,7 @@ void World::setupEntities()
       setupLightEnemy(en, e);
       setupMineEnemy(en, e);
       setupLavaEnemy(en, e);
+      setupBoulderEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -394,6 +397,8 @@ void World::setupEntities()
     if (setupLavaEntity(e))
       continue;
     if (setupSpaceEntity(e))
+      continue;
+    if (setupBoulderEntity(e))
       continue;
     if (setupSludgeEntity(e))
       continue;
@@ -795,10 +800,12 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
             if (!pr.box().intersects(pbox))
               break;
           }
-          // The odd mirror (Level 10) shows the next runner along: Dash sees
-          // Nova, Nova sees Rocco, Rocco sees Dash.
-          const int who = pr.text == "odd" ? (mCharacterIndex + 2) % 3 : mCharacterIndex;
-          const auto& ca = mArt.characters[std::size_t(who)];
+          // The odd mirror (Level 10) shows another runner: Dash sees Nova,
+          // Nova sees Rocco, Rocco sees Dash, and everyone else one of the
+          // three.
+          const int who = mCharacterIndex >= 0 && mCharacterIndex < 3 ? (mCharacterIndex + 2) % 3
+                                                                      : mCharacterIndex % 3;
+          const auto& ca = pr.text == "odd" ? mArt.runner(characterByIndex(who)) : mArt.runner(mCharacter);
           const Sprite* spr = &ca.idle[0];
           if (pr.timer >= 0)
             spr = (pr.timer / 6) % 2 ? &ca.lookUp : &ca.idle[0];
