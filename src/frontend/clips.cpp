@@ -5,6 +5,7 @@
 
 #include "assets/art.hpp"
 #include "assets/enemy_art.hpp"
+#include "assets/enemy_art_city.hpp"
 #include "assets/enemy_art_kitchen.hpp"
 #include "assets/enemy_art_manor.hpp"
 #include "assets/enemy_art_west.hpp"
@@ -6938,6 +6939,558 @@ void runnersHabitat(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.draw(dewDropBig(k), dx, dy - 20.0f, dop);
 }
 
+// --- Level 26: Kaiju Tonight (Channel 50, Monsters) ---------------------------------
+
+// A Technicolor sky, 1280 x 720: a saturated sunset painted in broad
+// strokes, crimson over orange over a yellow band, rays fanning from a sun
+// low behind the title, brushy clouds edged in gold.
+const Texture& technicolorSky(ClipKit& k)
+{
+  return cached(k, "e5_technicolor_sky", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 720);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.32, 0.04, 0.22);
+    cairo_pattern_add_color_stop_rgb(g, 0.35, 0.86, 0.16, 0.14);
+    cairo_pattern_add_color_stop_rgb(g, 0.68, 1.0, 0.56, 0.12);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 1.0, 0.86, 0.36);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Rays from the sun.
+    for (int i = 0; i < 18; ++i)
+    {
+      const double a0 = kPi + double(i) / 18.0 * kPi, a1 = a0 + kPi / 36.0;
+      cairo_move_to(cr, 640, 420);
+      cairo_line_to(cr, 640 + std::cos(a0) * 1400, 420 + std::sin(a0) * 1400);
+      cairo_line_to(cr, 640 + std::cos(a1) * 1400, 420 + std::sin(a1) * 1400);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(255, 230, 140), 0.12);
+      cairo_fill(cr);
+    }
+    radialGlow(cr, 640, 420, 420, rgb(255, 240, 170), 0.85);
+    // Brushy clouds: overlapping strokes, dark violet with gold rims.
+    std::uint32_t sd = 5011u;
+    auto rnd = [&sd](double a, double b) {
+      sd = sd * 1664525u + 1013904223u;
+      return a + (b - a) * double(sd >> 8) / double(1u << 24);
+    };
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    static const double kBanks[5][3] = {{180, 100, 360}, {1080, 130, 320}, {300, 580, 420}, {1000, 600, 380}, {640, 680, 560}};
+    for (const auto& b : kBanks)
+    {
+      // Puffs along the bank: a gold rim lit from below the sun, then the
+      // violet body, flat along the bottom.
+      double px[9], pr[9];
+      for (int i = 0; i < 9; ++i)
+      {
+        px[i] = b[0] - b[2] * 0.5 + b[2] * (i + 0.5) / 9.0 + rnd(-8, 8);
+        pr[i] = (18 + 26 * std::sin(kPi * (i + 0.5) / 9.0)) * rnd(0.8, 1.2);
+      }
+      cairo_save(cr);
+      cairo_rectangle(cr, 0, 0, 1280, b[1] + 8);
+      cairo_clip(cr);
+      for (int pass = 0; pass < 2; ++pass)
+      {
+        for (int i = 0; i < 9; ++i)
+          cairo_arc(cr, px[i], b[1] - pr[i] * 0.3 + (pass == 0 ? 4 : 0), pr[i] + (pass == 0 ? 3 : 0), 0, 2 * kPi);
+        setRgbaC(cr, pass == 0 ? rgb(255, 214, 120) : rgb(120, 34, 74), pass == 0 ? 0.9 : 0.95);
+        cairo_fill(cr);
+      }
+      cairo_restore(cr);
+      // Brush strokes across the body.
+      for (int st = 0; st < 4; ++st)
+      {
+        const double y = b[1] - 6 - st * 9, x = b[0] + rnd(-b[2] * 0.3, b[2] * 0.3), len = rnd(50, 120);
+        cairo_move_to(cr, x - len * 0.5, y);
+        cairo_line_to(cr, x + len * 0.5, y + rnd(-3, 3));
+        setRgbaC(cr, rgb(170, 60, 96), 0.5);
+        cairo_set_line_width(cr, 4);
+        cairo_stroke(cr);
+      }
+    }
+  });
+}
+
+// Jagged, flattened copy of the current path: every point pushed off its
+// place a little (the letters of a 1950s monster-movie poster).
+void jaggedPath(cairo_t* cr, std::uint32_t seed, double amount)
+{
+  cairo_path_t* flat = cairo_copy_path_flat(cr);
+  cairo_new_path(cr);
+  std::uint32_t sd = seed;
+  auto rnd = [&sd](double a, double b) {
+    sd = sd * 1664525u + 1013904223u;
+    return a + (b - a) * double(sd >> 8) / double(1u << 24);
+  };
+  double lx = 0.0, ly = 0.0;
+  for (int i = 0; i < flat->num_data; i += flat->data[i].header.length)
+  {
+    const cairo_path_data_t& d = flat->data[i];
+    if (d.header.type == CAIRO_PATH_CLOSE_PATH)
+    {
+      cairo_close_path(cr);
+      continue;
+    }
+    const double x = flat->data[i + 1].point.x, y = flat->data[i + 1].point.y;
+    if (d.header.type == CAIRO_PATH_MOVE_TO)
+      cairo_move_to(cr, x + rnd(-amount, amount), y + rnd(-amount, amount));
+    else
+    {
+      // Long edges get a notch in the middle, so they read as torn.
+      const double len = std::hypot(x - lx, y - ly);
+      if (len > 18.0)
+      {
+        const double nx = -(y - ly) / len, ny = (x - lx) / len, m = rnd(-amount, amount) * 1.6;
+        cairo_line_to(cr, (x + lx) * 0.5 + nx * m, (y + ly) * 0.5 + ny * m);
+      }
+      cairo_line_to(cr, x + rnd(-amount, amount), y + rnd(-amount, amount));
+    }
+    lx = x;
+    ly = y;
+  }
+  cairo_path_destroy(flat);
+}
+
+// "CH 50" in jagged poster letters, 900 x 320, centred: a yellow-to-red
+// fill, a deep extruded shadow and a thick black outline.
+const Texture& ch50Title(ClipKit& k)
+{
+  return cached(k, "e5_ch50", 900, 320, 450, 160, [](cairo_t* cr) {
+    selectGameFont(cr, true);
+    cairo_set_font_size(cr, 210);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "CH 50", &te);
+    const double x0 = 450 - te.x_advance / 2 - te.x_bearing * 0.5, base = 240;
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
+    auto glyphs = [&](double dx, double dy) {
+      cairo_new_path(cr);
+      cairo_move_to(cr, x0 + dx, base + dy);
+      cairo_text_path(cr, "CH 50");
+      jaggedPath(cr, 50u, 4.0);
+    };
+    // The extrusion, down and to the right.
+    for (int i = 14; i >= 1; --i)
+    {
+      glyphs(i * 1.2, i * 1.6);
+      setRgbaC(cr, i > 12 ? kInk : rgb(120, 20, 30), 1.0);
+      cairo_fill(cr);
+    }
+    glyphs(0, 0);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, base - 160, 0, base);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 1.0, 0.95, 0.4);
+    cairo_pattern_add_color_stop_rgb(g, 0.55, 1.0, 0.62, 0.1);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.86, 0.12, 0.08);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 7);
+    cairo_stroke(cr);
+    // A highlight along the tops.
+    glyphs(-2, -3);
+    cairo_set_line_width(cr, 2);
+    setRgbaC(cr, rgb(255, 255, 220), 0.5);
+    cairo_stroke(cr);
+  });
+}
+
+// "MONSTERS" in ghoulish green poster letters with a scream-shaped
+// underline (a jagged wedge widening to the right like a shriek), 1000 x 220.
+// `scream` bakes only the underline (it tears on after the word).
+const Texture& monstersWord(ClipKit& k, bool scream)
+{
+  return cached(k, scream ? "e5_monsters_scream" : "e5_monsters", 1000, 220, 500, 110, [scream](cairo_t* cr) {
+    selectGameFont(cr, true);
+    cairo_set_font_size(cr, 104);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "MONSTERS", &te);
+    const double x0 = 500 - te.x_advance / 2, base = 126;
+    auto glyphs = [&](double dx, double dy) {
+      cairo_new_path(cr);
+      cairo_move_to(cr, x0 + dx, base + dy);
+      cairo_text_path(cr, "MONSTERS");
+      jaggedPath(cr, 77u, 2.6);
+    };
+    if (!scream)
+    {
+      glyphs(5, 6);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_fill(cr);
+      glyphs(0, 0);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, base - 80, 0, base);
+      cairo_pattern_add_color_stop_rgb(g, 0.0, 0.8, 1.0, 0.5);
+      cairo_pattern_add_color_stop_rgb(g, 1.0, 0.2, 0.62, 0.2);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 4.5);
+      cairo_stroke(cr);
+      return;
+    }
+    // The scream: a jagged wedge, thin at the left, a wide jaw at the right.
+    const double ux0 = x0 - 10, ux1 = x0 + te.x_advance + 30, uy = base + 34;
+    cairo_new_path(cr);
+    cairo_move_to(cr, ux0, uy);
+    const int n = 16;
+    for (int i = 1; i <= n; ++i)
+    {
+      const double u = double(i) / n, x = ux0 + (ux1 - ux0) * u, hgt = 8.0 + 40.0 * u * u;
+      cairo_line_to(cr, x - (ux1 - ux0) / n * 0.5, uy - hgt * (i % 2 ? 0.9 : 0.4));
+      cairo_line_to(cr, x, uy - hgt * 0.15);
+    }
+    for (int i = n; i >= 1; --i)
+    {
+      const double u = double(i) / n, x = ux0 + (ux1 - ux0) * u, hgt = 8.0 + 46.0 * u * u;
+      cairo_line_to(cr, x, uy + hgt * 0.15);
+      cairo_line_to(cr, x - (ux1 - ux0) / n * 0.5, uy + hgt * (i % 2 ? 1.0 : 0.45));
+    }
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(200, 20, 30), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3.5);
+    cairo_stroke(cr);
+  });
+}
+
+// Shot: the Channel 50 ident. The Technicolor sky; "CH 50" shakes in over
+// frames 0-5 (big and rattling, settling to its place); "MONSTERS" slams
+// on from frame 6, its scream underline tearing across after it.
+void identCh50(ClipKit& k, int ticks, float ox, float oy)
+{
+  const float abs = float(ticks) / 4.8f; // 80 ms a frame
+  k.r.draw(technicolorSky(k), ox, oy);
+  const float in = std::clamp(abs / 6.0f, 0.0f, 1.0f);
+  const float e = 1.0f - (1.0f - in) * (1.0f - in) * (1.0f - in);
+  const float rattle = (1.0f - e) * 26.0f + (abs < 8.0f ? 3.0f : 0.0f);
+  DrawOpts to;
+  to.scale = 2.4f - 1.4f * e;
+  to.alpha = std::min(1.0f, abs / 1.5f);
+  to.angle = std::sin(float(ticks) * 1.7f) * 6.0f * (1.0f - e);
+  const float jx = std::sin(float(ticks) * 2.3f) * rattle, jy = std::cos(float(ticks) * 3.1f) * rattle;
+  drawGlow(k.r, k.art, 640.0f + ox, 240.0f + oy, 460.0f, rgb(255, 240, 170), 0.35f * to.alpha);
+  k.r.draw(ch50Title(k), 640.0f + ox + jx, 240.0f + oy + jy, to);
+  if (abs >= 6.0f)
+  {
+    const float u = std::clamp((abs - 6.0f) / 1.0f, 0.0f, 1.0f);
+    DrawOpts mo;
+    mo.scale = 1.5f - 0.5f * u;
+    mo.alpha = u;
+    const float wx = 640.0f + ox, wy = 500.0f + oy;
+    // The scream tears across left to right after the slam.
+    const float r = std::clamp((abs - 6.5f) / 3.0f, 0.0f, 1.0f);
+    k.r.draw(monstersWord(k, false), wx, wy, mo);
+    if (r > 0.0f)
+    {
+      clipTo(k, 0.0f, 0.0f, wx - 470.0f + 940.0f * r, H);
+      k.r.draw(monstersWord(k, true), wx, wy);
+      unclip(k);
+    }
+  }
+  k.r.drawText("MAXTV  CHANNEL 50  MONSTERS", 640 + ox, 676 + oy, {18.0f, rgb(255, 246, 220), rgb(90, 10, 20)}, Align::Center);
+  scanlines(k, 30);
+}
+
+// The painted backdrop of a monster-movie set, 1280 x 720: a rose and
+// violet dusk, three ranges of brush-painted mountains (snow caps, a
+// smoking volcano), the seam where two canvases meet.
+const Texture& paintedMountains(ClipKit& k)
+{
+  return cached(k, "e5_painted_mountains", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(60, 40, 110), rgb(220, 110, 120), rgb(255, 196, 130));
+    radialGlow(cr, 980, 330, 300, rgb(255, 230, 170), 0.6);
+    std::uint32_t sd = 2626u;
+    auto rnd = [&sd](double a, double b) {
+      sd = sd * 1664525u + 1013904223u;
+      return a + (b - a) * double(sd >> 8) / double(1u << 24);
+    };
+    struct Range
+    {
+      double base, peak;
+      Color body, light;
+      int peaks;
+    };
+    const Range kRanges[3] = {{560, 220, rgb(130, 90, 150), rgb(200, 150, 190), 5},
+      {600, 320, rgb(90, 60, 110), rgb(150, 110, 160), 7}, {640, 430, rgb(56, 40, 76), rgb(100, 76, 120), 9}};
+    for (int r = 0; r < 3; ++r)
+    {
+      const Range& rg = kRanges[r];
+      std::vector<std::pair<double, double>> pts;
+      pts.push_back({-40, rg.base});
+      for (int i = 0; i < rg.peaks; ++i)
+      {
+        const double x = -40 + (1360.0 / rg.peaks) * (i + 0.5) + rnd(-40, 40);
+        pts.push_back({x - 70, rg.base - (rg.base - rg.peak) * rnd(0.3, 0.55)});
+        pts.push_back({x, rg.peak + rnd(-30, 60)});
+        pts.push_back({x + 80, rg.base - (rg.base - rg.peak) * rnd(0.25, 0.5)});
+      }
+      pts.push_back({1320, rg.base});
+      cairo_move_to(cr, -40, 720);
+      for (const auto& p : pts)
+        cairo_line_to(cr, p.first, p.second);
+      cairo_line_to(cr, 1320, 720);
+      cairo_close_path(cr);
+      setRgbaC(cr, rg.body, 1.0);
+      cairo_fill(cr);
+      // Brushed light down the sunny faces, snow on the far peaks.
+      for (std::size_t i = 2; i + 1 < pts.size(); i += 3)
+      {
+        const double px = pts[i].first, py = pts[i].second;
+        for (int s = 0; s < 5; ++s)
+        {
+          cairo_move_to(cr, px + s * 4, py + s * 6);
+          cairo_line_to(cr, px + 40 + s * 10 + rnd(-6, 6), py + 90 + s * 20);
+          setRgbaC(cr, rg.light, 0.35);
+          cairo_set_line_width(cr, rnd(5, 10));
+          cairo_stroke(cr);
+        }
+        if (r == 0)
+        {
+          cairo_move_to(cr, px, py);
+          cairo_line_to(cr, px - 26, py + 34);
+          cairo_line_to(cr, px - 8, py + 28);
+          cairo_line_to(cr, px + 4, py + 40);
+          cairo_line_to(cr, px + 18, py + 26);
+          cairo_line_to(cr, px + 32, py + 36);
+          cairo_close_path(cr);
+          setRgbaC(cr, rgb(250, 236, 240), 0.9);
+          cairo_fill(cr);
+        }
+      }
+    }
+    // The volcano, smoking, on the middle range.
+    cairo_move_to(cr, 300, 600);
+    cairo_line_to(cr, 420, 300);
+    cairo_line_to(cr, 470, 300);
+    cairo_line_to(cr, 600, 600);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(84, 50, 90), 1.0);
+    cairo_fill(cr);
+    radialGlow(cr, 445, 300, 60, rgb(255, 120, 60), 0.8);
+    for (int i = 0; i < 7; ++i)
+    {
+      cairo_arc(cr, 450 + i * 22 + rnd(-8, 8), 270 - i * 30, 26 + i * 6, 0, 2 * kPi);
+      setRgbaC(cr, rgb(120, 90, 120), 0.5);
+      cairo_fill(cr);
+    }
+    // The canvas seam, a strip of tape over it.
+    cairo_move_to(cr, 760, 0);
+    cairo_line_to(cr, 764, 720);
+    setRgbaC(cr, rgb(40, 20, 50), 0.35);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+  });
+}
+
+// The model city on its table at knee height, 1280 x 300 (the table's top
+// at y 60): little houses and office blocks with lit windows, a water tower,
+// power pylons; the table's painted front edge below.
+const Texture& tableCity(ClipKit& k)
+{
+  return cached(k, "e5_table_city", 1280, 300, 0, 0, [](cairo_t* cr) {
+    std::uint32_t sd = 7272u;
+    auto rnd = [&sd](double a, double b) {
+      sd = sd * 1664525u + 1013904223u;
+      return a + (b - a) * double(sd >> 8) / double(1u << 24);
+    };
+    const double top = 60;
+    // Buildings, back row taller, front row lower.
+    for (int row = 0; row < 2; ++row)
+      for (double x = -10 + row * 30; x < 1290; x += rnd(50, 90))
+      {
+        if (x > 120 && x < 230)
+          continue; // the smoke machine's spot
+        const double w = rnd(36, 70), h = row == 0 ? rnd(60, 150) : rnd(24, 60);
+        const double y = top + (row == 0 ? 6 : 26) - h;
+        static const Color kWalls[5] = {rgb(214, 200, 176), rgb(170, 176, 196), rgb(196, 140, 110), rgb(150, 170, 150), rgb(220, 210, 190)};
+        const Color wall = kWalls[int(rnd(0, 5)) % 5];
+        cairo_rectangle(cr, x, y, w, h);
+        setRgbaC(cr, wall, 1.0);
+        cairo_fill_preserve(cr);
+        cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + w, 0);
+        cairo_pattern_add_color_stop_rgba(g, 0, 0, 0, 0, 0.0);
+        cairo_pattern_add_color_stop_rgba(g, 1, 0, 0, 0, 0.36);
+        cairo_set_source(cr, g);
+        cairo_fill_preserve(cr);
+        cairo_pattern_destroy(g);
+        setRgbaC(cr, kInk, 1.0);
+        cairo_set_line_width(cr, 2);
+        cairo_stroke(cr);
+        if (h < 50 && row == 1)
+        {
+          // A house: a pitched roof.
+          cairo_move_to(cr, x - 4, y);
+          cairo_line_to(cr, x + w * 0.5, y - 18);
+          cairo_line_to(cr, x + w + 4, y);
+          cairo_close_path(cr);
+          setRgbaC(cr, rnd(0, 1) < 0.5 ? rgb(170, 60, 50) : rgb(70, 80, 110), 1.0);
+          cairo_fill_preserve(cr);
+          setRgbaC(cr, kInk, 1.0);
+          cairo_stroke(cr);
+        }
+        for (double wy = y + 8; wy < y + h - 10; wy += 14)
+          for (double wx = x + 6; wx < x + w - 10; wx += 12)
+          {
+            cairo_rectangle(cr, wx, wy, 6, 8);
+            setRgbaC(cr, rnd(0, 1) < 0.6 ? rgb(255, 220, 120) : rgb(50, 50, 70), 1.0);
+            cairo_fill(cr);
+          }
+      }
+    // The table top's street and the painted front edge.
+    cairo_rectangle(cr, 0, top + 26, 1280, 12);
+    setRgbaC(cr, rgb(60, 60, 70), 1.0);
+    cairo_fill(cr);
+    for (double x = 10; x < 1280; x += 40)
+    {
+      cairo_rectangle(cr, x, top + 31, 18, 2);
+      setRgbaC(cr, rgb(250, 210, 90), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, top + 38, 1280, 300 - top - 38);
+    cairo_pattern_t* e = cairo_pattern_create_linear(0, top + 38, 0, 300);
+    cairo_pattern_add_color_stop_rgb(e, 0, 0.36, 0.5, 0.3);
+    cairo_pattern_add_color_stop_rgb(e, 0.12, 0.3, 0.42, 0.24);
+    cairo_pattern_add_color_stop_rgb(e, 0.14, 0.62, 0.48, 0.3);
+    cairo_pattern_add_color_stop_rgb(e, 1, 0.34, 0.24, 0.14);
+    cairo_set_source(cr, e);
+    cairo_fill(cr);
+    cairo_pattern_destroy(e);
+    for (int i = 0; i < 30; ++i)
+    {
+      const double gx = rnd(0, 1280), gy = rnd(top + 70, 300);
+      cairo_move_to(cr, gx, gy);
+      cairo_curve_to(cr, gx + 60, gy + rnd(-4, 4), gx + 120, gy + rnd(-4, 4), gx + 200, gy);
+      setRgbaC(cr, rgb(90, 60, 30), 0.25);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+    }
+    // The smoke machine: a black box with its nozzle, on the table.
+    roundedRect(cr, 140, top - 24, 80, 50, 5);
+    setRgbaC(cr, rgb(30, 30, 36), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 220, top - 12, 18, 12);
+    setRgbaC(cr, rgb(90, 90, 100), 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, 156, top - 10, 4, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 60, 60), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// Lance with the microphone up (pose 9); `point` adds his free hand thrust
+// at the camera: a foreshortened sleeve, the fist and the fingertip.
+const Texture& lancePoint(ClipKit& k, bool point, bool mouth)
+{
+  const std::string key = std::string("e5_lance_point") + (point ? "p" : "n") + (mouth ? "o" : "c");
+  return cached(k, key, 320, 600, 160, 580, [point, mouth](cairo_t* cr) {
+    cairo_translate(cr, 40, 100);
+    paintLance(cr, 9, mouth);
+    if (!point)
+      return;
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_move_to(cr, 80, 186);
+    cairo_line_to(cr, 128, 216);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 34);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, rgb(40, 70, 190), 1.0);
+    cairo_set_line_width(cr, 28);
+    cairo_stroke(cr);
+    // The cuff, round toward us.
+    cairo_save(cr);
+    cairo_translate(cr, 134, 222);
+    cairo_scale(cr, 1.0, 0.86);
+    cairo_arc(cr, 0, 0, 26, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(250, 250, 250), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The fist and the finger pointing out of the screen.
+    cairo_arc(cr, 142, 216, 23, 0, 2 * kPi);
+    setRgbaC(cr, rgb(246, 200, 160), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_stroke(cr);
+    for (int i = 0; i < 3; ++i)
+    {
+      cairo_arc(cr, 131 + i * 10, 230, 5, kPi * 0.1, kPi * 0.9);
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+    cairo_arc(cr, 149, 206, 14, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 214, 178), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_arc(cr, 151, 204, 6.5, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 236, 226), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// Shot: the man in the rubber lizard suit and Lance behind the model city.
+// The painted mountains; the suit waving (a 6-frame loop) behind the
+// table, the city at his knees; a smoke machine puffing (8 frames); Lance
+// beside him, pointing at the camera from frame 8.
+void lizardWave(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(paintedMountains(k), ox, oy);
+  // The studio's light on the backdrop.
+  drawGlow(k.r, k.art, 820.0f + ox, 300.0f + oy, 420.0f, rgb(255, 240, 210), 0.25f);
+  // The suit, a giant behind the table.
+  const Texture& suit = cached(k, "e5_suit_wave" + std::to_string(frame % 6), 600, 600, 300, 580, [frame](cairo_t* cr) {
+    paintGorgazilla(cr, 300, 580, 2.5, 15, frame % 6);
+  });
+  k.r.draw(suit, 830.0f + ox, 640.0f + oy);
+  // Lance, also behind it.
+  const bool point = frame % 16 >= 8;
+  const bool talking = point && (ticks / 6) % 2 == 0;
+  const float lx = 380.0f + ox, ly = 560.0f + oy;
+  k.r.draw(lancePoint(k, point, talking), lx, ly);
+  if (point)
+    for (int i = 0; i < 4; ++i)
+    {
+      // Lines bursting round the fingertip.
+      const float a = float(i) * 1.57f + 0.78f;
+      const float hx = lx + 29.0f, hy = ly - 274.0f; // the fingertip
+      k.r.drawLine(hx + std::cos(a) * 24.0f, hy + std::sin(a) * 24.0f, hx + std::cos(a) * 38.0f, hy + std::sin(a) * 38.0f, 3.0f,
+        rgb(255, 250, 220));
+    }
+  // The model city at their knees.
+  k.r.draw(tableCity(k), ox, 420.0f + oy);
+  // The smoke machine's puffs drifting right over the rooftops.
+  for (int i = 0; i < 5; ++i)
+  {
+    const float u = std::fmod((float(frame % 8) + float(ticks % 5) / 5.4f) / 8.0f + float(i) / 5.0f, 1.0f);
+    const float sx = 250.0f + u * 560.0f + ox, sy = 456.0f - u * 90.0f + std::sin(u * 7.0f + float(i)) * 10.0f + oy;
+    // A soft, lumpy puff of stage smoke (blended over, not added).
+    const Texture& puff = cached(k, "e5_smoke_puff", 200, 160, 100, 80, [](cairo_t* cr) {
+      static const double kLumps[5][3] = {{100, 86, 60}, {62, 96, 40}, {140, 94, 44}, {84, 60, 42}, {122, 62, 38}};
+      for (const auto& l : kLumps)
+      {
+        cairo_pattern_t* g = cairo_pattern_create_radial(l[0] - l[2] * 0.3, l[1] - l[2] * 0.3, 2, l[0], l[1], l[2]);
+        cairo_pattern_add_color_stop_rgba(g, 0, 1, 1, 1, 0.7);
+        cairo_pattern_add_color_stop_rgba(g, 0.6, 0.86, 0.86, 0.92, 0.45);
+        cairo_pattern_add_color_stop_rgba(g, 1, 0.8, 0.8, 0.88, 0.0);
+        cairo_arc(cr, l[0], l[1], l[2], 0, 2 * kPi);
+        cairo_set_source(cr, g);
+        cairo_fill(cr);
+        cairo_pattern_destroy(g);
+      }
+    });
+    DrawOpts po;
+    po.alpha = std::sin(u * 3.14159f);
+    po.scale = 0.5f + u * 1.1f;
+    k.r.draw(puff, sx, sy, po);
+  }
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -6990,6 +7543,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return identCh31(k, ticks, ox, oy);
   if (clip == "runners_habitat") // before starts(clip, "runners") below
     return runnersHabitat(k, frame, ticks, ox, oy);
+  if (clip == "ident_ch50")
+    return identCh50(k, ticks, ox, oy);
+  if (clip == "lizard_wave")
+    return lizardWave(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

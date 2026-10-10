@@ -2193,7 +2193,7 @@ std::vector<float> makeSfx(Sfx id)
         const double hot = core.step(sweep(220.0, 440.0, u), Wave::Sine) * 0.25;
         const double sp = c.next() > 0.985 ? zap.band(n.next(), 4200.0, 2.0) * 3.0 : zap.band(0.0f, 4200.0, 2.0);
         const double env = attack(t, 0.12) * std::min(1.0, (total - t) / 0.25);
-        return (whoosh * 0.6 + hum + hot + sp * 0.35) * 0.45 * env;
+        return (whoosh * 0.6 + hum + hot + sp * 0.35) * 0.3 * env;
       });
     }
     case Sfx::MaserHum:
@@ -2210,7 +2210,7 @@ std::vector<float> makeSfx(Sfx id)
         const double pulse = 0.55 + 0.45 * std::sin(2.0 * kPi * ph);
         const double h = lp.lowpass(hum.step(f, Wave::Square, 0.5), 700.0) * pulse;
         const double w = whine.step(sweep(1100.0, 2600.0, u), Wave::Sine) * 0.12 * u;
-        return (h * 0.55 + w) * 0.6 * attack(t, 0.03) * std::min(1.0, (total - t) / 0.06);
+        return (h * 0.55 + w) * 0.32 * attack(t, 0.03) * std::min(1.0, (total - t) / 0.06);
       });
     }
     case Sfx::Count:

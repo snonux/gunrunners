@@ -1545,6 +1545,44 @@ void paintSubwayWall(cairo_t* cr, bool band)
   cairo_pattern_destroy(g);
 }
 
+// The back wall of a model canal or the harbour basin: dressed concrete
+// blocks, drip stains, a green scum line low down. 64 x 64.
+void paintQuay(cairo_t* cr, bool low)
+{
+  cairo_rectangle(cr, 0, 0, 64, 64);
+  fillLinear(cr, 0, 0, 0, 64, {{0.0, rgb(92, 96, 108)}, {1.0, rgb(70, 74, 86)}});
+  for (int row = 0; row < 4; ++row)
+    for (int c = -1; c < 3; ++c)
+    {
+      const double x = c * 32.0 + (row % 2 ? 16.0 : 0.0), y = row * 16.0;
+      roundedRect(cr, x + 1.0, y + 1.0, 30.0, 14.0, 1.6);
+      fillLinear(cr, 0, y, 0, y + 16, {{0.0, rgb(116, 120, 130)}, {1.0, rgb(86, 90, 102)}});
+    }
+  for (int k = 0; k < 3; ++k)
+  {
+    const double x = 9.0 + k * 21.0;
+    cairo_move_to(cr, x, 0);
+    cairo_curve_to(cr, x + 2, 20, x - 2, 40, x + 1, 64);
+    stroke(cr, rgb(40, 44, 50), 3.0 + k, 0.18);
+  }
+  if (low)
+  {
+    cairo_rectangle(cr, 0, 40, 64, 24);
+    fillLinear(cr, 0, 40, 0, 64, {{0.0, rgb(70, 110, 70)}, {1.0, rgb(30, 60, 50)}}, 0.0);
+    cairo_rectangle(cr, 0, 40, 64, 24);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 40, 0, 64);
+    stop(g, 0, rgb(60, 110, 70), 0.0);
+    stop(g, 0.4, rgb(60, 110, 70), 0.55);
+    stop(g, 1, rgb(20, 50, 44), 0.7);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  }
+  cairo_rectangle(cr, 0, 0, 64, 64);
+  setRgba(cr, rgb(10, 12, 30), 0.25);
+  cairo_fill(cr);
+}
+
 // The rails along the subway's floor, seen from the side, laid over the
 // floor tile's street top: a bed of ballast, sleepers, a rail.
 // 64 x 44, the floor's top at y 14.
@@ -2027,6 +2065,30 @@ void World::drawCityBack(Renderer& r, float camX, float camY, int frame, float a
         drawGlow(r, mArt, x + sw * 0.5f, y + sh * 0.5f, 120.0f, rgb(200, 220, 255), 0.35f);
       r.drawText("STOREROOM - KEEP CLEAR", x + sw * 0.5f, y - 54.0f, {14.0f, rgb(250, 240, 210), kInk}, Align::Center, 0.8f);
     }
+  }
+
+  // The canal's and the harbour's back walls, down to the water.
+  for (const auto& f : c.ponds)
+  {
+    const int bx0 = f.left() / kCellsPerTile, bx1 = f.right() / kCellsPerTile, byBottom = f.bottom() / kCellsPerTile;
+    int top = 0;
+    while (top < H && !mLevel->isSolid(bx0 - 1, top))
+      ++top;
+    if (top >= H || top > byBottom)
+      continue;
+    const Texture& quay = baked(mArt, r, "quay", 64, 64, 0, 0, [](cairo_t* cr) { paintQuay(cr, false); });
+    const Texture& quayLow = baked(mArt, r, "quay_low", 64, 64, 0, 0, [](cairo_t* cr) { paintQuay(cr, true); });
+    const int surfaceRow = f.top() / kCellsPerTile;
+    for (int by = top; by <= byBottom; ++by)
+      for (int bx = bx0; bx <= bx1; ++bx)
+      {
+        if (mMap.block(bx, by) != Tile::Empty && mMap.block(bx, by) != Tile::Platform)
+          continue;
+        const float x = float(bx) * kTilePx - camX, y = float(by) * kTilePx - camY;
+        if (offScreen(x, y, kTilePx, kTilePx))
+          continue;
+        r.draw(by >= surfaceRow - 1 ? quayLow : quay, x, y);
+      }
   }
 
   // The power lines on their pylons, sagging; snapped, the ends hang down

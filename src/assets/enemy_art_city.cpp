@@ -548,7 +548,7 @@ struct LizardPose
   double head = 0.0;    // the head's tilt, - back
   double jaw = 0.0;     // 0 shut .. 1 wide
   double arm = 0.0;     // 0 down .. 1 raised
-  double wave = -1.0;   // the front hand waving at this angle (radians), -1 not
+  double wave = -100.0; // the front hand waving, the swing's phase (radians); -100 not
   int tail = 0;         // 0 resting, 1 coiled up, 2 swiping low
   bool dizzy = false;
   bool sit = false;
@@ -879,17 +879,18 @@ void paintLizard(cairo_t* cr, double cx, double by, double s, const LizardPose& 
   cairo_restore(cr);
   // The front arm: stubby, three claws (waving, or raised in the roar).
   double hx = 30 + 10 * ar, hy = -112 - 34 * ar;
-  if (p.wave >= 0.0)
+  if (p.wave > -50.0)
   {
-    hx = 22 + std::cos(p.wave) * 30;
-    hy = -150 + std::sin(p.wave) * 18;
-    limb(cr, {{16, -124}, {30, -128}, {hx, hy}}, 15, kSuit);
+    // Raised past the snout, the hand swinging side to side.
+    hx = 66 + std::sin(p.wave) * 13;
+    hy = -188 + std::cos(p.wave) * 5;
+    limb(cr, {{16, -124}, {50, -134}, {hx, hy}}, 15, kSuit);
   }
   else
     limb(cr, {{16, -124}, {26 + 6 * ar, -104 - 22 * ar}, {hx, hy}}, 15, kSuit);
   for (int k = 0; k < 3; ++k)
   {
-    const double a = (p.wave >= 0.0 ? -1.6 : -0.4 - ar * 0.9) + k * 0.5;
+    const double a = (p.wave > -50.0 ? -1.6 : -0.4 - ar * 0.9) + k * 0.5;
     cairo_move_to(cr, hx + std::cos(a) * 5, hy + std::sin(a) * 5);
     cairo_line_to(cr, hx + std::cos(a) * 12, hy + std::sin(a) * 12);
     cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
@@ -977,7 +978,7 @@ LizardPose lizardPose(int pose, int frame)
   }
   else if (pose == 15)
   {
-    p.wave = -1.2 + 0.5 * std::sin(frame * kPi / 3);
+    p.wave = frame * kPi / 3;
     p.lean = 0.02 * std::sin(frame * kPi / 3);
   }
   return p;
