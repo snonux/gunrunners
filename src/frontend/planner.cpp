@@ -146,7 +146,7 @@ bool capsUseful(const World& w)
 int macroFrames(int m, const World& w)
 {
   if (m == kVineRight || m == kVineLeft)
-    return w.player().state == PlayerState::Swing ? 1 : 0; // the real length comes out of the run
+    return w.player().state == PlayerState::Swing && w.player().vine >= 0 ? 1 : 0; // the real length comes out of the run
   if (capMacro(m))
     return capsUseful(w) ? 1 : 0;
   if (spearMacro(m))
@@ -162,6 +162,12 @@ int macroFrames(int m, const World& w)
     // Level 45: a mouth that only opens while the hive breathes in.
     for (const auto& t : w.gulletTubes())
       tide = tide || t.breath;
+    // Level 46: a crystal drifting into line.
+    for (const auto& c : w.swapCrystals())
+      tide = tide || (c.drifting && !c.gone);
+    // Level 47: a Silk Line being spun (or about to be).
+    for (const auto& l : w.silkLines())
+      tide = tide || l.spin || l.spinning || l.regrow > 0;
     return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() && w.sunDoors().empty()
       ? 0
       : 24;
@@ -225,7 +231,7 @@ bool stable(const World& w)
       if (c.ty * kCellsPerTile == p.y + 1 && c.tx * kCellsPerTile + 1 >= p.x && c.tx * kCellsPerTile <= p.x + 2)
         return false;
   return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe ||
-    p.state == PlayerState::Swing || p.state == PlayerState::Cling;
+    (p.state == PlayerState::Swing && p.silk < 0) || p.state == PlayerState::Cling;
 }
 
 // A vine macro's input this frame: push along the swing until a launch
@@ -369,6 +375,10 @@ int clockPeriod(const World& w)
   for (const auto& t : w.gulletTubes())
     if (t.breath)
       period = std::max(period, World::kBreathPeriod);
+  // Level 46: crystals drifting back and forth.
+  for (const auto& c : w.swapCrystals())
+    if (c.drifting)
+      period = std::max(period, 2 * std::max(1, int(c.path.size()) - 1) * c.speed);
   return period;
 }
 
@@ -1105,6 +1115,106 @@ void Planner::buildField(const World& w, const Goal& goal)
               list.push_back({node(x, y, a), node(ex, ey - k, 0), cost + k});
       }
   }
+  // Level 46: shooting a Swap Crystal puts you where it is: from anywhere
+  // on the ground level with it (a shot ahead) or under it (a shot up),
+  // nothing solid in between. A drifting one: anywhere along its path (the
+  // search does the timing).
+  for (const auto& c : w.swapCrystals())
+  {
+    if (c.gone || c.hidden || c.cracked)
+      continue;
+    std::vector<std::pair<int, int>> spots = c.path;
+    if (!c.drifting)
+      spots = {{c.x, c.y}};
+    for (const auto& [cx, cy] : spots)
+    {
+      SwapCrystal at = c;
+      at.x = cx;
+      at.y = cy;
+      int sx = 0, sy = 0;
+      if (!w.crystalSwapSpot(at, sx, sy) || sx < 0 || sy < 0 || sx >= W || sy >= H || !valid[std::size_t(sy * W + sx)])
+        continue;
+      auto shooter = [&](int fx, int fy) {
+        if (fx < 0 || fy < 0 || fx >= W || fy >= H)
+          return;
+        const std::size_t i = std::size_t(fy * W + fx);
+        if (!valid[i] || support[i] != 0 || (fx == sx && fy == sy))
+          return;
+        list.push_back({node(fx, fy, 0), node(sx, sy, 0), 8 + (std::abs(fx - sx) + std::abs(fy - sy)) / 4});
+      };
+      // Ahead: the muzzle is two cells over the feet, three cells right of
+      // x facing right, one cell left of it facing left; a shot has to touch
+      // the crystal's glow (a cell either side of it) while it is still on
+      // screen, which the camera keeps to about 19 cells ahead of you going
+      // right and 16 going left.
+      for (int fy = cy + 2; fy <= cy + SwapCrystal::kH + 1; ++fy)
+      {
+        const int row = fy - 2;
+        if (row < 0 || row >= H)
+          continue;
+        for (int fx = cx - 4; fx >= std::max(0, cx - 19); --fx)
+        {
+          if (map.solid(fx + 3, row))
+            break;
+          shooter(fx, fy);
+        }
+        for (int fx = cx + SwapCrystal::kW + 2; fx <= std::min(W - 1, cx + 17); ++fx)
+        {
+          if (map.solid(fx - 1, row))
+            break;
+          shooter(fx, fy);
+        }
+      }
+      // Up: the muzzle's column is x + 2 facing right, x facing left, five
+      // cells up from the feet.
+      for (int col = cx - 1; col <= cx + SwapCrystal::kW; ++col)
+        for (int fy = cy + SwapCrystal::kH + 5; fy <= std::min(H - 1, cy + SwapCrystal::kH + 18); ++fy)
+        {
+          if (map.solid(col, fy - 5))
+            break;
+          shooter(col - 2, fy);
+          shooter(col, fy);
+        }
+    }
+  }
+  // Level 47: hands that meet a Silk Line in the air (a jump into it, a
+  // step off a ledge under it) ride it to its low end and drop off there.
+  // A line still to be spun, or cut and to be spun again, counts too (the
+  // search waits for it).
+  for (const auto& l : w.silkLines())
+  {
+    if (l.mine)
+      continue;
+    SilkLine whole = l;
+    whole.spun = whole.len;
+    int ex = -1, ey = -1;
+    for (float s = whole.len; s >= 0.0f && ex < 0; s -= 1.0f)
+      if (w.silkHangSpot(whole, s, ex, ey))
+        --ey; // let go: back to a 5-cell box
+      else
+        ex = -1;
+    if (ex < 0 || ey < 0 || ex >= W || ey >= H || !valid[std::size_t(ey * W + ex)])
+      continue;
+    for (float s = 0.0f; s < whole.len - 1.0f; s += 1.0f)
+    {
+      int hx = 0, hy = 0;
+      if (!w.silkHangSpot(whole, s, hx, hy))
+        continue;
+      const int cost = int((whole.len - s) / 2.0f) + 2;
+      for (int dy = -2; dy <= 0; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+        {
+          const int fx = hx + dx, fy = hy - 1 + dy;
+          if (fx < 0 || fy < 0 || fx >= W || fy >= H)
+            continue;
+          const std::size_t i = std::size_t(fy * W + fx);
+          if (!valid[i] || support[i] == 0)
+            continue;
+          for (int a = 0; a < A; ++a)
+            list.push_back({node(fx, fy, a), node(ex, ey, 0), cost});
+        }
+    }
+  }
   for (const auto& e : list)
     ++revStart[std::size_t(e.to) + 1];
   for (int i = 0; i < N; ++i)
@@ -1262,6 +1372,26 @@ int Planner::heuristic(const World& w) const
     for (int a = 0; a < A; ++a)
       best = std::min(best, mDist[std::size_t((ey * mW + ex) * A + a)]);
     return best >= kInf ? kInf : best + std::max(0, t.len[std::size_t(p.tubeBranch)] - p.tubeS) / 2 + extra;
+  }
+  if (p.silk >= 0 && std::size_t(p.silk) < w.silkLines().size())
+  {
+    // On a Silk Line: as good as at its low end already.
+    SilkLine whole = w.silkLines()[std::size_t(p.silk)];
+    whole.spun = whole.len;
+    int ex = -1, ey = -1;
+    for (float s = whole.len; s >= p.silkS && ex < 0; s -= 1.0f)
+      if (w.silkHangSpot(whole, s, ex, ey))
+        --ey;
+      else
+        ex = -1;
+    if (ex >= 0 && ey >= 0 && ex < mW && ey < mH)
+    {
+      int best = kInf;
+      for (int a = 0; a < A; ++a)
+        best = std::min(best, mDist[std::size_t((ey * mW + ex) * A + a)]);
+      if (best < kInf)
+        return best + int((whole.len - p.silkS) / 2.0f) + extra;
+    }
   }
   const int base = (p.y * mW + p.x) * A;
   int best = kInf;
@@ -1592,6 +1722,10 @@ void Planner::plan(const World& world)
       powered = powered * 2 + world.goldReached();
     }
     powered = powered * 31 + mPendingDoor + 1;
+    // Level 46: where the Swap Crystals are (a drifting one is anywhere on
+    // its path until swapped).
+    for (const auto& c : world.swapCrystals())
+      powered = int(unsigned(powered) * 131u + (c.gone ? 1u : (c.drifting ? 2u : unsigned(c.x * 977 + c.y + 3))));
     const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
       (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
     if (mDist.empty() || keyHash != mGoalKeyHash)
@@ -1726,6 +1860,34 @@ void Planner::plan(const World& world)
             std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
           k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
                        (std::uint64_t(e.attach + e.tell * 4) << 32));
+    }
+    // Level 46: the Swap Crystals close by, and your shots on their way to
+    // one (a shot up takes longer than a macro to get there).
+    if (w.hasCrystals())
+    {
+      for (const auto& c : w.swapCrystals())
+        if (std::abs(c.x - p.x) < 48 && std::abs(c.y - p.y) < 30)
+          k = mix(k, std::uint64_t(c.x) | (std::uint64_t(c.y) << 16) | (std::uint64_t(c.cool) << 32) |
+                       (std::uint64_t(c.gone) << 40));
+      for (const auto& pr : w.projectiles())
+        if (pr.alive && pr.kind != ShotKind::Enemy)
+          k = mix(k, std::uint64_t(pr.x) | (std::uint64_t(pr.y) << 16) | (std::uint64_t(pr.dy + 2) << 32));
+    }
+    // Level 47: on a Silk Line (how far, how fast), and the lines close by
+    // (spun how far, shivering before a cut).
+    if (w.hasSilk())
+    {
+      k = mix(k, std::uint64_t(p.silk + 1) | (std::uint64_t(int(p.silkS * 2.0f)) << 8) |
+                   (std::uint64_t(int(p.silkV * 10.0f)) << 24));
+      for (const auto& l : w.silkLines())
+        if (std::abs(l.ax - float(p.x)) < 90.0f && std::abs(l.ay - float(p.y)) < 60.0f)
+          k = mix(k, std::uint64_t(int(l.spun)) | (std::uint64_t(l.twang) << 12) | (std::uint64_t(l.cool) << 20) |
+                       (std::uint64_t(l.regrow + 1) << 28));
+      for (const auto& e : w.enemies())
+        if (e.alive && (e.kind == EnemyKind::LoomSpider || e.kind == EnemyKind::Dropling) &&
+            std::abs(e.x - p.x) < 48 && std::abs(e.y - p.y) < 30)
+          k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                       (std::uint64_t(e.attach + e.tell * 8) << 32));
     }
     // Level 44: on a goo wall, or kicked off one.
     if (w.hasGoo())

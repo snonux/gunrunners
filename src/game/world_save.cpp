@@ -8,7 +8,7 @@ namespace gr
 bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
-    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && !mPinball && !mSurfing &&
+    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && mPlayer.silk < 0 && !mPinball && !mSurfing &&
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave());
 }
@@ -110,10 +110,18 @@ SaveGame World::snapshot() const
       es.attach = 0;
     // Episode 7's aliens come back on their feet (not mid-leap or on a wall).
     if (e.kind == EnemyKind::Skitter || e.kind == EnemyKind::Spitpod || e.kind == EnemyKind::Gloop ||
-        e.kind == EnemyKind::Polyp || e.kind == EnemyKind::VoidRay || e.kind == EnemyKind::RockLeech)
+        e.kind == EnemyKind::Polyp || e.kind == EnemyKind::VoidRay || e.kind == EnemyKind::RockLeech ||
+        e.kind == EnemyKind::Blinker)
       es.attach = 0; // (a Void Ray mid-dive comes back gliding)
     // A Spear Runner about to throw comes back fleeing; a Pit Snake back
     // coiled in its hole.
+    // Level 47: a Dropling comes back in its pod.
+    if (e.kind == EnemyKind::Dropling && e.attach != 4)
+    {
+      es.attach = 0;
+      es.x = e.aimX;
+      es.y = e.aimY;
+    }
     if (e.kind == EnemyKind::SpearRunner && e.attach == 2)
       es.attach = 1;
     if (e.kind == EnemyKind::PitSnake)

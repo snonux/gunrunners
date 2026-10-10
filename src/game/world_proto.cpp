@@ -310,6 +310,18 @@ void World::fireProto(int ox, int oy, int dx, int dy)
         damage = 1;
       }
       break;
+    case ProtoId::SilkShooter:
+      // Down ahead at 45 degrees; where it hits rock a line runs from the
+      // hands it left (world_silk.cpp). Up, it is just a shot.
+      if (dx != 0)
+      {
+        pr.dy = 1;
+        pr.range = 32;
+        pr.anchorX = dx > 0 ? p.x + Player::kWidth : p.x - 1; // just ahead of the hands
+        pr.anchorY = p.y - Player::kHeight + 1;
+      }
+      playSound(Sfx::Zip);
+      break;
     case ProtoId::BubbleGun:
       // A slow bubble that drifts up; it traps what it hits (world_sludge.cpp).
       pr.w = pr.h = 2;
