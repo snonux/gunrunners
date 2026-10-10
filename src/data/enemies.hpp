@@ -37,6 +37,10 @@ enum class EnemyKind
   Howler,    // sits on a branch and lobs fruit that rolls along the ground
   Viper,     // coiled on a branch; drops to hang and strikes at a runner below
   Cutter,    // runs to its rope bridge's far anchor and chops it down
+  Guardian,  // patrols (or stands sentry), turns to face you, swings a club; shots from the front spark off
+  DartFace,  // a face in the ceiling that drops a dart on its own rhythm
+  Scarabs,   // a carpet of beetles flowing along its floor toward you
+  Hunter,    // Trapmaster's cultists: walk to the idol, take a coin, leave
 };
 
 enum EnemyFlag : unsigned

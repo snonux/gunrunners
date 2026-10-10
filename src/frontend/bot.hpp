@@ -26,11 +26,14 @@ public:
   Input fightBoss(const World& world);
   // Pilot Seat: fly at the cardboard.
   Input fly(const World& world);
+  // Trapmaster: spring the trap that will catch the most hunters.
+  Input trapmaster(const World& world);
   void setTakeBonus(bool take) { mPlanner.setTakeBonus(take); }
 
 private:
   Planner mPlanner;
   std::deque<Input> mFightQueue;
+  std::deque<Input> mTrapQueue;
   bool mFighting = false;
   Input mFightPrev;
   int mJumpHold = 0;

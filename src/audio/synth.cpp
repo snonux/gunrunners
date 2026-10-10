@@ -514,6 +514,56 @@ std::vector<float> makeSfx(Sfx id)
         return a.step(f, Wave::Sine) * 0.3 * std::exp(-t * 9.0);
       });
     }
+    case Sfx::Rumble:
+    {
+      // Stone grinding on stone: low filtered noise with a slow wobble.
+      Noise n(91);
+      Svf f;
+      return render(0.7, [&](double t, double total) {
+        const double wob = 0.6 + 0.4 * std::sin(t * 31.0);
+        return f.low(n.next(), 160.0f, 1.2) * 0.9 * wob * std::min(1.0, t / 0.1) * std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::Slice:
+    {
+      Noise n(93);
+      Svf f;
+      return render(0.22, [&](double t, double total) {
+        return f.band(n.next(), float(sweep(5200.0, 1800.0, t / total)), 3.0) * 0.6 * std::sin(t / total * 3.1416);
+      });
+    }
+    case Sfx::Click:
+    {
+      Osc a;
+      Noise n(95);
+      return render(0.09, [&](double t, double) {
+        return (a.step(sweep(900.0, 300.0, t / 0.09), Wave::Square, 0.5) * 0.12 + n.next() * 0.1) * std::exp(-t * 50.0);
+      });
+    }
+    case Sfx::Drum:
+    {
+      // A deep temple drum.
+      Osc a;
+      return render(0.45, [&](double t, double) {
+        return a.step(sweep(140.0, 55.0, std::min(1.0, t / 0.2)), Wave::Sine) * 0.5 * std::exp(-t * 7.0);
+      });
+    }
+    case Sfx::Dart:
+    {
+      Noise n(97);
+      Svf f;
+      return render(0.12, [&](double t, double total) {
+        return f.band(n.next(), 3000.0f, 4.0) * 0.4 * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::Skitter:
+    {
+      Noise n(99);
+      return render(0.4, [&](double t, double total) {
+        const double tick = std::fmod(t, 0.035) < 0.006 ? 1.0 : 0.0;
+        return n.next() * 0.25 * tick * std::min(1.0, (total - t) / 0.1);
+      });
+    }
     case Sfx::Count:
       break;
   }

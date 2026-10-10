@@ -1133,6 +1133,142 @@ void canopyJump(ClipKit& k, int frame, int ticks, float ox, float oy)
     k.r.fillRect(0, float(i) * 180.0f + std::fmod(float(ticks) * 3.0f, 180.0f) + oy, W, 60, rgba(240, 244, 236, 40));
 }
 
+// Level 9's briefing: the temple door by torchlight.
+void templeWall(ClipKit& k, float ox, float oy)
+{
+  const Texture& wall = cached(k, "temple_wall", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(70, 44, 24), rgb(120, 82, 46), rgb(60, 38, 22));
+    Rng rng(909u);
+    for (int y = 0; y < 720; y += 48)
+      for (int x = (y / 48) % 2 ? -60 : 0; x < 1280; x += 120)
+      {
+        cairo_rectangle(cr, x + 3, y + 3, 114, 42);
+        setColor(cr, withAlpha(lerpColor(rgb(150, 110, 64), rgb(190, 150, 96), rng.uniform()), 120));
+        cairo_fill(cr);
+      }
+    // The carved door: a tall slab in a stepped frame.
+    for (int step = 0; step < 3; ++step)
+    {
+      const double inset = step * 26.0;
+      cairo_rectangle(cr, 450 + inset, 90 + inset, 380 - inset * 2, 630 - inset);
+      setColor(cr, lerpColor(rgb(110, 76, 42), rgb(60, 40, 22), float(step) / 3.0f));
+      cairo_fill(cr);
+    }
+    // Red glyphs down both sides of the frame and over the lintel.
+    cairo_set_line_width(cr, 6);
+    cairo_set_source_rgb(cr, 0.86, 0.22, 0.16);
+    for (int i = 0; i < 6; ++i)
+    {
+      for (double x : {400.0, 860.0})
+      {
+        const double y = 140 + i * 90.0;
+        if (i % 3 == 0)
+        {
+          cairo_arc(cr, x + 10, y + 20, 14, 0, 2 * kPi);
+          cairo_stroke(cr);
+        }
+        else if (i % 3 == 1)
+        {
+          cairo_move_to(cr, x + 10, y);
+          cairo_line_to(cr, x + 10, y + 50);
+          cairo_move_to(cr, x - 6, y + 18);
+          cairo_line_to(cr, x + 26, y + 18);
+          cairo_stroke(cr);
+        }
+        else
+        {
+          cairo_move_to(cr, x - 4, y + 40);
+          cairo_line_to(cr, x + 8, y + 6);
+          cairo_line_to(cr, x + 24, y + 40);
+          cairo_stroke(cr);
+        }
+      }
+    }
+    for (int i = 0; i < 7; ++i)
+    {
+      cairo_rectangle(cr, 480 + i * 48.0, 40, 26, 26);
+      cairo_stroke(cr);
+    }
+    // The floor and a glyph plate in front of the door.
+    cairo_rectangle(cr, 0, 640, 1280, 80);
+    setColor(cr, rgb(90, 62, 36));
+    cairo_fill(cr);
+  });
+  k.r.draw(wall, ox * 0.3f, oy * 0.3f);
+}
+
+void torchPair(ClipKit& k, int frame, float ox, float oy)
+{
+  for (float tx : {250.0f, 1030.0f})
+  {
+    const float flick = 0.8f + 0.2f * float((frame + int(tx)) % 8) / 7.0f;
+    k.r.fillRect(tx - 8 + ox, 300 + oy, 16, 120, rgb(80, 56, 34));
+    drawGlow(k.r, k.art, tx + ox, 280 + oy, 220.0f * flick, rgb(255, 150, 60), 0.5f * flick);
+    k.r.fillRect(tx - 14 + ox, 250 + oy + (1.0f - flick) * 20.0f, 28, 50.0f * flick, rgb(255, 190, 70));
+    k.r.fillRect(tx - 7 + ox, 268 + oy, 14, 26.0f * flick, rgb(255, 245, 190));
+  }
+}
+
+void templeDoor(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)ticks;
+  templeWall(k, ox, oy);
+  const bool stepped = frame >= 14;
+  // The plate sinks a pixel under Rocco.
+  k.r.fillRect(580 + ox, 636 + oy + (stepped ? 1.0f : 0.0f), 120, 10, rgb(150, 110, 70));
+  k.r.fillRect(630 + ox, 636 + oy + (stepped ? 1.0f : 0.0f), 20, 6, rgb(220, 50, 40));
+  torchPair(k, frame, ox, oy);
+  // Long shadows on the door, swaying with the flames.
+  const float sway = float((frame % 8) - 4) * 0.8f;
+  DrawOpts shadow;
+  shadow.tint = rgb(0, 0, 0);
+  shadow.alpha = 0.3f;
+  shadow.angle = sway;
+  for (int who = 0; who < 3; ++who)
+  {
+    const float x = 540.0f + float(who) * 100.0f + (who == 1 && stepped ? 30.0f : 0.0f);
+    k.r.draw(runner(k, who, 0, 4.4f), x + ox, 650 + oy, shadow);
+  }
+  // The runners from behind: dark shapes rimmed by the torches.
+  DrawOpts back;
+  back.tint = rgb(40, 26, 18);
+  for (int who = 0; who < 3; ++who)
+  {
+    const float x = 380.0f + float(who) * 260.0f + (who == 1 && stepped ? 210.0f - 260.0f + 50.0f : 0.0f);
+    const float y = who == 1 && stepped ? 650.0f : 720.0f;
+    k.r.draw(runner(k, who, 0, 3.4f, who == 2), x + ox, y + 20 + oy, back);
+  }
+}
+
+void templeWait(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)ticks;
+  k.r.fillRect(0, 0, W, H, rgb(40, 26, 16));
+  const float flick = 0.85f + 0.15f * float(frame % 8) / 7.0f;
+  // The runners' faces, close, lit from the side.
+  DrawOpts faces;
+  faces.cull = false;
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, 0, 5.0f, who == 2), 260.0f + float(who) * 380.0f + ox, 800.0f + oy, faces);
+  k.r.fillRect(0, 0, W, H, rgba(60, 30, 10, int(120 - 40 * flick)));
+  drawGlow(k.r, k.art, 1180 + ox, 200 + oy, 420.0f * flick, rgb(255, 150, 60), 0.35f);
+  // Rocco's boot on the plate, low across the frame.
+  k.r.fillRect(0 + ox, 610 + oy, W, 110, rgb(96, 66, 38));
+  k.r.fillRect(420 + ox, 596 + oy, 440, 24, rgb(150, 110, 70));
+  k.r.fillRect(600 + ox, 600 + oy, 80, 10, rgb(220, 50, 40));
+  k.r.fillRect(470 + ox, 470 + oy, 300, 130, rgb(70, 52, 40));
+  k.r.fillRect(470 + ox, 560 + oy, 360, 40, rgb(46, 34, 28));
+  k.r.fillRect(500 + ox, 480 + oy, 240, 16, rgb(110, 86, 64));
+  // Dust trickles from the ceiling.
+  if (frame >= 10)
+    for (int i = 0; i < 24; ++i)
+    {
+      const float x = 200.0f + float(hash2(i, 91) % 880u);
+      const float y = std::fmod(float(hash2(i, 92) % 400u) + float(ticks) * 6.0f, 600.0f);
+      k.r.fillRect(x + ox, y + oy, 4, 10, rgba(230, 210, 170, 170));
+    }
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1188,6 +1324,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return canopyShip(k, frame, ticks, ox, oy);
   if (clip == "brief08_jump")
     return canopyJump(k, frame, ticks, ox, oy);
+  if (clip == "brief09_door")
+    return templeDoor(k, frame, ticks, ox, oy);
+  if (clip == "brief09_wait")
+    return templeWait(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")

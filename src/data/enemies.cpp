@@ -61,6 +61,13 @@ const EnemyDef kEnemies[] = {
   {"howler", "HOWLER", K::Howler, L::Styled, 3, 3, 2, 300, 0, 40, 12, 24, 0, 0},
   {"viper", "CANOPY VIPER", K::Viper, L::Styled, 2, 2, 2, 450, 0, 45, 12, 4, 0, 0},
   {"cutter", "BRIDGE CUTTER", K::Cutter, L::Styled, 3, 5, 3, 600, 1, 30, 10, 20, 0, 0, 2},
+  // Level 9: Hall of Traps. Guardian: range is how far (cells) it notices
+  // you on its floor. Dart Face: cooldown is its rhythm. Scarabs: hp is the
+  // beetle count (set from count=), score is per beetle.
+  {"guardian", "STONE GUARDIAN", K::Guardian, L::Styled, 4, 6, 6, 1200, 4, 40, 14, 24, 0, 0, 3},
+  {"dartface", "DART FACE", K::DartFace, L::Styled, 2, 2, 4, 500, 0, 30, 10, 0, 0, 0},
+  {"scarabs", "SCARAB TIDE", K::Scarabs, L::Styled, 8, 1, 8, 50, 2, 15, 0, 0, 0, 0},
+  {"treasure_hunter", "TREASURE HUNTER", K::Hunter, L::Styled, 3, 5, 2, 200, 2, 0, 0, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

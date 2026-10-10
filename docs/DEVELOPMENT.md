@@ -148,8 +148,8 @@ The bot (`src/frontend/bot.cpp`) drives the normal input path, browses the
 select screen, picks the requested runner and plays the level to the exit.
 On campaign levels it plans with `src/frontend/planner.cpp`: it simulates
 copies of the world with short input macros, guided by a distance field to
-the next goal (the prototype, the access card, the bonus entrance, the
-exit), so it copes with beat-timed platforms and other twists. Runs are
+the next goal (the prototype, the access card, the bonus entrance, a
+stone key, the exit), so it copes with beat-timed platforms and other twists. Runs are
 deterministic, so the same command always produces the same clip. Without
 `--level`, `record.sh` records the campaign from the title screen.
 
@@ -216,7 +216,7 @@ docs/          design directions and media
 
 ## Next steps
 
-- The rest of Episode 2 (Levels 9-14), then Episodes 3-6 (Levels 15-42),
+- The rest of Episode 2 (Levels 10-14), then Episodes 3-6 (Levels 15-42),
   episode by episode, each with its twists,
   prototypes, bosses, bonus levels and cutscenes.
 - Artist-made HD sprites to replace the programmer art (PNG or SVG; the
