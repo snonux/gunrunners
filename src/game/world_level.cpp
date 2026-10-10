@@ -173,8 +173,11 @@ void World::setupEntities()
       if (l.driver == LayerDriver::Beat)
         mHasBeat = true;
       mLayers.push_back(l);
+      setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupManorEntity(e))
+      continue;
     if (setupZeroEntity(e))
       continue;
     if (setupWestEntity(e))
@@ -206,6 +209,7 @@ void World::setupEntities()
       setupReactorEnemy(en, e);
       setupZeroEnemy(en, e);
       setupWestEnemy(en, e);
+      setupManorEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -752,8 +756,8 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
     const float h = float(l.y1 - l.y0 + 1) * kTilePx;
     if (x > float(kScreenW) + 64.0f || x + w < -64.0f || y > float(kScreenH) + 64.0f || y + h < -64.0f)
       continue;
-    if (l.style == 2 || l.style == 5)
-      continue; // the maglev's station, ZERO's bulkheads and floor slide in on their own
+    if (l.style == 2 || l.style == 5 || l.style == 6)
+      continue; // the maglev's station, ZERO's bulkheads and floor slide in on their own; the manor draws its sides
     if (l.style == 3 || l.style == 4)
     {
       drawNegativeLayer(r, l, x, y, w, h, frame); // Negative Space's sun and moon blocks (world_light.cpp)
@@ -847,7 +851,7 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         }
         break;
       case PropKind::Deco42:
-        if (!foreground && onScreen)
+        if (!foreground && onScreen && mWest.posters.empty()) // Dry Gulch prints it on its wanted posters
           r.drawText(pr.text, x + w * 0.5f, y + h * 0.5f - 16, {28.0f, rgba(255, 255, 255, 150), kInk, true},
             Align::Center);
         break;

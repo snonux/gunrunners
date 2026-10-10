@@ -19,6 +19,7 @@
 #include "game/hull.hpp"
 #include "game/reactor.hpp"
 #include "game/west.hpp"
+#include "game/manor.hpp"
 #include "game/zero.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
@@ -266,6 +267,7 @@ struct Projectile
   int phase = -1;       // a Phase Rifle shot: the wall it is passing through (-1 none yet, -2 done)
   bool echo = false;    // fired by an Echo (drawn as a hologram's shot)
   bool ricochet = false; // a Six-Shooter bullet that already glanced off metal
+  int thrown = 0;        // a Poltergeist's throw: 1 book, 2 plate, 3 candlestick
   int anchorX = -1, anchorY = -1; // a Silk Shooter shot: the hands it was fired from
   bool alive = true;
   int age = 0;
@@ -320,6 +322,8 @@ struct Item
   int vx = 0;            // sideways drift while popping out (gem caches)
   bool taken = false;
   int heldBy = -1; // carried off by this enemy (a Looter)
+  int side = -1;       // level 23: the side it is on (-1 both)
+  bool parked = false; // level 23: taken away while its side is gone
   CellBox box() const { return boxAt(x, y, 2, 2); }
 };
 
@@ -1787,6 +1791,8 @@ public:
   // Level 21, ZERO: the bulkheads' states, Echoes, the eye.
   const ZeroState& zero() const { return mZero; }
   const WestState& west() const { return mWest; }
+  const ManorState& manor() const { return mManor; }
+  const Player& twin() const { return mTwin; } // Both Sides: the bottom runner
   bool zeroFight() const;              // the runner is in the arena and ZERO is up
   int zeroHp() const;                  // ZERO's hearts left over all three phases
   bool overSafeSegment() const;        // in Overload: the runner stands on a segment that stays
@@ -2362,6 +2368,38 @@ private:
   void drawZeroBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawZeroFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawZeroHud(Renderer& r, int frame) const;
+  // Level 23, Fright Night Manor (world_manor.cpp, world_manor_draw.cpp).
+  bool setupManorEntity(const EntityDef& e);
+  void setupManorLayer(const EntityDef& e, int index);
+  void setupManorEnemy(Enemy& en, const EntityDef& e);
+  void linkManor();
+  bool offSide(int side) const;
+  void parkManor();
+  void setManorSide(int side);
+  void flipManor(int mirror, bool backwards);
+  void throwLever(int i);
+  int manorMirrorAt(const Player& p) const;
+  int manorLeverAt(const Player& p) const;
+  void advanceManorRoute();
+  void updatePortraitGhost(Enemy& e, const EnemyDef& def);
+  void updateHauntedArmor(Enemy& e, const EnemyDef& def);
+  void updatePoltergeist(Enemy& e, const EnemyDef& def);
+  int shotAtManorEnemy(Projectile& pr, Enemy& e); // 0 go on, 1 the shot is spent, 2 it passes
+  void pinGhost(int index);
+  void unpinGhosts(bool all);
+  bool shotAtManor(Projectile& pr, const CellBox& b);
+  void updateManor(const PlayerInput& input);
+  bool manorRunnerHit();
+  void resetManor();
+  void updateTwin(const PlayerInput& input);
+  bool manorCanSave() const;
+  std::vector<int> manorSave() const;
+  bool validManorSave(const std::vector<int>& v) const;
+  void loadManor(const std::vector<int>& v);
+  void drawManorBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawManorFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawManorHud(Renderer& r, int frame) const;
+  void drawSplit(Renderer& r, int frame, float alpha) const;
   // Level 22, Dry Gulch (world_west.cpp, world_west_draw.cpp).
   bool setupWestEntity(const EntityDef& e);
   void setupWestEnemy(Enemy& en, const EntityDef& e);
@@ -2786,6 +2824,21 @@ private:
   ReactorState mReactor;
   ZeroState mZero;
   WestState mWest;
+  ManorState mManor;
+  Player mTwin; // Both Sides: the bottom runner
+  // Set up in setupManor*, linked in linkManor.
+  std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;
+  struct ManorSideItem
+  {
+    int x, y, side;
+    int item = -1; // an item placed there (its copy below), else a box
+    Item copy{};
+  };
+  std::vector<ManorSideItem> mManorSideItems;
+  std::vector<std::string> mManorRoute;
+  // Both Sides draws twice (World::drawSplit): the pass and its camera.
+  mutable int mSplitPass = 0;
+  mutable float mSplitCamX = 0.0f, mSplitCamY = 0.0f;
   std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.

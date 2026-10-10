@@ -385,6 +385,42 @@ int clockPeriod(const World& w)
 
 } // namespace
 
+Planner::Goal Planner::cryptGoal(const World& w, bool& inCrypt)
+{
+  inCrypt = false;
+  const auto& m = w.manor();
+  const auto& p = w.player();
+  int door = -1;
+  for (std::size_t i = 0; i < w.props().size(); ++i)
+    if (w.props()[i].kind == PropKind::BonusDoor && !w.props()[i].dormant)
+      door = int(i);
+  if (!m.on || door < 0 || m.split.on)
+    return {};
+  const bool used = w.props()[std::size_t(door)].used;
+  for (std::size_t i = 0; i < m.mirrors.size(); ++i)
+  {
+    const auto& bm = m.mirrors[i];
+    if (bm.kind != MirrorKind::Broken || bm.to < 0)
+      continue;
+    const auto& cm = m.mirrors[std::size_t(bm.to)];
+    auto at = [&](const ManorMirror& mi, int index) {
+      return Goal{18, mi.x * kCellsPerTile, (mi.y + 3) * kCellsPerTile - 5, 4, 5, index};
+    };
+    const int cryptFloor = (cm.y + 3) * kCellsPerTile - 1;
+    if (p.x / kCellsPerTile < cm.x + 3 && std::abs(p.y - cryptFloor) <= 3)
+    {
+      if (used)
+        return at(cm, bm.to);
+      inCrypt = true;
+      return {};
+    }
+    const int floor = (bm.y + 3) * kCellsPerTile - 1;
+    if (!used && std::abs(p.y - floor) <= 3)
+      return at(bm, int(i));
+  }
+  return {};
+}
+
 Planner::Goal Planner::chooseGoal(const World& w) const
 {
   Goal g;
@@ -414,6 +450,27 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         consider(b.x, b.y);
     if (bestD >= 0)
       return best;
+  }
+  // Level 23: the bonus detour through the crypt; then the next mirror to
+  // step through, or lever to throw, on the manor's route.
+  bool inCrypt = false;
+  if (w.manor().on && mTakeBonus && !mSkipBonus)
+  {
+    const Goal g = cryptGoal(w, inCrypt);
+    if (g.kind == 18)
+      return g;
+  }
+  if (w.manor().on && !inCrypt && w.manor().step < int(w.manor().route.size()))
+  {
+    const auto& m = w.manor();
+    const auto& st = m.route[std::size_t(m.step)];
+    if (st.mirror >= 0)
+    {
+      const auto& mi = m.mirrors[std::size_t(st.mirror)];
+      return {17, mi.x * kCellsPerTile, (mi.y + 3) * kCellsPerTile - 5, 4, 5, m.step};
+    }
+    const auto& l = m.levers[std::size_t(st.lever)];
+    return {17, l.x * kCellsPerTile - 1, (l.y + 1) * kCellsPerTile - 5, 4, 5, m.step};
   }
   // Level 22: a fuse on the way (bot=1) is lit from its stand spot.
   if (w.west().on)
@@ -857,10 +914,13 @@ void Planner::buildField(const World& w, const Goal& goal)
     if (!sh.done && (sh.t >= 0 || sh.triggerX >= 0))
       for (int li : sh.open)
         willOpen[std::size_t(li)] = 1;
+  // Level 23: a lever door, once its levers are thrown, is open.
+  for (const auto& d : w.manor().doors)
+    willOpen[std::size_t(d.layer)] = !w.layers()[std::size_t(d.layer)].solid;
   for (std::size_t li = 0; li < w.layers().size(); ++li)
   {
     const auto& l = w.layers()[li];
-    if (l.style == 5 && (!l.solid || willOpen[li]))
+    if ((l.style == 5 && (!l.solid || willOpen[li])) || (l.style == 6 && !l.solid) || (l.style != 5 && willOpen[li]))
     {
       for (int y = l.y0 * kCellsPerTile; y < (l.y1 + 1) * kCellsPerTile; ++y)
         for (int x = l.x0 * kCellsPerTile; x < (l.x1 + 1) * kCellsPerTile; ++x)
@@ -886,6 +946,21 @@ void Planner::buildField(const World& w, const Goal& goal)
             if ((l.tile == Tile::Solid && !timed) || dy == 0)
               top[std::size_t(y * W + x)] = 1;
           }
+  }
+  // Level 23: over the reflected gallery's hole the field counts on a
+  // bridge of pinned ghosts (Bot::manor pins them at the edge).
+  {
+    const auto& m = w.manor();
+    int over = 0;
+    for (const auto& pl : m.platforms)
+      over += pl.bx > m.bridgeLanding && pl.bx + 1 < m.bridgeEdge ? 1 : 0;
+    if (m.bridgeEdge >= 0 && m.side == kSideMirror && over < 2)
+    {
+      const int y = (m.bridgeRow - 2) * kCellsPerTile;
+      for (int x = (m.bridgeLanding + 1) * kCellsPerTile; x < m.bridgeEdge * kCellsPerTile; ++x)
+        if (x >= 0 && y >= 0 && x < W && y < H)
+          top[std::size_t(y * W + x)] = 1;
+    }
   }
   // Level 17: a plant is there when its lamps are lit (or the lamp test
   // takes them as lit), and gone otherwise, withering or not.
@@ -2053,6 +2128,13 @@ void Planner::plan(const World& world)
     mSkipProto = true;
     mSkipHadKey = world.player().hasKey;
   }
+  // Level 23: a prototype out of reach on one side may be there on the other.
+  if (world.manor().on && world.manor().side != mManorSide)
+  {
+    mManorSide = world.manor().side;
+    mSkipProto = false;
+    goal = chooseGoal(world);
+  }
   // Behind a force field, a prototype becomes reachable with the card.
   if (mSkipProto && !mSkipHadKey && world.player().hasKey)
   {
@@ -2112,6 +2194,14 @@ void Planner::plan(const World& world)
     for (const auto& pl : world.green().plants)
       powered = powered * 2 + (pl.shown > 0);
     powered = powered * 31 + mPendingDoor + 1;
+    // Level 23: the side, the levers, the ghosts pinned as platforms.
+    if (world.manor().on)
+    {
+      powered = powered * 2 + world.manor().side;
+      powered = powered * 17 + world.manor().step;
+      for (const auto& pl : world.manor().platforms)
+        powered = int(unsigned(powered) * 131u + unsigned(pl.bx * 97 + pl.by));
+    }
     // Level 22: barrels blown (bridges down, rock gone).
     for (const auto& b : world.west().barrels)
       powered = powered * 2 + b.blown;
@@ -2217,6 +2307,18 @@ void Planner::plan(const World& world)
       for (const auto& d : w.zero().doors)
         zk = zk * 11 + std::uint64_t(d.pos * 10.0f);
       k = mix(k, zk);
+    }
+    // Level 23: the side, the shimmer of a step through, the route's step,
+    // the levers and the ghosts pinned as platforms.
+    if (w.manor().on)
+    {
+      const auto& m = w.manor();
+      std::uint64_t mk = std::uint64_t(m.side) | (std::uint64_t(m.flip) << 1) | (std::uint64_t(m.step) << 6);
+      for (const auto& l : m.levers)
+        mk = mk * 2 + std::uint64_t(l.state);
+      for (const auto& pl : m.platforms)
+        mk = mk * 131 + std::uint64_t(pl.bx * 97 + pl.by);
+      k = mix(k, mk);
     }
     // Level 22: fuse cells burning or burnt, barrels hissing or blown.
     if (w.west().on)
@@ -2452,6 +2554,9 @@ void Planner::plan(const World& world)
     const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered || lit ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone ||
       (goal.kind == 15 && nw.stats().gems > world.stats().gems) ||
+      (goal.kind == 17 && nw.manor().step > world.manor().step) ||
+      (goal.kind == 18 && np.state == PlayerState::OnGround && np.x + 1 >= goal.x && np.x + 1 < goal.x + goal.w &&
+        np.y == goal.y + goal.h - 1) ||
       (goal.kind == 16 && std::size_t(goal.index) < nw.west().fuses.size() &&
         (nw.west().fuses[std::size_t(goal.index)].lit() || nw.west().anyBurning()));
     if (ni != 0 && success)

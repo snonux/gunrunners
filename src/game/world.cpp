@@ -175,6 +175,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkReactor();
   linkZero();
   linkWest();
+  linkManor();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -327,8 +328,12 @@ void World::update(const PlayerInput& input)
         updateOrbit(input);
       else if (mGrav.on)
         updateGravPlayer(input);
+      else if (mManor.flip > 0)
+        updatePlayer(PlayerInput{}); // stepping through a mirror: no control
       else
         updatePlayer(input);
+      if (mManor.split.on)
+        updateTwin(input);
       if (mReactor.moving)
         updateMovingWorld(input);
       updatePlayerInteractions();
@@ -400,6 +405,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateZero(input);
   if (mWest.on)
     updateWest(input);
+  if (mManor.on)
+    updateManor(input);
   updateHatches();
   updateProps(input);
 }
@@ -423,6 +430,10 @@ void World::updateEnemies()
   for (auto& e : mEnemies)
   {
     if (!e.alive)
+      continue;
+    // Level 23: enemies of the side you left are frozen where they are.
+    if (mManor.on && std::size_t(&e - mEnemies.data()) < mManor.enemySide.size() &&
+        offSide(mManor.enemySide[std::size_t(&e - mEnemies.data())]))
       continue;
     // Enemies wake up once they scroll into view and stay awake.
     if (!e.active)
@@ -814,6 +825,15 @@ void World::updateEnemies()
       case EnemyKind::WindowBandit:
         updateWindowBandit(e, def);
         break;
+      case EnemyKind::PortraitGhost:
+        updatePortraitGhost(e, def);
+        break;
+      case EnemyKind::HauntedArmor:
+        updateHauntedArmor(e, def);
+        break;
+      case EnemyKind::Poltergeist:
+        updatePoltergeist(e, def);
+        break;
     }
 
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
@@ -925,6 +945,9 @@ void World::updateProjectiles()
     // Level 21: the kill switch, ZERO and its racks; a Phase Rifle shot
     // goes on through one wall.
     if (mZero.on && pr.kind != ShotKind::Enemy && shotAtZero(pr, b))
+      return true;
+    // Level 23: levers, the broken mirror, the coffin, Lance's portrait.
+    if (mManor.on && pr.kind != ShotKind::Enemy && shotAtManor(pr, b))
       return true;
     // Level 22: barrels, fuses, metal (a Six-Shooter bullet glances off).
     if (mWest.on && pr.kind != ShotKind::Enemy)
@@ -1073,6 +1096,15 @@ void World::updateProjectiles()
       if (mCryo.on && pr.kind != ShotKind::Enemy)
       {
         const int r = shotAtCryo(pr, e);
+        if (r == 1)
+          return true;
+        if (r == 2)
+          continue;
+      }
+      // Level 23: Silver Crossbow bolts pin; Turbo knocks armour over.
+      if (mManor.on && pr.kind != ShotKind::Enemy)
+      {
+        const int r = shotAtManorEnemy(pr, e);
         if (r == 1)
           return true;
         if (r == 2)
@@ -1374,7 +1406,7 @@ void World::updateItems()
       collectItem(it);
   }
   mItems.erase(
-    std::remove_if(mItems.begin(), mItems.end(), [](const Item& i) { return i.taken; }), mItems.end());
+    std::remove_if(mItems.begin(), mItems.end(), [](const Item& i) { return i.taken && !i.parked; }), mItems.end());
 }
 
 void World::collectItem(Item& it)

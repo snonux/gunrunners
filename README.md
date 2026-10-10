@@ -27,7 +27,9 @@ Reactor Core (the Core Pulse and the Deflector Bracer), with its Stop
 Motion bonus, and Level 21, ZERO (Live Rewiring, the Phase Rifle and
 ZERO itself), with its Wireframe bonus and the Episode 3 ending.
 Episode 4 has begun with Level 22, Dry Gulch (Fuses and the Six-Shooter),
-and its High Noon bonus. Episodes 4-6 are being built now.
+with its High Noon bonus, and Level 23, Fright Night Manor (the Mirror
+World and the Silver Crossbow), with its Both Sides bonus. Episodes 4-6
+are being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

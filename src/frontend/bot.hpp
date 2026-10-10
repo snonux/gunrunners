@@ -57,6 +57,8 @@ public:
   // the planner should drive. High Noon: fire on the second ring.
   bool west(const World& world, Input& in);
   Input highNoon(const World& world);
+  bool manor(const World& world, Input& in);
+  Input split(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
@@ -76,6 +78,8 @@ private:
   std::deque<Input> mFightQueue;
   std::deque<Input> mWestQueue;
   Input mWestPrev;
+  std::deque<Input> mSplitQueue;
+  Input mManorPrev;
   std::deque<Input> mTrapQueue;
   std::deque<Input> mPinQueue;
   std::deque<Input> mLavaQueue;

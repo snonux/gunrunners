@@ -5,6 +5,7 @@
 
 #include "assets/art.hpp"
 #include "assets/enemy_art.hpp"
+#include "assets/enemy_art_west.hpp"
 #include "assets/enemy_art_zero.hpp"
 #include "base/math.hpp"
 #include "data/theme.hpp"
@@ -5022,6 +5023,458 @@ void trapdoorClip(ClipKit& k, int frame, int ticks, float ox, float oy)
     k.r.fillRect(W - 66, 64, 26, 52, osd);
 }
 
+// --- Level 22 briefing: Channel 7, Westerns ----------------------------------
+
+// Shot: a dead channel. Four baked frames of snow (each pixel its own grey,
+// with the darker bands a weak signal rolls through), a bright tear running
+// down the screen, scanlines and a dark tube edge.
+void staticSnow(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)ox;
+  (void)oy;
+  const int f = frame % 4;
+  const Texture& snow = cached(k, "e4_snow" + std::to_string(f), 640, 360, 0, 0, [f](cairo_t* cr) {
+    cairo_surface_t* s = cairo_get_target(cr);
+    cairo_surface_flush(s);
+    unsigned char* px = cairo_image_surface_get_data(s);
+    const int stride = cairo_image_surface_get_stride(s);
+    std::uint32_t sd = 0x9E3779B9u * std::uint32_t(f + 1);
+    for (int y = 0; y < 360; ++y)
+    {
+      // A weak line now and then, and the slow sag of the signal.
+      const double row = 0.75 + 0.25 * std::sin(double(y + f * 37) * 0.045) - ((hash2(y / 3, f) % 9u) == 0 ? 0.3 : 0.0);
+      for (int x = 0; x < 640; ++x)
+      {
+        sd ^= sd << 13;
+        sd ^= sd >> 17;
+        sd ^= sd << 5;
+        const double v = std::clamp(double(sd & 0xFF) * row, 0.0, 255.0);
+        unsigned char* p = px + y * stride + x * 4;
+        p[0] = static_cast<unsigned char>(std::min(255.0, v * 1.04)); // B
+        p[1] = static_cast<unsigned char>(v);                          // G
+        p[2] = static_cast<unsigned char>(v * 0.97);                   // R
+        p[3] = 255;
+      }
+    }
+    cairo_surface_mark_dirty(s);
+  });
+  DrawOpts o;
+  o.scale = 2.0f;
+  k.r.draw(snow, 0, 0, o);
+  // The tear: a brighter band rolling down.
+  const float band = std::fmod(float(ticks) * 2.5f, H + 120.0f) - 60.0f;
+  k.r.fillRect(0, band, W, 26, rgba(255, 255, 255, 46), Blend::Add);
+  k.r.fillRect(0, band + 30.0f, W, 10, rgba(0, 0, 0, 70));
+  scanlines(k, 60);
+  // The tube's dark rounded edge.
+  const Texture& tube = cached(k, "e4_tube", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_radial(640, 360, 300, 640, 360, 820);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0, 0, 0, 0.0);
+    cairo_pattern_add_color_stop_rgba(g, 0.7, 0, 0, 0, 0.25);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0, 0, 0, 0.8);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+  k.r.draw(tube, 0, 0);
+}
+
+// The sepia test card behind the Channel 7 ident: a target of rings and
+// crosshairs, resolution fans, a step wedge and a sheriff's star.
+const Texture& westTestCard(ClipKit& k)
+{
+  return cached(k, "e4_testcard", 1280, 720, 0, 0, [](cairo_t* cr) {
+    const Color paper = rgb(232, 206, 158), ink = rgb(84, 54, 28), mid = rgb(170, 128, 76);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    setColor(cr, paper);
+    cairo_fill(cr);
+    // The grid.
+    for (int x = 0; x <= 1280; x += 80)
+    {
+      cairo_rectangle(cr, x - 1, 0, 2, 720);
+      setRgbaC(cr, ink, 0.18);
+      cairo_fill(cr);
+    }
+    for (int y = 40; y <= 720; y += 80)
+    {
+      cairo_rectangle(cr, 0, y - 1, 1280, 2);
+      setRgbaC(cr, ink, 0.18);
+      cairo_fill(cr);
+    }
+    // Corner targets.
+    for (const double cx : {120.0, 1160.0})
+      for (const double cy : {120.0, 600.0})
+      {
+        cairo_new_path(cr);
+        cairo_arc(cr, cx, cy, 64, 0, 2 * kPi);
+        setRgbaC(cr, mid, 0.5);
+        cairo_fill_preserve(cr);
+        setRgbaC(cr, ink, 1.0);
+        cairo_set_line_width(cr, 4);
+        cairo_stroke(cr);
+        cairo_arc(cr, cx, cy, 32, 0, 2 * kPi);
+        cairo_stroke(cr);
+        cairo_move_to(cr, cx - 64, cy);
+        cairo_line_to(cr, cx + 64, cy);
+        cairo_move_to(cr, cx, cy - 64);
+        cairo_line_to(cr, cx, cy + 64);
+        cairo_set_line_width(cr, 2);
+        cairo_stroke(cr);
+      }
+    // The big target: a dark ring, lighter disc inside, crosshairs out to
+    // the edges.
+    cairo_new_path(cr);
+    cairo_arc(cr, 640, 360, 300, 0, 2 * kPi);
+    setRgbaC(cr, rgb(244, 224, 184), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, ink, 1.0);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke(cr);
+    cairo_arc(cr, 640, 360, 270, 0, 2 * kPi);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 0, 360);
+    cairo_line_to(cr, 1280, 360);
+    cairo_move_to(cr, 640, 0);
+    cairo_line_to(cr, 640, 720);
+    setRgbaC(cr, ink, 0.6);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    // Resolution fans either side.
+    for (const int side : {-1, 1})
+    {
+      const double fx = 640 + side * 470.0, fy = 360;
+      for (int i = 0; i < 9; ++i)
+      {
+        const double a = (double(i) - 4.0) * 0.07;
+        cairo_move_to(cr, fx, fy);
+        cairo_line_to(cr, fx - side * 150 * std::cos(a), fy + 150 * std::sin(a));
+      }
+      setRgbaC(cr, ink, 0.85);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+    // The step wedge: sepia from paper to ink.
+    for (int i = 0; i < 8; ++i)
+    {
+      cairo_rectangle(cr, 400 + i * 60, 640, 60, 50);
+      setColor(cr, lerpColor(paper, rgb(40, 24, 10), float(i) / 7.0f));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 400, 640, 480, 50);
+    setRgbaC(cr, ink, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The sheriff's star, a 7 on its boss.
+    cairo_new_path(cr);
+    for (int i = 0; i < 12; ++i)
+    {
+      const double a = -kPi / 2 + double(i) * kPi / 6.0;
+      const double rr = i % 2 == 0 ? 96.0 : 48.0;
+      if (i == 0)
+        cairo_move_to(cr, 640 + std::cos(a) * rr, 372 + std::sin(a) * rr);
+      else
+        cairo_line_to(cr, 640 + std::cos(a) * rr, 372 + std::sin(a) * rr);
+    }
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(560, 280, 720, 460);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.93, 0.80, 0.52);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.55, 0.38, 0.18);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, ink, 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    for (int i = 0; i < 6; ++i)
+    {
+      const double a = -kPi / 2 + double(i) * kPi / 3.0;
+      cairo_new_path(cr);
+      cairo_arc(cr, 640 + std::cos(a) * 96, 372 + std::sin(a) * 96, 9, 0, 2 * kPi);
+      setRgbaC(cr, rgb(214, 180, 120), 1.0);
+      cairo_fill_preserve(cr);
+      setRgbaC(cr, ink, 1.0);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+    cairo_new_path(cr);
+    cairo_arc(cr, 640, 372, 34, 0, 2 * kPi);
+    setRgbaC(cr, rgb(246, 226, 180), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, ink, 1.0);
+    cairo_stroke(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 46);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "7", &te);
+    cairo_move_to(cr, 640 - te.x_advance / 2, 372 + te.height / 2);
+    cairo_show_text(cr, "7");
+    // The station's line along the foot of the ring.
+    cairo_set_font_size(cr, 18);
+    const char* line = "MAXTV  WESTERN NETWORK";
+    cairo_text_extents(cr, line, &te);
+    cairo_move_to(cr, 640 - te.x_advance / 2, 612);
+    setRgbaC(cr, ink, 0.9);
+    cairo_show_text(cr, line);
+  });
+}
+
+// "WESTERNS" in letters of rope: each glyph's outline laid in a twisted
+// hemp line, with a lariat's loop for a tail.
+const Texture& ropeWord(ClipKit& k)
+{
+  return cached(k, "e4_rope_westerns", 1000, 200, 500, 100, [](cairo_t* cr) {
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 150);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "WESTERNS", &te);
+    cairo_move_to(cr, 500 - te.x_advance / 2, 100 + te.height / 2);
+    cairo_text_path(cr, "WESTERNS");
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    // A dark wash inside the loops so the word reads, a drop shadow, the
+    // rope's body, its twist and the light on it.
+    setRgbaC(cr, rgb(60, 34, 14), 0.35);
+    cairo_fill_preserve(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 4, 6);
+    setRgbaC(cr, rgb(40, 20, 6), 0.45);
+    cairo_set_line_width(cr, 15);
+    cairo_stroke_preserve(cr);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(84, 52, 24), 1.0);
+    cairo_set_line_width(cr, 15);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, rgb(206, 166, 104), 1.0);
+    cairo_set_line_width(cr, 11);
+    cairo_stroke_preserve(cr);
+    const double twist[2] = {3.0, 4.5};
+    cairo_set_dash(cr, twist, 2, 0);
+    setRgbaC(cr, rgb(130, 92, 48), 1.0);
+    cairo_set_line_width(cr, 11);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+    cairo_stroke_preserve(cr);
+    const double sheen[2] = {2.0, 5.5};
+    cairo_set_dash(cr, sheen, 2, 1.0);
+    setRgbaC(cr, rgb(250, 228, 180), 0.8);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_set_dash(cr, nullptr, 0, 0);
+  });
+}
+
+// Shot: the Channel 7 ident. A sepia test card; "CH 7" slides in from the
+// right (frames 0-7), "WESTERNS" in rope letters drops in (8-11) and swings
+// to rest.
+void identCh7(ClipKit& k, int frame, int frames, int ticks, float ox, float oy)
+{
+  const int slideEnd = std::max(1, std::min(7, frames * 2 / 3 - 1));
+  k.r.draw(westTestCard(k), ox, oy);
+  // Old film: the light breathing, specks of dust.
+  const int flick = int(hash2(ticks / 3, 22) % 24u);
+  k.r.fillRect(0, 0, W, H, rgba(40, 20, 0, 20 + flick));
+  for (int i = 0; i < 14; ++i)
+  {
+    const unsigned h = hash2(i, ticks / 4 + 99);
+    k.r.fillRect(float(h % 1280u), float((h / 1280u) % 720u), 2.0f + float(h % 3u), 2.0f + float(h % 4u),
+      rgba(60, 36, 14, 160));
+  }
+  // "CH 7" on a dark plate, sliding in from the right with an ease-out.
+  const float u = std::min(1.0f, float(frame) / float(slideEnd));
+  const float e = 1.0f - (1.0f - u) * (1.0f - u) * (1.0f - u);
+  const float cx = 640.0f + (1.0f - e) * 900.0f + ox, cy = 120.0f + oy;
+  k.r.fillRect(cx - 190.0f, cy - 10.0f, 380.0f, 150.0f, rgba(46, 26, 10, 230));
+  k.r.fillRect(cx - 190.0f, cy - 10.0f, 380.0f, 5.0f, rgb(214, 170, 96));
+  k.r.fillRect(cx - 190.0f, cy + 135.0f, 380.0f, 5.0f, rgb(214, 170, 96));
+  k.r.drawText("CH 7", cx, cy + 4.0f, {120.0f, rgb(250, 232, 190), rgb(20, 10, 4)}, Align::Center);
+  // "WESTERNS" drops in once CH 7 has landed.
+  if (frame > slideEnd)
+  {
+    const int dropFrames = std::max(1, frames - 1 - slideEnd);
+    const float p = std::min(1.0f, float(frame - slideEnd) / float(dropFrames));
+    const float y = 510.0f - (1.0f - p) * (1.0f - p) * 620.0f;
+    DrawOpts o;
+    o.angle = p >= 1.0f ? std::sin(float(ticks) * 0.12f) * 2.5f * std::exp(-float(ticks % 600) * 0.004f) : 0.0f;
+    k.r.draw(ropeWord(k), 640.0f + ox, y + oy, o);
+  }
+  scanlines(k, 35);
+}
+
+// The desert at sundown, 2560 px wide so it pans round: a burning sky, the
+// sun on the horizon, mesas, saguaros and the hardpan.
+const Texture& sundownDesert(ClipKit& k)
+{
+  return cached(k, "e4_sundown", 2560, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 600);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.20, 0.10, 0.30);
+    cairo_pattern_add_color_stop_rgb(g, 0.45, 0.78, 0.30, 0.30);
+    cairo_pattern_add_color_stop_rgb(g, 0.8, 1.0, 0.62, 0.30);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 1.0, 0.82, 0.48);
+    cairo_rectangle(cr, 0, 0, 2560, 600);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Two suns, so the strip still tiles; one is always on screen.
+    for (const double sx : {760.0, 2040.0})
+    {
+      radialGlow(cr, sx, 540, 320, rgb(255, 200, 110), 0.55);
+      cairo_new_path(cr);
+      cairo_arc(cr, sx, 540, 110, 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 226, 150), 1.0);
+      cairo_fill(cr);
+    }
+    // Streaks of cloud.
+    std::uint32_t sd = 2207u;
+    auto rnd = [&]() {
+      sd = sd * 1664525u + 1013904223u;
+      return double(sd >> 8) / double(1u << 24);
+    };
+    for (int i = 0; i < 16; ++i)
+    {
+      const double x = rnd() * 2560, y = 90 + rnd() * 300, w = 160 + rnd() * 320;
+      for (const double dx : {0.0, -2560.0, 2560.0})
+      {
+        cairo_save(cr);
+        cairo_translate(cr, x + dx, y);
+        cairo_scale(cr, w, 9 + rnd() * 6);
+        cairo_new_path(cr);
+        cairo_arc(cr, 0, 0, 0.5, 0, 2 * kPi);
+        cairo_restore(cr);
+        setRgbaC(cr, rgb(255, 180, 150), 0.35);
+        cairo_fill(cr);
+      }
+    }
+    // The mesas: flat tops, sheer sides, in two hazy rows.
+    for (int row = 0; row < 2; ++row)
+    {
+      const Color c = row == 0 ? rgb(176, 92, 96) : rgb(120, 56, 60);
+      double x = row * 300.0;
+      while (x < 2560 + 200)
+      {
+        const double w = 220 + rnd() * 360, h = (row == 0 ? 90 : 140) + rnd() * 90, base = 600;
+        for (const double dx : {0.0, -2560.0})
+        {
+          cairo_move_to(cr, x + dx - 30, base);
+          cairo_line_to(cr, x + dx + 10, base - h + 18);
+          cairo_line_to(cr, x + dx + 26, base - h);
+          cairo_line_to(cr, x + dx + w - 26, base - h);
+          cairo_line_to(cr, x + dx + w - 10, base - h + 18);
+          cairo_line_to(cr, x + dx + w + 30, base);
+          cairo_close_path(cr);
+          setRgbaC(cr, c, 1.0);
+          cairo_fill(cr);
+          cairo_rectangle(cr, x + dx + 26, base - h, w - 52, 6);
+          setRgbaC(cr, rgb(255, 170, 110), row == 0 ? 0.35 : 0.25);
+          cairo_fill(cr);
+        }
+        x += w + 160 + rnd() * 400;
+      }
+    }
+    // The hardpan.
+    cairo_pattern_t* gr = cairo_pattern_create_linear(0, 590, 0, 720);
+    cairo_pattern_add_color_stop_rgb(gr, 0.0, 0.80, 0.50, 0.34);
+    cairo_pattern_add_color_stop_rgb(gr, 1.0, 0.46, 0.24, 0.16);
+    cairo_rectangle(cr, 0, 590, 2560, 130);
+    cairo_set_source(cr, gr);
+    cairo_fill(cr);
+    cairo_pattern_destroy(gr);
+    for (int i = 0; i < 60; ++i)
+    {
+      const double x = rnd() * 2560, y = 610 + rnd() * 100;
+      cairo_rectangle(cr, x, y, 30 + rnd() * 90, 2);
+      setRgbaC(cr, rgb(90, 46, 30), 0.35);
+      cairo_fill(cr);
+    }
+    // Saguaros against the glow.
+    for (int i = 0; i < 9; ++i)
+    {
+      const double x = 120 + rnd() * 2320, h = 90 + rnd() * 80, base = 604;
+      const Color c = rgb(70, 36, 46);
+      strokeLimb(cr, {{x, base}, {x, base - h}}, 18, c, c, 0);
+      strokeLimb(cr, {{x - 4, base - h * 0.45}, {x - 30, base - h * 0.45}, {x - 30, base - h * 0.75}}, 12, c, c, 0);
+      if (rnd() < 0.7)
+        strokeLimb(cr, {{x + 4, base - h * 0.6}, {x + 26, base - h * 0.6}, {x + 26, base - h * 0.85}}, 12, c, c, 0);
+    }
+  });
+}
+
+// Lance in the West: pose 9 (the mic up), a ten-gallon hat, and his free
+// arm up to it. tip 0..1: the hat lifted and tipped forward.
+const Texture& lanceCowboy(ClipKit& k, int tip, bool mouth)
+{
+  const std::string key = "e4_lance_cowboy" + std::to_string(tip) + (mouth ? "o" : "c");
+  // Design coords plus 40 px of headroom (feet at (120, 480) -> (160, 520)).
+  return cached(k, key, 320, 540, 160, 520, [&](cairo_t* cr) {
+    cairo_translate(cr, 40, 40);
+    paintLance(cr, 9, mouth);
+    // His head (pose 9): the middle about (126, 112); the hat sits over the
+    // quiff and lifts and tips on `tip`.
+    static constexpr double kLift[6] = {0.0, 0.0, 0.5, 1.0, 0.6, 0.15};
+    const double lift = kLift[std::clamp(tip, 0, 5)];
+    const double hatX = 136, brimY = 90 - lift * 26, tilt = -lift * 0.32;
+    const Color felt = rgb(246, 238, 222);
+    // The far arm comes up behind his head to the brim.
+    const double handX = hatX - 68 + lift * 4, handY = brimY + 2 - lift * 4;
+    strokeLimb(cr, {{100, 182}, {44, 150 - lift * 10}, {handX, handY}}, 24, rgb(20, 34, 104), rgb(10, 8, 20), 2.6);
+    paintCowboyHat(cr, hatX, brimY, 176, felt, tilt);
+    // The hand on the brim.
+    cairo_new_path(cr);
+    cairo_arc(cr, handX, handY, 13, 0, 2 * kPi);
+    setRgbaC(cr, rgb(244, 204, 168), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(10, 8, 20), 1.0);
+    cairo_set_line_width(cr, 2.2);
+    cairo_stroke(cr);
+    // A gold star on the band, for the showman.
+    cairo_new_path(cr);
+    for (int i = 0; i < 10; ++i)
+    {
+      const double a = -kPi / 2 + double(i) * kPi / 5.0 + tilt;
+      const double rr = i % 2 == 0 ? 10.0 : 4.5;
+      const double px = hatX + std::cos(a) * rr + std::sin(tilt) * 15, py = brimY - 15 + std::sin(a) * rr;
+      if (i == 0)
+        cairo_move_to(cr, px, py);
+      else
+        cairo_line_to(cr, px, py);
+    }
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(255, 210, 70), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// Shot: Lance, gone West. The desert at sundown pans by; a saloon's false
+// front behind him; he tips his hat (6-frame loop) while a tumbleweed
+// bowls across the foreground (16 frames).
+void lanceCowboyClip(ClipKit& k, int frame, int frames, float t, int ticks, float ox, float oy)
+{
+  panLayer(k, sundownDesert(k), float(ticks) / 5.4f, oy);
+  const Texture& saloon = cached(k, "e4_saloon_front", 560, 460, 0, 460, [](cairo_t* cr) {
+    paintSaloonFront(cr, 560, 460, "SALOON");
+  });
+  // Its shadow on the hardpan, then the building.
+  k.r.fillRect(690 + ox, 640 + oy, 600, 18, rgba(60, 24, 20, 90));
+  k.r.draw(saloon, 700 + ox, 650 + oy);
+  // Warm light from the sun on everything in front.
+  drawGlow(k.r, k.art, 380 + ox, 420 + oy, 380.0f, rgb(255, 170, 90), 0.25f);
+  const bool talking = t < 0.45f && (ticks / 7) % 2 == 0;
+  k.r.draw(lanceCowboy(k, frame % 6, talking), 380 + ox, 690 + oy + std::sin(float(ticks) * 0.07f) * 2.0f);
+  // The tumbleweed, bouncing as it rolls.
+  const int n = std::max(1, frames - 1);
+  const float u = float(frame) / float(n);
+  const float tx = -160.0f + u * 1620.0f;
+  const float bounce = std::abs(std::sin(u * 3.1416f * 5.0f)) * 110.0f;
+  const Texture& weed = cached(k, "e4_tumbleweed", 200, 200, 100, 100, [](cairo_t* cr) {
+    paintTumbleweed(cr, 100, 100, 92, 22u);
+  });
+  k.r.fillRect(tx - 80 + ox, 694 + oy, 160, 10, rgba(60, 24, 20, int(90 - bounce * 0.7f)));
+  DrawOpts o;
+  o.angle = tx * 0.35f;
+  o.scale = 1.3f;
+  k.r.draw(weed, tx + ox, 570 - bounce + oy, o);
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -5056,6 +5509,12 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return bumper(k, clip, frame, ticks);
   if (starts(clip, "credits:"))
     return credits(k, ticks);
+  if (clip == "static_snow")
+    return staticSnow(k, frame, ticks, ox, oy);
+  if (clip == "ident_ch7")
+    return identCh7(k, frame, frames, ticks, ox, oy);
+  if (clip == "lance_cowboy")
+    return lanceCowboyClip(k, frame, frames, t, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

@@ -197,6 +197,13 @@ const EnemyDef kEnemies[] = {
   {"duelist", "DUELIST", K::Duelist, L::Styled, 3, 5, 4, 1000, 0, 45, 8, 0, 0, 0},
   {"tumble_mine", "TUMBLE MINE", K::TumbleMine, L::Styled, 4, 4, 1, 300, 2, 0, 8, 0, kEnemyHarmless, 0},
   {"window_bandit", "WINDOW BANDIT", K::WindowBandit, L::Styled, 3, 3, 2, 400, 0, 40, 12, 0, 0, 0},
+  // Level 23. Portrait Ghost: cooldown between lunges (they come back, so
+  // they are not counted); Haunted Armor: between swings (only the swing
+  // hurts); Poltergeist:
+  // between throws, range in cells.
+  {"portrait_ghost", "PORTRAIT GHOST", K::PortraitGhost, L::Styled, 4, 4, 3, 600, 2, 40, 10, 0, kEnemyNoTally, 0},
+  {"haunted_armor", "HAUNTED ARMOR", K::HauntedArmor, L::Styled, 3, 6, 8, 900, 2, 36, 12, 0, kEnemyHarmless, 0},
+  {"poltergeist", "POLTERGEIST", K::Poltergeist, L::Styled, 2, 2, 3, 700, 0, 30, 12, 16, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

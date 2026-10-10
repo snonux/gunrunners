@@ -211,6 +211,8 @@ bool World::exitPowered() const
     return false; // the hatch in her throne opens once the Hive Mother falls
   if (mZero.boss.on && !mZero.boss.exitOpen)
     return false; // the stage door shows once the wall has fallen
+  if (mManor.on && (mManor.split.on || offSide(mManor.exitSide)))
+    return false; // the front door is the way out in the reflection only; Both Sides exits by itself
   if (mWest.noon.on && mWest.noon.phase != DuelPhase::Done)
     return false; // High Noon: the way out opens after the twentieth duel
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();

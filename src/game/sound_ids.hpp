@@ -144,6 +144,16 @@ enum class Sfx
   PosterSpin, // a wanted poster spinning on its nail
   Gust,      // a gust down the mine tunnel
   DuelDraw,  // a Duelist drawing (a holster slap and a hammer click)
+  MirrorFlip, // stepping through a mirror (a glassy shimmer, inverted)
+  Lever,     // a heavy iron lever thrown (a creak and a clunk)
+  GhostHiss, // a Portrait Ghost leaving its frame or lunging (a cold hiss)
+  ArmorClank, // a Haunted Armor waking (a rattle of plate)
+  Swoosh,    // a halberd swing
+  Throw,     // a Poltergeist throwing something
+  BoltThunk, // a Silver Crossbow bolt pinning something
+  GlassChime, // the broken mirror shot (a cracked chime)
+  CoffinSlam, // the coffin lid lifting and slamming
+  Thunder,   // lightning over the manor
   Count,
 };
 

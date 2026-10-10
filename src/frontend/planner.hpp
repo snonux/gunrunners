@@ -36,6 +36,7 @@ public:
   int valveToHold(const World& world) const;
 
 private:
+  friend class Bot; // Bot::manor follows cryptGoal
   struct Goal
   {
     int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech
@@ -46,7 +47,9 @@ private:
                   // and gild (Golden Touch; index: the block), 13 a grow lamp's switch to hit (index: the
                   // lamp; x, y, w, h: where to stand), 14 a valve to hold up at (index: the valve), 15 a gem
                   // to take (Wireframe; index: the item; x, y, w, h: its box), 16 a fuse to light (Dry Gulch;
-                  // index: the fuse; x, y, w, h: where to stand)
+                  // index: the fuse; x, y, w, h: where to stand), 17 the manor route's next step (index: the
+                  // step), 18 a mirror to stand at for the crypt detour (Fright Night Manor's bonus; index:
+                  // the mirror; Bot::manor shoots it open and steps through)
     int x = 0, y = 0;
     int w = 0, h = 0; // kind 3: the entrance's box; kind 5: w=1 shoot it from below; kind 8: w the
                       // shot's direction, h the angle wanted
@@ -54,6 +57,11 @@ private:
   };
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;
+  // Level 23's bonus detour: through the broken mirror into the crypt, the
+  // bonus door, back out through the crypt's mirror. Returns kind 18 (the
+  // mirror to stand at) or kind 0; inCrypt: in the crypt with the door
+  // still to take.
+  static Goal cryptGoal(const World& w, bool& inCrypt);
   Goal altarGoal(const World& world) const;
   void buildField(const World& world, const Goal& goal);
   int heuristic(const World& world) const;
@@ -78,6 +86,7 @@ private:
   int mGoalKeyHash = 0;
   int mFails = 0;
   bool mSkipProto = false; // the prototype is out of reach: go without it
+  int mManorSide = 0;      // Level 23: the side mSkipProto was decided on
   bool mSkipHadKey = false;
   bool mTakeBonus = false;
   bool mSkipBonus = false;

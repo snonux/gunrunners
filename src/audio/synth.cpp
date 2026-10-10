@@ -14,6 +14,31 @@
 namespace gr::synth
 {
 
+namespace
+{
+
+// A honky-tonk piano note: each key has three strings tuned a little apart
+// (the beating is the saloon sound), struck hard, with a woody knock.
+void addPiano(std::vector<float>& buf, double start, double len, double midi, double vol)
+{
+  const double f = midiFreq(midi);
+  Osc s1, s2, s3, h1, h2;
+  Noise n(std::uint32_t(midi * 97.0 + start * 1000.0) | 1u);
+  OnePole lp;
+  const int s0 = samples(start);
+  const int count = samples(len);
+  for (int i = 0; i < count && s0 + i < int(buf.size()); ++i)
+  {
+    const double t = double(i) / kRate;
+    const double env = attack(t, 0.002) * (0.65 * decay(t, 0.18) + 0.35 * decay(t, 0.9)) * std::min(1.0, (len - t) / 0.02);
+    const double strings = s1.step(f * 0.994, Wave::Triangle) + s2.step(f, Wave::Triangle) + s3.step(f * 1.007, Wave::Triangle);
+    const double bright = (h1.step(f * 2.003, Wave::Sine) * 0.35 + h2.step(f * 3.01, Wave::Sine) * 0.18) * decay(t, 0.08);
+    const double knock = lp.lowpass(n.next(), 1800.0) * decay(t, 0.006);
+    buf[std::size_t(s0 + i)] += float((strings * 0.33 + bright + knock * 0.8) * env * vol);
+  }
+}
+
+} // namespace
 
 std::vector<float> makeSfx(Sfx id)
 {
@@ -447,13 +472,28 @@ std::vector<float> makeSfx(Sfx id)
     }
     case Sfx::Creak:
     {
-      // A slow wooden groan: a low saw wobbling in pitch, rough with noise.
-      Osc a;
+      // Wood under strain: stick-slip - the boards catch and let go a
+      // hundred-odd times a second, the rate sagging and picking up - each
+      // slip ringing the timber's two hollow resonances, over a low groan.
+      Svf body, knot;
+      Osc groan;
       Noise n(81);
+      double phase = 0.0;
       return render(0.6, [&](double t, double total) {
-        const double f = 90.0 + 30.0 * std::sin(t * 23.0) + 20.0 * std::sin(t * 7.0);
-        return (a.step(f, Wave::Saw) * 0.12 + n.next() * 0.04) * std::min(1.0, t / 0.05) *
-          std::min(1.0, (total - t) / 0.1);
+        const double u = t / total;
+        const double rate = 70.0 + 120.0 * std::sin(kPi * u) + 25.0 * std::sin(t * 17.0);
+        phase += rate / kRate;
+        double slip = 0.0;
+        if (phase >= 1.0)
+        {
+          phase -= 1.0;
+          slip = 1.0 + 0.4 * double(n.next());
+        }
+        const double grit = double(n.next()) * 0.08;
+        const double wood = body.band(float(slip + grit), 620.0 + 80.0 * std::sin(t * 9.0), 9.0) * 0.55 +
+          knot.band(float(slip), 1450.0, 12.0) * 0.25;
+        const double low = groan.step(rate * 0.5, Wave::Saw) * 0.04;
+        return (wood * 1.8 + low) * std::min(1.0, t / 0.04) * std::min(1.0, (total - t) / 0.1);
       });
     }
     case Sfx::Chop:
@@ -566,12 +606,28 @@ std::vector<float> makeSfx(Sfx id)
     }
     case Sfx::Bell:
     {
-      // The elevator's bell: two strikes of a small brass bell.
-      Osc a, b;
-      return render(0.9, [&](double t, double) {
-        const double t2 = t < 0.18 ? t : t - 0.18;
-        const double env = std::exp(-t2 * 6.0) * std::min(1.0, t2 / 0.003);
-        return (a.step(1320.0, Wave::Sine) * 0.18 + b.step(1320.0 * 2.76, Wave::Sine) * 0.07) * env;
+      // One strike of a bronze bell (the church steeple, the mine's shaft
+      // bell): a clang, then the bell's own partials - the hum an octave
+      // down, the prime, the minor-third tierce, the quint and the nominal -
+      // each dying away at its own rate, the low ones longest.
+      struct Partial
+      {
+        double ratio, vol, tau;
+      };
+      static constexpr Partial kParts[] = {{0.5, 0.20, 0.9},   {1.0, 0.24, 0.55}, {1.19, 0.16, 0.35},
+                                           {1.5, 0.09, 0.28},  {2.0, 0.16, 0.22}, {2.51, 0.07, 0.12},
+                                           {2.66, 0.05, 0.10}, {3.01, 0.05, 0.08}};
+      const double base = 392.0;
+      Osc o[8];
+      Noise n(107);
+      Svf bp;
+      return render(1.8, [&](double t, double total) {
+        double v = 0.0;
+        for (std::size_t k = 0; k < 8; ++k)
+          v += o[k].step(base * kParts[k].ratio * (1.0 + 0.0015 * std::sin(t * 9.0 + double(k))), Wave::Sine) *
+            kParts[k].vol * decay(t, kParts[k].tau);
+        const double clang = bp.band(n.next(), 2600.0, 2.0) * decay(t, 0.012);
+        return (v * 0.9 + clang * 0.35) * attack(t, 0.0015) * std::min(1.0, (total - t) / 0.3);
       });
     }
     case Sfx::Fuse:
@@ -1500,6 +1556,172 @@ std::vector<float> makeSfx(Sfx id)
         b[i] = float(b[i] * 0.5 * std::min(1.0, (len - t) / 1.5) + formant * env * 0.12);
       }
       return b;
+    }
+    case Sfx::FuseLit:
+    {
+      // A match struck on the sole of a boot, then the fuse catching and
+      // fizzing away.
+      Noise n(461);
+      Svf strike, fizz;
+      return render(0.55, [&](double t, double total) {
+        const double scratch = strike.band(n.next(), sweep(1800.0, 4200.0, t / 0.07), 1.6) * (t < 0.08 ? 1.0 : decay(t - 0.08, 0.02));
+        const double flare = n.next() * 0.5 * (t > 0.06 ? decay(t - 0.06, 0.05) : 0.0);
+        const double crackle = std::fmod(t * 1000.0 + 7.0 * std::sin(t * 61.0), 23.0) < 3.0 ? 1.7 : 0.6;
+        const double hiss = fizz.band(n.next(), 6200.0, 1.3) * crackle * std::min(1.0, std::max(0.0, t - 0.1) / 0.05);
+        return (scratch * 0.55 + flare * 0.25 + hiss * 0.24) * attack(t, 0.002) * std::min(1.0, (total - t) / 0.12);
+      });
+    }
+    case Sfx::BarrelHiss:
+    {
+      // The fuse reaching the powder: a sharp hiss that climbs and gets
+      // louder up to the bang.
+      Noise n(463);
+      OnePole hp;
+      Svf bp;
+      return render(0.3, [&](double t, double total) {
+        const double h = hp.highpass(n.next(), 2500.0) * 0.6 + bp.band(n.next(), sweep(3000.0, 7500.0, t / total), 3.0) * 0.5;
+        return h * (0.3 + 0.7 * t / total) * 0.42 * attack(t, 0.01) * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::Ricochet:
+    {
+      // A bullet glancing off iron: a crack, then the whining "pt-twang"
+      // falling away.
+      Osc a, b, lfo;
+      Noise n(467);
+      OnePole hp;
+      return render(0.55, [&](double t, double total) {
+        const double f = sweep(3400.0, 1100.0, t / 0.45) * (1.0 + 0.03 * lfo.step(31.0, Wave::Sine));
+        const double whine = (a.step(f, Wave::Sine) * 0.7 + b.step(f * 1.5, Wave::Sine) * 0.2) * decay(t, 0.16);
+        const double crack = hp.highpass(n.next(), 3000.0) * decay(t, 0.006);
+        return (whine * 0.34 + crack * 0.5) * attack(t, 0.0008) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Reload:
+    {
+      // The cylinder spun: a run of ratchet clicks slowing down, then the
+      // gate snapping shut.
+      std::vector<float> b(std::size_t(samples(0.32)), 0.0f);
+      Noise n(479);
+      double at = 0.0, gap = 0.022;
+      for (int k = 0; k < 7; ++k)
+      {
+        Svf bp;
+        const int s0 = samples(at);
+        for (int i = 0; i < samples(0.012) && s0 + i < int(b.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          b[std::size_t(s0 + i)] += float(bp.band(n.next(), 3800.0 + 300.0 * double(k % 2), 4.0) * 0.5 * decay(t, 0.0025));
+        }
+        at += gap;
+        gap *= 1.12;
+      }
+      Svf snap;
+      Osc o;
+      const int s0 = samples(at + 0.03);
+      for (int i = 0; s0 + i < int(b.size()); ++i)
+      {
+        const double t = double(i) / kRate;
+        b[std::size_t(s0 + i)] += float((snap.band(n.next(), 2400.0, 3.0) * 0.6 + o.step(900.0, Wave::Square, 0.3) * 0.12) * decay(t, 0.008));
+      }
+      return b;
+    }
+    case Sfx::Piano1:
+    case Sfx::Piano2:
+    case Sfx::Piano3:
+    case Sfx::Piano4:
+    {
+      // The saloon piano's four keys, up a C major chord: C, E, G, high C,
+      // each with a fifth or third under it the way a saloon player would
+      // hit it.
+      static constexpr double kNotes[4] = {72.0, 76.0, 79.0, 84.0};
+      const int k = int(id) - int(Sfx::Piano1);
+      std::vector<float> b(std::size_t(samples(0.8)), 0.0f);
+      addPiano(b, 0.0, 0.8, kNotes[k], 0.32);
+      addPiano(b, 0.0, 0.8, kNotes[k] - (k % 2 == 0 ? 5.0 : 4.0), 0.14);
+      return b;
+    }
+    case Sfx::HonkyTonk:
+    {
+      // One bar of ragtime (160 bpm, 1.5 s): the left hand's oom-pah - bass
+      // note, chord, bass, chord - under a syncopated right-hand tune.
+      const double beat = 60.0 / 160.0, six = beat / 4.0;
+      std::vector<float> b(std::size_t(samples(beat * 4.0 + 0.6)), 0.0f);
+      // Left hand: C2 / C-E-G, G1 / C-E-G.
+      addPiano(b, 0.0, beat * 0.9, 48.0, 0.2);
+      addPiano(b, 0.0, beat * 0.9, 36.0, 0.1);
+      for (const double n : {60.0, 64.0, 67.0})
+        addPiano(b, beat, beat * 0.6, n, 0.08);
+      addPiano(b, beat * 2.0, beat * 0.9, 43.0, 0.2);
+      addPiano(b, beat * 2.0, beat * 0.9, 31.0, 0.1);
+      for (const double n : {60.0, 64.0, 67.0})
+        addPiano(b, beat * 3.0, beat * 1.2, n, 0.08);
+      // Right hand, in sixteenths: off the beat, then home.
+      struct Note
+      {
+        int at;
+        double midi, len;
+      };
+      static constexpr Note kTune[] = {{0, 79.0, 1.0},  {1, 76.0, 1.0},  {3, 79.0, 1.0},  {4, 81.0, 2.0},
+                                       {6, 79.0, 1.0},  {7, 76.0, 1.0},  {8, 72.0, 2.0},  {10, 74.0, 1.0},
+                                       {11, 76.0, 3.0}, {14, 72.0, 1.0}, {15, 76.0, 1.0}, {16, 84.0, 4.0}};
+      for (const auto& n : kTune)
+      {
+        const double len = n.len * six + (n.at == 16 ? 0.5 : 0.06);
+        addPiano(b, double(n.at) * six, len, n.midi, 0.16);
+        if (n.at % 4 == 0)
+          addPiano(b, double(n.at) * six, len, n.midi - 12.0, 0.07); // octaves on the beat
+      }
+      return b;
+    }
+    case Sfx::PosterSpin:
+    {
+      // A poster whirling round its nail: paper flapping, fast and then
+      // slowing (two turns), and a creak of the nail.
+      Noise n(487);
+      Svf bp;
+      Osc creak;
+      return render(0.75, [&](double t, double total) {
+        const double u = t / total;
+        const double turns = 2.0 * (2.0 * u - u * u); // the level's ease: 720 * (2u - u^2)
+        const double flap = 0.5 + 0.5 * std::cos(turns * 2.0 * kPi * 2.0);
+        const double paper = bp.band(n.next(), 1400.0 + 1600.0 * flap, 1.2) * (0.25 + 0.75 * flap * flap);
+        const double nail = creak.step(620.0 + 120.0 * std::sin(t * 40.0), Wave::Saw) * 0.05 * (1.0 - u);
+        return (paper * 0.42 + nail) * attack(t, 0.005) * std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::Gust:
+    {
+      // Wind down the mine tunnel: a hollow, swelling howl of filtered
+      // noise with a breathy whistle on top.
+      Noise n(491);
+      Svf low, howl;
+      Osc w;
+      return render(1.4, [&](double t, double total) {
+        const double u = t / total;
+        const double swell = std::sin(kPi * std::min(1.0, u * 1.15)) * (0.85 + 0.15 * std::sin(t * 11.0));
+        const double body = low.low(n.next(), 500.0 + 500.0 * swell, 0.8);
+        const double hollow = howl.band(n.next(), 300.0 + 260.0 * swell + 40.0 * std::sin(t * 5.0), 7.0);
+        const double whistle = w.step(880.0 + 140.0 * swell, Wave::Sine) * 0.025 * swell;
+        return (body * 0.35 + hollow * 0.3 + whistle) * std::max(0.0, swell) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::DuelDraw:
+    {
+      // A gun leaving its holster: leather slap, a hand on wood, and the
+      // hammer cocked (two quick clicks).
+      Noise n(499);
+      Svf slap, c1, c2;
+      Osc thump;
+      return render(0.32, [&](double t, double total) {
+        const double leather = slap.band(n.next(), 900.0, 0.9) * decay(t, 0.025);
+        const double body = thump.step(sweep(160.0, 70.0, t / 0.06), Wave::Sine) * decay(t, 0.03);
+        const double t1 = t - 0.12, t2 = t - 0.17;
+        const double click1 = t1 > 0 ? c1.band(n.next(), 3400.0, 5.0) * decay(t1, 0.004) : 0.0;
+        const double click2 = t2 > 0 ? c2.band(n.next(), 2700.0, 5.0) * decay(t2, 0.005) : 0.0;
+        return (leather * 0.55 + body * 0.35 + click1 * 0.7 + click2 * 0.8) * attack(t, 0.001) *
+          std::min(1.0, (total - t) / 0.03);
+      });
     }
     case Sfx::Count:
       break;

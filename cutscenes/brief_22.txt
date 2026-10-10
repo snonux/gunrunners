@@ -7,7 +7,7 @@ shot static_snow delay=60 repeat=6
   cue 0 fade=in:200
 
 # clip ident_ch7: backdrop sepia test card; mid "CH 7" slides in from the
-#   right (8 frames), "WESTERNS" in rope letters drops in (4 frames); 12 frames
+#   right (frames 0-7), "WESTERNS" in rope letters drops in (frames 8-11); 12 frames
 shot ident_ch7 delay=80 repeat=1
   cue 0 stopsound=tv_static
   cue 0 sound=channel_ident
@@ -19,5 +19,5 @@ shot ident_ch7 delay=80 repeat=1
 shot lance_cowboy delay=90 repeat=4
   cue 0 music=theme_western
   cue 2 say=LANCE "Saddle up!"
-  cue 15 hold=1500
-  cue 15 fade=out:400
+  cue 63 hold=1500
+  cue 63 fade=out:400
