@@ -264,6 +264,11 @@ std::vector<float> makeNamedSfx(const std::string& id)
   }
   if (has(id, "jump"))
     return makeSfx(Sfx::Jump);
+  // Level 17's greenhouse: grow lamps buzzing on, leaves rustling.
+  if (has(id, "lamp_buzz"))
+    return makeSfx(Sfx::LampOn);
+  if (has(id, "rustle"))
+    return makeSfx(Sfx::Rustle);
   // Anything else: a soft generic room tone.
   return noiseBed(1.5, seed, 100.0, 1200.0, 0.2, 0.3);
 }

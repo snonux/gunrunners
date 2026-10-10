@@ -28,6 +28,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_alien.cpp
   src/assets/enemy_art_station.cpp
   src/assets/enemy_art_cryo.cpp
+  src/assets/enemy_art_green.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
   src/assets/enemy_art_crystal.cpp
@@ -74,6 +75,8 @@ add_library(gunrunners_core STATIC
   src/game/world_drift.cpp
   src/game/world_cryo.cpp
   src/game/world_cryo_draw.cpp
+  src/game/world_green_draw.cpp
+  src/game/world_green.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
@@ -199,3 +202,7 @@ add_test(NAME station_breach COMMAND station_test ${CMAKE_SOURCE_DIR}/levels/15_
 add_executable(cryo_test tests/cryo_test.cpp)
 target_link_libraries(cryo_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME cryo_labs COMMAND cryo_test ${CMAKE_SOURCE_DIR}/levels/16_bonus_air_hockey.txt)
+add_executable(green_test tests/green_test.cpp)
+target_link_libraries(green_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME hydroponics COMMAND green_test ${CMAKE_SOURCE_DIR}/levels/17_bonus_growth_spurt.txt)
+add_test(NAME savegame_hydroponics COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/17_hydroponics.txt 1200)

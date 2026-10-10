@@ -70,7 +70,11 @@ at half speed, and the exit is a return beacon you touch anywhere;
 1/8 cell a frame up to 1 and only pushing the other way brakes, the runner
 stops dead against walls, frozen Puck Drones never thaw and bounce off
 walls at full speed, a puck that hits a puck stops and the other goes on,
-and you start with the level's prototype, never out of ammo),
+and you start with the level's prototype, never out of ammo; `grow`: every
+gem you pick up makes the runner a quarter bigger, up to twice the size
+(their jump grows with them, they can't stand where a taller runner
+doesn't fit), every shot shrinks them a step, and from 1.5 x up they break
+`by=heavy` blocks by walking into them and small Globs are harmless),
 `timer=` in seconds and `goal=exit`, `goal=collect:N`, `goal=score:N`,
 `goal=goals:N` (`zero_friction`: N pucks into the `@ hockeygoal`s) or
 `goal=paint:N` (the `goldgate` opens with N % of the marked blocks gold). Files without the
@@ -197,6 +201,10 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `armrail` | `x0= x1= y=` | the ceiling rail the Lab Arms ride (drawn only) |
 | `deco` … `kind=glass\|crewpod\|hostpod` | `x y` (bottom block) | Cryo Labs furniture: a frosted glass partition, a sleeping crew pod (2 x 3 blocks), the HOST (SPARE) pod (its frost clears as you pass; shots at it go tink) |
 | `breakable` … `look=pod`, `look=ice` | | the DO NOT OPEN pod (its bonus door `B` waits inside until it is shot open) and a cube of ice with something in it; both solid until broken |
+| `switch` … `kind=shootable` (with grow lamps), `lamp` | `ID x y`; `ID x y switch=SID timer= basil=1` | Level 17's Grow Lamps: a shot (or one cut of the Hedge Trimmer) at the switch toggles the lamps wired to it. `timer=0` stays lit until shot again; `timer=T` goes out after T frames, flickering for the last 22. `basil=1` hums a note when lit |
+| `plant` | `ID lamp=LID[,LID...] kind=bridge\|leaf\|ladder\|stairs\|flower rect= rect2=`… `root=x,y` | while every one of its lamps is lit it grows from the root outward over 45 frames (bridge and stairs solid, leaf and flower one-way, ladder a climbable creeper) and withers tip-first over 30 frames once one goes out; a plant with several lamps locks them lit once it has grown |
+| `breakable` … `by=trimmer`, `look=seedpod`, `look=thorn` | | `by=trimmer` blocks only break to the Hedge Trimmer's cone (4 damage a cut); a seed pod and a wall of thorns |
+| enemy keys `spore_puffer` (`carrier=1`, `face=floor\|ceiling\|left\|right`), `snapjaw` (`face=`), `glob`, `glob_medium`, `glob_small` | | Level 17's greenhouse: the Spore Puffer swells 10 frames and puffs a 3 x 3 block cloud that drifts away and slows the runner (two carrier clouds at once give the virus; the Hedge Trimmer shreds them); the Snapjaw wakes within 4 blocks, gapes 10 frames and bites what is in reach; the Glob squashes 8 frames and hops at you, splitting into two smaller Globs when killed (8 at most) |
 | `hockeygoal`, `puckspawn` | `rect=`; `x y` | `zero_friction`: a goal mouth (a puck in it scores and comes back to the `puckspawn`, or the nearest free spot) |
 | enemy keys `puck_drone` (`goalie=1 phase=`), `sleeper_pod` (`carrier=1`), `pod_mutant`, `lab_arm` (`rail=x0,x1`) | | Level 16's labs: a Puck Drone spins up 10 frames, then slides at you along its floor, turning at walls and ledges, and rests 30 frames after 3 bounces (only a crouched shot hits it); a `goalie=1` one stands in front of a goal and hops 6 cells every 48 frames (`phase` frames in), saving every puck that hits it. A Sleeper Pod's frost melts as you come within 5 blocks and its mutant comes out while fewer than 3 are about (shots pass the pod); the Pod Mutant staggers after you, raises its arms 10 frames and lunges 4 cells. A Lab Arm rides its section of the rail above you, glows red 12 frames, drops, holds the runner 15 frames while lifting them 2 blocks and lets go; it takes 6 hits or its power box |
 | `flipper`, `pbumper`, `lamp`, `plunger`, `gate`, `drain`, `pwall` | `x y side=l\|r len=`; `x y`; `rect`; `path=` (block corners) | the `pinball` rule's table: flippers (their pivots), bumpers, lanterns to light, the plunger, the gate that opens when every lantern is lit, the drain back to the plunger, and slanted rails |

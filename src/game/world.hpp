@@ -14,6 +14,7 @@
 #include "game/space.hpp"
 #include "game/station.hpp"
 #include "game/cryo.hpp"
+#include "game/green.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -1743,6 +1744,7 @@ public:
   CellBox tetherBeam(const Enemy& low) const;
   // Level 16, Cryo Labs: ice floors, frozen blocks, Lab Arms, Air Hockey.
   const CryoState& cryo() const { return mCryo; }
+  const GreenState& green() const { return mGreen; }
   bool onIce() const;
   bool golemFight() const;
   int golemHp() const;
@@ -2169,6 +2171,30 @@ private:
   void drawCryoFront(Renderer& r, float camX, float camY, int frame) const;
   void drawCryoHud(Renderer& r, int frame) const;
   void drawCryoBreakable(Renderer& r, const Breakable& b, float camX, float camY, int frame) const;
+  // Level 17, Hydroponics (world_green.cpp, world_green_draw.cpp).
+  bool setupGreenEntity(const EntityDef& e);
+  void setupGreenEnemy(Enemy& en, const EntityDef& e);
+  void linkGreen();
+  void resetGreen();
+  bool shotAtGreen(Projectile& pr, const CellBox& b);
+  void hitSwitch(int s);
+  void lightLamp(int l, bool on);
+  void updatePlants();
+  void trimCone(int dir);
+  CellBox trimBox() const;
+  void updateTrimmer(const Button& fire);
+  void updatePuffer(Enemy& e, const EnemyDef& def);
+  void updateSnapjaw(Enemy& e, const EnemyDef& def);
+  void updateGlob(Enemy& e, const EnemyDef& def);
+  void splitGlob(Enemy& e);
+  void updateGreen(const PlayerInput& input);
+  void growShot();
+  bool greenCanSave() const;
+  bool growBlocked(int x, int y) const;
+  void drawGreenBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawGreenFront(Renderer& r, float camX, float camY, int frame) const;
+  void drawGreenHud(Renderer& r, int frame) const;
+  void drawGreenBreakable(Renderer& r, const Breakable& b, float camX, float camY, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2532,6 +2558,8 @@ private:
   // Episode 3, STATION ZERO.
   StationState mStation;
   CryoState mCryo;
+  GreenState mGreen;
+  std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.
   std::vector<Boulder> mBoulders;

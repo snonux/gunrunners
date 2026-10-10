@@ -118,6 +118,11 @@ struct SaveGame
   // (frames until it can be breached again, dented); each crate (alive,
   // block x, block y).
   std::vector<int> station;
+  // Hydroponics (level 17): the spore slow, the Trimmer held, the Growth
+  // Spurt size and gems counted, the number of spore clouds; each lamp
+  // (lit, locked, frames left, hum); each plant (growth, tiles shown,
+  // growing); each cloud (x, y, dx, dy in 1/1000 cells, life, carrier).
+  std::vector<int> green;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

@@ -168,6 +168,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkGolden();
   linkStation();
   linkCryo();
+  linkGreen();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -319,6 +320,7 @@ void World::update(const PlayerInput& input)
       updateGolden();
       updateStation(input);
       updateCryo(input);
+      updateGreen(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -678,6 +680,15 @@ void World::updateEnemies()
       case EnemyKind::LabArm:
         updateLabArm(e, def);
         break;
+      case EnemyKind::Puffer:
+        updatePuffer(e, def);
+        break;
+      case EnemyKind::Snapjaw:
+        updateSnapjaw(e, def);
+        break;
+      case EnemyKind::Glob:
+        updateGlob(e, def);
+        break;
       case EnemyKind::Fish:
         updateFish(e, def);
         break;
@@ -692,7 +703,9 @@ void World::updateEnemies()
         break;
     }
 
-    const bool frozen = (e.kind == EnemyKind::Stalker && e.attach == 1) || (e.kind == EnemyKind::Puck && e.variant == 1);
+    // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
+    const bool frozen = (e.kind == EnemyKind::Stalker && e.attach == 1) || (e.kind == EnemyKind::Puck && e.variant == 1) ||
+      (mGreen.grow && mGreen.size >= 2 && e.kind == EnemyKind::Glob && e.w <= 2);
     if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
         p.vehicle < 0 && e.box().intersects(p.hitBox()))
       touchPlayer(e);
@@ -771,6 +784,9 @@ void World::updateProjectiles()
       return true;
     // Level 16: the HOST (SPARE) pod only goes tink.
     if (mCryo.on && pr.kind != ShotKind::Enemy && shotAtCryoEarly(pr, b))
+      return true;
+    // Level 17: a switch lights its grow lamps.
+    if (mGreen.on && pr.kind != ShotKind::Enemy && shotAtGreen(pr, b))
       return true;
     // Level 45: a valve set into a tube turns when shot.
     if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))
@@ -1123,6 +1139,8 @@ void World::killEnemy(Enemy& e)
       }
   if (e.kind == EnemyKind::SeaMine)
     blowSeaMine(e);
+  if (e.kind == EnemyKind::Glob)
+    splitGlob(e);
   if (e.kind == EnemyKind::Camera)
   {
     mStats.camera = true;

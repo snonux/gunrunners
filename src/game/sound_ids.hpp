@@ -92,11 +92,16 @@ enum class Sfx
   Cannon,    // the tank's gun
   Torpedo,   // a submarine's torpedo
   Stomp,     // a mech landing hard
-  Crunch,
+  Crunch,    // something crushed under a tank
   Freeze,    // the Freeze Ray icing something over
   Tink,      // a shot off a block of ice, a frozen block shattering
   Whine,     // a Puck Drone spinning up
-  Cheer,     // a faint crowd far away (the goal vent, Air Hockey goals)    // something crushed under a tank
+  Cheer,     // a faint crowd far away (the goal vent, Air Hockey goals)
+  Trim,      // the Hedge Trimmer's blades (a short buzz, repeated while held)
+  Puff,      // a Spore Puffer letting go of a cloud
+  Squish,    // a Glob landing, splitting
+  LampOn,    // a grow lamp buzzing on
+  Grow,      // Growth Spurt: one size up (down is the same, played lower)
   Count,
 };
 

@@ -192,6 +192,7 @@ void World::setupEntities()
       setupSanctumEnemy(en, e);
       setupStationEnemy(en, e);
       setupCryoEnemy(en, e);
+      setupGreenEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -284,9 +285,10 @@ void World::setupEntities()
         : by == "sound"        ? 3
         : by == "pry"          ? 4
         : by == "vehicle"      ? 5
+        : by == "trimmer"      ? 6
                                : 0;
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : (look == "pod" ? 8 : (look == "ice" ? 9 : 0))))))));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : (look == "pod" ? 8 : (look == "ice" ? 9 : (look == "seedpod" ? 11 : (look == "thorn" ? 12 : 0))))))))));
       mBreakables.push_back(b);
       continue;
     }
@@ -303,6 +305,8 @@ void World::setupEntities()
     }
 
     if (setupCryoEntity(e))
+      continue;
+    if (setupGreenEntity(e))
       continue;
     if (e.kind == "deco" || e.kind == "billboard")
     {
