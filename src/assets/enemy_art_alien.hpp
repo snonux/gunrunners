@@ -25,5 +25,8 @@ bool drawCrystalArt(cairo_t* cr, const Theme& t, const std::string& key, double 
 // Level 47, Silk Canyon: the Loom Spider, Cocoon Pod, Dropling and the
 // cocoons on the webs (enemy_art_silk.cpp).
 bool drawSilkArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
+// Level 48, Bounder Plains: the Thorn Hog, Sky Gulper and thornbushes
+// (enemy_art_plains.cpp).
+bool drawPlainsArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
 
 } // namespace gr

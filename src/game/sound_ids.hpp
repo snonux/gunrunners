@@ -85,6 +85,7 @@ enum class Sfx
   Blink,     // a Blinker's shimmer before it appears
   Zip,       // grabbing a Silk Line and sliding off down it
   Snip,      // a Loom Spider cutting a Silk Line: a twang and a snap
+  Crack,     // the Tamer's Whip
   Crash,     // a boulder landing, a chute's flaps slamming
   Hiss,      // a Pit Snake about to rear
   EngineOn,  // climbing into a vehicle

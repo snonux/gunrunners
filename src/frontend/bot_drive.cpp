@@ -70,7 +70,9 @@ int Bot::botVehicle(const World& world) const
     // Close by and on our floor (a submarine: anywhere in its water).
     const int dx = std::abs(v.x + v.w / 2 - (p.x + 1));
     const int dy = std::abs(v.y - p.y);
-    const bool near = v.kind == VehicleKind::Sub ? (dx <= 40 && dy <= 24) : (dx <= 32 && dy <= 3);
+    // A Bounder is how a level 48 runner gets on at all: walk a long way to one.
+    const int reach = v.kind == VehicleKind::Bounder ? 96 : 32;
+    const bool near = v.kind == VehicleKind::Sub ? (dx <= 40 && dy <= 24) : (dx <= reach && dy <= 3);
     if (!near)
       continue;
     if (dx + dy < bestD)
@@ -96,6 +98,27 @@ Input Bot::approach(const World& world, int index)
   const int cx = v.x + v.w / 2 - 1;
   in.left = p.x > cx;
   in.right = p.x < cx;
+  // A rock in the way: jump it (and hold the jump on the way up); an alien
+  // in the way: shoot it.
+  const int dir = in.right ? 1 : (in.left ? -1 : 0);
+  const auto& map = world.map();
+  const int aheadX = dir > 0 ? p.x + Player::kWidth : p.x - 1;
+  const bool gap = dir != 0 && !map.solidTop(aheadX, p.y + 1) && !map.solidTop(aheadX + dir, p.y + 1);
+  if (p.state == PlayerState::OnGround && dir != 0 &&
+      (gap || (dir > 0 ? map.touchingRightWall(p.box()) : map.touchingLeftWall(p.box()))))
+    in.jump = !mDrivePrev.jump;
+  else if (p.state == PlayerState::Jumping)
+    in.jump = mDrivePrev.jump;
+  if (dir != 0)
+    for (const auto& e : world.enemies())
+    {
+      const int ahead = dir > 0 ? e.x - (p.x + 2) : p.x - (e.x + e.w - 1);
+      if (e.alive && e.active && !e.hidden && ahead >= 0 && ahead <= 10 && std::abs(e.y - p.y) <= 3)
+      {
+        in.fire = !mDrivePrev.fire;
+        break;
+      }
+    }
   if (p.state == PlayerState::Swim)
   {
     in.up = p.y > v.y;

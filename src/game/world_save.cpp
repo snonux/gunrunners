@@ -122,6 +122,16 @@ SaveGame World::snapshot() const
       es.x = e.aimX;
       es.y = e.aimY;
     }
+    // Level 48: a Thorn Hog comes back pacing, a Sky Gulper back at the
+    // middle of its sway.
+    if (e.kind == EnemyKind::ThornHog)
+      es.attach = 0;
+    if (e.kind == EnemyKind::SkyGulper && e.attach != 0)
+    {
+      es.attach = 0;
+      es.x = e.ox;
+      es.y = e.oy;
+    }
     if (e.kind == EnemyKind::SpearRunner && e.attach == 2)
       es.attach = 1;
     if (e.kind == EnemyKind::PitSnake)

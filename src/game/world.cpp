@@ -313,6 +313,8 @@ void World::update(const PlayerInput& input)
       updateCrystals();
       if (mSpace.silk)
         updateSilk();
+      if (mSpace.plains)
+        updatePlains();
       updateBoulders(input);
       updateSanctum(input);
       updateGolden();
@@ -631,6 +633,14 @@ void World::updateEnemies()
         break;
       case EnemyKind::Dropling:
         updateDropling(e, def);
+        break;
+      case EnemyKind::ThornHog:
+        updateThornHog(e, def);
+        break;
+      case EnemyKind::SkyGulper:
+        updateSkyGulper(e, def);
+        break;
+      case EnemyKind::Thornbush:
         break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);

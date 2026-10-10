@@ -2066,6 +2066,92 @@ void silkRide(ClipKit& k, int frame, int ticks, float ox, float oy)
     k.r.draw(runner(k, who, 0, 1.6f), 90.0f + float(who) * 80.0f + ox, 330 + oy);
 }
 
+// Level 48: the plains at dusk, a strip of violet grass and thorns across
+// the front, a pen of logs on the right.
+void plainsField(ClipKit& k, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.6f + ox, oy, 0.0f);
+  const Texture& ground = cached(k, "plains_ground", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 590, 1280, 130);
+    fillGradientOutline(cr, 590, 720, rgb(150, 100, 170), rgb(70, 40, 70), rgb(36, 20, 40), 3);
+    for (int x = 0; x < 1280; x += 9)
+    {
+      const double h = 10 + (x * 37 % 23);
+      cairo_move_to(cr, x, 594);
+      cairo_line_to(cr, x + 4 + (x % 5), 594 - h);
+      cairo_line_to(cr, x + 6, 594);
+      cairo_close_path(cr);
+      setColor(cr, x % 2 ? rgb(190, 130, 230) : rgb(140, 80, 190));
+      cairo_fill(cr);
+    }
+    // Thorns in the middle stretch.
+    for (int x = 520; x < 780; x += 14)
+    {
+      cairo_move_to(cr, x, 596);
+      cairo_line_to(cr, x + 7, 556);
+      cairo_line_to(cr, x + 14, 596);
+      cairo_close_path(cr);
+      fillOutline(cr, rgb(170, 70, 220), rgb(36, 20, 40), 2);
+    }
+    // The pen: two posts and a rail.
+    for (const double x : {960.0, 1220.0})
+    {
+      cairo_rectangle(cr, x, 500, 16, 96);
+      fillOutline(cr, rgb(176, 150, 120), rgb(36, 20, 40), 3);
+    }
+    cairo_rectangle(cr, 950, 520, 290, 12);
+    fillOutline(cr, rgb(196, 170, 140), rgb(36, 20, 40), 3);
+  });
+  k.r.draw(ground, ox, oy);
+}
+
+void plainsBrief(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  plainsField(k, ticks, ox, oy);
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, who == 1 ? 3 : 0, 1.6f), 120.0f + float(who) * 90.0f + ox, 592 + oy);
+  // A Bounder in its pen, hopping on the spot now and then.
+  const int hop = frame % 8;
+  const float up = hop >= 5 ? std::sin(float(hop - 5) / 3.0f * 3.14159f) * 90.0f : 0.0f;
+  DrawOpts big;
+  big.scale = 1.1f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "veh_bounder", 0, up > 0.0f ? 2 : (ticks / 10) % 2, 6, 7).get(-1),
+    1090 + ox, 600 + oy - up, big);
+  // A Thorn Hog pacing past the thorns.
+  const float hx = 640 + 120 * std::sin(float(ticks) * 0.02f);
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "thorn_hog", 0, (ticks / 6) % 2, 4, 3)
+             .get(std::cos(float(ticks) * 0.02f) >= 0 ? 1 : -1),
+    hx + ox, 596 + oy);
+  drawMax(k, 640 + ox, 230 + oy, 0.4f, ticks, (ticks / 5) % 9 == 0 ? 0.3f : 0.0f);
+}
+
+// The ride: Nova jumps onto the Bounder's back (frames 0-3) and it leaps
+// in a long arc over the thorns (4-13) and lands beyond them (14-15).
+void plainsRide(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  plainsField(k, ticks, ox, oy);
+  for (int who = 0; who < 2; ++who)
+    k.r.draw(runner(k, who, 0, 1.6f), 120.0f + float(who) * 90.0f + ox, 592 + oy);
+  float bx = 420, by = 600;
+  int pose = 0;
+  if (frame >= 4 && frame <= 13)
+  {
+    const float t = float(frame - 4) / 9.0f;
+    bx = 420 + 520 * t;
+    by = 600 - std::sin(t * 3.14159f) * 260.0f;
+    pose = t < 0.5f ? 2 : 3;
+  }
+  else if (frame > 13)
+    bx = 940;
+  DrawOpts big;
+  big.scale = 1.1f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "veh_bounder", 0, pose, 6, 7).get(1), bx + ox, by + oy, big);
+  if (frame < 2)
+    k.r.draw(runner(k, 2, 2, 1.6f), 300 + 50.0f * float(frame) + ox, 470 + oy);
+  else
+    k.r.draw(runner(k, 2, 4, 1.4f), bx - 10 + ox, by - 120 + oy);
+}
+
 // Level 13: the temple corridor at sunset, light through the cracks, dust
 // coming down from the ceiling (an 8-frame loop).
 void templeCorridor(ClipKit& k, int frame, int ticks, float ox, float oy)
@@ -2683,6 +2769,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return silkBrief(k, frame, ticks, ox, oy);
   if (clip == "brief47_ride")
     return silkRide(k, frame, ticks, ox, oy);
+  if (clip == "brief48_plains")
+    return plainsBrief(k, frame, ticks, ox, oy);
+  if (clip == "brief48_ride")
+    return plainsRide(k, frame, ticks, ox, oy);
   if (clip == "brief45_hive")
     return hiveBrief(k, frame, ticks, ox, oy);
   if (clip == "brief45_gulp")
