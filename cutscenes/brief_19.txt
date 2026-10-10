@@ -1,16 +1,19 @@
 cutscene brief_19
 music clinical_bleeps
 
+# clip brief19_lab (12 frames)
 shot brief19_lab delay=120 repeat=1
   cue 0 fade=in:500
   cue 0 sound=lab_bleeps
   cue 11 hold=2000
 
+# clip brief19_arrows (12 frames)
 shot brief19_arrows delay=100 repeat=1
   cue 0 sound=klaxon_short
   cue 5 sound=arrow_clunk
   cue 11 hold=800
 
+# clip brief19_flip (16 frames)
 shot brief19_flip delay=100 repeat=1
   cue 0 sound=whoosh
   cue 9 sound=thud

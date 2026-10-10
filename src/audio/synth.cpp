@@ -1064,6 +1064,64 @@ std::vector<float> makeSfx(Sfx id)
       }
       return out;
     }
+    case Sfx::GravFlip:
+    {
+      // A chamber turning over: air rushing up through a band-pass sweep,
+      // with a short two-tone klaxon blip on top.
+      Noise n(211);
+      Svf bp;
+      Osc k;
+      return render(0.75, [&](double t, double total) {
+        const double rush = bp.band(n.next(), float(sweep(250.0, 2600.0, t / total)), 1.4) *
+          std::sin(kPi * std::clamp(t / total, 0.0, 1.0)) * 0.55;
+        double blip = 0.0;
+        if (t < 0.22)
+        {
+          const double f = t < 0.11 ? 660.0 : 880.0;
+          blip = k.step(f, Wave::Square, 0.4) * 0.12 * std::min(1.0, std::fmod(t, 0.11) / 0.005) *
+            std::min(1.0, (0.11 - std::fmod(t, 0.11)) / 0.01);
+        }
+        return rush + blip;
+      });
+    }
+    case Sfx::Thud:
+    {
+      // Landing after a flip: a soft, low body thump with a little cloth.
+      Osc o;
+      Noise n(223);
+      OnePole lp;
+      return render(0.3, [&](double t, double) {
+        const double thump = o.step(sweep(110.0, 45.0, t / 0.12), Wave::Sine) * std::exp(-t * 16.0) * 0.75;
+        const double cloth = lp.lowpass(n.next(), 900.0) * std::exp(-t * 30.0) * 0.35;
+        return (thump + cloth) * attack(t, 0.003);
+      });
+    }
+    case Sfx::Vortex:
+    {
+      // The Grav Grenade's vortex: a deep hum that wobbles round and round,
+      // a whistling swirl on top, swelling in and ebbing away.
+      Osc a, b, lfo, wob;
+      Noise n(227);
+      Svf bp;
+      return render(0.8, [&](double t, double total) {
+        const double spin = lfo.step(6.0 + 6.0 * t / total, Wave::Sine);
+        const double hum = a.step(55.0 * (1.0 + 0.04 * spin), Wave::Saw) * 0.25 + b.step(82.5, Wave::Sine) * 0.3;
+        const double swirl = bp.band(n.next(), float(900.0 + 600.0 * wob.step(4.0, Wave::Sine)), 4.0) * 0.35;
+        const double env = std::min(1.0, t / 0.12) * std::min(1.0, (total - t) / 0.3);
+        return (hum * (0.8 + 0.2 * spin) + swirl) * env;
+      });
+    }
+    case Sfx::ProbeShot:
+    {
+      // A Gravity Probe firing: a hollow electronic blip, pitch dropping
+      // through a resonant ring.
+      Osc a, b;
+      return render(0.22, [&](double t, double total) {
+        const double f = sweep(1400.0, 420.0, t / total);
+        const double v = a.step(f, Wave::Triangle) * 0.5 + b.step(f * 1.5, Wave::Sine) * 0.25;
+        return v * 0.45 * attack(t, 0.002) * std::exp(-t * 9.0);
+      });
+    }
     case Sfx::Count:
       break;
   }

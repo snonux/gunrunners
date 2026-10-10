@@ -67,6 +67,8 @@ private:
   std::vector<int> mDist;
   std::vector<int> mWalls; // breakables in the way of the goal: shooting them is progress
   int mW = 0, mH = 0;
+  int mStackHc = 0; // level 19: the map's height in cells when the field stacks the turned-over map under it
+  int fieldRow(const World& world) const;
   int mGoalKind = -1;
   int mGoalIndex = -1;
   int mGoalKeyHash = 0;

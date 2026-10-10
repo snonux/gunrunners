@@ -3508,6 +3508,367 @@ void hullAirlock(ClipKit& k, int frame, int ticks, float ox, float oy)
   (void)ticks;
 }
 
+// Level 19: a white test chamber: panelled back wall under strip lights,
+// steel ceiling and floor with orange safety bands, the walls' edges. The
+// ceiling's underside is at y 110, the floor's top at y 600.
+constexpr float kLabCeil = 110.0f, kLabFloor = 600.0f;
+
+void labBand(cairo_t* cr, double y, double h, bool flip)
+{
+  cairo_save(cr);
+  cairo_rectangle(cr, 0, y, 1280, h);
+  cairo_clip(cr);
+  setColor(cr, rgb(255, 136, 36));
+  cairo_paint(cr);
+  for (double x = -40; x < 1320; x += 28)
+  {
+    cairo_move_to(cr, x, flip ? y : y + h);
+    cairo_line_to(cr, x + 14, flip ? y : y + h);
+    cairo_line_to(cr, x + 14 + h, flip ? y + h : y);
+    cairo_line_to(cr, x + h, flip ? y + h : y);
+    cairo_close_path(cr);
+  }
+  setColor(cr, rgb(44, 46, 56));
+  cairo_fill(cr);
+  cairo_restore(cr);
+}
+
+void labChamber(ClipKit& k, float ox, float oy)
+{
+  const Texture& room = cached(k, "e3_grav_chamber", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(226, 232, 240), rgb(246, 248, 252), rgb(214, 222, 232));
+    // Back wall panels.
+    for (int row = 0; row < 4; ++row)
+      for (int col = -1; col < 8; ++col)
+      {
+        const double x = col * 180 + (row % 2) * 90 + 10, y = kLabCeil + 8 + row * 124;
+        roundedRect(cr, x, y, 170, 114, 10);
+        cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + 114);
+        cairo_pattern_add_color_stop_rgba(g, 0, 1, 1, 1, 0.9);
+        cairo_pattern_add_color_stop_rgba(g, 1, 0.88, 0.9, 0.94, 0.9);
+        cairo_set_source(cr, g);
+        cairo_fill_preserve(cr);
+        cairo_pattern_destroy(g);
+        setColor(cr, rgba(150, 160, 180, 160));
+        cairo_set_line_width(cr, 2);
+        cairo_stroke(cr);
+      }
+    // Soft light pooling down from the ceiling.
+    for (int i = 0; i < 3; ++i)
+      radialGlow(cr, 260 + i * 380.0, kLabCeil + 20, 300, rgb(255, 255, 255), 0.6);
+    // Ceiling and floor slabs.
+    for (int pass = 0; pass < 2; ++pass)
+    {
+      const double y0 = pass == 0 ? 0 : kLabFloor, y1 = pass == 0 ? kLabCeil : 720;
+      cairo_rectangle(cr, 0, y0, 1280, y1 - y0);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, y0, 0, y1);
+      cairo_pattern_add_color_stop_rgb(g, 0, pass ? 0.86 : 0.5, pass ? 0.88 : 0.53, pass ? 0.92 : 0.6);
+      cairo_pattern_add_color_stop_rgb(g, 1, pass ? 0.5 : 0.82, pass ? 0.53 : 0.85, pass ? 0.6 : 0.9);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+      for (double x = 0; x < 1280; x += 128)
+      {
+        cairo_rectangle(cr, x, y0, 2, y1 - y0);
+        setColor(cr, rgba(60, 66, 84, 120));
+        cairo_fill(cr);
+      }
+    }
+    labBand(cr, kLabFloor + 6, 14, false);
+    labBand(cr, kLabCeil - 20, 14, true);
+    cairo_rectangle(cr, 0, kLabFloor, 1280, 6);
+    cairo_rectangle(cr, 0, kLabCeil - 6, 1280, 6);
+    setColor(cr, rgb(255, 255, 255));
+    cairo_fill(cr);
+    // Strip lights in the ceiling.
+    for (int i = 0; i < 3; ++i)
+    {
+      roundedRect(cr, 170 + i * 380.0, kLabCeil - 30, 180, 10, 5);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+    }
+    // The side walls' edges.
+    for (const double x : {0.0, 1220.0})
+    {
+      cairo_rectangle(cr, x, 0, 60, 720);
+      cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + 60, 0);
+      cairo_pattern_add_color_stop_rgb(g, 0, 0.62, 0.66, 0.72);
+      cairo_pattern_add_color_stop_rgb(g, 1, 0.42, 0.46, 0.54);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    // The observation window high on the back wall, someone watching.
+    roundedRect(cr, 560, 150, 160, 70, 10);
+    setColor(cr, rgb(196, 204, 218));
+    cairo_fill(cr);
+    roundedRect(cr, 570, 160, 140, 50, 6);
+    setColor(cr, rgb(20, 34, 54));
+    cairo_fill(cr);
+    cairo_arc(cr, 620, 196, 12, 0, 2 * kPi);
+    setColor(cr, rgb(40, 52, 72));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 610, 190, 20, 5);
+    setColor(cr, rgba(255, 190, 110, 220));
+    cairo_fill(cr);
+    // The chamber number.
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 54);
+    cairo_move_to(cr, 90, 190);
+    setColor(cr, rgba(150, 160, 180, 120));
+    cairo_show_text(cr, "C1");
+  });
+  k.r.draw(room, ox, oy);
+}
+
+// A wall arrow on its plate, `size` px across, pointing down turned by
+// `angle` degrees.
+void labArrow(ClipKit& k, float cx, float cy, float size, float angle)
+{
+  const int s = int(size);
+  const Texture& plate = cached(k, "e3_grav_plate" + std::to_string(s), s, s, size * 0.5f, size * 0.5f, [size](cairo_t* cr) {
+    const double u = size / 64.0;
+    cairo_scale(cr, u, u);
+    roundedRect(cr, 3, 3, 58, 58, 8);
+    setColor(cr, rgb(52, 56, 70));
+    cairo_fill_preserve(cr);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_arc(cr, 32, 32, 24, 0, 2 * kPi);
+    setColor(cr, rgb(246, 248, 252));
+    cairo_fill_preserve(cr);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 1.6);
+    cairo_stroke(cr);
+    for (double x : {9.0, 55.0})
+      for (double y : {9.0, 55.0})
+      {
+        cairo_arc(cr, x, y, 2.4, 0, 2 * kPi);
+        setColor(cr, rgb(170, 178, 194));
+        cairo_fill(cr);
+      }
+  });
+  // The arrow is baked at each angle it shows (a handful per shot), so it
+  // stays crisp instead of being turned as a texture.
+  const int deg = int(std::lround(angle));
+  const Texture& arrow = cached(k, "e3_grav_arrow" + std::to_string(s) + "/" + std::to_string(deg), s, s,
+    size * 0.5f, size * 0.5f, [size, deg](cairo_t* cr) {
+      const double u = size * 0.75 / 48.0;
+      cairo_translate(cr, size * 0.5, size * 0.5);
+      cairo_rotate(cr, deg * kPi / 180.0);
+      cairo_scale(cr, u, u);
+      cairo_translate(cr, -24, -24);
+      cairo_move_to(cr, 17, 5);
+      cairo_line_to(cr, 31, 5);
+      cairo_line_to(cr, 31, 24);
+      cairo_line_to(cr, 41, 24);
+      cairo_line_to(cr, 24, 43);
+      cairo_line_to(cr, 7, 24);
+      cairo_line_to(cr, 17, 24);
+      cairo_close_path(cr);
+      cairo_pattern_t* g = cairo_pattern_create_linear(7, 0, 41, 0);
+      cairo_pattern_add_color_stop_rgb(g, 0, 1.0, 0.8, 0.5);
+      cairo_pattern_add_color_stop_rgb(g, 1, 0.93, 0.4, 0.08);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setColor(cr, kInk);
+      cairo_set_line_width(cr, 2.2);
+      cairo_stroke(cr);
+    });
+  k.r.draw(plate, cx, cy);
+  k.r.draw(arrow, cx, cy);
+}
+
+// Rocco's sandwich: a fat sub, lettuce and tomato hanging out, 90 x 44,
+// anchored at its bottom middle.
+const Texture& sandwich(ClipKit& k)
+{
+  return cached(k, "e3_grav_sandwich", 90, 44, 45.0f, 42.0f, [](cairo_t* cr) {
+    auto bun = [&](double y, double h, bool top) {
+      roundedRect(cr, 4, y, 82, h, h * 0.5);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + h);
+      cairo_pattern_add_color_stop_rgb(g, 0, top ? 0.96 : 0.86, top ? 0.72 : 0.6, top ? 0.4 : 0.32);
+      cairo_pattern_add_color_stop_rgb(g, 1, 0.7, 0.44, 0.2);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setColor(cr, kInk);
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    };
+    bun(28, 13, false);
+    // Lettuce, tomato, cheese.
+    cairo_move_to(cr, 2, 28);
+    for (int i = 0; i <= 10; ++i)
+      cairo_line_to(cr, 2 + i * 8.6, i % 2 ? 22 : 30);
+    cairo_line_to(cr, 88, 30);
+    cairo_close_path(cr);
+    setColor(cr, rgb(110, 200, 80));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 10, 22, 70, 5);
+    setColor(cr, rgb(255, 200, 60));
+    cairo_fill(cr);
+    for (int i = 0; i < 3; ++i)
+    {
+      cairo_rectangle(cr, 14 + i * 24, 18, 18, 5);
+      setColor(cr, rgb(230, 60, 50));
+      cairo_fill(cr);
+    }
+    bun(2, 18, true);
+    for (int i = 0; i < 6; ++i)
+    {
+      cairo_arc(cr, 16 + i * 12, 8 + (i % 2) * 3, 1.3, 0, 2 * kPi);
+      setColor(cr, rgb(255, 240, 200));
+      cairo_fill(cr);
+    }
+  });
+}
+
+// Level 19's briefing, shot 1: the crew standing in a white chamber, the
+// orange arrows on the wall pointing down, Rocco with a sandwich.
+void gravLab(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  labChamber(k, ox, oy);
+  for (const float ax : {200.0f, 1080.0f})
+    labArrow(k, ax + ox, 300.0f + oy, 96.0f, 0.0f);
+  // The monitor light by the window blinking with the bleeps.
+  drawGlow(k.r, k.art, 740.0f + ox, 170.0f + oy, 12.0f, frame % 3 ? rgb(90, 255, 140) : rgb(255, 150, 40), 0.9f);
+  const float scale = 2.4f;
+  const bool blink = frame == 6 || frame == 7;
+  k.r.draw(runner(k, 0, blink ? 8 : 0, scale), 420 + ox, kLabFloor + oy);
+  k.r.draw(runner(k, 2, blink ? 8 : 0, scale, true), 870 + ox, kLabFloor + oy);
+  k.r.draw(runner(k, 1, blink ? 8 : 0, scale), 640 + ox, kLabFloor + oy);
+  // The sandwich, held out in front of him.
+  k.r.draw(sandwich(k), 712 + ox, 476 + oy);
+  (void)ticks;
+}
+
+// Shot 2: close on a wall arrow; it swings round 180 degrees (frames 0-5),
+// a klaxon flashing, then holds pointing up.
+void gravArrows(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& wall = cached(k, "e3_grav_wall_close", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(232, 236, 244), rgb(250, 251, 253), rgb(220, 226, 236));
+    for (int row = -1; row < 3; ++row)
+      for (int col = -1; col < 4; ++col)
+      {
+        const double x = col * 420 + (row % 2 ? 210 : 0) + 20, y = row * 300 + 80;
+        roundedRect(cr, x, y, 400, 280, 22);
+        setColor(cr, rgba(255, 255, 255, 220));
+        cairo_fill_preserve(cr);
+        setColor(cr, rgba(150, 160, 180, 170));
+        cairo_set_line_width(cr, 4);
+        cairo_stroke(cr);
+      }
+    radialGlow(cr, 640, 0, 600, rgb(255, 255, 255), 0.5);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 46);
+    cairo_text_extents_t e;
+    cairo_text_extents(cr, "GRAVITY", &e);
+    cairo_move_to(cr, 640 - e.width * 0.5 - e.x_bearing, 640);
+    setColor(cr, rgba(60, 66, 84, 200));
+    cairo_show_text(cr, "GRAVITY");
+  });
+  k.r.draw(wall, ox, oy);
+  const bool alarm = frame <= 5;
+  if (alarm)
+    for (const float bx : {170.0f, 1110.0f})
+    {
+      // A klaxon beacon: a dark housing, its orange dome flashing.
+      const Texture& beacon = cached(k, std::string("e3_grav_beacon") + (frame % 2 ? "1" : "0"), 120, 110, 60.0f, 0.0f,
+        [lit = frame % 2 == 1](cairo_t* cr) {
+          roundedRect(cr, 20, 0, 80, 26, 6);
+          setColor(cr, rgb(52, 56, 70));
+          cairo_fill_preserve(cr);
+          setColor(cr, kInk);
+          cairo_set_line_width(cr, 3);
+          cairo_stroke(cr);
+          cairo_new_sub_path(cr);
+          cairo_arc(cr, 60, 26, 36, 0, kPi);
+          cairo_close_path(cr);
+          cairo_pattern_t* g = cairo_pattern_create_radial(50, 40, 4, 60, 30, 40);
+          cairo_pattern_add_color_stop_rgb(g, 0, 1.0, lit ? 0.95 : 0.7, lit ? 0.7 : 0.4);
+          cairo_pattern_add_color_stop_rgb(g, 1, lit ? 1.0 : 0.75, lit ? 0.5 : 0.3, lit ? 0.1 : 0.05);
+          cairo_set_source(cr, g);
+          cairo_fill_preserve(cr);
+          cairo_pattern_destroy(g);
+          setColor(cr, kInk);
+          cairo_set_line_width(cr, 3);
+          cairo_stroke(cr);
+        });
+      if (frame % 2)
+        drawGlow(k.r, k.art, bx + ox, 100.0f + oy, 120.0f, rgb(255, 120, 20), 0.5f);
+      k.r.draw(beacon, bx + ox, 40.0f + oy);
+    }
+  const float t = std::min(1.0f, float(frame) / 5.0f);
+  const float e = t * t * (3.0f - 2.0f * t);
+  if (frame <= 5)
+    drawGlow(k.r, k.art, 640.0f + ox, 340.0f + oy, 260.0f, rgb(255, 150, 50), 0.35f);
+  // A little overshoot as it clunks home on frame 5.
+  const float settle = frame == 5 ? 6.0f : (frame == 6 ? -3.0f : 0.0f);
+  labArrow(k, 640.0f + ox, 340.0f + oy, 440.0f, 180.0f * e + settle);
+  (void)ticks;
+}
+
+// Shot 3: wide; the crew falls up to the ceiling (frames 0-9), turning
+// over on the way, and lands on it upside down. Rocco's sandwich stays on
+// the floor; he looks down at it (frames 10-15).
+void gravFlip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  labChamber(k, ox, oy);
+  for (const float ax : {200.0f, 1080.0f})
+    labArrow(k, ax + ox, 300.0f + oy, 96.0f, 180.0f);
+  const float scale = 2.4f, half = 130.0f * scale * 0.5f;
+  const float t = std::min(1.0f, float(frame) / 9.0f);
+  const float fall = t * t;   // speeding up as it goes
+  const float turn = std::min(1.0f, t * 1.4f);
+  const float spin = turn * turn * (3.0f - 2.0f * turn) * 180.0f;
+  static const int kWho[3] = {0, 1, 2};
+  static const float kAt[3] = {420.0f, 640.0f, 870.0f};
+  // The sandwich, left behind on the floor.
+  k.r.draw(sandwich(k), 712.0f + ox, kLabFloor + 2.0f + oy);
+  for (int i = 0; i < 3; ++i)
+  {
+    const bool mirror = i == 2;
+    // Each body's middle rises from standing to hanging; it turns about it.
+    const float c0 = kLabFloor - half, c1 = kLabCeil + half;
+    const float cy = c0 + (c1 - c0) * fall + (i == 1 ? 0.0f : float(i - 1) * 6.0f * std::sin(t * 3.14159f));
+    if (frame >= 9)
+    {
+      // Landed: hanging from the ceiling, still facing their way.
+      int pose = 0;
+      if (frame >= 10 && i == 1)
+        pose = 3; // looking "up": down at the floor, at the sandwich
+      else if (frame == 9)
+        pose = 4; // the landing squash
+      DrawOpts o;
+      o.angle = 180.0f;
+      k.r.draw(runner(k, kWho[i], pose, scale, !mirror), kAt[i] + ox, kLabCeil + oy, o);
+      continue;
+    }
+    const float a = spin * 0.0174533f * (mirror ? -1.0f : 1.0f);
+    DrawOpts o;
+    o.angle = spin * (mirror ? -1.0f : 1.0f);
+    const float fx = kAt[i] - half * std::sin(a), fy = cy + half * std::cos(a);
+    k.r.draw(runner(k, kWho[i], 7, scale, mirror), fx + ox, fy + oy, o);
+    // Speed lines trailing below them.
+    if (frame >= 2)
+      for (int l = 0; l < 3; ++l)
+      {
+        const float lx = kAt[i] - 50.0f + float(l) * 50.0f;
+        k.r.drawLine(lx + ox, cy + 90.0f + oy, lx + ox, cy + 130.0f + 90.0f * fall + oy, 3.0f, rgba(150, 160, 180, 130));
+      }
+  }
+  if (frame == 9 || frame == 10)
+    for (int i = 0; i < 3; ++i)
+      for (int p = 0; p < 6; ++p)
+        drawGlow(k.r, k.art, kAt[i] - 60.0f + float(p) * 24.0f + ox, kLabCeil + 14.0f + float(frame - 9) * 10.0f + oy,
+          22.0f, rgb(200, 206, 220), 0.6f);
+  (void)ticks;
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -3624,6 +3985,12 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return greenVine(k, frame, ticks, ox, oy);
   if (clip == "brief18_airlock")
     return hullAirlock(k, frame, ticks, ox, oy);
+  if (clip == "brief19_lab")
+    return gravLab(k, frame, ticks, ox, oy);
+  if (clip == "brief19_arrows")
+    return gravArrows(k, frame, ticks, ox, oy);
+  if (clip == "brief19_flip")
+    return gravFlip(k, frame, ticks, ox, oy);
   if (clip == "brief14_door")
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")

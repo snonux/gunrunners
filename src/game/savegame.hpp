@@ -128,6 +128,9 @@ struct SaveGame
   // unbolted); each Rivet Mite (state, x and y in 1/1000 cells, plate,
   // rivet, cooldown, facing); each drifter (x, y in 1/1000 cells, target).
   std::vector<int> hull;
+  // Gravity Lab (level 19): the runner's down, each chamber's (1 up), each
+  // gate open.
+  std::vector<int> grav;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

@@ -13,7 +13,7 @@ bool World::canSave() const
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
-    (!mHull.on || hullCanSave()) && !mOrbit.on;
+    (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -163,7 +163,8 @@ SaveGame World::snapshot() const
     // Level 17: puffers deflated, Snapjaws asleep, Globs at rest. Level 18:
     // barnacles shut, rams hovering.
     if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob ||
-        e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites)
+        e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites ||
+        e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::Probe || e.kind == EnemyKind::TestSubject)
       es.attach = 0;
     if (i >= mLevelEnemyCount)
     {
@@ -337,6 +338,14 @@ SaveGame World::snapshot() const
       for (int v : {int(std::lround(d.fx * 1000.0f)), int(std::lround(d.fy * 1000.0f)), d.target})
         s.hull.push_back(v);
   }
+  if (mGrav.on)
+  {
+    s.grav = {int(mPlayer.grav)};
+    for (const auto& z : mGrav.zones)
+      s.grav.push_back(z.dir == Grav::Up);
+    for (const auto& t : mGrav.gates)
+      s.grav.push_back(t.open);
+  }
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -421,6 +430,7 @@ bool World::restore(const SaveGame& s)
                              s.green.size() != 5 + mGreen.lamps.size() * 4 + mGreen.plants.size() * 3 +
                                std::size_t(s.green[4]) * 6)) ||
       (!s.hull.empty() && !validHullSave(s.hull)) ||
+      (!s.grav.empty() && !validGravSave(s.grav)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -542,10 +552,13 @@ bool World::restore(const SaveGame& s)
     if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant || e.kind == EnemyKind::LabArm)
       e.attach = 0;
     if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob ||
-        e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites)
+        e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites ||
+        e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::Probe || e.kind == EnemyKind::TestSubject)
     {
       e.attach = 0;
       e.tell = e.dive = e.ox = 0;
+      if (e.kind == EnemyKind::TestSubject || e.kind == EnemyKind::Probe)
+        e.cool = 0; // (a copied jump, a shot's rest)
     }
     e.frozen = 0;
     e.vx = e.fx = 0.0f;
@@ -828,6 +841,24 @@ bool World::restore(const SaveGame& s)
     c.shut = 0;
     setChute(c, false);
   }
+  if (!s.grav.empty())
+  {
+    auto& g = mGrav;
+    std::size_t at = 0;
+    mPlayer.grav = Grav(s.grav[at++]);
+    for (auto& z : g.zones)
+      z.dir = s.grav[at++] ? Grav::Up : Grav::Down;
+    for (auto& t : g.gates)
+    {
+      t.open = s.grav[at++] != 0;
+      t.opened = 1000;
+      for (int k = 0; k < t.h; ++k)
+        mMap.setBlock(t.bx, t.by + k, t.open ? Tile::Empty : Tile::Solid);
+    }
+    g.vortices.clear();
+    g.turned = g.jumped = false;
+    g.dizzy = 0;
+  }
   if (!s.hull.empty())
   {
     auto& h = mHull;
@@ -1099,6 +1130,16 @@ bool World::validHullSave(const std::vector<int>& v) const
   }
   at += h.drifters.size() * 3;
   return v.size() == at;
+}
+
+bool World::validGravSave(const std::vector<int>& v) const
+{
+  if (v.size() != 1 + mGrav.zones.size() + mGrav.gates.size() || v[0] < 0 || v[0] > int(Grav::Right))
+    return false;
+  for (std::size_t i = 1; i < v.size(); ++i)
+    if (v[i] < 0 || v[i] > 1)
+      return false;
+  return true;
 }
 
 } // namespace gr

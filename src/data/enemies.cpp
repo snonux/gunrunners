@@ -172,6 +172,13 @@ const EnemyDef kEnemies[] = {
   {"jellyfish", "JELLYFISH", K::Jelly, L::Styled, 3, 3, 3, 400, 2, 0, 0, 0, 0, 0},
   {"sea_mine", "SEA MINE", K::SeaMine, L::Styled, 2, 2, 1, 200, 0, 0, 6, 4, kEnemyHarmless, 0},
   {"angler", "ANGLERFISH", K::Angler, L::Styled, 6, 4, 12, 2000, 1, 30, 10, 22, 0, 0},
+  // Level 19. Flip Walker: tell the turn to face you before it walks at you.
+  // Gravity Probe: stepEvery its hover, cooldown between shots, tell the core
+  // glowing, range its field (cells). Test Subject: tell the crouch before a
+  // copied jump.
+  {"flip_walker", "FLIP WALKER", K::FlipWalker, L::Styled, 3, 4, 4, 500, 2, 0, 8, 0, 0, 0},
+  {"gravity_probe", "GRAVITY PROBE", K::Probe, L::Styled, 4, 4, 5, 700, 4, 30, 12, 16, 0, 0},
+  {"test_subject", "TEST SUBJECT", K::TestSubject, L::Styled, 3, 5, 4, 600, 2, 0, 8, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

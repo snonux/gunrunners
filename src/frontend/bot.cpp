@@ -74,6 +74,8 @@ Input Bot::play(const World& world)
     return orbit(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
+  if (world.grav().gun)
+    return gunGravity(world);
   // Level 13: the bonus patch shows on the boulder that rolls over the
   // runner sheltering in its alcove and teeters at the chute: wait there.
   if (mPlanner.wantsBonus())
@@ -1740,6 +1742,100 @@ Input Bot::orbit(const World& world)
   mOrbitPrev = mOrbitQueue.front();
   mOrbitQueue.pop_front();
   return mOrbitPrev;
+}
+
+Input Bot::gunGravity(const World& world)
+{
+  if (!mGunQueue.empty())
+  {
+    mGunPrev = mGunQueue.front();
+    mGunQueue.pop_front();
+    return mGunPrev;
+  }
+  // A plan: a shot (none, facing right, facing left, up), then a walk
+  // (with or without a jump) for a while, then let it settle.
+  auto planIn = [](int shot, int walk, int len, bool jump, int f) {
+    Input in;
+    if (shot != 0 && f < 2)
+    {
+      if (shot == 1 || shot == 2)
+      {
+        in.right = shot == 1 && f == 0;
+        in.left = shot == 2 && f == 0;
+        in.fire = f == 1;
+      }
+      else
+      {
+        in.up = true;
+        in.fire = f == 1;
+      }
+      return in;
+    }
+    const int g = f - (shot != 0 ? 2 : 0);
+    if (g < len)
+    {
+      in.right = walk > 0;
+      in.left = walk < 0;
+      in.jump = jump && g < 4;
+    }
+    return in;
+  };
+  const int gems0 = world.stats().gems;
+  auto nearest = [](const World& w) {
+    const CellBox b = w.player().box();
+    const int cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    int best = 1 << 20;
+    for (const auto& it : w.items())
+      if (!it.taken && it.kind == ItemKind::Gem)
+        best = std::min(best, std::abs(it.x + 1 - cx) + std::abs(it.y - cy));
+    return best;
+  };
+  double bestScore = -1e18;
+  int bestShot = 0, bestWalk = 0, bestLen = 0, bestFrames = 0;
+  bool bestJump = false;
+  for (int shot = 0; shot <= 3; ++shot)
+    for (int walk = -1; walk <= 1; ++walk)
+      for (int len = 0; len <= 36; len += 6)
+        for (int jump = 0; jump <= 1; ++jump)
+        {
+          if ((walk == 0) != (len == 0) || (len == 0 && jump))
+            continue;
+          auto sim = world.cloneForSim();
+          Input prev = mGunPrev;
+          const int total = (shot != 0 ? 2 : 0) + len + 24;
+          int f = 0, closest = nearest(*sim);
+          bool got = false;
+          for (; f < total; ++f)
+          {
+            const Input in = planIn(shot, walk, len, jump != 0, f);
+            sim->update(asPlayerInput(in, prev));
+            prev = in;
+            closest = std::min(closest, nearest(*sim));
+            if (sim->stats().gems > gems0 || sim->state() != WorldState::Playing)
+            {
+              got = true;
+              ++f;
+              break;
+            }
+          }
+          const bool settled = sim->player().state == PlayerState::OnGround;
+          const double score = (got ? 10000.0 - f * 10.0 : 0.0) - nearest(*sim) * 4.0 - closest - (settled ? 0.0 : 20.0) -
+            f * 0.2;
+          if (score > bestScore)
+          {
+            bestScore = score;
+            bestShot = shot;
+            bestWalk = walk;
+            bestLen = len;
+            bestJump = jump != 0;
+            bestFrames = got ? f : std::min(total, (shot != 0 ? 2 : 0) + std::max(len, 6) + 8);
+          }
+        }
+  for (int f = 0; f < std::max(1, bestFrames); ++f)
+    mGunQueue.push_back(planIn(bestShot, bestWalk, bestLen, bestJump, f));
+  mGunPrev = mGunQueue.front();
+  mGunQueue.pop_front();
+  return mGunPrev;
 }
 
 } // namespace gr

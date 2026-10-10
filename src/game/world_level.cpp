@@ -194,6 +194,7 @@ void World::setupEntities()
       setupCryoEnemy(en, e);
       setupGreenEnemy(en, e);
       setupHullEnemy(en, e);
+      setupGravEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -305,6 +306,8 @@ void World::setupEntities()
       continue;
     }
 
+    if (setupGravEntity(e))
+      continue;
     if (setupCryoEntity(e))
       continue;
     if (setupGreenEntity(e))

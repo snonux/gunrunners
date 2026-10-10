@@ -14,6 +14,7 @@
 #include "game/space.hpp"
 #include "game/station.hpp"
 #include "game/cryo.hpp"
+#include "game/grav.hpp"
 #include "game/green.hpp"
 #include "game/hull.hpp"
 #include "game/sound_ids.hpp"
@@ -22,6 +23,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -145,7 +147,23 @@ struct Player
   static constexpr int kWidth = 3;
   static constexpr int kHeight = 5;
   int height() const;
-  CellBox box() const { return boxAt(x, y, kWidth, height()); }
+  // Level 19: which way is down for the runner (grav.hpp says where x, y
+  // sit in the box for each).
+  Grav grav = Grav::Down;
+  CellBox box() const
+  {
+    switch (grav)
+    {
+      case Grav::Up:
+        return {x, y, kWidth, height()};
+      case Grav::Left:
+        return {x, y, height(), kWidth};
+      case Grav::Right:
+        return {x - height() + 1, y, height(), kWidth};
+      default:
+        return boxAt(x, y, kWidth, height());
+    }
+  }
   CellBox hitBox() const;
 };
 
@@ -1753,6 +1771,10 @@ public:
   const std::array<int, 8>& jumpArc() const; // this frame's jump (character, Turbo, Virus, low gravity)
   const std::array<int, 8>& runnerJumpArc() const; // the runner's own jump (in low gravity too)
   const OrbitState& orbit() const { return mOrbit; }
+  // Level 19, Gravity Lab: chambers, switches, the vortex.
+  const GravState& grav() const { return mGrav; }
+  // Which way down is at a cell: its chamber's, else none (-1).
+  int gravZoneAt(int cx, int cy) const;
   bool onIce() const;
   bool golemFight() const;
   int golemHp() const;
@@ -2235,6 +2257,28 @@ private:
   void drawHullBreakable(Renderer& r, const Breakable& b, float camX, float camY, int frame) const;
   void drawOrbitBack(Renderer& r, float camX, float camY, int frame) const;
   void drawOrbitFront(Renderer& r, float camX, float camY, int frame) const;
+  // Level 19, Gravity Lab (world_grav.cpp, world_grav_draw.cpp) and its
+  // Gun Gravity bonus.
+  bool setupGravEntity(const EntityDef& e);
+  void setupGravEnemy(Enemy& en, const EntityDef& e);
+  void linkGrav();
+  void resetGrav();
+  void updateGravPlayer(const PlayerInput& input);
+  void updateGrav(const PlayerInput& input);
+  void turnRunner(Grav g);
+  void flipZone(int zone);
+  void hitGravSwitch(int sw);
+  bool shotAtGrav(Projectile& pr, const CellBox& b);
+  void throwVortex(int ox, int oy, int dx, int dy);
+  void updateVortices();
+  void updateFlipWalker(Enemy& e, const EnemyDef& def);
+  void updateProbe(Enemy& e, const EnemyDef& def);
+  void updateTestSubject(Enemy& e, const EnemyDef& def);
+  bool gravCanSave() const;
+  bool validGravSave(const std::vector<int>& v) const;
+  void drawGravBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawGravFront(Renderer& r, float camX, float camY, int frame) const;
+  void drawGravHud(Renderer& r, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2625,6 +2669,8 @@ private:
   HullState mHull;
   mutable std::array<int, 8> mLowArc{}, mLowRunnerArc{}; // jumpArc(), runnerJumpArc() in low gravity
   OrbitState mOrbit;
+  GravState mGrav;
+  std::optional<CollisionMap> mViewMap; // the turned map a turned runner moves on (world_grav.cpp)
   std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.

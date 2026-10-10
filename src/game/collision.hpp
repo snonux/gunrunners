@@ -90,6 +90,14 @@ public:
   MoveResult moveHorizontallyWithStairStepping(int& x, int& bottomY, int w, int h, int amount) const;
   MoveResult moveVertically(int x, int& bottomY, int w, int h, int amount) const;
 
+  // Level 19: this map as seen by a runner whose down is `g` (1 up: turned
+  // over top to bottom; 2 left, 3 right: turned a quarter so that wall is
+  // the floor). Cells map as World::toView says.
+  void makeView(const CollisionMap& src, int g);
+  // For the planner: `src` with its turned-over view (makeView 1) stacked
+  // under it, rows H.. of this map.
+  void makeStack(const CollisionMap& src);
+
 private:
   Tile tileAt(int cx, int cy) const;
 

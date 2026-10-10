@@ -152,6 +152,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawHullBack(r, camX, camY, frame);
   if (mOrbit.on)
     drawOrbitBack(r, camX, camY, frame);
+  if (mGrav.on)
+    drawGravBack(r, camX, camY, frame);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -421,6 +423,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the drum on the beat, the glyphs lighting
         else if (e.kind == EnemyKind::CoinBeetle)
           variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // rattling, hopping
+        else if (e.kind == EnemyKind::FlipWalker)
+          variant = e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0); // flailing in a fall; turning to face you
+        else if (e.kind == EnemyKind::Probe)
+          variant = e.tell > 0 ? 1 : 0; // the core glowing before a shot
+        else if (e.kind == EnemyKind::TestSubject)
+          variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.carrier ? 4 : 0) + 8 * (e.id % 4); // crouching; bib
         else if (e.stun > 0)
           variant = 0;
         int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -437,8 +445,38 @@ void World::draw(Renderer& r, int frame, float alpha) const
         else if (e.kind == EnemyKind::EvaRam && e.attach == 1)
           drawGlow(r, mArt, x - float(e.dir) * float(e.w) * kCellPx * 0.5f, y - float(e.h) * kCellPx * 0.5f, 44.0f,
             rgb(255, 120, 50), (frame / 2) % 2 ? 0.8f : 0.4f);
+        if (e.kind == EnemyKind::Probe)
+        {
+          // Its pull field: faint rings closing in on it, 16 cells out.
+          const float pcx = x, pcy = y - float(e.h) * kCellPx * 0.5f;
+          for (int k = 0; k < 4; ++k)
+          {
+            const float ph = std::fmod(float(k) * 0.25f + 1.0f - float(frame % 120) / 120.0f, 1.0f);
+            const float rr = 16.0f * kCellPx * ph;
+            const int a = int(60.0f * std::sin(ph * 3.14159f));
+            if (rr < 40.0f || a <= 4)
+              continue;
+            const int segs = 48;
+            for (int i = 0; i < segs; i += 2)
+            {
+              const float a0 = float(i) * 6.28318f / float(segs) + float(frame) * 0.004f, a1 = a0 + 6.28318f / float(segs);
+              r.drawLine(pcx + std::cos(a0) * rr, pcy + std::sin(a0) * rr, pcx + std::cos(a1) * rr, pcy + std::sin(a1) * rr,
+                2.0f, rgba(150, 80, 230, a));
+            }
+          }
+          if (e.tell > 0)
+            drawGlow(r, mArt, pcx, pcy, 70.0f, rgb(230, 140, 255), 0.5f + 0.3f * float((frame / 2) % 2));
+        }
         const int animFrame = e.kind == EnemyKind::Bat ? (frame / 3 + e.aimX) % 2 : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
+        if ((e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::TestSubject) && e.attach == 2)
+        {
+          // Walking a ceiling (level 19): turned over top to bottom, feet up
+          // on the box's top, still facing its way.
+          tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(-dirForArt);
+          eo.angle = 180.0f;
+          hop = float(e.h) * kCellPx;
+        }
         if (e.kind == EnemyKind::Raver && e.dive > 0)
           hop = 14.0f; // hops on the beat
         if (e.kind == EnemyKind::Bouncer && e.dive < 0)
@@ -503,6 +541,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       DrawOpts o;
       o.blend = Blend::Add;
       o.alpha = float(e.flash) / 8.0f;
+      if (eo.angle == 180.0f)
+        o.angle = eo.angle; // turned over on a ceiling (level 19)
       r.draw(*tex, x, y - hop, o);
     }
   }
@@ -539,6 +579,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawHullFront(r, camX, camY, frame);
   if (mOrbit.on)
     drawOrbitFront(r, camX, camY, frame);
+  if (mGrav.on)
+    drawGravFront(r, camX, camY, frame);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -791,6 +833,14 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         case Tile::Spikes:
           r.draw(mArt.spikes, x, y);
           break;
+        case Tile::SpikesDown:
+        {
+          // Hanging from a ceiling (level 19): the floor spikes turned over.
+          DrawOpts o;
+          o.angle = 180.0f;
+          r.draw(mArt.spikes, x + 64.0f, y + 64.0f, o);
+          break;
+        }
         case Tile::ForceField:
         {
           const bool on = mMap.forceFieldsOn();
@@ -950,13 +1000,57 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     o.angle = mOrbit.ang * 57.2958f;
   }
 
+  // Level 19: a runner whose down is not down. Up hangs from the ceiling:
+  // the sprite turned over top to bottom (the other facing's art turned
+  // 180 degrees, so left stays left) with its feet on the box's top row;
+  // Left and Right stand on a wall, turned a quarter, feet on that wall.
+  // (ux, uy) is the runner's up on screen, (tx, ty) where the turbo trail's
+  // points (the box's bottom middle, upright) put the feet.
+  float ux = 0.0f, uy = -1.0f, tx = 0.0f, ty = 0.0f;
+  int face = p.facing;
+  if (p.grav != Grav::Down && !mOrbit.on)
+  {
+    const float bx = lerpCells(p.prevX, p.x, alpha) - camX, by = lerpCells(p.prevY, p.y, alpha) - camY;
+    switch (p.grav)
+    {
+      case Grav::Up:
+        x = bx + 1.5f * kCellPx;
+        y = by + lift;
+        ux = 0.0f;
+        uy = 1.0f;
+        ty = -kCellPx;
+        o.angle += 180.0f;
+        face = -p.facing;
+        break;
+      case Grav::Left:
+        x = bx + lift;
+        y = by + 1.5f * kCellPx;
+        ux = 1.0f;
+        uy = 0.0f;
+        tx = -1.5f * kCellPx;
+        ty = 0.5f * kCellPx;
+        o.angle += 90.0f;
+        break;
+      default: // Right
+        x = bx + kCellPx - lift;
+        y = by + 1.5f * kCellPx;
+        ux = -1.0f;
+        uy = 0.0f;
+        tx = -0.5f * kCellPx;
+        ty = 0.5f * kCellPx;
+        o.angle -= 90.0f;
+        break;
+    }
+    lift = 0.0f;
+  }
+
   if (p.state == PlayerState::Jetpack)
   {
     drawGlow(r, mArt, x, y + 4, 60 + 10 * std::sin(float(frame) * 0.8f), rgb(255, 140, 40), 0.8f);
     drawGlow(r, mArt, x, y + 2, 20, rgb(255, 255, 220), 1.0f);
   }
 
-  const Texture& tex = spr->get(p.facing);
+  const Texture& tex = spr->get(face);
   if (mGreen.grow)
     o.scale *= mGreen.scale(); // Growth Spurt
   if (p.state == PlayerState::Teleporting)
@@ -969,7 +1063,7 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     glow.tint = mTheme.accentB;
     glow.alpha = std::min(1.0f, float(mStateFrames) / 6.0f) * (1.0f - t * 0.6f);
     r.draw(tex, x, y, glow);
-    drawGlow(r, mArt, x, y - 80, 130 * (1.0f - t * 0.5f), mTheme.accentB, 0.6f);
+    drawGlow(r, mArt, x + ux * 80.0f, y + uy * 80.0f, 130 * (1.0f - t * 0.5f), mTheme.accentB, 0.6f);
     return;
   }
 
@@ -984,14 +1078,14 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
       t.blend = Blend::Add;
       t.tint = rgb(255, 170, 50);
       t.alpha = 0.45f * (1.0f - float(i) / float(mTrail.size()));
-      r.draw(tex, mTrail[i].x * S - camX, mTrail[i].y * S - camY - lift, t);
+      r.draw(tex, mTrail[i].x * S - camX + tx, mTrail[i].y * S - camY - lift + ty, t);
     }
-    drawGlow(r, mArt, x, y - 80, 120 + 14 * std::sin(float(frame) * 0.4f), rgb(255, 160, 40), 0.6f);
+    drawGlow(r, mArt, x + ux * 80.0f, y + uy * 80.0f, 120 + 14 * std::sin(float(frame) * 0.4f), rgb(255, 160, 40), 0.6f);
   }
   if (p.virus > 0)
   {
     o.tint = rgb(150, 255, 120);
-    drawGlow(r, mArt, x, y - 80, 90, rgb(110, 255, 60), 0.25f + 0.1f * pulse);
+    drawGlow(r, mArt, x + ux * 80.0f, y + uy * 80.0f, 90, rgb(110, 255, 60), 0.25f + 0.1f * pulse);
   }
   r.draw(tex, x, y, o);
   if (flashWhite)
@@ -1009,7 +1103,23 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     float mx = x + float(p.facing) * m[0] * kCellPx;
     if (p.muzzleStance == Stance::Down)
       mx = x - float(p.facing) * 0.3f * kCellPx;
-    const float my = y - m[1] * kCellPx;
+    float my = y - m[1] * kCellPx;
+    if (uy != -1.0f)
+    {
+      // Turned (level 19): the same point on the turned sprite, the muzzle's
+      // forward along the screen's x (Up) or the wall (Left, Right).
+      const float fwd = mx - x, up = y - my;
+      if (uy > 0.0f)
+      {
+        mx = x + fwd;
+        my = y + up;
+      }
+      else
+      {
+        mx = x + ux * up;
+        my = y + ux * fwd;
+      }
+    }
     Color c = rgb(255, 220, 120);
     if (p.weapon == Weapon::Laser)
       c = rgb(120, 240, 255);
@@ -1174,6 +1284,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawGreenHud(r, frame);
   if (mHull.on)
     drawHullHud(r, frame);
+  if (mGrav.on)
+    drawGravHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

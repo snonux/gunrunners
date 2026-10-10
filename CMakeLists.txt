@@ -30,6 +30,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_station.cpp
   src/assets/enemy_art_cryo.cpp
   src/assets/enemy_art_green.cpp
+  src/assets/enemy_art_grav.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
@@ -83,6 +84,8 @@ add_library(gunrunners_core STATIC
   src/game/world_cryo_draw.cpp
   src/game/world_green_draw.cpp
   src/game/world_green.cpp
+  src/game/world_grav_draw.cpp
+  src/game/world_grav.cpp
   src/game/world_hull_draw.cpp
   src/game/world_hull.cpp
   src/game/world_orbit.cpp
@@ -229,3 +232,7 @@ add_executable(hull_test tests/hull_test.cpp)
 target_link_libraries(hull_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME hull_walk COMMAND hull_test ${CMAKE_SOURCE_DIR}/levels/18_bonus_planetoids.txt)
 add_test(NAME savegame_hull_walk COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/18_hull_walk.txt 1200)
+add_test(NAME savegame_gravity_lab COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/19_gravity_lab.txt 330)
+add_executable(grav_test tests/grav_test.cpp)
+target_link_libraries(grav_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME gravity_lab COMMAND grav_test ${CMAKE_SOURCE_DIR}/levels/19_bonus_gun_gravity.txt)

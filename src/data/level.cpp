@@ -335,6 +335,9 @@ Level Level::parse(const std::string& text)
         case '^':
           level.set(x, y, Tile::Spikes);
           break;
+        case 'v':
+          level.set(x, y, Tile::SpikesDown);
+          break;
         case 'H':
           level.set(x, y, Tile::Ladder);
           break;
@@ -354,6 +357,7 @@ Level Level::parse(const std::string& text)
         case 'X':
           level.exitTx = x;
           level.exitTy = y;
+          level.hasExit = true;
           break;
         case '*':
           level.decorations.emplace_back(x, y);
