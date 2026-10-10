@@ -281,7 +281,7 @@ private:
   std::vector<MapChunk> mMapChunks;
 
   // CONTROLS menu.
-  Bindings mBindings;
+  Bindings mBindings = Bindings::defaults(); // the profile's, in the campaign
   int mControlsCursor = 0;
   int mControlsColumn = 0; // key 1, key 2, pad
   bool mListening = false;

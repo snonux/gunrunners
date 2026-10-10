@@ -207,7 +207,7 @@ void Game::renderControls()
     r.drawText(heads[c], colX[c], 168, {15.0f, t.accentB, kInk}, Align::Center);
 
   const auto rows = controlRows();
-  const float step = rows.size() > 11 ? 28.0f : 30.0f;
+  const float step = rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
   for (int i = 0; i < int(rows.size()); ++i)
   {
     const ControlRow& row = rows[std::size_t(i)];
