@@ -1885,6 +1885,169 @@ void pinBall(const Ctx& c)
   cairo_fill(cr);
 }
 
+// A Magma Toad: a squat basalt-crusted toad, lava glowing through the
+// cracks. Variant 1 is the leap, legs out.
+void magmaToad(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const bool leap = c.variant == 1;
+  // Back legs.
+  if (leap)
+    strokeLimb(cr, {{x0 + w * 0.3, y0 + h * 0.65}, {x0 + w * 0.05, y0 + h * 0.98}}, 9, rgb(70, 60, 62), kInk, 1.4);
+  else
+  {
+    cairo_save(cr);
+    cairo_translate(cr, x0 + w * 0.22, y0 + h * 0.82);
+    cairo_scale(cr, 1.0, 0.6);
+    circle(cr, 0, 0, w * 0.2);
+    cairo_restore(cr);
+    fillOutline(cr, rgb(70, 60, 62), kInk, kLine);
+  }
+  // Body.
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.5, y0 + h * (leap ? 0.55 : 0.62));
+  cairo_scale(cr, 1.0, 0.72);
+  circle(cr, 0, 0, w * 0.42);
+  cairo_restore(cr);
+  fillGradientOutline(cr, y0 + h * 0.2, y0 + h, rgb(96, 86, 88), rgb(44, 38, 42), kInk, kLine);
+  // Glowing cracks.
+  cairo_move_to(cr, x0 + w * 0.3, y0 + h * 0.5);
+  cairo_line_to(cr, x0 + w * 0.42, y0 + h * 0.62);
+  cairo_line_to(cr, x0 + w * 0.36, y0 + h * 0.76);
+  cairo_move_to(cr, x0 + w * 0.6, y0 + h * 0.48);
+  cairo_line_to(cr, x0 + w * 0.56, y0 + h * 0.66);
+  cairo_set_line_width(cr, 3.0);
+  setColor(cr, rgb(255, 150, 50));
+  cairo_stroke(cr);
+  radialGlow(cr, x0 + w * 0.45, y0 + h * 0.62, 26, rgb(255, 120, 40), 0.35);
+  // Belly and mouth.
+  cairo_move_to(cr, x0 + w * 0.62, y0 + h * 0.66);
+  cairo_curve_to(cr, x0 + w * 0.75, y0 + h * 0.74, x0 + w * 0.88, y0 + h * 0.7, x0 + w * 0.94, y0 + h * 0.6);
+  cairo_set_line_width(cr, 3.0);
+  setColor(cr, kInk);
+  cairo_stroke(cr);
+  // The eye on top, glowing.
+  circle(cr, x0 + w * 0.72, y0 + h * (leap ? 0.3 : 0.38), w * 0.11);
+  fillOutline(cr, rgb(255, 210, 90), kInk, kLine);
+  circle(cr, x0 + w * 0.75, y0 + h * (leap ? 0.3 : 0.38), w * 0.04);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  // Front leg.
+  strokeLimb(cr, {{x0 + w * 0.68, y0 + h * 0.75}, {x0 + w * (leap ? 0.9 : 0.74), y0 + h * (leap ? 0.9 : 0.98)}}, 6,
+    rgb(80, 70, 72), kInk, 1.2);
+}
+
+// An Ember Wisp: a flame with a hot core. Variant 1 has the green carrier core.
+void emberWisp(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double cx = kM + c.w * 0.5, cy = kM + c.h * 0.55, rad = c.w * 0.36;
+  radialGlow(cr, cx, cy, rad * 2.2, rgb(255, 130, 40), 0.6);
+  cairo_move_to(cr, cx - rad, cy);
+  cairo_curve_to(cr, cx - rad, cy - rad * 1.2, cx - rad * 0.2, cy - rad * 1.4, cx, cy - rad * (c.frame ? 1.9 : 1.7));
+  cairo_curve_to(cr, cx + rad * 0.3, cy - rad * 1.3, cx + rad, cy - rad * 1.1, cx + rad, cy);
+  cairo_arc(cr, cx, cy, rad, 0, kPi);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, cy - rad * 1.8, cy + rad, rgb(255, 230, 120), rgb(255, 90, 30), rgb(150, 40, 10), 1.6);
+  circle(cr, cx, cy + rad * 0.1, rad * 0.45);
+  setColor(cr, c.variant == 1 ? rgb(140, 255, 70) : rgb(255, 255, 220));
+  cairo_fill(cr);
+  // Two dark eyes.
+  circle(cr, cx - rad * 0.3, cy - rad * 0.25, rad * 0.12);
+  circle(cr, cx + rad * 0.3, cy - rad * 0.25, rad * 0.12);
+  setColor(cr, rgb(90, 20, 10));
+  cairo_fill(cr);
+}
+
+// A Basalt Crab: a black shell plated like basalt columns, glowing seams.
+// Variants: 0 walking, 1 claws open, 2 flipped belly up; +3 with a party hat.
+void basaltCrab(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const int pose = c.variant % 3;
+  const bool hat = c.variant >= 3;
+  if (pose == 2)
+  {
+    // Belly up: pale underside, legs waving.
+    for (int k = 0; k < 4; ++k)
+      strokeLimb(cr,
+        {{x0 + w * (0.25 + 0.16 * k), y0 + h * 0.5},
+          {x0 + w * (0.2 + 0.16 * k) + (c.frame ? 4.0 : -4.0), y0 + h * 0.12}},
+        4, rgb(80, 70, 72), kInk, 1.0);
+    cairo_save(cr);
+    cairo_translate(cr, x0 + w * 0.5, y0 + h * 0.72);
+    cairo_scale(cr, 1.0, 0.45);
+    circle(cr, 0, 0, w * 0.42);
+    cairo_restore(cr);
+    fillGradientOutline(cr, y0 + h * 0.5, y0 + h, rgb(220, 180, 150), rgb(160, 110, 90), kInk, kLine);
+    return;
+  }
+  // Legs.
+  for (int k = 0; k < 3; ++k)
+  {
+    strokeLimb(cr, {{x0 + w * (0.3 + 0.1 * k), y0 + h * 0.7}, {x0 + w * (0.18 + 0.1 * k), y0 + h * 0.98}}, 4,
+      rgb(80, 70, 72), kInk, 1.0);
+    strokeLimb(cr, {{x0 + w * (0.5 + 0.1 * k), y0 + h * 0.7}, {x0 + w * (0.58 + 0.1 * k), y0 + h * 0.98}}, 4,
+      rgb(80, 70, 72), kInk, 1.0);
+  }
+  // Shell.
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.46, y0 + h * 0.6);
+  cairo_scale(cr, 1.0, 0.55);
+  circle(cr, 0, 0, w * 0.36);
+  cairo_restore(cr);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.85, rgb(90, 84, 90), rgb(34, 30, 36), kInk, kLine);
+  for (int k = 0; k < 3; ++k)
+  {
+    const double sx = x0 + w * (0.3 + 0.13 * k);
+    cairo_move_to(cr, sx, y0 + h * 0.45);
+    cairo_line_to(cr, sx + 4, y0 + h * 0.75);
+  }
+  cairo_set_line_width(cr, 2.5);
+  setColor(cr, rgb(255, 130, 50));
+  cairo_stroke(cr);
+  // Eyes on stalks.
+  for (int k = 0; k < 2; ++k)
+  {
+    const double ex = x0 + w * (0.62 + 0.08 * k);
+    strokeLimb(cr, {{ex, y0 + h * 0.42}, {ex + 2, y0 + h * 0.24}}, 3, rgb(70, 60, 62), kInk, 1.0);
+    circle(cr, ex + 2, y0 + h * 0.22, 5);
+    fillOutline(cr, rgb(255, 210, 90), kInk, 1.2);
+  }
+  // The big claw out front.
+  const bool open = pose == 1;
+  strokeLimb(cr, {{x0 + w * 0.74, y0 + h * 0.62}, {x0 + w * 0.86, y0 + h * 0.5}}, 7, rgb(80, 70, 72), kInk, 1.2);
+  cairo_move_to(cr, x0 + w * 0.84, y0 + h * 0.52);
+  cairo_line_to(cr, x0 + w * 1.0, y0 + h * (open ? 0.24 : 0.4));
+  cairo_line_to(cr, x0 + w * 0.96, y0 + h * 0.5);
+  cairo_close_path(cr);
+  fillOutline(cr, rgb(110, 100, 104), kInk, kLine);
+  cairo_move_to(cr, x0 + w * 0.84, y0 + h * 0.56);
+  cairo_line_to(cr, x0 + w * 1.0, y0 + h * (open ? 0.78 : 0.6));
+  cairo_line_to(cr, x0 + w * 0.92, y0 + h * 0.6);
+  cairo_close_path(cr);
+  fillOutline(cr, rgb(110, 100, 104), kInk, kLine);
+  if (hat)
+  {
+    cairo_move_to(cr, x0 + w * 0.36, y0 + h * 0.34);
+    cairo_line_to(cr, x0 + w * 0.46, y0 + h * 0.0);
+    cairo_line_to(cr, x0 + w * 0.56, y0 + h * 0.34);
+    cairo_close_path(cr);
+    fillOutline(cr, rgb(255, 90, 160), kInk, kLine);
+    for (int k = 0; k < 3; ++k)
+    {
+      circle(cr, x0 + w * (0.42 + 0.04 * k), y0 + h * (0.26 - 0.08 * k), 2.5);
+      setColor(cr, k % 2 ? rgb(255, 230, 80) : rgb(90, 220, 255));
+      cairo_fill(cr);
+    }
+    circle(cr, x0 + w * 0.46, y0 + h * 0.0, 4);
+    setColor(cr, rgb(255, 255, 255));
+    cairo_fill(cr);
+  }
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -1936,6 +2099,9 @@ DrawFn routineFor(const std::string& key)
     {"mine_cart", mineCart},
     {"blasting_cap", blastingCap},
     {"pin_ball", pinBall},
+    {"toad", magmaToad},
+    {"wisp", emberWisp},
+    {"crab", basaltCrab},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

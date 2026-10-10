@@ -70,6 +70,11 @@ enum class Sfx
   Flap,      // a Bat Cloud's wingbeats
   Dig,       // a Rock Mole breaking out of the rock
   Rail,      // a cart's wheels hitting the track
+  Sizzle,    // something hits the lava
+  Magma,     // a lava bubble's plop, a Magma Toad leaping out
+  Sink,      // a basalt stone grinding down into the lava
+  Croak,     // a Magma Toad landing
+  Snap,      // a Basalt Crab's claws
   Count,
 };
 

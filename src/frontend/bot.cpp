@@ -64,6 +64,8 @@ Input Bot::play(const World& world)
     return trapmaster(world);
   if (world.pinball())
     return pinball(world);
+  if (world.floorLava())
+    return floorLava(world);
   // Fight from the deck; anywhere below it (fallen down the mast shaft)
   // the planner climbs back up first.
   if (world.bossFight() && world.player().y <= world.boss().deckY + 1)
@@ -948,6 +950,161 @@ Input Bot::playRules(const World& world)
   }
   mLastX = p.x;
   return in;
+}
+
+Input Bot::floorLava(const World& world)
+{
+  if (!mLavaQueue.empty())
+  {
+    mLavaPrev = mLavaQueue.front();
+    mLavaQueue.pop_front();
+    return mLavaPrev;
+  }
+  // A move: wait, then (from a ledge) jump, steering one way for a while,
+  // jump held or not for the next head.
+  struct Move
+  {
+    int wait, dir, steer;
+    bool hold;
+  };
+  struct Out
+  {
+    int kind = 0; // 0 lava or worse, 1 nothing yet, 2 a head, 3 out
+    int frames = 0, x = 0;
+    std::unique_ptr<World> sim;
+    Input prev;
+  };
+  constexpr int kHorizon = 70;
+  auto inputAt = [](const Move& m, bool grounded, int f) {
+    Input in;
+    if (f < m.wait)
+      return in;
+    const int t = f - m.wait;
+    in.jump = m.hold || (grounded && t < 2);
+    in.right = m.dir > 0 && t < m.steer;
+    in.left = m.dir < 0 && t < m.steer;
+    return in;
+  };
+  auto run = [&](const World& from, const Input& prev0, const Move& m) {
+    Out o;
+    o.sim = from.cloneForSim();
+    World& sim = *o.sim;
+    const bool grounded = sim.player().state == PlayerState::OnGround;
+    const int bounces = sim.headBounces(), pops = sim.lavaPops();
+    Input prev = prev0;
+    for (int f = 0; f < m.wait + kHorizon; ++f)
+    {
+      const Input in = inputAt(m, grounded, f);
+      sim.update(asPlayerInput(in, prev));
+      prev = in;
+      o.frames = f + 1;
+      o.x = sim.player().x;
+      if (sim.state() != WorldState::Playing)
+      {
+        o.kind = sim.player().state == PlayerState::Dying ? 0 : 3;
+        break;
+      }
+      if (sim.lavaPops() > pops)
+        break;
+      if (sim.headBounces() > bounces)
+      {
+        o.kind = 2;
+        break;
+      }
+      if (f > m.wait + 2 && sim.player().state == PlayerState::OnGround)
+      {
+        o.kind = 1;
+        break;
+      }
+      o.kind = 1;
+    }
+    o.prev = prev;
+    return o;
+  };
+  auto moves = [](bool grounded) {
+    std::vector<Move> ms;
+    for (int wait = 0; wait <= (grounded ? 44 : 0); wait += 3)
+      for (bool hold : {true, false})
+      {
+        for (int steer = 0; steer <= 36; steer += 2)
+          ms.push_back({wait, 1, steer, hold});
+        for (int steer = 2; steer <= 16; steer += 2)
+          ms.push_back({wait, -1, steer, hold});
+      }
+    return ms;
+  };
+  // What a head is worth: how far on it is, and how far the best move from
+  // it gets.
+  auto value = [](const Out& o) {
+    if (o.kind == 3)
+      return 1000000 - o.frames;
+    if (o.kind == 2)
+      return o.x * 100 - o.frames;
+    if (o.kind == 1)
+      return o.x * 50 - o.frames * 4;
+    return -1000000;
+  };
+  const bool grounded = world.player().state == PlayerState::OnGround;
+  std::vector<Move> ms = moves(grounded);
+  std::vector<Out> outs;
+  outs.reserve(ms.size());
+  for (const Move& m : ms)
+    outs.push_back(run(world, mLavaPrev, m));
+  std::vector<std::size_t> order(ms.size());
+  for (std::size_t i = 0; i < order.size(); ++i)
+    order[i] = i;
+  std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return value(outs[a]) > value(outs[b]); });
+  // The best few heads: only one that leads somewhere.
+  const std::vector<Move> next = moves(false);
+  int best = -1;
+  int bestScore = std::numeric_limits<int>::min();
+  int looked = 0;
+  for (std::size_t i : order)
+  {
+    const Out& o = outs[i];
+    if (o.kind == 3)
+    {
+      best = int(i);
+      break;
+    }
+    if (o.kind == 0)
+      break;
+    int score = value(o);
+    if (o.kind == 2 && looked < 8)
+    {
+      ++looked;
+      int further = -1000000;
+      for (const Move& m : next)
+        further = std::max(further, value(run(*o.sim, o.prev, m)));
+      score = further <= -1000000 ? -500000 + score : further + score / 10;
+    }
+    else if (o.kind == 2)
+      continue;
+    if (score > bestScore)
+    {
+      bestScore = score;
+      best = int(i);
+    }
+  }
+  static const bool debug = std::getenv("GR_FIGHT_DEBUG") != nullptr;
+  if (best < 0)
+  {
+    if (debug)
+      std::fprintf(stderr, "lava f%d at %d,%d: no move\n", world.clock(), world.player().x, world.player().y);
+    return Input{};
+  }
+  const Move& m = ms[std::size_t(best)];
+  const Out& o = outs[std::size_t(best)];
+  if (debug)
+    std::fprintf(stderr, "lava f%d at %d,%d: wait %d dir %d steer %d hold %d -> kind %d x %d in %d\n", world.clock(),
+      world.player().x, world.player().y, m.wait, m.dir, m.steer, int(m.hold), o.kind, o.x, o.frames);
+  // Up to the next head (then think again), or a few frames of a wait.
+  const int frames = o.kind == 1 ? std::min(o.frames, 3) : o.frames;
+  for (int f = 0; f < frames; ++f)
+    mLavaQueue.push_back(inputAt(m, grounded, f));
+  mLavaPrev = mLavaQueue.front();
+  mLavaQueue.pop_front();
+  return mLavaPrev;
 }
 
 } // namespace gr

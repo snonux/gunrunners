@@ -168,6 +168,8 @@ struct Enemy
   int tangle = 0;       // frames left lying in the Snare Bolas' cords
   int tangleRoll = 0;   // cells left to roll first (sign: direction)
   bool hidden = false;  // out of sight and out of reach (the camera in a dark mirror)
+  int ox = 0, oy = 0;   // where a leap started (level 12's toads)
+  int cool = 0;         // frames until it can attack again
   CellBox box() const { return boxAt(x, y, w, h); }
   unsigned flags() const { return enemyDef(def).flags | (carrier ? unsigned(kEnemyCarrier) : 0u); }
 };
@@ -214,6 +216,7 @@ struct Projectile
   bool lob = false;  // leaves a puddle where it lands
   int target = kNoTarget; // Lock-On Rockets: steers for this (see World::targetBox)
   int radius = 0;    // explodes with this radius (cells) where it hits (the gunship's rockets)
+  int footRow = -1;  // Serpent Spear: the row its foothold's top takes (under the thrower's feet)
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -339,6 +342,8 @@ enum class PropKind
   Glyph,         // Hall of Traps: a carved glyph over a wing's door (its text)
   Torch,         // Hall of Traps: a wall torch
   Idol,          // Trapmaster: the idol the hunters walk to
+  Serpent,       // Lava Heart: a carved serpent head on the wall, breathing smoke
+  Marshmallow,   // Lava Heart: press up to take it on a stick, roast it at the hearth
 };
 
 struct Prop
@@ -375,6 +380,8 @@ enum class PlatformMode
 {
   Path,   // follows `path` (loop or ping-pong)
   Pulley, // two gondolas on one cable: the heavier side sinks
+  Sink,   // level 12: a stone that sinks into the lava under a load (a ferry with a path)
+  Rise,   // level 12: a bridge segment that comes up out of the lava when triggered
 };
 
 struct Platform
@@ -410,6 +417,18 @@ struct Platform
   bool waitRider = false;
   bool parked = false;
   int bell = 0;
+  // Level 12 (world_lava.cpp). Sink: rests at homeY, sinks under a load
+  // down to floorY (a block under the lava), rises back when free; `acc`
+  // counts fifteenths of a cell. A ferry (dock=1) crosses its path once
+  // boarded (ferry: 1 docked, 2 rumbling, 3 crossing). Rise: starts under
+  // the lava at startY and comes up to homeY once triggered.
+  int acc = 0;
+  int floorY = 0;
+  int ferry = 0;
+  int ferryWait = 0;
+  int riseX0 = 0, riseX1 = -1; // cells: standing here triggers a Rise segment
+  int riseDelay = 0;
+  int riseAt = -1;             // clock it was triggered (bubbles first), -1 waiting
   CellBox box() const { return {x, y, w, h}; }
 };
 
@@ -1039,6 +1058,27 @@ struct Lever
   CellBox box() const { return {x, y, 2, 4}; }
 };
 
+// Level 12: a lava pool (`@ fluid kind=lava`). Touching it costs 2 hearts
+// and pops the runner back to the last solid ground (shallow: 1 heart);
+// a wading shelf costs a heart every 20 frames and holds you.
+struct Lava
+{
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // cells, inclusive; y0 is the surface
+  bool shallow = false;
+  bool wade = false;
+  bool hearth = false; // the forge's hearth: roasts a marshmallow
+  bool wet(int cx, int cy) const { return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }
+  CellBox box() const { return {x0, y0, x1 - x0 + 1, y1 - y0 + 1}; }
+};
+
+// A Serpent Spear stuck in a wall: a 2 x 2 cell foothold, a one-way top.
+struct Foothold
+{
+  int x = 0, y = 0; // cells, top-left
+  int life = 150;
+  int dir = 1; // the way it was thrown (the wall is on that side)
+};
+
 // A Blasting Cap: lobbed, bounces twice, rolls, and goes off after its fuse.
 struct Cap
 {
@@ -1327,6 +1367,16 @@ public:
   const std::vector<Trapdoor>& trapdoors() const { return mTrapdoors; }
   bool pinball() const { return mPinball; }
   const Pinball& pin() const { return mPin; }
+  // Level 12: lava, spear footholds and The Floor Is Lava.
+  const std::vector<Lava>& lavas() const { return mLavas; }
+  const std::vector<Foothold>& footholds() const { return mFootholds; }
+  bool floorLava() const { return mFloorLava; }
+  int headBounces() const { return mHeadBounces; }
+  int lavaPops() const { return mLavaPops; }
+  int lavaAt(int cx, int cy) const; // the pool covering that cell, -1 for none
+  bool inLava(const CellBox& b) const;
+  // Fifteenths of a cell a sink platform goes down per frame with its load now.
+  int sinkRate(const Platform& pl) const;
   // The track's row (cells) under x on this rail, and whether there is
   // track there at all (false in a gap or past its ends).
   bool railY(const Rail& r, float x, float& y) const;
@@ -1619,6 +1669,27 @@ private:
   void drawCart(Renderer& r, const Cart& c, float camX, float camY, float alpha, bool front) const;
   void drawPinball(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMineHud(Renderer& r, int frame) const;
+  // Level 12 (world_lava.cpp).
+  bool setupLavaEntity(const EntityDef& e);
+  void setupLavaPlatform(Platform& pl, const EntityDef& e);
+  void setupLavaEnemy(Enemy& en, const EntityDef& e);
+  void linkLava();
+  void updateLava(const PlayerInput& input);
+  void updateSinkPlatform(Platform& pl);
+  void updateRisePlatform(Platform& pl);
+  void updateLavaPlatforms();
+  void lavaPop(int hearts);
+  void stickSpear(Projectile& pr);
+  bool shotAtLava(Projectile& pr);
+  int shotAtCrab(Projectile& pr, Enemy& e); // 0 not handled, 1 used up
+  void updateToad(Enemy& e, const EnemyDef& def);
+  void updateWisp(Enemy& e, const EnemyDef& def);
+  void updateCrab(Enemy& e, const EnemyDef& def);
+  void updateFloorLava(const PlayerInput& input);
+  void syncFootholds();
+  void drawLavaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawLavaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawLavaProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1815,6 +1886,18 @@ private:
   int mDays = 41, mDaysFrames = 0;
   bool mPinball = false; // bonus rule: you are the ball
   Pinball mPin;
+  // Level 12: lava pools, spear footholds, where lava pops you back to, the
+  // wading shelf's clock, the marshmallow, and The Floor Is Lava (the last
+  // head you bounced on).
+  std::vector<Lava> mLavas;
+  std::vector<Foothold> mFootholds;
+  int mLavaSafeX = 0, mLavaSafeY = 0;
+  int mLavaTicks = 0;
+  int mRoast = 0;          // frames the marshmallow has been held to the hearth
+  bool mOnStick = false;   // carrying the marshmallow
+  bool mFloorLava = false; // bonus rule: every floor is lava, bounce on heads
+  int mHeadX = 0, mHeadY = 0;
+  int mHeadBounces = 0, mLavaPops = 0; // for the bot's look-ahead
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up

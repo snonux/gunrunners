@@ -71,6 +71,7 @@ void World::setupPlatform(const EntityDef& e)
     pl.speedDen = slash == std::string::npos ? 1 : std::max(1, std::atoi(sp.substr(slash + 1).c_str()));
     pl.waitRider = pl.parked = e.str("wait") == "rider";
   }
+  setupLavaPlatform(pl, e); // level 12: mode=sink (and ferries), mode=rise
   // powered=BREAKER: a lift that is locked until that breaker is thrown.
   const std::string power = e.str("powered");
   for (std::size_t i = 0; i < mBreakers.size() && !power.empty(); ++i)
@@ -255,7 +256,7 @@ void World::updatePlatforms()
       }
       continue;
     }
-    if (!a.sideA || a.pair < 0)
+    if (a.mode != PlatformMode::Pulley || !a.sideA || a.pair < 0)
       continue;
     auto& b = mPlatforms[std::size_t(a.pair)];
     bool onA = false, onB = false;
@@ -306,6 +307,7 @@ void World::updatePlatforms()
       mPlayer = savedPlayer;
     }
   }
+  updateLavaPlatforms();
   syncPlatformCollision();
 }
 
@@ -480,8 +482,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   for (std::size_t i = 0; i < mPlatforms.size(); ++i)
   {
     const auto& pl = mPlatforms[i];
-    if (pl.once)
-      continue; // the passing train draws itself (world_maglev.cpp)
+    if (pl.once || pl.mode == PlatformMode::Sink || pl.mode == PlatformMode::Rise)
+      continue; // the passing train (world_maglev.cpp) and basalt stones (world_lava.cpp) draw themselves
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;
     const float y = (float(pl.prevY) + (float(pl.y) - float(pl.prevY)) * alpha) * kCellPx - camY;
     const float w = float(pl.w) * kCellPx;

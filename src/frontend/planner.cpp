@@ -53,7 +53,7 @@ const Macro kMacros[] = {
   {false, false, false, false, false, 0, false}, // sit out the chorus (laser fans)
 };
 constexpr int kMacroCountBase = int(sizeof(kMacros) / sizeof(kMacros[0]));
-constexpr int kMacroCount = kMacroCountBase + 6;
+constexpr int kMacroCount = kMacroCountBase + 8;
 constexpr int kLongWait = 15;
 constexpr int kWaitLaunch = 16;
 constexpr int kWaitVerse = 17;
@@ -69,6 +69,63 @@ constexpr int kCapLeft = kMacroCountBase + 3;
 constexpr int kCapSetRight = kMacroCountBase + 4;
 constexpr int kCapSetLeft = kMacroCountBase + 5;
 bool capMacro(int m) { return m >= kCapRight && m <= kCapSetLeft; }
+// Serpent Spears (level 12): jump beside a wall and throw at the top of the
+// jump; the spear sticks as a foothold to land on, a jump higher.
+constexpr int kSpearRight = kMacroCountBase + 6;
+constexpr int kSpearLeft = kMacroCountBase + 7;
+bool spearMacro(int m) { return m == kSpearRight || m == kSpearLeft; }
+
+bool spearsHeld(const World& w)
+{
+  const auto& p = w.player();
+  return p.weapon == Weapon::Proto && p.proto == int(ProtoId::SerpentSpear) && p.ammo > 0;
+}
+
+// Standing with a wall face right beside you that a spear thrown at the top
+// of a jump would stick in.
+bool spearUseful(const World& w, int dir)
+{
+  const auto& p = w.player();
+  if (!spearsHeld(w) || p.state != PlayerState::OnGround || p.cart >= 0)
+    return false;
+  const int face = dir > 0 ? p.x + Player::kWidth : p.x - 1;
+  const auto& map = w.map();
+  return map.solid(face, p.y - 2) && map.solid(face, p.y - 6) && !map.solid(dir > 0 ? p.x + 2 : p.x, p.y - 6);
+}
+
+// A spear step's input this frame: jump beside the wall, throw at the top,
+// land on the foothold.
+Input spearInput(const World& w, int m, int f, bool& done, bool& fail)
+{
+  Input in;
+  const auto& p = w.player();
+  const int dir = m == kSpearRight ? 1 : -1;
+  in.right = dir > 0;
+  in.left = dir < 0;
+  if (f == 0)
+  {
+    in.jump = true;
+    return in;
+  }
+  if (p.state == PlayerState::Dying || f > 36)
+  {
+    fail = true;
+    return in;
+  }
+  if (p.state == PlayerState::OnGround)
+  {
+    done = true;
+    return in;
+  }
+  if (p.state == PlayerState::Jumping)
+  {
+    in.jump = true;
+    const auto& arc = w.character().jumpArc;
+    const bool apex = p.frames >= int(arc.size()) || arc[std::size_t(p.frames)] == 0;
+    in.fire = apex && p.shotCooldown == 0 && p.facing == dir;
+  }
+  return in;
+}
 
 // Whether there is a cracked rock wall close enough to be worth a cap.
 bool capsUseful(const World& w)
@@ -92,6 +149,8 @@ int macroFrames(int m, const World& w)
     return w.player().state == PlayerState::Swing ? 1 : 0; // the real length comes out of the run
   if (capMacro(m))
     return capsUseful(w) ? 1 : 0;
+  if (spearMacro(m))
+    return spearUseful(w, m == kSpearRight ? 1 : -1) ? 1 : 0;
   if (m == kLongWait)
   {
     bool opening = false;
@@ -336,6 +395,33 @@ Planner::Goal Planner::chooseGoal(const World& w) const
       if (b.alive && b.content == ItemKind::Proto)
         consider(b.x, b.y);
     if (bestD >= 0)
+      return best;
+  }
+  // Level 12: out of Serpent Spears, fetch more from the nearest box.
+  if (!mSkipProto && w.level().weapon == "serpent_spear" && w.stats().protoFound && !spearsHeld(w))
+  {
+    const auto& p = w.player();
+    Goal best;
+    int bestD = 160;
+    for (const auto& b : w.boxes())
+    {
+      const int d = std::abs(b.x - p.x) + std::abs(b.y - p.y);
+      if (b.alive && b.content == ItemKind::Proto && d < bestD && b.x + 16 >= p.x) // not back the way you came
+      {
+        bestD = d;
+        best = {2, b.x, b.y};
+      }
+    }
+    for (const auto& it : w.items())
+    {
+      const int d = std::abs(it.x - p.x) + std::abs(it.y - p.y);
+      if (!it.taken && it.kind == ItemKind::Proto && d < bestD && it.x + 16 >= p.x)
+      {
+        bestD = d;
+        best = {2, it.x, it.y};
+      }
+    }
+    if (best.kind == 2)
       return best;
   }
   // A force field still on and no card: fetch the card first.
@@ -595,6 +681,8 @@ void Planner::buildField(const World& w, const Goal& goal)
       continue; // a train not here yet
     int y0 = pl.y, y1 = pl.y;
     int x0 = pl.x, x1 = pl.x;
+    if (pl.mode == PlatformMode::Sink || pl.mode == PlatformMode::Rise)
+      y0 = y1 = pl.homeY; // level 12: stones at rest, the bridge once it is up
     if (pl.mode == PlatformMode::Pulley)
     {
       y0 = pl.homeY - pl.travel;
@@ -609,8 +697,11 @@ void Planner::buildField(const World& w, const Goal& goal)
       {
         x0 = std::min(x0, px);
         x1 = std::max(x1, px);
-        y0 = std::min(y0, py);
-        y1 = std::max(y1, py);
+        if (pl.mode != PlatformMode::Sink)
+        {
+          y0 = std::min(y0, py);
+          y1 = std::max(y1, py);
+        }
       }
     for (int y = std::max(0, y0); y <= std::min(H - 1, y1); ++y)
       for (int x = std::max(0, x0); x < std::min(W, x1 + pl.w); ++x)
@@ -644,7 +735,31 @@ void Planner::buildField(const World& w, const Goal& goal)
   // Per player position (bottom-left cell): valid, height above ground,
   // ladder and pipe.
   std::vector<std::uint8_t> valid(std::size_t(W * H)), ladder(std::size_t(W * H)), hang(std::size_t(W * H)),
-    hazard(std::size_t(W * H));
+    hazard(std::size_t(W * H)), spearOnly(std::size_t(W * H));
+  // Level 12: with Serpent Spears (or more to fetch), a foothold can go
+  // beside any wall face.
+  const bool spears = spearsHeld(w) || w.level().weapon == "serpent_spear";
+  auto spearCell = [&](int x, int y) {
+    for (int dir : {1, -1})
+    {
+      const int face = dir > 0 ? x + 3 : x - 1;
+      const int fx = dir > 0 ? x + 1 : x;
+      if (!map.solid(face, y - 2) || !(map.solid(face, y + 1) || map.solid(face, y + 2)))
+        continue;
+      bool room = true;
+      for (int yy = y + 1; yy <= y + 2; ++yy)
+        for (int xx = fx; xx <= fx + 1; ++xx)
+          room = room && !map.solid(xx, yy) && w.lavaAt(xx, yy) < 0;
+      if (room)
+        return true;
+    }
+    return false;
+  };
+  std::vector<std::uint8_t> spearAt(std::size_t(W * H));
+  if (spears)
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        spearAt[std::size_t(y * W + x)] = spearCell(x, y);
   std::vector<int> support(std::size_t(W * H), kInf), lift(std::size_t(W * H), jumpH);
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -658,8 +773,29 @@ void Planner::buildField(const World& w, const Goal& goal)
       valid[i] = ok;
       if (!ok)
         continue;
+      // Lava pops you back out (Rocco's shelf only burns).
+      if (!w.lavas().empty() && w.player().turbo == 0)
+      {
+        const CellBox body = boxAt(x, y, 3, 5);
+        for (const auto& l : w.lavas())
+          if (l.box().intersects(body))
+          {
+            if (l.wade)
+              hazard[i] = 1;
+            else
+              valid[i] = 0;
+          }
+        if (!valid[i])
+          continue;
+      }
       for (int k = 0; k < 64 && y + 1 + k < H; ++k)
       {
+        // A foothold you could stick below counts as ground to jump from.
+        if (k > 0 && spearAt[std::size_t((y + k) * W + x)])
+        {
+          support[i] = k;
+          break;
+        }
         if (isTop(x, y + 1 + k) || isTop(x + 1, y + 1 + k) || isTop(x + 2, y + 1 + k))
         {
           support[i] = k;
@@ -668,6 +804,11 @@ void Planner::buildField(const World& w, const Goal& goal)
               lift[i] = std::max(lift[i], padLift[std::size_t((y + 1 + k) * W + xx)]);
           break;
         }
+      }
+      if (spears && support[i] != 0 && spearAt[i])
+      {
+        support[i] = 0;
+        spearOnly[i] = 1;
       }
       for (int yy = y - 4; yy <= y; ++yy)
         if (map.ladder(x + 1, yy))
@@ -743,7 +884,8 @@ void Planner::buildField(const World& w, const Goal& goal)
             ta = 0;
           if (ta >= A)
             return;
-          list.push_back({from, node(tx, ty, ta), cost + (hazard[j] == 1 ? 40 : (hazard[j] == 2 ? 6 : 0))});
+          list.push_back({from, node(tx, ty, ta),
+            cost + (hazard[j] == 1 ? 40 : (hazard[j] == 2 ? 6 : 0)) + (spearOnly[j] ? 6 : 0)});
         };
         // Sideways: free on the ground, from the air budget in a jump.
         for (int dx : {-1, 1})
@@ -1479,14 +1621,15 @@ void Planner::plan(const World& world)
       auto child = std::make_unique<World>(nw);
       Input prev = n.last;
       bool dead = false;
-      const bool vine = m == kVineRight || m == kVineLeft || capMacro(m);
+      const bool vine = m == kVineRight || m == kVineLeft || capMacro(m) || spearMacro(m);
       std::vector<Input> seq;
       int launchedAt = -1;
       int ran = 0;
       for (int f = 0; vine || f < frames; ++f)
       {
         bool done = false, fail = false;
-        const Input in = capMacro(m) ? capInput(*child, m, f, done, fail)
+        const Input in = spearMacro(m) ? spearInput(*child, m, f, done, fail)
+          : capMacro(m)                ? capInput(*child, m, f, done, fail)
           : vine ? vineInput(*child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail)
                  : macroInput(kMacros[m], f);
         if (fail)

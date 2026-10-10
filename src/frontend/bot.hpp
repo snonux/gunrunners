@@ -30,6 +30,9 @@ public:
   Input trapmaster(const World& world);
   // Pinball Mine: time the flippers by trying them in copies of the world.
   Input pinball(const World& world);
+  // The Floor Is Lava: pick each bounce by trying moves in copies of the
+  // world, looking one head further on.
+  Input floorLava(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
@@ -41,6 +44,8 @@ private:
   std::deque<Input> mFightQueue;
   std::deque<Input> mTrapQueue;
   std::deque<Input> mPinQueue;
+  std::deque<Input> mLavaQueue;
+  Input mLavaPrev;
   std::deque<Input> mRideQueue;
   bool mRiding = false;
   bool mFighting = false;

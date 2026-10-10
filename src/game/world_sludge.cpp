@@ -267,6 +267,8 @@ void World::syncFloats()
     mMap.addFloat(b.box());
   for (const auto& t : mTrailBlocks)
     mMap.addFloat({t.x, t.y, Player::kWidth, 1}); // Light Trail (world_maglev.cpp)
+  for (const auto& f : mFootholds)
+    mMap.addFloat({f.x, f.y, 2, 1}); // Serpent Spears in the wall (world_lava.cpp)
 }
 
 void World::floatItem(Item& it) const

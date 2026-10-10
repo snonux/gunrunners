@@ -132,6 +132,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawTempleBack(r, camX, camY, frame, alpha);
   drawLightBack(r, camX, camY, frame, alpha);
   drawMineBack(r, camX, camY, frame, alpha);
+  drawLavaBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -308,6 +309,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = 0;
         else if (e.kind == EnemyKind::Bandit || e.kind == EnemyKind::Mole)
           variant = e.tell > 0 || (e.kind == EnemyKind::Mole && e.timer >= 4 && e.timer < 11) ? 1 : 0; // pistol up; rock up
+        else if (e.kind == EnemyKind::Toad)
+          variant = e.attach == 2 || e.attach == 4 || e.attach == 5 ? 1 : 0; // in the air
+        else if (e.kind == EnemyKind::Wisp)
+          variant = e.carrier ? 1 : 0;
+        else if (e.kind == EnemyKind::Crab)
+          variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.variant ? 3 : 0); // claws open, flipped; party hat
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -397,6 +404,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawTempleFront(r, camX, camY, frame, alpha);
   drawLightFront(r, camX, camY, frame, alpha);
   drawMineFront(r, camX, camY, frame, alpha);
+  drawLavaFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)

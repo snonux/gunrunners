@@ -76,6 +76,9 @@ const EnemyDef kEnemies[] = {
   {"cartbandit", "CART BANDIT", K::Bandit, L::Styled, 4, 5, 6, 800, 1, 30, 10, 0, 0, 0},
   {"bat", "CAVE BAT", K::Bat, L::Styled, 2, 2, 1, 40, 1, 0, 0, 0, kEnemyNoTally, 0, 0},
   {"mole", "ROCK MOLE", K::Mole, L::Styled, 3, 3, 3, 500, 2, 45, 15, 16, 0, 0},
+  {"toad", "MAGMA TOAD", K::Toad, L::Styled, 3, 3, 3, 400, 1, 60, 15, 20, 0, 0},
+  {"wisp", "EMBER WISP", K::Wisp, L::Styled, 2, 2, 2, 300, 4, 20, 15, 4, kEnemyHarmless, 0},
+  {"crab", "BASALT CRAB", K::Crab, L::Styled, 4, 3, 6, 900, 4, 30, 10, 3, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

@@ -47,6 +47,9 @@ enum class EnemyKind
   Bandit,    // rides its own rail level with you and shoots from the cart
   Bat,       // one of a Bat Cloud: swarms along its tunnel on a sine path
   Mole,      // burrows through rock, surfaces near you and lobs a rock
+  Toad,      // leaps out of the lava onto your stone, sits, dives back
+  Wisp,      // drifts toward you; swells and bursts when close
+  Crab,      // patrols its stone; armored top and front, flips when hit from behind
 };
 
 enum EnemyFlag : unsigned

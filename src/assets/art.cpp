@@ -2653,8 +2653,109 @@ Texture bakeMineNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isMagma(const Theme& t) { return std::string_view(t.look) == "magma"; }
+
+// Inside the volcano: smoke-dark rock above, the lava lake's glow below,
+// and ash drifting through it.
+Texture bakeMagmaSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(1212u);
+  for (int i = 0; i < 6; ++i)
+    radialGlow(cr, rng.range(0, kScreenW), kScreenH - rng.range(0, 120), rng.range(220, 420), rgb(255, 110, 40),
+      0.22);
+  // Smoke banks.
+  for (int i = 0; i < 12; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kScreenW), rng.range(0, kScreenH * 0.45), rng.range(60, 160), 0, 2 * kPi);
+    setColor(cr, withAlpha(rgb(20, 10, 10), 40 + rng.irange(0, 50)));
+    cairo_fill(cr);
+  }
+  // Ash and embers.
+  for (int i = 0; i < 90; ++i)
+  {
+    const bool ember = i % 4 == 0;
+    cairo_arc(cr, rng.range(0, kScreenW), rng.range(0, kScreenH), ember ? rng.range(1.2, 2.4) : rng.range(0.8, 1.6),
+      0, 2 * kPi);
+    setColor(cr, ember ? withAlpha(rgb(255, 170, 70), 120 + rng.irange(0, 120)) : rgba(160, 150, 150, 70));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: basalt columns, hexagonal tops catching the glow from below.
+Texture bakeMagmaFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2323u);
+  const Color col = lerpColor(t.farLayer, t.rock, 0.3f);
+  for (double x = 0; x < kLayerW; x += rng.range(34, 60))
+  {
+    const double w = rng.range(30, 56), top = rng.range(180, 460);
+    cairo_rectangle(cr, x, top, w, kScreenH - top);
+    setColor(cr, withAlpha(col, 230));
+    cairo_fill(cr);
+    cairo_move_to(cr, x, top);
+    cairo_line_to(cr, x + w * 0.5, top - w * 0.25);
+    cairo_line_to(cr, x + w, top);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(lerpColor(col, t.rockLight, 0.4f), 230));
+    cairo_fill(cr);
+    // Glow creeping up from the lava.
+    cairo_pattern_t* p = cairo_pattern_create_linear(0, kScreenH, 0, kScreenH - 220);
+    cairo_pattern_add_color_stop_rgba(p, 0, 1.0, 0.45, 0.15, 0.45);
+    cairo_pattern_add_color_stop_rgba(p, 1, 1.0, 0.45, 0.15, 0.0);
+    cairo_rectangle(cr, x, kScreenH - 220, w, 220);
+    cairo_set_source(cr, p);
+    cairo_fill(cr);
+    cairo_pattern_destroy(p);
+    cairo_rectangle(cr, x + w - 3, top, 3, kScreenH - top);
+    setColor(cr, withAlpha(t.rockDark, 200));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: rock teeth from the roof with glowing seams, and falling embers.
+Texture bakeMagmaNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(3434u);
+  for (int i = 0; i < 46; ++i)
+  {
+    const double x = rng.range(0, kLayerW), len = rng.range(30, 120), w = rng.range(14, 30);
+    cairo_move_to(cr, x - w, 0);
+    cairo_line_to(cr, x + w, 0);
+    cairo_line_to(cr, x, len);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(t.nearLayer, 235));
+    cairo_fill(cr);
+    if (i % 3 == 0)
+    {
+      cairo_move_to(cr, x - 2, 4);
+      cairo_line_to(cr, x + 1, len * 0.7);
+      cairo_set_line_width(cr, 2.5);
+      setColor(cr, withAlpha(rgb(255, 140, 50), 200));
+      cairo_stroke(cr);
+    }
+  }
+  for (int i = 0; i < 60; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kLayerW), rng.range(40, kScreenH), rng.range(1.5, 3.0), 0, 2 * kPi);
+    setColor(cr, withAlpha(rgb(255, 180, 80), 90 + rng.irange(0, 120)));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isMagma(t))
+    return bakeMagmaSky(r, t);
   if (isMine(t))
     return bakeMineSky(r, t);
   if (isObservatory(t))
@@ -2802,6 +2903,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isMagma(t))
+    return bakeMagmaFar(r, t);
   if (isMine(t))
     return bakeMineFar(r, t);
   if (isObservatory(t))
@@ -2924,6 +3027,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isMagma(t))
+    return bakeMagmaNear(r, t);
   if (isMine(t))
     return bakeMineNear(r, t);
   if (isObservatory(t))
