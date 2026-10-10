@@ -171,6 +171,10 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
     finishStarfallSetup();
   if (mSpace.crystals)
     finishCrystalSetup();
+  for (const auto& e : mEnemies)
+    mSpace.silk = mSpace.silk || e.kind == EnemyKind::LoomSpider || e.kind == EnemyKind::CocoonPod;
+  if (mSpace.silk)
+    finishSilkSetup();
   if (mPinball)
     setupPinball();
   if (mSurfing)
@@ -307,6 +311,8 @@ void World::update(const PlayerInput& input)
       updateHive();
       updateStarfall();
       updateCrystals();
+      if (mSpace.silk)
+        updateSilk();
       updateBoulders(input);
       updateSanctum(input);
       updateGolden();
@@ -617,6 +623,15 @@ void World::updateEnemies()
       case EnemyKind::PrismBat:
         updatePrismBat(e, def);
         break;
+      case EnemyKind::LoomSpider:
+        updateLoomSpider(e, def);
+        break;
+      case EnemyKind::CocoonPod:
+        updateCocoonPod(e, def);
+        break;
+      case EnemyKind::Dropling:
+        updateDropling(e, def);
+        break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);
         break;
@@ -744,8 +759,13 @@ void World::updateProjectiles()
     // Level 46: a shot at a Swap Crystal swaps you with it.
     if (mSpace.crystals && pr.kind != ShotKind::Enemy && shotAtCrystal(pr))
       return true;
+    // Level 47: a cocoon pops open.
+    if (mSpace.silk && pr.kind != ShotKind::Enemy && shotAtCocoon(pr))
+      return true;
     if (mMap.overlapsSolid(b))
     {
+      // The Silk Shooter strings a line where it hits rock.
+      silkShotHit(pr);
       // The Swap Rifle's shots bounce off a wall once.
       if (bounceSwapShot(pr))
         return false;
@@ -999,7 +1019,8 @@ void World::updateProjectiles()
     const bool comesBack = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::Boomerang);
     // Level 46: a shot up keeps going a while past the top of the view, at
     // the crystals hovering up there.
-    const bool upAtCrystals = mSpace.crystals && pr.dy < 0 && !pr.precise;
+    const bool upAtCrystals = (mSpace.crystals && pr.dy < 0 && !pr.precise) ||
+      (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SilkShooter)); // and on down at the rock
     if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12 : 2))
       pr.alive = false;
   }

@@ -146,7 +146,7 @@ bool capsUseful(const World& w)
 int macroFrames(int m, const World& w)
 {
   if (m == kVineRight || m == kVineLeft)
-    return w.player().state == PlayerState::Swing ? 1 : 0; // the real length comes out of the run
+    return w.player().state == PlayerState::Swing && w.player().vine >= 0 ? 1 : 0; // the real length comes out of the run
   if (capMacro(m))
     return capsUseful(w) ? 1 : 0;
   if (spearMacro(m))
@@ -165,6 +165,9 @@ int macroFrames(int m, const World& w)
     // Level 46: a crystal drifting into line.
     for (const auto& c : w.swapCrystals())
       tide = tide || (c.drifting && !c.gone);
+    // Level 47: a Silk Line being spun (or about to be).
+    for (const auto& l : w.silkLines())
+      tide = tide || l.spin || l.spinning || l.regrow > 0;
     return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() && w.sunDoors().empty()
       ? 0
       : 24;
@@ -228,7 +231,7 @@ bool stable(const World& w)
       if (c.ty * kCellsPerTile == p.y + 1 && c.tx * kCellsPerTile + 1 >= p.x && c.tx * kCellsPerTile <= p.x + 2)
         return false;
   return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe ||
-    p.state == PlayerState::Swing || p.state == PlayerState::Cling;
+    (p.state == PlayerState::Swing && p.silk < 0) || p.state == PlayerState::Cling;
 }
 
 // A vine macro's input this frame: push along the swing until a launch
@@ -1174,6 +1177,44 @@ void Planner::buildField(const World& w, const Goal& goal)
         }
     }
   }
+  // Level 47: hands that meet a Silk Line in the air (a jump into it, a
+  // step off a ledge under it) ride it to its low end and drop off there.
+  // A line still to be spun, or cut and to be spun again, counts too (the
+  // search waits for it).
+  for (const auto& l : w.silkLines())
+  {
+    if (l.mine)
+      continue;
+    SilkLine whole = l;
+    whole.spun = whole.len;
+    int ex = -1, ey = -1;
+    for (float s = whole.len; s >= 0.0f && ex < 0; s -= 1.0f)
+      if (w.silkHangSpot(whole, s, ex, ey))
+        --ey; // let go: back to a 5-cell box
+      else
+        ex = -1;
+    if (ex < 0 || ey < 0 || ex >= W || ey >= H || !valid[std::size_t(ey * W + ex)])
+      continue;
+    for (float s = 0.0f; s < whole.len - 1.0f; s += 1.0f)
+    {
+      int hx = 0, hy = 0;
+      if (!w.silkHangSpot(whole, s, hx, hy))
+        continue;
+      const int cost = int((whole.len - s) / 2.0f) + 2;
+      for (int dy = -2; dy <= 0; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+        {
+          const int fx = hx + dx, fy = hy - 1 + dy;
+          if (fx < 0 || fy < 0 || fx >= W || fy >= H)
+            continue;
+          const std::size_t i = std::size_t(fy * W + fx);
+          if (!valid[i] || support[i] == 0)
+            continue;
+          for (int a = 0; a < A; ++a)
+            list.push_back({node(fx, fy, a), node(ex, ey, 0), cost});
+        }
+    }
+  }
   for (const auto& e : list)
     ++revStart[std::size_t(e.to) + 1];
   for (int i = 0; i < N; ++i)
@@ -1331,6 +1372,26 @@ int Planner::heuristic(const World& w) const
     for (int a = 0; a < A; ++a)
       best = std::min(best, mDist[std::size_t((ey * mW + ex) * A + a)]);
     return best >= kInf ? kInf : best + std::max(0, t.len[std::size_t(p.tubeBranch)] - p.tubeS) / 2 + extra;
+  }
+  if (p.silk >= 0 && std::size_t(p.silk) < w.silkLines().size())
+  {
+    // On a Silk Line: as good as at its low end already.
+    SilkLine whole = w.silkLines()[std::size_t(p.silk)];
+    whole.spun = whole.len;
+    int ex = -1, ey = -1;
+    for (float s = whole.len; s >= p.silkS && ex < 0; s -= 1.0f)
+      if (w.silkHangSpot(whole, s, ex, ey))
+        --ey;
+      else
+        ex = -1;
+    if (ex >= 0 && ey >= 0 && ex < mW && ey < mH)
+    {
+      int best = kInf;
+      for (int a = 0; a < A; ++a)
+        best = std::min(best, mDist[std::size_t((ey * mW + ex) * A + a)]);
+      if (best < kInf)
+        return best + int((whole.len - p.silkS) / 2.0f) + extra;
+    }
   }
   const int base = (p.y * mW + p.x) * A;
   int best = kInf;
@@ -1811,6 +1872,22 @@ void Planner::plan(const World& world)
       for (const auto& pr : w.projectiles())
         if (pr.alive && pr.kind != ShotKind::Enemy)
           k = mix(k, std::uint64_t(pr.x) | (std::uint64_t(pr.y) << 16) | (std::uint64_t(pr.dy + 2) << 32));
+    }
+    // Level 47: on a Silk Line (how far, how fast), and the lines close by
+    // (spun how far, shivering before a cut).
+    if (w.hasSilk())
+    {
+      k = mix(k, std::uint64_t(p.silk + 1) | (std::uint64_t(int(p.silkS * 2.0f)) << 8) |
+                   (std::uint64_t(int(p.silkV * 10.0f)) << 24));
+      for (const auto& l : w.silkLines())
+        if (std::abs(l.ax - float(p.x)) < 90.0f && std::abs(l.ay - float(p.y)) < 60.0f)
+          k = mix(k, std::uint64_t(int(l.spun)) | (std::uint64_t(l.twang) << 12) | (std::uint64_t(l.cool) << 20) |
+                       (std::uint64_t(l.regrow + 1) << 28));
+      for (const auto& e : w.enemies())
+        if (e.alive && (e.kind == EnemyKind::LoomSpider || e.kind == EnemyKind::Dropling) &&
+            std::abs(e.x - p.x) < 48 && std::abs(e.y - p.y) < 30)
+          k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                       (std::uint64_t(e.attach + e.tell * 8) << 32));
     }
     // Level 44: on a goo wall, or kicked off one.
     if (w.hasGoo())

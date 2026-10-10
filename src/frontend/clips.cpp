@@ -1986,6 +1986,86 @@ void crystalSwap(ClipKit& k, int frame, int ticks, float ox, float oy)
       drawGlow(k.r, k.art, x + ox, 480 + oy, 260, rgb(240, 225, 255), 0.9f);
 }
 
+// Level 47: the canyon: a ledge high on the left wall, one lower on the
+// right, and a silk line slung between them.
+void silkCanyon(ClipKit& k, int ticks, float ox, float oy)
+{
+  drawBackdrop(k.r, k.art, float(ticks) * 0.4f + ox, oy, 0.0f);
+  const Texture& walls = cached(k, "silk_walls", 1280, 720, 0, 0, [](cairo_t* cr) {
+    // The left wall with its ledge, the right wall with its lower one.
+    cairo_move_to(cr, 0, 0);
+    cairo_line_to(cr, 300, 0);
+    cairo_line_to(cr, 280, 320);
+    cairo_line_to(cr, 330, 330);
+    cairo_line_to(cr, 330, 360);
+    cairo_line_to(cr, 250, 380);
+    cairo_line_to(cr, 270, 720);
+    cairo_line_to(cr, 0, 720);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 0, 720, rgb(210, 140, 80), rgb(110, 56, 26), rgb(46, 22, 12), 4);
+    cairo_move_to(cr, 1280, 0);
+    cairo_line_to(cr, 1010, 0);
+    cairo_line_to(cr, 1030, 520);
+    cairo_line_to(cr, 960, 540);
+    cairo_line_to(cr, 960, 570);
+    cairo_line_to(cr, 1040, 590);
+    cairo_line_to(cr, 1020, 720);
+    cairo_line_to(cr, 1280, 720);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 0, 720, rgb(210, 140, 80), rgb(110, 56, 26), rgb(46, 22, 12), 4);
+    for (int i = 0; i < 9; ++i)
+    {
+      const double y = 60.0 + double(i) * 75.0;
+      cairo_move_to(cr, 0, y);
+      cairo_line_to(cr, 250, y + 8);
+      cairo_move_to(cr, 1030, y + 20);
+      cairo_line_to(cr, 1280, y + 12);
+      cairo_set_line_width(cr, 4);
+      setColor(cr, rgba(250, 210, 140, 80));
+      cairo_stroke(cr);
+    }
+  });
+  k.r.draw(walls, ox, oy);
+  // The line, from over the left ledge down to over the right one.
+  k.r.drawLine(330 + ox, 250 + oy, 960 + ox, 470 + oy, 7, rgba(90, 70, 50, 90));
+  k.r.drawLine(330 + ox, 250 + oy, 960 + ox, 470 + oy, 3.5f, rgb(246, 240, 224));
+}
+
+void silkBrief(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  silkCanyon(k, ticks, ox, oy);
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, who == 2 ? 3 : 0, 1.6f), 90.0f + float(who) * 80.0f + ox, 330 + oy);
+  // A Loom Spider on the line, walking its top.
+  const float t = 0.26f + 0.06f * std::sin(float(ticks) * 0.08f);
+  DrawOpts big;
+  big.scale = 1.5f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "loom_spider", frame % 8 >= 6 ? 1 : 0, (ticks / 6) % 2, 3, 3).get(1),
+    330 + 630 * t + ox, 250 + 220 * t + 72 + oy, big);
+  drawMax(k, 640 + ox, 160 + oy, 0.4f, ticks, (ticks / 5) % 9 == 0 ? 0.3f : 0.0f);
+}
+
+// The ride: Dash hangs from the line and slides down it, faster and
+// faster, and drops onto the far ledge (frames 0-11), then waves.
+void silkRide(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  silkCanyon(k, ticks, ox, oy);
+  const float t = std::min(1.0f, float(frame * frame) / 121.0f);
+  const float x = 330 + 630 * t, y = 250 + 220 * t;
+  if (frame < 11)
+  {
+    DrawOpts o;
+    o.angle = 10.0f;
+    k.r.draw(runner(k, 0, 19, 1.6f), x + ox, y + 150 + oy, o); // hanging
+    if (frame > 3)
+      k.r.drawLine(x - 80 + ox, y - 28 + oy, x - 20 + ox, y - 7 + oy, 4, rgba(255, 250, 230, 160), Blend::Add);
+  }
+  else
+    k.r.draw(runner(k, 0, frame >= 13 ? 3 : 0, 1.6f), 1010 + ox, 540 + oy);
+  for (int who = 1; who < 3; ++who)
+    k.r.draw(runner(k, who, 0, 1.6f), 90.0f + float(who) * 80.0f + ox, 330 + oy);
+}
+
 // Level 13: the temple corridor at sunset, light through the cracks, dust
 // coming down from the ceiling (an 8-frame loop).
 void templeCorridor(ClipKit& k, int frame, int ticks, float ox, float oy)
@@ -2599,6 +2679,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return crystalBrief(k, frame, ticks, ox, oy);
   if (clip == "brief46_swap")
     return crystalSwap(k, frame, ticks, ox, oy);
+  if (clip == "brief47_canyon")
+    return silkBrief(k, frame, ticks, ox, oy);
+  if (clip == "brief47_ride")
+    return silkRide(k, frame, ticks, ox, oy);
   if (clip == "brief45_hive")
     return hiveBrief(k, frame, ticks, ox, oy);
   if (clip == "brief45_gulp")

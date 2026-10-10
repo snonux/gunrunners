@@ -129,6 +129,8 @@ struct Player
   int tubeBranch = 0;
   int tubeS = 0;        // cells along it
   int vehicle = -1; // driving this vehicle (world_vehicle.cpp)
+  int silk = -1;     // Swing: sliding down this Silk Line (level 47)
+  float silkS = 0.0f, silkV = 0.0f; // cells along it, cells a frame
 
   int walkFrame = 0;
   int climbFrame = 0;
@@ -232,6 +234,7 @@ struct Projectile
   bool spear = false; // a Spear Runner's spear (Fan Darts break it)
   bool vehicle = false; // fired by a vehicle: breaks `by=vehicle` walls
   bool bounced = false; // a Swap Rifle shot already bounced off a wall
+  int anchorX = -1, anchorY = -1; // a Silk Shooter shot: the hands it was fired from
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -1762,6 +1765,11 @@ public:
   // runner (their feet; false if they can't fit there). fitRunner nudges
   // (x, y) to the nearest spot the runner fits.
   bool hasCrystals() const { return mSpace.crystals; }
+  // Level 47: Silk Lines. Where the runner's feet are hanging from a line
+  // `s` cells along it (false if they don't fit there).
+  bool hasSilk() const { return mSpace.silk; }
+  const std::vector<SilkLine>& silkLines() const { return mSpace.lines; }
+  bool silkHangSpot(const SilkLine& l, float s, int& x, int& y) const;
   const std::vector<SwapCrystal>& swapCrystals() const { return mSpace.swaps; }
   bool crystalSwapSpot(const SwapCrystal& c, int& x, int& y) const;
   bool fitRunner(int& x, int& y) const;
@@ -2203,6 +2211,21 @@ private:
   void updatePrismBat(Enemy& e, const EnemyDef& def);
   void resetCrystals();
   void drawCrystalBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 47, Silk Canyon (world_silk.cpp).
+  bool setupSilkEntity(const EntityDef& e);
+  void finishSilkSetup();
+  void resetSilk();
+  void updateSilk();
+  bool tryGrabSilk();
+  void updateSilkRide(int mvX, int mvY, const PlayerInput& in);
+  void letGoOfSilk(bool jump, bool fall);
+  void cutSilk(SilkLine& l);
+  bool silkShotHit(Projectile& pr);
+  bool shotAtCocoon(Projectile& pr);
+  void updateLoomSpider(Enemy& e, const EnemyDef& def);
+  void updateCocoonPod(Enemy& e, const EnemyDef& def);
+  void updateDropling(Enemy& e, const EnemyDef& def);
+  void drawSilkBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   // Level 13 (world_boulder.cpp).
   bool setupBoulderEntity(const EntityDef& e);
   void setupBoulderEnemy(Enemy& en, const EntityDef& e);
