@@ -58,8 +58,13 @@ x where the exit ledge starts, `restart=` the block xs a fall goes back
 to): left and right speed its roll up or down, you lean the other way on
 top and more than 2 blocks off the middle is a fall; jump leaves it, land
 back on it or on the exit ledge, anywhere else is a fall; enemies are
-harmless and crushed),
-`timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
+harmless and crushed; `golden_touch`: every `@ goldfield` block you stand
+on, bump or shoot turns gold with the marked blocks around it, moving
+platforms freeze where you touch them, Temple Cats set into 2 x 2 gold
+statues, and gold doors stay shut for good if touched or shot before they
+open),
+`timer=` in seconds and `goal=exit`, `goal=collect:N`, `goal=score:N` or
+`goal=paint:N` (the `goldgate` opens with N % of the marked blocks gold). Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
 `@` lines place things that need parameters. Positions are blocks (`x y`,
@@ -162,6 +167,11 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `chute`, `alcove` | `ID x0= x1= row=`; `ID x y` | a chute's flaps (row `row`, blocks x0..x1) open for its boulder and shut 15 frames later; an alcove's shelter is 4 blocks from x with its floor at row y: under the roll line |
 | `crack`, `leadhatch` | `rect= alcove= still=`; `rect= lead= near= ladder=` | a crack in the rock that opens after you stand still `still` frames in the alcove's shelter; a hatch that opens only while you lead the boulder by `lead` blocks and none is within `near` (`ladder` the x that turns into ladder) |
 | enemy keys `spearrunner`, `pitsnake`, `totem` (`heads=`), `cultist` | | a Spear Runner sleeps until you are close, flees ahead and once turns to throw its spear (Fan Darts break spears); a Pit Snake rears out of its hole as you pass; a Totem Stack is a wall of heads, solid until you shoot them off one by one, each spitting on its own beat; a Cultist (the `boulder_surf` bonus) walks at the boulder, harmless |
+| `altar` | `ID x y kind=offer\|false trapdoor=x0,y0,x1,y1` | Gold Fever (any level with an altar): each gem fills the greed meter; hold up at an offering altar to give a gem back every 4 frames. The false altar drops its trapdoor (and itself) when you hold up with gems or stand on it 30 frames; with no gems it wakes the level's dormant bonus door instead |
+| `coinheap`, `refill` | `x y waves= count=`; `x y` | a gold heap that spills Coin Beetles as you pass (`waves` times, `count` each); a basin that tops the Jade Bow up once a life |
+| `golem` | `ID x y arena=x0,y0,x1,y1 door=x0,y0,x1,y1 exit=x,y` | Kaan-Tolok, the Idol Golem: wakes when you are in the arena (the door shuts), stomps, breaks into three heads, rebuilds and sweeps while the walls close in. Armor plates over its chest gem, one per 10 greed (6 at most); the exit appears once it falls. A `C` inside it is its candid camera |
+| enemy keys `drummer`, `coinbeetle`, `sentinel` (`row=x0,x1,row heads=`), `templecat` | | a War Drummer beats twice a second and drives the beetles near it; a Coin Beetle crawls, rattles and hops and drops 2 gems; a Glyph Sentinel fires beams down its glyph row while you are on the floor of it, and the row soaks up all but a full-draw Jade Bow shot; a Temple Cat (the `golden_touch` bonus) wanders, harmless |
+| `goldfield`, `golddoor`, `goldgate` | `rect=` | the `golden_touch` rule: the marked blocks (every solid block in the rect), a door that opens as you come near, the exit gate |
 | `flipper`, `pbumper`, `lamp`, `plunger`, `gate`, `drain`, `pwall` | `x y side=l\|r len=`; `x y`; `rect`; `path=` (block corners) | the `pinball` rule's table: flippers (their pivots), bumpers, lanterns to light, the plunger, the gate that opens when every lantern is lit, the drain back to the plunger, and slanted rails |
 | `goo` | `rect` | Episode 7: the solid blocks in it are coated in goo. Jump into a goo wall holding toward it and you cling to it, sliding slowly down (up holds you, down slides fast, away lets go); jump kicks you off, three cells away from the wall and then your full jump, so you climb a single wall by steering back to it or a chimney by kicking from wall to wall. The Goo Gun's blobs leave the same goo on any wall for 10 seconds (four patches at most) and glue an alien's feet for 3 seconds |
 | enemy keys `skitter`, `spitpod`, `gloop` (`carrier=1`) | | Level 44's aliens: the Skitter scuttles along its floor and up goo walls, and clicks for 8 frames before it leaps at you; the Spitpod's bulb swells for 12 frames, then it lobs acid where you stand; the Gloop hops after you, and when killed splats goo on the nearest wall and splits into two Glooplets (not counted in the tally) |

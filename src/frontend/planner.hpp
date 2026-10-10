@@ -29,13 +29,19 @@ public:
   bool wantsBonus() const { return mTakeBonus && !mSkipBonus; }
   // Drops the current plan (another controller drove in the meantime).
   void reset() { mQueue.clear(); }
+  // Level 14: the altar to hold up beside now (an index into the world's
+  // altars), or -1.
+  int altarToHold(const World& world) const;
 
 private:
   struct Goal
   {
     int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech
                   // (or a Sun Moth), 6 a stone key, 7 a plate to press (the bonus patch's), 8 a mirror to turn,
-                  // 9 an alcove's shelter (index: the alcove) to wait in
+                  // 9 an alcove's shelter (index: the alcove) to wait in, 10 an altar to hold up beside for the
+                  // bonus (give the gems away, then wake the entrance at the false altar), 11 the last altar
+                  // to give gems back at before the golem (index: the altar), 12 a marked block to stand on
+                  // and gild (Golden Touch; index: the block)
     int x = 0, y = 0;
     int w = 0, h = 0; // kind 3: the entrance's box; kind 5: w=1 shoot it from below; kind 8: w the
                       // shot's direction, h the angle wanted
@@ -43,6 +49,7 @@ private:
   };
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;
+  Goal altarGoal(const World& world) const;
   void buildField(const World& world, const Goal& goal);
   int heuristic(const World& world) const;
   void dumpField() const;
@@ -66,6 +73,7 @@ private:
   bool mTakeBonus = false;
   bool mSkipBonus = false;
   int mSkipBonusAt = -1; // where the search gave up on it (-1: for good)
+  std::vector<int> mPaintSkip; // Golden Touch: marked blocks the search could not get to
   // Level 10.
   std::vector<char> mDoorOpen;  // sun doors the field treats as open
   std::vector<char> mRouteOpen; // while waiting on a door: it and the route doors after it

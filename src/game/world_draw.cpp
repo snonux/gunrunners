@@ -98,7 +98,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (d.first >= tx0 - 1 && d.first <= tx1 + 1)
       drawDecoration(r, mArt, mTheme, float(d.first) * kTilePx - camX, float(d.second) * kTilePx - camY, d.first * 31 + d.second, frame);
 
-  if (!mBoss.on || mBoss.exitT >= 0)
+  if ((!mBoss.on || mBoss.exitT >= 0) && (!mGolem.on || mGolem.phase == GolemPhase::Done))
   {
     // After Black Halo the exit drops out of the crane cab.
     float drop = 0.0f;
@@ -139,6 +139,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawHiveBack(r, camX, camY, frame, alpha);
   drawStarfallBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
+  drawSanctumBack(r, camX, camY, frame, alpha);
+  if (mGolden)
+    drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -358,6 +361,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach == 3 ? 0 : e.attach; // coiled, hissing, reared
         else if (e.kind == EnemyKind::Totem)
           variant = e.tell; // which head's mouth glows
+        else if (e.kind == EnemyKind::Drummer || e.kind == EnemyKind::Sentinel)
+          variant = e.tell > 0 ? 1 : 0; // the drum on the beat, the glyphs lighting
+        else if (e.kind == EnemyKind::CoinBeetle)
+          variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // rattling, hopping
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -452,6 +459,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSpaceFront(r, camX, camY, frame, alpha);
   drawHiveFront(r, camX, camY, frame, alpha);
   drawBoulderFront(r, camX, camY, frame, alpha);
+  drawSanctumFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1030,6 +1038,10 @@ void World::drawHud(Renderer& r, int frame) const
     for (const float cut : {24.0f / 82.0f, 54.0f / 82.0f})
       r.fillRect(bx + bw * cut - 1.0f, by - 3, 3, 18, rgb(20, 16, 30));
   }
+
+  drawSanctumHud(r, frame);
+  if (mGolden)
+    drawGoldenHud(r, frame);
 
   // Bonus level countdown.
   if (mBonusLevel && mLevel->timer > 0)

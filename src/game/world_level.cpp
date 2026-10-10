@@ -105,6 +105,13 @@ void World::setupEntities()
   mPinball = lv.rules.find("pinball") != std::string::npos;
   mFloorLava = lv.rules.find("floor_lava") != std::string::npos;
   mSurfing = lv.rules.find("boulder_surf") != std::string::npos;
+  mGolden = lv.rules.find("golden_touch") != std::string::npos;
+  if (mGolden)
+  {
+    mGold.assign(std::size_t(lv.width * lv.height), 0);
+    if (lv.goal.rfind("paint:", 0) == 0)
+      mGoldGoal = std::clamp(std::atoi(lv.goal.c_str() + 6), 1, 100);
+  }
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -181,6 +188,7 @@ void World::setupEntities()
       setupMineEnemy(en, e);
       setupLavaEnemy(en, e);
       setupBoulderEnemy(en, e);
+      setupSanctumEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -413,6 +421,10 @@ void World::setupEntities()
     if (setupStarfallEntity(e))
       continue;
     if (setupBoulderEntity(e))
+      continue;
+    if (setupSanctumEntity(e))
+      continue;
+    if (setupGoldenEntity(e))
       continue;
     if (setupSludgeEntity(e))
       continue;

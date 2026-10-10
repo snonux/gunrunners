@@ -164,6 +164,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkMine();
   linkLava();
   linkBoulders();
+  linkSanctum();
+  linkGolden();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mPinball)
@@ -228,6 +230,10 @@ std::vector<Bonus> World::bonuses() const
     out.push_back({"UNDER PAR TIME", kBonusPoints});
   if (mBonusStar)
     out.push_back({"BONUS STAR", 10000});
+  // Gold Fever pays: with the greed meter at 10 or more when Kaan-Tolok
+  // falls, every gem of the level counts double.
+  if (mGolem.on && mGolem.phase == GolemPhase::Done && mGreed >= 10 && s.gems > 0)
+    out.push_back({"GOLD FEVER PAYOUT", s.gems * 500});
   return out;
 }
 
@@ -296,6 +302,8 @@ void World::update(const PlayerInput& input)
       updateHive();
       updateStarfall();
       updateBoulders(input);
+      updateSanctum(input);
+      updateGolden();
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -602,6 +610,15 @@ void World::updateEnemies()
       case EnemyKind::Totem:
         updateTotem(e, def);
         break;
+      case EnemyKind::Drummer:
+        updateDrummer(e, def);
+        break;
+      case EnemyKind::CoinBeetle:
+        updateCoinBeetle(e, def);
+        break;
+      case EnemyKind::Sentinel:
+        updateSentinel(e, def);
+        break;
       case EnemyKind::Fish:
         updateFish(e, def);
         break;
@@ -688,6 +705,8 @@ void World::updateProjectiles()
     // Level 13: a Totem Stack's heads are solid, but shots hit the heads.
     if (!mBoulders.empty() && shotAtTotem(pr, b))
       return true;
+    if (mGolden && pr.kind != ShotKind::Enemy && shotAtGolden(pr, b))
+      return true;
     // Level 45: a valve set into a tube turns when shot.
     if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))
       return true;
@@ -698,6 +717,8 @@ void World::updateProjectiles()
     {
       if (pr.kind != ShotKind::Enemy)
         hitBreakable(b, pr.damage, pr.vehicle ? 5 : (pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0)));
+      if (mGolden && pr.kind != ShotKind::Enemy)
+        gildBox(b);
       const Vec2 c = cellCenter(b);
       burst(c, rgb(255, 255, 210), pr.kind == ShotKind::Enemy ? mTheme.enemyEye : mTheme.accentA, 5, 1.0f);
       if (pr.kind == ShotKind::Rocket)
@@ -755,6 +776,12 @@ void World::updateProjectiles()
     if ((!mJRopes.empty() || !mFruits.empty()) && shotAtJungle(pr))
       return true;
     if ((mBoss.on || !mLatches.empty()) && shotAtBoss(pr))
+      return true;
+    // Level 14: Kaan-Tolok soaks shots but where its gem shows; the glyphs
+    // of a Glyph Sentinel's row take what isn't a full draw.
+    if (mGolem.on && shotAtGolem(pr, b))
+      return true;
+    if (!mGlyphRows.empty() && shotAtGlyph(pr, b))
       return true;
     for (auto& box : mBoxes)
     {
@@ -987,6 +1014,8 @@ void World::killEnemy(Enemy& e)
   addScore(def.score, c);
   if (e.kind == EnemyKind::Looter)
     dropLoot(e);
+  if (e.kind == EnemyKind::CoinBeetle)
+    dropGems(e.x, e.y, 2);
   if (e.kind == EnemyKind::Gloop)
     alienKilled(e);
   if (e.kind == EnemyKind::Leech)
@@ -1173,6 +1202,7 @@ void World::collectItem(Item& it)
       break;
     case ItemKind::Gem:
       ++mStats.gems;
+      gainGreed();
       addScore(500, c);
       playSound(Sfx::Gem);
       burst(c, mArt.gemColor[std::size_t(it.variant % 4)], rgb(255, 255, 255), 10, 1.3f);
