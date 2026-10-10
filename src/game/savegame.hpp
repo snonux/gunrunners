@@ -104,6 +104,8 @@ struct SaveGame
   // Idol Mines (level 11): each lever's state, each trapdoor (open), each
   // pile of rubble (landed), then the DAYS WITHOUT ACCIDENT count.
   std::vector<int> mine;
+  // The map: runs of unexplored, explored, unexplored... blocks, row by row.
+  std::vector<int> explored;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

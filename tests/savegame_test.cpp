@@ -100,6 +100,14 @@ int main(int argc, char** argv)
       check(fresh.restore(*loaded), "restore into a fresh world");
       check(fresh.characterIndex() == world.characterIndex(), "same runner after load");
       check(fresh.stats().score == world.stats().score, "same score after load");
+      {
+        // The map comes back block for block.
+        bool same = !s.explored.empty();
+        for (int ty = 0; ty < level->height && same; ++ty)
+          for (int tx = 0; tx < level->width && same; ++tx)
+            same = fresh.explored(tx, ty) == world.explored(tx, ty);
+        check(same && world.explored(level->startTx, level->startTy), "explored map after load");
+      }
       const std::string b = slotPath(dir, 4);
       check(writeSave(fresh.snapshot(), b), "write reloaded save");
       const std::string sa = withoutTimestamp(slurp(a)), sb = withoutTimestamp(slurp(b));

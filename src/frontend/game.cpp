@@ -275,6 +275,12 @@ bool Game::tick(const Input& raw)
         openMenu(Menu::Pause);
         break;
       }
+      if (edge(&Input::map) && mWorld->state() == WorldState::Playing)
+      {
+        sound(Sfx::MenuSelect);
+        openMap();
+        break;
+      }
       if (edge(&Input::swap))
         switchRunner((mWorld->characterIndex() + 1) % kCharacterCount);
       tickPlay(raw);

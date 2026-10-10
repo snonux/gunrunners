@@ -80,6 +80,7 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "swap") in.swap = true;
       else if (b == "quicksave") in.quickSave = true;
       else if (b == "quickload") in.quickLoad = true;
+      else if (b == "map") in.map = true;
       else return false;
     }
     out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
