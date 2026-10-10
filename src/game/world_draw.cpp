@@ -143,6 +143,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawSanctumBack(r, camX, camY, frame, alpha);
   drawStationBack(r, camX, camY, frame, alpha);
+  drawCryoBack(r, camX, camY, frame);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -352,6 +353,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach != 0 ? 2 : (e.tell > 0 ? 1 : 0); // on a wall; the torch flares
         else if (e.kind == EnemyKind::Tether)
           variant = e.attach < 0 && e.tell > 0 ? 1 : 0; // wobbling before a ram
+        else if (e.kind == EnemyKind::Puck && e.variant == 1)
+          variant = 3; // Air Hockey's goalie
+        else if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant || e.kind == EnemyKind::LabArm)
+          variant = std::min(e.attach, 3); // resting, spinning up, sliding; arms up, lunging; lamp red, claws
+        else if (e.kind == EnemyKind::SleeperPod)
+          variant = e.attach + (e.carrier ? 3 : 0); // frosted, thawed, empty; green frost
         else if (e.kind == EnemyKind::Spitpod)
           variant = e.tell > 0 ? 1 : 0; // the bulb swells
         else if (e.kind == EnemyKind::Gloop)
@@ -489,6 +496,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawBoulderFront(r, camX, camY, frame, alpha);
   drawSanctumFront(r, camX, camY, frame, alpha);
   drawStationFront(r, camX, camY, frame, alpha);
+  drawCryoFront(r, camX, camY, frame);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1070,6 +1078,7 @@ void World::drawHud(Renderer& r, int frame) const
 
   drawSanctumHud(r, frame);
   drawStationHud(r, frame);
+  drawCryoHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

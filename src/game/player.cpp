@@ -190,6 +190,13 @@ void World::updatePlayer(const PlayerInput& raw)
     updateShooting(in.fire);
     return;
   }
+  if (mCryo.held >= 0)
+  {
+    // In a Lab Arm's claw (world_cryo.cpp moves the runner).
+    setVisual(PlayerVisual::Falling);
+    updateShooting(in.fire);
+    return;
+  }
   if (mLaunch > 0)
     updateLaunch(mvX);
   else
@@ -269,7 +276,12 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
   {
     case PlayerState::OnGround:
     {
-      if (mvY != 0)
+      if (mCryo.on && cryoGround(mvX, mvY))
+      {
+        if (mLaunch > 0)
+          break; // a kicker in the ice launched the runner
+      }
+      else if (mvY != 0)
       {
         p.stance = mvY < 0 ? Stance::Up : Stance::Crouched;
         setVisual(mvY < 0 ? PlayerVisual::LookingUp : PlayerVisual::Crouching);
@@ -517,6 +529,8 @@ void World::updateHorizontalMovementInAir(int mvX)
       }
     return;
   }
+  if (mCryo.on && cryoAir(mvX))
+    return; // carried on by the slide off the ice
   if (mvX == 0)
     return;
   if (mvX != p.facing)
@@ -989,6 +1003,8 @@ void World::respawnPlayer()
     resetSanctum();
   if (mStation.on())
     resetStation();
+  if (mCryo.on)
+    resetCryo();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

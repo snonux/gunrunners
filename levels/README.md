@@ -65,8 +65,14 @@ statues, and gold doors stay shut for good if touched or shot before they
 open; `recoil_only`: no gravity, no ground, no jump, every shot pushes you
 half a cell a frame the other way (8 directions, 2 cells a frame at most,
 drag 1/32 a frame), touching an `@ asteroid` or the edge bounces you back
-at half speed, and the exit is a return beacon you touch anywhere),
-`timer=` in seconds and `goal=exit`, `goal=collect:N`, `goal=score:N` or
+at half speed, and the exit is a return beacon you touch anywhere;
+`zero_friction`: every floor is ice with no friction at all, walking adds
+1/8 cell a frame up to 1 and only pushing the other way brakes, the runner
+stops dead against walls, frozen Puck Drones never thaw and bounce off
+walls at full speed, a puck that hits a puck stops and the other goes on,
+and you start with the level's prototype, never out of ammo),
+`timer=` in seconds and `goal=exit`, `goal=collect:N`, `goal=score:N`,
+`goal=goals:N` (`zero_friction`: N pucks into the `@ hockeygoal`s) or
 `goal=paint:N` (the `goldgate` opens with N % of the marked blocks gold). Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -183,6 +189,16 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `setpiece` | `x0= x1= y=` | standing on row `y` between `x0` and `x1` wakes every enemy placed with `sleep=1` |
 | `asteroid` | `ID x y w= h= path=x,y;... speed=` | the `recoil_only` rule: a rock (`w` x `h` blocks) tumbling along a loop of block corners at `speed` cells a frame (`1/4`); it bounces the runner, never hurts, and stops shots |
 | enemy keys `loader_mech`, `weld_drone` (`path=x0,x1 wall=1 carrier=1 sleep=1`), `tether_pair` (`gap= patrol=x0,x1 sleep=1`) | | Level 15's crew: a Loader Mech lifts the nearest crate over its head (12 frames) and throws it; shoot its legs (4 hits, their own target) and the vents can take it. A Weld Drone runs its path and leaves a hot seam for 45 frames (a green one infects), climbs walls with `wall=1`. A Tether Pair is two drones `gap` blocks apart with a beam between them that is on for 90 frames and off for 16; kill one and the other rams |
+| `ice` | `rect=x0,y,x1,y` | Level 16's Ice Floors: the tops of these blocks are ice. On ice the runner speeds up 1/8 cell a frame to 1 and slides to a stop at 1/16 (Rocco 1/10 and 1/20; pushing the other way brakes at 1/8), keeps the speed through jumps, and stops within 2 cells on matte; Turbo grips. Puck Drones go 1 on ice, 1/2 on matte. The Freeze Ray makes what it hits a block of ice for 120 frames (a one-way platform to stand on); shot again on ice, it slides at 2 cells a frame until a wall shatters it (killed for its score), off the ice it stops within 2 blocks; what it hits takes 4 damage and lies dazed for 20 frames, a power box or `by=heavy` breakable takes a heavy hit |
+| `kicker` | `x y dir=r\|l launch=` | a wedge in the ice (the block the runner's feet are in): crossed at 3/4 cell a frame or more the way it faces, it launches `launch` cells (Nova 2 more), keeping the speed |
+| `frost` | `rect= dmg= every=` | a cold draught: `dmg` hearts every `every` frames in it |
+| `goalvent` | `x y w= h=` | the rink's goal vent (its bottom block): a frozen block slid into it gets a faint cheer, once |
+| `powerbox` | `ID x y arm=` | a Lab Arm's power box: a solid 1 x 1 block that breaks to 3 hits or a sliding block; the arm `arm` dies with it |
+| `armrail` | `x0= x1= y=` | the ceiling rail the Lab Arms ride (drawn only) |
+| `deco` … `kind=glass\|crewpod\|hostpod` | `x y` (bottom block) | Cryo Labs furniture: a frosted glass partition, a sleeping crew pod (2 x 3 blocks), the HOST (SPARE) pod (its frost clears as you pass; shots at it go tink) |
+| `breakable` … `look=pod`, `look=ice` | | the DO NOT OPEN pod (its bonus door `B` waits inside until it is shot open) and a cube of ice with something in it; both solid until broken |
+| `hockeygoal`, `puckspawn` | `rect=`; `x y` | `zero_friction`: a goal mouth (a puck in it scores and comes back to the `puckspawn`, or the nearest free spot) |
+| enemy keys `puck_drone` (`goalie=1 phase=`), `sleeper_pod` (`carrier=1`), `pod_mutant`, `lab_arm` (`rail=x0,x1`) | | Level 16's labs: a Puck Drone spins up 10 frames, then slides at you along its floor, turning at walls and ledges, and rests 30 frames after 3 bounces (only a crouched shot hits it); a `goalie=1` one stands in front of a goal and hops 6 cells every 48 frames (`phase` frames in), saving every puck that hits it. A Sleeper Pod's frost melts as you come within 5 blocks and its mutant comes out while fewer than 3 are about (shots pass the pod); the Pod Mutant staggers after you, raises its arms 10 frames and lunges 4 cells. A Lab Arm rides its section of the rail above you, glows red 12 frames, drops, holds the runner 15 frames while lifting them 2 blocks and lets go; it takes 6 hits or its power box |
 | `flipper`, `pbumper`, `lamp`, `plunger`, `gate`, `drain`, `pwall` | `x y side=l\|r len=`; `x y`; `rect`; `path=` (block corners) | the `pinball` rule's table: flippers (their pivots), bumpers, lanterns to light, the plunger, the gate that opens when every lantern is lit, the drain back to the plunger, and slanted rails |
 | `goo` | `rect` | Episode 7: the solid blocks in it are coated in goo. Jump into a goo wall holding toward it and you cling to it, sliding slowly down (up holds you, down slides fast, away lets go); jump kicks you off, three cells away from the wall and then your full jump, so you climb a single wall by steering back to it or a chimney by kicking from wall to wall. The Goo Gun's blobs leave the same goo on any wall for 10 seconds (four patches at most) and glue an alien's feet for 3 seconds |
 | enemy keys `skitter`, `spitpod`, `gloop` (`carrier=1`) | | Level 44's aliens: the Skitter scuttles along its floor and up goo walls, and clicks for 8 frames before it leaps at you; the Spitpod's bulb swells for 12 frames, then it lobs acid where you stand; the Gloop hops after you, and when killed splats goo on the nearest wall and splits into two Glooplets (not counted in the tally) |

@@ -2456,6 +2456,126 @@ void stationIntercom(ClipKit& k, int frame, int ticks, float ox, float oy)
   drawGlow(k.r, k.art, 1100 + ox, 418 + oy, 20.0f + 20.0f * a, rgb(255, 60, 40), a);
 }
 
+// Level 16: a white lab corridor running away to a vanishing point, strip
+// lights overhead.
+void cryoCorridor(ClipKit& k, float ox, float oy)
+{
+  const Texture& hall = cached(k, "e3_cryo_corridor", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(214, 230, 242), rgb(236, 244, 250), rgb(170, 190, 210));
+    const double vx = 640, vy = 330;
+    // Floor, walls and ceiling as four trapezoids to the far door.
+    const double fx0 = 520, fx1 = 760, fy0 = 250, fy1 = 410;
+    const struct
+    {
+      double ax, ay, bx, by, cx, cy, dx, dy;
+      Color c;
+    } faces[] = {
+      {0, 720, 1280, 720, fx1, fy1, fx0, fy1, rgb(176, 196, 214)},
+      {0, 0, 1280, 0, fx1, fy0, fx0, fy0, rgb(226, 236, 246)},
+      {0, 0, fx0, fy0, fx0, fy1, 0, 720, rgb(206, 220, 234)},
+      {1280, 0, fx1, fy0, fx1, fy1, 1280, 720, rgb(198, 214, 230)},
+    };
+    for (const auto& f : faces)
+    {
+      cairo_move_to(cr, f.ax, f.ay);
+      cairo_line_to(cr, f.bx, f.by);
+      cairo_line_to(cr, f.cx, f.cy);
+      cairo_line_to(cr, f.dx, f.dy);
+      cairo_close_path(cr);
+      setColor(cr, f.c);
+      cairo_fill(cr);
+    }
+    // Panel seams running to the vanishing point, and the strip lights.
+    for (int i = 0; i < 7; ++i)
+    {
+      const double t = i / 7.0, x = 1280 * t;
+      cairo_move_to(cr, x, 720);
+      cairo_line_to(cr, vx + (x - vx) * 0.19, vy + (720 - vy) * 0.2);
+      setColor(cr, rgba(120, 140, 170, 90));
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+    for (int i = 0; i < 5; ++i)
+    {
+      const double d = 1.0 - i * 0.18, w = 220 * d, y = vy - (vy - 20) * d;
+      cairo_rectangle(cr, vx - w * 0.5, y, w, 10 * d + 2);
+      setColor(cr, rgb(252, 255, 255));
+      cairo_fill(cr);
+    }
+    // The far door, with a frosted window.
+    cairo_rectangle(cr, fx0 + 70, fy0 + 20, 100, fy1 - fy0 - 20);
+    setColor(cr, rgb(150, 166, 186));
+    cairo_fill(cr);
+    cairo_rectangle(cr, fx0 + 90, fy0 + 40, 60, 40);
+    setColor(cr, rgb(214, 238, 255));
+    cairo_fill(cr);
+  });
+  k.r.draw(hall, ox, oy);
+}
+
+// Frost growing in from the frame's edges: `amount` 0 (none) to 1.
+void frostMask(ClipKit& k, float amount, float ox, float oy)
+{
+  if (amount <= 0.0f)
+    return;
+  for (int i = 0; i < 160; ++i)
+  {
+    const int edge = int(hash2(i, 81) % 4u);
+    const float depth = (40.0f + float(hash2(i, 82) % 140u)) * amount;
+    const float r = 10.0f + float(hash2(i, 83) % 26u) * amount;
+    float x = float(hash2(i, 84) % 1280u), y = float(hash2(i, 85) % 720u);
+    if (edge == 0)
+      y = depth * 0.5f;
+    else if (edge == 1)
+      y = 720.0f - depth * 0.5f;
+    else if (edge == 2)
+      x = depth * 0.5f;
+    else
+      x = 1280.0f - depth * 0.5f;
+    k.r.fillRect(x - r + ox, y - r + oy, r * 2.0f, r * 2.0f, rgba(240, 250, 255, int(110 + 80 * amount)));
+  }
+  const float band = 26.0f * amount;
+  k.r.fillRect(ox, oy, 1280, band, rgba(250, 254, 255, 220));
+  k.r.fillRect(ox, 720 - band + oy, 1280, band, rgba(250, 254, 255, 220));
+  k.r.fillRect(ox, oy, band, 720, rgba(250, 254, 255, 220));
+  k.r.fillRect(1280 - band + ox, oy, band, 720, rgba(250, 254, 255, 220));
+}
+
+// Level 16's briefing: the three runners walk up the corridor toward us
+// while frost creeps in from the edges.
+void cryoFrost(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float shift = float(frame % 40) * 2.0f;
+  cryoCorridor(k, ox - shift * 0.25f, oy);
+  const float t = std::min(1.0f, float(frame) / 39.0f);
+  const float scale = 1.6f + 0.8f * t;
+  const int step = 10 + (frame / 1) % 4 * 2; // a 4-frame walk loop
+  const float spread = 150.0f + 80.0f * t, base = 520.0f + 60.0f * t;
+  k.r.draw(runner(k, 1, step, scale), 640 - spread + ox, base + oy);
+  k.r.draw(runner(k, 0, (step + 2) % 18 < 10 ? 10 : (step + 2) % 18, scale), 640 + ox, base + 10 + oy);
+  k.r.draw(runner(k, 2, step, scale, true), 640 + spread + ox, base + oy);
+  frostMask(k, t, ox, oy);
+  (void)ticks;
+}
+
+// Then they stop: Dash shrugs, Nova rubs her hands, Rocco looks at the
+// speaker and away.
+void cryoShrug(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  cryoCorridor(k, ox, oy);
+  const float scale = 2.4f;
+  k.r.draw(runner(k, 0, frame >= 2 && frame <= 5 ? 3 : 0, scale), 640 + ox, 610 + oy);
+  k.r.draw(runner(k, 2, frame % 2 ? 9 : 8, scale, true), 870 + ox, 600 + oy);
+  k.r.draw(runner(k, 1, 0, scale, frame >= 3 && frame <= 5), 410 + ox, 600 + oy);
+  // The wall speaker high on the right.
+  k.r.fillRect(1120 + ox, 120 + oy, 90, 110, rgb(40, 44, 54));
+  for (int g = 0; g < 6; ++g)
+    k.r.fillRect(1130 + ox, 132 + float(g) * 15 + oy, 70, 6, rgb(86, 92, 108));
+  drawGlow(k.r, k.art, 1165 + ox, 244 + oy, 18.0f, rgb(255, 60, 40), frame % 2 ? 0.9f : 0.4f);
+  frostMask(k, 1.0f, ox, oy);
+  (void)ticks;
+}
+
 void goldDoorScratch(ClipKit& k, int frame, int ticks, float ox, float oy)
 {
   goldDoor(k, frame, 0.0f, ox, oy);
@@ -2785,6 +2905,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return stationDock(k, frame, ticks, ox, oy);
   if (clip == "brief15_intercom")
     return stationIntercom(k, frame, ticks, ox, oy);
+  if (clip == "brief16_frost")
+    return cryoFrost(k, frame, ticks, ox, oy);
+  if (clip == "brief16_shrug")
+    return cryoShrug(k, frame, ticks, ox, oy);
   if (clip == "brief14_door")
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")

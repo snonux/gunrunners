@@ -93,7 +93,11 @@ enum class Sfx
   Cannon,    // the tank's gun
   Torpedo,   // a submarine's torpedo
   Stomp,     // a mech landing hard
-  Crunch,    // something crushed under a tank
+  Crunch,
+  Freeze,    // the Freeze Ray icing something over
+  Tink,      // a shot off a block of ice, a frozen block shattering
+  Whine,     // a Puck Drone spinning up
+  Cheer,     // a faint crowd far away (the goal vent, Air Hockey goals)    // something crushed under a tank
   Count,
 };
 
