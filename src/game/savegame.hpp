@@ -123,6 +123,11 @@ struct SaveGame
   // (lit, locked, frames left, hum); each plant (growth, tiles shown,
   // growing); each cloud (x, y, dx, dy in 1/1000 cells, life, carrier).
   std::vector<int> green;
+  // Hull Walk (level 18): the UFO opened, frames stood still, the flags
+  // (x, y); each plate (gone, rivets left, then each rivet's x and frames
+  // unbolted); each Rivet Mite (state, x and y in 1/1000 cells, plate,
+  // rivet, cooldown, facing); each drifter (x, y in 1/1000 cells, target).
+  std::vector<int> hull;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

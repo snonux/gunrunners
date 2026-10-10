@@ -253,6 +253,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
 {
   auto& p = mPlayer;
   p.stance = Stance::Regular;
+  // The Recoil Cannon fires straight down in the air.
+  if (mHull.on && mvY > 0 && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
+    p.stance = Stance::Down;
+  const bool grounded = p.state == PlayerState::OnGround;
 
   if (jumpButton.triggered)
     p.jumpRequested = true;
@@ -371,7 +375,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       }
       updateHorizontalMovementInAir(mvX);
       bool attached = false;
-      const auto result = moveVerticallyInAir(terminalVelocity ? 2 : 1, attached);
+      int fall = terminalVelocity ? 2 : 1;
+      if (mHull.lowgrav)
+        fall = terminalVelocity && ++mHull.fallTick % 5 == 0 ? 2 : 1; // 1.2 cells a frame at most
+      const auto result = moveVerticallyInAir(fall, attached);
       if (!attached && result != MoveResult::Completed)
         landOnGround(terminalVelocity);
       break;
@@ -478,6 +485,11 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
     case PlayerState::Swim: // world_sea.cpp moves a swimmer
       break;
   }
+  if (mHull.lowgrav && grounded && p.state != PlayerState::OnGround)
+  {
+    mHull.airDir = mvX; // the way the runner took off
+    mHull.fallTick = 0;
+  }
 }
 
 void World::updateLadderAttachment(int /*mvX*/, int mvY)
@@ -537,6 +549,8 @@ void World::updateHorizontalMovementInAir(int mvX)
     return;
   if (mvX != p.facing)
     switchOrientation();
+  else if (mHull.lowgrav && mvX != mHull.airDir && ++mHull.airTick % 4 == 0)
+    return; // low gravity: steering against (or without) the take-off runs at 3/4
   else
     for (int i = 0; i < horizontalSteps(); ++i)
       mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), mvX);
@@ -554,7 +568,40 @@ int World::horizontalSteps() const
   return 1;
 }
 
+namespace
+{
+
+// Low gravity (SPEC 3.4): 0.6 x gravity, so jumps go 1.6 x as high, spread
+// over all 8 frames of the arc (Dash 7 -> 11 cells, Rocco 6 -> 10, Nova 9 -> 14).
+const std::array<int, 8>& lowGravityArc(const std::array<int, 8>& base, std::array<int, 8>& out)
+{
+  int sum = 0;
+  for (int v : base)
+    sum += v;
+  int left = int(std::lround(float(sum) * 1.6f));
+  for (int i = 0; i < 8; ++i)
+  {
+    const int frames = 8 - i;
+    out[std::size_t(i)] = (left + frames - 1) / frames;
+    left -= out[std::size_t(i)];
+  }
+  return out;
+}
+
+} // namespace
+
 const std::array<int, 8>& World::jumpArc() const
+{
+  const auto& base = baseJumpArc();
+  return mHull.lowgrav ? lowGravityArc(base, mLowArc) : base;
+}
+
+const std::array<int, 8>& World::runnerJumpArc() const
+{
+  return mHull.lowgrav ? lowGravityArc(mCharacter.jumpArc, mLowRunnerArc) : mCharacter.jumpArc;
+}
+
+const std::array<int, 8>& World::baseJumpArc() const
 {
   if (mAutorun)
     return kDuckJumpArc;
@@ -1012,6 +1059,8 @@ void World::respawnPlayer()
     resetCryo();
   if (mGreen.on)
     resetGreen();
+  if (mHull.on)
+    resetHull();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

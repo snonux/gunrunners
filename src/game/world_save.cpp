@@ -11,7 +11,8 @@ bool World::canSave() const
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
     mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && mPlayer.silk < 0 && !mPinball && !mSurfing &&
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
-    (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave());
+    (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
+    (!mHull.on || hullCanSave()) && !mOrbit.on;
 }
 
 SaveGame World::snapshot() const
@@ -148,8 +149,10 @@ SaveGame World::snapshot() const
       es.attach = 0;
       es.y = e.oy;
     }
-    // Level 17: puffers deflated, Snapjaws asleep, Globs at rest.
-    if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob)
+    // Level 17: puffers deflated, Snapjaws asleep, Globs at rest. Level 18:
+    // barnacles shut, rams hovering.
+    if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob ||
+        e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites)
       es.attach = 0;
     if (i >= mLevelEnemyCount)
     {
@@ -300,6 +303,29 @@ SaveGame World::snapshot() const
              int(std::lround(c.dy * 1000.0f)), c.life, int(c.carrier)})
         s.green.push_back(v);
   }
+  if (mHull.on)
+  {
+    const auto& h = mHull;
+    s.hull = {int(h.ufoOpen), h.still, int(h.flags.size())};
+    for (const auto& f : h.flags)
+      for (int v : {f.x, f.y})
+        s.hull.push_back(v);
+    for (const auto& pl : h.plates)
+    {
+      s.hull.push_back(int(pl.drifting));
+      s.hull.push_back(int(pl.rivets.size()));
+      for (std::size_t r = 0; r < pl.rivets.size(); ++r)
+        for (int v : {pl.rivets[r], pl.unbolt[r]})
+          s.hull.push_back(v);
+    }
+    for (const auto& m : h.mites)
+      for (int v : {int(m.state), int(std::lround(m.x * 1000.0f)), int(std::lround(m.y * 1000.0f)), m.plate, m.rivet,
+             m.cool, m.dir})
+        s.hull.push_back(v);
+    for (const auto& d : h.drifters)
+      for (int v : {int(std::lround(d.fx * 1000.0f)), int(std::lround(d.fy * 1000.0f)), d.target})
+        s.hull.push_back(v);
+  }
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -383,6 +409,7 @@ bool World::restore(const SaveGame& s)
       (!s.green.empty() && (s.green.size() < 5 || s.green[4] < 0 ||
                              s.green.size() != 5 + mGreen.lamps.size() * 4 + mGreen.plants.size() * 3 +
                                std::size_t(s.green[4]) * 6)) ||
+      (!s.hull.empty() && !validHullSave(s.hull)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -499,10 +526,11 @@ bool World::restore(const SaveGame& s)
       e.attach = se.attach; // frosted, thawed or empty
     if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant || e.kind == EnemyKind::LabArm)
       e.attach = 0;
-    if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob)
+    if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob ||
+        e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites)
     {
       e.attach = 0;
-      e.tell = e.dive = 0;
+      e.tell = e.dive = e.ox = 0;
     }
     e.frozen = 0;
     e.vx = e.fx = 0.0f;
@@ -785,6 +813,62 @@ bool World::restore(const SaveGame& s)
     c.shut = 0;
     setChute(c, false);
   }
+  if (!s.hull.empty())
+  {
+    auto& h = mHull;
+    std::size_t at = 0;
+    h.ufoOpen = s.hull[at++] != 0;
+    h.still = s.hull[at++];
+    h.flags.clear();
+    const int flags = s.hull[at++];
+    for (int i = 0; i < flags; ++i)
+    {
+      HullFlag f;
+      f.x = s.hull[at++];
+      f.y = s.hull[at++];
+      f.age = 1000;
+      h.flags.push_back(f);
+    }
+    for (auto& pl : h.plates)
+    {
+      // Gone plates leave the hole they left; bolted ones keep the rivets
+      // that were still in.
+      pl.drifting = s.hull[at++] != 0;
+      pl.life = pl.drifting ? 1000 : 0;
+      pl.platform = -1;
+      const int n = s.hull[at++];
+      pl.rivets.clear();
+      pl.unbolt.clear();
+      for (int r = 0; r < n; ++r)
+      {
+        pl.rivets.push_back(s.hull[at++]);
+        pl.unbolt.push_back(s.hull[at++]);
+      }
+      for (int tx = pl.x0; tx <= pl.x1; ++tx)
+        mMap.setBlock(tx, pl.y, pl.drifting ? Tile::Empty : Tile::Solid);
+    }
+    for (auto& m : h.mites)
+    {
+      m.state = MiteState(s.hull[at++]);
+      m.x = float(s.hull[at++]) / 1000.0f;
+      m.y = float(s.hull[at++]) / 1000.0f;
+      m.plate = s.hull[at++];
+      m.rivet = s.hull[at++];
+      m.cool = s.hull[at++];
+      m.dir = s.hull[at++];
+      m.vx = m.vy = 0.0f;
+      m.timer = 0;
+    }
+    for (auto& d : h.drifters)
+    {
+      d.fx = float(s.hull[at++]) / 1000.0f;
+      d.fy = float(s.hull[at++]) / 1000.0f;
+      d.target = s.hull[at++];
+    }
+    h.shove = h.shoveFrames = 0;
+    h.kick = h.alien = 0;
+    syncPlatformCollision();
+  }
   if (!s.green.empty())
   {
     auto& g = mGreen;
@@ -973,6 +1057,33 @@ bool World::restore(const SaveGame& s)
   }
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   return true;
+}
+
+// Whether a Hull Walk record fits this level's plates, mites and drifters.
+bool World::validHullSave(const std::vector<int>& v) const
+{
+  const auto& h = mHull;
+  std::size_t at = 3;
+  if (v.size() < at || v[2] < 0 || v[2] > 1000)
+    return false;
+  at += std::size_t(v[2]) * 2;
+  for (const auto& pl : h.plates)
+  {
+    if (v.size() < at + 2)
+      return false;
+    const int n = v[at + 1];
+    if (n < 0 || n > int(pl.unbolt.size()) + int(pl.rivets.size()) + 8)
+      return false;
+    at += 2 + std::size_t(n) * 2;
+  }
+  for (std::size_t i = 0; i < h.mites.size(); ++i)
+  {
+    if (v.size() < at + 7 || v[at] < 0 || v[at] > int(MiteState::Dead) || v[at + 3] >= int(h.plates.size()))
+      return false;
+    at += 7;
+  }
+  at += h.drifters.size() * 3;
+  return v.size() == at;
 }
 
 } // namespace gr

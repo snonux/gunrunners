@@ -30,6 +30,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_station.cpp
   src/assets/enemy_art_cryo.cpp
   src/assets/enemy_art_green.cpp
+  src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
   src/assets/enemy_art_crystal.cpp
@@ -80,6 +81,9 @@ add_library(gunrunners_core STATIC
   src/game/world_cryo_draw.cpp
   src/game/world_green_draw.cpp
   src/game/world_green.cpp
+  src/game/world_hull_draw.cpp
+  src/game/world_hull.cpp
+  src/game/world_orbit.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
@@ -214,3 +218,7 @@ add_executable(green_test tests/green_test.cpp)
 target_link_libraries(green_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME hydroponics COMMAND green_test ${CMAKE_SOURCE_DIR}/levels/17_bonus_growth_spurt.txt)
 add_test(NAME savegame_hydroponics COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/17_hydroponics.txt 1200)
+add_executable(hull_test tests/hull_test.cpp)
+target_link_libraries(hull_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME hull_walk COMMAND hull_test ${CMAKE_SOURCE_DIR}/levels/18_bonus_planetoids.txt)
+add_test(NAME savegame_hull_walk COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/18_hull_walk.txt 1200)

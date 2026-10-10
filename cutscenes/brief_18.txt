@@ -1,6 +1,7 @@
 cutscene brief_18
 music hull_breathing
 
+# clip brief18_airlock (24 frames)
 shot brief18_airlock delay=150 repeat=1
   cue 0 fade=in:500
   cue 0 sound=airlock_hiss

@@ -15,6 +15,7 @@
 #include "game/station.hpp"
 #include "game/cryo.hpp"
 #include "game/green.hpp"
+#include "game/hull.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -240,6 +241,7 @@ struct Projectile
   bool spear = false; // a Spear Runner's spear (Fan Darts break it)
   bool vehicle = false; // fired by a vehicle: breaks `by=vehicle` walls
   bool bounced = false; // a Swap Rifle shot already bounced off a wall
+  bool spike = false;   // a Space Barnacle's spike (drawn as a needle along its flight)
   int anchorX = -1, anchorY = -1; // a Silk Shooter shot: the hands it was fired from
   bool alive = true;
   int age = 0;
@@ -1747,6 +1749,10 @@ public:
   // Level 16, Cryo Labs: ice floors, frozen blocks, Lab Arms, Air Hockey.
   const CryoState& cryo() const { return mCryo; }
   const GreenState& green() const { return mGreen; }
+  const HullState& hull() const { return mHull; }
+  const std::array<int, 8>& jumpArc() const; // this frame's jump (character, Turbo, Virus, low gravity)
+  const std::array<int, 8>& runnerJumpArc() const; // the runner's own jump (in low gravity too)
+  const OrbitState& orbit() const { return mOrbit; }
   bool onIce() const;
   bool golemFight() const;
   int golemHp() const;
@@ -1842,7 +1848,7 @@ private:
   void hurtPlayer(int amount);
   void startTurbo();
   void infect();
-  const std::array<int, 8>& jumpArc() const;
+  const std::array<int, 8>& baseJumpArc() const;
   int horizontalSteps() const; // cells per frame: 2 in turbo, 0 or 1 when infected
   void killPlayer();
   void respawnPlayer();
@@ -2197,6 +2203,33 @@ private:
   void drawGreenFront(Renderer& r, float camX, float camY, int frame) const;
   void drawGreenHud(Renderer& r, int frame) const;
   void drawGreenBreakable(Renderer& r, const Breakable& b, float camX, float camY, int frame) const;
+  // Level 18, Hull Walk (world_hull.cpp, world_hull_draw.cpp) and its
+  // Planetoids bonus (world_orbit.cpp).
+  bool setupHullEntity(const EntityDef& e);
+  void setupHullEnemy(Enemy& en, const EntityDef& e);
+  void linkHull();
+  void resetHull();
+  bool shotAtHull(Projectile& pr, const CellBox& b);
+  void updateHull(const PlayerInput& input);
+  void updateBarnacle(Enemy& e, const EnemyDef& def);
+  void updateEvaRam(Enemy& e, const EnemyDef& def);
+  void updateMites(Enemy& e, const EnemyDef& def);
+  void updateHullPlates();
+  void looseRivet(int plate, int rivet);
+  void shoveRunner(int dir, int cells, int frames);
+  void recoilKick(int dx, int dy);
+  bool hullCanSave() const;
+  bool validHullSave(const std::vector<int>& v) const;
+  bool setupOrbitEntity(const EntityDef& e);
+  void linkOrbit();
+  void updateOrbit(const PlayerInput& input);
+  void orbitPlace();
+  void drawHullBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawHullFront(Renderer& r, float camX, float camY, int frame) const;
+  void drawHullHud(Renderer& r, int frame) const;
+  void drawHullBreakable(Renderer& r, const Breakable& b, float camX, float camY, int frame) const;
+  void drawOrbitBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawOrbitFront(Renderer& r, float camX, float camY, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2571,6 +2604,9 @@ private:
   StationState mStation;
   CryoState mCryo;
   GreenState mGreen;
+  HullState mHull;
+  mutable std::array<int, 8> mLowArc{}, mLowRunnerArc{}; // jumpArc(), runnerJumpArc() in low gravity
+  OrbitState mOrbit;
   std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.

@@ -100,6 +100,8 @@ void World::updateProtoShooting(const Button& fire)
     mPaint.clear();
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::RecoilCannon)
+    shoot = fire.triggered && p.shotCooldown == 0; // Turbo keeps the 10-frame refire
   if (ProtoId(p.proto) == ProtoId::HedgeTrimmer)
   {
     // Held: a spinning cone in front of the runner (world_green.cpp).
@@ -207,6 +209,8 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     fireArc(ox, oy, dx, damage);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::RecoilCannon)
+    recoilKick(dx, dy); // and the shot goes on below
   if (ProtoId(p.proto) == ProtoId::HedgeTrimmer)
   {
     // Aimed up or down, the Trimmer's handle fires a plain shot.

@@ -2051,8 +2051,13 @@ void speckle(cairo_t* cr, Rng& rng, int count, Color a, Color b, double x0, doub
   }
 }
 
+bool isHull(const Theme& t);
+Texture bakeHullSolid(const Renderer& r, const Theme& t, int variant);
+
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isHull(t))
+    return bakeHullSolid(r, t, variant);
   if (isAlien(t))
     return bakeAlienSolid(r, t, variant);
   VectorImage img(64, 64);
@@ -2165,6 +2170,173 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 constexpr int kTopTexH = 96;
 constexpr double kTopOff = 32.0;
 
+// Level 18's hull (theme look "hull"): grey-white plating outside the ring,
+// lit from the low sun.
+bool isHull(const Theme& t) { return std::string_view(t.look) == "hull"; }
+
+// A rivet head: a little dome with a highlight.
+void hullRivet(cairo_t* cr, double x, double y, double rad, const Theme& t)
+{
+  cairo_arc(cr, x + 0.6, y + 0.8, rad, 0, 2 * kPi);
+  setColor(cr, withAlpha(t.rockDark, 170));
+  cairo_fill(cr);
+  cairo_arc(cr, x, y, rad, 0, 2 * kPi);
+  cairo_pattern_t* p = cairo_pattern_create_radial(x - rad * 0.4, y - rad * 0.4, 0.2, x, y, rad);
+  cairo_pattern_add_color_stop_rgb(p, 0, 1.0, 1.0, 1.0);
+  cairo_pattern_add_color_stop_rgb(p, 1, redOf(t.rock) / 255.0, greenOf(t.rock) / 255.0, blueOf(t.rock) / 255.0);
+  cairo_set_source(cr, p);
+  cairo_fill(cr);
+  cairo_pattern_destroy(p);
+}
+
+// One hull panel per block: thin seams along its top and left (so a wall of
+// them reads as one plated hull), rivet lines beside them, faint brushed
+// streaks and micrometeorite pits. Variant 1 adds a louvred vent, variant
+// 2 a band of hazard stripes.
+Texture bakeHullSolid(const Renderer& r, const Theme& t, int variant)
+{
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  Rng rng(std::uint32_t(variant * 7919 + 1801));
+  cairo_rectangle(cr, 0, 0, 64, 64);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 64, 64);
+  cairo_pattern_add_color_stop_rgb(g, 0, redOf(t.rockLight) / 255.0, greenOf(t.rockLight) / 255.0, blueOf(t.rockLight) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 0.6, redOf(t.rock) / 255.0, greenOf(t.rock) / 255.0, blueOf(t.rock) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.rock) / 255.0 * 0.9, greenOf(t.rock) / 255.0 * 0.9, blueOf(t.rock) / 255.0 * 0.94);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // Seams: a dark groove with a lit lip below and right of it.
+  cairo_rectangle(cr, 0, 0, 64, 1.6);
+  cairo_rectangle(cr, 0, 0, 1.6, 64);
+  setColor(cr, withAlpha(darken(t.rockDark, 0.2f), 230));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 1.6, 1.6, 62.4, 1.2);
+  cairo_rectangle(cr, 1.6, 1.6, 1.2, 62.4);
+  setColor(cr, rgba(255, 255, 255, 110));
+  cairo_fill(cr);
+  // Brushed streaks.
+  for (int i = 0; i < 10; ++i)
+  {
+    const double y = 6 + rng.uniform() * 52, x = 4 + rng.uniform() * 30;
+    strokeLimb(cr, {{x, y}, {x + rng.range(10, 26), y}}, 0.8, rgba(255, 255, 255, 34), kInk, 0.0);
+  }
+  // Pits.
+  for (int i = 0; i < 4; ++i)
+  {
+    cairo_arc(cr, rng.range(8, 56), rng.range(8, 56), rng.range(0.6f, 1.2f), 0, 2 * kPi);
+    setColor(cr, withAlpha(t.rockDark, 120));
+    cairo_fill(cr);
+  }
+  // Rivet lines beside the seams.
+  for (double x = 10; x < 62; x += 13)
+    hullRivet(cr, x, 6, 1.5, t);
+  for (double y = 19; y < 62; y += 13)
+    hullRivet(cr, 6, y, 1.5, t);
+  if (variant == 1)
+  {
+    // A louvred vent and a little stencilled tag.
+    roundedRect(cr, 30, 30, 26, 22, 3);
+    setColor(cr, withAlpha(darken(t.rockDark, 0.3f), 230));
+    cairo_fill(cr);
+    for (int i = 0; i < 4; ++i)
+    {
+      roundedRect(cr, 32, 32.5 + i * 5, 22, 2.2, 1);
+      setColor(cr, withAlpha(t.rock, 220));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 14, 44, 10, 3);
+    setColor(cr, withAlpha(t.accentA, 180));
+    cairo_fill(cr);
+  }
+  else if (variant == 2)
+  {
+    // A band of hazard stripes along the panel's foot.
+    cairo_save(cr);
+    cairo_rectangle(cr, 3, 50, 61, 10);
+    cairo_clip(cr);
+    setColor(cr, t.trim);
+    cairo_paint(cr);
+    for (int x = -16; x < 80; x += 12)
+    {
+      cairo_move_to(cr, x, 60);
+      cairo_line_to(cr, x + 6, 60);
+      cairo_line_to(cr, x + 16, 50);
+      cairo_line_to(cr, x + 10, 50);
+      cairo_close_path(cr);
+      setColor(cr, rgb(34, 34, 40));
+      cairo_fill(cr);
+    }
+    cairo_restore(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// The hull's walkway edge: a bright cap catching the sunrise, tread marks.
+Texture bakeHullSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  cairo_rectangle(cr, 0, y, 64, 8);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + 8);
+  cairo_pattern_add_color_stop_rgb(g, 0, 0.97, 0.98, 1.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.rock) / 255.0, greenOf(t.rock) / 255.0, blueOf(t.rock) / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  cairo_rectangle(cr, 0, y + 8, 64, 2);
+  setColor(cr, withAlpha(t.rockDark, 220));
+  cairo_fill(cr);
+  // The low sun's warm rim along the very top.
+  cairo_rectangle(cr, 0, y - 1, 64, 2);
+  setColor(cr, withAlpha(t.accentA, 200));
+  cairo_fill(cr);
+  // Grip treads.
+  for (int x = 4; x < 64; x += 8)
+  {
+    roundedRect(cr, x, y + 3, 4, 2.5, 1);
+    setColor(cr, withAlpha(t.rockDark, 120));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
+// A one-way girder: two flanges with a lattice web, joining tile to tile.
+Texture bakeHullGirder(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, 40);
+  cairo_t* cr = img.cr();
+  const double top = 1, bottom = 19;
+  // The lattice web.
+  for (int pass = 0; pass < 2; ++pass)
+  {
+    cairo_move_to(cr, -2, bottom);
+    for (int k = 0; k <= 4; ++k)
+      cairo_line_to(cr, k * 16.0, k % 2 ? top + 4 : bottom - 1);
+    cairo_line_to(cr, 66, top + 4);
+    setColor(cr, pass == 0 ? darken(t.platformDark, 0.4f) : t.platform);
+    cairo_set_line_width(cr, pass == 0 ? 5.0 : 2.4);
+    cairo_stroke(cr);
+  }
+  // Flanges.
+  cairo_rectangle(cr, 0, top, 64, 5);
+  fillGradientOutline(cr, top, top + 5, lighten(t.platform, 0.5f), t.platform, darken(t.platformDark, 0.4f), 1.2);
+  cairo_rectangle(cr, 0, bottom - 1, 64, 4);
+  fillGradientOutline(cr, bottom - 1, bottom + 3, t.platform, t.platformDark, darken(t.platformDark, 0.4f), 1.2);
+  cairo_rectangle(cr, 0, top - 0.5, 64, 1.5);
+  setColor(cr, withAlpha(t.accentA, 170));
+  cairo_fill(cr);
+  for (double x : {0.0, 32.0, 64.0})
+  {
+    cairo_arc(cr, x, bottom + 1, 2.2, 0, 2 * kPi);
+    setColor(cr, lighten(t.platform, 0.4f));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+
 // Level 17's floors: a strip of dark potting soil under a mossy lip, grass
 // and seedlings poking up (theme look "greenhouse").
 Texture bakeGreenhouseSolidTop(const Renderer& r, const Theme& t)
@@ -2210,6 +2382,8 @@ Texture bakeGreenhouseSolidTop(const Renderer& r, const Theme& t)
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isHull(t))
+    return bakeHullSolidTop(r, t);
   if (std::string_view(t.look) == "greenhouse")
     return bakeGreenhouseSolidTop(r, t);
   if (isAlien(t))
@@ -2319,6 +2493,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isHull(t))
+    return bakeHullGirder(r, t);
   if (isAlien(t))
     return bakeAlienPlatform(r, t);
   VectorImage img(64, 40);
@@ -3893,8 +4069,362 @@ Texture bakeGreenhouseNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Draws `item(dx)` three times so layers tile seamlessly when scrolled.
+template <typename F>
+void wrapped(F item)
+{
+  for (double dx : {-double(kLayerW), 0.0, double(kLayerW)})
+    item(dx);
+}
+
+// Level 18's sky: deep space over the station's ring, the Milky Way slanting
+// across, and low down the planet's night side with the sun just breaking
+// over its curved horizon.
+Texture bakeHullSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {0.8, t.skyBottom}, {1.0, t.skyBottom}});
+  Rng rng(1801u);
+  // The Milky Way: a faint slanting band of haze, denser in stars.
+  auto band = [](double x) { return 60.0 + x * 0.32; };
+  for (int i = 0; i < 26; ++i)
+  {
+    const double x = rng.range(-100, kScreenW + 100);
+    radialGlow(cr, x, band(x) + rng.range(-40, 40), rng.range(70, 150), i % 3 ? rgb(120, 130, 200) : rgb(180, 120, 200),
+      0.07);
+  }
+  for (int i = 0; i < 700; ++i)
+  {
+    const double x = rng.uniform() * kScreenW;
+    const double y = band(x) + (rng.uniform() - 0.5) * (rng.uniform() * 180.0);
+    cairo_arc(cr, x, y, 0.4 + rng.uniform() * 0.7, 0, 2 * kPi);
+    setColor(cr, rgba(220, 230, 255, 40 + rng.irange(0, 100)));
+    cairo_fill(cr);
+  }
+  // Stars.
+  for (int i = 0; i < 360; ++i)
+  {
+    const double x = rng.uniform() * kScreenW, y = rng.uniform() * kScreenH * 0.85, s = rng.uniform();
+    cairo_arc(cr, x, y, 0.5 + s * 1.3, 0, 2 * kPi);
+    const int tint = rng.irange(0, 3);
+    const Color c = tint == 0 ? rgba(255, 230, 200, 80 + int(s * 175)) : rgba(225, 236, 255, 80 + int(s * 175));
+    setColor(cr, c);
+    cairo_fill(cr);
+    if (s > 0.97)
+    {
+      radialGlow(cr, x, y, 9, rgb(200, 220, 255), 0.5);
+      strokeLimb(cr, {{x - 8, y}, {x + 8, y}}, 0.8, rgba(255, 255, 255, 170), kInk, 0.0);
+      strokeLimb(cr, {{x, y - 8}, {x, y + 8}}, 0.8, rgba(255, 255, 255, 170), kInk, 0.0);
+    }
+  }
+  // The planet: a vast curve low in the frame, night side towards us.
+  const double cx = 640, top = 452, pr = 2000, cy = top + pr, sunX = 900;
+  auto limbY = [&](double x) { return cy - std::sqrt(pr * pr - (x - cx) * (x - cx)); };
+  const double sunY = limbY(sunX);
+  radialGlow(cr, sunX, sunY, 520, rgb(255, 140, 60), 0.32);
+  radialGlow(cr, sunX, sunY, 220, rgb(255, 210, 140), 0.4);
+  cairo_arc(cr, cx, cy, pr, 0, 2 * kPi);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, top, 0, kScreenH);
+  cairo_pattern_add_color_stop_rgb(g, 0, 0.08, 0.13, 0.26);
+  cairo_pattern_add_color_stop_rgb(g, 0.25, 0.04, 0.07, 0.15);
+  cairo_pattern_add_color_stop_rgb(g, 1, 0.015, 0.025, 0.06);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // Cloud bands and city lights on the night side.
+  cairo_save(cr);
+  cairo_arc(cr, cx, cy, pr, 0, 2 * kPi);
+  cairo_clip(cr);
+  for (int i = 0; i < 14; ++i)
+  {
+    const double x = rng.range(-100, kScreenW + 100), y = limbY(std::clamp(x, 0.0, double(kScreenW))) + rng.range(14, 150);
+    cairo_save(cr);
+    cairo_translate(cr, x, y);
+    cairo_scale(cr, 1.0, 0.12);
+    cairo_arc(cr, 0, 0, rng.range(80, 220), 0, 2 * kPi);
+    cairo_restore(cr);
+    setColor(cr, rgba(150, 170, 220, 22));
+    cairo_fill(cr);
+  }
+  for (int i = 0; i < 160; ++i)
+  {
+    const double x = rng.uniform() * kScreenW, y = limbY(x) + 30 + rng.uniform() * 140;
+    cairo_arc(cr, x, y, 0.5 + rng.uniform() * 0.9, 0, 2 * kPi);
+    setColor(cr, rgba(255, 200, 120, 60 + rng.irange(0, 110)));
+    cairo_fill(cr);
+  }
+  // Dawn creeping onto the surface near the sun.
+  radialGlow(cr, sunX, sunY + 30, 360, rgb(255, 150, 80), 0.28);
+  cairo_restore(cr);
+  // The atmosphere: a thin glowing line along the limb, gold by the sun and
+  // blue away from it.
+  for (int pass = 0; pass < 3; ++pass)
+  {
+    const double width = pass == 0 ? 22.0 : (pass == 1 ? 8.0 : 2.5);
+    for (int x = -8; x < kScreenW + 8; x += 8)
+    {
+      const double d = std::min(1.0, std::abs(x + 4 - sunX) / 520.0);
+      const Color c = lerpColor(lerpColor(rgb(255, 236, 170), rgb(255, 140, 60), float(std::min(1.0, d * 2.5))),
+        rgb(90, 170, 255), float(std::max(0.0, d * 1.4 - 0.25)));
+      const double a = (pass == 0 ? 0.18 : (pass == 1 ? 0.45 : 0.95)) * (1.0 - 0.45 * d);
+      cairo_move_to(cr, x, limbY(x) + width * 0.2);
+      cairo_line_to(cr, x + 8, limbY(x + 8) + width * 0.2);
+      cairo_set_source_rgba(cr, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a);
+      cairo_set_line_width(cr, width);
+      cairo_stroke(cr);
+    }
+  }
+  // The sun itself, a hot point on the horizon with a long lens streak.
+  radialGlow(cr, sunX, sunY, 90, rgb(255, 250, 220), 0.9);
+  cairo_arc(cr, sunX, sunY, 9, 0, 2 * kPi);
+  setColor(cr, rgb(255, 255, 245));
+  cairo_fill(cr);
+  for (int k = 0; k < 2; ++k)
+  {
+    cairo_save(cr);
+    cairo_translate(cr, sunX, sunY);
+    cairo_scale(cr, 1.0, k == 0 ? 0.018 : 0.006);
+    cairo_arc(cr, 0, 0, k == 0 ? 560 : 320, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_pattern_t* s = cairo_pattern_create_radial(sunX, sunY, 0, sunX, sunY, k == 0 ? 560 : 320);
+    cairo_pattern_add_color_stop_rgba(s, 0, 1.0, 0.96, 0.85, k == 0 ? 0.6 : 0.9);
+    cairo_pattern_add_color_stop_rgba(s, 1, 1.0, 0.7, 0.4, 0.0);
+    cairo_set_source(cr, s);
+    cairo_fill(cr);
+    cairo_pattern_destroy(s);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// A distant piece of the station: a module cylinder seen side on, lit from
+// the sunrise on its right, with rows of tiny windows.
+void hullModule(cairo_t* cr, Rng& rng, double x, double y, double w, double h, Color body, Color rim, Color lit)
+{
+  roundedRect(cr, x, y, w, h, h * 0.45);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + h);
+  cairo_pattern_add_color_stop_rgb(g, 0, redOf(body) / 255.0 * 1.25, greenOf(body) / 255.0 * 1.25, blueOf(body) / 255.0 * 1.2);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(body) / 255.0 * 0.7, greenOf(body) / 255.0 * 0.7, blueOf(body) / 255.0 * 0.75);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // Ribs.
+  for (double rx = x + h * 0.5; rx < x + w - h * 0.4; rx += rng.range(18, 34))
+  {
+    cairo_rectangle(cr, rx, y + 1, 2.5, h - 2);
+    setColor(cr, withAlpha(darken(body, 0.35f), 200));
+    cairo_fill(cr);
+  }
+  // Windows.
+  for (double wx = x + h * 0.6; wx < x + w - h * 0.6; wx += 9)
+    if (rng.uniform() < 0.45f)
+    {
+      cairo_rectangle(cr, wx, y + h * 0.45, 3, 3);
+      setColor(cr, withAlpha(lit, 120 + rng.irange(0, 120)));
+      cairo_fill(cr);
+    }
+  // The rim light on the top and right.
+  cairo_new_path(cr);
+  cairo_arc(cr, x + w - h * 0.45, y + h * 0.45, h * 0.45, -kPi * 0.5, kPi * 0.2);
+  setColor(cr, withAlpha(rim, 200));
+  cairo_set_line_width(cr, 2.0);
+  cairo_stroke(cr);
+  cairo_move_to(cr, x + h * 0.45, y + 0.8);
+  cairo_line_to(cr, x + w - h * 0.45, y + 0.8);
+  setColor(cr, withAlpha(rim, 140));
+  cairo_set_line_width(cr, 1.4);
+  cairo_stroke(cr);
+}
+
+// A solar array: a mast with paired blue panels.
+void hullArray(cairo_t* cr, double x, double y, double len, double size, Color frame, double alpha)
+{
+  cairo_move_to(cr, x, y);
+  cairo_line_to(cr, x + len, y);
+  cairo_set_source_rgba(cr, redOf(frame) / 255.0, greenOf(frame) / 255.0, blueOf(frame) / 255.0, alpha);
+  cairo_set_line_width(cr, 2.0);
+  cairo_stroke(cr);
+  for (double px = x + 6; px + size < x + len; px += size + 6)
+    for (int side = -1; side <= 1; side += 2)
+    {
+      const double py = side < 0 ? y - size * 0.55 - 2 : y + 2;
+      cairo_rectangle(cr, px, py, size, size * 0.55);
+      cairo_set_source_rgba(cr, 0.16, 0.3, 0.62, alpha);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgba(cr, redOf(frame) / 255.0, greenOf(frame) / 255.0, blueOf(frame) / 255.0, alpha * 0.8);
+      cairo_set_line_width(cr, 1.0);
+      cairo_stroke(cr);
+      cairo_move_to(cr, px + size * 0.5, py);
+      cairo_line_to(cr, px + size * 0.5, py + size * 0.55);
+      cairo_stroke(cr);
+    }
+}
+
+// Far: the hub and other arcs of the station, small and hazy in the sky.
+Texture bakeHullFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1802u);
+  const Color body = lerpColor(t.farLayer, t.skyMid, 0.55f), rim = lerpColor(t.accentA, body, 0.55f);
+  const Color lit = lerpColor(rgb(255, 220, 150), body, 0.4f);
+  // The hub: a drum with a docking ring, its spokes reaching down out of frame.
+  wrapped([&](double dx) {
+    const double hx = 700 + dx, hy = 130;
+    // Two spokes reaching down toward the ring, fading into the haze.
+    for (const double a : {0.95, 2.2})
+    {
+      const double ex = hx + std::cos(a) * 360, ey = hy + std::sin(a) * 360;
+      cairo_pattern_t* p = cairo_pattern_create_linear(hx, hy, ex, ey);
+      cairo_pattern_add_color_stop_rgba(p, 0, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0, 0.8);
+      cairo_pattern_add_color_stop_rgba(p, 1, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0, 0.0);
+      cairo_move_to(cr, hx + std::cos(a) * 40, hy + std::sin(a) * 40);
+      cairo_line_to(cr, ex, ey);
+      cairo_set_source(cr, p);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+      cairo_pattern_destroy(p);
+    }
+    Rng hr(1803u);
+    hullModule(cr, hr, hx - 80, hy - 34, 160, 68, body, rim, lit);
+    cairo_save(cr);
+    cairo_translate(cr, hx, hy);
+    cairo_scale(cr, 0.3, 1.0);
+    cairo_arc(cr, 0, 0, 62, 0, 2 * kPi);
+    cairo_restore(cr);
+    setColor(cr, withAlpha(lighten(body, 0.15f), 230));
+    cairo_fill(cr);
+    radialGlow(cr, hx + 70, hy - 30, 8, rgb(255, 60, 60), 0.9);
+    hullArray(cr, hx + 80, hy, 170, 16, rim, 0.7);
+    hullArray(cr, hx - 250, hy, 170, 16, rim, 0.7);
+  });
+  // Other modules adrift on long trusses.
+  for (int k = 0; k < 3; ++k)
+  {
+    const double x = 1150 + k * 470 + rng.range(-60, 60), y = 70 + rng.range(0, 150);
+    const double w = rng.range(90, 160), h = rng.range(18, 28);
+    const std::uint32_t seed = rng.next();
+    wrapped([&](double dx) {
+      Rng mr(seed);
+      cairo_move_to(cr, x + dx - 120, y + h * 0.5);
+      cairo_line_to(cr, x + dx + w + 120, y + h * 0.5);
+      setColor(cr, withAlpha(body, 140));
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+      hullModule(cr, mr, x + dx, y, w, h, body, rim, lit);
+      if (mr.uniform() < 0.7f)
+        hullArray(cr, x + dx + w + 10, y + h * 0.5, 110, 12, rim, 0.6);
+      radialGlow(cr, x + dx + w - 8, y + 4, 6, k % 2 ? rgb(90, 255, 140) : rgb(255, 70, 60), 0.9);
+    });
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: the ring itself curving away below the hull line, its radiators,
+// domes and masts against the planet's glow.
+Texture bakeHullNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1804u);
+  const Color body = t.nearLayer, rim = lerpColor(t.accentA, t.nearLayer, 0.25f);
+  const double base = 600;
+  double x = 0;
+  while (x < kLayerW)
+  {
+    const int kind = rng.irange(0, 3);
+    const double w = kind == 0 ? rng.range(160, 260) : (kind == 1 ? rng.range(80, 120) : rng.range(60, 90));
+    const double h = kind == 0 ? rng.range(26, 50) : (kind == 1 ? rng.range(50, 80) : rng.range(90, 160));
+    const std::uint32_t seed = rng.next();
+    wrapped([&](double dx) {
+      Rng wr(seed);
+      const double bx = x + dx;
+      if (kind == 0)
+      {
+        // A low module.
+        roundedRect(cr, bx, base - h, w, h + 2, 10);
+        setColor(cr, body);
+        cairo_fill(cr);
+        cairo_move_to(cr, bx + 8, base - h + 0.5);
+        cairo_line_to(cr, bx + w - 8, base - h + 0.5);
+        setColor(cr, withAlpha(rim, 200));
+        cairo_set_line_width(cr, 2);
+        cairo_stroke(cr);
+        for (double wx = bx + 14; wx < bx + w - 14; wx += 12)
+          if (wr.uniform() < 0.35f)
+          {
+            cairo_rectangle(cr, wx, base - h * 0.55, 4, 4);
+            setColor(cr, withAlpha(rgb(255, 210, 140), 160));
+            cairo_fill(cr);
+          }
+      }
+      else if (kind == 1)
+      {
+        // A dome.
+        cairo_new_path(cr);
+        cairo_arc(cr, bx + w * 0.5, base, w * 0.5, kPi, 2 * kPi);
+        cairo_close_path(cr);
+        setColor(cr, body);
+        cairo_fill(cr);
+        cairo_new_path(cr);
+        cairo_arc(cr, bx + w * 0.5, base, w * 0.5 - 1, kPi * 1.45, kPi * 1.95);
+        setColor(cr, withAlpha(rim, 210));
+        cairo_set_line_width(cr, 2);
+        cairo_stroke(cr);
+      }
+      else
+      {
+        // A radiator fin or a mast.
+        if (wr.uniform() < 0.5f)
+        {
+          cairo_rectangle(cr, bx, base - h, w * 0.35, h + 2);
+          setColor(cr, body);
+          cairo_fill(cr);
+          for (double ry = base - h + 8; ry < base; ry += 10)
+          {
+            cairo_rectangle(cr, bx + 3, ry, w * 0.35 - 6, 2);
+            setColor(cr, withAlpha(lighten(body, 0.15f), 220));
+            cairo_fill(cr);
+          }
+          cairo_rectangle(cr, bx + w * 0.35 - 2, base - h, 2, h);
+          setColor(cr, withAlpha(rim, 180));
+          cairo_fill(cr);
+        }
+        else
+        {
+          cairo_move_to(cr, bx + w * 0.3, base);
+          cairo_line_to(cr, bx + w * 0.3, base - h);
+          setColor(cr, body);
+          cairo_set_line_width(cr, 4);
+          cairo_stroke(cr);
+          cairo_move_to(cr, bx + w * 0.3 - 14, base - h * 0.7);
+          cairo_line_to(cr, bx + w * 0.3 + 14, base - h * 0.7);
+          cairo_set_line_width(cr, 2);
+          cairo_stroke(cr);
+          radialGlow(cr, bx + w * 0.3, base - h - 2, 10, rgb(255, 60, 50), 0.9);
+        }
+      }
+    });
+    x += w + rng.range(40, 260);
+  }
+  // The ring's hull running under everything, falling away into the dark.
+  cairo_rectangle(cr, 0, base, kLayerW, kScreenH - base);
+  cairo_pattern_t* fade = cairo_pattern_create_linear(0, base, 0, base + 110);
+  cairo_pattern_add_color_stop_rgba(fade, 0, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0, 1.0);
+  cairo_pattern_add_color_stop_rgba(fade, 1, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0, 0.0);
+  cairo_set_source(cr, fade);
+  cairo_fill(cr);
+  cairo_pattern_destroy(fade);
+  cairo_rectangle(cr, 0, base, kLayerW, 2);
+  setColor(cr, withAlpha(rim, 160));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isHull(t))
+    return bakeHullSky(r, t);
   if (isGreenhouse(t))
     return bakeGreenhouseSky(r, t);
   if (isCryo(t))
@@ -4042,16 +4572,10 @@ Texture bakeSky(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
-// Draws `item(dx)` three times so layers tile seamlessly when scrolled.
-template <typename F>
-void wrapped(F item)
-{
-  for (double dx : {-double(kLayerW), 0.0, double(kLayerW)})
-    item(dx);
-}
-
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isHull(t))
+    return bakeHullFar(r, t);
   if (isGreenhouse(t))
     return bakeGreenhouseFar(r, t);
   if (isCryo(t))
@@ -4184,6 +4708,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isHull(t))
+    return bakeHullNear(r, t);
   if (isGreenhouse(t))
     return bakeGreenhouseNear(r, t);
   if (isCryo(t))

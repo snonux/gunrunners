@@ -169,6 +169,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkStation();
   linkCryo();
   linkGreen();
+  linkHull();
+  linkOrbit();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -295,6 +297,8 @@ void World::update(const PlayerInput& input)
         updateSurf(input);
       else if (mStation.recoil)
         updateDrift(input);
+      else if (mOrbit.on)
+        updateOrbit(input);
       else
         updatePlayer(input);
       updateVehicles(input);
@@ -323,6 +327,7 @@ void World::update(const PlayerInput& input)
       updateStation(input);
       updateCryo(input);
       updateGreen(input);
+      updateHull(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -699,6 +704,15 @@ void World::updateEnemies()
       case EnemyKind::Glob:
         updateGlob(e, def);
         break;
+      case EnemyKind::Barnacle:
+        updateBarnacle(e, def);
+        break;
+      case EnemyKind::EvaRam:
+        updateEvaRam(e, def);
+        break;
+      case EnemyKind::Mites:
+        updateMites(e, def);
+        break;
       case EnemyKind::Fish:
         updateFish(e, def);
         break;
@@ -794,6 +808,9 @@ void World::updateProjectiles()
       return true;
     // Level 16: the HOST (SPARE) pod only goes tink.
     if (mCryo.on && pr.kind != ShotKind::Enemy && shotAtCryoEarly(pr, b))
+      return true;
+    // Level 18: Rivet Mites are their own targets.
+    if (mHull.on && pr.kind != ShotKind::Enemy && shotAtHull(pr, b))
       return true;
     // Level 17: a switch lights its grow lamps.
     if (mGreen.on && pr.kind != ShotKind::Enemy && shotAtGreen(pr, b))

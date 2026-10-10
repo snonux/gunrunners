@@ -70,6 +70,8 @@ Input Bot::play(const World& world)
     return surf(world);
   if (world.recoilOnly())
     return drift(world);
+  if (world.orbit().on)
+    return orbit(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   // Level 13: the bonus patch shows on the boulder that rolls over the
@@ -1591,6 +1593,147 @@ Input Bot::floorLava(const World& world)
   mLavaPrev = mLavaQueue.front();
   mLavaQueue.pop_front();
   return mLavaPrev;
+}
+
+Input Bot::orbit(const World& world)
+{
+  if (!mOrbitQueue.empty())
+  {
+    mOrbitPrev = mOrbitQueue.front();
+    mOrbitQueue.pop_front();
+    return mOrbitPrev;
+  }
+  const auto& o0 = world.orbit();
+  Input none;
+  if (o0.planet < 0)
+  {
+    mOrbitPrev = none;
+    return none; // adrift: wait to land
+  }
+  // The part to fetch: the nearest one still out there.
+  const auto& here = o0.planets[std::size_t(o0.planet)];
+  float tx = 0.0f, ty = 0.0f, best = 1e9f;
+  for (const auto& pt : o0.parts)
+    if (!pt.taken)
+    {
+      const float d = std::hypot(pt.x - here.cx, pt.y - here.cy);
+      if (d < best)
+      {
+        best = d;
+        tx = pt.x;
+        ty = pt.y;
+      }
+    }
+  if (best >= 1e9f)
+  {
+    mOrbitPrev = none;
+    return none;
+  }
+  // The planetoid the part lies on.
+  int goal = -1;
+  float goalDist = 1e9f;
+  for (std::size_t i = 0; i < o0.planets.size(); ++i)
+  {
+    const float d = std::hypot(tx - o0.planets[i].cx, ty - o0.planets[i].cy) - o0.planets[i].r;
+    if (d < goalDist)
+    {
+      goalDist = d;
+      goal = int(i);
+    }
+  }
+  const int parts0 = o0.partsTaken;
+  auto planIn = [](int walk, int steer, int f) {
+    Input in;
+    const int dir = walk > 0 ? 1 : -1;
+    const int n = std::abs(walk);
+    if (f < n)
+    {
+      in.right = dir > 0;
+      in.left = dir < 0;
+    }
+    else
+    {
+      in.jump = f == n;
+      in.right = steer > 0;
+      in.left = steer < 0;
+    }
+    return in;
+  };
+  if (goal == o0.planet)
+  {
+    // On the part's planetoid: walk round to it, the short way.
+    const float want = std::atan2(tx - here.cx, -(ty - here.cy));
+    float da = want - o0.ang;
+    while (da > 3.14159265f)
+      da -= 6.2831853f;
+    while (da < -3.14159265f)
+      da += 6.2831853f;
+    Input in;
+    in.right = da > 0.0f;
+    in.left = da <= 0.0f;
+    mOrbitPrev = in;
+    return in;
+  }
+  // Every walk (both ways, up to half round) then a jump, steered either
+  // way or not at all.
+  const int maxWalk = int(3.14159f * here.r) + 2;
+  double bestScore = -1e18;
+  int bestWalk = 0, bestSteer = 0, bestLen = 0;
+  for (int walk = -maxWalk; walk <= maxWalk; walk += 2)
+    for (int steer = -1; steer <= 1; ++steer)
+    {
+      auto sim = world.cloneForSim();
+      Input prev = mOrbitPrev;
+      int f = 0;
+      bool left = false;
+      for (; f < std::abs(walk) + 150; ++f)
+      {
+        const Input in = planIn(walk, steer, f);
+        sim->update(asPlayerInput(in, prev));
+        prev = in;
+        if (sim->state() != WorldState::Playing || sim->orbit().partsTaken > parts0)
+          break;
+        if (f > std::abs(walk))
+        {
+          left = left || sim->orbit().planet != o0.planet;
+          if (left && sim->orbit().planet >= 0)
+            break; // landed
+        }
+      }
+      const auto& o = sim->orbit();
+      double score;
+      if (o.partsTaken > parts0 || sim->state() == WorldState::Exiting)
+        score = 1e6 - f;
+      else if (o.planet < 0 || o.planet == o0.planet || o.lost > 0)
+        score = -1e9; // lost, or back where it started
+      else
+      {
+        const auto& pl = o.planets[std::size_t(o.planet)];
+        score = -double(std::hypot(tx - pl.cx, ty - pl.cy)) * 100.0 - f;
+        if (o.planet == goal)
+          score += 1e5;
+      }
+      if (score > bestScore)
+      {
+        bestScore = score;
+        bestWalk = walk;
+        bestSteer = steer;
+        bestLen = f + 1;
+      }
+    }
+  if (bestScore <= -1e9)
+  {
+    // Nothing lands anywhere new: walk on a bit and look again.
+    Input in;
+    in.right = true;
+    mOrbitPrev = in;
+    return in;
+  }
+  for (int f = 0; f < bestLen; ++f)
+    mOrbitQueue.push_back(planIn(bestWalk, bestSteer, f));
+  mOrbitPrev = mOrbitQueue.front();
+  mOrbitQueue.pop_front();
+  return mOrbitPrev;
 }
 
 } // namespace gr

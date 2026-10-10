@@ -974,6 +974,96 @@ std::vector<float> makeSfx(Sfx id)
         return (boing + air) * attack(t, 0.005) * std::min(1.0, (total - t) / 0.12);
       });
     }
+    case Sfx::Recoil:
+    {
+      // The Recoil Cannon: a deep thump with a whoosh of exhaust behind it.
+      Osc o;
+      Noise n(181);
+      Svf bp;
+      OnePole lp;
+      return render(0.45, [&](double t, double total) {
+        const double thump = o.step(sweep(140.0, 38.0, t / 0.18), Wave::Sine) * std::exp(-t * 11.0) * 0.8;
+        const double crack = lp.lowpass(n.next(), 3000.0) * std::exp(-t * 60.0) * 0.5;
+        const double whoosh = bp.band(n.next(), float(sweep(2400.0, 300.0, t / total)), 1.2) *
+          std::min(1.0, t / 0.04) * std::exp(-t * 6.0) * 0.45;
+        return (thump + crack + whoosh) * attack(t, 0.002);
+      });
+    }
+    case Sfx::Thrust:
+    {
+      // An EVA Ram's thruster firing: a roaring rumble that swells and holds.
+      Noise n(191);
+      Svf lp;
+      Osc o, lfo;
+      return render(0.7, [&](double t, double total) {
+        const double roar = lp.low(n.next(), 500.0 + 900.0 * std::min(1.0, t / 0.15), 1.6) * 0.7;
+        const double hum = o.step(70.0 * (1.0 + 0.05 * lfo.step(18.0, Wave::Sine)), Wave::Saw) * 0.12;
+        return (roar + hum) * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::Spikes:
+    {
+      // A Space Barnacle's shell snapping open, the spikes shooting out.
+      Osc a, b;
+      Noise n(193);
+      OnePole hp;
+      return render(0.4, [&](double t, double) {
+        const double snap = hp.highpass(n.next(), 1800.0) * std::exp(-t * 90.0) * 0.6;
+        double zing = 0.0;
+        for (int k = 0; k < 3; ++k)
+        {
+          const double tk = t - 0.02 * k;
+          if (tk > 0.0)
+            zing += (k == 0 ? a : b).step(sweep(2600.0 - k * 300.0, 900.0, tk / 0.25), Wave::Square, 0.2) *
+              std::exp(-tk * 14.0) * 0.08;
+        }
+        return snap + zing;
+      });
+    }
+    case Sfx::Rivet:
+    {
+      // A rivet working loose and popping out: a ratchet, then a metallic ping.
+      Osc a, b, c;
+      Noise n(197);
+      Svf bp;
+      return render(0.6, [&](double t, double) {
+        const double ratchet = t < 0.18 && std::fmod(t, 0.03) < 0.006 ? bp.band(n.next(), 3200.0, 3.0) * 0.6 : 0.0;
+        const double tp = t - 0.18;
+        double ping = 0.0;
+        if (tp > 0.0)
+          ping = (a.step(1760.0, Wave::Sine) * 0.5 + b.step(2650.0, Wave::Sine) * 0.25 + c.step(4180.0, Wave::Sine) * 0.12) *
+            std::exp(-tp * 9.0) * std::min(1.0, tp / 0.002) * 0.45;
+        return ratchet + ping;
+      });
+    }
+    case Sfx::Hop:
+    {
+      // A tiny chirp: a Rivet Mite (or the runner on a planetoid) leaping.
+      Osc o;
+      return render(0.12, [&](double t, double total) {
+        return o.step(sweep(900.0, 2400.0, t / total), Wave::Triangle) * 0.25 * attack(t, 0.004) *
+          std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::FlagUp:
+    {
+      // A flag planted: a flap of cloth, then a little three-note fanfare.
+      Noise n(199);
+      Svf bp;
+      std::vector<float> out = render(1.1, [&](double t, double) {
+        const double flap = t < 0.3 ? bp.band(n.next(), 700.0 + 500.0 * std::sin(t * 60.0), 1.5) *
+            (0.5 + 0.5 * std::sin(t * 70.0)) * (1.0 - t / 0.3) * 0.5
+                                    : 0.0;
+        return flap;
+      });
+      const int notes[3] = {72, 76, 79};
+      for (int i = 0; i < 3; ++i)
+      {
+        addTone(out, 0.3 + i * 0.12, i == 2 ? 0.7 : 0.14, midiFreq(notes[i]), Wave::Square, 0.07, i == 2 ? 0.3 : 0.08);
+        addTone(out, 0.3 + i * 0.12, i == 2 ? 0.7 : 0.14, midiFreq(notes[i] + 12), Wave::Triangle, 0.05, 0.1);
+      }
+      return out;
+    }
     case Sfx::Count:
       break;
   }

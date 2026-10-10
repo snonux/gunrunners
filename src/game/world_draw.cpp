@@ -146,6 +146,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawCryoBack(r, camX, camY, frame);
   if (mGreen.on)
     drawGreenBack(r, camX, camY, frame);
+  if (mHull.on)
+    drawHullBack(r, camX, camY, frame);
+  if (mOrbit.on)
+    drawOrbitBack(r, camX, camY, frame);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -367,6 +371,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = std::min(e.attach, 2) + 3 * std::clamp(e.variant, 0, 3); // asleep, twitching, biting; facing
         else if (e.kind == EnemyKind::Glob)
           variant = e.attach == 2 ? 2 : (e.attach == 1 ? 1 : 0); // squashed, in the air
+        else if (e.kind == EnemyKind::Barnacle)
+          variant = std::clamp(e.attach, 0, 2) + 3 * std::clamp(e.variant, 0, 3); // shut, cracking, open; facing
+        else if (e.kind == EnemyKind::EvaRam)
+          variant = std::clamp(e.attach, 0, 3); // hovering, thruster hot, ramming, coasting
         else if (e.kind == EnemyKind::Spitpod)
           variant = e.tell > 0 ? 1 : 0; // the bulb swells
         else if (e.kind == EnemyKind::Gloop)
@@ -409,7 +417,20 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // rattling, hopping
         else if (e.stun > 0)
           variant = 0;
-        const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
+        int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
+        if (e.kind == EnemyKind::Barnacle)
+          dirForArt = 1; // its art is turned to its surface already
+        if (e.kind == EnemyKind::EvaRam && e.attach == 2)
+        {
+          // The ram's exhaust streaming out behind it.
+          const float bx = x - float(e.dir) * float(e.w) * kCellPx * 0.5f, by = y - float(e.h) * kCellPx * 0.5f;
+          for (int k = 1; k <= 4; ++k)
+            drawGlow(r, mArt, bx - float(e.dir * k) * 26.0f, by, 30.0f - float(k) * 4.0f, rgb(255, 150, 60),
+              0.55f - float(k) * 0.1f);
+        }
+        else if (e.kind == EnemyKind::EvaRam && e.attach == 1)
+          drawGlow(r, mArt, x - float(e.dir) * float(e.w) * kCellPx * 0.5f, y - float(e.h) * kCellPx * 0.5f, 44.0f,
+            rgb(255, 120, 50), (frame / 2) % 2 ? 0.8f : 0.4f);
         const int animFrame = e.kind == EnemyKind::Bat ? (frame / 3 + e.aimX) % 2 : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
         if (e.kind == EnemyKind::Raver && e.dive > 0)
@@ -507,12 +528,33 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawCryoFront(r, camX, camY, frame);
   if (mGreen.on)
     drawGreenFront(r, camX, camY, frame);
+  if (mHull.on)
+    drawHullFront(r, camX, camY, frame);
+  if (mOrbit.on)
+    drawOrbitFront(r, camX, camY, frame);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
   {
     const float cx = lerpCells(pr.prevX, pr.x, alpha) + float(pr.w) * kCellPx * 0.5f - camX;
     float cy = lerpCells(pr.prevY, pr.y, alpha) + float(pr.h) * kCellPx * 0.5f - camY;
+    if (pr.spike)
+    {
+      // A Space Barnacle's spike: a short dark needle along its flight.
+      float vx = pr.vx, vy = pr.vy;
+      if (vx == 0.0f && vy == 0.0f)
+      {
+        vx = float(pr.dx);
+        vy = float(pr.dy);
+      }
+      const float len = std::max(0.001f, std::sqrt(vx * vx + vy * vy));
+      const float ux = vx / len, uy = vy / len;
+      drawGlow(r, mArt, cx, cy, 24.0f, rgb(255, 120, 210), 0.35f);
+      r.drawLine(cx - ux * 16.0f, cy - uy * 16.0f, cx + ux * 14.0f, cy + uy * 14.0f, 6.0f, rgb(36, 26, 48));
+      r.drawLine(cx - ux * 14.0f, cy - uy * 14.0f, cx + ux * 10.0f, cy + uy * 10.0f, 2.0f, rgb(170, 140, 190));
+      r.drawLine(cx + ux * 8.0f, cy + uy * 8.0f, cx + ux * 18.0f, cy + uy * 18.0f, 2.5f, rgb(255, 200, 240));
+      continue;
+    }
     DrawOpts o;
     if (pr.dx < 0)
       o.angle = 180.0f;
@@ -878,6 +920,13 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     y = (fy - std::cos(a) * off) * kCellPx - camY;
     o.angle = a * 57.2958f;
   }
+  if (mOrbit.on)
+  {
+    // Planetoids: standing out from the little world's surface, feet on it.
+    x = mOrbit.px * kCellPx - camX;
+    y = mOrbit.py * kCellPx - camY;
+    o.angle = mOrbit.ang * 57.2958f;
+  }
 
   if (p.state == PlayerState::Jetpack)
   {
@@ -1100,6 +1149,8 @@ void World::drawHud(Renderer& r, int frame) const
   drawCryoHud(r, frame);
   if (mGreen.on)
     drawGreenHud(r, frame);
+  if (mHull.on)
+    drawHullHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 
