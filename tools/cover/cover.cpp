@@ -6,6 +6,10 @@
 // Writes OUTDIR/cover_front.png and OUTDIR/cover_back.png (1000x1400).
 
 #include "assets/art.hpp"
+#include "assets/enemy_art_alien.hpp"
+#include "assets/vehicle_art.hpp"
+#include "data/characters.hpp"
+#include "data/theme.hpp"
 
 #include <cairo.h>
 
@@ -13,6 +17,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -136,8 +141,101 @@ void runner(cairo_t* cr, int kind, int pose, double x, double y, double scale, b
   cairo_restore(cr);
 }
 
+// Any runner of the roster (0-5 are the built-in six), the same way.
+void rosterRunner(cairo_t* cr, int index, int pose, double x, double y, double scale, bool mirror)
+{
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_scale(cr, mirror ? -scale : scale, scale);
+  cairo_translate(cr, -32.0, -96.0);
+  gr::drawRunnerPose(cr, gr::characterByIndex(index), pose);
+  cairo_restore(cr);
+}
+
+// A styled sprite (a vehicle or an alien) of wCells x hCells, drawn the way
+// the game bakes it (32 px a cell, a 32 px margin), with the middle of its
+// bottom edge at (x, y).
+void sprite(cairo_t* cr, const std::string& key, int wCells, int hCells, int variant, int frame, double x, double y,
+  double scale, bool mirror)
+{
+  const double w = wCells * 32.0, h = hCells * 32.0;
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_scale(cr, mirror ? -scale : scale, scale);
+  cairo_translate(cr, -(32.0 + w / 2.0), -(32.0 + h));
+  static const gr::Theme& vurr = gr::themeByIndex(gr::themeIndexForKey("alien_garden"));
+  if (!gr::drawVehicleArt(cr, key, w, h, variant, frame))
+    gr::drawAlienArt(cr, vurr, key, w, h, variant, frame);
+  cairo_restore(cr);
+}
+
+// Vurr, Episode 7's ringed planet, with a moon.
+void planet(cairo_t* cr, double cx, double cy, double r)
+{
+  glow(cr, cx, cy, r * 1.7, 0x7a4cff, 0.35);
+  // The ring in two bands; the back half goes behind the planet.
+  auto ring = [&](bool frontHalf) {
+    const struct
+    {
+      double radius, width;
+      unsigned c;
+      double a;
+    } bands[] = {{1.75, 0.1, 0xb8f5ff, 0.75}, {1.5, 0.05, 0x5fd8ff, 0.5}};
+    for (const auto& b : bands)
+    {
+      cairo_save(cr);
+      cairo_translate(cr, cx, cy);
+      cairo_rotate(cr, -0.32);
+      cairo_scale(cr, 1.0, 0.24);
+      cairo_arc(cr, 0, 0, r * b.radius, frontHalf ? 0 : kPi, frontHalf ? kPi : 2 * kPi);
+      cairo_restore(cr);
+      set(cr, b.c, b.a);
+      cairo_set_line_width(cr, r * b.width);
+      cairo_stroke(cr);
+    }
+  };
+  ring(false);
+  cairo_save(cr);
+  cairo_arc(cr, cx, cy, r, 0, 2 * kPi);
+  cairo_clip(cr);
+  cairo_pattern_t* body = cairo_pattern_create_linear(cx - r, cy - r, cx + r, cy + r);
+  stop(body, 0.0, 0xd88cff);
+  stop(body, 0.5, 0x7a3cc8);
+  stop(body, 1.0, 0x2a0b52);
+  cairo_set_source(cr, body);
+  cairo_paint(cr);
+  cairo_pattern_destroy(body);
+  // Cloud bands, then the night side.
+  for (int k = 0; k < 7; ++k)
+  {
+    const double y = cy - r + r * (0.2 + 0.26 * k);
+    set(cr, k % 2 ? 0x3ef0c0 : 0xff7ad0, 0.22);
+    cairo_save(cr);
+    cairo_translate(cr, cx, y);
+    cairo_rotate(cr, -0.32);
+    cairo_rectangle(cr, -r * 1.5, -r * 0.05, r * 3, r * (0.06 + 0.03 * (k % 3)));
+    cairo_restore(cr);
+    cairo_fill(cr);
+  }
+  cairo_pattern_t* night = cairo_pattern_create_radial(cx - r * 0.5, cy - r * 0.5, r * 0.3, cx, cy, r * 1.4);
+  stop(night, 0.0, 0x000000, 0.0);
+  stop(night, 1.0, 0x07020f, 0.85);
+  cairo_set_source(cr, night);
+  cairo_paint(cr);
+  cairo_pattern_destroy(night);
+  cairo_restore(cr);
+  ring(true);
+  // A small moon.
+  const double mx = cx + r * 1.25, my = cy - r * 1.45, mr = r * 0.17;
+  glow(cr, mx, my, mr * 2.5, 0x3ef0c0, 0.35);
+  cairo_arc(cr, mx, my, mr, 0, 2 * kPi);
+  set(cr, 0xa8ffe4);
+  cairo_fill(cr);
+}
+
 // The synthwave night: sky, stars, a striped sun, the skyline and the grid.
-void neonNight(cairo_t* cr, double horizon, double sunY, double sunR, std::uint32_t seed)
+void neonNight(cairo_t* cr, double horizon, double sunY, double sunR, std::uint32_t seed,
+  const std::function<void()>& behindCity = {})
 {
   cairo_pattern_t* sky = cairo_pattern_create_linear(0, 0, 0, horizon);
   stop(sky, 0.0, 0x0b0420);
@@ -178,6 +276,8 @@ void neonNight(cairo_t* cr, double horizon, double sunY, double sunR, std::uint3
     cairo_fill(cr);
   }
   cairo_restore(cr);
+  if (behindCity)
+    behindCity();
 
   // Two layers of skyline with lit windows.
   for (int layer = 0; layer < 2; ++layer)
@@ -366,40 +466,68 @@ void frame(cairo_t* cr)
   cairo_stroke(cr);
 }
 
+void beam(cairo_t* cr, double x0, double y0, double x1, double y1, unsigned c)
+{
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+  set(cr, c, 0.35);
+  cairo_set_line_width(cr, 18);
+  cairo_move_to(cr, x0, y0);
+  cairo_line_to(cr, x1, y1);
+  cairo_stroke(cr);
+  set(cr, 0xffffff, 0.9);
+  cairo_set_line_width(cr, 5);
+  cairo_move_to(cr, x0, y0);
+  cairo_line_to(cr, x1, y1);
+  cairo_stroke(cr);
+}
+
 void front(const std::string& path)
 {
   cairo_surface_t* s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, W, H);
   cairo_t* cr = cairo_create(s);
-  neonNight(cr, 900, 700, 270, 42u);
+  // The neon city at night with Vurr, the alien planet, rising over it and
+  // the courier ship heading out to it.
+  neonNight(cr, 900, 700, 270, 42u, [&]() { planet(cr, 170, 560, 105); });
 
-  // Shots streaking across the night.
-  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-  const struct
+  // The courier ship heads out to Vurr, engines burning.
   {
-    double x0, y0, x1, y1;
-    unsigned c;
-  } beams[] = {{820, 820, 1040, 760, 0x6ae6ff}, {180, 980, -40, 1000, 0xffd66a}, {640, 860, 1040, 880, 0xff5a3c}};
-  for (const auto& b : beams)
-  {
-    set(cr, b.c, 0.35);
-    cairo_set_line_width(cr, 18);
-    cairo_move_to(cr, b.x0, b.y0);
-    cairo_line_to(cr, b.x1, b.y1);
-    cairo_stroke(cr);
-    set(cr, 0xffffff, 0.9);
-    cairo_set_line_width(cr, 5);
-    cairo_move_to(cr, b.x0, b.y0);
-    cairo_line_to(cr, b.x1, b.y1);
-    cairo_stroke(cr);
+    cairo_pattern_t* trail = cairo_pattern_create_linear(690, 0, 1000, 0);
+    stop(trail, 0.0, 0x6ae6ff, 0.8);
+    stop(trail, 1.0, 0x6ae6ff, 0.0);
+    cairo_set_source(cr, trail);
+    cairo_move_to(cr, 690, 512);
+    cairo_line_to(cr, 1000, 490);
+    cairo_line_to(cr, 1000, 540);
+    cairo_line_to(cr, 690, 532);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+    cairo_pattern_destroy(trail);
+    glow(cr, 690, 522, 40, 0xffffff, 0.8);
+    sprite(cr, "veh_spaceship", 8, 4, 0, 0, 620, 560, 0.62, true);
   }
 
-  // The three runners: Nova leaping, Dash charging, Rocco planted.
-  glow(cr, 760, 820, 260, 0xff4fd0, 0.45);
-  glow(cr, 250, 1080, 260, 0xffd040, 0.4);
-  glow(cr, 520, 1130, 330, 0x40e0ff, 0.35);
-  runner(cr, 2, 2, 760, 960, 4.6, true);
-  runner(cr, 0, 1, 250, 1210, 4.8, true);
-  runner(cr, 1, 0, 540, 1300, 6.0, false);
+  // The tank on the left with Jade on top, the mech on the right with Skye
+  // leaping off it, Bolt between them.
+  glow(cr, 150, 940, 220, 0x9ae070, 0.3);
+  sprite(cr, "veh_tank", 8, 5, 0, 0, 150, 1000, 1.05, false);
+  rosterRunner(cr, 3, 0, 150, 862, 2.5, false); // Jade
+  glow(cr, 880, 900, 230, 0xff7a3c, 0.3);
+  sprite(cr, "veh_mech", 6, 8, 0, 0, 880, 1010, 1.0, true);
+  glow(cr, 650, 900, 200, 0x6ae6ff, 0.3);
+  rosterRunner(cr, 5, 0, 655, 1010, 2.7, false); // Bolt
+  rosterRunner(cr, 4, 2, 790, 870, 2.4, true);   // Skye
+
+  // Shots across the night.
+  beam(cr, 290, 725, 460, 712, 0xff9a3c);
+  beam(cr, 140, 1090, -40, 1110, 0xffd66a);
+
+  // Dash, Rocco and Nova up front.
+  glow(cr, 800, 1020, 230, 0xff4fd0, 0.3);
+  glow(cr, 200, 1130, 240, 0xffd040, 0.35);
+  glow(cr, 500, 1150, 300, 0x40e0ff, 0.3);
+  rosterRunner(cr, 2, 2, 810, 1210, 3.6, true);  // Nova
+  rosterRunner(cr, 0, 1, 195, 1250, 3.8, true);  // Dash
+  rosterRunner(cr, 1, 0, 490, 1305, 4.4, false); // Rocco
 
   band(cr, 0, 70);
   font(cr, 26);
@@ -409,15 +537,16 @@ void front(const std::string& path)
 
   logo(cr, W / 2.0, 250, 170, W - 70.0);
   font(cr, 30, true);
-  text(cr, "42 LEVELS  \xC2\xB7  42 PROTOTYPES  \xC2\xB7  ONE SHOW", W / 2.0, 320, 0xffffff, 0.5);
+  text(cr, "6 RUNNERS  \xC2\xB7  6 VEHICLES  \xC2\xB7  1 ALIEN PLANET", W / 2.0, 320, 0xffffff, 0.5);
 
-  starburst(cr, 845, 470, 105, 0.25, {"SWITCH", "RUNNERS", "MID-LEVEL!"});
+  starburst(cr, 870, 445, 92, 0.25, {"NOW IN", "DEEP", "SPACE!"});
 
   band(cr, H - 90, 90);
   badge(cr, 30, H - 75, 210, 60, "HD VECTOR", "NO PIXELS ANYWHERE", 0x2ee6ff);
-  badge(cr, W - 240, H - 75, 210, 60, "STEREO", "42 ORIGINAL TRACKS", 0xff3cc8);
-  font(cr, 24);
-  text(cr, "DASH  \xC2\xB7  ROCCO  \xC2\xB7  NOVA", W / 2.0, H - 38, 0xffd66a, 0.5);
+  badge(cr, W - 240, H - 75, 210, 60, "STEREO", "SYNTHESIZED MUSIC", 0xff3cc8);
+  font(cr, 17);
+  text(cr, "DASH \xC2\xB7 ROCCO \xC2\xB7 NOVA", W / 2.0, H - 52, 0xffd66a, 0.5);
+  text(cr, "JADE \xC2\xB7 SKYE \xC2\xB7 BOLT", W / 2.0, H - 26, 0xffd66a, 0.5);
   frame(cr);
   cairo_surface_write_to_png(s, path.c_str());
   cairo_destroy(cr);
@@ -482,15 +611,16 @@ void back(const std::string& path, const std::vector<std::string>& shots)
   font(cr, 26);
   text(cr, "GR", 30, 46, 0xffb02a);
   font(cr, 20, false);
-  text(cr, "1 PLAYER  \xC2\xB7  3 RUNNERS  \xC2\xB7  5 SAVE SLOTS", W - 30, 44, 0xffffff, 1.0);
+  text(cr, "1 PLAYER  \xC2\xB7  6 RUNNERS + YOUR OWN  \xC2\xB7  5 SAVE SLOTS", W - 30, 44, 0xffffff, 1.0);
 
   logo(cr, W / 2.0, 175, 84, W - 200.0);
 
   font(cr, 23, false);
   double y = paragraph(cr,
-    "Dash, Rocco and Nova are couriers. An anonymous client called MAX pays them to recover "
-    "stolen prototype weapons from the most dangerous places there are: neon rooftops, a lost "
-    "temple, a space station and stranger places still. One job per level. No questions asked.",
+    "Six couriers. An anonymous client called MAX pays them to recover stolen prototype "
+    "weapons from the most dangerous places there are: neon rooftops, a lost temple, a frozen "
+    "space station and, after one misdialled teleport, the alien hive planet Vurr. One job per "
+    "level. No questions asked.",
     60, 240, W - 120, 32, 0xffffff);
   font(cr, 25, true, true);
   text(cr, "But somebody is watching. And the ratings are through the roof.", W / 2.0, y + 8, 0xffd66a, 0.5);
@@ -509,12 +639,12 @@ void back(const std::string& path, const std::vector<std::string>& shots)
   font(cr, 26);
   text(cr, "FEATURES", 60, fy, 0x2ee6ff);
   const char* features[] = {
-    "42 levels in six episodes, each with its own twist",
+    "28 levels out now, 21 more on the way",
     "A prototype weapon hidden in every level",
     "Bonus levels behind every flickering TV",
+    "Drive a tank, chopper, mech, sub, bike or ship",
+    "Switch runners mid-level, or build your own",
     "Turbo Mode, and a Virus you'd rather not catch",
-    "Switch runners in the middle of a level",
-    "Every level has its own soundtrack",
   };
   font(cr, 20, false);
   fy += 38;
@@ -527,27 +657,22 @@ void back(const std::string& path, const std::vector<std::string>& shots)
     fy += 33;
   }
 
+  // The six runners, two rows of three.
   const struct
   {
-    int kind;
+    int index;
     const char* name;
-    const char* line;
-    const char* line2;
     unsigned c;
-  } crew[] = {{0, "DASH", "9 hearts", "all-rounder", 0xffd66a},
-              {1, "ROCCO", "12 hearts", "starts with rockets", 0x9ae070},
-              {2, "NOVA", "7 hearts", "jumps highest", 0xff7ad0}};
+  } crew[] = {{0, "DASH", 0xffd66a}, {1, "ROCCO", 0x9ae070}, {2, "NOVA", 0xff7ad0},
+              {3, "JADE", 0xff9a3c}, {4, "SKYE", 0x6ae6ff}, {5, "BOLT", 0xc8d2ff}};
   const double ry = sy + 600;
-  for (int i = 0; i < 3; ++i)
+  for (int i = 0; i < 6; ++i)
   {
-    const double cx = 670 + i * 115;
-    glow(cr, cx, ry + 120, 70, crew[i].c, 0.35);
-    runner(cr, crew[i].kind, 0, cx, ry + 175, 1.45, false);
-    font(cr, 20);
-    text(cr, crew[i].name, cx, ry + 205, crew[i].c, 0.5);
-    font(cr, 13, false);
-    text(cr, crew[i].line, cx, ry + 225, 0xffffff, 0.5);
-    text(cr, crew[i].line2, cx, ry + 242, 0xffffff, 0.5);
+    const double cx = 670 + (i % 3) * 115, feet = ry + 92 + (i / 3) * 128;
+    glow(cr, cx, feet - 45, 55, crew[i].c, 0.35);
+    rosterRunner(cr, crew[i].index, 0, cx, feet, 0.85, false);
+    font(cr, 16);
+    text(cr, crew[i].name, cx, feet + 19, crew[i].c, 0.5);
   }
 
   // The bottom strip: a barcode and the small print.
@@ -570,7 +695,7 @@ void back(const std::string& path, const std::vector<std::string>& shots)
   font(cr, 17, false);
   text(cr, "Free software under the GNU GPL, version 2 or later.", 270, H - 72, 0xffffff);
   text(cr, "Original art, music and sound, all synthesized in code.", 270, H - 46, 0xffffff);
-  text(cr, "Built for Linux. Keyboard and gamepad.", 270, H - 20, 0x2ee6ff);
+  text(cr, "Built for Linux and Android. Keyboard, gamepad and touch.", 270, H - 20, 0x2ee6ff);
   frame(cr);
   cairo_surface_write_to_png(s, path.c_str());
   cairo_destroy(cr);
