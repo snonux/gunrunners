@@ -731,7 +731,10 @@ void Planner::buildField(const World& w, const Goal& goal)
   for (std::size_t bi = 0; bi < w.breakables().size(); ++bi)
   {
     const auto& b = w.breakables()[bi];
-    if (b.broken || !(b.by == 0 || (b.by == 3 && sound) || (b.by == 1 && (pl0.weapon == Weapon::Rocket || caps))))
+    // Growth Spurt: big enough, the runner walks through cracked blocks.
+    const bool big = w.green().grow && w.green().size >= 2;
+    if (b.broken || !(b.by == 0 || (b.by == 3 && sound) || (b.by == 1 && (pl0.weapon == Weapon::Rocket || caps)) ||
+                       (b.by == 2 && big)))
       continue;
     const CellBox area{b.x0 * kCellsPerTile - 12, b.y0 * kCellsPerTile - 12, (b.x1 - b.x0 + 1) * kCellsPerTile + 24,
       (b.y1 - b.y0 + 1) * kCellsPerTile + 24};
@@ -778,6 +781,49 @@ void Planner::buildField(const World& w, const Goal& goal)
             if ((l.tile == Tile::Solid && !timed) || dy == 0)
               top[std::size_t(y * W + x)] = 1;
           }
+  // Level 17: a plant is there when its lamps are lit (or the lamp test
+  // takes them as lit), and gone otherwise, withering or not.
+  std::vector<std::uint8_t> plantLadder(std::size_t(W * H)), plantGone(std::size_t(W * H));
+  {
+    const auto& g = w.green();
+    for (const auto& pl : g.plants)
+    {
+      bool on = !pl.lamps.empty();
+      for (int l : pl.lamps)
+        on = on && (std::size_t(l) < mLampOn.size() ? mLampOn[std::size_t(l)] != 0 : g.lamps[std::size_t(l)].lit);
+      for (const auto& [tx, ty] : pl.tiles)
+        for (int dy = 0; dy < kCellsPerTile; ++dy)
+          for (int dx = 0; dx < kCellsPerTile; ++dx)
+          {
+            const int x = tx * kCellsPerTile + dx, y = ty * kCellsPerTile + dy;
+            if (x < 0 || y < 0 || x >= W || y >= H)
+              continue;
+            const std::size_t i = std::size_t(y * W + x);
+            if (!on)
+            {
+              blocked[i] = top[i] = 0;
+              plantGone[i] = 1;
+              continue;
+            }
+            switch (pl.kind)
+            {
+              case PlantKind::Bridge:
+              case PlantKind::Stairs:
+                blocked[i] = top[i] = 1;
+                break;
+              case PlantKind::Leaf:
+              case PlantKind::Flower:
+                blocked[i] = 0;
+                top[i] = dy == 0;
+                break;
+              case PlantKind::Ladder:
+                blocked[i] = top[i] = 0;
+                plantLadder[i] = 1;
+                break;
+            }
+          }
+    }
+  }
   // Sludge that never moves holds you up like a floor (it still hurts).
   for (const auto& f : w.fluids())
     if (!f.tide && !w.autorun() && f.surface + 1 < H)
@@ -898,6 +944,10 @@ void Planner::buildField(const World& w, const Goal& goal)
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
         spearAt[std::size_t(y * W + x)] = spearCell(x, y);
+  std::vector<CellBox> bites;
+  for (const auto& e : w.enemies())
+    if (e.alive && e.kind == EnemyKind::Snapjaw)
+      bites.push_back({e.x - 2, e.y - e.h - 1, e.w + 4, e.h + 4});
   std::vector<int> support(std::size_t(W * H), kInf), lift(std::size_t(W * H), jumpH);
   // Level 44: beside a goo wall you cling, and a kick off it is a jump from
   // there (back to the same wall, or across a chimney): like ground.
@@ -966,13 +1016,18 @@ void Planner::buildField(const World& w, const Goal& goal)
       if (clingAt[i])
         support[i] = 0;
       for (int yy = y - 4; yy <= y; ++yy)
-        if (map.ladder(x + 1, yy))
+        if (yy >= 0 && ((map.ladder(x + 1, yy) && !plantGone[std::size_t(yy * W + x + 1)]) ||
+                         plantLadder[std::size_t(yy * W + x + 1)]))
           ladder[i] = 1;
       hang[i] = map.climbable(x + 1, y - 5) || map.climbable(x + 1, y - 4);
       for (int yy = y - 4; yy <= y && !hazard[i]; ++yy)
         for (int xx = x; xx <= x + 2; ++xx)
           if (map.hazard(xx, yy))
             hazard[i] = 1;
+      // Level 17: a Snapjaw's bite reaches a cell or two past its jaws.
+      for (const auto& b : bites)
+        if (!hazard[i] && b.intersects(boxAt(x, y, 3, 5)))
+          hazard[i] = 1;
       // Feet in sludge cost hearts; where the tide only sometimes reaches,
       // the search sorts out the timing.
       for (const auto& f : w.fluids())
@@ -1341,6 +1396,16 @@ int Planner::heuristic(const World& w) const
     if (!l.cage && (l.landX1 + 1) * kCellsPerTile + 40 > p.x)
       extra += 20 * std::max(0, rope.hp);
   }
+  // Level 17: a plant still growing close by: waiting for it is progress.
+  for (const auto& pl : w.green().plants)
+  {
+    const int n = int(pl.tiles.size());
+    if (mGoalKind == 13 || !pl.growing || n == 0 || pl.prog >= n * 90)
+      continue;
+    const int rx = pl.tiles.front().first * kCellsPerTile, ry = pl.tiles.front().second * kCellsPerTile;
+    if (std::abs(rx - p.x) < 40 && std::abs(ry - p.y) < 40)
+      extra += (n * 90 - pl.prog) / std::max(1, 2 * n);
+  }
   // A key door that will open: getting to it and waiting while it sinks.
   for (const auto& d : w.keyDoors())
     if (!d.open && w.stoneKeysHeld() >= d.keys)
@@ -1467,6 +1532,134 @@ bool Planner::solveMirrors(const World& w, int door)
   mOrder.clear();
   mSolveBeam = -1;
   return false;
+}
+
+bool Planner::lampGoal(const World& w, Goal& g)
+{
+  const auto& gs = w.green();
+  const auto& lamps = gs.lamps;
+  const auto& p = w.player();
+  // Candidates: lamps out that some plant needs.
+  std::vector<char> cand(lamps.size(), 0);
+  std::uint64_t key = 1469598103934665603ull ^ std::uint64_t(g.kind * 7919 + g.x * 131 + g.y);
+  bool any = false;
+  for (const auto& pl : gs.plants)
+    for (int l : pl.lamps)
+      if (!lamps[std::size_t(l)].lit && !lamps[std::size_t(l)].locked)
+      {
+        cand[std::size_t(l)] = 1;
+        any = true;
+      }
+  if (!any)
+    return false;
+  for (std::size_t i = 0; i < lamps.size(); ++i)
+    key = (key ^ std::uint64_t(lamps[i].lit ? 2 : cand[i])) * 1099511628211ull;
+  // The runner's floor row matters too (the next plant along changes).
+  key = (key ^ std::uint64_t(p.y / 16)) * 1099511628211ull;
+  if (key != mLampKey)
+  {
+    mLampKey = key;
+    mLampWanted = -1;
+    mLampOn.assign(lamps.size(), 0);
+    for (std::size_t i = 0; i < lamps.size(); ++i)
+      mLampOn[i] = lamps[i].lit || cand[i];
+    buildField(w, g);
+    const int all = heuristic(w);
+    std::vector<char> need(lamps.size(), 0);
+    if (all < kInf)
+      for (std::size_t c = 0; c < lamps.size(); ++c)
+      {
+        if (!cand[c])
+          continue;
+        mLampOn[c] = 0;
+        buildField(w, g);
+        need[c] = heuristic(w) > all + 30;
+        mLampOn[c] = 1;
+      }
+    // The next plant along the way: the one furthest from the goal that is
+    // still nearer to it than the runner.
+    buildField(w, g);
+    const int A = kAirBudget + 1;
+    int bestPlant = -1, bestD = -1;
+    for (std::size_t pi = 0; pi < gs.plants.size(); ++pi)
+    {
+      const auto& pl = gs.plants[pi];
+      bool wanted = false;
+      for (int l : pl.lamps)
+        wanted = wanted || need[std::size_t(l)];
+      if (!wanted)
+        continue;
+      int d = kInf;
+      for (const auto& [tx, ty] : pl.tiles)
+        for (int y = ty * kCellsPerTile - 2; y <= ty * kCellsPerTile + 1; ++y)
+          for (int x = tx * kCellsPerTile - 3; x <= tx * kCellsPerTile + 1; ++x)
+            if (x >= 0 && y >= 0 && x < mW && y < mH)
+              d = std::min(d, mDist[std::size_t((y * mW + x) * A)]);
+      if (d < kInf && d <= all + 4 && d > bestD)
+      {
+        bestD = d;
+        bestPlant = int(pi);
+      }
+    }
+    if (bestPlant >= 0)
+    {
+      int bestDist = -1;
+      for (int l : gs.plants[std::size_t(bestPlant)].lamps)
+      {
+        const auto& lamp = lamps[std::size_t(l)];
+        if (!need[std::size_t(l)] || lamp.sw < 0)
+          continue;
+        const auto& sw = gs.switches[std::size_t(lamp.sw)];
+        const int dist = std::abs(sw.bx * kCellsPerTile - p.x) + std::abs(sw.by * kCellsPerTile - p.y);
+        if (bestDist < 0 || dist < bestDist)
+        {
+          bestDist = dist;
+          mLampWanted = l;
+        }
+      }
+    }
+    mLampOn.clear();
+    mDist.clear(); // the real goal's field is built next
+    static const bool debug = std::getenv("GR_PLANNER_DEBUG") != nullptr;
+    if (debug)
+      std::fprintf(stderr, "lamps: lamp %d wanted (plant %d, h %d)\n", mLampWanted, bestPlant, all);
+  }
+  if (mLampWanted < 0)
+    return false;
+  // Where to stand: level with the switch (a shot or the Trimmer's cone),
+  // or under it to shoot up.
+  const auto& sw = gs.switches[std::size_t(lamps[std::size_t(mLampWanted)].sw)];
+  const int sx = sw.bx * kCellsPerTile, sy = sw.by * kCellsPerTile;
+  int feet = -1;
+  for (int y = sy + 2; y < sy + 40 && y < w.map().height(); ++y)
+    if (w.map().solidTop(sx, y) || w.map().solidTop(sx + 1, y))
+    {
+      feet = y - 1;
+      break;
+    }
+  if (feet < 0)
+    return false;
+  Goal sg;
+  sg.kind = 13;
+  sg.index = mLampWanted;
+  if (feet - sy <= 3)
+  {
+    // Level: on the side the runner comes from, facing the switch.
+    const bool fromLeft = p.x < sx;
+    sg.x = fromLeft ? sx - 6 : sx + 2;
+    sg.y = feet;
+    sg.w = 4;
+    sg.h = 1;
+  }
+  else
+  {
+    sg.x = sx - 2;
+    sg.y = feet;
+    sg.w = 4;
+    sg.h = 1;
+  }
+  g = sg;
+  return true;
 }
 
 bool Planner::lightGoal(const World& w, Goal& g)
@@ -1690,6 +1883,9 @@ void Planner::plan(const World& world)
     mDoorOpen.assign(world.sunDoors().size(), 0);
     if (mPendingDoor >= 0)
       mDoorOpen = mRouteOpen;
+    // Level 17: a grow lamp the way needs.
+    if (!world.green().plants.empty() && (goal.kind == 0 || goal.kind == 3))
+      lampGoal(world, goal);
     // The field also changes when a wall breaks or the Bass Cannon arrives.
     int broken = 0;
     for (const auto& b : world.breakables())
@@ -1721,6 +1917,12 @@ void Planner::plan(const World& world)
         powered = powered * 3 + (d.gold ? 2 : d.open > 0);
       powered = powered * 2 + world.goldReached();
     }
+    powered = powered * 5 + (world.green().grow ? world.green().size : 0);
+    // Level 17: lamps lit or out, plants there or not.
+    for (const auto& l : world.green().lamps)
+      powered = powered * 2 + l.lit;
+    for (const auto& pl : world.green().plants)
+      powered = powered * 2 + (pl.shown > 0);
     powered = powered * 31 + mPendingDoor + 1;
     // Level 46: where the Swap Crystals are (a drifting one is anywhere on
     // its path until swapped).
@@ -1796,6 +1998,19 @@ void Planner::plan(const World& world)
     for (const auto& b : w.boxes())
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
+    // Growth Spurt: the runner's size.
+    if (w.green().grow)
+      k = mix(k, std::uint64_t(w.green().size) + 77);
+    // Level 17: lamps lit and plants grown.
+    if (!w.green().plants.empty())
+    {
+      std::uint64_t gk = 0;
+      for (const auto& l : w.green().lamps)
+        gk = gk * 2 + l.lit;
+      for (const auto& pl : w.green().plants)
+        gk = gk * 61 + std::uint64_t(pl.shown);
+      k = mix(k, gk);
+    }
     // Bouncers and Keepers close by: shoving one away, or wearing a Keeper
     // down, is progress too.
     for (const auto& e : w.enemies())
@@ -1998,7 +2213,11 @@ void Planner::plan(const World& world)
     const bool sheltered = (goal.kind == 9 && nw.inShelter(goal.index)) ||
       ((goal.kind == 10 || goal.kind == 11) && nw.besideAltar(goal.index)) ||
       (goal.kind == 12 && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1);
-    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered ||
+    const bool lit = goal.kind == 13 && std::size_t(goal.index) < nw.green().lamps.size() &&
+      nw.green().lamps[std::size_t(goal.index)].lit &&
+      (!world.green().lamps[std::size_t(goal.index)].lit || nw.green().lamps[std::size_t(goal.index)].left >
+         world.green().lamps[std::size_t(goal.index)].left);
+    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered || lit ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
     if (ni != 0 && success)
     {

@@ -907,6 +907,73 @@ std::vector<float> makeSfx(Sfx id)
         return bp.band(n.next(), 1100.0f, 0.7) * 0.32 * env * wob;
       });
     }
+    case Sfx::Trim:
+    {
+      // Hedge-trimmer blades: a short, gritty buzz (three frames at 15 Hz)
+      // that repeats seamlessly while the trigger is held.
+      Osc a, b;
+      Noise n(161);
+      Svf bp;
+      return render(0.2, [&](double t, double total) {
+        const double chatter = 0.6 + 0.4 * (std::fmod(t, 1.0 / 60.0) < 1.0 / 120.0 ? 1.0 : 0.0);
+        const double buzz = a.step(120.0, Wave::Saw) * 0.5 + b.step(241.0, Wave::Square, 0.3) * 0.25;
+        const double grit = bp.band(n.next(), 2400.0f, 1.5) * 0.4;
+        return (buzz + grit) * chatter * 0.3 * std::min(1.0, t / 0.01) * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::Puff:
+    {
+      // A fungus pod letting go: a soft, breathy whump of air.
+      Noise n(163);
+      Svf bp;
+      Osc o;
+      return render(0.4, [&](double t, double total) {
+        const double air = bp.band(n.next(), float(sweep(500.0, 1600.0, t / total)), 0.9) * 0.5;
+        const double thump = o.step(sweep(150.0, 70.0, std::min(1.0, t / 0.12)), Wave::Sine) * std::exp(-t * 18.0) * 0.35;
+        return (air * std::sin(3.14159 * std::min(1.0, t / total)) + thump) * attack(t, 0.02);
+      });
+    }
+    case Sfx::Squish:
+    {
+      // A Glob landing or splitting: a wet slap with a wobbling gloop.
+      Osc a, lfo;
+      Noise n(167);
+      Svf f;
+      return render(0.3, [&](double t, double) {
+        const double slap = f.band(n.next(), float(sweep(2200.0, 400.0, std::min(1.0, t / 0.1))), 2.0) *
+          std::exp(-t * 30.0) * 0.5;
+        const double gloop =
+          a.step(sweep(320.0, 110.0, std::min(1.0, t / 0.25)) * (1.0 + 0.15 * lfo.step(28.0, Wave::Sine)), Wave::Sine) *
+          std::exp(-t * 9.0) * 0.38;
+        return (slap + gloop) * std::min(1.0, t / 0.003);
+      });
+    }
+    case Sfx::LampOn:
+    {
+      // A grow lamp striking up: a ballast click, then a mains hum and buzz
+      // flickering into steady light.
+      Osc a, b;
+      Noise n(169);
+      return render(0.55, [&](double t, double total) {
+        const double click = n.next() * std::exp(-t * 120.0) * 0.6;
+        const double flick = t < 0.18 ? (std::fmod(t, 0.06) < 0.03 ? 1.0 : 0.25) : 1.0;
+        const double hum = a.step(100.0, Wave::Saw) * 0.3 + b.step(200.0, Wave::Square, 0.5) * 0.12;
+        return (click + hum * flick * 0.4) * std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::Grow:
+    {
+      // Growth Spurt: a rising, springy boing with a little whoosh.
+      Osc a, b, lfo;
+      Noise n(173);
+      Svf bp;
+      return render(0.45, [&](double t, double total) {
+        const double f = sweep(180.0, 520.0, std::min(1.0, t / 0.3)) * (1.0 + 0.06 * lfo.step(22.0, Wave::Sine));
+        const double boing = a.step(f, Wave::Triangle) * 0.35 + b.step(f * 2.0, Wave::Sine) * 0.1;
+        const double air = bp.band(n.next(), float(sweep(600.0, 3000.0, t / total)), 1.4) * 0.15;
+        return (boing + air) * attack(t, 0.005) * std::min(1.0, (total - t) / 0.12);
+      });
+    }
     case Sfx::Count:
       break;
   }

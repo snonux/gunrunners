@@ -305,6 +305,8 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
               setVisual(PlayerVisual::Walking); // infected: shuffle in place this frame
             for (int i = 0; i < steps; ++i)
             {
+              if (mGreen.grow && growBlocked(p.x + mvX, p.y))
+                break; // too big for the tunnel
               if (mMap.moveHorizontallyWithStairStepping(p.x, p.y, Player::kWidth, p.height(), mvX) !=
                     MoveResult::Completed &&
                   !(wading() && wadeStep(mvX)))
@@ -545,8 +547,8 @@ int World::horizontalSteps() const
   const auto& p = mPlayer;
   if (p.turbo > 0)
     return 2;
-  if (p.virus > 0 || (!mFluids.empty() && wading()) || (!mWater.empty() && inWater()))
-    return p.oddFrame ? 0 : 1; // infected, or wading through sludge or a stream
+  if (p.virus > 0 || (!mFluids.empty() && wading()) || (!mWater.empty() && inWater()) || mGreen.slow > 0)
+    return p.oddFrame ? 0 : 1; // infected, wading through sludge or a stream, or through spores
   if (p.weapon == Weapon::Proto && ProtoId(p.proto) == ProtoId::JadeBow && p.charge > 0)
     return p.oddFrame ? 0 : 1; // drawing the Jade Bow
   return 1;
@@ -562,6 +564,8 @@ const std::array<int, 8>& World::jumpArc() const
     return kTurboJumpArc;
   if (mPlayer.virus > 0)
     return kVirusJumpArc;
+  if (mGreen.grow && mGreen.size > 0)
+    return mGreen.arc; // Growth Spurt: bigger jumps
   return mCharacter.jumpArc;
 }
 
@@ -735,6 +739,7 @@ void World::fireShot()
     case Weapon::Proto:
       break;
   }
+  growShot(); // Growth Spurt: every shot is a size down
   if (p.weapon == Weapon::Proto)
   {
     fireProto(p.x + off[0], p.y + off[1], dx, dy);
@@ -1007,6 +1012,8 @@ void World::respawnPlayer()
     resetStation();
   if (mCryo.on)
     resetCryo();
+  if (mGreen.on)
+    resetGreen();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

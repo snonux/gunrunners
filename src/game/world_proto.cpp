@@ -59,6 +59,7 @@ void World::updateProtoShooting(const Button& fire)
   {
     p.charge = 0;
     mPaint.clear();
+    mGreen.trim = 0;
     return;
   }
   const ProtoDef& def = protoDef(p.proto);
@@ -98,6 +99,12 @@ void World::updateProtoShooting(const Button& fire)
     }
     p.charge = 0;
     mPaint.clear();
+    return;
+  }
+  if (ProtoId(p.proto) == ProtoId::HedgeTrimmer)
+  {
+    // Held: a spinning cone in front of the runner (world_green.cpp).
+    updateTrimmer(fire);
     return;
   }
   if (ProtoId(p.proto) == ProtoId::SunstoneLance)
@@ -219,6 +226,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     else if (p.virus > 0)
       damage = std::max(1, damage / 2);
     fireArc(ox, oy, dx, damage);
+    return;
+  }
+  if (ProtoId(p.proto) == ProtoId::HedgeTrimmer)
+  {
+    // Aimed up or down, the Trimmer's handle fires a plain shot.
+    spawnProjectile(ShotKind::Normal, ox, oy, dx, dy);
     return;
   }
   if (ProtoId(p.proto) == ProtoId::TamersWhip)
