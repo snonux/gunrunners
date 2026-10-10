@@ -25,6 +25,7 @@ add_library(gunrunners_core STATIC
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
   src/assets/enemy_art_alien.cpp
+  src/assets/enemy_art_station.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
   src/assets/enemy_art_crystal.cpp
@@ -64,6 +65,9 @@ add_library(gunrunners_core STATIC
   src/game/world_surf.cpp
   src/game/world_sanctum.cpp
   src/game/world_golden.cpp
+  src/game/world_station.cpp
+  src/game/world_station_draw.cpp
+  src/game/world_drift.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
@@ -176,3 +180,8 @@ add_test(NAME crystal_swaps COMMAND crystal_test)
 add_test(NAME savegame_crystal_drift COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/46_crystal_drift.txt 500)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
 add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)
+add_test(NAME savegame_hangar_bay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt 300)
+add_executable(station_test tests/station_test.cpp)
+target_link_libraries(station_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME station_breach COMMAND station_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt
+  ${CMAKE_SOURCE_DIR}/levels/15_bonus_asteroid_belt.txt)

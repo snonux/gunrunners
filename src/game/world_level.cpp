@@ -105,6 +105,7 @@ void World::setupEntities()
   mPinball = lv.rules.find("pinball") != std::string::npos;
   mFloorLava = lv.rules.find("floor_lava") != std::string::npos;
   mSurfing = lv.rules.find("boulder_surf") != std::string::npos;
+  mStation.recoil = lv.rules.find("recoil_only") != std::string::npos;
   mGolden = lv.rules.find("golden_touch") != std::string::npos;
   if (mGolden)
   {
@@ -189,6 +190,7 @@ void World::setupEntities()
       setupLavaEnemy(en, e);
       setupBoulderEnemy(en, e);
       setupSanctumEnemy(en, e);
+      setupStationEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -283,7 +285,7 @@ void World::setupEntities()
         : by == "vehicle"      ? 5
                                : 0;
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" ? 6 : 0)))));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : 0))))));
       mBreakables.push_back(b);
       continue;
     }
@@ -427,6 +429,8 @@ void World::setupEntities()
     if (setupSanctumEntity(e))
       continue;
     if (setupGoldenEntity(e))
+      continue;
+    if (setupStationEntity(e))
       continue;
     if (setupSludgeEntity(e))
       continue;

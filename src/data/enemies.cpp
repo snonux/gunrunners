@@ -112,6 +112,13 @@ const EnemyDef kEnemies[] = {
   {"drummer", "WAR DRUMMER", K::Drummer, L::Styled, 4, 5, 5, 700, 0, 0, 0, 0, 0, 0},
   {"coinbeetle", "COIN BEETLE", K::CoinBeetle, L::Styled, 2, 2, 1, 200, 1, 30, 8, 0, kEnemyNoTally, 0},
   {"templecat", "TEMPLE CAT", K::Walker, L::Styled, 4, 4, 1, 100, 2, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  // Level 15. Loader Mech: range is how far (cells) it throws; hp is the
+  // body's (its legs take 4 more). Weld Drone: cooldown is the pause
+  // between runs, tell the torch's flare. Tether Pair: tell is the
+  // survivor's wobble before each ram.
+  {"loader_mech", "LOADER MECH", K::Loader, L::Styled, 6, 8, 8, 1200, 4, 40, 12, 24, 0, 0},
+  {"weld_drone", "WELD DRONE", K::WeldDrone, L::Styled, 2, 2, 2, 400, 1, 15, 8, 0, 0, 0},
+  {"tether_pair", "TETHER DRONE", K::Tether, L::Styled, 2, 2, 2, 500, 2, 0, 8, 0, 0, 0},
   {"sentinel", "GLYPH SENTINEL", K::Sentinel, L::Styled, 4, 4, 6, 600, 0, 45, 24, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
   // Deep water (world_sea.cpp). Fish and Angler: range is how close (cells)
