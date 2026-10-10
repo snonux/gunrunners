@@ -330,7 +330,7 @@ void World::updateHive()
     ++t.flip;
   }
   // Mouths swallow whoever steps into them.
-  if (p.tube < 0 && p.cart < 0 && p.state != PlayerState::Dying && p.state != PlayerState::Teleporting)
+  if (p.tube < 0 && p.cart < 0 && p.vehicle < 0 && p.state != PlayerState::Dying && p.state != PlayerState::Teleporting)
     for (std::size_t i = 0; i < mSpace.tubes.size(); ++i)
       if (mouthOpen(mSpace.tubes[i]) && mouthTrigger(mSpace.tubes[i]).intersects(p.box()))
       {
