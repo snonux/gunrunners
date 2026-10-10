@@ -60,6 +60,7 @@ enum class ProtoId
   GooGun,
   BileBlaster,
   SwapRifle,
+  SilkShooter,
   Count,
 };
 

@@ -22,5 +22,8 @@ bool drawStarfallArt(cairo_t* cr, const Theme& t, const std::string& key, double
 // Level 46, Crystal Drift: the Swap Crystals and its aliens
 // (enemy_art_crystal.cpp).
 bool drawCrystalArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
+// Level 47, Silk Canyon: the Loom Spider, Cocoon Pod, Dropling and the
+// cocoons on the webs (enemy_art_silk.cpp).
+bool drawSilkArt(cairo_t* cr, const Theme& t, const std::string& key, double w, double h, int variant, int frame);
 
 } // namespace gr

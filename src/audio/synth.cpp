@@ -768,6 +768,31 @@ std::vector<float> makeSfx(Sfx id)
           std::min(1.0, (total - t) / 0.05);
       });
     }
+    case Sfx::Zip:
+    {
+      // Hands on a taut line: a rising whine over the hiss of silk.
+      Osc a;
+      Noise n(137);
+      Svf f;
+      return render(0.45, [&](double t, double total) {
+        const double fr = sweep(300.0, 900.0, t / total);
+        return (a.step(fr, Wave::Triangle, 0.0) * 0.16 + f.band(n.next(), float(fr * 3.0), 2.0) * 0.22) *
+          attack(t, 0.01) * std::min(1.0, (total - t) / 0.12);
+      });
+    }
+    case Sfx::Snip:
+    {
+      // A plucked strand going slack: a low twang bending down, a snap.
+      Osc a, b;
+      Noise n(139);
+      return render(0.5, [&](double t, double) {
+        const double fr = 220.0 * std::exp(-t * 2.5) + 70.0;
+        const double twang = (a.step(fr, Wave::Saw, 0.0) * 0.2 + b.step(fr * 2.01, Wave::Sine, 0.0) * 0.15) *
+          std::exp(-t * 6.0);
+        const double snap = n.next() * 0.35 * std::exp(-t * 60.0);
+        return (twang + snap) * attack(t, 0.002);
+      });
+    }
     case Sfx::EngineOn:
     {
       // A starter motor catching, then the engine settling.

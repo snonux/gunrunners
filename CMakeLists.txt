@@ -24,11 +24,13 @@ add_library(gunrunners_core STATIC
   src/assets/art_alien.cpp
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
+  src/assets/art_silk.cpp
   src/assets/enemy_art_alien.cpp
   src/assets/enemy_art_station.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
   src/assets/enemy_art_crystal.cpp
+  src/assets/enemy_art_silk.cpp
   src/assets/vehicle_art.cpp
   src/data/level.cpp
   src/data/theme.cpp
@@ -61,6 +63,7 @@ add_library(gunrunners_core STATIC
   src/game/world_hive.cpp
   src/game/world_starfall.cpp
   src/game/world_crystal.cpp
+  src/game/world_silk.cpp
   src/game/world_boulder.cpp
   src/game/world_surf.cpp
   src/game/world_sanctum.cpp
@@ -177,7 +180,11 @@ add_test(NAME starfall_space COMMAND starfall_test)
 add_executable(crystal_test tests/crystal_test.cpp)
 target_link_libraries(crystal_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME crystal_swaps COMMAND crystal_test)
+add_executable(silk_test tests/silk_test.cpp)
+target_link_libraries(silk_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME silk_lines COMMAND silk_test)
 add_test(NAME savegame_crystal_drift COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/46_crystal_drift.txt 500)
+add_test(NAME savegame_silk_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/47_silk_canyon.txt 500)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
 add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)
 add_test(NAME savegame_hangar_bay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt 300)

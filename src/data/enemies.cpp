@@ -103,6 +103,12 @@ const EnemyDef kEnemies[] = {
   {"blinker", "BLINKER", K::Blinker, L::Styled, 3, 4, 3, 700, 3, 50, 12, 22, 0, 0},
   {"shard_golem", "SHARD GOLEM", K::ShardGolem, L::Styled, 4, 5, 5, 1200, 4, 0, 0, 0, 0, 0},
   {"prism_bat", "PRISM BAT", K::PrismBat, L::Styled, 3, 2, 2, 400, 0, 0, 0, 7, 0, 0},
+  // Level 47: Silk Canyon. Loom Spider: range is how far (cells) down its
+  // line from the top it walks, tell its warning before a cut. Cocoon Pod:
+  // range is how far (cells) to either side of it you set it off.
+  {"loom_spider", "LOOM SPIDER", K::LoomSpider, L::Styled, 3, 3, 3, 600, 2, 0, 8, 10, 0, 0},
+  {"cocoon_pod", "COCOON POD", K::CocoonPod, L::Styled, 2, 3, 3, 300, 0, 30, 0, 3, 0, 0},
+  {"dropling", "DROPLING", K::Dropling, L::Styled, 2, 2, 1, 100, 0, 0, 8, 0, kEnemyNoTally, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
   // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).

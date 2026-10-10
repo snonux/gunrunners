@@ -1,0 +1,24 @@
+cutscene brief_47
+music theme_silk_canyon
+
+# Clip brief47_canyon: 4 layers. Backdrop: the amber canyon's haze and its
+# webs, panning slowly. Mid: the canyon walls, a ledge high on the left and
+# a lower one on the right, a silk line slung between them. Characters: the
+# three runners on the left ledge; a Loom Spider walking the line's top, its
+# eyes going red now and then. Foreground: MAX's hologram. 8 frames.
+shot brief47_canyon delay=110 repeat=6
+  cue 0 fade=in:600
+  cue 0 sound=holo_on
+  cue 10 say=ROCCO "No floor. I checked. Twice."
+  cue 24 say=MAX "Those silk lines are tough. Jump on and hang on."
+  cue 38 say=MAX "And shoot the spiders first. They cut the line."
+  cue 47 hold=1500
+
+# Clip brief47_ride: 3 layers. Backdrop and canyon as before. Characters:
+# Dash hangs from the line and slides down it faster and faster (frames
+# 0-10), drops onto the far ledge (11) and waves (13-15). 16 frames.
+shot brief47_ride delay=90 repeat=2
+  cue 2 sound=silk_zip
+  cue 14 say=DASH "Wheee! Okay, that was fun."
+  cue 24 say=NOVA "Last one down buys dinner!"
+  cue 29 fade=out:600

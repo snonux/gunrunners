@@ -39,4 +39,14 @@ Texture bakeCrystalSky(const Renderer& r, const Theme& t);
 Texture bakeCrystalFar(const Renderer& r, const Theme& t, int layerW);
 Texture bakeCrystalNear(const Renderer& r, const Theme& t, int layerW);
 
+// Level 47, Silk Canyon ("alien_silk", art_silk.cpp): a deep amber canyon
+// strung with giant webs.
+bool isSilk(const Theme& t);
+Texture bakeSilkSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakeSilkSolidTop(const Renderer& r, const Theme& t, float topOffset, int height);
+Texture bakeSilkPlatform(const Renderer& r, const Theme& t);
+Texture bakeSilkSky(const Renderer& r, const Theme& t);
+Texture bakeSilkFar(const Renderer& r, const Theme& t, int layerW);
+Texture bakeSilkNear(const Renderer& r, const Theme& t, int layerW);
+
 } // namespace gr

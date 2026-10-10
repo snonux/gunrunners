@@ -177,13 +177,23 @@ swaps, no ziplines, no rideable creatures; the ship is the vehicles thread's).
   Jump into one and you hang from it and slide down it, faster and faster;
   jump off any time (keeping your speed as a long jump). Lines going up can't
   be ridden; a Loom Spider spins new ones as you watch.
-- **Prototype: Silk Shooter.** Fire diagonally up: where it hits rock within
-  16 blocks, a new silk line runs from there down to you.
+- **Prototype: Silk Shooter.** Fires diagonally down ahead: where it hits
+  rock within 16 blocks, a new silk line runs from your hands down to
+  there, ready to ride. (Built this way round: a line from up there down
+  to you could only be ridden back to where you stand.)
 - **Aliens:** **Loom Spider** (walks along lines, cuts the one you are on
   after a tell); **Cocoon Pod** (hangs on a web and drops a Dropling when you
   pass under); **Dropling** (small, falls on a thread, bites, climbs back up).
 - **Secrets:** a cocoon full of gems; the spider's lair. **Virus:** a green
   cocoon.
+- **Built** (2026-10-10): `tools/levels/47_silk_canyon.py`, 100 x 78
+  blocks: the rim (start) and eight rides down, alcove to alcove across the
+  canyon, onto a rock pillar hanging mid-canyon and on down to the exit.
+  Spiders walk three lines (one spins its line as you come); a cut drops
+  you, and a line lower down may catch you as you fall. The spider's lair
+  is a ledge and cave in the east wall: from the pillar's east edge the
+  Silk Shooter's shot hits the ledge, and your own line takes you there
+  (gem cocoon, the 42, the duck). The bot clears it with all six runners.
 
 ## 48 · Bounder Plains
 

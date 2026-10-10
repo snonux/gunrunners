@@ -424,6 +424,8 @@ void World::setupEntities()
       continue;
     if (setupCrystalEntity(e))
       continue;
+    if (setupSilkEntity(e))
+      continue;
     if (setupBoulderEntity(e))
       continue;
     if (setupSanctumEntity(e))
