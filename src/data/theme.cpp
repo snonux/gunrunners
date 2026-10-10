@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 14> kVariants{{
+const std::array<Variant, 16> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -239,6 +239,33 @@ const std::array<Variant, 14> kVariants{{
     rgb(84, 46, 30), rgb(48, 26, 16),
     rgb(160, 130, 100), rgb(210, 180, 140), rgb(90, 70, 52), rgb(255, 90, 40),
     rgb(255, 236, 210), "tomb"}},
+  // The extra levels (levels/extra_*.txt).
+  {"motor_pool",
+   {ThemeId::NeonOverdrive,
+    "MOTOR POOL",
+    "THE GUNRUNNERS' DEPOT AT DUSK",
+    rgb(40, 30, 60), rgb(200, 110, 70), rgb(255, 196, 120),
+    rgb(84, 92, 70), rgb(150, 160, 120), rgb(42, 46, 34),
+    rgb(255, 200, 80), rgb(255, 230, 150),
+    rgb(170, 160, 120), rgb(90, 84, 60),
+    rgb(255, 90, 40), rgb(255, 190, 120),
+    rgb(255, 210, 90), rgb(120, 220, 255),
+    rgb(80, 60, 80), rgb(50, 40, 54),
+    rgb(120, 130, 100), rgb(190, 200, 160), rgb(56, 60, 44), rgb(255, 80, 40),
+    rgb(255, 250, 230)}},
+  {"deep_sea",
+   {ThemeId::LostTemple,
+    "DEEP DIVE",
+    "A SUNKEN REEF BELOW THE HARBOUR",
+    rgb(6, 30, 60), rgb(10, 70, 110), rgb(40, 150, 170),
+    rgb(70, 92, 110), rgb(130, 170, 180), rgb(30, 40, 56),
+    rgb(255, 140, 120), rgb(255, 200, 180),
+    rgb(120, 150, 150), rgb(50, 70, 80),
+    rgb(255, 80, 120), rgb(255, 170, 200),
+    rgb(120, 255, 220), rgb(255, 200, 90),
+    rgb(20, 60, 90), rgb(12, 40, 64),
+    rgb(90, 140, 160), rgb(170, 220, 230), rgb(40, 60, 80), rgb(255, 230, 90),
+    rgb(230, 250, 255), "reef"}},
 }};
 
 } // namespace

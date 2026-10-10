@@ -39,6 +39,16 @@ int episodeOfLevel(int number);
 std::string levelFile(const std::string& dataDir, int number);
 std::string bonusFile(const std::string& dataDir, int number); // empty if none
 std::string cutsceneFile(const std::string& dataDir, const std::string& name);
+// Levels outside the 42-level numbering (levels/extra_SLUG.txt), played
+// from EXTRAS on the title screen.
+struct ExtraLevel
+{
+  const char* slug;
+  const char* title;
+};
+constexpr int kExtraLevels = 2;
+const ExtraLevel& extraLevel(int index); // 0..kExtraLevels-1
+std::string extraFile(const std::string& dataDir, int index); // empty if none
 // The level number a level file belongs to (from its NN_ prefix), 0 if none.
 int levelNumberOfFile(const std::string& path);
 

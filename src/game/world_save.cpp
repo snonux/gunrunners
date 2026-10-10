@@ -258,6 +258,16 @@ SaveGame World::snapshot() const
     s.boulder.push_back(mWrongWay);
   }
   s.explored = exploredRuns();
+  if (!mVehicles.empty() || !mSeas.empty())
+  {
+    for (const auto& v : mVehicles)
+    {
+      const int fields[] = {v.x, v.y, v.facing, v.hp, v.fuel, v.homeX, v.homeY, v.homeFacing, v.wreck > 0 ? 1 : 0};
+      s.vehicles.insert(s.vehicles.end(), std::begin(fields), std::end(fields));
+    }
+    s.vehicles.push_back(p.vehicle);
+    s.vehicles.push_back(mAir);
+  }
   return s;
 }
 
@@ -300,6 +310,7 @@ bool World::restore(const SaveGame& s)
       (!s.light.empty() && s.light.size() != mMirrors.size() + mSunDoors.size()) ||
       (!s.mine.empty() && s.mine.size() != mLevers.size() + mTrapdoors.size() + mRubble.size() + 1) ||
       (!s.boulder.empty() && s.boulder.size() != mBoulders.size() * 3 + mCracks.size() + 1) ||
+      (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -720,6 +731,34 @@ bool World::restore(const SaveGame& s)
   mStateFrames = 0;
   updateLayers(false); // the beat signs follow the restored music clock
   restoreExplored(s.explored);
+  if (!s.vehicles.empty())
+  {
+    std::size_t at = 0;
+    for (auto& v : mVehicles)
+    {
+      v.x = v.prevX = s.vehicles[at++];
+      v.y = v.prevY = s.vehicles[at++];
+      v.facing = s.vehicles[at++] < 0 ? -1 : 1;
+      v.hp = std::clamp(s.vehicles[at++], 1, vehicleDef(v.kind).hp);
+      v.fuel = std::clamp(s.vehicles[at++], 0, vehicleDef(v.kind).fuel);
+      v.homeX = s.vehicles[at++];
+      v.homeY = s.vehicles[at++];
+      v.homeFacing = s.vehicles[at++] < 0 ? -1 : 1;
+      v.wreck = s.vehicles[at++] != 0 ? 1 : 0; // a wreck is back home on the next frame
+      v.occupied = false;
+      v.vx = v.vy = v.ax = v.ay = 0;
+      v.air = -1;
+    }
+    const int ride = s.vehicles[at++];
+    mAir = std::clamp(s.vehicles[at++], 0, kAirFrames);
+    if (ride >= 0 && ride < int(mVehicles.size()) && mVehicles[std::size_t(ride)].wreck == 0)
+    {
+      boardVehicle(ride);
+      mTexts.clear();
+      mParticles.clear();
+    }
+    syncPlatformCollision();
+  }
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   return true;
 }

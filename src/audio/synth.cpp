@@ -744,6 +744,66 @@ std::vector<float> makeSfx(Sfx id)
           std::min(1.0, t / 0.03) * std::min(1.0, (total - t) / 0.1);
       });
     }
+    case Sfx::EngineOn:
+    {
+      // A starter motor catching, then the engine settling.
+      Osc a, b;
+      Noise n(127);
+      return render(0.55, [&](double t, double) {
+        const double f = t < 0.18 ? 40.0 + 30.0 * std::sin(t * 140.0) : sweep(90.0, 60.0, (t - 0.18) / 0.3);
+        const double buzz = a.step(f, Wave::Saw) * 0.5 + b.step(f * 2.01, Wave::Square, 0.3) * 0.2;
+        return (buzz + n.next() * 0.08) * 0.32 * attack(t, 0.01) * decay(t, 0.25);
+      });
+    }
+    case Sfx::EngineOff:
+    {
+      Osc a;
+      return render(0.35, [&](double t, double) {
+        return a.step(sweep(80.0, 30.0, t / 0.35), Wave::Saw) * 0.25 * attack(t, 0.005) * decay(t, 0.12);
+      });
+    }
+    case Sfx::Cannon:
+    {
+      Noise n(131);
+      Svf lp;
+      Osc o;
+      return render(0.6, [&](double t, double) {
+        const double boom = o.step(sweep(70.0, 28.0, t / 0.4), Wave::Sine) * decay(t, 0.16);
+        const double blast = lp.low(n.next(), sweep(4000.0, 200.0, t / 0.3), 1.0) * decay(t, 0.07);
+        return (boom * 0.8 + blast * 0.7) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Torpedo:
+    {
+      Noise n(137);
+      Svf bp;
+      Osc o;
+      return render(0.5, [&](double t, double) {
+        const double fizz = bp.band(n.next(), sweep(500.0, 1800.0, t / 0.5), 3.0) * decay(t, 0.2);
+        const double thunk = o.step(sweep(160.0, 70.0, t / 0.1), Wave::Sine) * decay(t, 0.05);
+        return (fizz * 0.5 + thunk * 0.5) * attack(t, 0.002);
+      });
+    }
+    case Sfx::Stomp:
+    {
+      Noise n(139);
+      Svf lp;
+      Osc o;
+      return render(0.5, [&](double t, double) {
+        const double thud = o.step(sweep(60.0, 25.0, t / 0.3), Wave::Sine) * decay(t, 0.14);
+        const double grit = lp.low(n.next(), 600.0, 0.8) * decay(t, 0.1);
+        return (thud * 0.9 + grit * 0.6) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Crunch:
+    {
+      Noise n(149);
+      Svf bp;
+      return render(0.22, [&](double t, double) {
+        const double c = bp.band(n.next(), 900.0 + 600.0 * std::sin(t * 200.0), 1.4);
+        return c * 0.6 * attack(t, 0.001) * decay(t, 0.07);
+      });
+    }
     case Sfx::Count:
       break;
   }

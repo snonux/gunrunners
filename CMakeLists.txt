@@ -24,6 +24,7 @@ add_library(gunrunners_core STATIC
   src/assets/art_alien.cpp
   src/assets/enemy_art_alien.cpp
   src/assets/enemy_art_hive.cpp
+  src/assets/vehicle_art.cpp
   src/data/level.cpp
   src/data/theme.cpp
   src/data/characters.cpp
@@ -59,10 +60,14 @@ add_library(gunrunners_core STATIC
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
   src/game/world_map.cpp
+  src/game/world_vehicle.cpp
+  src/game/world_vehicle_draw.cpp
+  src/game/world_sea.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
   src/frontend/bot.cpp
+  src/frontend/bot_drive.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
@@ -114,6 +119,15 @@ add_test(NAME bindings COMMAND bindings_test WORKING_DIRECTORY ${CMAKE_BINARY_DI
 add_executable(runner_editor_test tests/runner_editor_test.cpp)
 target_link_libraries(runner_editor_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME runner_editor COMMAND runner_editor_test)
+add_executable(vehicle_test tests/vehicle_test.cpp)
+target_link_libraries(vehicle_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME vehicles COMMAND vehicle_test ${CMAKE_SOURCE_DIR}/levels)
+# The bot drives the extra levels' vehicles to the exit.
+foreach(extra motor_pool deep_dive)
+  add_test(NAME bot_extra_${extra} COMMAND gunrunners --headless --autoplay --skip-menu --no-cutscenes
+    --quit-after-clear --frames 20000 --level ${CMAKE_SOURCE_DIR}/levels/extra_${extra}.txt)
+  set_tests_properties(bot_extra_${extra} PROPERTIES PASS_REGULAR_EXPRESSION "cleared:")
+endforeach()
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)
