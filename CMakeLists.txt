@@ -51,9 +51,12 @@ add_library(gunrunners_core STATIC
   src/game/world_mine.cpp
   src/game/world_lava.cpp
   src/game/world_space.cpp
+  src/game/world_boulder.cpp
+  src/game/world_surf.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
+  src/game/world_map.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
@@ -63,7 +66,10 @@ add_library(gunrunners_core STATIC
   src/frontend/controls.cpp
   src/frontend/game.cpp
   src/frontend/menus.cpp
+  src/frontend/select.cpp
+  src/frontend/runner_editor.cpp
   src/frontend/controls_menu.cpp
+  src/frontend/map_view.cpp
   src/frontend/cutscene.cpp
   src/frontend/clips.cpp
   src/frontend/flow.cpp
@@ -103,6 +109,9 @@ add_test(NAME gamepad COMMAND gamepad_test)
 add_executable(bindings_test tests/bindings_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(bindings_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME bindings COMMAND bindings_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_executable(runner_editor_test tests/runner_editor_test.cpp)
+target_link_libraries(runner_editor_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME runner_editor COMMAND runner_editor_test)
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)
@@ -128,3 +137,4 @@ add_test(NAME savegame_idol_mines COMMAND savegame_test ${CMAKE_SOURCE_DIR}/leve
 # Over the stone chains past the first toads, Serpent Spears in hand.
 add_test(NAME savegame_lava_heart COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/12_lava_heart.txt 400)
 add_test(NAME savegame_crash_garden COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/44_crash_garden.txt 400)
+add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)

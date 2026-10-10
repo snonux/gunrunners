@@ -47,6 +47,9 @@ struct SaveGame
   int levelNumber = 0;
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
+  // A custom runner's look and stats (encodeRunner), so the save still
+  // loads after the runner was edited or deleted. Empty for the built-in.
+  std::string runner;
   int theme = 0;
 
   // Player: placed on the last solid ground they stood on.
@@ -104,6 +107,11 @@ struct SaveGame
   // Idol Mines (level 11): each lever's state, each trapdoor (open), each
   // pile of rubble (landed), then the DAYS WITHOUT ACCIDENT count.
   std::vector<int> mine;
+  // Boulder Run (level 13): each boulder (0 waiting, 1 gone; halted;
+  // still able to teeter), then each crack (open), then the WRONG WAY sign.
+  std::vector<int> boulder;
+  // The map: runs of unexplored, explored, unexplored... blocks, row by row.
+  std::vector<int> explored;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

@@ -80,6 +80,7 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "swap") in.swap = true;
       else if (b == "quicksave") in.quickSave = true;
       else if (b == "quickload") in.quickLoad = true;
+      else if (b == "map") in.map = true;
       else return false;
     }
     out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
@@ -92,7 +93,8 @@ void printUsage()
   std::puts(
     "Usage: gunrunners [options]\n"
     "  --theme N            0 = Neon Overdrive, 1 = Lost Temple, 2 = Station Zero\n"
-    "  --character N        0 = Dash, 1 = Rocco, 2 = Nova\n"
+    "  --character N        0 Dash, 1 Rocco, 2 Nova, 3 Jade, 4 Skye, 5 Bolt,\n"
+    "                       6 and up your own runners (runners.txt)\n"
     "  --level PATH         play just this level file (default: the campaign)\n"
     "  --start N            campaign: start at level N (with --skip-menu)\n"
     "  --skip-menu          start straight in the level (after its briefing)\n"
@@ -162,6 +164,31 @@ bool captureBinding(Game& game, const SDL_Event& ev)
       else if (ev.caxis.value > 20000 && ev.caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
         game.capturePad(kPadRightTrigger);
       return false;
+    default:
+      return false;
+  }
+}
+
+// While the runner editor takes a name, typed text, Backspace and Enter go
+// to it, and keys don't reach the bindings (or T, the theme switch).
+bool captureText(Game& game, const SDL_Event& ev)
+{
+  if (!game.wantsText())
+    return false;
+  switch (ev.type)
+  {
+    case SDL_TEXTINPUT:
+      game.typeText(ev.text.text);
+      return true;
+    case SDL_KEYDOWN:
+      if (ev.key.keysym.scancode == SDL_SCANCODE_BACKSPACE)
+        game.textBackspace();
+      else if ((ev.key.keysym.scancode == SDL_SCANCODE_RETURN || ev.key.keysym.scancode == SDL_SCANCODE_KP_ENTER) &&
+               !ev.key.repeat)
+        game.textDone();
+      return true;
+    case SDL_KEYUP:
+      return true;
     default:
       return false;
   }
@@ -511,7 +538,7 @@ int runWindowed(const CliOptions& o)
       // Android may close a backgrounded app without warning.
       if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
         game.suspend();
-      if (captureBinding(game, ev))
+      if (captureBinding(game, ev) || captureText(game, ev))
         continue;
       switch (controls.handleEvent(ev))
       {
@@ -544,7 +571,12 @@ int runWindowed(const CliOptions& o)
     }
     while (accumulator >= tickSeconds && running)
     {
-      const Input keysAndPads = controls.read(!game.inLevel());
+#ifndef __ANDROID__
+      // (On Android the on-screen letters do: a soft keyboard would cover them.)
+      if (game.wantsText() && !SDL_IsTextInputActive())
+        SDL_StartTextInput();
+#endif
+      const Input keysAndPads = controls.read(!game.inLevel(), game.wantsText());
       running = game.tick(touch ? keysAndPads | touch->read() : keysAndPads);
       if (touch)
         syncTouch(*touch, game);

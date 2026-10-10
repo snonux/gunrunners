@@ -24,6 +24,7 @@ enum class Act
   Pause,
   QuickSave,
   QuickLoad,
+  Map,
   Count,
 };
 constexpr int kActCount = int(Act::Count);

@@ -11,7 +11,7 @@ namespace gr
 namespace
 {
 
-const char* const kActKeys[kActCount] = {"left", "right", "up", "down", "jump", "fire", "swap", "pause", "quicksave", "quickload"};
+const char* const kActKeys[kActCount] = {"left", "right", "up", "down", "jump", "fire", "swap", "pause", "quicksave", "quickload", "map"};
 
 } // namespace
 
@@ -29,6 +29,7 @@ Bindings Bindings::defaults()
   keys(Act::Pause, SDL_SCANCODE_P, 0);
   keys(Act::QuickSave, SDL_SCANCODE_F5, 0);
   keys(Act::QuickLoad, SDL_SCANCODE_F9, 0);
+  keys(Act::Map, SDL_SCANCODE_M, 0);
   auto pad = [&b](Act a, std::vector<int> codes) { b.pad[std::size_t(a)] = std::move(codes); };
   pad(Act::Left, {SDL_CONTROLLER_BUTTON_DPAD_LEFT});
   pad(Act::Right, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT});
@@ -41,6 +42,12 @@ Bindings Bindings::defaults()
   pad(Act::Pause, {SDL_CONTROLLER_BUTTON_START});
   // Quick save and load have no pad button until one is bound: a pad has
   // none to spare. The pause menu has both.
+#ifdef __ANDROID__
+  // Back is the system back key there (pause / leave a menu).
+  pad(Act::Map, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER});
+#else
+  pad(Act::Map, {SDL_CONTROLLER_BUTTON_BACK});
+#endif
   return b;
 }
 
@@ -116,7 +123,7 @@ const char* actName(Act a)
 {
   static const char* const kNames[kActCount] = {
     "MOVE LEFT", "MOVE RIGHT", "UP / CLIMB", "DOWN / DUCK", "JUMP", "FIRE", "SWITCH RUNNER", "PAUSE", "QUICK SAVE",
-    "QUICK LOAD"};
+    "QUICK LOAD", "MAP"};
   return kNames[std::clamp(int(a), 0, kActCount - 1)];
 }
 

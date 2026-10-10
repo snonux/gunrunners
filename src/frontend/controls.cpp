@@ -15,7 +15,8 @@ constexpr Sint16 kTriggerThreshold = 12000;
 
 // Android reports a pad's Back/Select (and some pads' B) as the system back
 // key, so there it does what the phone's back key does: pause in a level,
-// back out of a menu. On a desktop it cycles the theme.
+// back out of a menu. On a desktop it opens the map (its default binding),
+// or cycles the theme if no action is bound to it.
 #ifdef __ANDROID__
 constexpr bool kBackIsBackKey = true;
 #else
@@ -103,16 +104,27 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
   return Action::None;
 }
 
-Input Controls::read(bool menus) const
+Input Controls::read(bool menus, bool text) const
 {
-  Input in = readKeys(SDL_GetKeyboardState(nullptr), menus);
+  Input in = readKeys(SDL_GetKeyboardState(nullptr), menus, text);
   for (auto* pad : mPads)
     in = in | readPad(pad, menus);
   return in;
 }
 
-Input Controls::readKeys(const Uint8* k, bool menus) const
+Input Controls::readKeys(const Uint8* k, bool menus, bool text) const
 {
+  if (text)
+  {
+    Input in;
+    in.left = k[SDL_SCANCODE_LEFT];
+    in.right = k[SDL_SCANCODE_RIGHT];
+    in.up = k[SDL_SCANCODE_UP];
+    in.down = k[SDL_SCANCODE_DOWN];
+    in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_AC_BACK];
+    in.pause = in.back; // still held once the name is done: not a new press
+    return in;
+  }
   auto act = [&](Act a) {
     for (int key : mBindings.keys[std::size_t(a)])
       if (key > 0 && k[key])
@@ -129,6 +141,7 @@ Input Controls::readKeys(const Uint8* k, bool menus) const
   in.swap = act(Act::Swap);
   in.quickSave = act(Act::QuickSave);
   in.quickLoad = act(Act::QuickLoad);
+  in.map = act(Act::Map);
   // Fixed keys on top of the bindings: Esc always pauses or backs out, and
   // menus always answer the arrows and Enter. AC_BACK is Android's back key.
   in.pause = act(Act::Pause) || k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_AC_BACK];
@@ -173,6 +186,7 @@ Input Controls::readPad(SDL_GameController* pad, bool menus) const
   in.swap = act(Act::Swap);
   in.quickSave = act(Act::QuickSave);
   in.quickLoad = act(Act::QuickLoad);
+  in.map = act(Act::Map);
   // Fixed: Start always pauses and confirms, A confirms, B backs out.
   in.pause = act(Act::Pause) || button(SDL_CONTROLLER_BUTTON_START);
   in.confirm = button(SDL_CONTROLLER_BUTTON_START) || button(SDL_CONTROLLER_BUTTON_A);

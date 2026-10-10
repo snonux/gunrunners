@@ -78,6 +78,8 @@ enum class Sfx
   Squelch,   // goo: sticking to a goo wall, a Goo Gun splat, a Gloop splitting
   Chitter,   // a Skitter's click before it leaps
   Spit,      // a Spitpod lobbing acid
+  Crash,     // a boulder landing, a chute's flaps slamming
+  Hiss,      // a Pit Snake about to rear
   Count,
 };
 

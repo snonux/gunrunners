@@ -223,6 +223,7 @@ struct Projectile
   int target = kNoTarget; // Lock-On Rockets: steers for this (see World::targetBox)
   int radius = 0;    // explodes with this radius (cells) where it hits (the gunship's rockets)
   int footRow = -1;  // Serpent Spear: the row its foothold's top takes (under the thrower's feet)
+  bool spear = false; // a Spear Runner's spear (Fan Darts break it)
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -1085,6 +1086,107 @@ struct Foothold
   int dir = 1; // the way it was thrown (the wall is on that side)
 };
 
+// Level 13: a boulder rolling along the corridor's floor (`@ boulder`). It
+// waits in a ceiling hole (or on the floor), drops when the runner crosses
+// its trigger, rolls right and ends in its chute.
+struct Boulder
+{
+  enum State
+  {
+    Wait,
+    Dust,   // dust trickling from the hole: it is coming
+    Drop,   // falling out of the hole
+    Roll,
+    Halt,   // stopped a while (the stagehand's door)
+    Lip,    // at its chute's lip, waiting for the runner in the shelter
+    Teeter, // teetering at the lip: the bonus patch is on its flank
+    Chute,  // falling into its chute
+    Fly,    // off the end of the floor
+    Gone,
+    Surf,   // the bonus level's boulder, ridden (updateSurf)
+  };
+  int x = 0, y = 0; // cells, top-left
+  int prevX = 0, prevY = 0;
+  int size = 14; // cells
+  int homeX = 0, homeY = 0;
+  int num = 3, den = 4; // cells per frame
+  int acc = 0;
+  int vy = 0;
+  int state = Wait;
+  int timer = 0;
+  int trigger = -1; // cells: crossing it sets the drop off
+  int wake = -1;    // an alcove: standing in its shelter sets it rolling, `delay` frames later
+  int delay = 0;
+  int chute = -1;   // the chute that takes it
+  int haltX = -1;   // cells: where it stops for `haltFrames`
+  int haltFrames = 0;
+  bool halted = false;
+  int teeter = -1;  // an alcove: it waits at the chute's lip while the runner shelters there
+  int shelter = 0;  // frames the runner has sheltered since it rolled over that alcove
+  int camera = -1;  // the candid camera riding on it (an enemy index)
+  float angle = 0.0f, prevAngle = 0.0f; // radians, for drawing
+  CellBox box() const { return {x, y, size, size}; }
+  bool rolling() const { return state >= Dust && state <= Fly && state != Chute; }
+};
+
+// Boulder Surfing (level 13's bonus, rules=boulder_surf): the runner rides
+// on top of a boulder and rolls it along with left and right.
+struct Surf
+{
+  int boulder = -1;    // which of mBoulders is ridden
+  float x = 0.0f;      // the boulder's left edge (cells)
+  float y = 0.0f;      // and its top
+  float v = 0.0f;      // roll speed, cells a frame
+  float vy = 0.0f;     // falling speed when the floor drops away
+  float drift = 0.0f;  // the runner's offset from the top centre (cells)
+  float carry = 0.0f;  // after a jump: the roll's speed the runner keeps
+  float carried = 0.0f;
+  bool mounted = true;
+  bool free = false;   // off the boulder for good, on the exit ledge
+  int fall = 0;        // frames left of a fall before the restart
+  int falls = 0;
+  int exitX = 0;       // cells: ground from here on is the exit ledge
+  std::vector<int> restarts; // cells: where a fall puts the boulder back (else every screen)
+};
+
+// A chute in the floor (`@ chute`): its flaps open for its boulder and
+// shut 15 frames after it has gone.
+struct Chute
+{
+  int bx0 = 0, bx1 = 0, row = 0; // blocks: the flaps
+  int x0 = 0, x1 = 0;            // cells
+  bool open = false;
+  int shut = -1; // frames until the flaps shut
+};
+
+// An alcove (`@ alcove`): a 4-block shelter under the roll line and a
+// 2-block step out of it.
+struct Alcove
+{
+  std::string id;
+  int x0 = 0, x1 = 0; // cells: the shelter
+  int feet = 0;       // cells: a runner's feet row standing in it
+};
+
+// Level 13's secrets: a crack that opens once you have stood still in an
+// alcove (`@ crack`), and floor hatches that open only with a lead on the
+// boulder (`@ leadhatch`).
+struct Crack
+{
+  int bx0 = 0, by0 = 0, bx1 = 0, by1 = 0;
+  int alcove = -1;
+  int still = 30;
+  bool open = false;
+  int glint = 0;
+};
+struct LeadHatch
+{
+  int bx0 = 0, by0 = 0, bx1 = 0, by1 = 0;
+  int lead = 0, near = 16; // cells
+  int ladderX = -1;        // block: this column turns to ladder when open
+  bool open = false;
+};
+
 // A Blasting Cap: lobbed, bounces twice, rolls, and goes off after its fuse.
 struct Cap
 {
@@ -1270,7 +1372,7 @@ public:
   const WorldStats& stats() const { return mStats; }
   std::vector<Bonus> bonuses() const;
   const Player& player() const { return mPlayer; }
-  const CharacterDef& character() const { return *mCharacter; }
+  const CharacterDef& character() const { return mCharacter; }
   const std::vector<Enemy>& enemies() const { return mEnemies; }
   const std::vector<ItemBox>& boxes() const { return mBoxes; }
   const std::vector<Item>& items() const { return mItems; }
@@ -1281,6 +1383,17 @@ public:
 
   // Sounds triggered since the last call; the frontend plays them.
   std::vector<Sfx> takeSounds();
+
+  // The map (world_map.cpp): the blocks the runners have had on screen,
+  // filled in as they go and saved with the game. Dark sectors only count
+  // where they are lit or right around the runner.
+  bool explored(int tx, int ty) const;
+  // Bakes the explored blocks bx0..bx0+bw-1, by0..by0+bh-1 as a map at
+  // `scale` pixels a block; an empty texture if none of them are explored.
+  Texture bakeMap(Renderer& r, float scale, int bx0, int by0, int bw, int bh) const;
+  // The live marks over a map whose block (0, 0) is at (x, y): the runner,
+  // the checkpoints and the exit once seen.
+  void drawMapMarks(Renderer& r, float x, float y, float scale, int frame) const;
 
   // Savegames (world_save.cpp). Saving is refused while dying or leaving.
   bool canSave() const;
@@ -1378,6 +1491,12 @@ public:
   const std::vector<Foothold>& footholds() const { return mFootholds; }
   bool floorLava() const { return mFloorLava; }
   int headBounces() const { return mHeadBounces; }
+  bool surfing() const { return mSurfing; }
+  const Surf& surf() const { return mSurf; }
+  // Level 13: the boulders and the alcoves.
+  const std::vector<Boulder>& boulders() const { return mBoulders; }
+  const std::vector<Alcove>& alcoves() const { return mAlcoves; }
+  bool inShelter(int alcove) const;
   int lavaPops() const { return mLavaPops; }
   int lavaAt(int cx, int cy) const; // the pool covering that cell, -1 for none
   // Episode 7 (world_space.cpp): goo on walls (level 44).
@@ -1697,6 +1816,10 @@ private:
   void updateWisp(Enemy& e, const EnemyDef& def);
   void updateCrab(Enemy& e, const EnemyDef& def);
   void updateFloorLava(const PlayerInput& input);
+  void setupSurf();
+  void updateSurf(const PlayerInput& input);
+  void placeSurf(float x);
+  void moveSurfBoulder();
   void syncFootholds();
   void drawLavaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawLavaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
@@ -1717,6 +1840,22 @@ private:
   void resetSpace(); // after a respawn
   void drawSpaceBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSpaceFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 13 (world_boulder.cpp).
+  bool setupBoulderEntity(const EntityDef& e);
+  void setupBoulderEnemy(Enemy& en, const EntityDef& e);
+  void linkBoulders();
+  void updateBoulders(const PlayerInput& input);
+  void updateBoulder(Boulder& b);
+  void resetBoulders();
+  void syncTotems();
+  int rollFloor(int x, int top, int size) const;
+  bool shotAtTotem(Projectile& pr, const CellBox& b);
+  void updateSpearRunner(Enemy& e, const EnemyDef& def);
+  void updatePitSnake(Enemy& e, const EnemyDef& def);
+  void updateTotem(Enemy& e, const EnemyDef& def);
+  void setChute(Chute& c, bool open);
+  void drawBoulderBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawBoulderFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1753,6 +1892,10 @@ private:
       mSounds.push_back(s);
   }
   Camera::Target cameraTarget() const;
+  // world_map.cpp
+  void markExplored();
+  std::vector<int> exploredRuns() const;
+  void restoreExplored(const std::vector<int>& runs);
 
   // effects
   void burst(Vec2 at, Color a, Color b, int count, float speed, bool glow = true);
@@ -1765,7 +1908,7 @@ private:
 
   std::shared_ptr<const Level> mLevel; // immutable; copies of the world share it
   CollisionMap mMap;
-  const CharacterDef* mCharacter;
+  CharacterDef mCharacter; // a copy: the roster can change under a running level
   int mCharacterIndex;
   const Theme& mTheme;
   const Art& mArt;
@@ -1780,6 +1923,8 @@ private:
   std::vector<Checkpoint> mCheckpoints;
   std::vector<Layer> mLayers;
   std::vector<std::uint8_t> mLayerMask; // per block: 1 if a layer draws it
+  // Per block: 1 once explored. Shared by copies; simulations have none.
+  std::shared_ptr<std::vector<std::uint8_t>> mExplored;
   std::vector<Prop> mProps;
   std::vector<Zone> mZones;
   std::vector<Platform> mPlatforms;
@@ -1927,6 +2072,18 @@ private:
   int mHeadBounces = 0, mLavaPops = 0; // for the bot's look-ahead
   // Episode 7, DEEP SPACE.
   SpaceState mSpace;
+  // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
+  // frames the runner has stood still; the WRONG WAY sign.
+  std::vector<Boulder> mBoulders;
+  bool mSurfing = false; // bonus rule: ride the boulder
+  Surf mSurf;
+  std::vector<Chute> mChutes;
+  std::vector<Alcove> mAlcoves;
+  std::vector<Crack> mCracks;
+  std::vector<LeadHatch> mLeadHatches;
+  int mStill = 0;
+  bool mWrongWay = false;
+  std::vector<std::string> mAlcoveNames, mChuteNames, mChuteIds; // while linking
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up
