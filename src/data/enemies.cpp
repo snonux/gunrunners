@@ -79,6 +79,13 @@ const EnemyDef kEnemies[] = {
   {"toad", "MAGMA TOAD", K::Toad, L::Styled, 3, 3, 3, 400, 1, 60, 15, 20, 0, 0},
   {"wisp", "EMBER WISP", K::Wisp, L::Styled, 2, 2, 2, 300, 4, 20, 15, 4, kEnemyHarmless, 0},
   {"crab", "BASALT CRAB", K::Crab, L::Styled, 4, 3, 6, 900, 4, 30, 10, 3, 0, 0},
+  // Level 13. Spear Runner: range is how close (cells) behind it you get
+  // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
+  // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).
+  {"spearrunner", "SPEAR RUNNER", K::SpearRunner, L::Styled, 3, 5, 2, 400, 4, 0, 10, 12, 0, 0},
+  {"pitsnake", "PIT SNAKE", K::PitSnake, L::Styled, 2, 2, 2, 300, 0, 45, 12, 6, 0, 0},
+  {"cultist", "CULTIST", K::Walker, L::Styled, 3, 5, 1, 100, 3, 0, 0, 0, kEnemyHarmless, 0},
+  {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

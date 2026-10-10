@@ -75,6 +75,8 @@ enum class Sfx
   Sink,      // a basalt stone grinding down into the lava
   Croak,     // a Magma Toad landing
   Snap,      // a Basalt Crab's claws
+  Crash,     // a boulder landing, a chute's flaps slamming
+  Hiss,      // a Pit Snake about to rear
   Count,
 };
 

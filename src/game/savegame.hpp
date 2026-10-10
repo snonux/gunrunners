@@ -104,6 +104,9 @@ struct SaveGame
   // Idol Mines (level 11): each lever's state, each trapdoor (open), each
   // pile of rubble (landed), then the DAYS WITHOUT ACCIDENT count.
   std::vector<int> mine;
+  // Boulder Run (level 13): each boulder (0 waiting, 1 gone; halted;
+  // still able to teeter), then each crack (open), then the WRONG WAY sign.
+  std::vector<int> boulder;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

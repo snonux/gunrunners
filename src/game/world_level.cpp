@@ -102,6 +102,7 @@ void World::setupEntities()
   mNegative = lv.rules.find("negative") != std::string::npos;
   mPinball = lv.rules.find("pinball") != std::string::npos;
   mFloorLava = lv.rules.find("floor_lava") != std::string::npos;
+  mSurfing = lv.rules.find("boulder_surf") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -177,6 +178,7 @@ void World::setupEntities()
       setupLightEnemy(en, e);
       setupMineEnemy(en, e);
       setupLavaEnemy(en, e);
+      setupBoulderEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -392,6 +394,8 @@ void World::setupEntities()
     if (setupDarkEntity(e))
       continue;
     if (setupLavaEntity(e))
+      continue;
+    if (setupBoulderEntity(e))
       continue;
     if (setupSludgeEntity(e))
       continue;

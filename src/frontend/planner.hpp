@@ -26,6 +26,7 @@ public:
   int queued() const { return int(mQueue.size()); }
   // Also visit the bonus entrance on the way (for demos and tests).
   void setTakeBonus(bool take) { mTakeBonus = take; }
+  bool wantsBonus() const { return mTakeBonus && !mSkipBonus; }
   // Drops the current plan (another controller drove in the meantime).
   void reset() { mQueue.clear(); }
 
@@ -33,7 +34,8 @@ private:
   struct Goal
   {
     int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech
-                  // (or a Sun Moth), 6 a stone key, 7 a plate to press (the bonus patch's), 8 a mirror to turn
+                  // (or a Sun Moth), 6 a stone key, 7 a plate to press (the bonus patch's), 8 a mirror to turn,
+                  // 9 an alcove's shelter (index: the alcove) to wait in
     int x = 0, y = 0;
     int w = 0, h = 0; // kind 3: the entrance's box; kind 5: w=1 shoot it from below; kind 8: w the
                       // shot's direction, h the angle wanted

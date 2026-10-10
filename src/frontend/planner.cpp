@@ -447,6 +447,15 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         const Plate& pl = w.plates()[std::size_t(d.plate)];
         return {7, pl.x, pl.y - 1, 0, 0, d.plate};
       }
+  // Level 13: the bonus patch shows on the boulder that rolls over the
+  // runner in its alcove's shelter: go and shelter there (the bot waits).
+  if (mTakeBonus && !mSkipBonus)
+    for (const auto& b : w.boulders())
+      if (b.teeter >= 0 && b.state <= Boulder::Lip && std::size_t(b.teeter) < w.alcoves().size())
+      {
+        const Alcove& a = w.alcoves()[std::size_t(b.teeter)];
+        return {9, a.x0 + 2, a.feet, a.x1 - a.x0 - 3, 1, b.teeter};
+      }
   if (mTakeBonus && !mSkipBonus)
     for (const auto& pr : w.props())
       if (pr.kind == PropKind::BonusDoor && !pr.used && !pr.dormant)
@@ -621,6 +630,13 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (x >= 0 && y >= 0 && x < W && y < H)
           blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   }
+  // Level 13: a Totem Stack is a wall the search shoots down a head at a time.
+  for (const auto& e : w.enemies())
+    if (e.alive && e.kind == EnemyKind::Totem)
+      for (int y = e.y - e.h + 1; y <= e.y; ++y)
+        for (int x = e.x; x < e.x + e.w; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
   for (const auto& l : w.layers())
     for (int ty = l.y0; ty <= l.y1; ++ty)
       for (int tx = l.x0; tx <= l.x1; ++tx)
@@ -952,7 +968,7 @@ void Planner::buildField(const World& w, const Goal& goal)
   using QE = std::pair<int, int>;
   std::priority_queue<QE, std::vector<QE>, std::greater<QE>> q;
   const CellBox goalBox = goal.kind == 0 ? CellBox{goal.x, goal.y - 5, 2, 6}
-    : goal.kind == 3                      ? CellBox{goal.x, goal.y, goal.w, goal.h}
+    : goal.kind == 3 || goal.kind == 9    ? CellBox{goal.x, goal.y, goal.w, goal.h}
     : goal.kind == 4                      ? boxAt(goal.x, goal.y, 2, 4)
     : goal.kind == 5 && goal.w == 1       ? CellBox{goal.x - 2, goal.y, 6, 18}     // under it, to shoot up
     : goal.kind == 5                      ? CellBox{goal.x - 14, goal.y - 3, 30, 6} // in range for a level shot
@@ -967,7 +983,7 @@ void Planner::buildField(const World& w, const Goal& goal)
         continue;
       if (!boxAt(x, y, 3, 5).intersects(goalBox))
         continue;
-      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5 || goal.kind == 8) && support[i] != 0)
+      if ((goal.kind == 0 || goal.kind == 4 || goal.kind == 5 || goal.kind == 8 || goal.kind == 9) && support[i] != 0)
         continue;
       // A bonus entrance can be up in the air: jumping into it is fine.
       if (goal.kind == 3 && support[i] > lift[i])
@@ -1067,6 +1083,11 @@ int Planner::heuristic(const World& w) const
   for (const auto& d : w.keyDoors())
     if (!d.open && w.stoneKeysHeld() >= d.keys)
       extra += d.sink < 0 ? 40 : 20 - std::min(d.sink, 20);
+  // A Totem Stack ahead: every head shot off is progress. Every stack
+  // ahead counts, however far, so walking towards one is no step back.
+  for (const auto& e : w.enemies())
+    if (e.alive && e.kind == EnemyKind::Totem && e.x + e.w > p.x - 2)
+      extra += 12 * e.hp;
   for (int bi : mWalls)
     if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
       extra += (w.breakables()[std::size_t(bi)].by == 1 ? 60 : 12) * std::max(0, w.breakables()[std::size_t(bi)].hp);
@@ -1334,7 +1355,7 @@ void Planner::plan(const World& world)
   Goal goal = chooseGoal(world);
   // A prototype the field cannot reach, or one the search keeps failing to
   // get to, is skipped.
-  if ((goal.kind == 3 || goal.kind == 7) && mGoalKind == goal.kind && mFails >= 6)
+  if ((goal.kind == 3 || goal.kind == 7 || goal.kind == 9) && mGoalKind == goal.kind && mFails >= 6)
   {
     mSkipBonus = true;
     mSkipBonusAt = p0.x;
@@ -1395,9 +1416,9 @@ void Planner::plan(const World& world)
       mGoalKind = goal.kind;
       mGoalIndex = goal.index;
     }
-    if ((goal.kind != 2 && goal.kind != 3 && goal.kind != 7) || heuristic(world) < kInf)
+    if ((goal.kind != 2 && goal.kind != 3 && goal.kind != 7 && goal.kind != 9) || heuristic(world) < kInf)
       break;
-    if (goal.kind == 3 || goal.kind == 7)
+    if (goal.kind == 3 || goal.kind == 7 || goal.kind == 9)
     {
       mSkipBonus = true;
       mSkipBonusAt = -1;
@@ -1470,7 +1491,7 @@ void Planner::plan(const World& world)
     for (const auto& d : w.doors())
       k = mix(k, std::uint64_t(d.open) | (std::uint64_t(d.solid) << 16));
     for (const auto& e : w.enemies())
-      if (e.alive && e.kind == EnemyKind::Leech)
+      if (e.alive && (e.kind == EnemyKind::Leech || e.kind == EnemyKind::Totem))
         k = mix(k, std::uint64_t(e.aimX) | (std::uint64_t(e.hp) << 16));
     for (const auto& f : w.fluids())
       k = mix(k, std::uint64_t(f.surface) | (std::uint64_t(std::uint32_t(f.floodAt)) << 16));
@@ -1590,7 +1611,8 @@ void Planner::plan(const World& world)
       nw.plates()[std::size_t(goal.index)].presses > world.plates()[std::size_t(goal.index)].presses;
     const bool turned = goal.kind == 8 && std::size_t(goal.index) < nw.mirrors().size() &&
       nw.mirrors()[std::size_t(goal.index)].to == goal.h;
-    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned ||
+    const bool sheltered = goal.kind == 9 && nw.inShelter(goal.index);
+    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered ||
       (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
     if (ni != 0 && success)
     {

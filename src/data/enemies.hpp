@@ -50,6 +50,9 @@ enum class EnemyKind
   Toad,      // leaps out of the lava onto your stone, sits, dives back
   Wisp,      // drifts toward you; swells and bursts when close
   Crab,      // patrols its stone; armored top and front, flips when hit from behind
+  SpearRunner, // flees ahead of you, turns once to throw a spear back
+  PitSnake,  // waits in a floor hole, rears and strikes when you come close
+  Totem,     // a stack of spitting heads; a solid column that shrinks as heads go
 };
 
 enum EnemyFlag : unsigned

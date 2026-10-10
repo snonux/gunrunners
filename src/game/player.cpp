@@ -899,6 +899,8 @@ void World::respawnPlayer()
     resetTemple();
   if (!mCarts.empty() || !mCaps.empty() || !mRails.empty())
     resetMine();
+  if (!mBoulders.empty())
+    resetBoulders();
   showMessage("BACK IN ACTION");
 }
 

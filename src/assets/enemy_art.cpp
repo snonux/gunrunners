@@ -2048,6 +2048,212 @@ void basaltCrab(const Ctx& c)
   }
 }
 
+// Boulder (level 13): a carved temple ball, lit from above. The carvings
+// that turn as it rolls are drawn over it at run time (world_boulder.cpp).
+void boulder(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double cx = kM + c.w * 0.5, cy = kM + c.h * 0.5, r = c.w * 0.5 - 4;
+  circle(cr, cx, cy, r);
+  cairo_pattern_t* g = cairo_pattern_create_radial(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r);
+  cairo_pattern_add_color_stop_rgb(g, 0.0, 0.86, 0.74, 0.56);
+  cairo_pattern_add_color_stop_rgb(g, 0.6, 0.6, 0.47, 0.33);
+  cairo_pattern_add_color_stop_rgb(g, 1.0, 0.3, 0.22, 0.15);
+  cairo_set_source(cr, g);
+  cairo_fill_preserve(cr);
+  cairo_pattern_destroy(g);
+  setColor(cr, kInk);
+  cairo_set_line_width(cr, kLine * 1.5);
+  cairo_stroke(cr);
+  // Pits and chips in the stone.
+  for (int i = 0; i < 26; ++i)
+  {
+    const double a = double(i) * 2.399, d = r * std::sqrt(double(i % 13) / 13.0) * 0.9;
+    circle(cr, cx + std::cos(a) * d, cy + std::sin(a) * d, 3 + i % 4);
+    setColor(cr, rgba(50, 34, 20, 70));
+    cairo_fill(cr);
+  }
+  // A band of glyphs round its belly.
+  cairo_arc(cr, cx, cy, r * 0.82, 0, 2 * kPi);
+  setColor(cr, rgba(60, 40, 24, 90));
+  cairo_set_line_width(cr, 6.0);
+  cairo_stroke(cr);
+}
+
+// Spear Runner (level 13): a temple runner in a feathered headband with a
+// spear. Variant 1 has turned to throw, the spear up.
+void spearRunner(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color cloth = rgb(200, 80, 50), skin = rgb(170, 110, 70);
+  for (double lx : {0.3, 0.52})
+  {
+    roundedRect(cr, x0 + w * lx, y0 + h * 0.62, w * 0.16, h * 0.36, 5);
+    fillOutline(cr, skin, kInk, kLine);
+  }
+  roundedRect(cr, x0 + w * 0.22, y0 + h * 0.3, w * 0.56, h * 0.36, 10);
+  fillGradientOutline(cr, y0 + h * 0.3, y0 + h * 0.66, lighten(skin, 0.1f), skin, kInk, kLine);
+  roundedRect(cr, x0 + w * 0.2, y0 + h * 0.56, w * 0.6, h * 0.14, 4); // the loincloth
+  fillOutline(cr, cloth, kInk, 1.6);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.2, w * 0.19);
+  fillOutline(cr, skin, kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.3, y0 + h * 0.1, w * 0.4, h * 0.05);
+  fillOutline(cr, rgb(240, 200, 60), kInk, 1.4);
+  // Feathers.
+  for (int k = 0; k < 3; ++k)
+  {
+    cairo_move_to(cr, x0 + w * (0.36 + k * 0.1), y0 + h * 0.1);
+    cairo_line_to(cr, x0 + w * (0.3 + k * 0.12), y0 + h * 0.0);
+    setColor(cr, k == 1 ? rgb(60, 170, 90) : rgb(220, 60, 50));
+    cairo_set_line_width(cr, 5.0);
+    cairo_stroke(cr);
+  }
+  circle(cr, x0 + w * 0.6, y0 + h * 0.19, 3);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  // The spear: carried level, or raised to throw.
+  const bool up = c.variant == 1;
+  const double sx = x0 + w * 0.7, sy = y0 + h * 0.38;
+  const double hx = up ? x0 + w * 0.7 : x0 + w * 0.86, hy = up ? y0 + h * 0.12 : y0 + h * 0.46;
+  strokeLimb(cr, {{sx, sy}, {hx, hy}}, 6, skin, kInk, kLine);
+  const double ax = up ? hx - 60 : hx - 70, ay = up ? hy + 6 : hy;
+  const double bx = up ? hx + 50 : hx + 40, by = up ? hy - 8 : hy;
+  cairo_move_to(cr, ax, ay);
+  cairo_line_to(cr, bx, by);
+  setColor(cr, rgb(120, 80, 40));
+  cairo_set_line_width(cr, 5.0);
+  cairo_stroke(cr);
+  cairo_move_to(cr, bx, by - 6);
+  cairo_line_to(cr, bx + 18, by);
+  cairo_line_to(cr, bx, by + 6);
+  cairo_close_path(cr);
+  fillOutline(cr, rgb(210, 216, 226), kInk, 1.4);
+}
+
+// Cultist (level 13's bonus, Boulder Surfing): a hooded figure in a long
+// robe, arms raised to the boulder it worships; variant 1 is mid-stride.
+void cultist(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color robe = rgb(120, 40, 60), trim = rgb(230, 180, 70), skin = rgb(170, 110, 70);
+  const double step = c.variant == 1 ? w * 0.06 : 0.0;
+  for (double lx : {0.3 - step / w, 0.54 + step / w})
+  {
+    roundedRect(cr, x0 + w * lx, y0 + h * 0.86, w * 0.16, h * 0.12, 4);
+    fillOutline(cr, rgb(70, 50, 40), kInk, kLine);
+  }
+  // The robe, wider at the hem.
+  cairo_move_to(cr, x0 + w * 0.34, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.66, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.84, y0 + h * 0.9);
+  cairo_line_to(cr, x0 + w * 0.16, y0 + h * 0.9);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.24, y0 + h * 0.9, lighten(robe, 0.15f), robe, kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.47, y0 + h * 0.3, w * 0.06, h * 0.58);
+  setColor(cr, trim);
+  cairo_fill(cr);
+  // Arms raised in worship.
+  for (int side : {-1, 1})
+  {
+    const double sx = x0 + w * (0.5 + side * 0.14), sy = y0 + h * 0.32;
+    strokeLimb(cr, {{sx, sy}, {sx + side * w * 0.16, y0 + h * 0.18}, {sx + side * w * 0.2, y0 + h * 0.04}}, 9, robe,
+      kInk, kLine);
+    circle(cr, sx + side * w * 0.2, y0 + h * 0.04, 6);
+    fillOutline(cr, skin, kInk, 1.4);
+  }
+  // The hood, the face in its shadow, two glowing eyes.
+  cairo_move_to(cr, x0 + w * 0.5, y0 + h * 0.02);
+  cairo_curve_to(cr, x0 + w * 0.76, y0 + h * 0.06, x0 + w * 0.74, y0 + h * 0.28, x0 + w * 0.64, y0 + h * 0.3);
+  cairo_line_to(cr, x0 + w * 0.36, y0 + h * 0.3);
+  cairo_curve_to(cr, x0 + w * 0.26, y0 + h * 0.28, x0 + w * 0.24, y0 + h * 0.06, x0 + w * 0.5, y0 + h * 0.02);
+  cairo_close_path(cr);
+  fillOutline(cr, robe, kInk, kLine);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.18, w * 0.13);
+  setColor(cr, rgb(30, 18, 24));
+  cairo_fill(cr);
+  for (double ex : {0.45, 0.56})
+  {
+    circle(cr, x0 + w * ex, y0 + h * 0.17, 2.6);
+    setColor(cr, rgb(255, 200, 80));
+    cairo_fill(cr);
+  }
+}
+
+// Pit Snake (level 13): coiled down its hole (variant 0), the head up and
+// hissing (1), or reared with its jaws open (2).
+void pitSnake(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color scales = rgb(150, 120, 60), belly = rgb(230, 210, 140);
+  const double neckTop = c.variant == 2 ? y0 + 8 : (c.variant == 1 ? y0 + h * 0.35 : y0 + h * 0.5);
+  strokeLimb(cr, {{x0 + w * 0.5, y0 + h}, {x0 + w * 0.42, (neckTop + y0 + h) * 0.5}, {x0 + w * 0.55, neckTop + 10}}, 14,
+    scales, kInk, kLine);
+  // Bands.
+  for (double t = 0.2; t < 0.9; t += 0.25)
+  {
+    const double yy = neckTop + 10 + (y0 + h - neckTop - 10) * t;
+    cairo_rectangle(cr, x0 + w * 0.4, yy, w * 0.2, 3);
+    setColor(cr, belly);
+    cairo_fill(cr);
+  }
+  // The head.
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.56, neckTop + 6);
+  cairo_move_to(cr, -14, -8);
+  cairo_curve_to(cr, 4, -16, 22, -6, 24, 0);
+  cairo_curve_to(cr, 20, 8, 2, 12, -14, 8);
+  cairo_close_path(cr);
+  cairo_restore(cr);
+  fillOutline(cr, lighten(scales, 0.12f), kInk, kLine);
+  circle(cr, x0 + w * 0.62, neckTop + 2, 3);
+  setColor(cr, rgb(255, 60, 40));
+  cairo_fill(cr);
+  if (c.variant >= 1)
+  {
+    // The forked tongue.
+    cairo_move_to(cr, x0 + w * 0.56 + 24, neckTop + 6);
+    cairo_line_to(cr, x0 + w * 0.56 + 36, neckTop + 4);
+    cairo_line_to(cr, x0 + w * 0.56 + 40, neckTop);
+    cairo_move_to(cr, x0 + w * 0.56 + 36, neckTop + 4);
+    cairo_line_to(cr, x0 + w * 0.56 + 40, neckTop + 9);
+    setColor(cr, rgb(220, 40, 60));
+    cairo_set_line_width(cr, 2.0);
+    cairo_stroke(cr);
+  }
+}
+
+// Totem Stack (level 13): carved heads one on another, as many as fit its
+// height. Variant n > 0: head n (from the top) has its mouth aglow.
+void totem(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const int heads = std::max(1, int(c.h / 64.0 + 0.5));
+  const Color wood[3] = {rgb(170, 110, 60), rgb(140, 150, 90), rgb(180, 90, 70)};
+  for (int i = 0; i < heads; ++i)
+  {
+    const double x = kM + 2, y = kM + i * 64.0 + 2, w = c.w - 4, hh = 60.0;
+    roundedRect(cr, x, y, w, hh, 8);
+    fillGradientOutline(cr, y, y + hh, lighten(wood[i % 3], 0.15f), wood[i % 3], kInk, kLine);
+    // Brow, eyes, the mouth.
+    cairo_rectangle(cr, x + 4, y + 12, w - 8, 6);
+    setColor(cr, darken(wood[i % 3], 0.3f));
+    cairo_fill(cr);
+    for (double ex : {0.3, 0.7})
+    {
+      circle(cr, x + w * ex, y + 26, 6);
+      fillOutline(cr, rgb(250, 240, 210), kInk, 1.4);
+    }
+    const bool glow = c.variant == i + 1;
+    roundedRect(cr, x + w * 0.25, y + 38, w * 0.5, 14, 4);
+    fillOutline(cr, glow ? rgb(255, 200, 80) : rgb(40, 24, 14), kInk, 1.6);
+    if (glow)
+      radialGlow(cr, x + w * 0.5, y + 45, 30, rgb(255, 170, 60), 0.6);
+  }
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -2102,6 +2308,11 @@ DrawFn routineFor(const std::string& key)
     {"toad", magmaToad},
     {"wisp", emberWisp},
     {"crab", basaltCrab},
+    {"boulder", boulder},
+    {"spearrunner", spearRunner},
+    {"cultist", cultist},
+    {"pitsnake", pitSnake},
+    {"totem", totem},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;
