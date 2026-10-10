@@ -1285,6 +1285,222 @@ std::vector<float> makeSfx(Sfx id)
       }
       return out;
     }
+    case Sfx::Bulkhead:
+    {
+      // A bulkhead sliding: a heavy hydraulic grind that rises as it moves
+      // and ends in a deep clunk as it seats.
+      Osc motor, clunk;
+      Noise n(271), m(277);
+      Svf bp;
+      OnePole lp;
+      return render(1.1, [&](double t, double total) {
+        const double move = std::min(1.0, t / 0.08) * (t < 0.85 ? 1.0 : std::max(0.0, 1.0 - (t - 0.85) / 0.05));
+        const double grind = bp.band(n.next(), 260.0 + 140.0 * t, 3.0) * 0.6 +
+          motor.step(55.0 + 18.0 * t, Wave::Saw) * 0.25 * (0.8 + 0.2 * std::sin(t * 70.0));
+        const double seat = t > 0.86 ? (clunk.step(sweep(120.0, 45.0, (t - 0.86) / 0.15), Wave::Sine) * 0.9 +
+                                          lp.lowpass(m.next(), 700.0) * 0.6) *
+            decay(t - 0.86, 0.07)
+                                     : 0.0;
+        return (grind * move * 0.4 + seat * 0.6) * attack(t, 0.01) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::Monitor:
+    {
+      // A CRT switching channel: the high whine of the flyback, a pop and a
+      // short burst of static.
+      Osc whine, pop;
+      Noise n(281);
+      OnePole hp;
+      return render(0.3, [&](double t, double) {
+        const double w = whine.step(15700.0 * 0.5, Wave::Sine) * 0.08 * decay(t, 0.12);
+        const double p = pop.step(sweep(900.0, 200.0, t / 0.03), Wave::Square, 0.4) * decay(t, 0.012);
+        const double st = hp.highpass(n.next(), 1500.0) * decay(t, 0.06) * (t > 0.01 ? 1.0 : 0.0);
+        return (w + p * 0.3 + st * 0.25) * attack(t, 0.001);
+      });
+    }
+    case Sfx::PhaseShot:
+    {
+      // The Phase Rifle: a thin rising zip with a hollow, phasey ring after
+      // it (two detuned voices beating against each other).
+      Osc a, b, c;
+      return render(0.32, [&](double t, double) {
+        const double f = sweep(500.0, 3200.0, t / 0.09);
+        const double zip = a.step(f, Wave::Square, 0.2) * decay(t, 0.05);
+        const double hollow = (b.step(f * 0.5, Wave::Sine) - c.step(f * 0.5 * 1.012, Wave::Sine)) * decay(t, 0.12);
+        return (zip * 0.22 + hollow * 0.3) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Glint:
+    {
+      // A fake wall or a hidden pocket glinting: a tiny high two-note chime.
+      std::vector<float> b(std::size_t(samples(0.4)));
+      addTone(b, 0.0, 0.3, midiFreq(98), Wave::Sine, 0.12, 0.06);
+      addTone(b, 0.07, 0.33, midiFreq(103), Wave::Sine, 0.14, 0.09);
+      addTone(b, 0.07, 0.33, midiFreq(115), Wave::Sine, 0.04, 0.05);
+      return b;
+    }
+    case Sfx::Rebuild:
+    {
+      // A Repair Swarm finishing a rebuild: a ratchet clicking faster and
+      // higher, then a bright ping.
+      Osc tick, ping, ping2;
+      Noise n(283);
+      Svf bp;
+      return render(0.7, [&](double t, double) {
+        double out = 0.0;
+        if (t < 0.45)
+        {
+          const double rate = lerp(14.0, 40.0, t / 0.45);
+          const double ph = std::fmod(t * rate, 1.0);
+          out += bp.band(n.next(), lerp(1200.0, 3000.0, t / 0.45), 4.0) * std::exp(-ph * 18.0) * 0.6;
+          out += tick.step(lerp(300.0, 700.0, t / 0.45), Wave::Square, 0.3) * std::exp(-ph * 30.0) * 0.12;
+        }
+        else
+        {
+          const double u = t - 0.45;
+          out += (ping.step(1760.0, Wave::Sine) * 0.4 + ping2.step(2640.0, Wave::Sine) * 0.2) * decay(u, 0.08);
+        }
+        return out * 0.6 * attack(t, 0.002);
+      });
+    }
+    case Sfx::EchoIn:
+    {
+      // An Echo stepping out of its pad: a shimmer swelling up as if played
+      // backwards, cut off sharply.
+      Osc a, b, lfo;
+      Noise n(293);
+      OnePole hp;
+      return render(0.6, [&](double t, double total) {
+        const double swell = std::pow(t / total, 2.5);
+        const double f = sweep(400.0, 1400.0, t / total);
+        const double sh = 0.6 + 0.4 * lfo.step(24.0, Wave::Sine);
+        const double v = (a.step(f, Wave::Triangle) * 0.5 + b.step(f * 1.5, Wave::Sine) * 0.3) * sh +
+          hp.highpass(n.next(), 4000.0) * 0.25;
+        return v * swell * 0.4 * std::min(1.0, (total - t) / 0.01);
+      });
+    }
+    case Sfx::EyeCharge:
+    {
+      // ZERO's eye charging: a whine rising for a second and a half, with a
+      // tremolo that speeds up as it gets there.
+      Osc a, b, lfo;
+      return render(1.5, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(140.0, 1800.0, u);
+        const double trem = 0.6 + 0.4 * lfo.step(lerp(4.0, 30.0, u), Wave::Sine);
+        const double v = a.step(f, Wave::Saw) * 0.25 + b.step(f * 2.003, Wave::Sine) * 0.2;
+        return v * trem * (0.2 + 0.8 * u) * 0.35 * attack(t, 0.05) * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::EyeBeam:
+    {
+      // The beam hitting the grille: a fat mains buzz with crackling
+      // sparks over it.
+      Osc a, b;
+      Noise n(307), m(311);
+      OnePole hp;
+      Svf lp;
+      return render(0.9, [&](double t, double total) {
+        const double buzz = lp.low(float(a.step(100.0, Wave::Saw) * 0.6 + b.step(150.3, Wave::Square, 0.3) * 0.4),
+                              1400.0, 1.5);
+        const double crack = (n.next() > 0.97f ? 1.0 : 0.0) * hp.highpass(m.next(), 2500.0) * 3.0;
+        return (buzz * 0.35 + crack * 0.15) * attack(t, 0.01) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::Shutter:
+    {
+      // A camera iris snapping: a quick double clack of blades with a short
+      // mechanical whirr between.
+      Noise n(313), m(317);
+      Svf bp, bp2;
+      Osc whirr;
+      return render(0.22, [&](double t, double) {
+        const double c1 = bp.band(n.next(), 3200.0, 3.0) * decay(t, 0.006);
+        const double c2 = t > 0.12 ? bp2.band(m.next(), 2400.0, 3.0) * decay(t - 0.12, 0.008) : 0.0;
+        const double w = t < 0.12 ? whirr.step(sweep(600.0, 1100.0, t / 0.12), Wave::Square, 0.3) * 0.05 : 0.0;
+        return (c1 * 0.9 + c2 * 0.8 + w) * attack(t, 0.0005);
+      });
+    }
+    case Sfx::WallFall:
+    {
+      // The painted flat tipping over: a long wooden creak, then a huge flat
+      // slap and the boom of the stage under it.
+      Osc creak, boom;
+      Noise n(331), m(337);
+      Svf bp;
+      OnePole lp;
+      return render(2.4, [&](double t, double total) {
+        double out = 0.0;
+        if (t < 1.0)
+        {
+          const double f = 140.0 + 50.0 * std::sin(t * 9.0) + 30.0 * t;
+          out += bp.band(float(creak.step(f, Wave::Saw)), f * 3.0, 5.0) * std::sin(kPi * t) * 0.35;
+        }
+        else
+        {
+          const double u = t - 1.0;
+          out += lp.lowpass(m.next(), sweep(5000.0, 300.0, u / 0.4)) * decay(u, 0.12) * 1.2;
+          out += boom.step(sweep(70.0, 28.0, u / 0.6), Wave::Sine) * decay(u, 0.35) * 0.9;
+          out += n.next() * decay(u, 0.01) * 0.4;
+        }
+        return out * 0.6 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.3);
+      });
+    }
+    case Sfx::LightClunk:
+    {
+      // A bank of studio lights switching on: a heavy relay clunk and the
+      // low electric hum of the lamps coming up.
+      Osc thud, hum, hum2;
+      Noise n(347);
+      OnePole lp;
+      return render(1.0, [&](double t, double total) {
+        const double c = (thud.step(sweep(160.0, 60.0, t / 0.06), Wave::Triangle) * 0.8 + lp.lowpass(n.next(), 1600.0) * 0.6) *
+          decay(t, 0.04);
+        const double h = (hum.step(100.0, Wave::Saw) * 0.5 + hum2.step(200.0, Wave::Sine) * 0.3) *
+          std::min(1.0, t / 0.15) * std::min(1.0, (total - t) / 0.4) * 0.12;
+        return (c * 0.7 + h) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Applause:
+    {
+      // A studio audience cheering: many hand claps (short filtered noise
+      // bursts at random times) over a crowd's "woo".
+      const double len = 3.0;
+      std::vector<float> b(std::size_t(samples(len)), 0.0f);
+      std::uint32_t seed = 3571;
+      auto rnd = [&]() {
+        seed = seed * 1664525u + 1013904223u;
+        return double(seed >> 8) / double(1u << 24);
+      };
+      Noise n(349);
+      for (int k = 0; k < 900; ++k)
+      {
+        const double at = rnd() * (len - 0.1);
+        const double vol = 0.25 + 0.5 * rnd();
+        const double cut = 900.0 + 2200.0 * rnd();
+        Svf bp;
+        const int start = samples(at);
+        for (int i = 0; i < samples(0.04) && start + i < int(b.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          b[std::size_t(start + i)] += float(bp.band(n.next(), cut, 1.4) * vol * decay(t, 0.008));
+        }
+      }
+      // The "woo": a few voices on a vowel-ish band, sliding up.
+      Noise v(353);
+      Svf f1, f2;
+      Osc o1, o2, o3;
+      for (std::size_t i = 0; i < b.size(); ++i)
+      {
+        const double t = double(i) / kRate;
+        const double env = std::min(1.0, t / 0.3) * std::min(1.0, (len - t) / 1.2);
+        const double voice = o1.step(sweep(330.0, 440.0, t / 0.6), Wave::Saw) * 0.3 +
+          o2.step(sweep(392.0, 523.0, t / 0.7), Wave::Saw) * 0.25 + o3.step(sweep(262.0, 349.0, t / 0.5), Wave::Saw) * 0.25;
+        const double formant = f1.band(float(voice + v.next() * 0.2), 700.0, 4.0) * 0.6 + f2.band(float(voice), 1200.0, 5.0) * 0.3;
+        b[i] = float(b[i] * 0.5 * std::min(1.0, (len - t) / 1.5) + formant * env * 0.12);
+      }
+      return b;
+    }
     case Sfx::Count:
       break;
   }

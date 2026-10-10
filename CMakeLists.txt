@@ -32,6 +32,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_green.cpp
   src/assets/enemy_art_grav.cpp
   src/assets/enemy_art_reactor.cpp
+  src/assets/enemy_art_zero.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
@@ -89,6 +90,8 @@ add_library(gunrunners_core STATIC
   src/game/world_grav.cpp
   src/game/world_reactor.cpp
   src/game/world_reactor_draw.cpp
+  src/game/world_zero.cpp
+  src/game/world_zero_draw.cpp
   src/game/world_hull_draw.cpp
   src/game/world_hull.cpp
   src/game/world_orbit.cpp
@@ -105,6 +108,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot.cpp
   src/frontend/bot_drive.cpp
   src/frontend/bot_mother.cpp
+  src/frontend/bot_zero.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
@@ -243,3 +247,7 @@ add_test(NAME savegame_reactor_core COMMAND savegame_test ${CMAKE_SOURCE_DIR}/le
 add_executable(reactor_test tests/reactor_test.cpp)
 target_link_libraries(reactor_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME reactor_core COMMAND reactor_test ${CMAKE_SOURCE_DIR}/levels/20_bonus_stop_motion.txt)
+add_test(NAME savegame_zero COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/21_zero.txt 330)
+add_executable(zero_test tests/zero_test.cpp)
+target_link_libraries(zero_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME zero COMMAND zero_test ${CMAKE_SOURCE_DIR}/levels/21_bonus_wireframe.txt)

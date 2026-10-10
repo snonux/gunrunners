@@ -5,6 +5,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -57,6 +58,7 @@ struct ClipKit
   const Theme& theme;
   int level = 0;
   std::map<std::string, Texture> cache;
+  std::set<int> cameras; // levels whose candid camera was shot (end_e3's monitor wall)
 };
 
 // Draws one frame of a clip. `frame` is the clip frame (0..frames-1),

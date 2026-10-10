@@ -102,6 +102,10 @@ enum class EnemyKind
   Spark,       // a Conduit Spark: rides its wire, never leaves it
   ShieldDrone, // hovers over its group; nothing in its bubble can be hurt
   Imp,         // an Isotope Imp: scuttles after you, faster after every pulse; lunges
+  // Level 21, ZERO (world_zero.cpp).
+  LatticeTurret, // rides its ceiling rail above you and fires straight down
+  RepairSwarm,   // a cloud of nanobots: hovers to what was broken and builds it back
+  Echo,          // a hologram replaying your own moves and shots from a while ago
 };
 
 enum EnemyFlag : unsigned

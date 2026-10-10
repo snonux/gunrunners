@@ -14,7 +14,7 @@ bool World::canSave() const
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
     (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave()) &&
-    (!mReactor.on || reactorCanSave());
+    (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -66,6 +66,8 @@ SaveGame World::snapshot() const
     const auto& e = mEnemies[i];
     if (i >= mLevelEnemyCount && !e.alive)
       continue; // a spawned enemy that is gone for good
+    if (e.kind == EnemyKind::Echo)
+      continue; // Level 21: it replays the runner's moves, which are not saved (its pad puts out another)
     SaveGame::EnemyState es{e.alive, e.hp, e.x, e.y, e.dir, e.timer, e.active};
     es.attach = e.attach;
     // A Loader Mech's legs (it holds nothing: saving waits for the throw).
@@ -351,6 +353,8 @@ SaveGame World::snapshot() const
   }
   if (mReactor.on)
     s.reactor = reactorSave();
+  if (mZero.on)
+    s.zero = zeroSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -437,6 +441,7 @@ bool World::restore(const SaveGame& s)
       (!s.hull.empty() && !validHullSave(s.hull)) ||
       (!s.grav.empty() && !validGravSave(s.grav)) ||
       (!s.reactor.empty() && !validReactorSave(s.reactor)) ||
+      (!s.zero.empty() && !validZeroSave(s.zero)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -851,6 +856,8 @@ bool World::restore(const SaveGame& s)
   }
   if (!s.reactor.empty())
     loadReactor(s.reactor);
+  if (!s.zero.empty())
+    loadZero(s.zero);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

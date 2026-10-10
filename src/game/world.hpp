@@ -18,6 +18,7 @@
 #include "game/green.hpp"
 #include "game/hull.hpp"
 #include "game/reactor.hpp"
+#include "game/zero.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -261,6 +262,8 @@ struct Projectile
   bool vehicle = false; // fired by a vehicle: breaks `by=vehicle` walls
   bool bounced = false; // a Swap Rifle shot already bounced off a wall
   bool spike = false;   // a Space Barnacle's spike (drawn as a needle along its flight)
+  int phase = -1;       // a Phase Rifle shot: the wall it is passing through (-1 none yet, -2 done)
+  bool echo = false;    // fired by an Echo (drawn as a hologram's shot)
   int anchorX = -1, anchorY = -1; // a Silk Shooter shot: the hands it was fired from
   bool alive = true;
   int age = 0;
@@ -1778,6 +1781,11 @@ public:
   int gravZoneAt(int cx, int cy) const;
   // Level 20, Reactor Core: the pulse, booths, the Bracer, wires, valves.
   const ReactorState& reactor() const { return mReactor; }
+  // Level 21, ZERO: the bulkheads' states, Echoes, the eye.
+  const ZeroState& zero() const { return mZero; }
+  bool zeroFight() const;              // the runner is in the arena and ZERO is up
+  int zeroHp() const;                  // ZERO's hearts left over all three phases
+  bool overSafeSegment() const;        // in Overload: the runner stands on a segment that stays
   bool inBooth() const;                // the runner is inside a lead booth
   bool atValve(int i) const;           // the runner stands at valve i (holding up turns it)
   int framesToRing() const;            // until a ring gets to the runner (huge once the core is off)
@@ -2318,6 +2326,38 @@ private:
   void drawReactorBack(Renderer& r, float camX, float camY, int frame) const;
   void drawReactorFront(Renderer& r, float camX, float camY, int frame) const;
   void drawReactorHud(Renderer& r, int frame) const;
+  // Level 21, ZERO (world_zero.cpp, world_zero_draw.cpp) and its Wireframe
+  // bonus.
+  bool setupZeroEntity(const EntityDef& e);
+  void setupZeroEnemy(Enemy& en, const EntityDef& e);
+  void linkZero();
+  void startShift(ZeroShift& s);
+  void updateShifts();
+  void slideDoor(ZeroDoor& d, float to, int frames);
+  void updateDoors();
+  int phaseThing(int cx, int cy) const;
+  bool phaseThrough(Projectile& pr, const CellBox& b);
+  void phaseGlint(const CellBox& b);
+  bool shotAtZero(Projectile& pr, const CellBox& b);
+  void updateZero(const PlayerInput& input);
+  void recordEcho();
+  int spawnEcho(int x, int y, int delay, int look, int hp);
+  void updateLatticeTurret(Enemy& e, const EnemyDef& def);
+  void updateRepairSwarm(Enemy& e, const EnemyDef& def);
+  void updateEcho(Enemy& e, const EnemyDef& def);
+  void zeroPhase(ZeroPhase phase);
+  void hurtZero(int damage, const CellBox& at);
+  void updateZeroBoss();
+  void shutZeroDoor(bool shut);
+  void pickSafeSegments();
+  void resetZero();
+  bool zeroCanSave() const;
+  std::vector<int> zeroSave() const;
+  bool validZeroSave(const std::vector<int>& v) const;
+  void loadZero(const std::vector<int>& v);
+  void drawZeroBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawZeroFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawZeroHud(Renderer& r, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2711,6 +2751,7 @@ private:
   GravState mGrav;
   std::optional<CollisionMap> mViewMap; // the turned map a turned runner moves on (world_grav.cpp)
   ReactorState mReactor;
+  ZeroState mZero;
   std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.

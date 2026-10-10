@@ -955,6 +955,8 @@ void World::drawLavaBack(Renderer& r, float camX, float camY, int frame, float /
   // The lava's heat on the walls around it.
   for (const auto& l : mLavas)
   {
+    if (mZero.on)
+      break; // ZERO's live grille (world_zero_draw.cpp)
     const float x = float(l.x0) * kCellPx - camX, y = float(l.y0) * kCellPx - camY;
     const float w = float(l.x1 - l.x0 + 1) * kCellPx;
     if (!visible(x, y - 200.0f, w, 260.0f))
@@ -1011,6 +1013,8 @@ void World::drawLavaFront(Renderer& r, float camX, float camY, int frame, float 
   // Lava: a glowing body with a rolling surface and bubbles.
   for (const auto& l : mLavas)
   {
+    if (mZero.on)
+      break; // ZERO's live grille (world_zero_draw.cpp)
     const float x = float(l.x0) * kCellPx - camX, y = float(l.y0) * kCellPx - camY;
     const float w = float(l.x1 - l.x0 + 1) * kCellPx, h = float(l.y1 - l.y0 + 1) * kCellPx;
     if (!visible(x, y - 20.0f, w, h + 20.0f))

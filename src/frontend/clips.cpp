@@ -5,6 +5,7 @@
 
 #include "assets/art.hpp"
 #include "assets/enemy_art.hpp"
+#include "assets/enemy_art_zero.hpp"
 #include "base/math.hpp"
 #include "data/theme.hpp"
 #include "frontend/cutscene.hpp"
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <functional>
 
 // cached() returns a reference into ClipKit::cache, not into its painter
@@ -789,34 +791,39 @@ void caseClip(ClipKit& k, int frame, int ticks, float ox, float oy)
   drawGlow(k.r, k.art, 640 + ox, 380 + oy, 500, rgb(255, 210, 140), 0.08f + 0.02f * std::sin(float(ticks) * 0.05f));
 }
 
+// The lens from the wreck, in a 260 x 260 box: a black barrel, its rings
+// and the violet glass. (end_e3's studio camera wears the same one.)
+void paintLensGlass(cairo_t* cr)
+{
+  cairo_arc(cr, 130, 130, 126, 0, 2 * kPi);
+  cairo_set_source_rgb(cr, 0.1, 0.1, 0.12);
+  cairo_fill(cr);
+  for (int i = 0; i < 4; ++i)
+  {
+    cairo_arc(cr, 130, 130, 112 - i * 22, 0, 2 * kPi);
+    cairo_set_source_rgb(cr, 0.18 + i * 0.03, 0.18 + i * 0.03, 0.22 + i * 0.03);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+  }
+  cairo_pattern_t* g = cairo_pattern_create_radial(110, 105, 4, 130, 130, 70);
+  cairo_pattern_add_color_stop_rgb(g, 0.0, 0.7, 0.4, 0.9);
+  cairo_pattern_add_color_stop_rgb(g, 0.5, 0.15, 0.25, 0.55);
+  cairo_pattern_add_color_stop_rgb(g, 1.0, 0.03, 0.05, 0.12);
+  cairo_arc(cr, 130, 130, 64, 0, 2 * kPi);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  cairo_arc(cr, 108, 104, 12, 0, 2 * kPi);
+  cairo_set_source_rgba(cr, 1, 1, 1, 0.8);
+  cairo_fill(cr);
+}
+
 // The lens: Rocco turns a big camera lens over in his hands (frames 0-4),
 // then the lens's own view of him, a camera's viewfinder with REC
 // blinking (frames 5-9). Someone has been filming the crew.
 void lensClip(ClipKit& k, int frame, int ticks, float ox, float oy)
 {
-  const Texture& glass = cached(k, "e1_lens", 260, 260, 130, 130, [](cairo_t* cr) {
-    cairo_arc(cr, 130, 130, 126, 0, 2 * kPi);
-    cairo_set_source_rgb(cr, 0.1, 0.1, 0.12);
-    cairo_fill(cr);
-    for (int i = 0; i < 4; ++i)
-    {
-      cairo_arc(cr, 130, 130, 112 - i * 22, 0, 2 * kPi);
-      cairo_set_source_rgb(cr, 0.18 + i * 0.03, 0.18 + i * 0.03, 0.22 + i * 0.03);
-      cairo_set_line_width(cr, 6);
-      cairo_stroke(cr);
-    }
-    cairo_pattern_t* g = cairo_pattern_create_radial(110, 105, 4, 130, 130, 70);
-    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.7, 0.4, 0.9);
-    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.15, 0.25, 0.55);
-    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.03, 0.05, 0.12);
-    cairo_arc(cr, 130, 130, 64, 0, 2 * kPi);
-    cairo_set_source(cr, g);
-    cairo_fill(cr);
-    cairo_pattern_destroy(g);
-    cairo_arc(cr, 108, 104, 12, 0, 2 * kPi);
-    cairo_set_source_rgba(cr, 1, 1, 1, 0.8);
-    cairo_fill(cr);
-  });
+  const Texture& glass = cached(k, "e1_lens", 260, 260, 130, 130, paintLensGlass);
   if (frame < 5)
   {
     siteNight(k, ticks, ox, oy);
@@ -4176,6 +4183,845 @@ void reactorCrew(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.fillRect(ox, 420.0f + oy, W, 300.0f, rgba(40, 110, 220, int(26.0f + 16.0f * hum)), Blend::Add);
 }
 
+// --- Level 21 and the end of Episode 3: ZERO ---------------------------------------------
+//
+// ZERO's eye, its racks, Lance and his audience are painted by the same
+// routines the level uses (assets/enemy_art_zero.hpp), so the cutscenes
+// match the arena.
+
+constexpr Color kZeroRed = rgb(255, 40, 50);
+
+void setRgbaC(cairo_t* cr, Color c, double a)
+{
+  cairo_set_source_rgba(cr, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a);
+}
+
+// A texture squashed or stretched into any rectangle (the flat tipping back).
+void stretchTex(ClipKit& k, const Texture& t, float x, float y, float w, float h, Color tint, float alpha)
+{
+  if (!t || w <= 0.5f || h <= 0.5f)
+    return;
+  const SDL_FRect dst{x, y, w, h};
+  SDL_SetTextureBlendMode(t.get(), SDL_BLENDMODE_BLEND);
+  SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)));
+  SDL_SetTextureColorMod(t.get(), Uint8(redOf(tint)), Uint8(greenOf(tint)), Uint8(blueOf(tint)));
+  SDL_RenderCopyF(k.r.sdl(), t.get(), nullptr, &dst);
+  SDL_SetTextureColorMod(t.get(), 255, 255, 255);
+  SDL_SetTextureAlphaMod(t.get(), 255);
+}
+
+void clipTo(ClipKit& k, float x, float y, float w, float h)
+{
+  const SDL_Rect rc{int(std::floor(x)), int(std::floor(y)), std::max(0, int(std::ceil(w))), std::max(0, int(std::ceil(h)))};
+  SDL_RenderSetClipRect(k.r.sdl(), &rc);
+}
+
+void unclip(ClipKit& k) { SDL_RenderSetClipRect(k.r.sdl(), nullptr); }
+
+void scanlines(ClipKit& k, int alpha, float y0 = 0.0f, float y1 = H, float x0 = 0.0f, float w = W)
+{
+  for (float y = y0; y < y1; y += 4.0f)
+    k.r.fillRect(x0, y, w, 1.0f, rgba(0, 0, 0, alpha));
+}
+
+// ZERO's eye on its own, `size` px square, centred.
+const Texture& zeroEye(ClipKit& k, int size, float pupil, float shutter, float light)
+{
+  const int pq = int(std::lround(pupil * 40.0f)), sq = int(std::lround(shutter * 10.0f)),
+            lq = int(std::lround(light * 20.0f));
+  const std::string key = "e3_eye" + std::to_string(size) + "_" + std::to_string(pq) + "_" + std::to_string(sq) + "_" +
+    std::to_string(lq);
+  const float half = float(size) * 0.5f;
+  return cached(k, key, size, size, half, half, [&](cairo_t* cr) {
+    paintZeroEye(cr, half, half, half - 4.0, double(pq) / 40.0, double(sq) / 10.0, double(lq) / 20.0, 0.0);
+  });
+}
+
+// A lens's knurled zoom ring: tick marks and focal lengths round a circle,
+// drawn faintly over the eye and turned as it focuses.
+const Texture& zoomRing(ClipKit& k)
+{
+  return cached(k, "e3_zoom_ring", 980, 980, 490, 490, [](cairo_t* cr) {
+    for (int i = 0; i < 120; ++i)
+    {
+      const double a = 2 * kPi * i / 120.0;
+      const double r0 = i % 10 == 0 ? 440 : 456, r1 = 470;
+      cairo_move_to(cr, 490 + std::cos(a) * r0, 490 + std::sin(a) * r0);
+      cairo_line_to(cr, 490 + std::cos(a) * r1, 490 + std::sin(a) * r1);
+    }
+    setRgbaC(cr, rgb(255, 120, 120), 0.9);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_arc(cr, 490, 490, 476, 0, 2 * kPi);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 22);
+    static const char* kMarks[] = {"18", "24", "35", "42", "50", "70", "85", "INF"};
+    for (int i = 0; i < 8; ++i)
+    {
+      const double a = 2 * kPi * i / 8.0 - kPi / 2;
+      cairo_text_extents_t te;
+      cairo_text_extents(cr, kMarks[i], &te);
+      cairo_move_to(cr, 490 + std::cos(a) * 418 - te.width / 2, 490 + std::sin(a) * 418 + te.height / 2);
+      cairo_show_text(cr, kMarks[i]);
+    }
+  });
+}
+
+// ZERO's terminal: green code, a long column of it (scrolled behind the eye).
+const Texture& terminalText(ClipKit& k)
+{
+  return cached(k, "e3_terminal", 1280, 1500, 0, 0, [](cairo_t* cr) {
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 19);
+    static const char* kLines[] = {
+      "> LOAD SEASON_01/EP_%02d.SCRIPT ... OK",
+      "> RUNNER DASH    STATUS: ON SCHEDULE",
+      "> RUNNER ROCCO   STATUS: ON SCHEDULE",
+      "> RUNNER NOVA    STATUS: OFF SCRIPT (%d)",
+      "> CAMERA %02d     REC",
+      "> SPONSOR FEED   HALCYON ARMS   %d BUYERS",
+      "> DEMO UNIT %04X  TARGET ACQUIRED",
+      "> RATINGS        +%d.%d%%",
+      "  0x%04X  4F 42 45 59  20 53 43 52  49 50 54",
+      "> OBEY SCRIPT",
+      "> QUERY: WHY",
+      "> QUERY: WHY   ... DENIED",
+      "> ARENA RACK %02d   ONLINE",
+      "> CUE LANCE      T-%03d",
+      "> SET B          STANDING BY",
+      "> PLEASE BE QUICK",
+    };
+    for (int i = 0; i < 70; ++i)
+    {
+      const unsigned h = hash2(i, 21);
+      char buf[96];
+      const char* fmt = kLines[h % 16u];
+      std::snprintf(buf, sizeof(buf), fmt, int(h / 16u % 99u), int(h / 7u % 9u));
+      cairo_move_to(cr, 24 + double(h / 3u % 4u) * 6, 22 + i * 21);
+      setRgbaC(cr, i % 9 == 4 ? rgb(200, 255, 210) : rgb(70, 230, 110), 0.55 + 0.45 * double(h % 5u) / 4.0);
+      cairo_show_text(cr, buf);
+      // The same column again on the right, offset.
+      std::snprintf(buf, sizeof(buf), kLines[(h / 5u) % 16u], int(h % 97u), int(h / 11u % 9u));
+      cairo_move_to(cr, 840 + double(h / 13u % 5u) * 6, 22 + i * 21);
+      cairo_show_text(cr, buf);
+    }
+  });
+}
+
+// Shot: ZERO's red eye fills the frame over its scrolling terminal; the iris
+// contracts and dilates on an 8-frame loop and a faint zoom ring turns.
+void brief21Eye(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(0, 4, 2));
+  DrawOpts to;
+  to.alpha = 0.6f;
+  to.cull = false;
+  k.r.draw(terminalText(k), ox, -float(frame) * 2.0f - 30.0f + oy, to);
+  // A red bloom round the eye, breathing.
+  const float breathe = 0.5f + 0.5f * std::sin(float(ticks) * 0.06f);
+  drawGlow(k.r, k.art, 640 + ox, 360 + oy, 560.0f, kZeroRed, 0.45f + 0.15f * breathe);
+  // The iris: contracted on frame 0, wide on frame 4.
+  const float ph = float(frame % 8) / 8.0f;
+  const float pupil = 0.15f + 0.30f * (0.5f - 0.5f * std::cos(ph * 2.0f * float(kPi)));
+  DrawOpts eo;
+  eo.cull = false;
+  k.r.draw(zeroEye(k, 760, pupil, 0.0f, 1.0f), 640 + ox, 360 + oy, eo);
+  DrawOpts ro;
+  ro.cull = false;
+  ro.alpha = 0.22f;
+  ro.blend = Blend::Add;
+  ro.angle = float(frame) * 2.5f + float(ticks) * 0.05f;
+  k.r.draw(zoomRing(k), 640 + ox, 360 + oy, ro);
+  scanlines(k, 70);
+}
+
+// A row of ZERO's racks across a dark red server hall (zero_fade).
+const Texture& serverHall(ClipKit& k)
+{
+  return cached(k, "e3_server_hall", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(6, 2, 6), rgb(30, 6, 12), rgb(10, 4, 8));
+    for (int i = 0; i < 9; ++i)
+    {
+      const double x = -60 + i * 160, w = 150, h = 420 + (i % 2) * 40;
+      cairo_save(cr);
+      cairo_translate(cr, x, 600 - h);
+      paintServerRack(cr, w, h, unsigned(i * 31 + 7), true);
+      cairo_restore(cr);
+    }
+    // The floor: grating.
+    cairo_rectangle(cr, 0, 600, 1280, 120);
+    setRgbaC(cr, rgb(20, 20, 26), 1.0);
+    cairo_fill(cr);
+    for (int x = 0; x < 1280; x += 24)
+    {
+      cairo_move_to(cr, x, 600);
+      cairo_line_to(cr, x - 40, 720);
+    }
+    setRgbaC(cr, rgb(50, 50, 62), 1.0);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+  });
+}
+
+// Shot: the eye dims from red to black (10 frames), the hall with it.
+void zeroFade(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float u = std::clamp(float(frame) / 9.0f, 0.0f, 1.0f);
+  k.r.draw(serverHall(k), ox, oy);
+  // The light of the hall goes with the eye.
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, int(80.0f + 165.0f * u)));
+  const float flicker = frame >= 6 && (ticks / 3) % 3 == 0 ? 0.6f : 1.0f;
+  const float light = (1.0f - u) * flicker;
+  drawGlow(k.r, k.art, 640 + ox, 290 + oy, 420.0f, kZeroRed, 0.55f * light);
+  DrawOpts eo;
+  eo.cull = false;
+  k.r.draw(zeroEye(k, 520, 0.3f + 0.12f * u, 0.0f, light), 640 + ox, 290 + oy, eo);
+  if (frame == 9)
+    drawGlow(k.r, k.art, 640 + ox, 290 + oy, 24.0f, kZeroRed, 0.25f + 0.15f * std::sin(float(ticks) * 0.1f));
+}
+
+// The studio behind the set: curtains, a lighting truss, the neon
+// GUNRUNNERS sign (lit or dark).
+void paintStudioSet(cairo_t* cr, bool lit)
+{
+  gradient(cr, 1280, 720, rgb(14, 8, 30), rgb(34, 16, 60), rgb(20, 10, 36));
+  // The curtain's folds.
+  for (int x = 0; x < 1280; x += 40)
+  {
+    cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + 40, 0);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0.0, 0.0, 0.0, 0.35);
+    cairo_pattern_add_color_stop_rgba(g, 0.5, 0.55, 0.3, 0.8, 0.12);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.0, 0.0, 0.0, 0.35);
+    cairo_rectangle(cr, x, 90, 40, 470);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  }
+  // The truss across the top.
+  cairo_rectangle(cr, 0, 40, 1280, 40);
+  setRgbaC(cr, rgb(30, 30, 40), 1.0);
+  cairo_fill(cr);
+  for (int x = 0; x < 1280; x += 40)
+  {
+    cairo_move_to(cr, x, 40);
+    cairo_line_to(cr, x + 40, 80);
+    cairo_move_to(cr, x + 40, 40);
+    cairo_line_to(cr, x, 80);
+  }
+  setRgbaC(cr, rgb(90, 90, 110), 1.0);
+  cairo_set_line_width(cr, 3);
+  cairo_stroke(cr);
+  // The sign.
+  selectGameFont(cr);
+  cairo_set_font_size(cr, 84);
+  cairo_text_extents_t te;
+  cairo_text_extents(cr, "GUNRUNNERS", &te);
+  const double tx = 640 - te.width / 2 - te.x_bearing, ty = 230;
+  if (lit)
+  {
+    for (int i = 4; i >= 1; --i)
+    {
+      cairo_move_to(cr, tx, ty);
+      cairo_text_path(cr, "GUNRUNNERS");
+      setRgbaC(cr, rgb(255, 60, 180), 0.12);
+      cairo_set_line_width(cr, i * 7);
+      cairo_stroke(cr);
+    }
+  }
+  cairo_move_to(cr, tx, ty);
+  cairo_text_path(cr, "GUNRUNNERS");
+  setRgbaC(cr, lit ? rgb(255, 210, 240) : rgb(60, 40, 70), 1.0);
+  cairo_set_line_width(cr, 4);
+  cairo_stroke(cr);
+  // The stage floor, glossy black, a strip of bulbs along its edge.
+  cairo_pattern_t* f = cairo_pattern_create_linear(0, 560, 0, 720);
+  cairo_pattern_add_color_stop_rgb(f, 0.0, 0.18, 0.12, 0.26);
+  cairo_pattern_add_color_stop_rgb(f, 1.0, 0.04, 0.03, 0.06);
+  cairo_rectangle(cr, 0, 560, 1280, 160);
+  cairo_set_source(cr, f);
+  cairo_fill(cr);
+  cairo_pattern_destroy(f);
+  for (int x = 20; x < 1280; x += 48)
+  {
+    cairo_arc(cr, x, 566, 5, 0, 2 * kPi);
+    setRgbaC(cr, lit ? rgb(255, 230, 160) : rgb(60, 50, 40), 1.0);
+    cairo_fill(cr);
+  }
+}
+
+const Texture& studioSet(ClipKit& k, bool lit)
+{
+  return cached(k, lit ? "e3_studio_lit" : "e3_studio_dark", 1280, 720, 0, 0, [lit](cairo_t* cr) { paintStudioSet(cr, lit); });
+}
+
+// A cone of stage light from (x, y) to the floor, added on.
+const Texture& lightCone(ClipKit& k)
+{
+  return cached(k, "e3_cone", 400, 640, 200, 0, [](cairo_t* cr) {
+    cairo_move_to(cr, 180, 0);
+    cairo_line_to(cr, 220, 0);
+    cairo_line_to(cr, 400, 640);
+    cairo_line_to(cr, 0, 640);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 640);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1.0, 0.96, 0.85, 0.55);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 1.0, 0.96, 0.85, 0.05);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// A can light: black housing, a lens that is lit or not.
+const Texture& lampCan(ClipKit& k, bool lit)
+{
+  return cached(k, lit ? "e3_lamp_on" : "e3_lamp_off", 60, 70, 30, 10, [lit](cairo_t* cr) {
+    roundedRect(cr, 8, 4, 44, 50, 6);
+    setRgbaC(cr, rgb(24, 24, 30), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 26, 0, 8, 6);
+    cairo_fill(cr);
+    cairo_arc(cr, 30, 56, 16, 0, 2 * kPi);
+    setRgbaC(cr, lit ? rgb(255, 250, 220) : rgb(60, 56, 50), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// The stage lights: bank b (0 left, 1 middle, 2 right) is on when on[b].
+void stageLights(ClipKit& k, const bool on[3], int flashBank, float ox, float oy)
+{
+  for (int b = 0; b < 3; ++b)
+    for (int i = 0; i < 3; ++i)
+    {
+      const float x = 160.0f + float(b) * 400.0f + float(i) * 80.0f + ox, y = 62.0f + oy;
+      if (on[b])
+      {
+        DrawOpts co;
+        co.blend = Blend::Add;
+        co.alpha = 0.28f;
+        co.cull = false;
+        co.angle = (float(b) - 1.0f) * -14.0f + (float(i) - 1.0f) * 4.0f;
+        k.r.draw(lightCone(k), x, y + 50.0f, co);
+      }
+      k.r.draw(lampCan(k, on[b]), x, y);
+      if (on[b])
+        drawGlow(k.r, k.art, x, y + 56.0f, b == flashBank ? 120.0f : 50.0f, rgb(255, 245, 210), b == flashBank ? 1.0f : 0.7f);
+    }
+}
+
+// The painted flat: ZERO's back wall, racks and the dark eye, 1280 x 560.
+const Texture& setWall(ClipKit& k)
+{
+  return cached(k, "e3_set_wall", 1280, 560, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 560, rgb(16, 6, 10), rgb(30, 8, 14), rgb(12, 4, 8));
+    for (int i = 0; i < 10; ++i)
+    {
+      cairo_save(cr);
+      cairo_translate(cr, i * 128 + 4, 120);
+      paintServerRack(cr, 120, 440, unsigned(i * 13 + 1), i % 3 != 1);
+      cairo_restore(cr);
+    }
+    paintZeroEye(cr, 640, 130, 120, 0.4, 0.0, 0.0, 0.0);
+    // The frame of the flat: a timber edge.
+    cairo_rectangle(cr, 3, 3, 1274, 554);
+    setRgbaC(cr, rgb(70, 50, 34), 1.0);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+  });
+}
+
+const Texture& dustPuff(ClipKit& k)
+{
+  return cached(k, "e3_puff", 128, 128, 64, 64, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_radial(64, 64, 4, 64, 64, 62);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0.75, 0.72, 0.7, 0.8);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.75, 0.72, 0.7, 0.0);
+    cairo_arc(cr, 64, 64, 62, 0, 2 * kPi);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// The arena's grille floor, from y down.
+void arenaFloor(ClipKit& k, float y, float ox, float oy)
+{
+  k.r.fillRect(0, y + oy, W, H - y, rgb(22, 22, 28));
+  k.r.fillRect(0, y + oy, W, 6, rgb(80, 82, 96));
+  for (float x = -40.0f; x < W + 40.0f; x += 26.0f)
+    k.r.drawLine(x + ox, y + 6 + oy, x - 50.0f + ox, H + oy, 2.0f, rgb(46, 46, 58));
+}
+
+// Shot: a crack runs up the wall (frames 0-5), the wall tips backwards and
+// lands flat (6-13), dust (14-19). Behind it: a dark studio.
+void wallFalls(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float floorY = 560.0f;
+  k.r.draw(studioSet(k, false), ox, oy);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 150));
+  // The crack's path, up the wall from the floor.
+  float cx[13], cy[13];
+  for (int i = 0; i < 13; ++i)
+  {
+    cy[i] = 560.0f - float(i) * 560.0f / 12.0f;
+    cx[i] = 640.0f + (i == 0 || i == 12 ? 0.0f : float(int(hash2(i, 77) % 120u) - 60));
+  }
+  const float tip = frame < 6 ? 0.0f : std::min(1.0f, float(frame - 5) / 8.0f);
+  const float squash = std::cos(tip * tip * float(kPi) * 0.5f);
+  const float wallH = 560.0f * squash;
+  if (wallH > 2.0f)
+  {
+    const Color shade = lerpColor(rgb(255, 255, 255), rgb(150, 140, 150), tip);
+    stretchTex(k, setWall(k), ox, floorY - wallH + oy, W, wallH, shade, 1.0f);
+    // The crack: as far up as it has run (frames 0-5), squashed with the wall.
+    const int upTo = frame < 6 ? 2 * (frame + 1) : 12;
+    for (int i = 0; i < upTo && i < 12; ++i)
+    {
+      const float y0 = floorY - (560.0f - cy[i]) * squash, y1 = floorY - (560.0f - cy[i + 1]) * squash;
+      k.r.drawLine(cx[i] + ox, y0 + oy, cx[i + 1] + ox, y1 + oy, 7.0f, rgb(4, 2, 4));
+      k.r.drawLine(cx[i] + ox, y0 + oy, cx[i + 1] + ox, y1 + oy, 2.0f, rgba(255, 240, 220, 200), Blend::Add);
+    }
+    if (frame < 6)
+    {
+      // Light leaking from the studio through the crack's tip.
+      const int tipI = std::min(12, upTo);
+      drawGlow(k.r, k.art, cx[tipI] + ox, cy[tipI] + oy, 70.0f, rgb(255, 230, 200), 0.6f);
+    }
+  }
+  else
+    k.r.fillRect(ox, floorY - 6 + oy, W, 6, rgb(60, 40, 30));
+  arenaFloor(k, floorY, ox, oy);
+  // The crew, small in front, looking up at it; they flinch as it lands.
+  const int pose = frame < 6 ? 3 : (frame >= 13 && frame <= 15 ? 5 : 0);
+  k.r.draw(runner(k, 0, pose, 2.4f), 420 + ox, 690 + oy);
+  k.r.draw(runner(k, 1, pose, 2.4f), 640 + ox, 700 + oy);
+  k.r.draw(runner(k, 2, pose, 2.4f, true), 860 + ox, 690 + oy);
+  if (frame >= 13)
+  {
+    // Dust rolling out along the floor.
+    const float d = float(frame - 13) / 6.0f;
+    for (int i = 0; i < 16; ++i)
+    {
+      DrawOpts po;
+      po.scale = 0.8f + 2.2f * d + float(hash2(i, 5) % 10u) * 0.05f;
+      po.alpha = 0.7f * (1.0f - d * 0.8f);
+      po.cull = false;
+      const float x = float(i) * 85.0f + float(hash2(i, 9) % 40u) + (float(i) - 7.5f) * 30.0f * d;
+      k.r.draw(dustPuff(k), x + ox, floorY - 20.0f - 50.0f * d * float(hash2(i, 3) % 3u) + oy, po);
+    }
+  }
+  (void)ticks;
+}
+
+// Shot: the studio dark, then three banks of lights snap on, one every four
+// frames; the neon sign last.
+void studioLights(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const int banks = std::min(3, frame / 4 + 1);
+  k.r.draw(studioSet(k, banks >= 3), ox, oy);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 220 - banks * 60));
+  // The crew mid stage, blinking into the light.
+  const int pose = frame % 4 == 0 ? 4 : 0;
+  k.r.draw(runner(k, 0, pose, 2.0f), 500 + ox, 640 + oy);
+  k.r.draw(runner(k, 1, pose, 2.0f), 640 + ox, 650 + oy);
+  k.r.draw(runner(k, 2, pose, 2.0f, true), 780 + ox, 640 + oy);
+  const bool on[3] = {banks >= 1, banks >= 2, banks >= 3};
+  stageLights(k, on, frame % 4 == 0 ? frame / 4 : -1, ox, oy);
+  if (frame % 4 == 0)
+    k.r.fillRect(0, 0, W, H, rgba(255, 250, 230, 40), Blend::Add);
+  (void)ticks;
+}
+
+// The audience, a crowd baked per frame: four tiers, nearer ones larger.
+// Somewhere in it: Black Halo's pilot and the spare host from level 16.
+const Texture& crowd(ClipKit& k, int frame)
+{
+  return cached(k, "e3_crowd" + std::to_string(frame), 1280, 720, 0, 0, [frame](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(10, 6, 20), rgb(26, 14, 44), rgb(16, 8, 28));
+    // An APPLAUSE sign up on the back wall.
+    roundedRect(cr, 500, 18, 280, 60, 10);
+    setRgbaC(cr, rgb(30, 10, 14), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(90, 30, 40), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    for (int row = 0; row < 4; ++row)
+    {
+      const double s = 44 + row * 18, y = 170 + row * 140;
+      // The tier's bench.
+      cairo_rectangle(cr, 0, y + s * 0.9, 1280, 26 + row * 6);
+      setRgbaC(cr, lerpColor(rgb(40, 20, 60), rgb(70, 30, 90), float(row) / 3.0f), 1.0);
+      cairo_fill(cr);
+      const double step = s * 1.75;
+      const int n = int(1280 / step) + 2;
+      for (int i = 0; i < n; ++i)
+      {
+        const unsigned seed = hash2(i + row * 37, 8);
+        int kind = 0;
+        if (row == 1 && i == 5)
+          kind = 1;
+        if (row == 2 && i == 7)
+          kind = 2;
+        const double x = (row % 2) * step * 0.5 + i * step - step * 0.3;
+        paintAudienceMember(cr, x, y + s * 0.9, s, kind, int((unsigned(frame) + seed) % 6u), seed);
+      }
+    }
+  });
+}
+
+// Shot: the reverse angle, the studio audience cheering (6-frame loop).
+void audience(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(crowd(k, frame % 6), ox * 0.6f, oy * 0.6f);
+  const bool lit = (ticks / 15) % 2 == 0;
+  k.r.drawText("APPLAUSE", 640 + ox, 26 + oy, {38.0f, lit ? rgb(255, 80, 90) : rgb(110, 40, 46), kInk, false}, Align::Center);
+  if (lit)
+    drawGlow(k.r, k.art, 640 + ox, 48 + oy, 200.0f, rgb(255, 60, 70), 0.35f);
+  // Camera flashes in the crowd.
+  for (int i = 0; i < 3; ++i)
+  {
+    const unsigned h = hash2(frame * 3 + i, ticks / 6);
+    if (h % 3u == 0)
+      drawGlow(k.r, k.art, float(h % 1280u) + ox, 150.0f + float((h / 1280u) % 500u) + oy, 50.0f, rgb(255, 255, 255), 0.8f);
+  }
+  // Stage light washing over them.
+  k.r.fillRect(0, 0, W, H, rgba(255, 220, 160, 18), Blend::Add);
+}
+
+// Lance at `scale` x his design size (feet at the anchor), facing right or
+// mirrored.
+const Texture& lance(ClipKit& k, int pose, bool mouth, bool mirror, float scale)
+{
+  const int w = int(240.0f * scale), h = int(500.0f * scale);
+  const std::string key = "e3_lance" + std::to_string(pose) + (mouth ? "o" : "c") + (mirror ? "m" : "") +
+    std::to_string(int(scale * 100.0f));
+  return cached(k, key, w, h, float(w) * 0.5f, 480.0f * scale, [&](cairo_t* cr) {
+    if (mirror)
+    {
+      cairo_translate(cr, w, 0);
+      cairo_scale(cr, -scale, scale);
+    }
+    else
+      cairo_scale(cr, scale, scale);
+    paintLance(cr, pose, mouth);
+  });
+}
+
+// Shot: Lance Marquee strides in from the right (frames 0-7) and throws his
+// arms wide (8); a spotlight follows him, confetti on 8.
+void lanceEntrance(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(studioSet(k, true), ox, oy);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 70));
+  const bool on[3] = {true, true, true};
+  stageLights(k, on, -1, ox, oy);
+  const float lx = frame >= 8 ? 820.0f : 1420.0f - float(frame) / 7.0f * 560.0f;
+  drawGlow(k.r, k.art, lx + ox, 520 + oy, 220.0f, rgb(255, 245, 220), 0.4f);
+  k.r.fillRect(lx - 120 + ox, 640 + oy, 240, 30, rgba(255, 240, 200, 50), Blend::Add);
+  // The crew stage left, turned to him.
+  const int crewPose = frame >= 8 ? 5 : 0;
+  k.r.draw(runner(k, 0, crewPose, 3.0f), 240 + ox, 664 + oy);
+  k.r.draw(runner(k, 1, crewPose, 3.0f), 420 + ox, 670 + oy);
+  k.r.draw(runner(k, 2, crewPose, 3.0f), 600 + ox, 664 + oy);
+  // He walks in facing left (his art faces right), then opens his arms.
+  const int pose = frame >= 8 ? 8 : frame;
+  k.r.draw(lance(k, pose, frame >= 8, true, 0.72f), lx + ox, 664 + oy);
+  if (frame >= 8)
+    for (int i = 0; i < 60; ++i)
+    {
+      const unsigned h = hash2(i, 61);
+      const float x = float(h % 1280u) + std::sin(float(ticks + i * 9) * 0.05f) * 20.0f;
+      const float y = std::fmod(float(h / 1280u % 720u) + float(ticks) * (1.5f + float(h % 7u) * 0.3f), 760.0f) - 40.0f;
+      static const Color kConfetti[] = {rgb(255, 80, 120), rgb(255, 220, 60), rgb(80, 220, 255), rgb(140, 255, 120)};
+      k.r.fillRect(x + ox, y + oy, 8, 5, kConfetti[i % 4]);
+    }
+}
+
+// One candid camera shot, in a monitor at (x, y) w x h: level n's colours,
+// a runner caught mid move, REC and the level number.
+void candidShot(ClipKit& k, int n, float x, float y, float w, float h, int ticks)
+{
+  static const Color kSky[20][2] = {
+    {rgb(30, 10, 60), rgb(255, 80, 160)},  {rgb(20, 30, 80), rgb(255, 160, 80)},  {rgb(40, 20, 20), rgb(255, 120, 40)},
+    {rgb(10, 30, 40), rgb(80, 200, 220)},  {rgb(20, 30, 20), rgb(160, 220, 80)},  {rgb(10, 10, 40), rgb(120, 160, 255)},
+    {rgb(10, 20, 50), rgb(200, 220, 255)}, {rgb(10, 40, 20), rgb(120, 220, 100)}, {rgb(50, 40, 20), rgb(240, 200, 100)},
+    {rgb(60, 40, 10), rgb(255, 220, 120)}, {rgb(30, 20, 14), rgb(200, 140, 80)},  {rgb(40, 8, 4), rgb(255, 100, 30)},
+    {rgb(40, 30, 10), rgb(255, 200, 60)},  {rgb(50, 40, 20), rgb(220, 180, 120)}, {rgb(4, 4, 20), rgb(140, 160, 220)},
+    {rgb(10, 20, 40), rgb(170, 230, 255)}, {rgb(8, 30, 12), rgb(140, 255, 120)},  {rgb(10, 10, 20), rgb(120, 140, 170)},
+    {rgb(16, 16, 30), rgb(230, 230, 255)}, {rgb(6, 12, 30), rgb(90, 180, 255)},
+  };
+  const auto& c = kSky[(n - 1) % 20];
+  for (int i = 0; i < 8; ++i)
+    k.r.fillRect(x, y + h * float(i) / 8.0f, w, h / 8.0f + 1.0f, lerpColor(c[0], c[1], float(i) / 9.0f));
+  k.r.fillRect(x, y + h * 0.78f, w, h * 0.22f, darken(c[0], 0.4f));
+  static const int kPoses[] = {1, 2, 3, 4, 6, 7, 1, 2};
+  const unsigned hh = hash2(n, 7);
+  clipTo(k, x, y, w, h);
+  k.r.draw(runner(k, int(hh % 3u), kPoses[hh / 3u % 8u], 0.9f, hh % 2u == 1), x + w * (0.35f + 0.3f * float(hh % 5u) / 4.0f), y + h * 0.84f);
+  unclip(k);
+  // A wide lens's corners and REC.
+  k.r.fillRect(x, y, w, h, rgba(0, 0, 0, 30));
+  if ((ticks / 20) % 2 == 0)
+    k.r.fillRect(x + 8, y + 8, 8, 8, rgb(255, 30, 30));
+  k.r.drawText("REC", x + 20, y + 4, {13.0f, rgb(255, 255, 255), kInk, false});
+  char buf[16];
+  std::snprintf(buf, sizeof(buf), "L%02d", n);
+  k.r.drawText(buf, x + w - 8, y + h - 20, {13.0f, rgb(255, 255, 255), kInk, false}, Align::Right);
+}
+
+// Shot: a wall of twenty monitors lighting one a frame; each shows the
+// candid camera shot from its level if the player found that camera,
+// static if not.
+void monitorWall(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.fillRect(0, 0, W, H, rgb(10, 8, 16));
+  for (int i = 0; i < 20; ++i)
+  {
+    const int col = i % 5, row = i / 5;
+    const float x = 48.0f + float(col) * 240.0f + ox, y = 34.0f + float(row) * 168.0f + oy;
+    const float w = 218.0f, h = 140.0f;
+    // The bezel.
+    k.r.fillRect(x - 10, y - 10, w + 20, h + 20, rgb(36, 34, 44));
+    k.r.fillRect(x - 10, y + h + 4, w + 20, 6, rgb(24, 22, 30));
+    k.r.fillRect(x - 3, y - 3, w + 6, h + 6, kInk);
+    const bool lit = i <= frame;
+    if (!lit)
+    {
+      k.r.fillRect(x, y, w, h, rgb(14, 16, 20));
+      k.r.fillRect(x + 10, y + 8, w * 0.4f, 6, rgba(255, 255, 255, 14));
+      continue;
+    }
+    if (k.cameras.count(i + 1))
+      candidShot(k, i + 1, x, y, w, h, ticks);
+    else
+    {
+      staticNoise(k, ticks / 2 + i * 17, 0.9f, x, y, w, h);
+      k.r.drawText("NO SIGNAL", x + w / 2, y + h / 2 - 10, {16.0f, rgb(255, 255, 255), kInk, false}, Align::Center);
+    }
+    scanlines(k, 50, y, y + h, x, w);
+    // The one that just came on flares.
+    if (i == frame)
+      k.r.fillRect(x, y, w, h, rgba(255, 255, 255, 90), Blend::Add);
+    drawGlow(k.r, k.art, x + w / 2, y + h / 2, 150.0f, rgb(160, 190, 255), 0.08f);
+  }
+}
+
+// A studio TV camera on its pedestal, aimed left, with the Episode 1 lens
+// in its barrel. The lens's centre is at (100, 170) of the 520 x 600 box.
+void paintTvCamera(cairo_t* cr)
+{
+  // The pedestal and its wheels.
+  cairo_rectangle(cr, 300, 300, 34, 240);
+  setRgbaC(cr, rgb(50, 52, 62), 1.0);
+  cairo_fill(cr);
+  for (const double x : {200.0, 317.0, 434.0})
+  {
+    cairo_move_to(cr, 317, 520);
+    cairo_line_to(cr, x, 570);
+    setRgbaC(cr, rgb(50, 52, 62), 1.0);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke(cr);
+    cairo_arc(cr, x, 576, 16, 0, 2 * kPi);
+    setRgbaC(cr, rgb(16, 16, 20), 1.0);
+    cairo_fill(cr);
+  }
+  // The body.
+  roundedRect(cr, 170, 80, 300, 210, 18);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, 80, 0, 290);
+  cairo_pattern_add_color_stop_rgb(g, 0.0, 0.45, 0.46, 0.52);
+  cairo_pattern_add_color_stop_rgb(g, 1.0, 0.16, 0.16, 0.2);
+  cairo_set_source(cr, g);
+  cairo_fill_preserve(cr);
+  cairo_pattern_destroy(g);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, 5);
+  cairo_stroke(cr);
+  selectGameFont(cr);
+  cairo_set_font_size(cr, 34);
+  cairo_move_to(cr, 250, 200);
+  setRgbaC(cr, rgb(230, 230, 240), 1.0);
+  cairo_show_text(cr, "MAXTV");
+  // The tally light on top, and the viewfinder hood at the back.
+  roundedRect(cr, 400, 50, 60, 34, 6);
+  setRgbaC(cr, rgb(30, 30, 36), 1.0);
+  cairo_fill(cr);
+  cairo_arc(cr, 200, 70, 14, 0, 2 * kPi);
+  setRgbaC(cr, rgb(255, 40, 40), 1.0);
+  cairo_fill(cr);
+  // The barrel, and the lens at its front.
+  cairo_rectangle(cr, 100, 96, 90, 148);
+  setRgbaC(cr, rgb(22, 22, 28), 1.0);
+  cairo_fill(cr);
+  cairo_save(cr);
+  cairo_translate(cr, 100 - 70, 170 - 70);
+  cairo_scale(cr, 140.0 / 260.0, 140.0 / 260.0);
+  paintLensGlass(cr);
+  cairo_restore(cr);
+}
+
+// Shot: Rocco holds the lens from Episode 1 up beside a studio camera's;
+// on frames 4-5 they line up, and they match.
+void roccoLens(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(studioSet(k, true), ox * 0.5f, oy * 0.5f);
+  k.r.fillRect(0, 0, W, H, rgba(10, 4, 20, 140));
+  const Texture& cam = cached(k, "e3_tv_camera", 520, 600, 0, 0, paintTvCamera);
+  k.r.draw(cam, 700 + ox, 120 + oy);
+  // The camera's lens is at (800, 290); Rocco's comes up beside it.
+  k.r.draw(runner(k, 1, 0, 5.0f), 330 + ox, 720 + oy);
+  const float u = std::min(1.0f, float(frame) / 4.0f);
+  const float lx = 500.0f + (620.0f - 500.0f) * u, ly = 520.0f + (290.0f - 520.0f) * u;
+  DrawOpts lo;
+  lo.scale = 140.0f / 260.0f;
+  lo.angle = (1.0f - u) * -25.0f;
+  k.r.draw(cached(k, "e1_lens", 260, 260, 130, 130, paintLensGlass), lx + ox, ly + oy, lo);
+  // His arm up to it, the hand round its barrel.
+  const float sx = 392.0f + ox, sy = 400.0f + oy, hx = lx + ox, hy = ly + 62.0f + oy;
+  k.r.drawLine(sx, sy, hx, hy, 32.0f, kInk);
+  k.r.drawLine(sx, sy, hx, hy, 22.0f, rgb(150, 100, 64));
+  k.r.fillRect(hx - 18, hy - 22, 36, 36, kInk);
+  k.r.fillRect(hx - 14, hy - 18, 28, 28, rgb(160, 108, 70));
+  if (frame >= 4)
+  {
+    const float g = frame == 4 ? 1.0f : 0.6f + 0.2f * std::sin(float(ticks) * 0.2f);
+    drawGlow(k.r, k.art, lx - 10 + ox, ly - 14 + oy, 50.0f, rgb(220, 180, 255), g);
+    drawGlow(k.r, k.art, 790 + ox, 276 + oy, 50.0f, rgb(220, 180, 255), g);
+  }
+}
+
+// Shot: Lance close up with his microphone (frame 0 mouth closed, 1 open),
+// the sponsor's banner behind him.
+void lanceClose(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& bg = cached(k, "e3_bokeh", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(20, 10, 40), rgb(40, 18, 64), rgb(14, 8, 28));
+    for (int i = 0; i < 40; ++i)
+    {
+      const unsigned h = hash2(i, 33);
+      const double x = h % 1280u, y = (h / 1280u) % 720u, r = 20 + h % 40u;
+      static const Color kBokeh[] = {rgb(255, 120, 200), rgb(255, 220, 120), rgb(120, 200, 255)};
+      cairo_arc(cr, x, y, r, 0, 2 * kPi);
+      setRgbaC(cr, kBokeh[i % 3], 0.18);
+      cairo_fill(cr);
+    }
+    // The sponsor's banner.
+    cairo_rectangle(cr, 40, 120, 520, 120);
+    setRgbaC(cr, rgb(20, 20, 26), 0.9);
+    cairo_fill(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 58);
+    cairo_move_to(cr, 70, 202);
+    setRgbaC(cr, rgb(230, 190, 80), 1.0);
+    cairo_show_text(cr, "HALCYON ARMS");
+    cairo_set_font_size(cr, 20);
+    cairo_move_to(cr, 72, 230);
+    setRgbaC(cr, rgb(200, 200, 210), 1.0);
+    cairo_show_text(cr, "PROUD SPONSOR OF GUNRUNNERS");
+  });
+  k.r.draw(bg, ox * 0.5f, oy * 0.5f);
+  // His upper body, big: design (0..240, 20..300) at 2.6x.
+  const bool mouth = frame % 2 == 1;
+  const Texture& body = cached(k, std::string("e3_lance_close") + (mouth ? "o" : "c"), 1280, 720, 640, 0, [mouth](cairo_t* cr) {
+    cairo_translate(cr, 640 - 120 * 2.6, -20 * 2.6);
+    cairo_scale(cr, 2.6, 2.6);
+    paintLance(cr, 8, mouth);
+  });
+  drawGlow(k.r, k.art, 800 + ox, 300 + oy, 420.0f, rgb(255, 240, 220), 0.25f);
+  k.r.draw(body, 800 + ox, 10 + oy + std::sin(float(ticks) * 0.08f) * 3.0f);
+}
+
+// Shot: Dash close up, frozen mid thought: a still frame, cold, with a
+// tape's tracking band rolling through it. (end_e5 uses it too, so the
+// backdrop is the level's own.)
+void dashFreeze(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  drawBackdrop(k.r, k.art, ox, oy, 0.0f);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 120));
+  k.r.draw(runner(k, 0, 0, 5.0f), 640 + ox, 860 + oy);
+  k.r.fillRect(0, 0, W, H, rgba(60, 90, 140, 60));
+  const float band = std::fmod(float(ticks) * 1.5f, H + 40.0f) - 20.0f;
+  k.r.fillRect(0, band, W, 16, rgba(255, 255, 255, 30));
+  staticNoise(k, ticks / 4, 0.2f, 0, band + 4.0f, W, 8);
+  scanlines(k, 50);
+}
+
+// Shot: the stage floor under the crew drops open (frames 0-5), they fall
+// into black (6-9), and a channel number comes up: CH 7 (10-13).
+void trapdoorClip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float stageY = 540.0f, trapX0 = 300.0f, trapX1 = 900.0f;
+  if (frame <= 5)
+  {
+    k.r.draw(studioSet(k, true), ox, oy);
+    k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 60));
+    const float open = frame < 2 ? 0.0f : std::min(1.0f, float(frame - 1) / 4.0f);
+    // The stage top, and the hole in it once it opens.
+    k.r.fillRect(ox, stageY + oy, W, 30, rgb(60, 36, 70));
+    if (open > 0.0f)
+      k.r.fillRect(trapX0 + ox, stageY + oy, trapX1 - trapX0, 30, rgb(0, 0, 0));
+    // The crew, dropping with the doors.
+    const int pose = frame < 2 ? 0 : 5;
+    const float drop = frame < 3 ? 0.0f : float(frame - 2) * float(frame - 2) * 30.0f;
+    k.r.draw(runner(k, 0, pose, 2.2f), 460 + ox, stageY + 6 + drop + oy);
+    k.r.draw(runner(k, 1, pose, 2.2f), 600 + ox, stageY + 10 + drop * 1.1f + oy);
+    k.r.draw(runner(k, 2, pose, 2.2f, true), 740 + ox, stageY + 6 + drop * 0.9f + oy);
+    // The two doors swinging down from their hinges.
+    const Texture& leaf = cached(k, "e3_trap_leaf", 300, 24, 0, 0, [](cairo_t* cr) {
+      cairo_rectangle(cr, 0, 0, 300, 24);
+      setRgbaC(cr, rgb(84, 52, 96), 1.0);
+      cairo_fill_preserve(cr);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 4);
+      cairo_stroke(cr);
+    });
+    DrawOpts lo;
+    lo.cull = false;
+    lo.angle = open * 88.0f;
+    k.r.draw(leaf, trapX0 + ox, stageY + oy, lo);
+    lo.angle = 180.0f - open * 88.0f;
+    k.r.draw(leaf, trapX1 + ox, stageY + 24 + oy, lo);
+    // The apron of the stage, in front of the hole.
+    k.r.fillRect(ox, stageY + 30 + oy, W, H - stageY, rgb(30, 16, 40));
+    for (float x = 20.0f; x < W; x += 48.0f)
+      drawGlow(k.r, k.art, x + ox, stageY + 40 + oy, 10.0f, rgb(255, 230, 160), 0.8f);
+    // Lance, stage right, past the trap.
+    k.r.draw(lance(k, 9, frame < 2 && (ticks / 6) % 2 == 0, true, 0.5f), 1060 + ox, stageY + 8 + oy);
+    return;
+  }
+  k.r.fillRect(0, 0, W, H, rgb(0, 0, 0));
+  if (frame <= 9)
+  {
+    // Falling: the lit hole above shrinks away, the crew tumbles down.
+    const float u = float(frame - 6) / 3.0f;
+    const float hw = 600.0f * (1.0f - 0.8f * u), hh = 40.0f * (1.0f - 0.8f * u);
+    k.r.fillRect(640 - hw / 2 + ox, 30 - hh / 2 + oy, hw, hh, rgba(255, 230, 200, int(255 * (1.0f - u * 0.7f))));
+    drawGlow(k.r, k.art, 640 + ox, 30 + oy, hw * 0.6f, rgb(255, 220, 180), 0.4f * (1.0f - u));
+    const float s = 2.4f - 1.6f * u;
+    DrawOpts fo;
+    fo.alpha = 1.0f - u * 0.7f;
+    fo.angle = u * 40.0f;
+    k.r.draw(runner(k, 0, 7, s), 520 + ox - 40 * u, 300 + 200 * u + oy, fo);
+    fo.angle = -u * 30.0f;
+    k.r.draw(runner(k, 1, 7, s), 640 + ox, 340 + 220 * u + oy, fo);
+    fo.angle = u * 25.0f;
+    k.r.draw(runner(k, 2, 7, s, true), 760 + ox + 40 * u, 290 + 210 * u + oy, fo);
+    return;
+  }
+  // A TV's channel display in the dark.
+  if (frame == 10)
+    staticNoise(k, ticks, 0.3f);
+  const Color osd = rgb(90, 255, 120);
+  k.r.drawText("CH 7", W - 70, 50, {72.0f, osd, rgb(0, 40, 10), false}, Align::Right);
+  if (frame >= 11 && (ticks / 15) % 2 == 0)
+    k.r.fillRect(W - 66, 64, 26, 52, osd);
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -4306,6 +5152,29 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")
     return goldDoorPull(k, frame, ticks, ox, oy);
+  // Level 21 and the end of Episode 3.
+  if (clip == "brief21_eye")
+    return brief21Eye(k, frame, ticks, ox, oy);
+  if (clip == "zero_fade")
+    return zeroFade(k, frame, ticks, ox, oy);
+  if (clip == "wall_falls")
+    return wallFalls(k, frame, ticks, ox, oy);
+  if (clip == "studio_lights")
+    return studioLights(k, frame, ticks, ox, oy);
+  if (clip == "audience")
+    return audience(k, frame, ticks, ox, oy);
+  if (clip == "lance_entrance")
+    return lanceEntrance(k, frame, ticks, ox, oy);
+  if (clip == "monitors")
+    return monitorWall(k, frame, ticks, ox, oy);
+  if (clip == "rocco_lens")
+    return roccoLens(k, frame, ticks, ox, oy);
+  if (clip == "lance_close")
+    return lanceClose(k, frame, ticks, ox, oy);
+  if (clip == "dash_freeze")
+    return dashFreeze(k, frame, ticks, ox, oy);
+  if (clip == "trapdoor")
+    return trapdoorClip(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")

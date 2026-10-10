@@ -14,6 +14,7 @@
 #include "assets/enemy_art_green.hpp"
 #include "assets/enemy_art_grav.hpp"
 #include "assets/enemy_art_reactor.hpp"
+#include "assets/enemy_art_zero.hpp"
 #include "assets/enemy_art_hull.hpp"
 #include "assets/enemy_art_station.hpp"
 #include "assets/vehicle_art.hpp"
@@ -2640,6 +2641,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
            !drawHullArt(c.cr, t, key, w, h, variant, frame) &&
            !drawGravArt(c.cr, t, key, w, h, variant, frame) &&
            !drawReactorArt(c.cr, t, key, w, h, variant, frame) &&
+           !drawZeroArt(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;

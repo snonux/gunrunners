@@ -2,6 +2,7 @@
 
 #include "assets/enemy_art.hpp"
 #include "game/reactor_draw.hpp"
+#include "game/zero_draw.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -91,6 +92,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   }
   else
     drawBackdrop(r, mArt, camX, camY, float(mBaseCamY) * kCellPx);
+  if (mZero.wireframe)
+    drawWireframeBackdrop(r, camX, camY, frame); // the Wireframe bonus's debug view (world_zero_draw.cpp)
   drawStarfallSky(r, camX, camY, frame);
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
@@ -100,7 +103,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
       drawDecoration(r, mArt, mTheme, float(d.first) * kTilePx - camX, float(d.second) * kTilePx - camY, d.first * 31 + d.second, frame);
 
   if ((!mBoss.on || mBoss.exitT >= 0) && (!mGolem.on || mGolem.phase == GolemPhase::Done) &&
-    (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Done))
+    (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Done) && (!mZero.boss.on || mZero.boss.exitOpen))
   {
     // After Black Halo the exit drops out of the crane cab.
     float drop = 0.0f;
@@ -160,6 +163,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     reactorRenderAlpha() = alpha;
     drawReactorBack(r, camX, camY, frame);
   }
+  if (mZero.on)
+    drawZeroBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -282,7 +287,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
       inside = inside || (!b.broken && e.x / kCellsPerTile >= b.x0 && e.x / kCellsPerTile <= b.x1 &&
                            e.y / kCellsPerTile >= b.y0 && e.y / kCellsPerTile <= b.y1);
     if (inside || e.hidden || e.y < 0 || (e.kind == EnemyKind::Decoupler && e.attach == 0))
-      continue; // (asleep in its coupling, or riding a train not here yet)
+      continue;
+    if (e.kind == EnemyKind::Echo)
+      continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
       x += ((frame / 2) % 2 ? 4.0f : -4.0f); // shakes before it dives (the Viper's leaves rustle)
     const Texture* tex = nullptr;
@@ -444,6 +451,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
             if (g.enemy == int(&e - mEnemies.data()) && g.shimmer > 0)
               variant = 1;
         }
+        else if (e.kind == EnemyKind::LatticeTurret)
+          variant = e.tell > 0 ? 1 : 0; // the barrel glowing
+        else if (e.kind == EnemyKind::RepairSwarm)
+          variant = 0;
         else if (e.kind == EnemyKind::Imp)
           variant = (e.aimX > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0))) + (e.variant == 1 ? 4 : 0) +
             8 * std::clamp(e.attach, 0, 4); // glowing, lunging, saluting; hard hat; hotter after each pulse
@@ -498,6 +509,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
         const int animFrame = e.kind == EnemyKind::Bat ? (frame / 3 + e.aimX) % 2
           : e.kind == EnemyKind::Spark                 ? (frame / 2) % 4
           : e.kind == EnemyKind::Imp                   ? (frame / 4) % 2
+          : e.kind == EnemyKind::RepairSwarm           ? (frame / 3) % 4
+          : e.kind == EnemyKind::LatticeTurret         ? (frame / 6) % 3
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
         if ((e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::TestSubject) && e.attach == 2)
@@ -614,12 +627,16 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGravFront(r, camX, camY, frame);
   if (mReactor.on)
     drawReactorFront(r, camX, camY, frame);
+  if (mZero.on)
+    drawZeroFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
   {
     const float cx = lerpCells(pr.prevX, pr.x, alpha) + float(pr.w) * kCellPx * 0.5f - camX;
     float cy = lerpCells(pr.prevY, pr.y, alpha) + float(pr.h) * kCellPx * 0.5f - camY;
+    if (mZero.on && drawZeroShot(r, mArt, pr, cx, cy, frame))
+      continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
     if (pr.spike)
     {
       // A Space Barnacle's spike: a short dark needle along its flight.
@@ -867,6 +884,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
       {
         case Tile::Solid:
         {
+          if (mZero.wireframe)
+            break; // the Wireframe bonus draws its own (world_zero_draw.cpp)
           // Shade blocks darker the deeper they sit below the surface.
           int depth = 0;
           while (depth < 3 && (mMap.block(tx, ty - depth - 1) == Tile::Solid))
@@ -930,7 +949,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
   for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
     for (int tx = tx0; tx <= tx1; ++tx)
       if (mMap.block(tx, ty) == Tile::Solid && mMap.block(tx, ty - 1) != Tile::Solid &&
-          mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)])
+          mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)] && !mZero.wireframe)
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
 }
 
@@ -1342,6 +1361,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawGravHud(r, frame);
   if (mReactor.on)
     drawReactorHud(r, frame);
+  if (mZero.on)
+    drawZeroHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

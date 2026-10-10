@@ -209,6 +209,8 @@ bool World::exitPowered() const
     return false; // the idol's mouth opens once Kaan-Tolok falls
   if (mSpace.mother.on && mSpace.mother.phase != MotherPhase::Done)
     return false; // the hatch in her throne opens once the Hive Mother falls
+  if (mZero.boss.on && !mZero.boss.exitOpen)
+    return false; // the stage door shows once the wall has fallen
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();
 }
 

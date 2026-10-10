@@ -415,6 +415,26 @@ Planner::Goal Planner::chooseGoal(const World& w) const
     if (bestD >= 0)
       return best;
   }
+  // Level 21's Wireframe bonus: gems, the nearest first.
+  if (w.zero().wireframe && lv.goal.rfind("collect:", 0) == 0)
+  {
+    const auto& p = w.player();
+    Goal best;
+    int bestD = -1;
+    for (std::size_t i = 0; i < w.items().size(); ++i)
+    {
+      const auto& it = w.items()[i];
+      const int d = std::abs(it.x - p.x) + 2 * std::abs(it.y - p.y);
+      if (!it.taken && it.kind == ItemKind::Gem && (bestD < 0 || d < bestD) &&
+          std::find(mGemSkip.begin(), mGemSkip.end(), int(i)) == mGemSkip.end())
+      {
+        bestD = d;
+        best = {15, it.x, it.y - 1, 2, 2, int(i)};
+      }
+    }
+    if (bestD >= 0)
+      return best;
+  }
   // Level 12: out of Serpent Spears, fetch more from the nearest box.
   if (!mSkipProto && w.level().weapon == "serpent_spear" && w.stats().protoFound && !spearsHeld(w))
   {
@@ -813,7 +833,25 @@ void Planner::buildField(const World& w, const Goal& goal)
         for (int x = e.x; x < e.x + e.w; ++x)
           if (x >= 0 && y >= 0 && x < W && y < H)
             blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
-  for (const auto& l : w.layers())
+  // Level 21: a bulkhead the level script will open (its shift is under way
+  // or waits on a spot the route passes) is no wall to the field; an open
+  // one is no wall either. The search waits for it.
+  std::vector<std::uint8_t> willOpen(w.layers().size());
+  for (const auto& sh : w.zero().shifts)
+    if (!sh.done && (sh.t >= 0 || sh.triggerX >= 0))
+      for (int li : sh.open)
+        willOpen[std::size_t(li)] = 1;
+  for (std::size_t li = 0; li < w.layers().size(); ++li)
+  {
+    const auto& l = w.layers()[li];
+    if (l.style == 5 && (!l.solid || willOpen[li]))
+    {
+      for (int y = l.y0 * kCellsPerTile; y < (l.y1 + 1) * kCellsPerTile; ++y)
+        for (int x = l.x0 * kCellsPerTile; x < (l.x1 + 1) * kCellsPerTile; ++x)
+          if (x >= 0 && y >= 0 && x < W && y < H)
+            blocked[std::size_t(y * W + x)] = top[std::size_t(y * W + x)] = 0;
+      continue;
+    }
     for (int ty = l.y0; ty <= l.y1; ++ty)
       for (int tx = l.x0; tx <= l.x1; ++tx)
         for (int dy = 0; dy < kCellsPerTile; ++dy)
@@ -832,6 +870,7 @@ void Planner::buildField(const World& w, const Goal& goal)
             if ((l.tile == Tile::Solid && !timed) || dy == 0)
               top[std::size_t(y * W + x)] = 1;
           }
+  }
   // Level 17: a plant is there when its lamps are lit (or the lamp test
   // takes them as lit), and gone otherwise, withering or not.
   std::vector<std::uint8_t> plantLadder(std::size_t(W * H)), plantGone(std::size_t(W * H));
@@ -1513,6 +1552,10 @@ int Planner::heuristic(const World& w) const
     if (std::abs(rx - p.x) < 40 && std::abs(ry - p.y) < 40)
       extra += (n * 90 - pl.prog) / std::max(1, 2 * n);
   }
+  // Level 21: a bulkhead the script is opening: waiting for it is progress.
+  for (const auto& sh : w.zero().shifts)
+    if (!sh.done && sh.t >= 0 && !sh.open.empty())
+      extra += std::max(0, kShiftPreview + sh.slide - sh.t) / 2;
   // A key door that will open: getting to it and waiting while it sinks.
   for (const auto& d : w.keyDoors())
     if (!d.open && w.stoneKeysHeld() >= d.keys)
@@ -1969,6 +2012,19 @@ void Planner::plan(const World& world)
     mSkipBonusAt = p0.x;
     goal = chooseGoal(world);
   }
+  // The Wireframe bonus: a gem the search keeps failing to reach is left
+  // until another one is taken (from there the way can be easier).
+  if (world.stats().gems != mGemSkipCount)
+  {
+    mGemSkip.clear();
+    mGemSkipCount = world.stats().gems;
+  }
+  while (goal.kind == 15 && mGoalKind == 15 && mGoalIndex == goal.index && mFails >= 4)
+  {
+    mGemSkip.push_back(goal.index);
+    mFails = 0;
+    goal = chooseGoal(world);
+  }
   // Golden Touch: a block the search keeps failing to reach is left.
   while (goal.kind == 12 && mGoalKind == 12 && mGoalIndex == goal.index && mFails >= 4)
   {
@@ -2058,6 +2114,12 @@ void Planner::plan(const World& world)
       mGoalKind = goal.kind;
       mGoalIndex = goal.index;
     }
+    if (goal.kind == 15 && heuristic(world) >= kInf)
+    {
+      mGemSkip.push_back(goal.index);
+      goal = chooseGoal(world);
+      continue;
+    }
     if (goal.kind == 12 && heuristic(world) >= kInf)
     {
       mPaintSkip.push_back(goal.index);
@@ -2127,6 +2189,16 @@ void Planner::plan(const World& world)
     for (const auto& b : w.boxes())
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
+    // Level 21: where the script's shifts and bulkheads are.
+    if (!w.zero().shifts.empty())
+    {
+      std::uint64_t zk = 5;
+      for (const auto& sh : w.zero().shifts)
+        zk = zk * 131 + std::uint64_t(sh.done ? 130 : std::min(129, sh.t + 1));
+      for (const auto& d : w.zero().doors)
+        zk = zk * 11 + std::uint64_t(d.pos * 10.0f);
+      k = mix(k, zk);
+    }
     // Growth Spurt: the runner's size.
     if (w.green().grow)
       k = mix(k, std::uint64_t(w.green().size) + 77);
@@ -2348,7 +2420,8 @@ void Planner::plan(const World& world)
       (!world.green().lamps[std::size_t(goal.index)].lit || nw.green().lamps[std::size_t(goal.index)].left >
          world.green().lamps[std::size_t(goal.index)].left);
     const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered || lit ||
-      (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone;
+      (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone ||
+      (goal.kind == 15 && nw.stats().gems > world.stats().gems);
     if (ni != 0 && success)
     {
       found = ni;

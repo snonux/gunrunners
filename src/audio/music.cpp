@@ -1263,6 +1263,7 @@ const Style kStyles[] = {
   {"bonus_planetoids",       116, 4, 7, Mode::Lydian, 11, Groove::Shimmer, BassPat::Octaves,  Inst::SynthBass, Inst::Pad,       Comp::Stabs,      Inst::Celesta,   ArpPat::Bounce,  Inst::Theremin,  Inst::Kalimba,   1, 0.12f, 0.5f, 0.4f, 0, 16},
   {"bonus_gun_gravity",      144, 4, 2, Mode::Mixo,  15, Groove::Toon,     BassPat::Octaves,  Inst::SynthBass, Inst::EPiano,    Comp::Stabs,      Inst::Marimba,   ArpPat::Bounce,  Inst::Chip,      Inst::Kalimba,   2, 0.18f, 0.25f, 0.2f, 0, 16},
   {"bonus_stop_motion",      112, 4, 7, Mode::Lydian, 16, Groove::Typewriter, BassPat::Oompah, Inst::Upright,   Inst::Piano,     Comp::Stabs,      Inst::Celesta,   ArpPat::Bounce,  Inst::Clarinet,  Inst::Marimba,   1, 0.12f, 0.25f, 0.1f, 0, 16},
+  {"bonus_wireframe",        150, 4, 9, Mode::Dorian, 14, Groove::Four,    BassPat::Octaves,  Inst::Chip,      Inst::None,      Comp::None,       Inst::Chip,      ArpPat::Up16,    Inst::Chip,      Inst::Square,    2, 0.0f, 0.1f, 0.05f, kStutter, 16},
   // Episode 7, DEEP SPACE.
   {"theme_crash_garden",       100, 4, 1, Mode::Lydian, 21, Groove::Jungle,  BassPat::Roots,    Inst::SubBass,   Inst::Pad,       Comp::Sustain,    Inst::Kalimba,   ArpPat::Up16,    Inst::Theremin,  Inst::Bell,      1, 0.1f, 0.5f, 0.35f, 0, 16},
   {"theme_starfall",           136, 4, 2, Mode::Dorian, 20, Groove::Driving,  BassPat::Pulse16,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Bell,      ArpPat::Trance,  Inst::Theremin,  Inst::Choir,     2, 0.0f, 0.5f, 0.4f, 0, 16},

@@ -438,8 +438,9 @@ void Game::nextCutscene()
   mCutQueue.pop_front();
   mCutscene = std::make_unique<CutscenePlayer>(Cutscene::load(cutsceneFile(dataDir(), name)), mAudio);
   if (!mClipKit)
-    mClipKit.reset(new ClipKit{mRenderer, *mArt, theme(), mLevelNumber, {}});
+    mClipKit.reset(new ClipKit{mRenderer, *mArt, theme(), mLevelNumber, {}, {}});
   mClipKit->level = mLevelNumber;
+  mClipKit->cameras = mProfile.cameras;
   if (mProfile.cutscenes.insert(name).second && mCampaign)
     mProfile.save(saveDir());
   setMode(Mode::Cutscene);
