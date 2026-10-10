@@ -711,6 +711,39 @@ std::vector<float> makeSfx(Sfx id)
         return f.highpass(n.next(), 4200.0) * 0.4 * std::min(1.0, t / 0.15) * std::min(1.0, (total - t) / 0.05);
       });
     }
+    case Sfx::Gulp:
+    {
+      // A throat swallowing: a wet click, then a low bubble that drops.
+      Osc a;
+      Noise n(121);
+      Svf f;
+      return render(0.32, [&](double t, double) {
+        const double click = t < 0.02 ? f.band(n.next(), 2400.0f, 3.0) * 0.6 : 0.0;
+        const double gulp = a.step(sweep(320.0, 70.0, std::min(1.0, t / 0.28)), Wave::Sine, 0.0) * 0.55 *
+          std::sin(std::min(1.0, t / 0.3) * 3.14159);
+        return click + gulp;
+      });
+    }
+    case Sfx::Inhale:
+    {
+      // A long breath in: filtered noise rising in pitch and loudness.
+      Noise n(123);
+      Svf f;
+      return render(0.9, [&](double t, double total) {
+        const double rise = std::min(1.0, t / total);
+        return f.band(n.next(), float(400.0 + 1600.0 * rise), 1.2) * 0.5 * rise * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Screech:
+    {
+      // An insect queen's call: two warbling tones a fifth apart.
+      Osc a, b;
+      return render(0.5, [&](double t, double total) {
+        const double wob = 1.0 + 0.04 * std::sin(t * 70.0);
+        return (a.step(880.0 * wob, Wave::Saw, 0.0) * 0.18 + b.step(1320.0 * wob, Wave::Square, 0.5) * 0.12) *
+          std::min(1.0, t / 0.03) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
     case Sfx::Count:
       break;
   }

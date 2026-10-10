@@ -123,6 +123,9 @@ struct Player
   int wall = 0;         // Cling: the goo wall's side (-1 left, 1 right)
   int kick = 0;         // cells still to be pushed off a goo wall (sign: direction)
   bool kickArc = false; // this jump is a kick off a goo wall (always the full arc)
+  int tube = -1;        // inside this Gullet Tube (level 45)
+  int tubeBranch = 0;
+  int tubeS = 0;        // cells along it
 
   int walkFrame = 0;
   int climbFrame = 0;
@@ -1504,6 +1507,14 @@ public:
   bool gooAt(int cx, int cy) const; // a solid cell coated in goo
   bool gooBlockAt(int tx, int ty) const; // a block coated for good
   const std::vector<GooPatch>& gooPatches() const { return mSpace.patches; }
+  // Level 45: the Gullet Tubes; whether a mouth is open now; where a tube
+  // spits you out (cells, the runner's feet) and how far that is from s.
+  bool hasHive() const { return mSpace.hive; }
+  const std::vector<GulletTube>& gulletTubes() const { return mSpace.tubes; }
+  bool mouthOpen(const GulletTube& t) const;
+  CellBox mouthTrigger(const GulletTube& t) const;
+  void tubeExit(const GulletTube& t, int branch, int& x, int& y) const;
+  static constexpr int kBreathPeriod = 90; // the hive breathes in for 40 frames of every 90
   bool inLava(const CellBox& b) const;
   // Fifteenths of a cell a sink platform goes down per frame with its load now.
   int sinkRate(const Platform& pl) const;
@@ -1840,6 +1851,19 @@ private:
   void resetSpace(); // after a respawn
   void drawSpaceBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSpaceFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 45 (world_hive.cpp).
+  bool setupHiveEntity(const EntityDef& e);
+  void updateHive();
+  void updateTubeRide();
+  void swallowPlayer(int tube);
+  bool shotAtHive(Projectile& pr); // a Bile Blaster shot at a mouth goes down the tube
+  bool shotAtValve(Projectile& pr);
+  void updateMite(Enemy& e, const EnemyDef& def);
+  void updatePolyp(Enemy& e, const EnemyDef& def);
+  void updateWarden(Enemy& e, const EnemyDef& def);
+  void resetHive();
+  void drawHiveBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawHiveFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   // Level 13 (world_boulder.cpp).
   bool setupBoulderEntity(const EntityDef& e);
   void setupBoulderEnemy(Enemy& en, const EntityDef& e);

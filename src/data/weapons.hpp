@@ -58,6 +58,7 @@ enum class ProtoId
   Encore,
   // Episode 7, DEEP SPACE (docs/DEEP_SPACE.md).
   GooGun,
+  BileBlaster,
   Count,
 };
 

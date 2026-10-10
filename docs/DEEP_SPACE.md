@@ -125,6 +125,13 @@ swaps, no ziplines, no rideable creatures; the ship is the vehicles thread's).
   **Drone Warden** (an armoured flyer that patrols a wing and calls Mites).
 - **Secrets:** a tube that only one valve setting reaches; a pore you can
   crawl into. **Virus:** a green, dripping pore.
+- **Built** (2026-10-10): `tools/levels/45_hive_gullets.py`, 160 x 58
+  blocks: the throat (start), the tube up into the hub, the hub's floor mouth
+  (its valve sits in a niche in the hub's east wall) down to the east wing,
+  and the breathing mouth up to the crown (the exit). The secret pore is low
+  in the throat's west wall. Polyps sit on step faces, so their pull drags
+  you against the step you have to jump. The bot clears it with all six
+  runners.
 
 ## 46 · Crystal Drift
 

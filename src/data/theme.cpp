@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 13> kVariants{{
+const std::array<Variant, 14> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -213,6 +213,19 @@ const std::array<Variant, 13> kVariants{{
     rgb(52, 26, 84), rgb(30, 14, 52),
     rgb(90, 200, 120), rgb(170, 255, 190), rgb(36, 80, 50), rgb(255, 230, 60),
     rgb(240, 255, 250), "alien_garden"}},
+  {"hive_gullets",
+   {ThemeId::StationZero,
+    "HIVE GULLETS",
+    "INSIDE THE HIVE: PINK, RIBBED AND WET",
+    rgb(36, 4, 20), rgb(84, 14, 44), rgb(128, 28, 60),
+    rgb(176, 70, 104), rgb(226, 124, 154), rgb(92, 22, 50),
+    rgb(70, 190, 230), rgb(170, 240, 255),
+    rgb(236, 150, 176), rgb(136, 52, 84),
+    rgb(170, 255, 60), rgb(230, 255, 170),
+    rgb(255, 90, 140), rgb(120, 230, 255),
+    rgb(70, 12, 38), rgb(48, 6, 26),
+    rgb(230, 90, 110), rgb(255, 180, 190), rgb(110, 20, 40), rgb(255, 240, 80),
+    rgb(255, 236, 244), "alien_hive"}},
   {"collapsing_temple",
    {ThemeId::LostTemple,
     "BOULDER RUN",

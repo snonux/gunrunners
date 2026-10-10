@@ -87,6 +87,12 @@ const EnemyDef kEnemies[] = {
   {"spitpod", "SPITPOD", K::Spitpod, L::Styled, 3, 4, 3, 400, 0, 45, 12, 22, 0, 0},
   {"gloop", "GLOOP", K::Gloop, L::Styled, 3, 3, 2, 300, 1, 18, 8, 18, 0, 0},
   {"gloop_small", "GLOOPLET", K::Gloop, L::Styled, 2, 2, 1, 100, 1, 14, 6, 18, kEnemyNoTally, 0},
+  // Level 45: Hive Gullets. Hive Mite: range is how far (cells) it notices
+  // you. Polyp: range is how far in front it pulls. Drone Warden: range is
+  // how far either side of home it patrols.
+  {"hive_mite", "HIVE MITE", K::Mite, L::Styled, 2, 2, 1, 100, 1, 0, 0, 40, kEnemyNoTally, 0},
+  {"polyp", "POLYP", K::Polyp, L::Styled, 4, 4, 4, 500, 0, 75, 12, 16, 0, 0},
+  {"drone_warden", "DRONE WARDEN", K::Warden, L::Styled, 4, 3, 8, 1500, 2, 160, 14, 18, 0, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
   // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).

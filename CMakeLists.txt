@@ -23,6 +23,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art.cpp
   src/assets/art_alien.cpp
   src/assets/enemy_art_alien.cpp
+  src/assets/enemy_art_hive.cpp
   src/data/level.cpp
   src/data/theme.cpp
   src/data/characters.cpp
@@ -51,6 +52,7 @@ add_library(gunrunners_core STATIC
   src/game/world_mine.cpp
   src/game/world_lava.cpp
   src/game/world_space.cpp
+  src/game/world_hive.cpp
   src/game/world_boulder.cpp
   src/game/world_surf.cpp
   src/game/world_mine_draw.cpp
@@ -137,4 +139,8 @@ add_test(NAME savegame_idol_mines COMMAND savegame_test ${CMAKE_SOURCE_DIR}/leve
 # Over the stone chains past the first toads, Serpent Spears in hand.
 add_test(NAME savegame_lava_heart COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/12_lava_heart.txt 400)
 add_test(NAME savegame_crash_garden COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/44_crash_garden.txt 400)
+add_test(NAME savegame_hive_gullets COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/45_hive_gullets.txt 400)
+add_executable(hive_test tests/hive_test.cpp)
+target_link_libraries(hive_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME hive_tubes COMMAND hive_test)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)

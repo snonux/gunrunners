@@ -159,6 +159,9 @@ int macroFrames(int m, const World& w)
     bool tide = false;
     for (const auto& f : w.fluids())
       tide = tide || f.tide;
+    // Level 45: a mouth that only opens while the hive breathes in.
+    for (const auto& t : w.gulletTubes())
+      tide = tide || t.breath;
     return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() && w.sunDoors().empty()
       ? 0
       : 24;
@@ -362,6 +365,10 @@ int clockPeriod(const World& w)
   for (const auto& e : w.enemies())
     if (e.alive && e.kind == EnemyKind::DartFace)
       period = std::max(period, 30);
+  // Level 45: the hive breathes (its breathing mouths) and its heart beats.
+  for (const auto& t : w.gulletTubes())
+    if (t.breath)
+      period = std::max(period, World::kBreathPeriod);
   return period;
 }
 
@@ -970,6 +977,29 @@ void Planner::buildField(const World& w, const Goal& goal)
         break; // landed
     }
   }
+  // Level 45: a Gullet Tube's mouth takes you to its far end (down the
+  // branch its valve is set to); a floor exit spits you up first.
+  for (const auto& t : w.gulletTubes())
+  {
+    const int b = t.valve ? t.set : 0;
+    int ex = 0, ey = 0;
+    w.tubeExit(t, b, ex, ey);
+    if (ex < 0 || ey < 0 || ex >= W || ey >= H)
+      continue;
+    const CellBox trig = w.mouthTrigger(t);
+    const int cost = t.len[std::size_t(b)] / 2 + 6;
+    const int rise = t.outY[std::size_t(b)] < 0 ? 10 : 0;
+    for (int y = std::max(0, trig.y - 1); y <= std::min(H - 1, trig.bottom() + Player::kHeight); ++y)
+      for (int x = std::max(0, trig.x - Player::kWidth); x <= std::min(W - 1, trig.right()); ++x)
+      {
+        if (!valid[std::size_t(y * W + x)] || !boxAt(x, y, Player::kWidth, Player::kHeight).intersects(trig))
+          continue;
+        for (int k = 0; k <= rise; ++k)
+          if (ey - k >= 0 && valid[std::size_t((ey - k) * W + ex)])
+            for (int a = 0; a < A; ++a)
+              list.push_back({node(x, y, a), node(ex, ey - k, 0), cost + k});
+      }
+  }
   for (const auto& e : list)
     ++revStart[std::size_t(e.to) + 1];
   for (int i = 0; i < N; ++i)
@@ -1111,6 +1141,19 @@ int Planner::heuristic(const World& w) const
   if (p.x < 0 || p.y < 0 || p.x >= mW || p.y >= mH)
     return kInf;
   const int A = kAirBudget + 1;
+  if (p.tube >= 0 && std::size_t(p.tube) < w.gulletTubes().size())
+  {
+    // Inside a Gullet Tube: as good as being at its far end already.
+    const auto& t = w.gulletTubes()[std::size_t(p.tube)];
+    int ex = 0, ey = 0;
+    w.tubeExit(t, p.tubeBranch, ex, ey);
+    if (ex < 0 || ey < 0 || ex >= mW || ey >= mH)
+      return kInf;
+    int best = kInf;
+    for (int a = 0; a < A; ++a)
+      best = std::min(best, mDist[std::size_t((ey * mW + ex) * A + a)]);
+    return best >= kInf ? kInf : best + std::max(0, t.len[std::size_t(p.tubeBranch)] - p.tubeS) / 2 + extra;
+  }
   const int base = (p.y * mW + p.x) * A;
   int best = kInf;
   for (int a = 0; a < A; ++a)
@@ -1526,6 +1569,19 @@ void Planner::plan(const World& world)
     if (p.state == PlayerState::Swing)
       k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
     k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+    // Level 45: in a tube (how far along), the valves, shots in the tubes
+    // and the mite pores.
+    if (w.hasHive())
+    {
+      k = mix(k, std::uint64_t(p.tube + 1) | (std::uint64_t(p.tubeBranch) << 8) | (std::uint64_t(p.tubeS) << 16));
+      for (const auto& t : w.gulletTubes())
+        k = mix(k, std::uint64_t(t.set));
+      for (const auto& e : w.enemies())
+        if (e.alive && (e.kind == EnemyKind::Mite || e.kind == EnemyKind::Polyp || e.kind == EnemyKind::Warden) &&
+            std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
+          k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                       (std::uint64_t(e.attach + e.tell * 4) << 32));
+    }
     // Level 44: on a goo wall, or kicked off one.
     if (w.hasGoo())
       k = mix(k, std::uint64_t(p.wall + 2) | (std::uint64_t(p.kick + 8) << 4) | (std::uint64_t(p.kickArc) << 8) |

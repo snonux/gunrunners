@@ -279,6 +279,7 @@ void World::update(const PlayerInput& input)
       updateMine(input);
       updateLava(input);
       updateSpace(input);
+      updateHive();
       updateBoulders(input);
       updateHatches();
       updateProps(input);
@@ -322,7 +323,7 @@ void World::updateEnemies()
 {
   const auto& p = mPlayer;
   const CellBox pbox = p.box();
-  const bool playerVulnerable = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting;
+  const bool playerVulnerable = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting && p.tube < 0;
 
   for (auto& e : mEnemies)
   {
@@ -561,6 +562,15 @@ void World::updateEnemies()
       case EnemyKind::Gloop:
         updateGloop(e, def);
         break;
+      case EnemyKind::Mite:
+        updateMite(e, def);
+        break;
+      case EnemyKind::Polyp:
+        updatePolyp(e, def);
+        break;
+      case EnemyKind::Warden:
+        updateWarden(e, def);
+        break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);
         break;
@@ -644,6 +654,9 @@ void World::updateProjectiles()
     // Level 13: a Totem Stack's heads are solid, but shots hit the heads.
     if (!mBoulders.empty() && shotAtTotem(pr, b))
       return true;
+    // Level 45: a valve set into a tube turns when shot.
+    if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))
+      return true;
     if (mMap.overlapsSolid(b))
     {
       if (pr.kind != ShotKind::Enemy)
@@ -659,6 +672,7 @@ void World::updateProjectiles()
       if (pr.footRow >= 0)
         stickSpear(pr);
       shotAtSpace(pr);
+      shotAtHive(pr);
       return true;
     }
     if ((!mFluids.empty() || !mDevNull.empty()) && shotAtSludge(pr))
