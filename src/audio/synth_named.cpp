@@ -202,6 +202,12 @@ std::vector<float> makeNamedSfx(const std::string& id)
       c[i] += b[i];
     return c;
   }
+  // Level 20's core: the hum winding up before a pulse, and the ring going
+  // off (the game's own sounds).
+  if (has(id, "core_hum_rise"))
+    return makeSfx(Sfx::CoreHum);
+  if (has(id, "core_pulse"))
+    return makeSfx(Sfx::CorePulse);
   // Clicks and mechanisms.
   if (has(id, "click") || has(id, "clunk") || has(id, "clamp") || has(id, "switch") || has(id, "plate") ||
       has(id, "arrow") || has(id, "trapdoor") || has(id, "door") || has(id, "slam") || has(id, "bump"))

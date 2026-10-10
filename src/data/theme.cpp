@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 27> kVariants{{
+const std::array<Variant, 28> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -410,6 +410,20 @@ const std::array<Variant, 27> kVariants{{
     rgb(176, 188, 204), rgb(140, 152, 170),
     rgb(226, 232, 240), rgb(255, 255, 255), rgb(98, 108, 126), rgb(255, 120, 40),
     rgb(240, 246, 255), "gravlab"}},
+  // Level 20.
+  {"station_reactor",
+   {ThemeId::StationZero,
+    "REACTOR CORE",
+    "THE HEART OF STATION ZERO, PULSING EVERY TEN SECONDS",
+    rgb(4, 8, 20), rgb(12, 24, 52), rgb(22, 46, 92),
+    rgb(58, 64, 76), rgb(100, 108, 124), rgb(24, 28, 38),
+    rgb(255, 204, 40), rgb(255, 236, 140),
+    rgb(118, 126, 140), rgb(50, 56, 68),
+    rgb(255, 84, 40), rgb(255, 180, 140),
+    rgb(100, 196, 255), rgb(255, 204, 40),
+    rgb(26, 40, 72), rgb(14, 22, 42),
+    rgb(92, 110, 140), rgb(176, 202, 232), rgb(40, 50, 70), rgb(120, 220, 255),
+    rgb(226, 240, 255), "reactor"}},
 }};
 
 } // namespace

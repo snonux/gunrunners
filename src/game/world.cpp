@@ -172,6 +172,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkHull();
   linkOrbit();
   linkGrav();
+  linkReactor();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -291,7 +292,10 @@ void World::update(const PlayerInput& input)
       updateBonusRules(input);
       if (mState != WorldState::Playing)
         break;
-      updatePlatforms();
+      // Stop Motion: the world only moves on frames the runner moves.
+      mReactor.moving = !mReactor.stopMotion || runnerMoving(input);
+      if (mReactor.moving)
+        updatePlatforms();
       if (!mVines.empty())
         updateVines();
       if (mFlight)
@@ -310,40 +314,11 @@ void World::update(const PlayerInput& input)
         updateGravPlayer(input);
       else
         updatePlayer(input);
-      updateVehicles(input);
-      updateSea();
-      updateClub();
-      updateDark(input);
-      updateSludge(input);
-      updateMaglev(input);
-      updateChopper(input);
-      updateJungle(input);
-      updateTemple(input);
-      updateLight(input);
-      updateMine(input);
-      updateLava(input);
-      updateSpace(input);
-      updateHive();
-      updateStarfall();
-      updateCrystals();
-      if (mSpace.silk)
-        updateSilk();
-      if (mSpace.plains)
-        updatePlains();
-      updateBoulders(input);
-      updateSanctum(input);
-      if (mSpace.mother.on)
-        updateMother();
-      updateGolden();
-      updateStation(input);
-      updateCryo(input);
-      updateGreen(input);
-      updateHull(input);
-      updateGrav(input);
-      updateHatches();
-      updateProps(input);
+      if (mReactor.moving)
+        updateMovingWorld(input);
       updatePlayerInteractions();
-      updateSpawners();
+      if (mReactor.moving)
+        updateSpawners();
       if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && mPlayer.vehicle < 0 &&
           !mMap.overlapsHazard(mPlayer.box()) &&
           (mFluids.empty() || wadeFluid() < 0))
@@ -351,9 +326,12 @@ void World::update(const PlayerInput& input)
         mSafeX = mPlayer.x;
         mSafeY = mPlayer.y;
       }
-      updateEnemies();
-      updateProjectiles();
-      updateItems();
+      if (mReactor.moving)
+      {
+        updateEnemies();
+        updateProjectiles();
+        updateItems();
+      }
       mCamera.update(cameraTarget(), mManualScroll, mMap.width(), mMap.height());
       markExplored();
       break;
@@ -367,6 +345,44 @@ void World::update(const PlayerInput& input)
     case WorldState::Done:
       break;
   }
+}
+
+// Everything but the runner (Stop Motion holds it still while the runner is).
+void World::updateMovingWorld(const PlayerInput& input)
+{
+  updateVehicles(input);
+  updateSea();
+  updateClub();
+  updateDark(input);
+  updateSludge(input);
+  updateMaglev(input);
+  updateChopper(input);
+  updateJungle(input);
+  updateTemple(input);
+  updateLight(input);
+  updateMine(input);
+  updateLava(input);
+  updateSpace(input);
+  updateHive();
+  updateStarfall();
+  updateCrystals();
+  if (mSpace.silk)
+    updateSilk();
+  if (mSpace.plains)
+    updatePlains();
+  updateBoulders(input);
+  updateSanctum(input);
+  if (mSpace.mother.on)
+    updateMother();
+  updateGolden();
+  updateStation(input);
+  updateCryo(input);
+  updateGreen(input);
+  updateHull(input);
+  updateGrav(input);
+  updateReactor(input);
+  updateHatches();
+  updateProps(input);
 }
 
 bool World::isOnScreen(const CellBox& b, int margin) const
@@ -752,6 +768,15 @@ void World::updateEnemies()
       case EnemyKind::TestSubject:
         updateTestSubject(e, def);
         break;
+      case EnemyKind::Spark:
+        updateSpark(e, def);
+        break;
+      case EnemyKind::ShieldDrone:
+        updateShieldDrone(e, def);
+        break;
+      case EnemyKind::Imp:
+        updateImp(e, def);
+        break;
     }
 
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
@@ -824,6 +849,9 @@ void World::spawnProjectile(ShotKind kind, int ax, int ay, int dx, int dy)
 void World::updateProjectiles()
 {
   auto collide = [this](Projectile& pr) -> bool {
+    // Level 20: the Deflector Bracer sends enemy shots back.
+    if (mReactor.on && pr.kind == ShotKind::Enemy && shotAtBracer(pr))
+      return false;
     const CellBox b = pr.box();
     // Level 13: a Totem Stack's heads are solid, but shots hit the heads.
     if (!mBoulders.empty() && shotAtTotem(pr, b))
@@ -1039,6 +1067,8 @@ void World::updateProjectiles()
         return true; // a Bouncer took it on the chest
       if (wasAlive && !e.alive && pr.kind == ShotKind::Proto)
         ++mStats.protoKills;
+      if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::DeflectorBracer))
+        bracerPush(e, pr.dx); // the pulse shot knocks it back a block
       if (pr.flare)
       {
         stickFlare(pr, e.alive ? int(&e - mEnemies.data()) : -1);
@@ -1162,6 +1192,9 @@ void World::damageEnemy(Enemy& e, int damage)
     killBeetles(e, std::max(3, damage)); // a hit takes out up to three in a line
     return;
   }
+  // Level 20: nothing in a Shield Drone's bubble can be hurt.
+  if (mReactor.on && reactorBlocksDamage(e))
+    return;
   e.hp -= damage;
   e.flash = 8;
   if (e.hp <= 0)

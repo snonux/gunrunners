@@ -1,6 +1,7 @@
 #include "game/world.hpp"
 
 #include "assets/enemy_art.hpp"
+#include "game/reactor_draw.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -154,6 +155,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawOrbitBack(r, camX, camY, frame);
   if (mGrav.on)
     drawGravBack(r, camX, camY, frame);
+  if (mReactor.on)
+  {
+    reactorRenderAlpha() = alpha;
+    drawReactorBack(r, camX, camY, frame);
+  }
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -429,6 +435,18 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the core glowing before a shot
         else if (e.kind == EnemyKind::TestSubject)
           variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.carrier ? 4 : 0) + 8 * (e.id % 4); // crouching; bib
+        else if (e.kind == EnemyKind::Spark)
+          variant = 0;
+        else if (e.kind == EnemyKind::ShieldDrone)
+        {
+          variant = 0; // the emitter flares while its bubble blocks a hit
+          for (const auto& g : mReactor.drones)
+            if (g.enemy == int(&e - mEnemies.data()) && g.shimmer > 0)
+              variant = 1;
+        }
+        else if (e.kind == EnemyKind::Imp)
+          variant = (e.aimX > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0))) + (e.variant == 1 ? 4 : 0) +
+            8 * std::clamp(e.attach, 0, 4); // glowing, lunging, saluting; hard hat; hotter after each pulse
         else if (e.stun > 0)
           variant = 0;
         int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -467,7 +485,20 @@ void World::draw(Renderer& r, int frame, float alpha) const
           if (e.tell > 0)
             drawGlow(r, mArt, pcx, pcy, 70.0f, rgb(230, 140, 255), 0.5f + 0.3f * float((frame / 2) % 2));
         }
-        const int animFrame = e.kind == EnemyKind::Bat ? (frame / 3 + e.aimX) % 2 : (frame / 8) % 2;
+        if (e.kind == EnemyKind::Spark)
+        {
+          // Level 20: crackling, its light thrown on the wall round it.
+          const float flick = 0.45f + 0.25f * float(hash2(e.id, frame / 2) % 100u) / 100.0f;
+          drawGlow(r, mArt, x, y - float(e.h) * kCellPx * 0.5f, 90.0f, rgb(80, 170, 255), flick);
+        }
+        else if (e.kind == EnemyKind::Imp)
+          drawGlow(r, mArt, x, y - float(e.h) * kCellPx * 0.45f, 60.0f + float(std::clamp(e.attach, 0, 4)) * 8.0f,
+            e.attach >= 3 ? rgb(255, 240, 120) : rgb(150, 255, 70),
+            e.tell > 0 ? 0.85f : 0.3f + 0.08f * float(std::clamp(e.attach, 0, 4)));
+        const int animFrame = e.kind == EnemyKind::Bat ? (frame / 3 + e.aimX) % 2
+          : e.kind == EnemyKind::Spark                 ? (frame / 2) % 4
+          : e.kind == EnemyKind::Imp                   ? (frame / 4) % 2
+                                                       : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
         if ((e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::TestSubject) && e.attach == 2)
         {
@@ -581,6 +612,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawOrbitFront(r, camX, camY, frame);
   if (mGrav.on)
     drawGravFront(r, camX, camY, frame);
+  if (mReactor.on)
+    drawReactorFront(r, camX, camY, frame);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -616,6 +649,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
     switch (pr.kind)
     {
       case ShotKind::Normal:
+        if (pr.strong && mReactor.on)
+        {
+          // Level 20: an enemy shot thrown back by the Deflector Bracer.
+          glow = rgb(110, 210, 255);
+          o.tint = rgb(190, 235, 255);
+          o.scale = 1.3f;
+        }
         break;
       case ShotKind::Laser:
         tex = &mArt.shotLaser;
@@ -714,6 +754,20 @@ void World::draw(Renderer& r, int frame, float alpha) const
           for (const float arm : {0.0f, 2.1f})
             r.drawLine(cx, cy, cx + std::cos(a + arm) * 26.0f, cy + std::sin(a + arm) * 26.0f, 9.0f, wood);
           r.fillRect(cx - 5.0f, cy - 5.0f, 10.0f, 10.0f, rgb(240, 200, 120));
+          continue;
+        }
+        if (pr.proto == int(ProtoId::DeflectorBracer))
+        {
+          // The Bracer's pulse shot: a small rippling ring of blue energy.
+          drawGlow(r, mArt, cx, cy - 6.0f, 46.0f, rgb(90, 200, 255), 0.6f);
+          const float rr = 13.0f + 2.5f * std::sin(float(frame) * 0.7f);
+          for (int k = 0; k < 16; ++k)
+          {
+            const float a0 = float(k) * 0.3927f, a1 = a0 + 0.3927f;
+            r.drawLine(cx + std::cos(a0) * rr * 0.7f, cy - 6.0f + std::sin(a0) * rr, cx + std::cos(a1) * rr * 0.7f,
+              cy - 6.0f + std::sin(a1) * rr, 4.0f, rgb(150, 225, 255), Blend::Add);
+          }
+          drawGlow(r, mArt, cx, cy - 6.0f, 10.0f, rgb(255, 255, 255), 0.8f);
           continue;
         }
         if (pr.proto == int(ProtoId::LockOnRockets))
@@ -1286,6 +1340,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawHullHud(r, frame);
   if (mGrav.on)
     drawGravHud(r, frame);
+  if (mReactor.on)
+    drawReactorHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

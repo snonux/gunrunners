@@ -107,6 +107,8 @@ void World::setupEntities()
   mSurfing = lv.rules.find("boulder_surf") != std::string::npos;
   mStation.recoil = lv.rules.find("recoil_only") != std::string::npos;
   mGolden = lv.rules.find("golden_touch") != std::string::npos;
+  mReactor.stopMotion = lv.rules.find("stop_motion") != std::string::npos;
+  mReactor.on = mReactor.on || mReactor.stopMotion || lv.weapon == "deflector_bracer";
   if (mGolden)
   {
     mGold.assign(std::size_t(lv.width * lv.height), 0);
@@ -195,6 +197,7 @@ void World::setupEntities()
       setupGreenEnemy(en, e);
       setupHullEnemy(en, e);
       setupGravEnemy(en, e);
+      setupReactorEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -306,6 +309,8 @@ void World::setupEntities()
       continue;
     }
 
+    if (setupReactorEntity(e))
+      continue;
     if (setupGravEntity(e))
       continue;
     if (setupCryoEntity(e))

@@ -550,6 +550,26 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         }
         return {3, pr.x, pr.y, pr.w, pr.h};
       }
+  // Level 20: the lift cage opens once every valve is shut: the nearest
+  // valve still open, then the next.
+  if (w.reactor().cageX0 >= 0 && !w.reactor().cageOpen)
+  {
+    const auto& p = w.player();
+    Goal best;
+    int bestD = -1;
+    for (std::size_t i = 0; i < w.reactor().valves.size(); ++i)
+    {
+      const auto& v = w.reactor().valves[i];
+      const int d = std::abs(v.x * kCellsPerTile - p.x) + std::abs(v.y * kCellsPerTile - p.y);
+      if (!v.shut && (bestD < 0 || d < bestD))
+      {
+        bestD = d;
+        best = {14, v.x * kCellsPerTile - 1, v.y * kCellsPerTile + 1, 2, 1, int(i)};
+      }
+    }
+    if (bestD >= 0)
+      return best;
+  }
   // Power cuts: a Grid Leech heading for a breaker comes first, then the
   // breakers in order, skipping any behind a shutter that is down.
   const auto& p = w.player();
@@ -646,6 +666,15 @@ Planner::Goal Planner::altarGoal(const World& w) const
       p.x < altars[std::size_t(last)].bx * kCellsPerTile + 24)
     return at(11, last);
   return {};
+}
+
+int Planner::valveToHold(const World& w) const
+{
+  const auto& rs = w.reactor();
+  for (std::size_t i = 0; i < rs.valves.size(); ++i)
+    if (!rs.valves[i].shut && w.atValve(int(i)))
+      return int(i);
+  return -1;
 }
 
 int Planner::altarToHold(const World& w) const
@@ -2312,7 +2341,8 @@ void Planner::plan(const World& world)
       nw.mirrors()[std::size_t(goal.index)].to == goal.h;
     const bool sheltered = (goal.kind == 9 && nw.inShelter(goal.index)) ||
       ((goal.kind == 10 || goal.kind == 11) && nw.besideAltar(goal.index)) ||
-      (goal.kind == 12 && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1);
+      (goal.kind == 12 && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1) ||
+      (goal.kind == 14 && nw.atValve(goal.index));
     const bool lit = goal.kind == 13 && std::size_t(goal.index) < nw.green().lamps.size() &&
       nw.green().lamps[std::size_t(goal.index)].lit &&
       (!world.green().lamps[std::size_t(goal.index)].lit || nw.green().lamps[std::size_t(goal.index)].left >

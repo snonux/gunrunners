@@ -1122,6 +1122,169 @@ std::vector<float> makeSfx(Sfx id)
         return v * 0.45 * attack(t, 0.002) * std::exp(-t * 9.0);
       });
     }
+    case Sfx::CoreHum:
+    {
+      // The core winding up for a pulse: a deep electrical hum whose pitch
+      // and brightness climb over three seconds, a tremolo that speeds up
+      // and a crackle of static coming in toward the end.
+      Osc a, b, c, trem;
+      Noise n(233);
+      Svf lp;
+      OnePole hp;
+      return render(3.0, [&](double t, double total) {
+        const double k = t / total;
+        const double f = sweep(48.0, 110.0, k * k);
+        const double body = a.step(f, Wave::Saw) * 0.45 + b.step(f * 2.003, Wave::Square, 0.4) * 0.2 +
+          c.step(f * 3.01, Wave::Sine) * 0.25 * k;
+        const double tone = lp.low(float(body), float(300.0 + 2600.0 * k * k), 1.6);
+        const double wob = 0.75 + 0.25 * trem.step(4.0 + 18.0 * k, Wave::Sine);
+        const double crackle = n.next() > 0.985f - 0.02f * float(k) ? hp.highpass(n.next(), 3000.0) * k : 0.0;
+        const double env = std::min(1.0, t / 0.4) * (0.35 + 0.65 * k) * std::min(1.0, (total - t) / 0.03);
+        return (tone * wob * 0.5 + crackle * 0.4) * env;
+      });
+    }
+    case Sfx::CorePulse:
+    {
+      // A ring going off: a deep electric boom (a sub thump under crunchy
+      // rumble) with a bright ringing tail that shimmers away.
+      Noise n(239);
+      Svf lp;
+      Osc sub, ring1, ring2, lfo;
+      double held = 0.0;
+      int counter = 0;
+      return render(1.8, [&](double t, double total) {
+        if (counter-- <= 0)
+        {
+          held = n.next();
+          counter = int(lerp(2.0, 18.0, t / total));
+        }
+        const double rumble = lp.low(float(held * 0.6 + n.next() * 0.4), sweep(4200.0, 140.0, t / 0.9), 1.2) * decay(t, 0.25);
+        const double thump = sub.step(sweep(95.0, 30.0, t / 0.5), Wave::Sine) * decay(t, 0.3);
+        const double shimmer = 1.0 + 0.3 * lfo.step(9.0, Wave::Sine);
+        const double ring = (ring1.step(sweep(1560.0, 1320.0, t / total), Wave::Sine) * 0.6 +
+                              ring2.step(sweep(2350.0, 1980.0, t / total), Wave::Sine) * 0.35) *
+          decay(t, 0.55) * shimmer * std::min(1.0, t / 0.02);
+        return (rumble * 0.75 + thump * 0.8 + ring * 0.22) * attack(t, 0.002);
+      });
+    }
+    case Sfx::BracerUp:
+    {
+      // The Deflector Bracer's shield going up: a quick rising shimmer of
+      // detuned tones over a soft energy hum.
+      Osc a, b, hum, lfo;
+      return render(0.35, [&](double t, double total) {
+        const double f = sweep(300.0, 1200.0, std::min(1.0, t / 0.12));
+        const double sh = 0.7 + 0.3 * lfo.step(32.0, Wave::Sine);
+        const double v = (a.step(f, Wave::Triangle) * 0.5 + b.step(f * 1.51, Wave::Sine) * 0.3) * sh +
+          hum.step(110.0, Wave::Saw) * 0.12;
+        return v * 0.35 * attack(t, 0.004) * std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::Deflect:
+    {
+      // Something bouncing off a shield: a bright metallic ping with a
+      // short electric zap on its front.
+      Osc a, b, c, zap;
+      Noise n(241);
+      OnePole hp;
+      return render(0.4, [&](double t, double) {
+        const double ping = (a.step(2480.0, Wave::Sine) * 0.5 + b.step(3720.0 * 1.003, Wave::Sine) * 0.3 +
+                              c.step(5410.0, Wave::Sine) * 0.15) *
+          decay(t, 0.09);
+        const double z = (zap.step(sweep(3000.0, 600.0, t / 0.05), Wave::Square, 0.3) * 0.4 +
+                           hp.highpass(n.next(), 2500.0) * 0.5) *
+          decay(t, 0.018);
+        return (ping * 0.4 + z * 0.4) * attack(t, 0.001);
+      });
+    }
+    case Sfx::ValveTurn:
+    {
+      // A valve wheel squeaking round a notch: a rubbing squeal that wavers,
+      // with a gritty click at its start.
+      Osc o, wob;
+      Noise n(251);
+      Svf bp;
+      return render(0.26, [&](double t, double total) {
+        const double f = 820.0 + 160.0 * std::sin(t * 31.0) + 60.0 * wob.step(47.0, Wave::Triangle);
+        const double squeak = bp.band(float(o.step(f, Wave::Saw)), f * 1.5, 6.0) * std::sin(kPi * t / total);
+        const double grit = n.next() * decay(t, 0.006);
+        return (squeak * 0.3 + grit * 0.3) * attack(t, 0.002);
+      });
+    }
+    case Sfx::ValveShut:
+    {
+      // A valve shut tight: a heavy metal clank, then the hiss of the line
+      // losing its pressure.
+      Osc a, b;
+      Noise n(257), m(263);
+      OnePole hp, lp;
+      return render(1.2, [&](double t, double total) {
+        const double clank = (a.step(sweep(190.0, 120.0, t / 0.08), Wave::Triangle) * 0.6 +
+                               b.step(737.0, Wave::Square, 0.3) * 0.25) *
+            decay(t, 0.07) +
+          n.next() * decay(t, 0.008) * 0.6;
+        const double hiss = t > 0.12 ? hp.highpass(lp.lowpass(m.next(), 8000.0), 1800.0) *
+            std::min(1.0, (t - 0.12) / 0.05) * std::min(1.0, (total - t) / 0.6) * 0.35
+                                     : 0.0;
+        return (clank * 0.6 + hiss) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Rewind:
+    {
+      // DO NOT PRESS: a bright major-key victory fanfare, rendered forwards
+      // and then played backwards (with a wobbly tape speed for good
+      // measure), about six seconds.
+      const double len = 6.0;
+      std::vector<float> fwd(std::size_t(samples(len)), 0.0f);
+      struct Note
+      {
+        double at, dur, note;
+      };
+      // C major: a rising call, a held answer and a last big chord.
+      static const Note kTune[] = {
+        {0.00, 0.18, 72}, {0.20, 0.18, 76}, {0.40, 0.18, 79}, {0.60, 0.50, 84}, {1.15, 0.18, 79}, {1.35, 0.70, 84},
+        {2.15, 0.18, 81}, {2.35, 0.18, 83}, {2.55, 0.18, 84}, {2.75, 0.18, 86}, {2.95, 0.90, 88}, {4.00, 1.60, 84},
+      };
+      for (const Note& nt : kTune)
+      {
+        addTone(fwd, nt.at, nt.dur + 0.25, midiFreq(nt.note), Wave::Square, 0.08, nt.dur * 0.9);
+        addTone(fwd, nt.at, nt.dur + 0.25, midiFreq(nt.note - 12.0), Wave::Saw, 0.05, nt.dur * 0.9);
+      }
+      // The closing chord and a timpani roll under it.
+      for (const double ch : {60.0, 64.0, 67.0, 72.0})
+        addTone(fwd, 4.0, 1.9, midiFreq(ch), Wave::Triangle, 0.09, 0.9);
+      {
+        Osc timp;
+        for (int i = 0; i < samples(1.8); ++i)
+        {
+          const double t = double(i) / kRate;
+          const std::size_t at = std::size_t(samples(4.0) + i);
+          if (at < fwd.size())
+            fwd[at] += float(timp.step(sweep(70.0, 55.0, t / 1.8), Wave::Sine) * 0.3 * decay(t, 0.6) *
+              (0.8 + 0.2 * std::sin(t * 2.0 * kPi * 14.0)));
+        }
+      }
+      // Backwards, through a slowly wavering tape.
+      std::vector<float> out(fwd.size(), 0.0f);
+      double pos = double(fwd.size() - 1);
+      for (std::size_t i = 0; i < out.size() && pos > 1.0; ++i)
+      {
+        const double t = double(i) / kRate;
+        const double speed = 0.94 + 0.06 * std::sin(t * 2.0 * kPi * 0.7);
+        const auto k = std::size_t(pos);
+        const double fr = pos - double(k);
+        out[i] = float(fwd[k] * (1.0 - fr) + fwd[k - 1] * fr);
+        pos -= speed;
+      }
+      // Fade in (the end of the fanfare's tail) and out.
+      const std::size_t fade = std::size_t(samples(0.3));
+      for (std::size_t i = 0; i < fade && i < out.size(); ++i)
+      {
+        out[i] *= float(i) / float(fade);
+        out[out.size() - 1 - i] *= float(i) / float(fade);
+      }
+      return out;
+    }
     case Sfx::Count:
       break;
   }

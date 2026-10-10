@@ -31,6 +31,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_cryo.cpp
   src/assets/enemy_art_green.cpp
   src/assets/enemy_art_grav.cpp
+  src/assets/enemy_art_reactor.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
@@ -86,6 +87,8 @@ add_library(gunrunners_core STATIC
   src/game/world_green.cpp
   src/game/world_grav_draw.cpp
   src/game/world_grav.cpp
+  src/game/world_reactor.cpp
+  src/game/world_reactor_draw.cpp
   src/game/world_hull_draw.cpp
   src/game/world_hull.cpp
   src/game/world_orbit.cpp
@@ -236,3 +239,7 @@ add_test(NAME savegame_gravity_lab COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 add_executable(grav_test tests/grav_test.cpp)
 target_link_libraries(grav_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME gravity_lab COMMAND grav_test ${CMAKE_SOURCE_DIR}/levels/19_bonus_gun_gravity.txt)
+add_test(NAME savegame_reactor_core COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/20_reactor_core.txt 330)
+add_executable(reactor_test tests/reactor_test.cpp)
+target_link_libraries(reactor_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME reactor_core COMMAND reactor_test ${CMAKE_SOURCE_DIR}/levels/20_bonus_stop_motion.txt)

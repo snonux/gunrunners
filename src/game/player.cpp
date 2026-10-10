@@ -567,6 +567,8 @@ int World::horizontalSteps() const
     return p.oddFrame ? 0 : 1; // infected, wading through sludge or a stream, or through spores
   if (p.weapon == Weapon::Proto && ProtoId(p.proto) == ProtoId::JadeBow && p.charge > 0)
     return p.oddFrame ? 0 : 1; // drawing the Jade Bow
+  if (mReactor.raise > 0)
+    return p.oddFrame ? 0 : 1; // behind the Deflector Bracer's shield
   return 1;
 }
 
@@ -1067,6 +1069,8 @@ void World::respawnPlayer()
     resetHull();
   if (mGrav.on)
     resetGrav();
+  mReactor.raise = 0; // the Bracer's shield down, its arcs gone
+  mReactor.arcs.clear();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

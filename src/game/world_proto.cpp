@@ -55,6 +55,10 @@ void World::updateProtoShooting(const Button& fire)
   auto& p = mPlayer;
   if (p.shotCooldown > 0)
     --p.shotCooldown;
+  // Level 20: hold for the Deflector Bracer's shield (on a ladder too), tap
+  // for a pulse shot (world_reactor.cpp).
+  if (ProtoId(p.proto) == ProtoId::DeflectorBracer && updateBracer(fire))
+    return;
   if (!canFire())
   {
     p.charge = 0;

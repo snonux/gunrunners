@@ -39,6 +39,34 @@ int wallHeight(const CollisionMap& map, int x, int bottomY)
 
 } // namespace
 
+bool Bot::reactor(const World& world, Input& in)
+{
+  const auto& rs = world.reactor();
+  const auto& p = world.player();
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting)
+    return false;
+  const int t = world.framesToRing();
+  const bool bracer = p.weapon == Weapon::Proto && p.proto == int(ProtoId::DeflectorBracer) && (p.ammo > 0 || rs.raise > 0);
+  bool hold = false;
+  // A ring on its way and no booth: raise the Bracer (it goes up after
+  // kBracerTap frames held) and keep it up till the ring has passed.
+  if (bracer && !world.inBooth() && p.turbo == 0 && t <= kBracerTap + 4)
+  {
+    in.fire = true;
+    hold = true;
+  }
+  // In a booth with nothing to raise: wait there for the ring.
+  if (!bracer && world.inBooth() && p.turbo == 0 && t < 75 && t > 0)
+    hold = true;
+  const int valve = mPlanner.valveToHold(world);
+  if (valve >= 0)
+  {
+    in.up = true;
+    hold = true;
+  }
+  return hold;
+}
+
 Input Bot::menu(int cursor, int target, int ticksInMenu) const
 {
   Input in;
@@ -94,6 +122,16 @@ Input Bot::play(const World& world)
     Input in;
     in.up = true;
     return in;
+  }
+  // Level 20: hold up at a valve till it shuts; sit out the Core Pulse.
+  if (world.reactor().on && !world.reactor().stopMotion)
+  {
+    Input in;
+    if (reactor(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
   }
   // Fight from the deck; anywhere below it (fallen down the mast shaft)
   // the planner climbs back up first.

@@ -131,6 +131,10 @@ struct SaveGame
   // Gravity Lab (level 19): the runner's down, each chamber's (1 up), each
   // gate open.
   std::vector<int> grav;
+  // Reactor Core (level 20): frames since the core stopped (-1 running),
+  // the lift cage open, the Bracer's soak rest; each core's clock; each
+  // valve shut; each spark's place on its wire (half cells * 2 + going on).
+  std::vector<int> reactor;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing
