@@ -2152,6 +2152,153 @@ void plainsRide(ClipKit& k, int frame, int ticks, float ox, float oy)
     k.r.draw(runner(k, 2, 4, 1.4f), bx - 10 + ox, by - 120 + oy);
 }
 
+// Level 49: the egg chamber, amber light, her throne on the right with
+// the Hive Mother on it (pose: world_mother.cpp's sprite poses), the scale
+// she is drawn at.
+void motherChamber(ClipKit& k, int ticks, int pose, float sink, float ox, float oy)
+{
+  hiveCavity(k, ticks, ox, oy);
+  k.r.fillRect(ox, oy, W, H, rgba(255, 150, 60, 34), Blend::Add);
+  DrawOpts big;
+  big.scale = 0.62f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "mother_throne", 0, (ticks / 10) % 2, 20, 8).get(1), 960 + ox,
+    640 + oy, big);
+  DrawOpts her = big;
+  if (pose == 6)
+    her.alpha = std::max(0.0f, 1.0f - sink / 260.0f);
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "hive_mother", pose, (ticks / 12) % 2, 24, 20).get(-1), 960 + ox,
+    640 + oy + sink, her);
+}
+
+void motherBrief(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  motherChamber(k, ticks, 5, 0.0f, ox, oy);
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, who == 0 ? 3 : 0, 1.6f), 110.0f + float(who) * 90.0f + ox, 640 + oy);
+  drawMax(k, 420 + ox, 250 + oy, 0.4f, ticks, (ticks / 5) % 9 == 0 ? 0.3f : 0.0f);
+  (void)frame;
+}
+
+// She wakes: rises off the throne (frames 0-5), her crown lights, and she
+// bows to roll an egg out at the runners (6-11).
+void motherWake(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const int pose = frame < 3 ? 5 : (frame < 7 ? 0 : 1);
+  motherChamber(k, ticks, pose, 0.0f, ox, oy);
+  if (frame >= 3)
+    drawGlow(k.r, k.art, (pose == 1 ? 820.0f : 990.0f) + ox, (pose == 1 ? 470.0f : 300.0f) + oy, 140,
+      rgb(170, 255, 90), 0.5f + 0.3f * std::sin(float(ticks) * 0.3f));
+  if (frame >= 8)
+  {
+    DrawOpts egg;
+    egg.scale = 1.4f;
+    k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "brood_egg", 0, (ticks / 6) % 2, 3, 3).get(-1),
+      760.0f - float(frame - 8) * 90.0f + ox, 650 + oy, egg);
+  }
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, frame >= 5 ? 4 : 0, 1.6f), 110.0f + float(who) * 90.0f + ox, 640 + oy);
+}
+
+// Episode 7's end, 1: she falls. She shakes in flashes (frames 0-5), then
+// sinks into her throne in bursts of resin (6-13).
+void motherFalls(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float sink = frame < 6 ? 0.0f : float(frame - 5) * 30.0f;
+  const float shake = frame < 6 ? (frame % 2 ? 8.0f : -8.0f) : 0.0f;
+  motherChamber(k, ticks, frame < 6 ? 4 : 6, sink, ox + shake, oy);
+  if (frame < 6 && frame % 2 == 0)
+    k.r.fillRect(ox, oy, W, H, rgba(255, 240, 200, 60), Blend::Add);
+  for (int i = 0; i < 5; ++i)
+    if ((frame + i) % 3 == 0)
+      drawGlow(k.r, k.art, 820.0f + float(hash2(i, frame + 91) % 300u) + ox, 380.0f + float(hash2(i, frame + 92) % 240u) + oy,
+        110, rgb(255, 180, 90), 0.8f);
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, frame >= 10 && who == 1 ? 3 : 0, 1.6f), 110.0f + float(who) * 90.0f + ox, 640 + oy);
+}
+
+// 2: the Star Seed. Nova holds it up; it lights the chamber gold (an
+// 8-frame loop).
+void starSeedHeld(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  motherChamber(k, ticks, 6, 400.0f, ox, oy);
+  const float x = 640 + ox, y = 380 + oy;
+  const float pulse = 0.5f + 0.5f * std::sin(float(ticks) * 0.12f);
+  drawGlow(k.r, k.art, x, y, 380.0f + 60.0f * pulse, rgb(255, 230, 140), 0.55f);
+  for (int i = 0; i < 8; ++i)
+  {
+    const float a = float(i) * 0.785f + float(ticks) * 0.01f;
+    const float len = (i % 2 ? 70.0f : 130.0f) * (0.9f + 0.1f * pulse);
+    k.r.drawLine(x, y, x + std::cos(a) * len, y + std::sin(a) * len, i % 2 ? 4.0f : 7.0f, rgb(255, 246, 200), Blend::Add);
+  }
+  drawGlow(k.r, k.art, x, y, 60, rgb(255, 255, 255), 1.0f);
+  k.r.draw(runner(k, 2, 3, 2.2f), 640 + ox, 640 + oy);
+  k.r.draw(runner(k, 0, 3, 2.0f, true), 420 + ox, 640 + oy);
+  k.r.draw(runner(k, 1, 3, 2.0f), 860 + ox, 640 + oy);
+  (void)frame;
+}
+
+// 3: home. Vurr at dusk, the hive's dome on the horizon under the two
+// moons; the courier ship lifts off (frames 0-5), turns its nose up and
+// climbs away, faster and faster (6-15).
+void vurrTakeoff(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& sky = cached(k, "e7_vurr_dusk", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(30, 14, 60), rgb(140, 60, 130), rgb(250, 150, 110));
+    for (int i = 0; i < 70; ++i)
+    {
+      cairo_arc(cr, double(hash2(i, 701) % 1280u), double(hash2(i, 702) % 300u), 1.0 + double(hash2(i, 703) % 2u), 0,
+        2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 120 + int(hash2(i, 704) % 120u)));
+      cairo_fill(cr);
+    }
+    // The two moons.
+    cairo_arc(cr, 980, 150, 70, 0, 2 * kPi);
+    fillOutline(cr, rgb(230, 220, 255), rgb(120, 100, 170), 3);
+    cairo_arc(cr, 1120, 250, 30, 0, 2 * kPi);
+    fillOutline(cr, rgb(190, 240, 220), rgb(90, 140, 130), 3);
+    // The hive's dome on the horizon, glowing at its vents.
+    cairo_move_to(cr, 120, 600);
+    cairo_curve_to(cr, 180, 330, 560, 330, 620, 600);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 380, 600, rgb(170, 80, 110), rgb(80, 30, 60), rgb(40, 10, 30), 4);
+    for (int i = 0; i < 5; ++i)
+    {
+      cairo_arc(cr, 220 + i * 80, 470 + (i % 2) * 40, 10, 0, 2 * kPi);
+      setColor(cr, rgb(255, 190, 110));
+      cairo_fill(cr);
+    }
+    // The violet plain in front.
+    cairo_move_to(cr, 0, 600);
+    cairo_curve_to(cr, 400, 570, 900, 620, 1280, 590);
+    cairo_line_to(cr, 1280, 720);
+    cairo_line_to(cr, 0, 720);
+    cairo_close_path(cr);
+    fillGradientOutline(cr, 570, 720, rgb(150, 100, 170), rgb(60, 30, 70), rgb(30, 16, 40), 3);
+  });
+  k.r.draw(sky, ox, oy);
+  static const std::string kShip = "veh_spaceship";
+  float x = 760, y = 590, angle = 0.0f, scale = 1.4f;
+  if (frame < 6)
+    y = 590 - float(frame * frame) * 4.0f;
+  else
+  {
+    const float t = float(frame - 6);
+    angle = -std::min(40.0f, t * 10.0f);
+    x = 760 + t * t * 9.0f;
+    y = 446 - t * t * 7.0f;
+    scale = std::max(0.3f, 1.4f - t * 0.11f);
+  }
+  DrawOpts o;
+  o.scale = scale;
+  o.angle = angle;
+  // Thrust: dust under it at lift-off, a flame behind as it climbs.
+  if (frame < 6)
+    drawGlow(k.r, k.art, 760 + ox, 600 + oy, 260, rgb(255, 200, 150), 0.5f);
+  drawGlow(k.r, k.art, x - 150.0f * scale + ox, y - 40.0f * scale + oy, 120.0f * scale + 40.0f, rgb(140, 220, 255),
+    0.9f);
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, kShip, 0, (ticks / 6) % 2, 8, 4).get(1), x + ox, y + oy, o);
+}
+
 // Level 13: the temple corridor at sunset, light through the cracks, dust
 // coming down from the ceiling (an 8-frame loop).
 void templeCorridor(ClipKit& k, int frame, int ticks, float ox, float oy)
@@ -2893,6 +3040,16 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return plainsBrief(k, frame, ticks, ox, oy);
   if (clip == "brief48_ride")
     return plainsRide(k, frame, ticks, ox, oy);
+  if (clip == "brief49_chamber")
+    return motherBrief(k, frame, ticks, ox, oy);
+  if (clip == "brief49_wake")
+    return motherWake(k, frame, ticks, ox, oy);
+  if (clip == "e7_mother_falls")
+    return motherFalls(k, frame, ticks, ox, oy);
+  if (clip == "e7_star_seed")
+    return starSeedHeld(k, frame, ticks, ox, oy);
+  if (clip == "e7_takeoff")
+    return vurrTakeoff(k, frame, ticks, ox, oy);
   if (clip == "brief45_hive")
     return hiveBrief(k, frame, ticks, ox, oy);
   if (clip == "brief45_gulp")

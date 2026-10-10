@@ -114,6 +114,15 @@ const EnemyDef kEnemies[] = {
   // to either side of where it starts; it hurts no one, it swallows.
   {"thorn_hog", "THORN HOG", K::ThornHog, L::Styled, 4, 3, 3, 400, 2, 30, 10, 16, 0, 0},
   {"sky_gulper", "SKY GULPER", K::SkyGulper, L::Styled, 4, 4, 5, 700, 0, 40, 0, 10, kEnemyHarmless, 0},
+  // Level 49: The Hive Mother. Egg Guard: an egg (hp 2) until you come
+  // within range cells (or the tell runs out), then a guard that charges
+  // you along its floor. Spore Nurse: heals the Hive Mother every cooldown
+  // frames while it lives.
+  {"egg_guard", "EGG GUARD", K::EggGuard, L::Styled, 3, 3, 3, 300, 2, 20, 60, 14, 0, 0},
+  {"spore_nurse", "SPORE NURSE", K::SporeNurse, L::Styled, 3, 3, 2, 400, 0, 180, 0, 8, kEnemyHarmless, 0},
+  // Her brood in the fight: the same, laid or called by her (no tally).
+  {"brood_egg", "EGG GUARD", K::EggGuard, L::Styled, 3, 3, 3, 100, 2, 20, 60, 14, kEnemyNoTally, 0},
+  {"brood_nurse", "SPORE NURSE", K::SporeNurse, L::Styled, 3, 3, 2, 200, 0, 300, 0, 8, kEnemyHarmless | kEnemyNoTally, 0},
   {"thornbush", "THORNBUSH", K::Thornbush, L::Styled, 3, 2, 1, 50, 0, 0, 0, 0, kEnemyNoTally, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.

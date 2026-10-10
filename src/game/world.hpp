@@ -1748,6 +1748,11 @@ public:
   bool onIce() const;
   bool golemFight() const;
   int golemHp() const;
+  // Level 49: the Hive Mother (world_mother.cpp).
+  const HiveMother& mother() const { return mSpace.mother; }
+  bool motherFight() const;
+  int motherHp() const; // what is left of her, all phases
+  int motherHpMax() const;
   const Surf& surf() const { return mSurf; }
   // Level 13: the boulders and the alcoves.
   const std::vector<Boulder>& boulders() const { return mBoulders; }
@@ -2268,6 +2273,19 @@ private:
   void updateThornHog(Enemy& e, const EnemyDef& def);
   void updateSkyGulper(Enemy& e, const EnemyDef& def);
   void drawPlainsFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 49, The Hive Mother (world_mother.cpp).
+  bool setupMotherEntity(const EntityDef& e);
+  void motherPhase(MotherPhase phase);
+  void hurtMother(int damage, const CellBox& at);
+  bool shotAtMother(Projectile& pr, const CellBox& b);
+  void updateMother();
+  void resetMother(); // after a respawn
+  void shutMotherDoor(bool shut);
+  void updateEggGuard(Enemy& e, const EnemyDef& def);
+  void updateSporeNurse(Enemy& e, const EnemyDef& def);
+  void drawMotherBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMotherFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMotherHud(Renderer& r, int frame) const;
   // Level 13 (world_boulder.cpp).
   bool setupBoulderEntity(const EntityDef& e);
   void setupBoulderEnemy(Enemy& en, const EntityDef& e);
@@ -2566,6 +2584,7 @@ private:
   std::vector<std::string> mSentinelIds;
   Golem mGolem;
   bool mBowFull = false; // the Jade Bow shot being fired is a full draw
+  int mSeedCharge = 0;   // the Star Seed shot being fired: frames it charged
   int mRefillX = -1, mRefillY = 0; // cells: the jade basin (`@ refill`), bottom-left
   bool mRefillUsed = false;        // this life
   Surf mSurf;

@@ -1,0 +1,25 @@
+cutscene brief_49
+music theme_hive_mother
+
+# Clip brief49_chamber: 4 layers. Backdrop: the hive's ribbed pink cavity in
+# amber light, the heartbeat pulsing. Mid: the throne of resin and eggs on
+# the right with the Hive Mother asleep on it. Characters: the three
+# runners on the left, Dash looking up at her. Foreground: MAX's hologram.
+# 8 frames.
+shot brief49_chamber delay=110 repeat=6
+  cue 0 fade=in:600
+  cue 0 sound=holo_on
+  cue 8 say=DASH "Is that... a queen? On a throne made of eggs?"
+  cue 22 say=MAX "The Hive Mother. The Star Seed is in her chamber."
+  cue 36 say=MAX "Shoot her crown when it glows. Then run."
+  cue 47 hold=1500
+
+# Clip brief49_wake: 3 layers. Chamber and throne as before. Characters:
+# she rises off the throne (frames 0-6), her crown lights green, and she
+# bows to roll an egg out at the runners (7-11), who crouch. 12 frames.
+shot brief49_wake delay=100 repeat=2
+  cue 1 sound=roar
+  cue 8 sound=rumble
+  cue 12 say=ROCCO "She heard you, Dash."
+  cue 20 say=NOVA "Eggs. Of course there are eggs."
+  cue 23 fade=out:600

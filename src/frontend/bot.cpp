@@ -104,6 +104,12 @@ Input Bot::play(const World& world)
     mFighting = true;
     return fightGolem(world);
   }
+  // Level 49: the Hive Mother, once the egg chamber's door is shut.
+  if (world.motherFight())
+  {
+    mFighting = true;
+    return fightMother(world);
+  }
   if (mFighting)
   {
     mFighting = false;

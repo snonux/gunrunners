@@ -98,7 +98,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (d.first >= tx0 - 1 && d.first <= tx1 + 1)
       drawDecoration(r, mArt, mTheme, float(d.first) * kTilePx - camX, float(d.second) * kTilePx - camY, d.first * 31 + d.second, frame);
 
-  if ((!mBoss.on || mBoss.exitT >= 0) && (!mGolem.on || mGolem.phase == GolemPhase::Done))
+  if ((!mBoss.on || mBoss.exitT >= 0) && (!mGolem.on || mGolem.phase == GolemPhase::Done) &&
+    (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Done))
   {
     // After Black Halo the exit drops out of the crane cab.
     float drop = 0.0f;
@@ -142,6 +143,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSilkBack(r, camX, camY, frame, alpha);
   drawBoulderBack(r, camX, camY, frame, alpha);
   drawSanctumBack(r, camX, camY, frame, alpha);
+  drawMotherBack(r, camX, camY, frame, alpha);
   drawStationBack(r, camX, camY, frame, alpha);
   drawCryoBack(r, camX, camY, frame);
   if (mGolden)
@@ -389,6 +391,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.cool > enemyDef(e.def).cooldown - 12 ? 1 : 0; // mouth shut on a gulp
         else if (e.kind == EnemyKind::Thornbush)
           variant = e.carrier ? 1 : 0; // the green one
+        else if (e.kind == EnemyKind::EggGuard)
+          variant = e.attach >= 2 ? 2 : e.attach; // an egg, prowling, horns down
+        else if (e.kind == EnemyKind::SporeNurse)
+          variant = 0;
         else if (e.kind == EnemyKind::SpearRunner)
           variant = e.attach == 2 ? 1 : 0; // the spear up
         else if (e.kind == EnemyKind::PitSnake)
@@ -492,6 +498,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLavaFront(r, camX, camY, frame, alpha);
   drawSpaceFront(r, camX, camY, frame, alpha);
   drawPlainsFront(r, camX, camY, frame, alpha);
+  drawMotherFront(r, camX, camY, frame, alpha);
   drawHiveFront(r, camX, camY, frame, alpha);
   drawBoulderFront(r, camX, camY, frame, alpha);
   drawSanctumFront(r, camX, camY, frame, alpha);
@@ -588,6 +595,21 @@ void World::draw(Renderer& r, int frame, float alpha) const
             r.fillRect(cx + s * ex - 7.0f, cy + s * ey - 7.0f, 14.0f, 14.0f, rgb(120, 96, 70));
             r.fillRect(cx + s * ex - 4.0f, cy + s * ey - 7.0f, 8.0f, 4.0f, rgb(180, 150, 110));
           }
+          continue;
+        }
+        if (pr.proto == int(ProtoId::StarSeed))
+        {
+          // A slow spinning star of gold light, bigger for a full charge.
+          const float s = pr.strong ? 1.5f : 1.0f + 0.1f * float(pr.damage - 2);
+          drawGlow(r, mArt, cx, cy, 60.0f * s, rgb(255, 220, 120), 0.8f);
+          for (int k = 0; k < 4; ++k)
+          {
+            const float a = float(frame) * 0.15f + float(k) * 0.785f;
+            const float len = (k % 2 ? 16.0f : 30.0f) * s;
+            r.drawLine(cx - std::cos(a) * len, cy - std::sin(a) * len, cx + std::cos(a) * len, cy + std::sin(a) * len,
+              k % 2 ? 3.0f : 5.0f, rgb(255, 246, 200), Blend::Add);
+          }
+          drawGlow(r, mArt, cx, cy, 18.0f * s, rgb(255, 255, 255), 1.0f);
           continue;
         }
         if (pr.proto == int(ProtoId::Boomerang))
@@ -1077,6 +1099,7 @@ void World::drawHud(Renderer& r, int frame) const
   }
 
   drawSanctumHud(r, frame);
+  drawMotherHud(r, frame);
   drawStationHud(r, frame);
   drawCryoHud(r, frame);
   if (mGolden)

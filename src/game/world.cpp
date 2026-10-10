@@ -208,6 +208,12 @@ Camera::Target World::cameraTarget() const
     const Boulder& bo = mBoulders[std::size_t(mSurf.boulder)];
     return {std::min(b.left(), bo.x), b.top(), std::max(b.right(), bo.x + bo.size - 1), bo.y + bo.size + 2, false};
   }
+  if (motherFight())
+  {
+    // The Hive Mother: her crown and the arena floor both in view.
+    const int floor = mSpace.mother.floor;
+    return {b.left(), std::min(b.top(), floor - 15), b.right(), std::max(b.bottom(), floor), false};
+  }
   return {b.left(), b.top(), b.right(), b.bottom(), tight};
 }
 
@@ -318,6 +324,8 @@ void World::update(const PlayerInput& input)
         updatePlains();
       updateBoulders(input);
       updateSanctum(input);
+      if (mSpace.mother.on)
+        updateMother();
       updateGolden();
       updateStation(input);
       updateCryo(input);
@@ -649,6 +657,12 @@ void World::updateEnemies()
         break;
       case EnemyKind::Thornbush:
         break;
+      case EnemyKind::EggGuard:
+        updateEggGuard(e, def);
+        break;
+      case EnemyKind::SporeNurse:
+        updateSporeNurse(e, def);
+        break;
       case EnemyKind::SpearRunner:
         updateSpearRunner(e, def);
         break;
@@ -866,6 +880,8 @@ void World::updateProjectiles()
     // Level 14: Kaan-Tolok soaks shots but where its gem shows; the glyphs
     // of a Glyph Sentinel's row take what isn't a full draw.
     if (mGolem.on && shotAtGolem(pr, b))
+      return true;
+    if (mSpace.mother.on && shotAtMother(pr, b))
       return true;
     if (!mGlyphRows.empty() && shotAtGlyph(pr, b))
       return true;
