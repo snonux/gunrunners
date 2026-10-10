@@ -125,6 +125,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawProps(r, camX, camY, frame, false);
   drawMaglevBack(r, camX, camY, frame, alpha);
   drawChopperBack(r, camX, camY, frame, alpha);
+  drawSeaBack(r, camX, camY, frame);
   drawTiles(r, camX, camY, frame);
   drawLayers(r, camX, camY, frame);
   drawPlatforms(r, camX, camY, frame, alpha);
@@ -408,8 +409,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFlightShip(r, camX, camY, frame, alpha);
   else if (mPinball)
     drawPinball(r, camX, camY, frame, alpha);
-  else
+  else if (mPlayer.vehicle < 0)
     drawPlayer(r, camX, camY, frame, alpha);
+  drawVehicles(r, camX, camY, frame, alpha);
   // Sludge goes over the runner's feet and anything swimming in it.
   drawSludgeFront(r, camX, camY, frame, alpha);
   drawMaglevFront(r, camX, camY, frame, alpha);
@@ -558,10 +560,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
     r.drawText(t.text, t.pos.x * S - camX, t.pos.y * S - camY - 40.0f, {22.0f, t.color, kHudInk}, Align::Center, a);
   }
 
+  drawSeaFront(r, camX, camY, frame);
   drawProps(r, camX, camY, frame, true);
 
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
+  drawVehicleHud(r, frame);
+  drawAirHud(r, frame);
   drawBeatHud(r, frame);
   drawClubHud(r, frame);
   drawTideHud(r, frame);

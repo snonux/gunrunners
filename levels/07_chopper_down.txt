@@ -53,6 +53,7 @@ flags=
 @ hunter halo zone=0,156 r=3 lock=15 salvo=22 rockets=3 damage=1 cooldown=60 speed=1 demo=30,37 demotrigger=12
 @ deco kind=office rect=19,33,27,37
 @ cover rect=18,32,28,37
+@ vehicle 12 37 kind=helicopter
 @ deco kind=sheet rect=40,31,43,34
 @ cover rect=40,31,43,34
 @ deco kind=sheet rect=58,29,60,32

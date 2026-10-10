@@ -112,6 +112,10 @@ struct SaveGame
   std::vector<int> boulder;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
+  // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing
+  // and whether it is wrecked, then the one being driven (-1 none) and the
+  // runner's air (see World::snapshot).
+  std::vector<int> vehicles;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

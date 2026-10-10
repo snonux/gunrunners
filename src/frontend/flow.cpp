@@ -133,6 +133,8 @@ std::vector<std::string> Game::titleItems() const
     items.emplace_back("BONUS CHANNEL");
   if (!mProfile.cutscenes.empty())
     items.emplace_back("RERUNS");
+  if (!extraFile(dataDir(), 0).empty())
+    items.emplace_back("EXTRAS");
   if (std::ifstream(dataDir() + "/levels/level1.txt"))
     items.emplace_back("TRAINING STAGE");
   if (mOptions.window)
@@ -203,6 +205,10 @@ void Game::tickTitle(const Input& raw)
   else if (item == "RERUNS")
   {
     openList(ListKind::Reruns);
+  }
+  else if (item == "EXTRAS")
+  {
+    openList(ListKind::Extras);
   }
   else if (item.rfind("FULLSCREEN", 0) == 0)
   {
@@ -520,6 +526,7 @@ void Game::startBonusWorld()
 {
   const int who = mMainWorld ? mMainWorld->characterIndex() : mCursor;
   mWorld = std::make_unique<World>(mLevel, who, theme(), *mArt);
+  prepareWorld(*mWorld);
   mBot = Bot{};
   mSubTick = 0;
   mLatched = PlayerInput{};
@@ -544,7 +551,10 @@ void Game::leaveBonus()
   if (mBonusOnly)
   {
     mBonusOnly = false;
-    notice(mBonusWon ? "BONUS STAR!" : "BETTER LUCK NEXT TIME");
+    if (mLevelNumber <= 0)
+      notice(mBonusWon ? "LEVEL CLEARED" : "BETTER LUCK NEXT TIME");
+    else
+      notice(mBonusWon ? "BONUS STAR!" : "BETTER LUCK NEXT TIME");
     playCutscenes({"sting_back"}, After::List);
     return;
   }
@@ -704,6 +714,11 @@ void Game::openList(ListKind kind)
           mListItems.emplace_back(s, cutsceneLabel(s));
       break;
     }
+    case ListKind::Extras:
+      for (int i = 0; i < kExtraLevels; ++i)
+        if (!extraFile(dataDir(), i).empty())
+          mListItems.emplace_back(std::to_string(i), extraLevel(i).title);
+      break;
   }
   mListCursor = std::clamp(mListCursor, 0, std::max(0, int(mListItems.size()) - 1));
   setMode(Mode::List);
@@ -761,6 +776,26 @@ void Game::tickList(const Input& in)
     case ListKind::Reruns:
       playCutscenes({id}, After::List);
       break;
+    case ListKind::Extras:
+    {
+      // Played like a bonus level from the Bonus Channel: on its own, and
+      // back to this list after.
+      const std::string path = extraFile(dataDir(), std::atoi(id.c_str()));
+      try
+      {
+        mLevel = std::make_shared<const Level>(Level::loadFile(path));
+      }
+      catch (const std::exception&)
+      {
+        notice("THAT LEVEL WOULD NOT LOAD");
+        return;
+      }
+      mLevelNumber = 0;
+      applyLevelLook(0, mLevel->themeKey);
+      mBonusOnly = true;
+      playCutscenes({}, After::EnterBonus);
+      break;
+    }
   }
 }
 
@@ -772,6 +807,7 @@ void Game::renderList()
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(4, 2, 12, 180));
   const char* title = mListKind == ListKind::Levels ? "LEVEL SELECT"
     : mListKind == ListKind::BonusChannel           ? "THE BONUS CHANNEL"
+    : mListKind == ListKind::Extras                 ? "EXTRAS"
                                                      : "RERUNS";
   r.drawText(title, 640, 30, {56.0f, t.accentA, kInk, true}, Align::Center);
   if (mListItems.empty())

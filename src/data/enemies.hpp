@@ -57,6 +57,10 @@ enum class EnemyKind
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go
+  Fish,      // deep water: patrols, then chases whatever is in the water with it
+  Jelly,     // deep water: pulses up and drifts down, stings on contact
+  SeaMine,   // deep water: bobs on its chain, blows up when something comes close
+  Angler,    // deep water: waits behind its lure, then lunges
 };
 
 enum EnemyFlag : unsigned

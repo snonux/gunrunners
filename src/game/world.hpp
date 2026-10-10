@@ -48,6 +48,7 @@ enum class PlayerState
   Teleporting, // leaving through the exit
   Swing,       // holding a swing vine (level 8, world_jungle.cpp)
   Cling,       // stuck to a goo wall, sliding down (level 44, world_space.cpp)
+  Swim,        // in deep water without a submarine (world_sea.cpp)
 };
 
 // What the player looks like; also decides the hit box (RigelEngine's
@@ -123,6 +124,7 @@ struct Player
   int wall = 0;         // Cling: the goo wall's side (-1 left, 1 right)
   int kick = 0;         // cells still to be pushed off a goo wall (sign: direction)
   bool kickArc = false; // this jump is a kick off a goo wall (always the full arc)
+  int vehicle = -1; // driving this vehicle (world_vehicle.cpp)
 
   int walkFrame = 0;
   int climbFrame = 0;
@@ -224,6 +226,7 @@ struct Projectile
   int radius = 0;    // explodes with this radius (cells) where it hits (the gunship's rockets)
   int footRow = -1;  // Serpent Spear: the row its foothold's top takes (under the thrower's feet)
   bool spear = false; // a Spear Runner's spear (Fan Darts break it)
+  bool vehicle = false; // fired by a vehicle: breaks `by=vehicle` walls
   bool alive = true;
   int age = 0;
   std::vector<int> hit; // enemies a piercing shot already damaged
@@ -1254,6 +1257,73 @@ struct Checkpoint
   CellBox box() const { return boxAt(x, y, 2, 4); }
 };
 
+
+// --- Vehicles (world_vehicle.cpp) ----------------------------------------------
+//
+// Parked in a level with `@ vehicle kind=...`: the runner climbs in with USE
+// (or up), drives it with the usual controls and climbs out with USE (or
+// down + jump). A vehicle has its own armour, which takes every hit while
+// the runner is inside, and its own weapons.
+enum class VehicleKind
+{
+  Tank,  // slow, heavy cannon (aim up with up), crushes small enemies, spike-proof
+  Heli,  // free flight on limited fuel, chaingun, down + fire drops a bomb
+  Bike,  // hoverbike: fast, long jumps, floats over spikes, a blaster
+  Sub,   // submarine: moves freely in deep water, torpedoes, you never run out of air
+  Ship,  // space ship: zero-gravity flight with momentum, twin lasers
+  Mech,  // walker: huge jet jumps, landing stomps break floors, arm cannon
+  Count,
+};
+
+struct VehicleDef
+{
+  const char* key;
+  const char* name;
+  int w, h; // cells
+  int hp;
+  int fuel; // frames of flight (the helicopter), 0 unlimited
+  Color color;
+};
+const VehicleDef& vehicleDef(VehicleKind k);
+VehicleKind vehicleKindForKey(const std::string& key, bool* ok = nullptr);
+
+struct Vehicle
+{
+  VehicleKind kind = VehicleKind::Tank;
+  std::string id;
+  int x = 0, y = 0; // cells, bottom-left
+  int prevX = 0, prevY = 0;
+  int w = 8, h = 5;
+  int homeX = 0, homeY = 0, homeFacing = 1; // where it comes back to (moves to a checkpoint you drive past)
+  int facing = 1;
+  int hp = 10;
+  int fuel = 0;
+  int vx = 0, vy = 0; // sixteenths of a cell a frame (the bike, the ship, a helicopter on its way down)
+  int ax = 0, ay = 0; // sixteenths not yet moved
+  int air = -1;       // bike, mech: frame of the jump arc, -1 on the ground
+  int fallen = 0;     // mech: cells fallen since it left the ground (a stomp at 6)
+  int aim = 0;        // tank: 0 ahead, 1 up at 45 degrees; mech: 1 up
+  int cool = 0, cool2 = 0; // frames until the guns fire again
+  int mercy = 0;      // frames without damage after a hit
+  int wreck = 0;      // destroyed: frames until it is back at home
+  int flash = 0;      // 60 Hz hit flash
+  int step = 0;       // tread, rotor and leg animation
+  int barrel = 0;     // which gun fired last
+  bool occupied = false;
+  bool bot = false;           // bot=1: the autopilot drives it
+  int dropX = -1, dropY = -1; // cells: where the autopilot climbs out
+  CellBox box() const { return boxAt(x, y, w, h); }
+};
+
+// Deep water (world_sea.cpp): `@ sea rect=...`, its surface the rect's top
+// row. A runner in it swims and runs out of air; a submarine drives in it.
+struct Sea
+{
+  int x0 = 0, y0 = 0, x1 = 0, y1 = 0; // cells, inclusive
+  bool contains(int cx, int cy) const { return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }
+};
+constexpr int kAirFrames = 15 * 20; // 20 seconds of breath
+
 // --- Effects (60 Hz, world pixels) -------------------------------------------
 
 struct Particle
@@ -1490,6 +1560,25 @@ public:
   const std::vector<Lava>& lavas() const { return mLavas; }
   const std::vector<Foothold>& footholds() const { return mFootholds; }
   bool floorLava() const { return mFloorLava; }
+  // Vehicles and deep water (world_vehicle.cpp, world_sea.cpp).
+  const std::vector<Vehicle>& vehicles() const { return mVehicles; }
+  const Vehicle* riding() const
+  {
+    return mPlayer.vehicle >= 0 ? &mVehicles[std::size_t(mPlayer.vehicle)] : nullptr;
+  }
+  int vehicleInReach() const; // the empty vehicle USE would board now, -1 for none
+  bool canLeaveVehicle() const;
+  // Pressing up next to a vehicle boards it too (people; the bot uses USE).
+  void setUpBoards(bool on) { mUpBoards = on; }
+  // How the USE action is labelled in prompts ("E / LB").
+  void setUseLabel(const std::string& s) { mUseLabel = s; }
+  const std::vector<Sea>& seas() const { return mSeas; }
+  bool inSea(int cx, int cy) const;
+  int seaSurface(int cx) const; // top row of the deep water in this column, -1 for none
+  int air() const { return mAir; }
+  // Where a vehicle of this size could be: inside the map, nothing solid in
+  // it, and (a submarine) in deep water.
+  bool vehicleFits(VehicleKind k, int x, int y) const;
   int headBounces() const { return mHeadBounces; }
   bool surfing() const { return mSurfing; }
   const Surf& surf() const { return mSurf; }
@@ -1857,6 +1946,46 @@ private:
   void drawBoulderBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawBoulderFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
 
+  // world_vehicle.cpp: vehicles.
+  bool setupVehicleEntity(const EntityDef& e);
+  void updateVehicles(const PlayerInput& input);
+  bool tryBoard(const PlayerInput& input);
+  void boardVehicle(int index);
+  void leaveVehicle(bool thrown);
+  void updateDrive(int mvX, int mvY, const PlayerInput& input);
+  void driveTank(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  void driveHeli(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  void driveBike(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  void driveSub(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  void driveShip(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  void driveMech(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  bool vehicleFall(Vehicle& v, int cells); // false once it is on the ground
+  bool vehicleStep(Vehicle& v, int dx, int dy); // moves a free mover a cell, true if it moved
+  void stomp(Vehicle& v);
+  void vehicleContacts(Vehicle& v);
+  void damageVehicle(Vehicle& v, int amount);
+  void wreckVehicle(Vehicle& v);
+  bool shotAtVehicle(const CellBox& b); // an enemy shot hits the ridden vehicle
+  void placeDriver();
+  void resetVehicles(); // after a respawn
+  Projectile& vehicleShot(ShotKind kind, float x, float y, float vx, float vy, int speed, int damage);
+  void drawVehicles(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawVehicle(Renderer& r, const Vehicle& v, float camX, float camY, int frame, float alpha) const;
+  void drawVehicleHud(Renderer& r, int frame) const;
+  // world_sea.cpp: deep water, swimming and the sea's residents.
+  bool setupSeaEntity(const EntityDef& e);
+  void updateSea();
+  bool updateSwim(int mvX, int mvY, const PlayerInput& input); // false: not in the water
+  void updateFish(Enemy& e, const EnemyDef& def);
+  void updateJelly(Enemy& e, const EnemyDef& def);
+  void updateSeaMine(Enemy& e, const EnemyDef& def);
+  void updateAngler(Enemy& e, const EnemyDef& def);
+  void blowSeaMine(Enemy& e);
+  bool waterCell(int cx, int cy) const; // deep water and not solid
+  void drawSeaBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawSeaFront(Renderer& r, float camX, float camY, int frame) const;
+  void drawAirHud(Renderer& r, int frame) const;
+
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
   void updateCrawler(Enemy& e, const EnemyDef& def);
@@ -2101,6 +2230,14 @@ private:
   bool mBonusStar = false;
   bool mAirJump = false; // bonus rule: jump again in mid-air
   bool mSimulation = false;
+  // Vehicles and deep water.
+  std::vector<Vehicle> mVehicles;
+  std::vector<Sea> mSeas;
+  int mAir = kAirFrames;
+  int mDrown = 0;          // frames since the last heart lost to drowning
+  bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
+  bool mUpHeld = false;    // up was held last frame (boarding wants a fresh press)
+  std::string mUseLabel = "USE";
   std::vector<Particle> mParticles;
   std::vector<FloatingText> mTexts;
   std::vector<Flash> mFlashes;
