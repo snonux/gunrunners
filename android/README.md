@@ -94,17 +94,22 @@ try the layout).
 
 ## Releasing
 
-Releases go out through [snonux/fdroid](https://github.com/snonux/fdroid):
-a `vX.Y.Z` tag runs `.github/workflows/release.yml`, which builds the APK
-with the release key and attaches `gunrunners-vX.Y.Z.apk` to the GitHub
-release; the F-Droid repo picks it up from there with the store text in
-`fastlane/metadata/android/`.
+Releases go out through [snonux/fdroid](https://github.com/snonux/fdroid).
+Nobody pushes tags by hand any more: running `.github/workflows/release.yml`
+on main with a tag such as `v1.2.3` creates that tag at main (it must match
+the version in `CMakeLists.txt`), builds the APK with the release key and
+attaches `gunrunners-vX.Y.Z.apk` to the GitHub release, and the Linux
+tarball `gunrunners-vX.Y.Z-linux-x86_64.tar.gz` next to it. The F-Droid repo
+picks the APK up from there with the store text in
+`fastlane/metadata/android/`. Running it for a tag that already exists
+rebuilds that release; `linux_only` rebuilds only the tarball, so an APK
+F-Droid already serves stays the same. A pushed tag still works too.
 
 - **Version:** `project(Gunrunners VERSION x.y.z)` in `CMakeLists.txt`.
   The APK's versionCode is `x * 10000 + y * 100 + z`, so it grows with
   every release.
 - **Changelog:** `fastlane/metadata/android/en-US/changelogs/default.txt`,
-  at most 500 characters, rewritten before each tag.
+  at most 500 characters, rewritten before each release.
 - **Icon:** `tools/icons.sh` draws it with the game's own art.
 
 ### One-time setup (done)
@@ -139,6 +144,10 @@ F-Droid at once instead of within six hours.
 
 ```fish
 # bump project(Gunrunners VERSION ...) in CMakeLists.txt, rewrite the changelog
-git commit -am "Release vX.Y.Z"; and git tag vX.Y.Z; and git push; and git push --tags
-gh run watch
+git commit -am "Release vX.Y.Z"; and git push
+gh workflow run release.yml -f tag=vX.Y.Z; and sleep 5; and gh run watch
 ```
+
+Or in the browser: Actions, Release, *Run workflow* on main, enter the tag.
+A Claude session does the same through the GitHub API after pushing the
+version bump.
