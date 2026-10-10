@@ -113,6 +113,13 @@ enum class Sfx
   Thud,      // landing after a flip (a soft body thump)
   Vortex,    // the Grav Grenade's vortex opening (a deep swirling hum)
   ProbeShot, // a Gravity Probe's aimed shot (a hollow electronic blip)
+  CoreHum,   // the reactor core winding up for a pulse (a rising hum, 3 s)
+  CorePulse, // a Core Pulse ring going off (a deep electric boom with a ring)
+  BracerUp,  // the Deflector Bracer's shield raised (a quick shimmering hum)
+  Deflect,   // a shot bounced off the Bracer, a pulse soaked, a drone's bubble taking a hit
+  ValveTurn, // a coolant valve squeaking round
+  ValveShut, // a valve shut tight (a heavy clank and a hiss)
+  Rewind,    // DO NOT PRESS: the victory fanfare played backwards (6 s)
   Count,
 };
 

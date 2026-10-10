@@ -98,6 +98,10 @@ enum class EnemyKind
   FlipWalker,  // patrols on its chamber's down; falls when the chamber turns over
   Probe,       // a Gravity Probe: hovers its distance, aimed shots, a field that pulls you in
   TestSubject, // chases on its chamber's down; crouches and copies your jumps
+  // Level 20, Reactor Core (world_reactor.cpp).
+  Spark,       // a Conduit Spark: rides its wire, never leaves it
+  ShieldDrone, // hovers over its group; nothing in its bubble can be hurt
+  Imp,         // an Isotope Imp: scuttles after you, faster after every pulse; lunges
 };
 
 enum EnemyFlag : unsigned

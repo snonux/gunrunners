@@ -13,7 +13,8 @@ bool World::canSave() const
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
-    (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave());
+    (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave()) &&
+    (!mReactor.on || reactorCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -166,6 +167,8 @@ SaveGame World::snapshot() const
         e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites ||
         e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::Probe || e.kind == EnemyKind::TestSubject)
       es.attach = 0;
+    // Level 20: sparks are put back on their wires (s.reactor); an Imp keeps
+    // how fast it has got (attach: pulses lived through).
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
@@ -346,6 +349,8 @@ SaveGame World::snapshot() const
     for (const auto& t : mGrav.gates)
       s.grav.push_back(t.open);
   }
+  if (mReactor.on)
+    s.reactor = reactorSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -431,6 +436,7 @@ bool World::restore(const SaveGame& s)
                                std::size_t(s.green[4]) * 6)) ||
       (!s.hull.empty() && !validHullSave(s.hull)) ||
       (!s.grav.empty() && !validGravSave(s.grav)) ||
+      (!s.reactor.empty() && !validReactorSave(s.reactor)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -560,6 +566,8 @@ bool World::restore(const SaveGame& s)
       if (e.kind == EnemyKind::TestSubject || e.kind == EnemyKind::Probe)
         e.cool = 0; // (a copied jump, a shot's rest)
     }
+    if (e.kind == EnemyKind::Imp)
+      e.tell = e.dive = e.aimX = e.cool = 0; // not mid-lunge or saluting
     e.frozen = 0;
     e.vx = e.fx = 0.0f;
     e.stun = 0;
@@ -841,6 +849,8 @@ bool World::restore(const SaveGame& s)
     c.shut = 0;
     setChute(c, false);
   }
+  if (!s.reactor.empty())
+    loadReactor(s.reactor);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

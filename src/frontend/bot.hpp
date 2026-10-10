@@ -47,6 +47,9 @@ public:
   // Gun Gravity: try shots (each turns gravity) then walks and jumps in
   // copies of the world, and take the one that gets a gem or ends nearest one.
   Input gunGravity(const World& world);
+  // Reactor Core: hold up at a valve, raise the Bracer as a ring comes, or
+  // wait in a booth for it; false when the planner should drive.
+  bool reactor(const World& world, Input& in);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);

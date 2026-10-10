@@ -17,6 +17,7 @@
 #include "game/grav.hpp"
 #include "game/green.hpp"
 #include "game/hull.hpp"
+#include "game/reactor.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -1775,6 +1776,16 @@ public:
   const GravState& grav() const { return mGrav; }
   // Which way down is at a cell: its chamber's, else none (-1).
   int gravZoneAt(int cx, int cy) const;
+  // Level 20, Reactor Core: the pulse, booths, the Bracer, wires, valves.
+  const ReactorState& reactor() const { return mReactor; }
+  bool inBooth() const;                // the runner is inside a lead booth
+  bool atValve(int i) const;           // the runner stands at valve i (holding up turns it)
+  int framesToRing() const;            // until a ring gets to the runner (huge once the core is off)
+  int pulseCountdown() const;          // the HUD counter, 10 to 0 (-1 dark)
+  float pulseHum() const;              // 0..1: the hum before a ring (and its wind-down)
+  bool bracerUp() const;               // the Deflector Bracer's shield is raised
+  CellBox bracerBox() const;           // where the shield stands in front of the runner
+  void wirePoint(const CoreWire& w, float s, float& x, float& y) const; // cells along a wire
   bool onIce() const;
   bool golemFight() const;
   int golemHp() const;
@@ -2279,6 +2290,34 @@ private:
   void drawGravBack(Renderer& r, float camX, float camY, int frame) const;
   void drawGravFront(Renderer& r, float camX, float camY, int frame) const;
   void drawGravHud(Renderer& r, int frame) const;
+  // Level 20, Reactor Core (world_reactor.cpp, world_reactor_draw.cpp) and
+  // its Stop Motion bonus.
+  bool setupReactorEntity(const EntityDef& e);
+  void setupReactorEnemy(Enemy& en, const EntityDef& e);
+  void linkReactor();
+  void setCage(bool open);
+  float closestOnWire(const CoreWire& w, int x, int y) const;
+  void placeSpark(const SparkRide& sr);
+  bool updateBracer(const Button& fire);
+  void dropBracer();
+  bool shotAtBracer(Projectile& pr);
+  void bracerPush(Enemy& e, int dx);
+  bool droneShields(const Enemy& e) const;
+  bool reactorBlocksDamage(Enemy& e);
+  bool runnerMoving(const PlayerInput& input) const;
+  void pulseHit(CorePulse& c, CoreRing& ring);
+  void updateReactor(const PlayerInput& input);
+  void updateMovingWorld(const PlayerInput& input);
+  void updateSpark(Enemy& e, const EnemyDef& def);
+  void updateShieldDrone(Enemy& e, const EnemyDef& def);
+  void updateImp(Enemy& e, const EnemyDef& def);
+  bool reactorCanSave() const;
+  std::vector<int> reactorSave() const;
+  bool validReactorSave(const std::vector<int>& v) const;
+  void loadReactor(const std::vector<int>& v);
+  void drawReactorBack(Renderer& r, float camX, float camY, int frame) const;
+  void drawReactorFront(Renderer& r, float camX, float camY, int frame) const;
+  void drawReactorHud(Renderer& r, int frame) const;
   void linkGolden();
   void updateGolden();
   void gild(int bx, int by);
@@ -2671,6 +2710,7 @@ private:
   OrbitState mOrbit;
   GravState mGrav;
   std::optional<CollisionMap> mViewMap; // the turned map a turned runner moves on (world_grav.cpp)
+  ReactorState mReactor;
   std::vector<std::string> mGreenWires, mPlantWires; // while loading: each lamp's switch, each plant's lamps
   // Level 13: boulders, chutes, alcoves, the crack and the lead hatches;
   // frames the runner has stood still; the WRONG WAY sign.

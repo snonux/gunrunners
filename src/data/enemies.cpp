@@ -179,6 +179,12 @@ const EnemyDef kEnemies[] = {
   {"flip_walker", "FLIP WALKER", K::FlipWalker, L::Styled, 3, 4, 4, 500, 2, 0, 8, 0, 0, 0},
   {"gravity_probe", "GRAVITY PROBE", K::Probe, L::Styled, 4, 4, 5, 700, 4, 30, 12, 16, 0, 0},
   {"test_subject", "TEST SUBJECT", K::TestSubject, L::Styled, 3, 5, 4, 600, 2, 0, 8, 0, 0, 0},
+  // Level 20. Conduit Spark: rides its wire (world_reactor.cpp sets the
+  // speed). Shield Drone: stepEvery its hover. Isotope Imp: cooldown between
+  // lunges, tell its glow before one.
+  {"conduit_spark", "CONDUIT SPARK", K::Spark, L::Styled, 2, 2, 2, 300, 1, 0, 0, 0, 0, 0},
+  {"shield_drone", "SHIELD DRONE", K::ShieldDrone, L::Styled, 4, 3, 6, 800, 2, 0, 0, 0, kEnemyHarmless | kEnemyRobot, 0},
+  {"isotope_imp", "ISOTOPE IMP", K::Imp, L::Styled, 3, 2, 3, 500, 2, 20, 10, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

@@ -2424,8 +2424,62 @@ Texture bakeGravlabSolidTop(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, float(kTopOff));
 }
 
+// Level 20's reactor (theme look "reactor"): a dark steel deck plate with a
+// tread pattern, a yellow-and-black hazard band under its lip and a faint
+// blue sheen from the core on top.
+bool isReactor(const Theme& t) { return std::string_view(t.look) == "reactor"; }
+
+Texture bakeReactorSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  // The hazard band.
+  cairo_save(cr);
+  cairo_rectangle(cr, 0, y + 7, 64, 8);
+  cairo_clip(cr);
+  setColor(cr, t.trim);
+  cairo_paint(cr);
+  for (int x = -16; x < 80; x += 16)
+  {
+    cairo_move_to(cr, x, y + 15);
+    cairo_line_to(cr, x + 8, y + 15);
+    cairo_line_to(cr, x + 16, y + 7);
+    cairo_line_to(cr, x + 8, y + 7);
+    cairo_close_path(cr);
+    setColor(cr, rgb(22, 24, 30));
+    cairo_fill(cr);
+  }
+  cairo_restore(cr);
+  cairo_rectangle(cr, 0, y + 15, 64, 2);
+  setColor(cr, withAlpha(t.rockDark, 230));
+  cairo_fill(cr);
+  // The deck plate.
+  cairo_rectangle(cr, 0, y - 1, 64, 8);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y - 1, 0, y + 7);
+  cairo_pattern_add_color_stop_rgb(g, 0, redOf(t.rockLight) / 255.0, greenOf(t.rockLight) / 255.0, blueOf(t.rockLight) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.rock) / 255.0, greenOf(t.rock) / 255.0, blueOf(t.rock) / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  for (int x = 2; x < 64; x += 8)
+  {
+    cairo_move_to(cr, x, y + 4);
+    cairo_line_to(cr, x + 4, y + 1.5);
+    setColor(cr, withAlpha(t.rockDark, 150));
+    cairo_set_line_width(cr, 1.4);
+    cairo_stroke(cr);
+  }
+  cairo_rectangle(cr, 0, y - 2, 64, 1.5);
+  setColor(cr, withAlpha(t.accentA, 170));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isReactor(t))
+    return bakeReactorSolidTop(r, t);
   if (isGravlab(t))
     return bakeGravlabSolidTop(r, t);
   if (isHull(t))
@@ -4634,8 +4688,216 @@ Texture bakeGravlabNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Level 20's reactor hall (theme look "reactor"): a cavern of dark riveted
+// steel lit blue from the core below, walkways ringing the walls.
+Texture bakeReactorSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {1.0, t.skyBottom}});
+  // The wall: big steel plates with dark seams and rivets at their corners.
+  for (int y = -20; y < kScreenH; y += 120)
+    for (int x = ((y + 20) / 120) % 2 ? -80 : 0; x < kScreenW; x += 160)
+    {
+      roundedRect(cr, x + 3, y + 3, 154, 114, 4);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + 120);
+      cairo_pattern_add_color_stop_rgba(g, 0, 0.55, 0.7, 1.0, 0.07);
+      cairo_pattern_add_color_stop_rgba(g, 1, 0.0, 0.0, 0.05, 0.12);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setColor(cr, rgba(0, 0, 8, 110));
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+      for (double bx : {x + 10.0, x + 150.0})
+        for (double by : {y + 10.0, y + 110.0})
+        {
+          cairo_arc(cr, bx, by, 2.2, 0, 2 * kPi);
+          setColor(cr, rgba(140, 170, 220, 50));
+          cairo_fill(cr);
+        }
+    }
+  // Two walkways ringing the hall: a deck edge, a railing and a hazard band.
+  for (const double wy : {230.0, 540.0})
+  {
+    cairo_rectangle(cr, 0, wy, kScreenW, 14);
+    setColor(cr, rgba(10, 16, 32, 200));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, wy, kScreenW, 2);
+    setColor(cr, withAlpha(t.accentA, 70));
+    cairo_fill(cr);
+    for (int x = 0; x < kScreenW; x += 24)
+    {
+      cairo_rectangle(cr, x, wy + 4, 12, 6);
+      setColor(cr, withAlpha(t.trim, 40));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, wy - 34, kScreenW, 3);
+    setColor(cr, rgba(10, 16, 32, 170));
+    cairo_fill(cr);
+    for (int x = 20; x < kScreenW; x += 60)
+    {
+      cairo_rectangle(cr, x, wy - 34, 3, 34);
+      cairo_fill(cr);
+    }
+  }
+  // Blue light welling up from the core far below, and the ring lamps.
+  radialGlow(cr, kScreenW * 0.5, kScreenH + 120, 760, t.accentA, 0.32);
+  for (int k = 0; k < 5; ++k)
+  {
+    const double lx = 128 + k * 256.0;
+    roundedRect(cr, lx - 30, 238, 60, 6, 3);
+    setColor(cr, withAlpha(lighten(t.accentA, 0.5f), 200));
+    cairo_fill(cr);
+    radialGlow(cr, lx, 244, 90, t.accentA, 0.22);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: the hall's machinery in silhouette: containment vessels with domed
+// tops and glowing ring windows, pipe racks between them, a gantry crane.
+Texture bakeReactorFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2003u);
+  const Color body = t.farLayer, edge = lerpColor(t.farLayer, t.accentA, 0.35f);
+  // Pipe racks: bundles of horizontal pipes crossing the whole layer.
+  for (const double py : {150.0, 470.0})
+    for (int k = 0; k < 4; ++k)
+    {
+      cairo_rectangle(cr, 0, py + k * 16, kLayerW, 10);
+      setColor(cr, withAlpha(lerpColor(body, t.skyMid, 0.3f), 230));
+      cairo_fill(cr);
+      cairo_rectangle(cr, 0, py + k * 16, kLayerW, 2);
+      setColor(cr, withAlpha(edge, 120));
+      cairo_fill(cr);
+    }
+  for (double x = 140; x < kLayerW - 160; x += rng.range(520, 640))
+  {
+    const double w = rng.range(170, 230), top = rng.range(90, 170);
+    // The vessel: a tall cylinder under a dome.
+    cairo_move_to(cr, x, kScreenH);
+    cairo_line_to(cr, x, top + w * 0.5);
+    cairo_arc(cr, x + w * 0.5, top + w * 0.5, w * 0.5, kPi, 2 * kPi);
+    cairo_line_to(cr, x + w, kScreenH);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + w, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0, redOf(body) / 255.0 * 0.7, greenOf(body) / 255.0 * 0.7, blueOf(body) / 255.0 * 0.7);
+    cairo_pattern_add_color_stop_rgb(g, 0.3, redOf(edge) / 255.0, greenOf(edge) / 255.0, blueOf(edge) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1, redOf(body) / 255.0 * 0.6, greenOf(body) / 255.0 * 0.6, blueOf(body) / 255.0 * 0.6);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Glowing ring windows and their bands.
+    for (double ry = top + w * 0.7; ry < kScreenH; ry += 120)
+    {
+      cairo_rectangle(cr, x - 6, ry, w + 12, 12);
+      setColor(cr, withAlpha(darken(body, 0.3f), 255));
+      cairo_fill(cr);
+      cairo_rectangle(cr, x + 10, ry + 40, w - 20, 10);
+      setColor(cr, withAlpha(lighten(t.accentA, 0.3f), 150));
+      cairo_fill(cr);
+      radialGlow(cr, x + w * 0.5, ry + 45, w * 0.6, t.accentA, 0.18);
+    }
+    // A hazard band round its waist and a warning lamp on top.
+    for (int i = 0; i < int(w / 18); ++i)
+    {
+      cairo_rectangle(cr, x + i * 18.0, top + w * 0.5 + 28, 9, 8);
+      setColor(cr, withAlpha(t.trim, 90));
+      cairo_fill(cr);
+    }
+    radialGlow(cr, x + w * 0.5, top + 4, 20, t.hazard, 0.6);
+  }
+  // A gantry crane's beam riding rails high over the hall.
+  cairo_rectangle(cr, 0, 60, kLayerW, 22);
+  setColor(cr, withAlpha(darken(body, 0.2f), 240));
+  cairo_fill(cr);
+  for (double x = 0; x < kLayerW; x += 44)
+  {
+    cairo_move_to(cr, x, 82);
+    cairo_line_to(cr, x + 22, 60);
+    cairo_line_to(cr, x + 44, 82);
+    setColor(cr, withAlpha(edge, 110));
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  }
+  // Haze.
+  cairo_rectangle(cr, 0, 0, kLayerW, kScreenH);
+  setColor(cr, withAlpha(t.skyMid, 90));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: thick coolant pipes dropping down past the camera, banded yellow and
+// black, chains with hooks and bundles of cable, all dark and vertical.
+Texture bakeReactorNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2011u);
+  const Color dark = withAlpha(t.nearLayer, 200);
+  for (double x = rng.range(120, 260); x < kLayerW; x += rng.range(560, 760))
+  {
+    // A pipe with flanges and a band.
+    const double w = rng.range(26, 38);
+    cairo_rectangle(cr, x, 0, w, kScreenH);
+    cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + w, 0);
+    cairo_pattern_add_color_stop_rgba(g, 0, redOf(t.nearLayer) / 255.0, greenOf(t.nearLayer) / 255.0, blueOf(t.nearLayer) / 255.0, 0.85);
+    cairo_pattern_add_color_stop_rgba(g, 0.35, redOf(t.farLayer) / 255.0, greenOf(t.farLayer) / 255.0, blueOf(t.farLayer) / 255.0, 0.85);
+    cairo_pattern_add_color_stop_rgba(g, 1, 0.02, 0.03, 0.06, 0.85);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (double fy = rng.range(40, 160); fy < kScreenH; fy += rng.range(200, 300))
+    {
+      cairo_rectangle(cr, x - 5, fy, w + 10, 10);
+      setColor(cr, dark);
+      cairo_fill(cr);
+      for (int i = 0; i < 3; ++i)
+      {
+        cairo_rectangle(cr, x, fy + 18 + i * 10, w, 5);
+        setColor(cr, withAlpha(t.trim, 70));
+        cairo_fill(cr);
+      }
+    }
+  }
+  for (double x = rng.range(300, 420); x < kLayerW; x += rng.range(600, 800))
+  {
+    // A chain with a hook at its end.
+    const double len = rng.range(160, 340);
+    for (double y = 0; y < len; y += 14)
+    {
+      roundedRect(cr, x - 4, y, 8, 16, 4);
+      setColor(cr, dark);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+    cairo_arc(cr, x + 6, len + 16, 12, kPi * 0.9, kPi * 2.2);
+    setColor(cr, dark);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+  }
+  for (double x = rng.range(500, 600); x < kLayerW; x += rng.range(700, 900))
+  {
+    // A sagging bundle of cables.
+    for (int k = 0; k < 3; ++k)
+    {
+      const double cx = x + k * 10, len = kScreenH * rng.range(0.4f, 0.75f);
+      cairo_move_to(cr, cx, 0);
+      cairo_curve_to(cr, cx + 8, len * 0.4, cx - 6, len * 0.75, cx + 3, len);
+      setColor(cr, dark);
+      cairo_set_line_width(cr, 6);
+      cairo_stroke(cr);
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isReactor(t))
+    return bakeReactorSky(r, t);
   if (isGravlab(t))
     return bakeGravlabSky(r, t);
   if (isHull(t))
@@ -4789,6 +5051,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isReactor(t))
+    return bakeReactorFar(r, t);
   if (isGravlab(t))
     return bakeGravlabFar(r, t);
   if (isHull(t))
@@ -4925,6 +5189,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isReactor(t))
+    return bakeReactorNear(r, t);
   if (isGravlab(t))
     return bakeGravlabNear(r, t);
   if (isHull(t))

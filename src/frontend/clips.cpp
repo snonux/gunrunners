@@ -3869,6 +3869,313 @@ void gravFlip(ClipKit& k, int frame, int ticks, float ox, float oy)
   (void)ticks;
 }
 
+// Level 20: the reactor hall. Lead-lined walls banded with yellow and black,
+// the core a tall glass column in the middle (its glow is drawn over it), a
+// steel gantry across the front at y 600.
+constexpr float kCoreX = 640.0f, kCoreY = 330.0f, kGantry = 600.0f;
+constexpr Color kCoreBlue = rgb(90, 180, 255);
+
+// A yellow and black hazard band across [x0, x1].
+void hazardBand(cairo_t* cr, double x0, double x1, double y, double h)
+{
+  cairo_save(cr);
+  cairo_rectangle(cr, x0, y, x1 - x0, h);
+  cairo_clip(cr);
+  setColor(cr, rgb(255, 204, 40));
+  cairo_paint(cr);
+  for (double x = x0 - h; x < x1 + h; x += 36)
+  {
+    cairo_move_to(cr, x, y + h);
+    cairo_line_to(cr, x + 18, y + h);
+    cairo_line_to(cr, x + 18 + h, y);
+    cairo_line_to(cr, x + h, y);
+    cairo_close_path(cr);
+  }
+  setColor(cr, rgb(24, 24, 30));
+  cairo_fill(cr);
+  cairo_restore(cr);
+}
+
+// Riveted lead panels filling a rectangle.
+void leadPanels(cairo_t* cr, double x0, double y0, double x1, double y1, double pw, double ph)
+{
+  for (double y = y0; y < y1; y += ph)
+    for (double x = x0; x < x1; x += pw)
+    {
+      const int seed = int(x * 7 + y * 13);
+      roundedRect(cr, x + 3, y + 3, pw - 6, ph - 6, 4);
+      const double v = 0.24 + double(hash2(seed, 20) % 6u) * 0.012;
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + ph);
+      cairo_pattern_add_color_stop_rgb(g, 0, v + 0.04, v + 0.07, v + 0.12);
+      cairo_pattern_add_color_stop_rgb(g, 1, v - 0.06, v - 0.04, v);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setColor(cr, rgba(6, 8, 16, 200));
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+      for (const double rx : {x + 12, x + pw - 12})
+        for (const double ry : {y + 12, y + ph - 12})
+        {
+          cairo_arc(cr, rx, ry, 2.6, 0, 2 * kPi);
+          setColor(cr, rgb(120, 130, 150));
+          cairo_fill(cr);
+        }
+    }
+}
+
+void reactorHall(ClipKit& k, float ox, float oy)
+{
+  const Texture& hall = cached(k, "e3_reactor_hall", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(8, 12, 26), rgb(16, 26, 50), rgb(6, 10, 20));
+    // The far wall behind the core, deep in shadow.
+    leadPanels(cr, 0, 0, 1280, 720, 160, 120);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    setColor(cr, rgba(4, 10, 30, 150));
+    cairo_fill(cr);
+    // The side walls, nearer: lighter lead, hazard bands, a stencil.
+    for (int side = 0; side < 2; ++side)
+    {
+      const double x0 = side ? 1010 : 0, x1 = side ? 1280 : 270;
+      cairo_save(cr);
+      cairo_rectangle(cr, x0, 0, x1 - x0, 720);
+      cairo_clip(cr);
+      leadPanels(cr, x0 - (side ? 0 : 50), -20, x1 + 50, 720, 135, 150);
+      hazardBand(cr, x0, x1, 96, 26);
+      hazardBand(cr, x0, x1, 470, 26);
+      selectGameFont(cr);
+      cairo_set_font_size(cr, 58);
+      cairo_move_to(cr, side ? x0 + 70 : 70, 330);
+      setColor(cr, rgba(255, 204, 40, 150));
+      cairo_show_text(cr, "Pb");
+      cairo_set_font_size(cr, 22);
+      cairo_move_to(cr, side ? x0 + 74 : 74, 362);
+      cairo_show_text(cr, "LEAD 40 CM");
+      cairo_restore(cr);
+      // The wall's inner edge, catching the core's light.
+      const double ex = side ? x0 : x1 - 14;
+      cairo_rectangle(cr, ex, 0, 14, 720);
+      cairo_pattern_t* g = cairo_pattern_create_linear(ex, 0, ex + 14, 0);
+      cairo_pattern_add_color_stop_rgb(g, side ? 0 : 1, 0.5, 0.72, 1.0);
+      cairo_pattern_add_color_stop_rgb(g, side ? 1 : 0, 0.14, 0.18, 0.28);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    // The core: a glass column the height of the hall, banded by dark
+    // containment rings with lamps.
+    const double cx = 640, cw = 250;
+    cairo_rectangle(cr, cx - cw * 0.5, 0, cw, 720);
+    cairo_pattern_t* g = cairo_pattern_create_linear(cx - cw * 0.5, 0, cx + cw * 0.5, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.04, 0.14, 0.38);
+    cairo_pattern_add_color_stop_rgb(g, 0.35, 0.3, 0.62, 1.0);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.8, 0.94, 1.0);
+    cairo_pattern_add_color_stop_rgb(g, 0.65, 0.3, 0.62, 1.0);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.04, 0.14, 0.38);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (const double ry : {40.0, 250.0, 460.0})
+    {
+      roundedRect(cr, cx - cw * 0.5 - 22, ry, cw + 44, 46, 8);
+      cairo_pattern_t* rg = cairo_pattern_create_linear(0, ry, 0, ry + 46);
+      cairo_pattern_add_color_stop_rgb(rg, 0, 0.36, 0.4, 0.48);
+      cairo_pattern_add_color_stop_rgb(rg, 1, 0.12, 0.14, 0.2);
+      cairo_set_source(cr, rg);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(rg);
+      setColor(cr, kInk);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+      for (int l = 0; l < 5; ++l)
+      {
+        cairo_arc(cr, cx - 100 + l * 50, ry + 23, 6, 0, 2 * kPi);
+        setColor(cr, rgb(140, 220, 255));
+        cairo_fill(cr);
+      }
+    }
+  });
+  k.r.draw(hall, ox, oy);
+}
+
+// The gantry the crew stands on: a grated deck and a railing, in front.
+void reactorGantry(ClipKit& k, float ox, float oy)
+{
+  const Texture& deck = cached(k, "e3_reactor_gantry", 1280, 200, 0, 0, [](cairo_t* cr) {
+    const double top = 60; // the deck's top is at y 60 in the texture (kGantry on screen)
+    cairo_rectangle(cr, 0, top, 1280, 26);
+    setColor(cr, rgb(30, 36, 50));
+    cairo_fill(cr);
+    for (double x = 0; x < 1280; x += 12)
+    {
+      cairo_rectangle(cr, x, top + 4, 6, 18);
+      setColor(cr, rgb(12, 16, 26));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, top, 1280, 4);
+    setColor(cr, rgb(130, 170, 220));
+    cairo_fill(cr);
+    hazardBand(cr, 0, 1280, top + 26, 12);
+    // Trusses under the deck.
+    for (double x = 0; x < 1280; x += 120)
+    {
+      cairo_move_to(cr, x, top + 38);
+      cairo_line_to(cr, x + 60, 200);
+      cairo_line_to(cr, x + 120, top + 38);
+      setColor(cr, rgb(20, 24, 36));
+      cairo_set_line_width(cr, 8);
+      cairo_stroke(cr);
+    }
+    // The railing: posts and two rails, the top one catching the light.
+    for (double x = 20; x < 1280; x += 140)
+    {
+      cairo_rectangle(cr, x, 0, 8, top);
+      setColor(cr, rgb(24, 28, 40));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, 0, 1280, 7);
+    setColor(cr, rgb(40, 48, 64));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 0, 1280, 2);
+    setColor(cr, rgb(140, 190, 240));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 30, 1280, 5);
+    setColor(cr, rgb(28, 34, 48));
+    cairo_fill(cr);
+  });
+  k.r.draw(deck, ox, kGantry - 60.0f + oy);
+}
+
+// A containment ring bursting out of the core: a flat ellipse of light,
+// 1200 x 360, drawn additively and scaled as it spreads.
+const Texture& coreRing(ClipKit& k)
+{
+  return cached(k, "e3_reactor_ring", 1200, 360, 600.0f, 180.0f, [](cairo_t* cr) {
+    for (int pass = 0; pass < 4; ++pass)
+    {
+      static const double kWidth[4] = {70, 36, 16, 6};
+      static const double kAlpha[4] = {0.12, 0.25, 0.55, 1.0};
+      cairo_save(cr);
+      cairo_translate(cr, 600, 180);
+      cairo_scale(cr, 1.0, 0.3);
+      cairo_arc(cr, 0, 0, 520, 0, 2 * kPi);
+      cairo_restore(cr);
+      cairo_set_line_width(cr, kWidth[pass]);
+      if (pass == 3)
+        cairo_set_source_rgba(cr, 0.92, 0.97, 1.0, kAlpha[pass]);
+      else
+        cairo_set_source_rgba(cr, 0.4, 0.75, 1.0, kAlpha[pass]);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// Level 20's briefing, shots 1 and 2: the reactor hall, the crew in
+// silhouette on the gantry. The core's glow builds over frames 0-7, a ring
+// bursts out of it on frame 8, and the light settles low on frame 9.
+void reactorCore(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  reactorHall(k, ox, oy);
+  const float build = std::min(1.0f, float(frame) / 7.0f);
+  const float glow = frame <= 7 ? 0.15f + 0.85f * build * build : (frame == 8 ? 1.3f : 0.3f);
+  // The core lighting up: a white heart, the column flooded, the hall lit.
+  const float flicker = 0.92f + 0.08f * std::sin(float(ticks) * 0.5f);
+  k.r.fillRect(kCoreX - 125.0f + ox, oy, 250.0f, H, rgba(120, 200, 255, int(std::min(1.0f, glow) * 110.0f)), Blend::Add);
+  drawGlow(k.r, k.art, kCoreX + ox, kCoreY + oy, 260.0f + 200.0f * glow, kCoreBlue, std::min(1.0f, 0.3f + 0.5f * glow) * flicker);
+  drawGlow(k.r, k.art, kCoreX + ox, kCoreY + oy, 90.0f + 90.0f * glow, rgb(220, 240, 255), std::min(1.0f, glow) * flicker);
+  if (frame <= 7)
+    for (int b = 0; b < 4; ++b)
+    {
+      // Energy rising up the column, faster as it builds.
+      const float y = std::fmod(720.0f - float(ticks) * (2.0f + 6.0f * build) - float(b) * 180.0f, 720.0f);
+      const float x = kCoreX + 50.0f * std::sin(float(b) * 1.7f + float(ticks) * 0.05f);
+      drawGlow(k.r, k.art, x + ox, (y < 0.0f ? y + 720.0f : y) + oy, 40.0f, kCoreBlue, 0.3f + 0.5f * build);
+    }
+  if (frame == 8 || frame == 9)
+  {
+    // The ring, bursting out across the hall and past the crew.
+    DrawOpts o;
+    o.blend = Blend::Add;
+    o.cull = false;
+    o.scale = frame == 8 ? 0.62f : 1.5f;
+    o.alpha = frame == 8 ? 1.0f : 0.5f;
+    k.r.draw(coreRing(k), kCoreX + ox, kCoreY + 40.0f + oy, o);
+    if (frame == 8)
+      k.r.fillRect(ox, oy, W, H, rgba(140, 200, 255, 70), Blend::Add);
+  }
+  // The crew on the gantry, black against the light.
+  DrawOpts sil;
+  sil.tint = lerpColor(rgb(10, 14, 26), rgb(40, 60, 100), std::min(1.0f, glow) * 0.4f);
+  const float scale = 1.6f;
+  k.r.draw(runner(k, 1, 0, scale), 470.0f + ox, kGantry + oy, sil);
+  k.r.draw(runner(k, 0, frame == 9 ? 3 : 0, scale), 600.0f + ox, kGantry + oy, sil);
+  k.r.draw(runner(k, 2, 0, scale, true), 730.0f + ox, kGantry + oy, sil);
+  reactorGantry(k, ox, oy);
+}
+
+// Shot 3: close on the crew, washed in the core's blue light from below
+// left; a wall speaker up on the right carries Zero's voice, and Nova
+// glances up at it on frames 3-5.
+void reactorCrew(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& wall = cached(k, "e3_reactor_wall_close", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(10, 14, 26), rgb(20, 30, 54), rgb(12, 18, 34));
+    leadPanels(cr, -40, -30, 1320, 760, 260, 220);
+    hazardBand(cr, 0, 1280, 300, 40);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    setColor(cr, rgba(6, 12, 30, 90));
+    cairo_fill(cr);
+    // The wall speaker: a grille in a steel box, bolted high on the wall.
+    roundedRect(cr, 860, 70, 170, 150, 12);
+    setColor(cr, rgb(60, 66, 82));
+    cairo_fill_preserve(cr);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    roundedRect(cr, 876, 86, 138, 104, 8);
+    setColor(cr, rgb(18, 20, 28));
+    cairo_fill(cr);
+    for (int g = 0; g < 7; ++g)
+    {
+      roundedRect(cr, 886, 94 + g * 13, 118, 6, 3);
+      setColor(cr, rgb(72, 78, 96));
+      cairo_fill(cr);
+    }
+    // Its cable running off up the wall.
+    cairo_move_to(cr, 945, 70);
+    cairo_curve_to(cr, 945, 30, 990, 20, 1000, -10);
+    setColor(cr, rgb(16, 18, 26));
+    cairo_set_line_width(cr, 8);
+    cairo_stroke(cr);
+  });
+  k.r.draw(wall, ox, oy);
+  // The core's light from below left, breathing with its hum.
+  const float hum = 0.5f + 0.5f * std::sin(float(ticks) * 0.08f);
+  drawGlow(k.r, k.art, 120.0f + ox, 760.0f + oy, 820.0f, kCoreBlue, 0.45f + 0.2f * hum);
+  // The speaker's lamp flickers with Zero's voice.
+  static const float kVoice[8] = {0.9f, 0.4f, 1.0f, 0.6f, 0.3f, 0.85f, 0.5f, 0.2f};
+  const float v = kVoice[frame % 8];
+  k.r.fillRect(1006.0f + ox, 196.0f + oy, 12.0f, 12.0f, rgb(120, 230, 255));
+  drawGlow(k.r, k.art, 1012.0f + ox, 202.0f + oy, 18.0f + 22.0f * v, rgb(120, 220, 255), v);
+  // The crew, close, tinted blue by it.
+  DrawOpts wash;
+  wash.tint = lerpColor(rgb(150, 190, 255), rgb(185, 215, 255), hum);
+  const float scale = 4.2f, feet = 770.0f + oy;
+  const bool blink = frame == 6;
+  k.r.draw(runner(k, 1, blink ? 8 : 0, scale), 290.0f + ox, feet, wash);
+  k.r.draw(runner(k, 0, 0, scale), 610.0f + ox, feet, wash);
+  // Nova's glance: she turns toward the speaker and tips her head back
+  // (the look-up pose raises the gun across her face, so the whole idle
+  // figure leans back about her feet instead).
+  const bool glance = frame >= 3 && frame <= 5;
+  DrawOpts nova = wash;
+  if (glance)
+    nova.angle = frame == 4 ? -9.0f : -6.0f;
+  k.r.draw(runner(k, 2, 0, scale, !glance), 950.0f + ox, feet, nova);
+  // Blue light over everything, strongest low down by the core.
+  k.r.fillRect(ox, 420.0f + oy, W, 300.0f, rgba(40, 110, 220, int(26.0f + 16.0f * hum)), Blend::Add);
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -3991,6 +4298,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return gravArrows(k, frame, ticks, ox, oy);
   if (clip == "brief19_flip")
     return gravFlip(k, frame, ticks, ox, oy);
+  if (clip == "brief20_core")
+    return reactorCore(k, frame, ticks, ox, oy);
+  if (clip == "brief20_crew")
+    return reactorCrew(k, frame, ticks, ox, oy);
   if (clip == "brief14_door")
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")

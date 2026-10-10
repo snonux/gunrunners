@@ -21,8 +21,10 @@ with Level 15, Hangar Bay, and its Asteroid Belt bonus, and Level 16,
 Cryo Labs (Ice Floors and the Freeze Ray), with its Air Hockey bonus,
 Level 17, Hydroponics (Grow Lamps and the Hedge Trimmer), with its
 Growth Spurt bonus, and Level 18, Hull Walk (Low Gravity and the Recoil
-Cannon), with its Planetoids bonus, and Level 19, Gravity Lab (Gravity
-Switches and the Grav Grenade), with its Gun Gravity bonus.
+Cannon), with its Planetoids bonus, Level 19, Gravity Lab (Gravity
+Switches and the Grav Grenade), with its Gun Gravity bonus, and Level 20,
+Reactor Core (the Core Pulse and the Deflector Bracer), with its Stop
+Motion bonus.
 Episodes 3-6 are being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
