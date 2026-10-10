@@ -109,6 +109,8 @@ void World::setupEntities()
   mGolden = lv.rules.find("golden_touch") != std::string::npos;
   mReactor.stopMotion = lv.rules.find("stop_motion") != std::string::npos;
   mReactor.on = mReactor.on || mReactor.stopMotion || lv.weapon == "deflector_bracer";
+  mZero.wireframe = lv.rules.find("wireframe") != std::string::npos;
+  mZero.on = mZero.on || mZero.wireframe || lv.weapon == "phase_rifle";
   if (mGolden)
   {
     mGold.assign(std::size_t(lv.width * lv.height), 0);
@@ -160,7 +162,7 @@ void World::setupEntities()
       l.switchId = e.str("switch");
       l.switchState = e.num("state", 1);
       const std::string style = e.str("style", "sign");
-      l.style = style == "sign" ? 0 : (style == "station" ? 2 : (style == "sun" ? 3 : (style == "moon" ? 4 : 1)));
+      l.style = style == "sign" ? 0 : (style == "station" ? 2 : (style == "sun" ? 3 : (style == "moon" ? 4 : (style == "zero" ? 5 : 1))));
       l.scriptSolid = e.num("solid", 1) != 0;
       l.color = namedColor(e.str("color"), kSignColors[mLayers.size() % 3]);
       l.solid = true;
@@ -173,6 +175,8 @@ void World::setupEntities()
       mLayers.push_back(l);
       continue;
     }
+    if (setupZeroEntity(e))
+      continue;
 
     const int def = enemyIndex(e.kind == "enemy" ? e.str("kind") : e.kind);
     if (def >= 0 && (e.hasPos || hasRect))
@@ -198,6 +202,7 @@ void World::setupEntities()
       setupHullEnemy(en, e);
       setupGravEnemy(en, e);
       setupReactorEnemy(en, e);
+      setupZeroEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -291,9 +296,10 @@ void World::setupEntities()
         : by == "pry"          ? 4
         : by == "vehicle"      ? 5
         : by == "trimmer"      ? 6
+        : by == "stomp"        ? 7
                                : 0;
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : (look == "pod" ? 8 : (look == "ice" ? 9 : (look == "seedpod" ? 11 : (look == "thorn" ? 12 : (look == "ufo" ? 13 : 0)))))))))));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : (look == "pod" ? 8 : (look == "ice" ? 9 : (look == "seedpod" ? 11 : (look == "thorn" ? 12 : (look == "ufo" ? 13 : (look == "rackdoor" ? 14 : (look == "grate" ? 15 : 0)))))))))))));
       mBreakables.push_back(b);
       continue;
     }
@@ -740,8 +746,8 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
     const float h = float(l.y1 - l.y0 + 1) * kTilePx;
     if (x > float(kScreenW) + 64.0f || x + w < -64.0f || y > float(kScreenH) + 64.0f || y + h < -64.0f)
       continue;
-    if (l.style == 2)
-      continue; // the maglev's station slides in on its own (world_maglev.cpp)
+    if (l.style == 2 || l.style == 5)
+      continue; // the maglev's station, ZERO's bulkheads and floor slide in on their own
     if (l.style == 3 || l.style == 4)
     {
       drawNegativeLayer(r, l, x, y, w, h, frame); // Negative Space's sun and moon blocks (world_light.cpp)

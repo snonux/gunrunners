@@ -16,7 +16,7 @@ TV, secrets and a briefing cutscene. Six episodes of seven levels each.
 ending, and all seven levels of Episode 2 (Level 8, Canopy Road,
 Level 9, Hall of Traps, Level 10, Sun Mirrors, Level 11, Idol Mines,
 Level 12, Lava Heart, Level 13, Boulder Run, and Level 14, The Idol
-Awakens, with the Idol Golem) and its ending, and Episode 3 has begun
+Awakens, with the Idol Golem) and its ending, and all seven levels of Episode 3, starting
 with Level 15, Hangar Bay, and its Asteroid Belt bonus, and Level 16,
 Cryo Labs (Ice Floors and the Freeze Ray), with its Air Hockey bonus,
 Level 17, Hydroponics (Grow Lamps and the Hedge Trimmer), with its
@@ -24,8 +24,9 @@ Growth Spurt bonus, and Level 18, Hull Walk (Low Gravity and the Recoil
 Cannon), with its Planetoids bonus, Level 19, Gravity Lab (Gravity
 Switches and the Grav Grenade), with its Gun Gravity bonus, and Level 20,
 Reactor Core (the Core Pulse and the Deflector Bracer), with its Stop
-Motion bonus.
-Episodes 3-6 are being built now.
+Motion bonus, and Level 21, ZERO (Live Rewiring, the Phase Rifle and
+ZERO itself), with its Wireframe bonus and the Episode 3 ending.
+Episodes 4-6 are being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

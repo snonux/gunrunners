@@ -146,6 +146,12 @@ Input Bot::play(const World& world)
     mFighting = true;
     return fightGolem(world);
   }
+  // Level 21: ZERO, once the arena door is shut behind the runner.
+  if (world.zeroFight())
+  {
+    mFighting = true;
+    return fightZero(world);
+  }
   // Level 49: the Hive Mother, once the egg chamber's door is shut.
   if (world.motherFight())
   {

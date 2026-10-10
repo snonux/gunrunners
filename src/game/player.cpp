@@ -805,6 +805,15 @@ void World::fireShot()
   p.recoil = 1;
   p.muzzleTicks = 6;
   p.muzzleStance = p.stance;
+  if (mZero.on)
+  {
+    // Level 21: an Echo will fire this shot again (world_zero.cpp).
+    mZero.fired = true;
+    mZero.firedDx = int8_t(dx);
+    mZero.firedDy = int8_t(dy);
+    mZero.firedOx = int8_t(off[0]);
+    mZero.firedOy = int8_t(off[1]);
+  }
 
   if (p.weapon != Weapon::Normal && --p.ammo <= 0)
   {
@@ -1071,6 +1080,8 @@ void World::respawnPlayer()
     resetGrav();
   mReactor.raise = 0; // the Bracer's shield down, its arcs gone
   mReactor.arcs.clear();
+  if (mZero.on)
+    resetZero();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

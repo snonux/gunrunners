@@ -44,7 +44,8 @@ private:
                   // bonus (give the gems away, then wake the entrance at the false altar), 11 the last altar
                   // to give gems back at before the golem (index: the altar), 12 a marked block to stand on
                   // and gild (Golden Touch; index: the block), 13 a grow lamp's switch to hit (index: the
-                  // lamp; x, y, w, h: where to stand), 14 a valve to hold up at (index: the valve)
+                  // lamp; x, y, w, h: where to stand), 14 a valve to hold up at (index: the valve), 15 a gem
+                  // to take (Wireframe; index: the item; x, y, w, h: its box)
     int x = 0, y = 0;
     int w = 0, h = 0; // kind 3: the entrance's box; kind 5: w=1 shoot it from below; kind 8: w the
                       // shot's direction, h the angle wanted
@@ -81,6 +82,8 @@ private:
   bool mSkipBonus = false;
   int mSkipBonusAt = -1; // where the search gave up on it (-1: for good)
   std::vector<int> mPaintSkip; // Golden Touch: marked blocks the search could not get to
+  std::vector<int> mGemSkip;   // the Wireframe bonus: gems (item index) left until the next one is taken
+  int mGemSkipCount = -1;      // the gems taken when mGemSkip was last cleared
   // Level 10.
   std::vector<char> mDoorOpen;  // sun doors the field treats as open
   std::vector<char> mRouteOpen; // while waiting on a door: it and the route doors after it

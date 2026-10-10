@@ -120,6 +120,18 @@ enum class Sfx
   ValveTurn, // a coolant valve squeaking round
   ValveShut, // a valve shut tight (a heavy clank and a hiss)
   Rewind,    // DO NOT PRESS: the victory fanfare played backwards (6 s)
+  Bulkhead,  // a bulkhead sliding (a heavy hydraulic grind ending in a clunk)
+  Monitor,   // the monitors switching to the next schematic (a CRT blip)
+  PhaseShot, // the Phase Rifle (a thin rising zip that goes hollow through a wall)
+  Glint,     // a fake wall or hidden pocket glinting (a tiny chime)
+  Rebuild,   // a Repair Swarm finishing a rebuild (a rising ratchet and a ping)
+  EchoIn,    // an Echo stepping out of its pad (a reversed shimmer)
+  EyeCharge, // ZERO's eye charging (a rising whine, 1.5 s)
+  EyeBeam,   // its beam on the grille (a crackling buzz)
+  Shutter,   // its shutter closing or opening (a camera-iris clack)
+  WallFall,  // the painted flat tipping over (a creak and a huge flat slap)
+  LightClunk, // a bank of studio lights switching on
+  Applause,  // the studio audience cheering
   Count,
 };
 

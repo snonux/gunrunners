@@ -185,6 +185,12 @@ const EnemyDef kEnemies[] = {
   {"conduit_spark", "CONDUIT SPARK", K::Spark, L::Styled, 2, 2, 2, 300, 1, 0, 0, 0, 0, 0},
   {"shield_drone", "SHIELD DRONE", K::ShieldDrone, L::Styled, 4, 3, 6, 800, 2, 0, 0, 0, kEnemyHarmless | kEnemyRobot, 0},
   {"isotope_imp", "ISOTOPE IMP", K::Imp, L::Styled, 3, 2, 3, 500, 2, 20, 10, 0, 0, 0},
+  // Level 21. Lattice Turret: stepEvery along its rail, cooldown between
+  // shots down, tell the barrel glowing. Repair Swarm: stepEvery its drift.
+  // Echo: replays the runner (world_zero.cpp moves it).
+  {"lattice_turret", "LATTICE TURRET", K::LatticeTurret, L::Styled, 4, 3, 6, 800, 2, 30, 10, 0, kEnemyRobot, 0},
+  {"repair_swarm", "REPAIR SWARM", K::RepairSwarm, L::Styled, 3, 3, 3, 400, 2, 0, 0, 0, kEnemyRobot, 0},
+  {"echo", "ECHO", K::Echo, L::Styled, 3, 5, 4, 1000, 1, 0, 8, 0, kEnemyNoTally | kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

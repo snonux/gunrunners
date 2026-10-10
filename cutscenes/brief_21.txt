@@ -1,12 +1,14 @@
 cutscene brief_21
 music organ_theme
 
+# clip brief21_eye (16 frames)
 shot brief21_eye delay=120 repeat=1
   cue 0 fade=in:800
   cue 0 sound=server_hum
   cue 4 say=ZERO "When you reach me,"
   cue 15 hold=3000
 
+# clip brief21_eye (16 frames)
 shot brief21_eye delay=120 repeat=1
   cue 0 say=ZERO "please be quick."
   cue 15 hold=3500

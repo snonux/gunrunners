@@ -24,12 +24,13 @@ shot studio_lights delay=100 repeat=1
   cue 11 hold=600
 
 # Clip audience: reverse shot of a cheering studio audience, arms waving
-# (6-frame loop).
+# (a loop of 6 frames).
 shot audience delay=90 repeat=4
   cue 0 sound=crowd_cheer
   cue 0 music=theme_show
 
 # Clip lance_entrance: Lance striding in (frames 0-7), arms wide on 8, held.
+# 9 frames.
 shot lance_entrance delay=90 repeat=1
   cue 8 say=LANCE "AND THAT'S A WRAP ON SEASON ONE OF... GUNRUNNERS!"
   cue 8 hold=3000
@@ -54,7 +55,7 @@ shot lance_close delay=100 repeat=1
   cue 1 say=LANCE "Buyers in forty countries were watching!"
   cue 1 hold=2500
 
-# Clip dash_freeze: close-up of Dash, a single frame.
+# Clip dash_freeze: close-up of Dash, a single frame (1 frames).
 shot dash_freeze delay=100 repeat=1
   cue 0 say=DASH "We've been running their guns."
   cue 0 hold=3000

@@ -135,6 +135,82 @@ std::vector<float> makeNamedSfx(const std::string& id)
   const std::uint32_t seed = seedOf(id);
   const bool loop = has(id, "loop");
   const double len = loop ? 6.0 : 1.0;
+  // The end of Episode 3: the back wall cracking from end to end and
+  // landing, the studio's lights and its audience, the TV in the dark and
+  // ZERO's servers humming.
+  if (id == "crack_long")
+  {
+    // A long rending crack: splintering snaps that come faster, over a
+    // groaning creak.
+    Noise n(seed), m(seed + 3u);
+    Svf bp, creak;
+    Osc o;
+    return render(2.6, [&](double t, double total) {
+      const double u = t / total;
+      const double rate = lerp(0.985, 0.94, u);
+      const double snap = n.next() > rate ? bp.band(m.next(), 1800.0 + 1600.0 * u, 2.0) * 3.0 : 0.0;
+      const double f = 90.0 + 40.0 * std::sin(t * 5.0) + 60.0 * u;
+      const double groan = creak.band(float(o.step(f, Wave::Saw)), f * 2.5, 4.0) * 0.5;
+      return (snap * 0.35 + groan * 0.4) * std::min(1.0, t / 0.2) * std::min(1.0, (total - t) / 0.25);
+    });
+  }
+  if (id == "big_thud")
+  {
+    // The flat landing: a flat slap and a deep boom of the stage.
+    Noise n(seed);
+    OnePole lp;
+    Osc o;
+    return render(1.8, [&](double t, double) {
+      const double slap = lp.lowpass(n.next(), sweep(6000.0, 250.0, t / 0.35)) * decay(t, 0.1);
+      const double b = o.step(sweep(65.0, 26.0, t / 0.7), Wave::Sine) * decay(t, 0.45);
+      return (slap * 1.1 + b * 0.9) * 0.6 * attack(t, 0.001);
+    });
+  }
+  if (id == "light_clunk")
+    return makeSfx(Sfx::LightClunk);
+  if (id == "crowd_cheer")
+    return makeSfx(Sfx::Applause);
+  if (id == "tv_on")
+  {
+    // An old TV coming on: the power thunk, the flyback whine and a
+    // fading wash of static.
+    Noise n(seed);
+    OnePole hp, lp;
+    Osc thunk, whine;
+    return render(1.4, [&](double t, double total) {
+      const double k = thunk.step(sweep(140.0, 60.0, t / 0.05), Wave::Triangle) * decay(t, 0.03);
+      const double w = whine.step(7850.0, Wave::Sine) * 0.05 * std::min(1.0, t / 0.2);
+      const double st = hp.highpass(lp.lowpass(n.next(), 7000.0), 400.0) * std::min(1.0, t / 0.08) * decay(t, 0.45);
+      return (k * 0.6 + w + st * 0.3) * std::min(1.0, (total - t) / 0.2);
+    });
+  }
+  if (id == "channel_click")
+  {
+    // A channel knob turning one notch: a hard plastic click and a
+    // blip of static as the picture changes.
+    Noise n(seed), m(seed + 5u);
+    Svf bp;
+    OnePole hp;
+    return render(0.35, [&](double t, double) {
+      const double c = bp.band(n.next(), 2800.0, 3.0) * decay(t, 0.005) * 1.5;
+      const double st = t > 0.03 ? hp.highpass(m.next(), 1200.0) * decay(t - 0.03, 0.07) * 0.3 : 0.0;
+      return (c + st) * attack(t, 0.0005);
+    });
+  }
+  if (id == "server_hum")
+  {
+    // A room of servers: fans' airy whoosh, a mains hum and a faint
+    // high whine, steady enough to loop.
+    Noise n(seed);
+    OnePole lp, hp;
+    Osc a, b, c;
+    return render(6.0, [&](double t, double total) {
+      const double fans = hp.highpass(lp.lowpass(n.next(), 3000.0), 200.0) * 0.25;
+      const double mains = a.step(60.0, Wave::Sine) * 0.25 + b.step(120.0, Wave::Triangle) * 0.12;
+      const double whine = c.step(4400.0, Wave::Sine) * 0.015;
+      return (fans + mains + whine) * 0.6 * std::min(1.0, t / 0.4) * std::min(1.0, (total - t) / 0.4);
+    });
+  }
   // Phones, chimes and dings: little melodies, one per runner.
   if (has(id, "phone_chime"))
   {

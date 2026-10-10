@@ -135,6 +135,9 @@ struct SaveGame
   // the lift cage open, the Bracer's soak rest; each core's clock; each
   // valve shut; each spark's place on its wire (half cells * 2 + going on).
   std::vector<int> reactor;
+  // ZERO (level 21): the corridor's state (shifts done), the kill switch,
+  // the Echo pads armed, the broken things that came back.
+  std::vector<int> zero;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

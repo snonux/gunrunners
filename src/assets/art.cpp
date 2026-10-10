@@ -2053,9 +2053,15 @@ void speckle(cairo_t* cr, Rng& rng, int count, Color a, Color b, double x0, doub
 
 bool isHull(const Theme& t);
 Texture bakeHullSolid(const Renderer& r, const Theme& t, int variant);
+bool isServers(const Theme& t);
+Texture bakeServersSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakeServersSolidTop(const Renderer& r, const Theme& t);
+Texture bakeServersPlatform(const Renderer& r, const Theme& t);
 
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isServers(t))
+    return bakeServersSolid(r, t, variant);
   if (isHull(t))
     return bakeHullSolid(r, t, variant);
   if (isAlien(t))
@@ -2478,6 +2484,8 @@ Texture bakeReactorSolidTop(const Renderer& r, const Theme& t)
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isServers(t))
+    return bakeServersSolidTop(r, t);
   if (isReactor(t))
     return bakeReactorSolidTop(r, t);
   if (isGravlab(t))
@@ -2593,6 +2601,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isServers(t))
+    return bakeServersPlatform(r, t);
   if (isHull(t))
     return bakeHullGirder(r, t);
   if (isAlien(t))
@@ -4894,8 +4904,445 @@ Texture bakeReactorNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Level 21's server cathedral (theme look "servers"): ZERO's racks, black
+// steel fronts stacked in 1U servers with their status lights, patch panels
+// and fans, in red light.
+bool isServers(const Theme& t) { return std::string_view(t.look) == "servers"; }
+
+// One block of rack: the rack rails down both sides (with their square
+// holes), four 1U units between them. Variant 0 plain servers (vents, drive
+// bays, LEDs), 1 a patch panel with cables looping out, 2 a fan unit and a
+// red status bar. The lights blink in-engine (world_zero_draw.cpp) on top of
+// the dim ones baked here, at x 46-56 of each unit's middle row.
+Texture bakeServersSolid(const Renderer& r, const Theme& t, int variant)
+{
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  Rng rng(std::uint32_t(variant * 7919 + 2111));
+  cairo_rectangle(cr, 0, 0, 64, 64);
+  setColor(cr, rgb(8, 8, 11));
+  cairo_fill(cr);
+  // The units.
+  for (int u = 0; u < 4; ++u)
+  {
+    const double y = u * 16.0;
+    cairo_rectangle(cr, 6, y + 1, 52, 14);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, y + 1, 0, y + 15);
+    cairo_pattern_add_color_stop_rgb(g, 0, redOf(t.rockLight) / 255.0 * 0.8, greenOf(t.rockLight) / 255.0 * 0.8,
+      blueOf(t.rockLight) / 255.0 * 0.8);
+    cairo_pattern_add_color_stop_rgb(g, 0.18, redOf(t.rock) / 255.0, greenOf(t.rock) / 255.0, blueOf(t.rock) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.rockDark) / 255.0, greenOf(t.rockDark) / 255.0, blueOf(t.rockDark) / 255.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_rectangle(cr, 6, y + 15, 52, 1);
+    setColor(cr, rgb(2, 2, 4));
+    cairo_fill(cr);
+    const bool patch = variant == 1 && u == 1;
+    const bool fan = variant == 2 && u == 2;
+    if (patch)
+    {
+      // Two rows of jacks.
+      for (int j = 0; j < 2; ++j)
+        for (int i = 0; i < 9; ++i)
+        {
+          cairo_rectangle(cr, 9 + i * 5.2, y + 3.5 + j * 5.5, 3.4, 3.4);
+          setColor(cr, rgb(4, 4, 6));
+          cairo_fill(cr);
+        }
+      continue;
+    }
+    if (fan)
+    {
+      for (const double fx : {17.0, 34.0})
+      {
+        cairo_arc(cr, fx, y + 8, 6.2, 0, 2 * kPi);
+        setColor(cr, rgb(6, 6, 8));
+        cairo_fill(cr);
+        for (int b = 0; b < 5; ++b)
+        {
+          const double a = b * 2 * kPi / 5;
+          cairo_move_to(cr, fx, y + 8);
+          cairo_line_to(cr, fx + std::cos(a) * 5.5, y + 8 + std::sin(a) * 5.5);
+        }
+        setColor(cr, withAlpha(t.rockLight, 120));
+        cairo_set_line_width(cr, 1.4);
+        cairo_stroke(cr);
+      }
+    }
+    else
+    {
+      // Vent slots and drive bays.
+      for (int i = 0; i < 6; ++i)
+      {
+        cairo_rectangle(cr, 9 + i * 3.2, y + 4, 1.6, 8);
+        setColor(cr, rgb(6, 6, 9));
+        cairo_fill(cr);
+      }
+      for (int i = 0; i < 3; ++i)
+      {
+        roundedRect(cr, 29 + i * 5.4, y + 3.5, 4.4, 9, 0.8);
+        setColor(cr, withAlpha(darken(t.rockDark, 0.4f), 255));
+        cairo_fill(cr);
+        cairo_rectangle(cr, 29.8 + i * 5.4, y + 10, 2.8, 1);
+        setColor(cr, withAlpha(t.rockLight, 140));
+        cairo_fill(cr);
+      }
+    }
+    // The dim status lights (lit in-engine).
+    for (int i = 0; i < 3; ++i)
+    {
+      cairo_arc(cr, 47 + i * 4.2, y + 8, 1.3, 0, 2 * kPi);
+      const int pick = int(rng.next() % 4u);
+      setColor(cr, pick == 0 ? rgb(120, 20, 24) : (pick == 1 ? rgb(24, 90, 40) : rgb(40, 40, 46)));
+      cairo_fill(cr);
+    }
+    // A sheen along the bezel's top edge.
+    cairo_rectangle(cr, 6, y + 1, 52, 1);
+    setColor(cr, rgba(255, 255, 255, 30));
+    cairo_fill(cr);
+  }
+  if (variant == 1)
+  {
+    // Cables out of the jacks, sagging and looping down the rack's front.
+    const Color cols[] = {rgb(200, 40, 50), rgb(40, 110, 200), rgb(220, 190, 50), rgb(60, 170, 90)};
+    for (int i = 0; i < 4; ++i)
+    {
+      const double x0 = 11 + i * 10.4, y0 = 20 + (i % 2) * 5.5;
+      cairo_move_to(cr, x0, y0);
+      cairo_curve_to(cr, x0 - 2, y0 + 24, x0 + 20 - i * 6, y0 + 30, x0 + 4 + i * 2, 64);
+      setColor(cr, rgb(4, 4, 6));
+      cairo_set_line_width(cr, 3.4);
+      cairo_stroke_preserve(cr);
+      setColor(cr, darken(cols[i], 0.25f));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+    }
+  }
+  if (variant == 2)
+  {
+    // A thin red status bar across the top unit.
+    cairo_rectangle(cr, 10, 5, 30, 2.2);
+    setColor(cr, rgb(150, 20, 28));
+    cairo_fill(cr);
+  }
+  // The rails, down both edges, with their square holes.
+  for (const double x : {0.0, 58.0})
+  {
+    cairo_rectangle(cr, x, 0, 6, 64);
+    cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + 6, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.16, 0.17, 0.2);
+    cairo_pattern_add_color_stop_rgb(g, 0.4, 0.3, 0.31, 0.36);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.08, 0.08, 0.1);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (double y = 2; y < 64; y += 5.33)
+    {
+      cairo_rectangle(cr, x + 2, y, 2, 2);
+      setColor(cr, rgb(4, 4, 6));
+      cairo_fill(cr);
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// The top of a rack where you stand on it: a steel cap with a tread, a thin
+// red light strip under its lip.
+Texture bakeServersSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  radialGlow(cr, 32, y + 12, 30, t.trim, 0.12);
+  cairo_rectangle(cr, 0, y - 1, 64, 9);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y - 1, 0, y + 8);
+  cairo_pattern_add_color_stop_rgb(g, 0, 0.62, 0.64, 0.7);
+  cairo_pattern_add_color_stop_rgb(g, 0.3, 0.34, 0.35, 0.41);
+  cairo_pattern_add_color_stop_rgb(g, 1, 0.12, 0.12, 0.15);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  for (int x = 3; x < 64; x += 8)
+  {
+    cairo_move_to(cr, x, y + 4.5);
+    cairo_line_to(cr, x + 4, y + 1.5);
+    setColor(cr, rgba(10, 10, 14, 150));
+    cairo_set_line_width(cr, 1.2);
+    cairo_stroke(cr);
+  }
+  cairo_rectangle(cr, 0, y + 8, 64, 2);
+  setColor(cr, withAlpha(t.trim, 210));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, y + 10, 64, 3);
+  setColor(cr, rgba(0, 0, 0, 200));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, y - 2, 64, 1.2);
+  setColor(cr, rgba(255, 210, 210, 110));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
+// A one-way ledge: a steel grating walkway on two brackets, its mesh of
+// diagonals letting the red light through.
+Texture bakeServersPlatform(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, 40);
+  cairo_t* cr = img.cr();
+  // Brackets under it.
+  for (const double x : {10.0, 54.0})
+  {
+    cairo_move_to(cr, x - 3, 12);
+    cairo_line_to(cr, x + 3, 12);
+    cairo_line_to(cr, x + 1, 30);
+    cairo_line_to(cr, x - 1, 30);
+    cairo_close_path(cr);
+    setColor(cr, rgb(30, 32, 40));
+    cairo_fill(cr);
+  }
+  // The grating: a frame and a mesh.
+  cairo_save(cr);
+  cairo_rectangle(cr, 0, 3, 64, 9);
+  cairo_clip(cr);
+  setColor(cr, rgba(10, 10, 14, 200));
+  cairo_paint(cr);
+  for (int x = -12; x < 76; x += 6)
+  {
+    cairo_move_to(cr, x, 12);
+    cairo_line_to(cr, x + 9, 3);
+    cairo_move_to(cr, x, 3);
+    cairo_line_to(cr, x + 9, 12);
+  }
+  setColor(cr, t.platformDark);
+  cairo_set_line_width(cr, 1.6);
+  cairo_stroke(cr);
+  cairo_restore(cr);
+  cairo_rectangle(cr, 0, 0, 64, 4);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 4);
+  cairo_pattern_add_color_stop_rgb(g, 0, redOf(lighten(t.platform, 0.4f)) / 255.0, greenOf(lighten(t.platform, 0.4f)) / 255.0,
+    blueOf(lighten(t.platform, 0.4f)) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.platform) / 255.0, greenOf(t.platform) / 255.0, blueOf(t.platform) / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  cairo_rectangle(cr, 0, 11, 64, 2.5);
+  setColor(cr, t.platformDark);
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, 13.5, 64, 1.2);
+  setColor(cr, withAlpha(t.trim, 150));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// A pointed (lancet) arch path from x0 to x1 springing at y, apex at top.
+void lancet(cairo_t* cr, double x0, double x1, double y, double top, double bottom)
+{
+  const double mx = (x0 + x1) * 0.5;
+  cairo_move_to(cr, x0, bottom);
+  cairo_line_to(cr, x0, y);
+  cairo_curve_to(cr, x0, y - (y - top) * 0.55, mx - (mx - x0) * 0.25, top + (y - top) * 0.1, mx, top);
+  cairo_curve_to(cr, mx + (x1 - mx) * 0.25, top + (y - top) * 0.1, x1, y - (y - top) * 0.55, x1, y);
+  cairo_line_to(cr, x1, bottom);
+  cairo_close_path(cr);
+}
+
+// The cathedral's far end: dark vaults over a nave, tall lancet windows
+// made of red status lights, shafts of red light falling from them.
+Texture bakeServersSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(2101u);
+  // Lancet windows of light: grids of tiny red and white lights.
+  for (int k = 0; k < 5; ++k)
+  {
+    const double cx = 128 + k * 256.0, w = 92, top = 70, spring = 170, bottom = 520;
+    cairo_save(cr);
+    lancet(cr, cx - w * 0.5, cx + w * 0.5, spring, top, bottom);
+    cairo_clip_preserve(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, top, 0, bottom);
+    cairo_pattern_add_color_stop_rgba(g, 0, 0.5, 0.04, 0.06, 0.55);
+    cairo_pattern_add_color_stop_rgba(g, 1, 0.2, 0.02, 0.04, 0.2);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (double y = top + 6; y < bottom; y += 9)
+      for (double x = cx - w * 0.5 + 6; x < cx + w * 0.5; x += 9)
+      {
+        if (rng.uniform() < 0.45f)
+          continue;
+        cairo_rectangle(cr, x, y, 3, 3);
+        const float c = rng.uniform();
+        setColor(cr, c < 0.8f ? rgba(255, 60, 70, 160) : (c < 0.93f ? rgba(255, 200, 200, 170) : rgba(80, 255, 120, 140)));
+        cairo_fill(cr);
+      }
+    // Mullions.
+    for (const double mx : {cx - w * 0.17, cx + w * 0.17})
+    {
+      cairo_rectangle(cr, mx - 3, top, 6, bottom - top);
+      setColor(cr, rgba(10, 2, 4, 220));
+      cairo_fill(cr);
+    }
+    cairo_restore(cr);
+    lancet(cr, cx - w * 0.5, cx + w * 0.5, spring, top, bottom);
+    setColor(cr, rgba(16, 4, 8, 255));
+    cairo_set_line_width(cr, 8);
+    cairo_stroke(cr);
+    radialGlow(cr, cx, 250, 160, t.accentA, 0.12);
+    // Its shaft of light falling across the nave.
+    cairo_move_to(cr, cx - w * 0.4, 300);
+    cairo_line_to(cr, cx + w * 0.4, 300);
+    cairo_line_to(cr, cx + w * 1.4, kScreenH);
+    cairo_line_to(cr, cx - w * 0.2, kScreenH);
+    cairo_close_path(cr);
+    cairo_pattern_t* s = cairo_pattern_create_linear(0, 300, 0, kScreenH);
+    cairo_pattern_add_color_stop_rgba(s, 0, 1.0, 0.2, 0.22, 0.1);
+    cairo_pattern_add_color_stop_rgba(s, 1, 1.0, 0.2, 0.22, 0.0);
+    cairo_set_source(cr, s);
+    cairo_fill(cr);
+    cairo_pattern_destroy(s);
+  }
+  // The vault ribs overhead.
+  for (int k = 0; k <= 5; ++k)
+  {
+    const double x = k * 256.0;
+    cairo_move_to(cr, x, 140);
+    cairo_curve_to(cr, x + 40, 20, x + 216, 20, x + 256, 140);
+    setColor(cr, rgba(30, 6, 12, 220));
+    cairo_set_line_width(cr, 10);
+    cairo_stroke(cr);
+  }
+  cairo_rectangle(cr, 0, 0, kScreenW, 40);
+  setColor(cr, rgba(0, 0, 0, 160));
+  cairo_fill(cr);
+  // A red floor glow far below.
+  radialGlow(cr, kScreenW * 0.5, kScreenH + 60, 700, t.trim, 0.2);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// A rack tower in silhouette, w wide from y top to the bottom of the layer,
+// its front speckled with status lights.
+void serverTower(cairo_t* cr, Rng& rng, double x, double w, double top, double h, Color body, Color edge, double lights)
+{
+  cairo_rectangle(cr, x, top, w, h - top);
+  cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + w, 0);
+  cairo_pattern_add_color_stop_rgb(g, 0, redOf(edge) / 255.0, greenOf(edge) / 255.0, blueOf(edge) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 0.12, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(body) / 255.0 * 0.6, greenOf(body) / 255.0 * 0.6, blueOf(body) / 255.0 * 0.6);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  for (double y = top + 6; y < h; y += 10)
+  {
+    cairo_rectangle(cr, x + 4, y + 8, w - 8, 1.2);
+    setColor(cr, rgba(0, 0, 0, 120));
+    cairo_fill(cr);
+    if (rng.uniform() < lights)
+    {
+      const double lx = x + w * rng.range(0.55f, 0.85f);
+      cairo_rectangle(cr, lx, y + 3, 2.4, 2.4);
+      const float c = rng.uniform();
+      setColor(cr, c < 0.6f ? rgba(255, 50, 60, 200) : (c < 0.85f ? rgba(80, 255, 120, 170) : rgba(255, 190, 80, 170)));
+      cairo_fill(cr);
+    }
+  }
+}
+
+// Far: pillars of racks rising into pointed arches, the cathedral's arcade,
+// glittering with status lights; haze in front.
+Texture bakeServersFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2113u);
+  const Color body = t.farLayer, edge = lerpColor(t.farLayer, t.accentA, 0.4f);
+  const double bay = 320;
+  for (double x = 0; x < kLayerW; x += bay)
+  {
+    // The arch between this pillar and the next.
+    cairo_move_to(cr, x + 60, 300);
+    cairo_curve_to(cr, x + 60, 150, x + 140, 110, x + bay * 0.5 + 30, 90);
+    cairo_curve_to(cr, x + bay - 80, 110, x + bay, 150, x + bay, 300);
+    cairo_line_to(cr, x + bay, 260);
+    cairo_curve_to(cr, x + bay, 120, x + bay - 60, 70, x + bay * 0.5 + 30, 60);
+    cairo_curve_to(cr, x + 120, 70, x + 60, 120, x + 60, 260);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(darken(body, 0.2f), 240));
+    cairo_fill(cr);
+    // The pillar: a tower of racks.
+    serverTower(cr, rng, x, 60, 120, kScreenH, body, edge, 0.35);
+    cairo_rectangle(cr, x - 8, 112, 76, 10);
+    setColor(cr, withAlpha(edge, 200));
+    cairo_fill(cr);
+    // Lower racks in the bays, a row of cabinets.
+    for (double bx = x + 80; bx < x + bay - 30; bx += 46)
+      serverTower(cr, rng, bx, 40, rng.range(430, 470), kScreenH, lerpColor(body, t.skyBottom, 0.2f), edge, 0.5);
+  }
+  cairo_rectangle(cr, 0, 0, kLayerW, 50);
+  setColor(cr, withAlpha(darken(body, 0.4f), 255));
+  cairo_fill(cr);
+  // Haze.
+  cairo_rectangle(cr, 0, 0, kLayerW, kScreenH);
+  cairo_pattern_t* hz = cairo_pattern_create_linear(0, 0, 0, kScreenH);
+  cairo_pattern_add_color_stop_rgba(hz, 0, redOf(t.skyMid) / 255.0, greenOf(t.skyMid) / 255.0, blueOf(t.skyMid) / 255.0, 0.2);
+  cairo_pattern_add_color_stop_rgba(hz, 1, redOf(t.skyBottom) / 255.0, greenOf(t.skyBottom) / 255.0, blueOf(t.skyBottom) / 255.0, 0.45);
+  cairo_set_source(cr, hz);
+  cairo_fill(cr);
+  cairo_pattern_destroy(hz);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: thick cable bundles drooping from the dark in catenaries, cable
+// trays, and the edges of rack towers sliding past close to the camera.
+Texture bakeServersNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2129u);
+  const Color dark = withAlpha(t.nearLayer, 235);
+  for (double x = rng.range(100, 300); x < kLayerW; x += rng.range(700, 900))
+  {
+    // A rack tower's edge.
+    const double w = rng.range(70, 110);
+    serverTower(cr, rng, x, w, 0, kScreenH, t.nearLayer, lerpColor(t.nearLayer, t.accentA, 0.3f), 0.25);
+  }
+  for (double x = rng.range(300, 450); x < kLayerW; x += rng.range(500, 700))
+  {
+    // Cables slung across in bundles.
+    const double span = rng.range(260, 420), sag = rng.range(60, 140), y0 = rng.range(10, 120);
+    for (int k = 0; k < 4; ++k)
+    {
+      cairo_move_to(cr, x, y0 + k * 6);
+      cairo_curve_to(cr, x + span * 0.3, y0 + sag + k * 8, x + span * 0.7, y0 + sag + k * 8, x + span, y0 + k * 5);
+      setColor(cr, dark);
+      cairo_set_line_width(cr, 7 - k);
+      cairo_stroke(cr);
+    }
+  }
+  for (double x = rng.range(200, 400); x < kLayerW; x += rng.range(600, 800))
+  {
+    // A cable hanging straight down with a red tag light.
+    const double len = rng.range(200, 420);
+    cairo_move_to(cr, x, 0);
+    cairo_curve_to(cr, x + 6, len * 0.4, x - 4, len * 0.7, x + 2, len);
+    setColor(cr, dark);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    roundedRect(cr, x - 6, len, 16, 22, 3);
+    setColor(cr, dark);
+    cairo_fill(cr);
+    cairo_rectangle(cr, x - 1, len + 6, 4, 4);
+    setColor(cr, withAlpha(t.trim, 200));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isServers(t))
+    return bakeServersSky(r, t);
   if (isReactor(t))
     return bakeReactorSky(r, t);
   if (isGravlab(t))
@@ -5051,6 +5498,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isServers(t))
+    return bakeServersFar(r, t);
   if (isReactor(t))
     return bakeReactorFar(r, t);
   if (isGravlab(t))
@@ -5189,6 +5638,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isServers(t))
+    return bakeServersNear(r, t);
   if (isReactor(t))
     return bakeReactorNear(r, t);
   if (isGravlab(t))

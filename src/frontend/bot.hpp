@@ -28,6 +28,8 @@ public:
   Input fightGolem(const World& world);
   // Level 49: the Hive Mother (bot_mother.cpp).
   Input fightMother(const World& world);
+  // Level 21: ZERO (bot_zero.cpp).
+  Input fightZero(const World& world);
   // Pilot Seat: fly at the cardboard.
   Input fly(const World& world);
   // Trapmaster: spring the trap that will catch the most hunters.

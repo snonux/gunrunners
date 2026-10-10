@@ -173,6 +173,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkOrbit();
   linkGrav();
   linkReactor();
+  linkZero();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -218,6 +219,13 @@ Camera::Target World::cameraTarget() const
     // The Hive Mother: her crown and the arena floor both in view.
     const int floor = mSpace.mother.floor;
     return {b.left(), std::min(b.top(), floor - 15), b.right(), std::max(b.bottom(), floor), false};
+  }
+  if (zeroFight() || (mZero.boss.on && mZero.boss.phase == ZeroPhase::Reveal))
+  {
+    // ZERO: held so the view's top is half a block over the eye's middle
+    // row and its floor segments sit at the bottom (the dead zone is 5..20).
+    const int floor = mZero.boss.floorRow * kCellsPerTile;
+    return {b.left(), std::min(b.top(), floor - 16), b.right(), std::max(b.bottom(), floor - 1), false};
   }
   return {b.left(), b.top(), b.right(), b.bottom(), tight};
 }
@@ -381,6 +389,8 @@ void World::updateMovingWorld(const PlayerInput& input)
   updateHull(input);
   updateGrav(input);
   updateReactor(input);
+  if (mZero.on)
+    updateZero(input);
   updateHatches();
   updateProps(input);
 }
@@ -777,6 +787,15 @@ void World::updateEnemies()
       case EnemyKind::Imp:
         updateImp(e, def);
         break;
+      case EnemyKind::LatticeTurret:
+        updateLatticeTurret(e, def);
+        break;
+      case EnemyKind::RepairSwarm:
+        updateRepairSwarm(e, def);
+        break;
+      case EnemyKind::Echo:
+        updateEcho(e, def);
+        break;
     }
 
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
@@ -885,7 +904,11 @@ void World::updateProjectiles()
     // Level 47: a cocoon pops open.
     if (mSpace.silk && pr.kind != ShotKind::Enemy && shotAtCocoon(pr))
       return true;
-    if (mMap.overlapsSolid(b))
+    // Level 21: the kill switch, ZERO and its racks; a Phase Rifle shot
+    // goes on through one wall.
+    if (mZero.on && pr.kind != ShotKind::Enemy && shotAtZero(pr, b))
+      return true;
+    if (mMap.overlapsSolid(b) && !(mZero.on && phaseThrough(pr, b)))
     {
       // The Silk Shooter strings a line where it hits rock.
       silkShotHit(pr);

@@ -365,7 +365,7 @@ bool World::hitBreakable(const CellBox& shot, int damage, int kind)
     // Kind 5 is a vehicle's gun or a mech's stomp: it counts as an explosion
     // and a heavy hit too.
     if ((b.by == 1 && kind != 1 && kind != 5) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3) ||
-        (b.by == 4 && kind != 4) || (b.by == 5 && kind != 5) || (b.by == 6 && kind != 6))
+        (b.by == 4 && kind != 4) || (b.by == 5 && kind != 5) || (b.by == 6 && kind != 6) || (b.by == 7 && kind != 7))
       return true; // only explosions (heavy hits, the Bass Cannon, vehicles) break this
     b.hp -= std::max(1, damage);
     const Vec2 c = cellCenter(shot);
@@ -558,6 +558,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
+    if (b.look >= 14)
+      continue; // level 21's rack door and grating (world_zero_draw.cpp)
     if (b.look == 13)
     {
       drawHullBreakable(r, b, camX, camY, frame); // level 18 (world_hull_draw.cpp)
