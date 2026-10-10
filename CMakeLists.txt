@@ -23,6 +23,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art.cpp
   src/assets/art_alien.cpp
   src/assets/enemy_art_alien.cpp
+  src/assets/enemy_art_station.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/vehicle_art.cpp
   src/data/level.cpp
@@ -58,6 +59,8 @@ add_library(gunrunners_core STATIC
   src/game/world_surf.cpp
   src/game/world_sanctum.cpp
   src/game/world_golden.cpp
+  src/game/world_station.cpp
+  src/game/world_station_draw.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
@@ -161,3 +164,4 @@ target_link_libraries(hive_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME hive_tubes COMMAND hive_test)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
 add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)
+add_test(NAME savegame_hangar_bay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt 300)

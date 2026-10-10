@@ -188,6 +188,7 @@ void World::setupEntities()
       setupLavaEnemy(en, e);
       setupBoulderEnemy(en, e);
       setupSanctumEnemy(en, e);
+      setupStationEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -282,7 +283,7 @@ void World::setupEntities()
         : by == "vehicle"      ? 5
                                : 0;
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" ? 6 : 0)))));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : 0))))));
       mBreakables.push_back(b);
       continue;
     }
@@ -422,6 +423,8 @@ void World::setupEntities()
     if (setupSanctumEntity(e))
       continue;
     if (setupGoldenEntity(e))
+      continue;
+    if (setupStationEntity(e))
       continue;
     if (setupSludgeEntity(e))
       continue;

@@ -63,6 +63,10 @@ enum class EnemyKind
   Drummer,   // drums on a dais: enemies near it move faster while it plays
   CoinBeetle, // crawls at you out of a coin heap, hops; drops two gems
   Sentinel,  // a glyph carved in the wall: its row of glyphs lights up, then beams
+  // Episode 3, STATION ZERO (world_station.cpp).
+  Loader,    // a Loader Mech: patrols on magnetic feet, throws crates from a pile
+  WeldDrone, // crawls its floor (or up a wall) in runs, leaving a hot seam
+  Tether,    // one of a Tether Pair: two drones with a beam strung between them
   Fish,      // deep water: patrols, then chases whatever is in the water with it
   Jelly,     // deep water: pulses up and drifts down, stings on contact
   SeaMine,   // deep water: bobs on its chain, blows up when something comes close

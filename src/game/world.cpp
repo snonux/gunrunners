@@ -166,6 +166,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkBoulders();
   linkSanctum();
   linkGolden();
+  linkStation();
   if (mPinball)
     setupPinball();
   if (mSurfing)
@@ -301,6 +302,7 @@ void World::update(const PlayerInput& input)
       updateBoulders(input);
       updateSanctum(input);
       updateGolden();
+      updateStation(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -610,6 +612,15 @@ void World::updateEnemies()
       case EnemyKind::Sentinel:
         updateSentinel(e, def);
         break;
+      case EnemyKind::Loader:
+        updateLoader(e, def);
+        break;
+      case EnemyKind::WeldDrone:
+        updateWeldDrone(e, def);
+        break;
+      case EnemyKind::Tether:
+        updateTether(e, def);
+        break;
       case EnemyKind::Fish:
         updateFish(e, def);
         break;
@@ -697,6 +708,9 @@ void World::updateProjectiles()
     if (!mBoulders.empty() && shotAtTotem(pr, b))
       return true;
     if (mGolden && pr.kind != ShotKind::Enemy && shotAtGolden(pr, b))
+      return true;
+    // Level 15: crates break to one shot; a Loader Mech's legs are their own target.
+    if (mStation.on() && pr.kind != ShotKind::Enemy && shotAtStation(pr, b))
       return true;
     // Level 45: a valve set into a tube turns when shot.
     if (mSpace.hive && pr.kind != ShotKind::Enemy && shotAtValve(pr))

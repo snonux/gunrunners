@@ -114,6 +114,10 @@ struct SaveGame
   // basin used, Kaan-Tolok down; each altar (open, dropped, gems offered),
   // then each coin heap's waves left.
   std::vector<int> sanctum;
+  // Hangar Bay (level 15): the cab set piece fired; each hull panel
+  // (frames until it can be breached again, dented); each crate (alive,
+  // block x, block y).
+  std::vector<int> station;
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

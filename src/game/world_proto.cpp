@@ -147,6 +147,11 @@ void World::updateProtoShooting(const Button& fire)
     p.charge = 0;
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::BreachCharge && breachTrigger(fire))
+  {
+    p.charge = 0;
+    return; // set the charges off instead of placing another
+  }
   p.charge = fire.pressed ? p.charge + 1 : 0;
   if (shoot && ProtoId(p.proto) == ProtoId::SparkDisc)
   {
@@ -193,6 +198,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     else if (p.virus > 0)
       damage = std::max(1, damage / 2);
     fireArc(ox, oy, dx, damage);
+    return;
+  }
+  if (ProtoId(p.proto) == ProtoId::BreachCharge)
+  {
+    // Not a projectile: a sticky charge (world_station.cpp).
+    placeCharge(ox, oy);
     return;
   }
   if (ProtoId(p.proto) == ProtoId::BlastingCaps)
