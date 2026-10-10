@@ -136,6 +136,7 @@ void Game::openEditor(int index)
   {
     mEditor = std::make_unique<RunnerEditor>(mRenderer, characterByIndex(index), false);
   }
+  mEditor->setTouchHints(mOptions.touch);
   mEditorReturn = mCursor;
   setMode(Mode::Editor);
 }
@@ -227,8 +228,16 @@ void Game::textDone()
 
 void Game::renderEditor()
 {
-  if (mEditor)
-    mEditor->render(mRenderer, *mArt, theme(), mFrame);
+  if (!mEditor)
+    return;
+  mEditor->render(mRenderer, *mArt, theme(), mFrame);
+  tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float x, float y) {
+    const auto tap = mEditor->tapAt(x, y);
+    if (tap.ok)
+      tapPress(&Input::confirm);
+    if (tap.side != 0)
+      tapPress(tap.side < 0 ? &Input::left : &Input::right);
+  });
 }
 
 void Game::renderSelect()
@@ -263,6 +272,17 @@ void Game::renderSelect()
       continue;
     const bool selected = i == mCursor;
     const float y = kCardY;
+    // A tap on a card turns the carousel to it; on the chosen one, it runs.
+    tapTarget(x, y, kCardW, kCardH, [this, i](float, float) {
+      mSelectFocus = SelectFocus::Cards;
+      if (i == mCursor)
+      {
+        tapPress(&Input::confirm);
+        return;
+      }
+      mCursor = i;
+      sound(Sfx::MenuMove);
+    });
     if (selected)
       drawGlow(r, *mArt, x + 170, y + 190, 300, t.accentA, 0.18f + 0.06f * std::sin(float(mFrame) * 0.12f));
     r.draw(selected ? mCardPanelSelected : mCardPanel, x, y);
@@ -307,6 +327,14 @@ void Game::renderSelect()
     const float a = 0.6f + 0.3f * std::sin(float(mFrame) * 0.1f);
     r.drawText("<", 26, 370, {48.0f, t.accentA, kInk, true}, Align::Center, a);
     r.drawText(">", float(kScreenW) - 26, 370, {48.0f, t.accentA, kInk, true}, Align::Center, a);
+    tapTarget(0, 330, 60, 120, [this](float, float) {
+      mSelectFocus = SelectFocus::Cards;
+      tapPress(&Input::left);
+    });
+    tapTarget(float(kScreenW) - 60, 330, 60, 120, [this](float, float) {
+      mSelectFocus = SelectFocus::Cards;
+      tapPress(&Input::right);
+    });
   }
 
   // EDIT for your own runners, REMIX (a copy to change) for the built-in.
@@ -314,6 +342,10 @@ void Game::renderSelect()
   {
     const bool focus = mSelectFocus == SelectFocus::Action;
     r.draw(focus ? mActionButtonFocus : mActionButton, cx - 130, 634);
+    tapTarget(cx - 130, 628, 260, 56, [this](float, float) {
+      mSelectFocus = SelectFocus::Action;
+      tapPress(&Input::confirm);
+    });
     r.drawText(characterByIndex(mCursor).custom ? "EDIT RUNNER" : "REMIX RUNNER", cx, 643,
       {20.0f, focus ? t.accentA : t.hudText, kInk, true}, Align::Center);
   }
@@ -324,6 +356,10 @@ void Game::renderSelect()
   // LOAD GAME button, reached with up.
   const bool load = mSelectFocus == SelectFocus::Load;
   r.draw(load ? mLoadButtonFocus : mLoadButton, 1030, 124);
+  tapTarget(1030, 118, 220, 58, [this](float, float) {
+    mSelectFocus = SelectFocus::Load;
+    tapPress(&Input::confirm);
+  });
   r.drawText("LOAD GAME", 1140, 134, {20.0f, load ? t.accentA : t.hudText, kInk, true}, Align::Center);
 
   r.drawText(keysHint(), cx, 696, {14.0f, rgb(210, 210, 228), kInk}, Align::Center);

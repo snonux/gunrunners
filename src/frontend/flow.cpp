@@ -248,6 +248,10 @@ void Game::renderTitle()
   {
     const bool sel = int(i) == mTitleCursor;
     const float y = top + float(i) * step;
+    tapTarget(cx - 220, y + 16 - step * 0.5f, 440, step, [this, i](float, float) {
+      mTitleCursor = int(i);
+      tapPress(&Input::confirm);
+    });
     if (sel)
     {
       r.fillRect(cx - 200, y - 4, 400, 40, withAlpha(t.accentA, 60));
@@ -261,8 +265,8 @@ void Game::renderTitle()
     int(mProfile.protos.size()), kProtoCount, int(mProfile.stars.size()), int(mProfile.ducks.size()),
     int(mProfile.cameras.size()));
   r.drawText(buf, cx, 640, {17.0f, t.accentB, kInk}, Align::Center);
-  r.drawText("UP/DOWN choose   ENTER / A select   ESC quit", cx, 676, {15.0f, rgb(200, 200, 220), kInk},
-    Align::Center);
+  r.drawText(mOptions.touch ? "TAP to choose" : "UP/DOWN choose   ENTER / A select   ESC quit", cx, 676,
+    {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
 }
 
 // --- Levels ------------------------------------------------------------------
@@ -625,6 +629,11 @@ void Game::renderArsenal()
     const bool sel = i == mArsenalCursor;
     const int slot = def.level - 1;
     const float x = gx + float(slot % 7) * cw, y = gy + float(slot / 7) * ch;
+    tapTarget(x - 4, y - 4, cw, ch, [this, i](float, float) {
+      if (mArsenalCursor != i)
+        sound(Sfx::MenuMove);
+      mArsenalCursor = i;
+    });
     r.fillRect(x, y, cw - 8, ch - 8, sel ? withAlpha(t.accentA, 90) : rgba(255, 255, 255, logged ? 30 : 12));
     if (logged)
     {
@@ -671,7 +680,7 @@ void Game::renderArsenal()
     r.drawText("Find its green box in that level and reach", px + 24, py + 110, {16.0f, rgb(180, 178, 200)});
     r.drawText("the exit to log it here.", px + 24, py + 134, {16.0f, rgb(180, 178, 200)});
   }
-  r.drawText("ARROWS browse   ESC / B back", 640, 676, {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
+  r.drawText(mOptions.touch ? "TAP a prototype   BACK to leave" : "ARROWS browse   ESC / B back", 640, 676, {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
 }
 
 // --- Lists: level select, Bonus Channel, Reruns ----------------------------
@@ -823,10 +832,14 @@ void Game::renderList()
   {
     const bool sel = i == mListCursor;
     const float y = 120.0f + float(i - first) * 50.0f;
+    tapTarget(240, y - 6, 800, 50, [this, i](float, float) {
+      mListCursor = i;
+      tapPress(&Input::confirm);
+    });
     r.fillRect(240, y - 4, 800, 44, sel ? withAlpha(t.accentA, 70) : rgba(255, 255, 255, 16));
     r.drawText(mListItems[std::size_t(i)].second, 270, y + 4, {24.0f, sel ? t.accentA : t.hudText, kInk, sel});
   }
-  r.drawText("UP/DOWN choose   ENTER / A play   ESC / B back", 640, 676, {15.0f, rgb(200, 200, 220), kInk},
+  r.drawText(mOptions.touch ? "TAP to play   DRAG to scroll   BACK to leave" : "UP/DOWN choose   ENTER / A play   ESC / B back", 640, 676, {15.0f, rgb(200, 200, 220), kInk},
     Align::Center);
 }
 
@@ -844,6 +857,7 @@ void Game::renderContinued()
   r.drawText(buf, 640, 370, {22.0f, t.hudText, kInk}, Align::Center, a);
   r.drawText("Stay tuned. Your progress and the Arsenal are saved.", 640, 410, {18.0f, rgb(200, 200, 220)},
     Align::Center, a);
+  tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::confirm); });
 }
 
 } // namespace gr

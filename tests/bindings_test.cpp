@@ -140,6 +140,7 @@ void touchLayout(Renderer& r)
 {
   TouchControls t(r, true);
   t.configure(TouchControls::Layout::Play, 1);
+  t.setThumbs(false); // the Jump and Fire buttons
   // Jump sits left of the corner (see touch_test.cpp): drag it 300 left.
   t.setEditing(true);
   t.touch(1, 988.0f, 628.0f);
@@ -147,7 +148,7 @@ void touchLayout(Renderer& r)
   t.release(1);
   check(t.takeLayoutChange(), "editor: dragging reports a change");
   const std::vector<int> layout = t.layout();
-  check(layout.size() == 12 && layout[2] == -300 && layout[3] == 0, "editor: jump moved 300 left");
+  check(layout.size() == 14 && layout[2] == -300 && layout[3] == 0, "editor: jump moved 300 left");
   check(!t.read().jump, "editor: dragging does not jump");
   t.touch(2, 760.0f, 352.0f); // DONE
   check(t.read().back, "editor: DONE reads as back");
@@ -156,6 +157,7 @@ void touchLayout(Renderer& r)
 
   TouchControls u(r, true);
   u.configure(TouchControls::Layout::Play, 1);
+  u.setThumbs(false); // the Jump and Fire buttons
   u.setLayout(layout);
   u.touch(3, 688.0f, 628.0f);
   check(u.read().jump, "play: jump answers at its new spot");
@@ -164,8 +166,9 @@ void touchLayout(Renderer& r)
   check(!u.read().jump, "play: the left half is still the stick");
   u.release(4);
   u.configure(TouchControls::Layout::Menu, 1);
+  u.setMenuPad(true);
   u.touch(5, 1160.0f, 580.0f);
-  check(u.read().confirm, "menus keep their own layout");
+  check(u.read().confirm, "the menu pad keeps its own layout");
 }
 
 } // namespace

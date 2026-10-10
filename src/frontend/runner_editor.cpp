@@ -1,6 +1,7 @@
 #include "frontend/runner_editor.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <random>
 
@@ -205,6 +206,37 @@ RunnerEditor::Result RunnerEditor::tick(bool ok, bool cancel, int dir, int side)
       change(row, 1);
       return Result::None;
   }
+}
+
+RunnerEditor::Tap RunnerEditor::tapAt(float x, float y)
+{
+  Tap tap;
+  if (mNaming)
+  {
+    // The key grid as renderNaming draws it.
+    const float gx = 300.0f, gy = 280.0f, cw = 68.0f, ch = 50.0f;
+    const int col = int(std::floor((x - gx) / cw)), row = int(std::floor((y - gy) / ch));
+    if (col < 0 || col >= kKeyCols || row < 0 || row > 4)
+      return tap;
+    mKey = row < 4 ? row * kKeyCols + col : (col < 3 ? kKeySpace : col < 6 ? kKeyDelete : kKeyDone);
+    tap.ok = true;
+    return tap;
+  }
+  const auto list = rows();
+  const int i = int(std::floor((y - (kRowY + 11.0f)) / kRowH));
+  if (x < 500.0f || x > 1242.0f || i < 0 || i >= int(list.size()))
+    return tap;
+  const Row row = list[std::size_t(i)];
+  if (i != mCursor)
+  {
+    mCursor = i;
+    mConfirmDelete = false;
+  }
+  if (row == Row::Name || row == Row::Randomize || row == Row::Save || row == Row::Delete)
+    tap.ok = true;
+  else if (x > 760.0f)
+    tap.side = x < 990.0f ? -1 : 1; // on the value: its left half steps back
+  return tap;
 }
 
 void RunnerEditor::typeText(const std::string& text)
@@ -426,11 +458,13 @@ void RunnerEditor::render(Renderer& r, const Art& art, const Theme& t, int frame
     }
     std::string value = rowValue(row);
     if (row == Row::Name && sel)
-      value += "   (ENTER / A TO TYPE)";
+      value += mTouchHints ? "   (TAP TO TYPE)" : "   (ENTER / A TO TYPE)";
     r.drawText(value, vx, y, {18.0f, sel ? rgb(255, 255, 255) : rgb(205, 205, 222), kInk}, Align::Center);
   }
 
-  r.drawText("UP/DOWN choose   LEFT/RIGHT change   ENTER / A select   ESC / B back without saving", 640, 690,
+  r.drawText(mTouchHints ? "TAP the left or right of a value to change it   BACK leaves without saving"
+                         : "UP/DOWN choose   LEFT/RIGHT change   ENTER / A select   ESC / B back without saving",
+    640, 690,
     {15.0f, rgb(210, 210, 228), kInk}, Align::Center);
   if (mNaming)
     renderNaming(r, t);
@@ -467,7 +501,9 @@ void RunnerEditor::renderNaming(Renderer& r, const Theme& t)
     r.drawText(specials[i], sx[i] + sw[i] * 0.5f, y + 11, {22.0f, sel ? rgb(255, 255, 255) : t.accentB, kInk, sel},
       Align::Center);
   }
-  r.drawText("Type on the keyboard, or pick letters with the arrows / d-pad.   ENTER done   ESC / B done", 640, 556,
+  r.drawText(mTouchHints ? "TAP the letters, then DONE"
+                         : "Type on the keyboard, or pick letters with the arrows / d-pad.   ENTER done   ESC / B done",
+    640, 556,
     {15.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 

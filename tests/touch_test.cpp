@@ -35,10 +35,12 @@ constexpr float kSwapX = 1160.0f, kSwapY = 420.0f;
 constexpr float kPauseX = 1224.0f, kPauseY = 120.0f;
 constexpr float kMapX = 1130.0f, kMapY = 120.0f;
 
+// The menu pad: shown when the player switched it on.
 void menuLayout(Renderer& r)
 {
   TouchControls t(r, true);
   t.configure(Layout::Menu, 1);
+  t.setMenuPad(true);
 
   t.touch(1, kStickX, kStickY - 80.0f);
   Input in = t.read();
@@ -69,11 +71,90 @@ void menuLayout(Renderer& r)
   t.touch(6, kMapX, kMapY);
   in = t.read();
   check(!in.swap && !in.pause && !in.map, "menu: no switch, pause or map buttons");
+  for (int f = 4; f <= 6; ++f)
+    t.release(f);
+  t.takeTaps();
+
+  // Away from the pad a finger still points at the menu.
+  t.touch(7, 640.0f, 300.0f);
+  t.release(7);
+  check(t.takeTaps().size() == 1 && !t.read().confirm, "menu pad: a tap between its controls picks an item");
+}
+
+// Without the menu pad (the default): taps, drags, a small BACK and the
+// pad button.
+void directTouch(Renderer& r)
+{
+  TouchControls t(r, true);
+  t.configure(Layout::Menu, 1);
+  check(!t.menuPad(), "direct: the menu pad starts hidden");
+
+  t.touch(1, 640.0f, 300.0f);
+  Input in = t.read();
+  check(!in.confirm && !in.up && !in.back, "direct: a finger on an item presses nothing");
+  check(t.takeTaps().empty(), "direct: ...and is no tap until it lifts");
+  t.release(1);
+  auto taps = t.takeTaps();
+  check(taps.size() == 1 && taps[0].x == 640.0f && taps[0].y == 300.0f, "direct: lifting it taps there");
+  check(t.takeTaps().empty(), "direct: ...once");
+
+  t.touch(2, kStickX, kStickY - 80.0f);
+  check(!t.read().up, "direct: no d-pad where the menu pad would be");
+  t.release(2);
+  check(t.takeTaps().size() == 1, "direct: ...that spot taps too");
+
+  t.touch(3, 640.0f, 400.0f);
+  t.slide(3, 640.0f, 410.0f);
+  t.release(3);
+  check(t.takeTaps().size() == 1, "direct: a finger that wobbles a little still taps");
+
+  t.touch(4, 640.0f, 400.0f);
+  t.slide(4, 640.0f, 360.0f);
+  t.slide(4, 600.0f, 300.0f);
+  const SDL_FPoint d = t.takeDrag();
+  check(d.x == -40.0f && d.y == -100.0f, "direct: a drag reports how far it went");
+  t.slide(4, 600.0f, 280.0f);
+  check(t.takeDrag().y == -20.0f, "direct: ...since the last call");
+  t.release(4);
+  check(t.takeTaps().empty(), "direct: a drag is no tap");
+
+  t.touch(5, 56.0f, 56.0f);
+  in = t.read();
+  check(in.back && !in.fire && !in.confirm, "direct: the small BACK in the corner backs out");
+  t.release(5);
+  check(t.takeTaps().empty(), "direct: ...and taps nothing");
+
+  t.touch(6, 56.0f, 664.0f);
+  check(t.menuPad() && t.takeMenuPadChange(), "direct: the pad button brings the menu pad");
+  check(!t.takeMenuPadChange(), "direct: ...one change");
+  t.release(6);
+  check(t.takeTaps().empty(), "direct: ...and taps nothing");
+  t.touch(7, kStickX, kStickY - 80.0f);
+  check(t.read().up, "direct: the menu pad's d-pad works then");
+  t.release(7);
+  t.touch(8, 56.0f, 664.0f);
+  t.release(8);
+  check(!t.menuPad(), "direct: the pad button hides it again");
+
+  // A menu that closes under the finger takes no tap, and the finger
+  // does nothing in the level.
+  t.touch(9, 900.0f, 300.0f);
+  t.configure(Layout::Play, 1);
+  t.slide(9, 900.0f, 150.0f, 100);
+  in = t.read();
+  check(!in.jump && !in.swap, "direct: a menu finger does nothing in a level");
+  t.release(9);
+  check(t.takeTaps().empty() && t.takeDrag().y == 0.0f, "direct: ...and taps nothing");
+
+  t.touch(10, 640.0f, 300.0f);
+  t.release(10);
+  check(t.takeTaps().empty(), "direct: in a level a touch is no tap");
 }
 
 void playLayout(Renderer& r)
 {
   TouchControls t(r, true);
+  t.setThumbs(false); // the Jump and Fire buttons
   t.configure(Layout::Play, 1);
 
   // The stick centres where the thumb lands.
@@ -118,6 +199,7 @@ void playLayout(Renderer& r)
 void sizes(Renderer& r)
 {
   TouchControls t(r, true);
+  t.setThumbs(false); // the Jump and Fire buttons
   // Large: the jump button grows towards the screen's middle.
   t.configure(Layout::Play, 2);
   t.touch(1, 1280.0f - 120.0f * 1.2f, 720.0f - 140.0f * 1.2f);
@@ -136,6 +218,7 @@ void sizes(Renderer& r)
 void forgiving(Renderer& r)
 {
   TouchControls t(r, true);
+  t.setThumbs(false); // the Jump and Fire buttons
   t.configure(Layout::Play, 1);
 
   t.touch(1, 1276.0f, 712.0f);
@@ -165,6 +248,7 @@ void forgiving(Renderer& r)
 void letterbox(Renderer& r)
 {
   TouchControls t(r, true);
+  t.setThumbs(false); // the Jump and Fire buttons
   t.configure(Layout::Play, 1);
   t.setScreen(2400, 1080); // 20:9: 160 logical units of bar on each side
   SDL_Event ev{};
@@ -188,6 +272,7 @@ void letterbox(Renderer& r)
 void swipes(Renderer& r)
 {
   TouchControls t(r, true);
+  t.setThumbs(false); // the Jump and Fire buttons
   t.configure(Layout::Play, 1);
 
   t.touch(1, kPlayFireX, kPlayFireY, 0);
@@ -215,11 +300,140 @@ void swipes(Renderer& r)
   t.release(3);
 
   t.configure(Layout::Menu, 1);
+  t.setMenuPad(true);
   t.touch(4, kFireX, kFireY, 3000); // BACK
   t.slide(4, kFireX, kFireY - 100.0f, 3100);
   in = t.read();
   check(!in.jump && !in.confirm, "menus: no swipes");
   t.release(4);
+}
+
+// The thumbs scheme: the left thumb moves, crouches and jumps; the right
+// thumb shoots, aimed the way it last flicked; the rest sits along the top.
+void thumbs(Renderer& r)
+{
+  TouchControls t(r, true);
+  t.configure(Layout::Play, 1);
+  check(t.thumbs(), "thumbs: the default scheme");
+
+  t.touch(1, 300.0f, 400.0f, 0);
+  t.slide(1, 380.0f, 400.0f, 10);
+  Input in = t.read();
+  check(in.right && !in.jump && !in.fire, "thumbs: the left thumb walks");
+  t.slide(1, 300.0f, 480.0f, 20);
+  in = t.read();
+  check(in.down && !in.jump, "thumbs: ...down crouches");
+  t.slide(1, 300.0f, 320.0f, 30);
+  in = t.read();
+  check(in.jump && in.upJump && in.up, "thumbs: ...up jumps");
+  t.slide(1, 360.0f, 340.0f, 40);
+  in = t.read();
+  check(in.jump && in.right, "thumbs: ...up and over is a running jump");
+  t.slide(1, 300.0f, 320.0f, 50);
+  t.slide(1, 300.0f, 400.0f, 60);
+  t.read();
+  t.slide(1, 300.0f, 320.0f, 70);
+  t.slide(1, 300.0f, 400.0f, 80);
+  check(t.read().jump, "thumbs: a flick up between two ticks still jumps");
+  t.release(1);
+
+  t.advance(1000);
+  t.touch(2, 900.0f, 400.0f, 1000);
+  in = t.read();
+  check(!in.fire, "thumbs: a right touch waits a moment for a flick");
+  t.advance(1060);
+  in = t.read();
+  check(in.fire && !in.up && !in.down && !in.aimLeft && !in.aimRight && !in.jump,
+    "thumbs: ...then fires the way the runner faces");
+  t.advance(1500);
+  check(t.read().fire, "thumbs: ...and keeps firing while held");
+  t.release(2);
+  check(!t.read().fire, "thumbs: lifting stops");
+
+  t.touch(3, 900.0f, 400.0f, 2000);
+  t.release(3);
+  check(t.read().fire, "thumbs: a quick tap still fires once");
+  check(!t.read().fire, "thumbs: ...once");
+
+  t.touch(4, 900.0f, 500.0f, 3000);
+  t.slide(4, 900.0f, 420.0f, 3030);
+  in = t.read();
+  check(in.fire && in.up && !in.jump && t.aim() == TouchControls::kAimUp, "thumbs: a flick up fires upwards");
+  t.advance(3500);
+  in = t.read();
+  check(in.fire && in.up, "thumbs: ...and keeps aiming up");
+  t.slide(4, 900.0f, 420.0f, 3600);
+  t.slide(4, 820.0f, 420.0f, 3650);
+  in = t.read();
+  check(!in.fire && t.aim() == TouchControls::kAimLeft, "thumbs: a flick left lets go of fire for a tick");
+  in = t.read();
+  check(in.fire && in.aimLeft && !in.up && !in.left, "thumbs: ...then fires left");
+  t.release(4);
+
+  t.touch(5, 1000.0f, 300.0f, 5000);
+  t.advance(5060);
+  in = t.read();
+  check(in.fire && in.aimLeft, "thumbs: the aim stays for the next touch");
+  t.release(5);
+  t.touch(6, 1000.0f, 300.0f, 6000);
+  t.slide(6, 1000.0f, 380.0f, 6040);
+  in = t.read();
+  check(in.fire && in.down && t.aim() == TouchControls::kAimDown, "thumbs: a flick down fires low");
+  t.release(6);
+  t.read();
+
+  // Two thumbs: walk, jump and shoot at once.
+  t.touch(7, 300.0f, 400.0f, 7000);
+  t.slide(7, 360.0f, 330.0f, 7010);
+  t.touch(8, 1000.0f, 400.0f, 7010);
+  t.advance(7100);
+  in = t.read();
+  check(in.right && in.jump && in.fire, "thumbs: walk, jump and shoot together");
+  t.release(7);
+  t.release(8);
+
+  // The other buttons sit along the top, away from both thumbs.
+  t.touch(9, 1280.0f - 244.0f, 120.0f, 8000);
+  in = t.read();
+  check(in.swap && !in.fire, "thumbs: switch runner is at the top");
+  t.release(9);
+  t.touch(10, 1280.0f - 338.0f, 120.0f, 8100);
+  in = t.read();
+  check(in.use && !in.fire, "thumbs: so is use (vehicles)");
+  t.release(10);
+  t.touch(11, kMapX, kMapY, 8200);
+  check(t.read().map, "thumbs: and the map");
+  t.release(11);
+  t.touch(12, kPauseX, kPauseY, 8300);
+  check(t.read().pause, "thumbs: and pause");
+  t.release(12);
+  t.touch(13, kSwapX, kSwapY, 8400);
+  t.advance(8500);
+  in = t.read();
+  check(in.fire && !in.swap, "thumbs: where switch was, the right thumb now shoots");
+  t.release(13);
+  t.read();
+
+  // A thumb held when a menu opens does nothing there.
+  t.touch(14, 900.0f, 500.0f, 9000);
+  t.advance(9100);
+  t.configure(Layout::Menu, 1);
+  in = t.read();
+  check(!in.back && !in.fire && !in.confirm, "thumbs: a held thumb does nothing in a menu");
+  t.release(14);
+  check(t.takeTaps().empty() && !t.read().fire, "thumbs: ...nor when it lifts");
+
+  t.setThumbs(false);
+  t.configure(Layout::Play, 1);
+  t.touch(15, 640.0f + 20.0f, 300.0f, 10000);
+  t.advance(10200);
+  check(!t.read().fire, "buttons: an empty spot does not fire");
+  t.release(15);
+  t.touch(16, 300.0f, 400.0f, 10300);
+  t.slide(16, 300.0f, 320.0f, 10310);
+  in = t.read();
+  check(in.up && !in.jump, "buttons: the stick up does not jump");
+  t.release(16);
 }
 
 void visibility(Renderer& r)
@@ -247,11 +461,13 @@ int main()
   {
     Renderer r(sdl);
     menuLayout(r);
+    directTouch(r);
     playLayout(r);
     sizes(r);
     forgiving(r);
     letterbox(r);
     swipes(r);
+    thumbs(r);
     visibility(r);
     // Drawing both layouts at every size must not trip anything.
     TouchControls t(r, true);

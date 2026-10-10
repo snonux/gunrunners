@@ -30,6 +30,17 @@ public:
   };
   // Menu input edges: OK, back, up/down (dir) and left/right (side).
   Result tick(bool ok, bool cancel, int dir, int side);
+  // A tap at a point of the screen: picks the row (or the key) under it,
+  // and says whether that acts like OK, or like left/right on a value
+  // (a tap left of a value's middle steps it back).
+  struct Tap
+  {
+    bool ok = false;
+    int side = 0;
+  };
+  Tap tapAt(float x, float y);
+  // The help lines talk about taps instead of keys.
+  void setTouchHints(bool on) { mTouchHints = on; }
   // Typing on a real keyboard while the name is being entered.
   bool naming() const { return mNaming; }
   void typeText(const std::string& text);
@@ -87,6 +98,7 @@ private:
   int mPips[3];
   int mCursor = 0;
   bool mConfirmDelete = false;
+  bool mTouchHints = false;
 
   bool mNaming = false;
   int mKey = 0; // on-screen keyboard: 0-39 the characters, then SPACE, DEL, DONE

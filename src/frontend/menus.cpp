@@ -469,6 +469,9 @@ void Game::renderMenu()
   const auto& t = theme();
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, 140));
   const TextStyle hint{16.0f, rgb(190, 188, 214), kInk};
+  // The menu covers the screen under it: only its own items take taps.
+  clearTapTargets();
+  const bool touch = mOptions.touch;
 
   if (mMenu == Menu::Map)
   {
@@ -491,6 +494,10 @@ void Game::renderMenu()
     {
       const bool sel = i == mCheatCursor;
       const float y = 208.0f + float(i) * step;
+      tapTarget(400, y - 6, 480, step, [this, i](float, float) {
+        mCheatCursor = i;
+        tapPress(&Input::confirm);
+      });
       if (sel)
         r.fillRect(420, y - 4, 440, step - 4, withAlpha(t.accentB, 60));
       std::string label = kCheatLabels[i];
@@ -499,7 +506,7 @@ void Game::renderMenu()
       r.drawText(label, 640, y, {22.0f, sel ? t.accentB : t.hudText, kInk, sel}, Align::Center);
     }
     r.drawText("Cheating forfeits this level's bonuses and records.", 640, 522, hint, Align::Center);
-    r.drawText("ENTER / A use   ESC / B back", 640, 560, hint, Align::Center);
+    r.drawText(touch ? "TAP to use   BACK to leave" : "ENTER / A use   ESC / B back", 640, 560, hint, Align::Center);
     return;
   }
 
@@ -516,6 +523,10 @@ void Game::renderMenu()
     {
       const bool sel = i == mMenuCursor;
       const float y = 206.0f + float(i) * step;
+      tapTarget(400, y + 15 - step * 0.5f, 480, step, [this, i](float, float) {
+        mMenuCursor = i;
+        tapPress(&Input::confirm);
+      });
       if (sel)
       {
         r.fillRect(420, y - 6, 440, std::min(42.0f, step - 2.0f), withAlpha(t.accentA, 60));
@@ -528,7 +539,8 @@ void Game::renderMenu()
       r.drawText(label, 640, y, {size, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);
     }
-    r.drawText("UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 566, hint, Align::Center);
+    r.drawText(touch ? "TAP to choose   BACK to resume" : "UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 566,
+      hint, Align::Center);
     return;
   }
 
@@ -547,6 +559,16 @@ void Game::renderMenu()
       const auto& def = characterByIndex(i);
       const bool sel = k == 0;
       const float x = 640.0f + float(k) * 170.0f;
+      // A tap on the middle runner swaps to it, on a side one turns to it.
+      tapTarget(x - 85, 190, 170, 230, [this, k](float, float) {
+        if (k == 0)
+        {
+          tapPress(&Input::confirm);
+          return;
+        }
+        mRunnerCursor = (mRunnerCursor + k + characterCount()) % characterCount();
+        sound(Sfx::MenuMove);
+      });
       if (sel)
         drawGlow(r, *mArt, x, 330, 120, t.accentA, 0.35f);
       DrawOpts o;
@@ -562,7 +584,9 @@ void Game::renderMenu()
     std::snprintf(count, sizeof(count), "< %d / %d >", mRunnerCursor + 1, n);
     r.drawText(count, 640, 424, {18.0f, t.accentB, kInk, true}, Align::Center);
     r.drawText("Health carries over as a share of the new runner's hearts.", 640, 466, hint, Align::Center);
-    r.drawText("LEFT/RIGHT choose   ENTER / A swap   ESC / B back", 640, 560, hint, Align::Center);
+    r.drawText(touch ? "TAP the middle runner to swap   BACK to leave"
+                     : "LEFT/RIGHT choose   ENTER / A swap   ESC / B back",
+      640, 560, hint, Align::Center);
     return;
   }
 
@@ -574,6 +598,17 @@ void Game::renderMenu()
   {
     const bool sel = i == mSlotCursor;
     const float y = 196.0f + float(i) * 70.0f;
+    // Loading takes one tap; saving over a slot takes a second one on it.
+    tapTarget(180, y - 5, 920, 70, [this, i](float, float) {
+      if (mSlotsForSave && i != mSlotCursor)
+      {
+        mSlotCursor = i;
+        sound(Sfx::MenuMove);
+        return;
+      }
+      mSlotCursor = i;
+      tapPress(&Input::confirm);
+    });
     r.fillRect(180, y, 920, 60, sel ? withAlpha(t.accentA, 70) : rgba(255, 255, 255, 18));
     std::snprintf(buf, sizeof(buf), "%d", i + 1);
     r.drawText(buf, 214, y + 12, {30.0f, sel ? t.accentA : t.hudText, kInk, true}, Align::Center);
@@ -594,8 +629,11 @@ void Game::renderMenu()
     r.drawText(buf, 640, y + 8, {20.0f, t.hudText, kInk});
     r.drawText(s->savedAt, 1080, y + 34, {15.0f, rgb(190, 188, 214)}, Align::Right);
   }
-  r.drawText(mSlotsForSave ? "ENTER / A save here (overwrites)   ESC / B back" : "ENTER / A load   ESC / B back", 640, 570,
-    hint, Align::Center);
+  const char* help = touch ? (mSlotsForSave ? "TAP a slot, TAP it again to save there (overwrites)   BACK to leave"
+                                             : "TAP a save to load it   BACK to leave")
+                           : (mSlotsForSave ? "ENTER / A save here (overwrites)   ESC / B back"
+                                             : "ENTER / A load   ESC / B back");
+  r.drawText(help, 640, 570, hint, Align::Center);
 }
 
 } // namespace gr

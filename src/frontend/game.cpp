@@ -169,8 +169,9 @@ void Game::startLevel()
   playLevelMusic();
 }
 
-bool Game::tick(const Input& raw)
+bool Game::tick(const Input& input)
 {
+  const Input raw = input | takeTapInput();
   ++mFrame;
   ++mModeTicks;
   if (mNoticeTicks > 0)
@@ -303,6 +304,15 @@ void Game::tickPlay(const Input& raw)
       mBotInput = mBot.play(*mWorld);
     in = mBotInput | raw;
   }
+  // Touch (thumbs): the stick pushed up jumps, but on a ladder it climbs
+  // (a diagonal still jumps off).
+  const auto& player = mWorld->player();
+  if (in.upJump && player.state == PlayerState::Ladder && !in.left && !in.right)
+    in.jump = false;
+  // A shot aimed left or right turns the runner that way first, unless the
+  // stick is steering (turning on the spot takes one logic frame).
+  if (in.fire && (in.aimLeft || in.aimRight) && !in.left && !in.right && player.facing != (in.aimLeft ? -1 : 1))
+    (in.aimLeft ? in.left : in.right) = true;
   mLatched.left = in.left;
   mLatched.right = in.right;
   mLatched.up = in.up;
@@ -425,6 +435,7 @@ float Game::renderAlpha() const
 
 void Game::render()
 {
+  clearTapTargets();
   mRenderer.beginFrame();
   mRenderer.clear(rgb(0, 0, 0));
   const float alpha = renderAlpha();
@@ -436,6 +447,7 @@ void Game::render()
     case Mode::Cutscene:
       if (mCutscene && mClipKit)
         mCutscene->render(*mClipKit);
+      tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::confirm); });
       break;
     case Mode::Arsenal:
       renderArsenal();
@@ -459,6 +471,7 @@ void Game::render()
     case Mode::Bonus:
       mWorld->draw(mRenderer, mFrame, 0.0f);
       renderBonus();
+      tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::confirm); });
       break;
   }
   if (mMenu != Menu::None)

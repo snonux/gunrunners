@@ -53,6 +53,18 @@ constexpr float kPauseFromRight = 56.0f;
 constexpr float kPauseY = 120.0f;
 constexpr float kPauseR = 36.0f;
 constexpr float kMapFromRight = 150.0f;
+// Menus without the menu pad: a small BACK in the top left corner and the
+// pad button in the bottom left, this far from the corners.
+constexpr float kCornerInset = 56.0f;
+// A menu touch that moves less than this is a tap; further, a drag.
+constexpr float kTapSlop = 18.0f;
+// Thumbs: a touch on the right waits this long for a flick before it
+// fires; a flick is this far (at medium size) within kSwipeMs.
+constexpr Uint32 kAimWindowMs = 50;
+constexpr float kAimFlick = 60.0f;
+// Thumbs: Switch runner and Use join Map and Pause along the top.
+constexpr float kSwapTopFromRight = 244.0f;
+constexpr float kUseFromRight = 338.0f;
 
 constexpr Color kNeon = rgb(46, 242, 255);
 constexpr Color kPink = rgb(255, 46, 196);
@@ -183,6 +195,27 @@ Texture bakeIcon(Renderer& renderer, float r, Color col, int icon)
         cairo_fill(cr);
         break;
       }
+      case 8: // use a vehicle: a steering wheel
+        cairo_set_line_width(cr, rr * 0.12);
+        cairo_arc(cr, c, c, s * 0.85, 0.0, 2.0 * M_PI);
+        cairo_stroke(cr);
+        for (int i = 0; i < 3; ++i)
+        {
+          const double a = M_PI * 0.5 + i * M_PI * 2.0 / 3.0;
+          cairo_move_to(cr, c, c);
+          cairo_line_to(cr, c + std::cos(a) * s * 0.85, c + std::sin(a) * s * 0.85);
+        }
+        cairo_stroke(cr);
+        break;
+      case 7: // the menu pad: a d-pad's cross
+        for (int i = 0; i < 4; ++i)
+        {
+          const double a = i * M_PI * 0.5;
+          triangle(cr, c + std::cos(a) * s * 0.75, c + std::sin(a) * s * 0.75, s * 0.4, a);
+        }
+        cairo_arc(cr, c, c, s * 0.18, 0.0, 2.0 * M_PI);
+        cairo_fill(cr);
+        break;
       default: // BACK: an arrow pointing left
         cairo_set_line_width(cr, rr * 0.14);
         cairo_move_to(cr, c + s, c);
@@ -203,16 +236,32 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
   , mNub(bakeNub(renderer))
   , mOk(bakeIcon(renderer, kSpecs[kCorner].r, kGold, 4))
   , mBack(bakeIcon(renderer, kSpecs[kInner].r, kPink, 5))
+  , mPadIcon(bakeIcon(renderer, kPauseR, kNeon, 7))
 {
   mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[kInner].r, kNeon, 0);
   mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kCorner].r, kPink, 1);
   mPlayIcons[kSwap] = bakeIcon(renderer, kSpecs[2].r, kNeon, 2);
   mPlayIcons[kPause] = bakeIcon(renderer, kPauseR, kNeon, 3);
   mPlayIcons[kMap] = bakeIcon(renderer, kPauseR, kGold, 6);
+  mPlayIcons[kUse] = bakeIcon(renderer, kPauseR, kGold, 8);
+  // Thumbs: where the right thumb aims, beside the fire mark.
+  const double angles[4] = {-M_PI * 0.5, M_PI * 0.5, M_PI, 0.0};
+  for (int i = 0; i < 4; ++i)
+    mAimArrows[std::size_t(i)] = bake(renderer, 18.0f, [a = angles[i]](cairo_t* cr, double c, double r) {
+      setColor(cr, kPink);
+      triangle(cr, c, c, r * 0.9, a);
+    });
 }
 
 void TouchControls::configure(Layout layout, int size)
 {
+  // A finger pointing at a menu that just went away taps nothing.
+  if (layout != mLayout)
+    for (auto& f : mFingers)
+    {
+      f.dragging = true;
+      f.shooter = f.firing = false;
+    }
   mLayout = layout;
   mScale = kSizes[std::clamp(size, 0, 2)];
 }
@@ -252,12 +301,31 @@ TouchControls::Circle TouchControls::stickHome() const
   return place({mLeft + kStickFromLeft * mScale, mBottom - kStickFromBottom * mScale, kStickR * mScale}, 0);
 }
 
+bool TouchControls::menuPadShown() const
+{
+  return mLayout == Layout::Menu && !mEditing && mMenuPad;
+}
+
+TouchControls::Circle TouchControls::padToggle() const
+{
+  return {mLeft + kCornerInset * mScale, mBottom - kCornerInset * mScale, kPauseR * mScale};
+}
+
 TouchControls::Circle TouchControls::button(int b) const
 {
-  if (b == kPause || b == kMap)
-    return place({mRight - (b == kPause ? kPauseFromRight : kMapFromRight) * mScale, std::max(mTop, 0.0f) + kPauseY,
-                   kPauseR * mScale},
-      1 + b);
+  // Menus without the menu pad keep a small BACK, out of the way.
+  if (b == kFire && mLayout == Layout::Menu && !mEditing && !mMenuPad)
+    return {mLeft + kCornerInset * mScale, mTop + kCornerInset * mScale, kPauseR * mScale};
+  // The row along the top: Pause, Map, then (thumbs) Switch runner, and Use.
+  const bool topSwap = b == kSwap && mThumbs && (mLayout == Layout::Play || mEditing);
+  if (b == kPause || b == kMap || b == kUse || topSwap)
+  {
+    const float from = b == kPause ? kPauseFromRight
+      : b == kMap                 ? kMapFromRight
+      : topSwap                   ? kSwapTopFromRight
+                                  : (mThumbs ? kUseFromRight : kSwapTopFromRight);
+    return place({mRight - from * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale}, 1 + b);
+  }
   int slot = b;
   if (b == kJump || b == kFire)
     slot = (b == kJump) == (mLayout == Layout::Menu && !mEditing) ? kCorner : kInner;
@@ -331,6 +399,8 @@ void TouchControls::editPress(Finger& f)
   float best = 1e9f;
   for (int e = 0; e < 1 + kButtonCount; ++e)
   {
+    if (e > 0 && !buttonShown(e - 1))
+      continue;
     const Circle c = e == 0 ? stickHome() : button(e - 1);
     const float d = std::hypot(f.x - c.x, f.y - c.y);
     if (d < c.r * 1.3f && d / c.r < best)
@@ -358,7 +428,75 @@ void TouchControls::editMove(const Finger& f)
 
 bool TouchControls::buttonShown(int b) const
 {
-  return mLayout == Layout::Play || b == kJump || b == kFire;
+  if (mLayout == Layout::Play || mEditing)
+    return !(mThumbs && (b == kJump || b == kFire));
+  return (b == kJump && mMenuPad) || b == kFire;
+}
+
+void TouchControls::advance(Uint32 now)
+{
+  mNow = now;
+  // No flick came: the right thumb fires the way it already aims.
+  for (auto& f : mFingers)
+    if (f.shooter && !f.firing && now >= f.downAt + kAimWindowMs)
+      f.firing = true;
+}
+
+void TouchControls::aimFlick(Finger& f)
+{
+  // Measured from a start point that follows the finger, so only a quick
+  // flick counts, at any point while the finger is down.
+  if (mNow - f.st > kSwipeMs)
+  {
+    f.sx = f.x;
+    f.sy = f.y;
+    f.st = mNow;
+    return;
+  }
+  const float dx = f.x - f.sx, dy = f.y - f.sy;
+  if (std::max(std::fabs(dx), std::fabs(dy)) < kAimFlick * mScale)
+    return;
+  mAim = std::fabs(dy) >= std::fabs(dx) ? (dy < 0.0f ? kAimUp : kAimDown) : (dx < 0.0f ? kAimLeft : kAimRight);
+  // Fire now, or (already firing) let go for a tick so this shot goes the
+  // new way.
+  if (f.firing)
+    f.fireGap = 1;
+  f.firing = true;
+  f.sx = f.x;
+  f.sy = f.y;
+  f.st = mNow;
+}
+
+Input TouchControls::aimed() const
+{
+  Input in;
+  in.fire = true;
+  in.up = mAim == kAimUp;
+  in.down = mAim == kAimDown;
+  in.aimLeft = mAim == kAimLeft;
+  in.aimRight = mAim == kAimRight;
+  return in;
+}
+
+std::vector<SDL_FPoint> TouchControls::takeTaps()
+{
+  std::vector<SDL_FPoint> taps;
+  taps.swap(mTaps);
+  return taps;
+}
+
+SDL_FPoint TouchControls::takeDrag()
+{
+  const SDL_FPoint d = mDrag;
+  mDrag = {0.0f, 0.0f};
+  return d;
+}
+
+bool TouchControls::takeMenuPadChange()
+{
+  const bool c = mMenuPadChanged;
+  mMenuPadChanged = false;
+  return c;
 }
 
 void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
@@ -411,6 +549,39 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
     mFingers.push_back(f);
     return;
   }
+  if (mLayout == Layout::Menu)
+  {
+    // The pad button switches the menu pad; the finger does nothing more.
+    const Circle t = padToggle();
+    if (std::hypot(x - t.x, y - t.y) < t.r * 1.4f)
+    {
+      mMenuPad = !mMenuPad;
+      mMenuPadChanged = true;
+      f.stick = false;
+      f.pointer = f.dragging = true;
+      mFingers.push_back(f);
+      return;
+    }
+    // The menu pad's d-pad takes a touch on it, a button one near it, and
+    // anything else points at the menu.
+    const Circle home = stickHome();
+    f.stick = mMenuPad && std::hypot(x - home.x, y - home.y) < home.r * 1.3f;
+    if (!f.stick)
+    {
+      f.button = buttonFor(x, y);
+      f.pointer = f.button < 0;
+      f.px = x;
+      f.py = y;
+    }
+    if (f.stick)
+    {
+      f.ox = home.x;
+      f.oy = home.y;
+    }
+    mFingers.push_back(f);
+    mTapped = mTapped | held();
+    return;
+  }
   // A button moved onto the left half still takes a touch right on it.
   if (f.stick)
     for (int b = 0; b < kButtonCount; ++b)
@@ -420,6 +591,8 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
         f.stick = false;
     }
   const Circle home = stickHome();
+  if (mLayout == Layout::Play)
+    mThumbsUsed = true; // the first touch in a level puts the hint away
   if (f.stick && mLayout == Layout::Play)
   {
     // The stick centres under the thumb, kept clear of the screen's edges
@@ -428,14 +601,15 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
     f.ox = std::clamp(x, mLeft + m, float(kScreenW) * 0.5f - m);
     f.oy = std::clamp(y, std::max(mTop, 0.0f) + 110.0f + m, mBottom - m);
   }
-  else if (f.stick)
-  {
-    f.ox = home.x;
-    f.oy = home.y;
-  }
   else
   {
     f.button = buttonFor(x, y);
+    // Thumbs: anywhere else on the right half shoots.
+    if (f.button < 0 && mThumbs && mLayout == Layout::Play)
+    {
+      f.shooter = true;
+      f.downAt = mNow;
+    }
   }
   mFingers.push_back(f);
   mTapped = mTapped | held();
@@ -449,6 +623,20 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
       continue;
     f.x = x;
     f.y = y;
+    if (f.pointer)
+    {
+      // Past the slop a tap becomes a drag, reported from where it started.
+      if (!f.dragging && std::hypot(x - f.sx, y - f.sy) > kTapSlop)
+        f.dragging = true;
+      if (f.dragging && mLayout == Layout::Menu)
+      {
+        mDrag.x += x - f.px;
+        mDrag.y += y - f.py;
+        f.px = x;
+        f.py = y;
+      }
+      continue;
+    }
     if (mEditing)
       editMove(f);
     else if (f.stick && mLayout == Layout::Play)
@@ -461,6 +649,13 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
         f.ox = x - dx * leash / d;
         f.oy = y - dy * leash / d;
       }
+      // Thumbs: a quick flick up between two ticks still jumps.
+      if (mThumbs)
+        mTapped = mTapped | held();
+    }
+    else if (f.shooter)
+    {
+      aimFlick(f);
     }
     else if (!f.stick)
     {
@@ -477,7 +672,7 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
 
 void TouchControls::swipe(Finger& f)
 {
-  if (mLayout != Layout::Play)
+  if (mLayout != Layout::Play || mThumbs)
     return;
   // Measured from a start point that follows the finger, so only a quick
   // flick counts, at any point while the finger is down.
@@ -508,6 +703,14 @@ void TouchControls::swipe(Finger& f)
 
 void TouchControls::lift(SDL_FingerID id)
 {
+  for (const auto& f : mFingers)
+  {
+    if (f.id == id && f.pointer && !f.dragging && mLayout == Layout::Menu)
+      mTaps.push_back({f.sx, f.sy});
+    // A quick tap (or flick) on the right that no read() saw fire: a shot.
+    if (f.id == id && f.shooter && !f.fired)
+      mTapped = mTapped | aimed();
+  }
   mFingers.erase(
     std::remove_if(mFingers.begin(), mFingers.end(), [id](const Finger& f) { return f.id == id; }),
     mFingers.end());
@@ -524,7 +727,10 @@ int TouchControls::buttonFor(float x, float y) const
       continue;
     const Circle c = button(b);
     const float gap = std::hypot(x - c.x, y - c.y) - c.r;
-    const float reach = (b == kPause || b == kMap ? kPauseReach : kReach) * c.r;
+    // The row along the top only answers touches close to it.
+    const bool small = b == kPause || b == kMap || b == kUse || (mLayout == Layout::Menu && !mEditing && !mMenuPad) ||
+      (b == kSwap && mThumbs && mLayout == Layout::Play && !mEditing);
+    const float reach = (small ? kPauseReach : kReach) * c.r;
     if (gap < reach && (best < 0 || gap < bestGap))
     {
       best = b;
@@ -585,6 +791,8 @@ Input TouchControls::held() const
       in.down = in.down || dy > 0.0f;
     }
   }
+  // Thumbs: pushing the stick up jumps (Game climbs a ladder instead).
+  const bool stickJump = mThumbs && mLayout == Layout::Play && !mEditing && in.up;
   // Jump also confirms (OK in menus) and Fire also backs out of menus. In
   // menus the two shown buttons are OK and BACK only, so BACK can't fire a
   // stray shot.
@@ -595,6 +803,15 @@ Input TouchControls::held() const
     in.swap = buttonHeld(kSwap);
     in.pause = buttonHeld(kPause);
     in.map = buttonHeld(kMap);
+    in.use = buttonHeld(kUse);
+    if (stickJump)
+      in.jump = in.upJump = true;
+    for (const auto& f : mFingers)
+      if (f.shooter && f.firing && f.fireGap == 0 && !mEditing)
+      {
+        in = in | aimed();
+        break;
+      }
   }
   else
   {
@@ -607,6 +824,15 @@ Input TouchControls::read()
 {
   const Input in = mEditing ? mTapped : held() | mTapped;
   mTapped = Input{};
+  for (auto& f : mFingers)
+  {
+    if (!f.shooter || !f.firing)
+      continue;
+    if (f.fireGap > 0)
+      --f.fireGap;
+    else
+      f.fired = true;
+  }
   return in;
 }
 
@@ -669,7 +895,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     renderer.draw(mNub, sx + f.ox + dx, sy + f.oy + dy, n);
     stickDrawn = true;
   }
-  if (!stickDrawn)
+  if (!stickDrawn && (play || mMenuPad))
   {
     DrawOpts o;
     o.scale = scale;
@@ -684,12 +910,62 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
       continue;
     const Circle c = button(b);
     const bool held = buttonHeld(b) || grabbed(1 + b);
+    // The radius each icon was baked for (the menus' small BACK is smaller).
+    const float baked = !play ? kSpecs[b == kJump ? kCorner : kInner].r
+      : b == kPause || b == kMap || b == kUse ? kPauseR
+      : b == kSwap             ? kSpecs[2].r
+                               : kSpecs[b == kFire ? kCorner : kInner].r;
     DrawOpts o;
     o.alpha = held ? 0.95f : idle;
-    o.scale = scale * (held ? 0.92f : 1.0f);
+    o.scale = scale * c.r / (mScale * baked) * (held ? 0.92f : 1.0f);
     o.cull = false;
     const Texture& t = play ? mPlayIcons[std::size_t(b)] : (b == kJump ? mOk : mBack);
     renderer.draw(t, sx + c.x, sy + c.y, o);
+  }
+
+  // Thumbs: a fire mark in the right thumb's corner shows where it aims,
+  // and until the first touch a hint says how the thumbs work.
+  if (mLayout == Layout::Play && mThumbs && !mEditing)
+  {
+    bool firing = false;
+    for (const auto& f : mFingers)
+      firing = firing || (f.shooter && f.firing);
+    const ButtonSpec& spec = kSpecs[kCorner];
+    const float mx = mRight - spec.fromRight * mScale, my = mBottom - spec.fromBottom * mScale;
+    DrawOpts o;
+    o.alpha = firing ? 0.9f : idle;
+    o.scale = scale * (firing ? 0.92f : 1.0f);
+    o.cull = false;
+    renderer.draw(mPlayIcons[kFire], sx + mx, sy + my, o);
+    if (mAim != kAimAhead)
+    {
+      static const float kDir[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+      const float* d = kDir[mAim - 1];
+      const float off = (spec.r + 22.0f) * mScale;
+      DrawOpts a;
+      a.alpha = 0.9f;
+      a.scale = scale;
+      a.cull = false;
+      renderer.draw(mAimArrows[std::size_t(mAim - 1)], sx + mx + d[0] * off, sy + my + d[1] * off, a);
+    }
+    if (!mThumbsUsed)
+    {
+      const TextStyle hint{22.0f, rgb(255, 255, 255), rgb(16, 12, 26), true};
+      const Circle home = stickHome();
+      renderer.drawText("MOVE  -  UP JUMPS", sx + home.x, sy + home.y - home.r - 44.0f, hint, Align::Center, 0.75f);
+      renderer.drawText("TOUCH: FIRE  -  FLICK: AIM", sx + std::min(mx - 60.0f, float(kScreenW) - 180.0f),
+        sy + my - spec.r * mScale - 74.0f, hint, Align::Center, 0.75f);
+    }
+  }
+
+  if (!play)
+  {
+    const Circle c = padToggle();
+    DrawOpts o;
+    o.alpha = mMenuPad ? 0.9f : 0.5f;
+    o.scale = scale;
+    o.cull = false;
+    renderer.draw(mPadIcon, sx + c.x, sy + c.y, o);
   }
 
   if (mEditing)
