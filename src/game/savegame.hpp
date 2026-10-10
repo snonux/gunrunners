@@ -107,12 +107,16 @@ struct SaveGame
   // Boulder Run (level 13): each boulder (0 waiting, 1 gone; halted;
   // still able to teeter), then each crack (open), then the WRONG WAY sign.
   std::vector<int> boulder;
+  // The map: runs of unexplored, explored, unexplored... blocks, row by row.
+  std::vector<int> explored;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.
 std::string defaultSaveDir();
 // slot is 0-based; files are named slot1.sav .. slot5.sav.
 std::string slotPath(const std::string& dir, int slot);
+// The quick save slot (F5 / F9), apart from the five: quick.sav.
+std::string quickSavePath(const std::string& dir);
 
 // Writes atomically (temp file + rename), creating the directory if needed.
 bool writeSave(const SaveGame& save, const std::string& path, std::string* error = nullptr);

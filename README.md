@@ -85,7 +85,7 @@ After that, `./build/gunrunners` starts the game.
 
 In a level, the left half of the screen is a stick: put your thumb down
 anywhere there and slide it. On the right are Fire (the big corner button),
-Jump left of it, Switch runner above and, at the top, Pause. You don't have to hit them exactly:
+Jump left of it, Switch runner above and, at the top, Pause and the Map. You don't have to hit them exactly:
 a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
@@ -110,10 +110,13 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
-| Esc / P | Start | pause menu: resume, save, load, change runner, quit |
+| Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
+| F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
+| F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
+| M | Back / Select (LB on Android) | the level map: what you have explored so far |
 | Enter | A (or Start) | confirm in menus |
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
-| T | Back / Select | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
+| T | | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
 | F11 / Alt+Enter | | fullscreen on or off |
 
 Most gamepads work out of the box (Xbox, PlayStation, Switch Pro, 8BitDo,
@@ -153,7 +156,8 @@ trying the controls.
   caches and the number 42 somewhere.
 - **Savegames.** Five slots, from the pause menu or LOAD GAME on the title
   screen. A save keeps everything: your runner, score, health, weapons,
-  items and what is left of the level.
+  items and what is left of the level. A sixth, the quick save, needs no
+  menu: F5 saves and F9 loads (both rebindable, and also in the pause menu).
 
 ## Plays like Duke Nukem II
 
@@ -169,6 +173,13 @@ On top of that:
 - **Switch runners mid-level.** Press C (gamepad Y) to swap between Dash,
   Rocco and Nova right where you stand. Your weapon, ammo and items carry
   over.
+- **The map.** Press M (gamepad Back) for a map of the level that fills
+  itself in as you explore: walls, ledges, ladders, hazards, doors still
+  shut, checkpoints and the exit once you have seen them, and where you
+  are. It pauses the game. It opens zoomed in on your runner; Enter (A)
+  shows the whole level, the arrows or the stick pan, and M, Esc or B
+  closes it. Savegames keep the map. Dark sectors only map where they are
+  lit or right around you.
 - **Turbo Mode.** A white box with an orange core maxes out every stat for
   15 seconds: no damage, double speed, a huge jump, nonstop fire, double
   damage.

@@ -61,6 +61,7 @@ std::unique_ptr<World> World::cloneForSim() const
 {
   auto w = std::make_unique<World>(*this);
   w->mSimulation = true;
+  w->mExplored.reset(); // the map is the real run's
   w->mParticles.clear();
   w->mTexts.clear();
   w->mFlashes.clear();
