@@ -323,6 +323,11 @@ void World::syncPlatformCollision()
   for (const auto& v : mVehicles)
     if (v.kind == VehicleKind::Sub && !v.occupied && v.wreck == 0)
       mMap.addPlatform({v.x + 1, v.y - v.h + 1, v.w - 2, 1});
+  // Level 16: a frozen enemy is a block of ice to stand on.
+  if (mCryo.on)
+    for (const auto& e : mEnemies)
+      if (e.alive && e.frozen > 0 && !e.hidden)
+        mMap.addPlatform(e.box());
 }
 
 // --- Hatches, breakables, spawners ----------------------------------------------
@@ -551,6 +556,11 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
+    if (b.look >= 8)
+    {
+      drawCryoBreakable(r, b, camX, camY, frame); // level 16 (world_cryo_draw.cpp)
+      continue;
+    }
     if (b.look != 0 && b.look != 3 && b.look != 6 && b.look != 7)
     {
       const float x = float(b.x0) * kTilePx - camX, y = float(b.y0) * kTilePx - camY;

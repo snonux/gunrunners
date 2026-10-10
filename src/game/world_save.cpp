@@ -10,7 +10,7 @@ bool World::canSave() const
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
     mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && !mPinball && !mSurfing &&
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
-    (!mStation.on() || stationCanSave());
+    (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -120,6 +120,14 @@ SaveGame World::snapshot() const
     {
       es.attach = 0;
       es.y = e.aimY + 1;
+    }
+    // Level 16: drones at rest, mutants on their feet, Lab Arms up on the rail.
+    if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant)
+      es.attach = 0;
+    if (e.kind == EnemyKind::LabArm)
+    {
+      es.attach = 0;
+      es.y = e.oy;
     }
     if (i >= mLevelEnemyCount)
     {
@@ -447,6 +455,12 @@ bool World::restore(const SaveGame& s)
       e.ox = se.attach; // its legs
       e.aimX = -1;
     }
+    if (e.kind == EnemyKind::SleeperPod)
+      e.attach = se.attach; // frosted, thawed or empty
+    if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant || e.kind == EnemyKind::LabArm)
+      e.attach = 0;
+    e.frozen = 0;
+    e.vx = e.fx = 0.0f;
     e.stun = 0;
     e.drawSnap = true;
   }
