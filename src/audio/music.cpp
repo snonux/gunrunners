@@ -1232,6 +1232,9 @@ const Style kStyles[] = {
   {"theme_synth_pulse",        124, 4, 1, Mode::Minor,  7, Groove::Pulse,    BassPat::Pulse16,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Square,    ArpPat::Trance,  Inst::Saw,       Inst::Choir,     1, 0.0f, 0.3f, 0.2f, 0, 16},
   {"theme_arena_rock",         120, 4, 9, Mode::Mixo,   9, Groove::Arena,    BassPat::Rock,     Inst::SynthBass, Inst::Dist,      Comp::Rock8,      Inst::None,      ArpPat::None,    Inst::Dist,      Inst::Choir,     1, 0.0f, 0.3f, 0.0f, 0, 16},
   {"theme_big_band",           144, 4, 5, Mode::Major, 23, Groove::BigBand,  BassPat::Walking,  Inst::Upright,   Inst::Brass,     Comp::Charleston, Inst::None,      ArpPat::None,    Inst::Trumpet,   Inst::Clarinet,  2, 0.6f, 0.3f, 0.0f, kSevenths, 16},
+  // The extra levels (levels/extra_*.txt).
+  {"theme_motor_pool",         132, 4, 4, Mode::Mixo,   9, Groove::Driving,  BassPat::Rock,     Inst::SynthBass, Inst::Brass,     Comp::Rock8,      Inst::Pluck,     ArpPat::Broken8, Inst::Dist,      Inst::Brass,     2, 0.0f, 0.25f, 0.1f, 0, 16},
+  {"theme_deep_dive",           70, 4, 8, Mode::Dorian, 12, Groove::Deep,    BassPat::Roots,    Inst::SubBass,   Inst::Choir,     Comp::Sustain,    Inst::Vibes,     ArpPat::Sparse,  Inst::Theremin,  Inst::Celesta,   0, 0.0f, 0.6f, 0.35f, kUnder | kDrone, 16},
   // Cutscenes, the menu's companions and the bonus levels.
   {"theme_opening",            100, 4, 2, Mode::Major, 18, Groove::March,    BassPat::Halves,   Inst::Strings,   Inst::Strings,   Comp::Sustain,    Inst::Bell,      ArpPat::Sparse,  Inst::Brass,     Inst::Choir,     1, 0.0f, 0.45f, 0.0f, 0, 16},
   {"theme_episode_end",         80, 4, 7, Mode::Major,  1, Groove::None,     BassPat::Roots,    Inst::Upright,   Inst::Strings,   Comp::Sustain,    Inst::Piano,     ArpPat::Broken8, Inst::Piano,     Inst::Flute,     0, 0.0f, 0.5f, 0.0f, 0, 8},
@@ -1254,6 +1257,9 @@ const Style kStyles[] = {
   {"bonus_floor_lava",       146, 4, 2, Mode::Phryg, 16, Groove::Jungle,   BassPat::Rolling,  Inst::SynthBass, Inst::None,      Comp::None,       Inst::Marimba,   ArpPat::Bounce,  Inst::Kalimba,   Inst::Dist,      2, 0.2f, 0.25f, 0.0f, 0, 16},
   {"bonus_boulder_surf",     164, 4, 9, Mode::Mixo,  17, Groove::Gallop,   BassPat::Rock,     Inst::SynthBass, Inst::None,      Comp::Stabs,      Inst::Pluck,     ArpPat::Bounce,  Inst::Dist,      Inst::Trumpet,   2, 0.1f, 0.35f, 0.15f, 0, 16},
   {"bonus_golden_touch",     126, 4, 5, Mode::Lydian, 18, Groove::Toon,    BassPat::Walking,  Inst::Upright,   Inst::EPiano,    Comp::Stabs,      Inst::Celesta,   ArpPat::Up16,    Inst::Bell,      Inst::Trumpet,   2, 0.2f, 0.3f, 0.2f, kSevenths, 16},
+  // Episode 7, DEEP SPACE.
+  {"theme_crash_garden",       100, 4, 1, Mode::Lydian, 21, Groove::Jungle,  BassPat::Roots,    Inst::SubBass,   Inst::Pad,       Comp::Sustain,    Inst::Kalimba,   ArpPat::Up16,    Inst::Theremin,  Inst::Bell,      1, 0.1f, 0.5f, 0.35f, 0, 16},
+  {"theme_hive_gullets",       84, 4, 5, Mode::Phryg,  22, Groove::Dub,     BassPat::Pulse16,  Inst::SubBass,   Inst::Choir,     Comp::Sustain,    Inst::Vibes,     ArpPat::Sparse,  Inst::Theremin,  Inst::Choir,     1, 0.05f, 0.55f, 0.3f, 0, 16},
 };
 // clang-format on
 

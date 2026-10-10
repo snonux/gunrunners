@@ -79,6 +79,20 @@ const EnemyDef kEnemies[] = {
   {"toad", "MAGMA TOAD", K::Toad, L::Styled, 3, 3, 3, 400, 1, 60, 15, 20, 0, 0},
   {"wisp", "EMBER WISP", K::Wisp, L::Styled, 2, 2, 2, 300, 4, 20, 15, 4, kEnemyHarmless, 0},
   {"crab", "BASALT CRAB", K::Crab, L::Styled, 4, 3, 6, 900, 4, 30, 10, 3, 0, 0},
+  // Level 44: Crash Garden. Skitter: range is how far ahead (cells) it
+  // notices you before the leap. Spitpod: range is how far it lobs. Gloop:
+  // range is how close you must be before it hops after you; the small ones
+  // are its halves.
+  {"skitter", "SKITTER", K::Skitter, L::Styled, 3, 2, 2, 300, 1, 30, 8, 14, 0, 0},
+  {"spitpod", "SPITPOD", K::Spitpod, L::Styled, 3, 4, 3, 400, 0, 45, 12, 22, 0, 0},
+  {"gloop", "GLOOP", K::Gloop, L::Styled, 3, 3, 2, 300, 1, 18, 8, 18, 0, 0},
+  {"gloop_small", "GLOOPLET", K::Gloop, L::Styled, 2, 2, 1, 100, 1, 14, 6, 18, kEnemyNoTally, 0},
+  // Level 45: Hive Gullets. Hive Mite: range is how far (cells) it notices
+  // you. Polyp: range is how far in front it pulls. Drone Warden: range is
+  // how far either side of home it patrols.
+  {"hive_mite", "HIVE MITE", K::Mite, L::Styled, 2, 2, 1, 100, 1, 0, 0, 40, kEnemyNoTally, 0},
+  {"polyp", "POLYP", K::Polyp, L::Styled, 4, 4, 4, 500, 0, 75, 12, 16, 0, 0},
+  {"drone_warden", "DRONE WARDEN", K::Warden, L::Styled, 4, 3, 8, 1500, 2, 160, 14, 18, 0, 0},
   // Level 13. Spear Runner: range is how close (cells) behind it you get
   // before it turns to throw. Pit Snake: range is how near (cells) wakes it.
   // Totem Stack: hp is 2 per head, score per head (each head scores as it goes).
@@ -90,6 +104,13 @@ const EnemyDef kEnemies[] = {
   {"templecat", "TEMPLE CAT", K::Walker, L::Styled, 4, 4, 1, 100, 2, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
   {"sentinel", "GLYPH SENTINEL", K::Sentinel, L::Styled, 4, 4, 6, 600, 0, 45, 24, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
+  // Deep water (world_sea.cpp). Fish and Angler: range is how close (cells)
+  // something must come before they go for it. Sea Mine: range is how close
+  // sets it off.
+  {"piranha", "PIRANHA", K::Fish, L::Styled, 3, 2, 2, 300, 2, 20, 0, 18, 0, 0},
+  {"jellyfish", "JELLYFISH", K::Jelly, L::Styled, 3, 3, 3, 400, 2, 0, 0, 0, 0, 0},
+  {"sea_mine", "SEA MINE", K::SeaMine, L::Styled, 2, 2, 1, 200, 0, 0, 6, 4, kEnemyHarmless, 0},
+  {"angler", "ANGLERFISH", K::Angler, L::Styled, 6, 4, 12, 2000, 1, 30, 10, 22, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

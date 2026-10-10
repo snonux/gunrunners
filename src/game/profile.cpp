@@ -77,6 +77,8 @@ Profile Profile::load(const std::string& dir)
     }
     else if (key == "reached")
       in >> p.reached;
+    else if (key == "space_reached")
+      in >> p.spaceReached;
     else if (key == "duckmode")
       in >> p.duckMode;
     else if (key == "fullscreen")
@@ -119,6 +121,8 @@ bool Profile::save(const std::string& dir) const
       o << ' ' << n << ' ' << v;
     o << '\n';
     o << "reached " << reached << '\n';
+    if (spaceReached > 0)
+      o << "space_reached " << spaceReached << '\n';
     o << "duckmode " << duckMode << '\n';
     o << "fullscreen " << fullscreen << '\n';
     o << "touchsize " << touchSize << '\n';

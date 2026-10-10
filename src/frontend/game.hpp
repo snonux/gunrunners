@@ -6,6 +6,7 @@
 #include "frontend/bindings.hpp"
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
+#include "frontend/runner_editor.hpp"
 #include "game/profile.hpp"
 #include "game/input.hpp"
 #include "game/savegame.hpp"
@@ -87,6 +88,12 @@ public:
   bool touchEditing() const { return mMenu == Menu::TouchEdit; }
   const std::vector<int>& touchLayout() const;
   void setTouchLayout(const std::vector<int>& offsets);
+  // The runner editor's name entry takes typing from a real keyboard: the
+  // window code hands over text, Backspace and Enter instead of keys.
+  bool wantsText() const;
+  void typeText(const std::string& text);
+  void textBackspace();
+  void textDone();
 
 private:
   enum class Mode
@@ -99,6 +106,7 @@ private:
     Arsenal,
     List,      // level select, bonus channel, reruns
     Continued, // the campaign ran out of built levels
+    Editor,    // the runner editor, from runner select
   };
   // What happens once the queued cutscenes have played (flow.cpp).
   enum class After
@@ -116,13 +124,29 @@ private:
     Levels,
     BonusChannel,
     Reruns,
+    Extras,
   };
 
   void setMode(Mode m);
   void startLevel();
+  // Settings every new world takes from the frontend (vehicle prompts, up boards).
+  void prepareWorld(World& world) const;
   void tickPlay(const Input& raw);
   void tickBonus(const Input& in);
+  // select.cpp: runner select and the runner editor.
+  enum class SelectFocus
+  {
+    Cards,
+    Load,   // LOAD GAME (stand-alone levels)
+    Action, // EDIT / REMIX under the card
+  };
+  int selectCards() const;
+  bool tickSelect(Input& in, const Input& raw);
   void renderSelect();
+  // index: the runner to edit or remix; -1 a new one.
+  void openEditor(int index);
+  void tickEditor(const Input& in);
+  void renderEditor();
   void renderPlayOverlay();
   void renderBonus();
   void finishTally();
@@ -247,7 +271,10 @@ private:
   // Menus.
   Menu mMenu = Menu::None;
   bool mSlotsForSave = false;
-  bool mTitleFocusLoad = false; // title screen: the LOAD GAME button has focus
+  SelectFocus mSelectFocus = SelectFocus::Cards;
+  float mSelectScroll = 0.0f; // the carousel's position, in cards
+  std::unique_ptr<RunnerEditor> mEditor;
+  int mEditorReturn = 0; // runner select's card when the editor opened
   int mMenuCursor = 0;
   int mSlotCursor = 0;
   int mRunnerCursor = 0;
@@ -309,6 +336,8 @@ private:
   Texture mSlotPanel;
   Texture mLoadButton;
   Texture mLoadButtonFocus;
+  Texture mActionButton;
+  Texture mActionButtonFocus;
 };
 
 } // namespace gr

@@ -657,6 +657,40 @@ std::vector<float> makeSfx(Sfx id)
         return (n.next() * 0.4 + a.step(900.0, Wave::Square, 0.0) * 0.15) * std::exp(-t * 40.0);
       });
     }
+    case Sfx::Squelch:
+    {
+      // Wet goo: a low gulp bending down under filtered slop.
+      Osc a;
+      Noise n(115);
+      Svf f;
+      return render(0.22, [&](double t, double) {
+        const double slop = f.band(n.next(), float(sweep(1400.0, 500.0, std::min(1.0, t / 0.2))), 2.5) * 0.35;
+        return (a.step(sweep(260.0, 90.0, std::min(1.0, t / 0.18)), Wave::Sine, 0.0) * 0.4 + slop) *
+          std::exp(-t * 12.0) * std::min(1.0, t / 0.004);
+      });
+    }
+    case Sfx::Chitter:
+    {
+      // Three quick insect clicks.
+      Noise n(117);
+      Svf f;
+      return render(0.2, [&](double t, double) {
+        const double click = std::fmod(t, 0.05) < 0.008 ? 1.0 : 0.0;
+        return f.band(n.next(), 3200.0f, 3.0) * 0.6 * click * (t < 0.15 ? 1.0 : 0.0);
+      });
+    }
+    case Sfx::Spit:
+    {
+      // A puffed cheek letting go: a breathy pop that rises.
+      Osc a;
+      Noise n(119);
+      OnePole f;
+      return render(0.25, [&](double t, double) {
+        return (a.step(sweep(180.0, 520.0, std::min(1.0, t / 0.08)), Wave::Sine, 0.0) * 0.3 +
+                 f.highpass(n.next(), 1800.0) * 0.25) *
+          std::exp(-t * 14.0);
+      });
+    }
     case Sfx::Crash:
     {
       // A ton of stone hitting the floor: a low boom and a spray of grit.
@@ -675,6 +709,99 @@ std::vector<float> makeSfx(Sfx id)
       OnePole f;
       return render(0.4, [&](double t, double total) {
         return f.highpass(n.next(), 4200.0) * 0.4 * std::min(1.0, t / 0.15) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::Gulp:
+    {
+      // A throat swallowing: a wet click, then a low bubble that drops.
+      Osc a;
+      Noise n(121);
+      Svf f;
+      return render(0.32, [&](double t, double) {
+        const double click = t < 0.02 ? f.band(n.next(), 2400.0f, 3.0) * 0.6 : 0.0;
+        const double gulp = a.step(sweep(320.0, 70.0, std::min(1.0, t / 0.28)), Wave::Sine, 0.0) * 0.55 *
+          std::sin(std::min(1.0, t / 0.3) * 3.14159);
+        return click + gulp;
+      });
+    }
+    case Sfx::Inhale:
+    {
+      // A long breath in: filtered noise rising in pitch and loudness.
+      Noise n(123);
+      Svf f;
+      return render(0.9, [&](double t, double total) {
+        const double rise = std::min(1.0, t / total);
+        return f.band(n.next(), float(400.0 + 1600.0 * rise), 1.2) * 0.5 * rise * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Screech:
+    {
+      // An insect queen's call: two warbling tones a fifth apart.
+      Osc a, b;
+      return render(0.5, [&](double t, double total) {
+        const double wob = 1.0 + 0.04 * std::sin(t * 70.0);
+        return (a.step(880.0 * wob, Wave::Saw, 0.0) * 0.18 + b.step(1320.0 * wob, Wave::Square, 0.5) * 0.12) *
+          std::min(1.0, t / 0.03) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::EngineOn:
+    {
+      // A starter motor catching, then the engine settling.
+      Osc a, b;
+      Noise n(127);
+      return render(0.55, [&](double t, double) {
+        const double f = t < 0.18 ? 40.0 + 30.0 * std::sin(t * 140.0) : sweep(90.0, 60.0, (t - 0.18) / 0.3);
+        const double buzz = a.step(f, Wave::Saw) * 0.5 + b.step(f * 2.01, Wave::Square, 0.3) * 0.2;
+        return (buzz + n.next() * 0.08) * 0.32 * attack(t, 0.01) * decay(t, 0.25);
+      });
+    }
+    case Sfx::EngineOff:
+    {
+      Osc a;
+      return render(0.35, [&](double t, double) {
+        return a.step(sweep(80.0, 30.0, t / 0.35), Wave::Saw) * 0.25 * attack(t, 0.005) * decay(t, 0.12);
+      });
+    }
+    case Sfx::Cannon:
+    {
+      Noise n(131);
+      Svf lp;
+      Osc o;
+      return render(0.6, [&](double t, double) {
+        const double boom = o.step(sweep(70.0, 28.0, t / 0.4), Wave::Sine) * decay(t, 0.16);
+        const double blast = lp.low(n.next(), sweep(4000.0, 200.0, t / 0.3), 1.0) * decay(t, 0.07);
+        return (boom * 0.8 + blast * 0.7) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Torpedo:
+    {
+      Noise n(137);
+      Svf bp;
+      Osc o;
+      return render(0.5, [&](double t, double) {
+        const double fizz = bp.band(n.next(), sweep(500.0, 1800.0, t / 0.5), 3.0) * decay(t, 0.2);
+        const double thunk = o.step(sweep(160.0, 70.0, t / 0.1), Wave::Sine) * decay(t, 0.05);
+        return (fizz * 0.5 + thunk * 0.5) * attack(t, 0.002);
+      });
+    }
+    case Sfx::Stomp:
+    {
+      Noise n(139);
+      Svf lp;
+      Osc o;
+      return render(0.5, [&](double t, double) {
+        const double thud = o.step(sweep(60.0, 25.0, t / 0.3), Wave::Sine) * decay(t, 0.14);
+        const double grit = lp.low(n.next(), 600.0, 0.8) * decay(t, 0.1);
+        return (thud * 0.9 + grit * 0.6) * attack(t, 0.001);
+      });
+    }
+    case Sfx::Crunch:
+    {
+      Noise n(149);
+      Svf bp;
+      return render(0.22, [&](double t, double) {
+        const double c = bp.band(n.next(), 900.0 + 600.0 * std::sin(t * 200.0), 1.4);
+        return c * 0.6 * attack(t, 0.001) * decay(t, 0.07);
       });
     }
     case Sfx::Count:

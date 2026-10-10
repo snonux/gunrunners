@@ -50,12 +50,23 @@ enum class EnemyKind
   Toad,      // leaps out of the lava onto your stone, sits, dives back
   Wisp,      // drifts toward you; swells and bursts when close
   Crab,      // patrols its stone; armored top and front, flips when hit from behind
+  // Episode 7, DEEP SPACE (world_space.cpp).
+  Skitter,   // scuttles along its floor and up goo; clicks, then leaps at you
+  Spitpod,   // a rooted plant: its bulb swells, then it lobs acid in an arc
+  Gloop,     // hops toward you; splits in two when killed and splats goo on a wall
+  Mite,      // a small fast biter out of a wall pore, in threes (level 45, world_hive.cpp)
+  Polyp,     // a mouth in the wall that breathes in, pulling you toward it, and nips
+  Warden,    // an armoured flyer patrolling its wing that calls mites down
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go
   Drummer,   // drums on a dais: enemies near it move faster while it plays
   CoinBeetle, // crawls at you out of a coin heap, hops; drops two gems
   Sentinel,  // a glyph carved in the wall: its row of glyphs lights up, then beams
+  Fish,      // deep water: patrols, then chases whatever is in the water with it
+  Jelly,     // deep water: pulses up and drifts down, stings on contact
+  SeaMine,   // deep water: bobs on its chain, blows up when something comes close
+  Angler,    // deep water: waits behind its lure, then lunges
 };
 
 enum EnemyFlag : unsigned

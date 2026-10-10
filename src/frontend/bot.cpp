@@ -117,6 +117,24 @@ Input Bot::play(const World& world)
     mRiding = false;
     mPlanner.reset();
   }
+  // A vehicle marked for the bot (bot_drive.cpp). A lost life puts them
+  // all back where they were: they can be driven again.
+  if (world.player().state == PlayerState::Dying)
+    mVehDone.clear();
+  const int botV = world.riding() ? -1 : botVehicle(world);
+  if (world.riding() || botV >= 0)
+  {
+    mDriving = true;
+    return world.riding() ? drive(world) : approach(world, botV);
+  }
+  if (mDriving)
+  {
+    mDriving = false;
+    mApproachBest = 1 << 30;
+    mApproachStall = 0;
+    mDrivePrev = Input{};
+    mPlanner.reset();
+  }
   // Campaign levels (with a header) get the planner; the PoC level keeps
   // its rule-based bot, which knows about the flamer's jetpack.
   if (world.level().episode > 0 || !world.level().rules.empty())
@@ -170,6 +188,8 @@ PlayerInput asPlayerInput(const Input& in, const Input& prev)
   p.jump.triggered = in.jump && !prev.jump;
   p.fire.pressed = in.fire;
   p.fire.triggered = in.fire && !prev.fire;
+  p.use.pressed = in.use;
+  p.use.triggered = in.use && !prev.use;
   return p;
 }
 

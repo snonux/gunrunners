@@ -147,6 +147,31 @@ void World::updatePlayer(const PlayerInput& raw)
       playSound(Sfx::Jump);
     }
   }
+  if (p.tube >= 0)
+  {
+    // Level 45: inside a Gullet Tube (world_hive.cpp).
+    updateTubeRide();
+    return;
+  }
+  if (p.vehicle >= 0)
+  {
+    // Driving a vehicle (world_vehicle.cpp): its guns, not yours.
+    updateDrive(mvX, mvY, in);
+    mUpHeld = in.up;
+    return;
+  }
+  if (tryBoard(in))
+  {
+    mUpHeld = in.up;
+    return;
+  }
+  mUpHeld = in.up;
+  // Deep water (world_sea.cpp): swim, unless a jump is carrying you out.
+  if (!mSeas.empty() && p.state != PlayerState::Jumping && p.cart < 0 && mLaunch == 0 && updateSwim(mvX, mvY, in))
+  {
+    updateShooting(in.fire);
+    return;
+  }
   if (p.cart >= 0)
   {
     // Level 11: riding a mine cart (world_mine.cpp).
@@ -166,11 +191,16 @@ void World::updatePlayer(const PlayerInput& raw)
     // Swing vines: hands that meet one in the air grab it (world_jungle.cpp).
     if (!mVines.empty() && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
       tryGrabVine();
+    // Goo walls: pushing into one in the air sticks you to it (world_space.cpp).
+    if (mSpace.goo && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
+      tryCling(mvX);
   }
   if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
   {
     p.fling = 0; // a vine's swing lasts until you land
     p.vineArc = false;
+    p.kick = 0;
+    p.kickArc = false;
   }
   updateShooting(in.fire);
 
@@ -408,8 +438,13 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       updateSwing(mvX, mvY, jumpButton);
       break;
 
+    case PlayerState::Cling:
+      updateCling(mvX, mvY);
+      break;
+
     case PlayerState::Dying:
     case PlayerState::Teleporting:
+    case PlayerState::Swim: // world_sea.cpp moves a swimmer
       break;
   }
 }
@@ -441,6 +476,16 @@ void World::updateLadderAttachment(int /*mvX*/, int mvY)
 void World::updateHorizontalMovementInAir(int mvX)
 {
   auto& p = mPlayer;
+  if (p.kick != 0)
+  {
+    // Kicked off a goo wall: pushed away from it a cell a frame, no steering.
+    const int dir = p.kick > 0 ? 1 : -1;
+    p.facing = dir;
+    p.kick -= dir;
+    if (mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir) != MoveResult::Completed)
+      p.kick = 0;
+    return;
+  }
   if (p.fling != 0)
   {
     // Off a vine: carried along at the swing's speed, air control on top.
@@ -486,7 +531,7 @@ const std::array<int, 8>& World::jumpArc() const
     return kTurboJumpArc;
   if (mPlayer.virus > 0)
     return kVirusJumpArc;
-  return mCharacter->jumpArc;
+  return mCharacter.jumpArc;
 }
 
 void World::updateJumpMovement(int mvX, bool jumpPressed)
@@ -549,7 +594,7 @@ void World::updateJumpMovement(int mvX, bool jumpPressed)
   }
 
   // On the third frame, a released jump button cuts the arc short.
-  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc;
+  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc && !p.kickArc;
   p.frames = isShortJump ? 6 : p.frames + 1;
 }
 
@@ -776,7 +821,15 @@ void World::switchOrientationWithPositionChange()
 void World::hurtPlayer(int amount)
 {
   auto& p = mPlayer;
-  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0 || mGod)
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.turbo > 0 || mGod || p.tube >= 0)
+    return;
+  if (p.vehicle >= 0)
+  {
+    // The vehicle's armour takes it.
+    damageVehicle(mVehicles[std::size_t(p.vehicle)], amount);
+    return;
+  }
+  if (p.mercy > 0)
     return;
   p.hp -= amount;
   mStats.tookDamage = true;
@@ -808,6 +861,11 @@ void World::killPlayer()
   auto& p = mPlayer;
   if (p.state == PlayerState::Dying)
     return;
+  if (p.vehicle >= 0)
+  {
+    mVehicles[std::size_t(p.vehicle)].occupied = false;
+    p.vehicle = -1;
+  }
   p.state = PlayerState::Dying;
   p.deathPhase = 0;
   p.frames = 0;
@@ -854,7 +912,7 @@ void World::updateDeathAnimation()
         p.hidden = true;
         const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 1.5f) * kCellSize};
         burst(c, rgb(255, 210, 80), rgb(255, 90, 40), 40, 3.2f);
-        burst(c, mArt.characterColor[std::size_t(mCharacterIndex)], rgb(255, 255, 255), 20, 2.2f);
+        burst(c, mArt.runnerColor(mCharacter), rgb(255, 255, 255), 20, 2.2f);
         flashAt(c, 120.0f, rgb(255, 170, 60), 24);
         playSound(Sfx::Explosion);
         mCamera.shake(14, 2.5f);
@@ -884,6 +942,8 @@ void World::respawnPlayer()
   p.vine = -1;
   p.fling = 0;
   p.vineArc = false;
+  p.wall = p.kick = 0;
+  p.kickArc = false;
   mLaunch = mLaunchBump = 0;
   mBreakdance = false;
   p.hp = p.maxHp;
@@ -901,10 +961,17 @@ void World::respawnPlayer()
     resetTemple();
   if (!mCarts.empty() || !mCaps.empty() || !mRails.empty())
     resetMine();
+  if (mSpace.goo)
+    resetSpace();
+  if (mSpace.hive)
+    resetHive();
   if (!mBoulders.empty())
     resetBoulders();
   if (mGreedOn || mGolem.on || mRefillX >= 0)
     resetSanctum();
+  if (!mVehicles.empty())
+    resetVehicles();
+  mAir = kAirFrames;
   showMessage("BACK IN ACTION");
 }
 
@@ -915,8 +982,8 @@ void World::updatePlayerInteractions()
     return;
   const CellBox hit = p.hitBox();
 
-  if (mMap.overlapsHazard(hit))
-    hurtPlayer(1);
+  if (p.vehicle < 0 && mMap.overlapsHazard(hit))
+    hurtPlayer(1); // a vehicle minds the spikes itself (world_vehicle.cpp)
 
   // Force fields: walking up to one with the access card switches it off.
   if (p.hasKey && mMap.forceFieldsOn())
@@ -946,6 +1013,14 @@ void World::updatePlayerInteractions()
     cp.active = true;
     mRespawnX = cp.x;
     mRespawnY = cp.y;
+    if (p.vehicle >= 0)
+    {
+      // The vehicle you drove here waits for you here from now on.
+      Vehicle& v = mVehicles[std::size_t(p.vehicle)];
+      v.homeX = v.x;
+      v.homeY = v.y;
+      v.homeFacing = v.facing;
+    }
     playSound(Sfx::Checkpoint);
     showMessage("CHECKPOINT - YOU WILL RESPAWN HERE");
     flashAt({(float(cp.x) + 1.0f) * kCellSize, (float(cp.y) - 3.0f) * kCellSize}, 90.0f, mTheme.accentB, 30);

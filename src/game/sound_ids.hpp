@@ -75,8 +75,20 @@ enum class Sfx
   Sink,      // a basalt stone grinding down into the lava
   Croak,     // a Magma Toad landing
   Snap,      // a Basalt Crab's claws
+  Squelch,   // goo: sticking to a goo wall, a Goo Gun splat, a Gloop splitting
+  Chitter,   // a Skitter's click before it leaps
+  Spit,      // a Spitpod lobbing acid
+  Gulp,      // a Gullet Tube swallowing or spitting out
+  Inhale,    // a Polyp breathing in
+  Screech,   // a Drone Warden calling its mites
   Crash,     // a boulder landing, a chute's flaps slamming
   Hiss,      // a Pit Snake about to rear
+  EngineOn,  // climbing into a vehicle
+  EngineOff, // climbing out
+  Cannon,    // the tank's gun
+  Torpedo,   // a submarine's torpedo
+  Stomp,     // a mech landing hard
+  Crunch,    // something crushed under a tank
   Count,
 };
 

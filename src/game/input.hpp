@@ -21,6 +21,7 @@ struct Input
   bool quickSave = false; // F5: save to the quick save slot
   bool quickLoad = false; // F9: load the quick save
   bool map = false;   // M, gamepad Back: open or close the level map
+  bool use = false;   // E, gamepad LB: get in or out of a vehicle
 
   Input operator|(const Input& o) const
   {
@@ -38,6 +39,7 @@ struct Input
     r.quickSave = quickSave || o.quickSave;
     r.quickLoad = quickLoad || o.quickLoad;
     r.map = map || o.map;
+    r.use = use || o.use;
     return r;
   }
 };
@@ -58,6 +60,7 @@ struct PlayerInput
   bool down = false;
   Button jump;
   Button fire;
+  Button use; // get in or out of a vehicle
 };
 
 } // namespace gr

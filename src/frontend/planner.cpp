@@ -159,6 +159,9 @@ int macroFrames(int m, const World& w)
     bool tide = false;
     for (const auto& f : w.fluids())
       tide = tide || f.tide;
+    // Level 45: a mouth that only opens while the hive breathes in.
+    for (const auto& t : w.gulletTubes())
+      tide = tide || t.breath;
     return w.platforms().empty() && !opening && !tide && w.bubbles().empty() && !w.trainBusy() && w.sunDoors().empty()
       ? 0
       : 24;
@@ -222,7 +225,7 @@ bool stable(const World& w)
       if (c.ty * kCellsPerTile == p.y + 1 && c.tx * kCellsPerTile + 1 >= p.x && c.tx * kCellsPerTile <= p.x + 2)
         return false;
   return p.state == PlayerState::OnGround || p.state == PlayerState::Ladder || p.state == PlayerState::Pipe ||
-    p.state == PlayerState::Swing;
+    p.state == PlayerState::Swing || p.state == PlayerState::Cling;
 }
 
 // A vine macro's input this frame: push along the swing until a launch
@@ -362,6 +365,10 @@ int clockPeriod(const World& w)
   for (const auto& e : w.enemies())
     if (e.alive && e.kind == EnemyKind::DartFace)
       period = std::max(period, 30);
+  // Level 45: the hive breathes (its breathing mouths) and its heart beats.
+  for (const auto& t : w.gulletTubes())
+    if (t.breath)
+      period = std::max(period, World::kBreathPeriod);
   return period;
 }
 
@@ -875,6 +882,20 @@ void Planner::buildField(const World& w, const Goal& goal)
       for (int x = 0; x < W; ++x)
         spearAt[std::size_t(y * W + x)] = spearCell(x, y);
   std::vector<int> support(std::size_t(W * H), kInf), lift(std::size_t(W * H), jumpH);
+  // Level 44: beside a goo wall you cling, and a kick off it is a jump from
+  // there (back to the same wall, or across a chimney): like ground.
+  std::vector<std::uint8_t> clingAt(std::size_t(W * H));
+  if (w.hasGoo())
+  {
+    auto gooCell = [&](int cx, int cy) {
+      return cx >= 0 && cy >= 0 && map.solid(cx, cy) && w.gooBlockAt(cx / kCellsPerTile, cy / kCellsPerTile);
+    };
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        for (int yy = y - 3; yy <= y - 2; ++yy)
+          if (gooCell(x - 1, yy) || gooCell(x + 3, yy))
+            clingAt[std::size_t(y * W + x)] = 1;
+  }
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
     {
@@ -904,8 +925,9 @@ void Planner::buildField(const World& w, const Goal& goal)
       }
       for (int k = 0; k < 64 && y + 1 + k < H; ++k)
       {
-        // A foothold you could stick below counts as ground to jump from.
-        if (k > 0 && spearAt[std::size_t((y + k) * W + x)])
+        // A foothold you could stick below counts as ground to jump from,
+        // and so does a goo wall to cling to.
+        if (k > 0 && (spearAt[std::size_t((y + k) * W + x)] || clingAt[std::size_t((y + k) * W + x)]))
         {
           support[i] = k;
           break;
@@ -924,6 +946,8 @@ void Planner::buildField(const World& w, const Goal& goal)
         support[i] = 0;
         spearOnly[i] = 1;
       }
+      if (clingAt[i])
+        support[i] = 0;
       for (int yy = y - 4; yy <= y; ++yy)
         if (map.ladder(x + 1, yy))
           ladder[i] = 1;
@@ -1050,6 +1074,29 @@ void Planner::buildField(const World& w, const Goal& goal)
       if (dy < 0 && support[j] == 0)
         break; // landed
     }
+  }
+  // Level 45: a Gullet Tube's mouth takes you to its far end (down the
+  // branch its valve is set to); a floor exit spits you up first.
+  for (const auto& t : w.gulletTubes())
+  {
+    const int b = t.valve ? t.set : 0;
+    int ex = 0, ey = 0;
+    w.tubeExit(t, b, ex, ey);
+    if (ex < 0 || ey < 0 || ex >= W || ey >= H)
+      continue;
+    const CellBox trig = w.mouthTrigger(t);
+    const int cost = t.len[std::size_t(b)] / 2 + 6;
+    const int rise = t.outY[std::size_t(b)] < 0 ? 10 : 0;
+    for (int y = std::max(0, trig.y - 1); y <= std::min(H - 1, trig.bottom() + Player::kHeight); ++y)
+      for (int x = std::max(0, trig.x - Player::kWidth); x <= std::min(W - 1, trig.right()); ++x)
+      {
+        if (!valid[std::size_t(y * W + x)] || !boxAt(x, y, Player::kWidth, Player::kHeight).intersects(trig))
+          continue;
+        for (int k = 0; k <= rise; ++k)
+          if (ey - k >= 0 && valid[std::size_t((ey - k) * W + ex)])
+            for (int a = 0; a < A; ++a)
+              list.push_back({node(x, y, a), node(ex, ey - k, 0), cost + k});
+      }
   }
   for (const auto& e : list)
     ++revStart[std::size_t(e.to) + 1];
@@ -1192,6 +1239,19 @@ int Planner::heuristic(const World& w) const
   if (p.x < 0 || p.y < 0 || p.x >= mW || p.y >= mH)
     return kInf;
   const int A = kAirBudget + 1;
+  if (p.tube >= 0 && std::size_t(p.tube) < w.gulletTubes().size())
+  {
+    // Inside a Gullet Tube: as good as being at its far end already.
+    const auto& t = w.gulletTubes()[std::size_t(p.tube)];
+    int ex = 0, ey = 0;
+    w.tubeExit(t, p.tubeBranch, ex, ey);
+    if (ex < 0 || ey < 0 || ex >= mW || ey >= mH)
+      return kInf;
+    int best = kInf;
+    for (int a = 0; a < A; ++a)
+      best = std::min(best, mDist[std::size_t((ey * mW + ex) * A + a)]);
+    return best >= kInf ? kInf : best + std::max(0, t.len[std::size_t(p.tubeBranch)] - p.tubeS) / 2 + extra;
+  }
   const int base = (p.y * mW + p.x) * A;
   int best = kInf;
   for (int a = 0; a < A; ++a)
@@ -1630,6 +1690,23 @@ void Planner::plan(const World& world)
     if (p.state == PlayerState::Swing)
       k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
     k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+    // Level 45: in a tube (how far along), the valves, shots in the tubes
+    // and the mite pores.
+    if (w.hasHive())
+    {
+      k = mix(k, std::uint64_t(p.tube + 1) | (std::uint64_t(p.tubeBranch) << 8) | (std::uint64_t(p.tubeS) << 16));
+      for (const auto& t : w.gulletTubes())
+        k = mix(k, std::uint64_t(t.set));
+      for (const auto& e : w.enemies())
+        if (e.alive && (e.kind == EnemyKind::Mite || e.kind == EnemyKind::Polyp || e.kind == EnemyKind::Warden) &&
+            std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
+          k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                       (std::uint64_t(e.attach + e.tell * 4) << 32));
+    }
+    // Level 44: on a goo wall, or kicked off one.
+    if (w.hasGoo())
+      k = mix(k, std::uint64_t(p.wall + 2) | (std::uint64_t(p.kick + 8) << 4) | (std::uint64_t(p.kickArc) << 8) |
+                   (std::uint64_t(w.gooPatches().size()) << 12));
     for (const auto& b : w.bridges())
       k = mix(k, std::uint64_t(b.down) | (std::uint64_t(b.chops) << 1) | (std::uint64_t(std::min(b.heavy, 63)) << 4) |
                    (std::uint64_t(b.left + 1) << 12) | (std::uint64_t(b.creak) << 24));

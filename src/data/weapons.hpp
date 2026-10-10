@@ -7,7 +7,8 @@
 namespace gr
 {
 
-// The 42 prototype weapons (docs/LEVELS.md, SPEC.md section 4). Each level
+// The 42 prototype weapons (docs/LEVELS.md, SPEC.md section 4), plus
+// Episode 7's own (one per DEEP SPACE level, after the 42). Each level
 // hides its own prototype in green W boxes; it only works in that level and
 // is logged to the Arsenal once found. The numbers are data; what makes
 // each one special lives in the world code, keyed by ProtoId.
@@ -55,6 +56,9 @@ enum class ProtoId
   PyroRig,
   ApplauseCannon,
   Encore,
+  // Episode 7, DEEP SPACE (docs/DEEP_SPACE.md).
+  GooGun,
+  BileBlaster,
   Count,
 };
 

@@ -275,7 +275,12 @@ void World::setupEntities()
       b.y1 = y1;
       b.hp = e.num("hp", 1);
       const std::string by = e.str("by", "any");
-      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : (by == "pry" ? 4 : 0)));
+      b.by = by == "explosion" ? 1
+        : by == "heavy"        ? 2
+        : by == "sound"        ? 3
+        : by == "pry"          ? 4
+        : by == "vehicle"      ? 5
+                               : 0;
       const std::string look = e.str("look", "glass");
       b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" ? 6 : 0)))));
       mBreakables.push_back(b);
@@ -400,9 +405,17 @@ void World::setupEntities()
       continue;
     }
 
+    if (setupVehicleEntity(e))
+      continue;
+    if (setupSeaEntity(e))
+      continue;
     if (setupDarkEntity(e))
       continue;
     if (setupLavaEntity(e))
+      continue;
+    if (setupSpaceEntity(e))
+      continue;
+    if (setupHiveEntity(e))
       continue;
     if (setupBoulderEntity(e))
       continue;
@@ -810,10 +823,12 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
             if (!pr.box().intersects(pbox))
               break;
           }
-          // The odd mirror (Level 10) shows the next runner along: Dash sees
-          // Nova, Nova sees Rocco, Rocco sees Dash.
-          const int who = pr.text == "odd" ? (mCharacterIndex + 2) % 3 : mCharacterIndex;
-          const auto& ca = mArt.characters[std::size_t(who)];
+          // The odd mirror (Level 10) shows another runner: Dash sees Nova,
+          // Nova sees Rocco, Rocco sees Dash, and everyone else one of the
+          // three.
+          const int who = mCharacterIndex >= 0 && mCharacterIndex < 3 ? (mCharacterIndex + 2) % 3
+                                                                      : mCharacterIndex % 3;
+          const auto& ca = pr.text == "odd" ? mArt.runner(characterByIndex(who)) : mArt.runner(mCharacter);
           const Sprite* spr = &ca.idle[0];
           if (pr.timer >= 0)
             spr = (pr.timer / 6) % 2 ? &ca.lookUp : &ca.idle[0];

@@ -12,7 +12,7 @@ namespace gr
 namespace
 {
 
-const std::array<CampaignLevel, kCampaignLevels> kLevels{{
+const std::array<CampaignLevel, kAllLevels> kLevels{{
   {1, "rooftop_run", "ROOFTOP RUN", "cloud_nine"},
   {2, "glass_canyon", "GLASS CANYON", "free_fall"},
   {3, "club_laserdisc", "CLUB LASERDISC", "step_on_the_beat"},
@@ -55,6 +55,14 @@ const std::array<CampaignLevel, kCampaignLevels> kLevels{{
   {40, "fly_tower", "THE FLY TOWER", "trigger"},
   {41, "sweeps_week", "SWEEPS WEEK", "paintball"},
   {42, "live_finale", "THE LIVE FINALE", "bloopers"},
+  // Episode 7: DEEP SPACE (/mnt/project-files/gunrunners-levels/space-world/DESIGN.md).
+  {43, "starfall", "STARFALL", ""},
+  {44, "crash_garden", "CRASH GARDEN", ""},
+  {45, "hive_gullets", "HIVE GULLETS", ""},
+  {46, "crystal_drift", "CRYSTAL DRIFT", ""},
+  {47, "silk_canyon", "SILK CANYON", ""},
+  {48, "bounder_plains", "BOUNDER PLAINS", ""},
+  {49, "hive_mother", "THE HIVE MOTHER", ""},
 }};
 
 const std::array<Episode, kEpisodes> kEpisodeList{{
@@ -64,6 +72,7 @@ const std::array<Episode, kEpisodes> kEpisodeList{{
   {4, "CHANNEL SURFING", "EVERY CHANNEL IS A LEVEL", 22, 28},
   {5, "SIGNAL HUNT", "FIND THE TRANSMITTER", 29, 35},
   {6, "LIVE FINALE", "THE SHOW MUST GO ON", 36, 42},
+  {7, "DEEP SPACE", "A MISDIALLED BEAM TO AN ALIEN WORLD", 43, 49},
 }};
 
 bool exists(const std::string& path)
@@ -80,12 +89,20 @@ bool exists(const std::string& path)
 
 const CampaignLevel& campaignLevel(int number)
 {
-  return kLevels[std::size_t(std::clamp(number, 1, kCampaignLevels) - 1)];
+  return kLevels[std::size_t(std::clamp(number, 1, kAllLevels) - 1)];
 }
 
 const Episode& episode(int number) { return kEpisodeList[std::size_t(std::clamp(number, 1, kEpisodes) - 1)]; }
 
-int episodeOfLevel(int number) { return (std::clamp(number, 1, kCampaignLevels) - 1) / 7 + 1; }
+int episodeOfLevel(int number) { return (std::clamp(number, 1, kAllLevels) - 1) / 7 + 1; }
+
+int firstSpaceLevel(const std::string& dataDir)
+{
+  for (int n = kSpaceFirst; n <= kAllLevels; ++n)
+    if (!levelFile(dataDir, n).empty())
+      return n;
+  return 0;
+}
 
 std::string levelFile(const std::string& dataDir, int number)
 {
@@ -103,6 +120,26 @@ std::string bonusFile(const std::string& dataDir, int number)
   char buf[128];
   std::snprintf(buf, sizeof(buf), "/levels/%02d_bonus_%s.txt", number, lv.bonus);
   const std::string path = dataDir + buf;
+  return exists(path) ? path : std::string();
+}
+
+namespace
+{
+
+const ExtraLevel kExtras[kExtraLevels] = {
+  {"motor_pool", "MOTOR POOL"},
+  {"deep_dive", "DEEP DIVE"},
+};
+
+} // namespace
+
+const ExtraLevel& extraLevel(int index) { return kExtras[std::clamp(index, 0, kExtraLevels - 1)]; }
+
+std::string extraFile(const std::string& dataDir, int index)
+{
+  if (index < 0 || index >= kExtraLevels)
+    return {};
+  const std::string path = dataDir + "/levels/extra_" + kExtras[index].slug + ".txt";
   return exists(path) ? path : std::string();
 }
 
