@@ -19,4 +19,14 @@ Texture bakeAlienSky(const Renderer& r, const Theme& t);
 Texture bakeAlienFar(const Renderer& r, const Theme& t, int layerW);
 Texture bakeAlienNear(const Renderer& r, const Theme& t, int layerW);
 
+// Level 43, Starfall ("alien_space", art_starfall.cpp): asteroid rock and
+// open space over Vurr. The bakeAlien* functions hand over to these.
+bool isStarfall(const Theme& t);
+Texture bakeStarfallSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakeStarfallSolidTop(const Renderer& r, const Theme& t, float topOffset, int height);
+Texture bakeStarfallPlatform(const Renderer& r, const Theme& t);
+Texture bakeStarfallSky(const Renderer& r, const Theme& t);
+Texture bakeStarfallFar(const Renderer& r, const Theme& t, int layerW);
+Texture bakeStarfallNear(const Renderer& r, const Theme& t, int layerW);
+
 } // namespace gr

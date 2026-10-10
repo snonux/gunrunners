@@ -1258,6 +1258,7 @@ const Style kStyles[] = {
   {"bonus_boulder_surf",     164, 4, 9, Mode::Mixo,  17, Groove::Gallop,   BassPat::Rock,     Inst::SynthBass, Inst::None,      Comp::Stabs,      Inst::Pluck,     ArpPat::Bounce,  Inst::Dist,      Inst::Trumpet,   2, 0.1f, 0.35f, 0.15f, 0, 16},
   // Episode 7, DEEP SPACE.
   {"theme_crash_garden",       100, 4, 1, Mode::Lydian, 21, Groove::Jungle,  BassPat::Roots,    Inst::SubBass,   Inst::Pad,       Comp::Sustain,    Inst::Kalimba,   ArpPat::Up16,    Inst::Theremin,  Inst::Bell,      1, 0.1f, 0.5f, 0.35f, 0, 16},
+  {"theme_starfall",           136, 4, 2, Mode::Dorian, 20, Groove::Driving,  BassPat::Pulse16,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Bell,      ArpPat::Trance,  Inst::Theremin,  Inst::Choir,     2, 0.0f, 0.5f, 0.4f, 0, 16},
   {"theme_hive_gullets",       84, 4, 5, Mode::Phryg,  22, Groove::Dub,     BassPat::Pulse16,  Inst::SubBass,   Inst::Choir,     Comp::Sustain,    Inst::Vibes,     ArpPat::Sparse,  Inst::Theremin,  Inst::Choir,     1, 0.05f, 0.55f, 0.3f, 0, 16},
 };
 // clang-format on

@@ -57,6 +57,8 @@ enum class EnemyKind
   Mite,      // a small fast biter out of a wall pore, in threes (level 45, world_hive.cpp)
   Polyp,     // a mouth in the wall that breathes in, pulling you toward it, and nips
   Warden,    // an armoured flyer patrolling its wing that calls mites down
+  VoidRay,   // level 43: a glowing manta that sweeps across in a wave; its fins light up, then it dives (world_starfall.cpp)
+  RockLeech, // level 43: clings to an asteroid and spits a slow glob at you as you pass
   SpearRunner, // flees ahead of you, turns once to throw a spear back
   PitSnake,  // waits in a floor hole, rears and strikes when you come close
   Totem,     // a stack of spitting heads; a solid column that shrinks as heads go

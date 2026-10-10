@@ -22,8 +22,10 @@ add_library(gunrunners_core STATIC
   src/assets/art.cpp
   src/assets/enemy_art.cpp
   src/assets/art_alien.cpp
+  src/assets/art_starfall.cpp
   src/assets/enemy_art_alien.cpp
   src/assets/enemy_art_hive.cpp
+  src/assets/enemy_art_starfall.cpp
   src/assets/vehicle_art.cpp
   src/data/level.cpp
   src/data/theme.cpp
@@ -54,6 +56,7 @@ add_library(gunrunners_core STATIC
   src/game/world_lava.cpp
   src/game/world_space.cpp
   src/game/world_hive.cpp
+  src/game/world_starfall.cpp
   src/game/world_boulder.cpp
   src/game/world_surf.cpp
   src/game/world_mine_draw.cpp
@@ -157,4 +160,9 @@ add_test(NAME savegame_hive_gullets COMMAND savegame_test ${CMAKE_SOURCE_DIR}/le
 add_executable(hive_test tests/hive_test.cpp)
 target_link_libraries(hive_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME hive_tubes COMMAND hive_test)
+# Level 43: in the ship, through the asteroids.
+add_test(NAME savegame_starfall COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/43_starfall.txt 500)
+add_executable(starfall_test tests/starfall_test.cpp)
+target_link_libraries(starfall_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME starfall_space COMMAND starfall_test)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)

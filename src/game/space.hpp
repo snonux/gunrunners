@@ -62,6 +62,30 @@ struct TubeShot
   int damage = 1;
 };
 
+// Level 43: an asteroid drifting through space. Shots push it along and
+// chip at it; a big one splits into two middle ones, those into small
+// ones, and the small ones crumble.
+struct DriftRock
+{
+  int x = 0, y = 0;   // sixteenths of a cell, top-left
+  int vx = 0, vy = 0; // sixteenths of a cell a frame
+  int size = 6;       // cells across: 6 big, 4 middle, 2 small
+  int hp = 6;
+  int flash = 0;
+  int look = 0;      // which of the rock sprites
+  bool alive = true;
+  int cx() const { return x / 16; }
+  int cy() const { return y / 16; }
+};
+
+// A thing in space the level draws over the rock it is made of: the
+// derelict probe, the landing pad.
+struct SpaceProp
+{
+  std::string kind;
+  int x = 0, y = 0, w = 1, h = 1; // blocks
+};
+
 struct SpaceState
 {
   // Level 44: blocks coated in goo (`@ goo rect=`), per block.
@@ -78,6 +102,13 @@ struct SpaceState
   std::vector<TubeShot> tubeShots;
   std::vector<std::array<int, 4>> mites; // x, y, dir, pore (-1: a Warden's)
   std::vector<std::pair<int, int>> drips;
+  // Level 43: open space (`flags=space`): drifting rocks (and the ones the
+  // level started with, for a respawn), the probe and the pad, and the
+  // block x where the ship starts down into Vurr's clouds.
+  bool starfall = false;
+  std::vector<DriftRock> rocks, rocksAtStart;
+  std::vector<SpaceProp> props;
+  int cloudX = -1;
 };
 
 } // namespace gr

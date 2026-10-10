@@ -363,7 +363,8 @@ bool drawAlienArt(cairo_t* cr, const Theme& t, const std::string& key, double w,
   };
   const auto it = kRoutines.find(key);
   if (it == kRoutines.end())
-    return drawHiveArt(cr, t, key, w, h, variant, frame); // level 45's
+    return drawHiveArt(cr, t, key, w, h, variant, frame) || // level 45's
+      drawStarfallArt(cr, t, key, w, h, variant, frame);   // and 43's
   it->second(Box{cr, t, w, h, variant, frame});
   return true;
 }

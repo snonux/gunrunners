@@ -76,7 +76,15 @@ swaps, no ziplines, no rideable creatures; the ship is the vehicles thread's).
 - **Secrets:** a hollow asteroid with gems; a derelict probe (the duck in its
   window). **42:** the probe's serial number.
 - **Virus:** a green comet you can fly around.
-- **Build note:** waits for the ship vehicle on main. Built after level 44.
+- **Built** (2026-10-10): `tools/levels/43_starfall.py`, 300 x 30 blocks,
+  `flags=space`. The ship is the vehicles thread's `spaceship` with
+  `pilot=1` (you start in it, respawn in it at the last beacon, can't get
+  out until it lands, and a wreck is a death). Drifting rocks are
+  `@ rock` (world_starfall.cpp); the belt adds the rock river, a tunnel
+  with asteroids streaming down it, and part 3 a zig-zag through the rock.
+  Checkpoints are beacons floating in gaps in walls of rock, so the ship
+  can't miss them. The Turbo box and a merch box are on the landing pad.
+  No prototype: the HUD keeps the runner's own weapon.
 
 ## 44 · Crash Garden
 

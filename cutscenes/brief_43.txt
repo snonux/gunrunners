@@ -1,0 +1,27 @@
+cutscene brief_43
+music theme_starfall
+
+# Clip brief43_cockpit: 4 layers. Backdrop: deep space, the ringed giant,
+# the curve of the violet planet Vurr below, panning slowly. Mid: the
+# cockpit of an old courier ship, its canopy struts and a glowing console.
+# Characters: the three runners beam in one by one (frames 0-6) and look
+# out. Foreground: MAX, a crackling hologram over the console. 16 frames.
+shot brief43_cockpit delay=110 repeat=4
+  cue 0 fade=in:600
+  cue 0 sound=holo_on
+  cue 14 say=DASH "That was not the exit."
+  cue 26 say=MAX "The beam locked onto a stray signal. You're over an alien planet."
+  cue 40 say=MAX "Something down there took a relic. The Star Seed."
+  cue 53 say=MAX "Get it before the Hive Mother does."
+  cue 63 hold=1500
+
+# Clip brief43_rocks: 3 layers. Backdrop: space. Mid: the courier ship
+# side-on, drifting right through tumbling asteroids, its twin lasers
+# firing (every other frame). Characters: a big asteroid ahead takes the
+# hits and splits in two (frame 8), the halves tumbling up and down out of
+# the way. 16 frames.
+shot brief43_rocks delay=90 repeat=2
+  cue 0 sound=thruster_low
+  cue 10 say=NOVA "I'll fly. Shoot the rocks out of our way."
+  cue 22 say=ROCCO "Shooting things. Finally, a plan."
+  cue 29 fade=out:600
