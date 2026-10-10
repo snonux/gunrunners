@@ -2490,6 +2490,276 @@ void cryoShrug(ClipKit& k, int frame, int ticks, float ox, float oy)
   (void)ticks;
 }
 
+// Level 17: the greenhouse dome, glass and white struts against the stars,
+// the planet's curve beyond and the racks of greens below.
+void greenhouseDome(ClipKit& k, float ox, float oy)
+{
+  const Texture& dome = cached(k, "e3_green_dome", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(6, 10, 30), rgb(34, 22, 64), rgb(92, 40, 96));
+    for (int i = 0; i < 220; ++i)
+    {
+      const double s = double(hash2(i, 171) % 100u) / 100.0;
+      cairo_arc(cr, double(hash2(i, 172) % 1280u), double(hash2(i, 173) % 520u), 0.6 + s * 1.3, 0, 2 * kPi);
+      setColor(cr, rgba(230, 240, 255, 70 + int(s * 170)));
+      cairo_fill(cr);
+    }
+    // The planet, low on the left this time.
+    radialGlow(cr, 220, 760, 520, rgb(120, 220, 255), 0.35);
+    cairo_arc(cr, 220, 760, 420, 0, 2 * kPi);
+    cairo_pattern_t* g = cairo_pattern_create_linear(-200, 340, 520, 760);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.55, 0.85, 0.75);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.16, 0.42, 0.46);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.04, 0.08, 0.16);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Geodesic struts: rings and diagonals round a centre below the frame.
+    const double cx = 640, cy = 1150;
+    for (int pass = 0; pass < 2; ++pass)
+    {
+      const double width = pass == 0 ? 12.0 : 4.0;
+      const Color col = pass == 0 ? rgba(20, 24, 40, 120) : rgba(240, 248, 255, 210);
+      for (int ring = 0; ring < 5; ++ring)
+      {
+        const double r0 = 520 + ring * 170, r1 = r0 + 170;
+        const double off = (ring % 2) * kPi / 24.0;
+        for (int s = 0; s <= 12; ++s)
+        {
+          const double a = kPi + kPi * s / 12.0 + off;
+          if (s == 0)
+            cairo_move_to(cr, cx + std::cos(a) * r0, cy + std::sin(a) * r0);
+          else
+            cairo_line_to(cr, cx + std::cos(a) * r0, cy + std::sin(a) * r0);
+        }
+        for (int s = 0; s <= 12; ++s)
+        {
+          const double a = kPi + kPi * s / 12.0 + off;
+          cairo_move_to(cr, cx + std::cos(a) * r0, cy + std::sin(a) * r0);
+          cairo_line_to(cr, cx + std::cos(a + kPi / 24.0) * r1, cy + std::sin(a + kPi / 24.0) * r1);
+          cairo_move_to(cr, cx + std::cos(a) * r0, cy + std::sin(a) * r0);
+          cairo_line_to(cr, cx + std::cos(a - kPi / 24.0) * r1, cy + std::sin(a - kPi / 24.0) * r1);
+        }
+        setColor(cr, col);
+        cairo_set_line_width(cr, width);
+        cairo_stroke(cr);
+      }
+    }
+    // Three long rows of planters with greens, stepping down toward us.
+    for (int row = 0; row < 3; ++row)
+    {
+      const double y = 470 + row * 80, s = 0.7 + row * 0.25;
+      for (double x = -20 + row * 17; x < 1300; x += 26 * s)
+      {
+        const double hgt = (30 + double(hash2(int(x), row) % 30u)) * s;
+        for (int l = -1; l <= 1; ++l)
+        {
+          cairo_save(cr);
+          cairo_translate(cr, x, y);
+          cairo_rotate(cr, -kPi * 0.5 + l * 0.5 + double(hash2(int(x), row + l) % 20u) / 100.0);
+          cairo_move_to(cr, 0, 0);
+          cairo_curve_to(cr, hgt * 0.3, -8 * s, hgt * 0.75, -6 * s, hgt, 0);
+          cairo_curve_to(cr, hgt * 0.75, 6 * s, hgt * 0.3, 8 * s, 0, 0);
+          cairo_restore(cr);
+          setColor(cr, lerpColor(rgb(40, 100, 50), rgb(120, 200, 90), float(row) / 2.0f));
+          cairo_fill(cr);
+        }
+      }
+      cairo_rectangle(cr, 0, y - 4, 1280, 24 * s);
+      setColor(cr, lerpColor(rgb(40, 34, 40), rgb(70, 60, 56), float(row) / 2.0f));
+      cairo_fill(cr);
+      cairo_rectangle(cr, 0, y - 4, 1280, 4);
+      setColor(cr, rgba(230, 240, 236, 200));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, 690, 1280, 30);
+    setColor(cr, rgb(30, 24, 22));
+    cairo_fill(cr);
+  });
+  k.r.draw(dome, ox, oy);
+}
+
+// A hanging grow lamp at (x, y) (the middle of its hood's top), lit or not.
+void growLamp(ClipKit& k, float x, float y, bool lit, float ox, float oy)
+{
+  k.r.fillRect(x - 2 + ox, oy - 10, 4, y + 10, rgb(40, 44, 54));
+  if (lit)
+  {
+    const Texture& cone = cached(k, "e3_green_cone", 420, 560, 210, 0, [](cairo_t* cr) {
+      cairo_move_to(cr, 170, 0);
+      cairo_line_to(cr, 250, 0);
+      cairo_line_to(cr, 420, 560);
+      cairo_line_to(cr, 0, 560);
+      cairo_close_path(cr);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 560);
+      cairo_pattern_add_color_stop_rgba(g, 0, 1.0, 0.45, 0.85, 0.55);
+      cairo_pattern_add_color_stop_rgba(g, 1, 1.0, 0.3, 0.8, 0.0);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    });
+    DrawOpts o;
+    o.blend = Blend::Add;
+    o.alpha = 0.8f;
+    k.r.draw(cone, x + ox, y + 40 + oy, o);
+  }
+  const Texture& hood = cached(k, lit ? "e3_green_lamp1" : "e3_green_lamp0", 120, 64, 60, 0, [lit](cairo_t* cr) {
+    cairo_move_to(cr, 40, 4);
+    cairo_line_to(cr, 80, 4);
+    cairo_line_to(cr, 114, 44);
+    cairo_line_to(cr, 6, 44);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 4, 0, 44);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.98, 0.99, 1.0);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.66, 0.72, 0.78);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    roundedRect(cr, 12, 44, 96, 12, 6);
+    setColor(cr, lit ? rgb(255, 214, 248) : rgb(84, 70, 92));
+    cairo_fill_preserve(cr);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+  });
+  k.r.draw(hood, x + ox, y + oy);
+  if (lit)
+    drawGlow(k.r, k.art, x + ox, y + 50 + oy, 90, rgb(255, 90, 210), 0.7f);
+}
+
+// Level 17's briefing: three grow lamps flicker on over the crew in turn,
+// then hold their magenta light.
+void greenLights(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  greenhouseDome(k, ox, oy);
+  static const int kWho[3] = {1, 0, 2};
+  for (int i = 0; i < 3; ++i)
+  {
+    const float x = 330.0f + float(i) * 310.0f;
+    const int f = frame - i * 4;
+    const bool lit = f >= 4 || (f >= 0 && f != 1 && f != 2 + (i % 2));
+    growLamp(k, x, 90.0f, lit, ox, oy);
+    k.r.draw(runner(k, kWho[i], 0, 2.2f, i == 2), x + ox, 680 + oy);
+  }
+  (void)ticks;
+}
+
+// Then close on Rocco: a vine curls up from the bottom-left toward his
+// shoulder; on the last frame he leans back away from it.
+void greenVine(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& back = cached(k, "e3_green_close", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(40, 20, 60), rgb(80, 36, 90), rgb(30, 40, 30));
+    radialGlow(cr, 820, 0, 700, rgb(255, 90, 210), 0.45);
+    // Racks of greens behind him, soft and out of focus.
+    for (int row = 0; row < 3; ++row)
+    {
+      const double y = 250 + row * 170, s = 1.2 + row * 0.3;
+      for (double x = -10 + row * 23; x < 1300; x += 30 * s)
+        for (int l = -1; l <= 1; ++l)
+        {
+          const double hgt = (40 + double(hash2(int(x), row + 9) % 40u)) * s;
+          cairo_save(cr);
+          cairo_translate(cr, x, y);
+          cairo_rotate(cr, -kPi * 0.5 + l * 0.55 + double(hash2(int(x), row + l + 5) % 20u) / 100.0);
+          cairo_move_to(cr, 0, 0);
+          cairo_curve_to(cr, hgt * 0.3, -9 * s, hgt * 0.75, -7 * s, hgt, 0);
+          cairo_curve_to(cr, hgt * 0.75, 7 * s, hgt * 0.3, 9 * s, 0, 0);
+          cairo_restore(cr);
+          setColor(cr, rgba(70 + row * 20, 140 + row * 20, 80, 90 + row * 40));
+          cairo_fill(cr);
+        }
+      cairo_rectangle(cr, 0, y, 1280, 22);
+      setColor(cr, rgba(220, 230, 226, 90 + row * 30));
+      cairo_fill(cr);
+    }
+    // Lamp light caught as soft discs.
+    for (int i = 0; i < 26; ++i)
+    {
+      cairo_arc(cr, double(hash2(i, 181) % 1280u), double(hash2(i, 182) % 500u), 10 + double(hash2(i, 183) % 30u), 0,
+        2 * kPi);
+      setColor(cr, i % 3 ? rgba(255, 140, 230, 40) : rgba(255, 240, 200, 36));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(back, ox, oy);
+  const Texture& leaf = cached(k, "e3_green_leaf", 60, 30, 0, 15, [](cairo_t* cr) {
+    cairo_move_to(cr, 1, 15);
+    cairo_curve_to(cr, 18, 1, 44, 3, 58, 15);
+    cairo_curve_to(cr, 44, 27, 18, 29, 1, 15);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 2, 0, 28);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.62, 0.92, 0.4);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.16, 0.45, 0.16);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 4, 15);
+    cairo_line_to(cr, 50, 15);
+    setColor(cr, rgb(40, 100, 36));
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+  });
+  // Rocco, big, facing the vine; on frame 15 he leans back.
+  const bool lean = frame >= 15;
+  DrawOpts ro;
+  ro.angle = lean ? 9.0f : 0.0f;
+  k.r.draw(runner(k, 1, lean ? 5 : 0, 3.8f, true), 820 + ox, 720 + oy, ro);
+  // The vine: a Bezier from the bottom-left corner toward his shoulder,
+  // grown frame by frame, a curl at its tip.
+  const float t = std::min(1.0f, float(frame + 1) / 16.0f);
+  const float px[4] = {-40.0f, 180.0f, 430.0f, 700.0f};
+  const float py[4] = {700.0f, 380.0f, 560.0f, 470.0f};
+  auto at = [&](float u, float& x, float& y) {
+    const float v = 1.0f - u;
+    x = v * v * v * px[0] + 3 * v * v * u * px[1] + 3 * v * u * u * px[2] + u * u * u * px[3];
+    y = v * v * v * py[0] + 3 * v * v * u * py[1] + 3 * v * u * u * py[2] + u * u * u * py[3];
+  };
+  const int steps = 40;
+  for (int pass = 0; pass < 2; ++pass)
+    for (int s = 0; s < steps; ++s)
+    {
+      const float u0 = t * float(s) / float(steps), u1 = t * float(s + 1) / float(steps);
+      float x0, y0, x1, y1;
+      at(u0, x0, y0);
+      at(u1, x1, y1);
+      const float w = 6.0f + 18.0f * (1.0f - float(s) / float(steps));
+      k.r.drawLine(x0 + ox, y0 + oy, x1 + ox, y1 + oy, pass == 0 ? w + 6.0f : w,
+        pass == 0 ? kInk : rgb(80, 150, 56));
+    }
+  // Leaves along it.
+  for (int l = 1; l < 8; ++l)
+  {
+    const float u = float(l) / 8.0f;
+    if (u > t - 0.04f)
+      break;
+    float x, y, x2, y2;
+    at(u, x, y);
+    at(u + 0.02f, x2, y2);
+    const float ang = std::atan2(y2 - y, x2 - x) * 57.2958f + (l % 2 ? -60.0f : 60.0f);
+    DrawOpts o;
+    o.angle = ang;
+    o.scale = 1.4f - 0.08f * float(l);
+    k.r.draw(leaf, x + ox, y + oy, o);
+  }
+  // The curling tip.
+  float tx, ty;
+  at(t, tx, ty);
+  for (int s = 0; s < 10; ++s)
+  {
+    const float a0 = float(s) * 0.55f + float(frame) * 0.1f, a1 = a0 + 0.55f;
+    const float r0 = 22.0f - float(s) * 2.0f, r1 = r0 - 2.0f;
+    k.r.drawLine(tx + std::cos(a0) * r0 - 18.0f + ox, ty + std::sin(a0) * r0 + oy, tx + std::cos(a1) * r1 - 18.0f + ox,
+      ty + std::sin(a1) * r1 + oy, 5.0f, rgb(110, 190, 70));
+  }
+  (void)ticks;
+}
+
 void goldDoorScratch(ClipKit& k, int frame, int ticks, float ox, float oy)
 {
   goldDoor(k, frame, 0.0f, ox, oy);
@@ -2819,6 +3089,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return cryoFrost(k, frame, ticks, ox, oy);
   if (clip == "brief16_shrug")
     return cryoShrug(k, frame, ticks, ox, oy);
+  if (clip == "brief17_lights")
+    return greenLights(k, frame, ticks, ox, oy);
+  if (clip == "brief17_vine")
+    return greenVine(k, frame, ticks, ox, oy);
   if (clip == "brief14_door")
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")

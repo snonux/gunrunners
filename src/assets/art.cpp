@@ -2165,8 +2165,53 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 constexpr int kTopTexH = 96;
 constexpr double kTopOff = 32.0;
 
+// Level 17's floors: a strip of dark potting soil under a mossy lip, grass
+// and seedlings poking up (theme look "greenhouse").
+Texture bakeGreenhouseSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  Rng rng(1704u);
+  const double y = kTopOff;
+  cairo_rectangle(cr, 0, y, 64, 11);
+  setColor(cr, t.rockDark);
+  cairo_fill(cr);
+  for (int i = 0; i < 14; ++i)
+  {
+    cairo_arc(cr, rng.range(1, 63), y + rng.range(4, 10), rng.range(0.8f, 1.8f), 0, 2 * kPi);
+    setColor(cr, i % 3 ? withAlpha(rgb(120, 92, 66), 220) : withAlpha(rgb(20, 14, 10), 220));
+    cairo_fill(cr);
+  }
+  cairo_rectangle(cr, 0, y + 10, 64, 2);
+  setColor(cr, withAlpha(rgb(240, 248, 244), 200));
+  cairo_fill(cr);
+  // The mossy lip, joining at the tile edges.
+  cairo_move_to(cr, 0, y + 4);
+  for (int x = 0; x <= 64; x += 8)
+    cairo_line_to(cr, x, y - 2 - (x % 16 == 8 ? 2.5 : 0.0));
+  cairo_line_to(cr, 64, y + 4);
+  for (int x = 64; x >= 0; x -= 8)
+    cairo_line_to(cr, x, y + 4 + (x % 16 == 8 ? 2.0 : 0.0));
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y - 4, y + 6, rgb(150, 220, 90), rgb(60, 130, 50), rgb(24, 60, 26), 1.4);
+  // Grass blades.
+  for (int i = 0; i < 9; ++i)
+  {
+    const double x = 3 + i * 7 + rng.range(-2, 2), hgt = rng.range(5, 13), lean = rng.range(-4, 4);
+    cairo_move_to(cr, x - 2, y);
+    cairo_curve_to(cr, x - 1, y - hgt * 0.5, x + lean * 0.5, y - hgt * 0.8, x + lean, y - hgt);
+    cairo_curve_to(cr, x + lean * 0.3, y - hgt * 0.6, x + 1.5, y - hgt * 0.3, x + 2, y);
+    cairo_close_path(cr);
+    setColor(cr, i % 2 ? rgb(120, 200, 80) : rgb(90, 170, 60));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (std::string_view(t.look) == "greenhouse")
+    return bakeGreenhouseSolidTop(r, t);
   if (isAlien(t))
     return bakeAlienSolidTop(r, t, float(kTopOff), kTopTexH);
   VectorImage img(64, kTopTexH);
@@ -3594,8 +3639,262 @@ Texture bakeCryoNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isGreenhouse(const Theme& t) { return std::string_view(t.look) == "greenhouse"; }
+
+// A leaf as a pointed ellipse from (x, y) along angle a, `len` long.
+void greenhouseLeaf(cairo_t* cr, double x, double y, double a, double len, double width, Color fill, Color vein)
+{
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_rotate(cr, a);
+  cairo_move_to(cr, 0, 0);
+  cairo_curve_to(cr, len * 0.3, -width, len * 0.75, -width * 0.8, len, 0);
+  cairo_curve_to(cr, len * 0.75, width * 0.8, len * 0.3, width, 0, 0);
+  cairo_close_path(cr);
+  setColor(cr, fill);
+  cairo_fill(cr);
+  if (alphaOf(vein) > 0)
+  {
+    cairo_move_to(cr, len * 0.05, 0);
+    cairo_line_to(cr, len * 0.9, 0);
+    cairo_set_line_width(cr, std::max(1.0, width * 0.12));
+    setColor(cr, vein);
+    cairo_stroke(cr);
+  }
+  cairo_restore(cr);
+}
+
+// Level 17's sky: the greenhouse dome's glass and white struts, with stars
+// and the planet's curve beyond, a magenta grow-lamp haze low down.
+Texture bakeGreenhouseSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.6, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(1701u);
+  for (int i = 0; i < 260; ++i)
+  {
+    const double x = rng.uniform() * kScreenW, y = rng.uniform() * kScreenH * 0.8, s = rng.uniform();
+    cairo_arc(cr, x, y, 0.5 + s * 1.3, 0, 2 * kPi);
+    setColor(cr, rgba(230, 240, 255, 60 + int(s * 170)));
+    cairo_fill(cr);
+  }
+  radialGlow(cr, 260, 160, 260, rgb(110, 60, 200), 0.18);
+  // The planet: a green-blue world low on the right, lit from the left.
+  const double px = 1010, py = 820, pr = 430;
+  radialGlow(cr, px, py, pr + 90, rgb(120, 220, 255), 0.35);
+  cairo_arc(cr, px, py, pr, 0, 2 * kPi);
+  cairo_pattern_t* g = cairo_pattern_create_linear(px - pr, py - pr, px + pr * 0.4, py);
+  cairo_pattern_add_color_stop_rgb(g, 0, 0.55, 0.85, 0.75);
+  cairo_pattern_add_color_stop_rgb(g, 0.45, 0.16, 0.42, 0.46);
+  cairo_pattern_add_color_stop_rgb(g, 1, 0.04, 0.08, 0.16);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  cairo_save(cr);
+  cairo_arc(cr, px, py, pr, 0, 2 * kPi);
+  cairo_clip(cr);
+  for (int i = 0; i < 9; ++i)
+  {
+    cairo_save(cr);
+    cairo_translate(cr, px - pr + rng.range(40, 600), py - pr + rng.range(30, 300));
+    cairo_scale(cr, 1.0, 0.3);
+    cairo_arc(cr, 0, 0, rng.range(40, 120), 0, 2 * kPi);
+    cairo_restore(cr);
+    setColor(cr, rgba(240, 255, 250, 40));
+    cairo_fill(cr);
+  }
+  cairo_restore(cr);
+  cairo_arc(cr, px, py, pr, kPi * 1.05, kPi * 1.6);
+  cairo_set_line_width(cr, 4);
+  setColor(cr, rgba(200, 250, 255, 170));
+  cairo_stroke(cr);
+  // The dome: glass panes tinted by the lamps, white struts in a geodesic net.
+  radialGlow(cr, 640, 820, 760, t.trim, 0.22);
+  const double cx = 640, cy = 980;
+  const int rings = 6, spokes = 14;
+  auto ringR = [](int k) { return 380.0 + k * 150.0; };
+  for (int k = 0; k < rings; ++k)
+    for (int s = 0; s < spokes; ++s)
+    {
+      const double a0 = kPi + kPi * s / spokes, a1 = kPi + kPi * (s + 1) / spokes;
+      const double off = (k % 2) * 0.5 * kPi / spokes;
+      if ((s + k) % 3 == 0)
+      {
+        cairo_move_to(cr, cx + std::cos(a0 + off) * ringR(k), cy + std::sin(a0 + off) * ringR(k));
+        cairo_line_to(cr, cx + std::cos(a1 + off) * ringR(k), cy + std::sin(a1 + off) * ringR(k));
+        cairo_line_to(cr, cx + std::cos((a0 + a1) * 0.5 + off) * ringR(k + 1),
+          cy + std::sin((a0 + a1) * 0.5 + off) * ringR(k + 1));
+        cairo_close_path(cr);
+        setColor(cr, rgba(255, 160, 240, 14));
+        cairo_fill(cr);
+      }
+    }
+  for (int pass = 0; pass < 2; ++pass)
+  {
+    const double width = pass == 0 ? 9.0 : 3.0;
+    const Color col = pass == 0 ? rgba(20, 24, 40, 110) : rgba(240, 248, 255, 200);
+    for (int k = 0; k < rings; ++k)
+    {
+      const double off = (k % 2) * 0.5 * kPi / spokes;
+      // The ring, as straight segments between its joints.
+      for (int s = 0; s <= spokes; ++s)
+      {
+        const double a = kPi + kPi * s / spokes + off;
+        const double x = cx + std::cos(a) * ringR(k), y = cy + std::sin(a) * ringR(k);
+        if (s == 0)
+          cairo_move_to(cr, x, y);
+        else
+          cairo_line_to(cr, x, y);
+      }
+      cairo_set_line_width(cr, width);
+      setColor(cr, col);
+      cairo_stroke(cr);
+      // Diagonals up to the next ring's joints.
+      if (k + 1 < rings)
+        for (int s = 0; s <= spokes; ++s)
+        {
+          const double a = kPi + kPi * s / spokes + off;
+          const double offN = ((k + 1) % 2) * 0.5 * kPi / spokes;
+          for (int d = -1; d <= 0; ++d)
+          {
+            const double b = kPi + kPi * (s + d + (k % 2 ? 1 : 0)) / spokes + offN;
+            cairo_move_to(cr, cx + std::cos(a) * ringR(k), cy + std::sin(a) * ringR(k));
+            cairo_line_to(cr, cx + std::cos(b) * ringR(k + 1), cy + std::sin(b) * ringR(k + 1));
+          }
+        }
+      cairo_set_line_width(cr, width * 0.7);
+      setColor(cr, col);
+      cairo_stroke(cr);
+    }
+  }
+  // Highlights on the glass.
+  for (int i = 0; i < 5; ++i)
+  {
+    const double a = kPi * (1.15 + i * 0.07);
+    cairo_arc(cr, cx, cy, 700 + i * 30, a, a + 0.08);
+    cairo_set_line_width(cr, 6);
+    setColor(cr, rgba(255, 255, 255, 40));
+    cairo_stroke(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: tiers of hydroponic racks, trays of greens under faint magenta tubes.
+Texture bakeGreenhouseFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1702u);
+  const Color frame = lerpColor(t.farLayer, rgb(200, 220, 210), 0.25f);
+  const Color tray = lerpColor(t.farLayer, rgb(20, 30, 24), 0.4f);
+  const double tiers[] = {250, 390, 530, 670};
+  for (double x0 = 0; x0 < kLayerW; x0 += 320)
+  {
+    // A rack: two posts and four shelves.
+    for (double px : {x0 + 20, x0 + 296})
+    {
+      cairo_rectangle(cr, px, 170, 8, kScreenH - 170);
+      setColor(cr, withAlpha(frame, 200));
+      cairo_fill(cr);
+    }
+    for (const double ty : tiers)
+    {
+      // The lamp tube above the tray and its glow.
+      cairo_rectangle(cr, x0 + 34, ty - 96, 256, 6);
+      setColor(cr, withAlpha(t.trimGlow, 170));
+      cairo_fill(cr);
+      cairo_pattern_t* p = cairo_pattern_create_linear(0, ty - 92, 0, ty);
+      cairo_pattern_add_color_stop_rgba(p, 0, redOf(t.trim) / 255.0, greenOf(t.trim) / 255.0, blueOf(t.trim) / 255.0, 0.22);
+      cairo_pattern_add_color_stop_rgba(p, 1, redOf(t.trim) / 255.0, greenOf(t.trim) / 255.0, blueOf(t.trim) / 255.0, 0.02);
+      cairo_rectangle(cr, x0 + 30, ty - 90, 264, 90);
+      cairo_set_source(cr, p);
+      cairo_fill(cr);
+      cairo_pattern_destroy(p);
+      // Plants in the tray.
+      for (double lx = x0 + 44; lx < x0 + 286; lx += rng.range(16, 26))
+      {
+        const double hgt = rng.range(18, 46);
+        const Color leaf = lerpColor(rgb(60, 130, 70), rgb(120, 190, 90), rng.uniform());
+        for (int l = 0; l < 3; ++l)
+          greenhouseLeaf(cr, lx, ty - 2, -kPi * 0.5 + rng.range(-0.8f, 0.8f), hgt * rng.range(0.6f, 1.0f), 6,
+            withAlpha(lerpColor(leaf, t.farLayer, 0.35f), 220), 0);
+      }
+      cairo_rectangle(cr, x0 + 28, ty - 4, 268, 14);
+      setColor(cr, withAlpha(tray, 235));
+      cairo_fill(cr);
+      cairo_rectangle(cr, x0 + 28, ty - 4, 268, 3);
+      setColor(cr, withAlpha(frame, 200));
+      cairo_fill(cr);
+    }
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: irrigation pipes along the top with creepers hanging off them, big
+// planters' leaves rising from below, pollen in the air.
+Texture bakeGreenhouseNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1703u);
+  for (int k = 0; k < 2; ++k)
+  {
+    const double y = 18 + k * 30;
+    cairo_rectangle(cr, 0, y, kLayerW, 16);
+    setColor(cr, withAlpha(lerpColor(t.nearLayer, rgb(160, 180, 170), 0.3f), 235));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, y + 2, kLayerW, 4);
+    setColor(cr, withAlpha(rgb(220, 240, 230), 150));
+    cairo_fill(cr);
+    for (double x = 60 + k * 90; x < kLayerW; x += 320)
+    {
+      cairo_rectangle(cr, x, y - 4, 14, 24);
+      setColor(cr, withAlpha(t.nearLayer, 240));
+      cairo_fill(cr);
+    }
+  }
+  // Creepers hanging from the pipes.
+  for (double x = 30; x < kLayerW - 30; x += rng.range(90, 200))
+  {
+    const double len = rng.range(80, 260);
+    double px = x, py = 60;
+    cairo_move_to(cr, px, py);
+    const double sway = rng.range(-30, 30);
+    cairo_curve_to(cr, x + sway, py + len * 0.3, x - sway, py + len * 0.7, x + sway * 0.5, py + len);
+    cairo_set_line_width(cr, 3);
+    setColor(cr, withAlpha(lerpColor(t.nearLayer, rgb(60, 120, 60), 0.5f), 230));
+    cairo_stroke(cr);
+    for (double s = 0.1; s < 1.0; s += 0.14)
+    {
+      const double lx = x + std::sin(s * 6.0) * sway * 0.6, ly = py + len * s;
+      greenhouseLeaf(cr, lx, ly, (int(s * 10) % 2 ? 0.4 : kPi - 0.4), rng.range(14, 24), 6,
+        withAlpha(lerpColor(t.nearLayer, rgb(70, 150, 70), 0.55f), 235), rgba(20, 50, 24, 120));
+    }
+  }
+  // Big leaves rising from planters at the bottom.
+  for (double x = 80; x < kLayerW; x += rng.range(260, 420))
+  {
+    cairo_rectangle(cr, x - 60, kScreenH - 70, 120, 70);
+    setColor(cr, withAlpha(lerpColor(t.nearLayer, rgb(40, 30, 24), 0.4f), 240));
+    cairo_fill(cr);
+    for (int l = 0; l < 6; ++l)
+      greenhouseLeaf(cr, x + rng.range(-30, 30), kScreenH - 64, -kPi * 0.5 + rng.range(-1.0f, 1.0f), rng.range(90, 170),
+        rng.range(20, 30), withAlpha(lerpColor(t.nearLayer, rgb(60, 130, 70), 0.45f), 235), rgba(20, 40, 20, 140));
+  }
+  for (int i = 0; i < 80; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kLayerW), rng.range(80, kScreenH), rng.range(1.0f, 2.6f), 0, 2 * kPi);
+    setColor(cr, i % 3 ? withAlpha(rgb(230, 255, 180), 80 + rng.irange(0, 80)) : withAlpha(t.trimGlow, 120));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isGreenhouse(t))
+    return bakeGreenhouseSky(r, t);
   if (isCryo(t))
     return bakeCryoSky(r, t);
   if (isAlien(t))
@@ -3751,6 +4050,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isGreenhouse(t))
+    return bakeGreenhouseFar(r, t);
   if (isCryo(t))
     return bakeCryoFar(r, t);
   if (isAlien(t))
@@ -3881,6 +4182,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isGreenhouse(t))
+    return bakeGreenhouseNear(r, t);
   if (isCryo(t))
     return bakeCryoNear(r, t);
   if (isAlien(t))

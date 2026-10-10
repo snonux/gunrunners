@@ -134,6 +134,14 @@ const EnemyDef kEnemies[] = {
   {"sleeper_pod", "SLEEPER POD", K::SleeperPod, L::Styled, 4, 6, 99, 0, 0, 0, 15, 8, kEnemyHarmless | kEnemyNoTally, 0},
   {"pod_mutant", "POD MUTANT", K::Mutant, L::Styled, 3, 5, 4, 600, 3, 30, 10, 4, 0, 0},
   {"lab_arm", "LAB ARM", K::LabArm, L::Styled, 4, 4, 6, 800, 2, 45, 12, 0, kEnemyHarmless, 0},
+  // Level 17. Spore Puffer: cooldown between puffs, tell the bulb swelling.
+  // Snapjaw: range is how close (cells) wakes it. Glob: stepEvery its hop's
+  // frames per cell, cooldown its rest between hops, tell the squash.
+  {"spore_puffer", "SPORE PUFFER", K::Puffer, L::Styled, 4, 4, 4, 400, 0, 30, 10, 0, 0, 0},
+  {"snapjaw", "SNAPJAW", K::Snapjaw, L::Styled, 4, 4, 3, 500, 0, 20, 10, 4, 0, 0},
+  {"glob", "GLOB", K::Glob, L::Styled, 4, 4, 2, 300, 2, 20, 8, 0, 0, 0},
+  {"glob_medium", "GLOB", K::Glob, L::Styled, 3, 3, 2, 150, 2, 20, 8, 0, 0, 0},
+  {"glob_small", "GLOB", K::Glob, L::Styled, 2, 2, 1, 75, 2, 20, 8, 0, 0, 0},
   {"sentinel", "GLYPH SENTINEL", K::Sentinel, L::Styled, 4, 4, 6, 600, 0, 45, 24, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
   // Deep water (world_sea.cpp). Fish and Angler: range is how close (cells)

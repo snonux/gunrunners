@@ -79,6 +79,9 @@ enum class EnemyKind
   SleeperPod, // a cryo pod in the back wall: lets a mutant out as you come near
   Mutant,    // out of a Sleeper Pod: staggers after you, lunges to grab
   LabArm,    // a claw on a ceiling rail: drops on you, lifts you and lets go
+  Puffer,    // a Spore Puffer: a bulb on a floor or ceiling that puffs spore clouds
+  Snapjaw,   // a plant mouth on a floor, wall or ceiling: bites what comes close
+  Glob,      // hops at you; splits in two when it dies (big, medium, small)
   Fish,      // deep water: patrols, then chases whatever is in the water with it
   Jelly,     // deep water: pulses up and drifts down, stings on contact
   SeaMine,   // deep water: bobs on its chain, blows up when something comes close

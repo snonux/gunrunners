@@ -144,6 +144,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSanctumBack(r, camX, camY, frame, alpha);
   drawStationBack(r, camX, camY, frame, alpha);
   drawCryoBack(r, camX, camY, frame);
+  if (mGreen.on)
+    drawGreenBack(r, camX, camY, frame);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -359,6 +361,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = std::min(e.attach, 3); // resting, spinning up, sliding; arms up, lunging; lamp red, claws
         else if (e.kind == EnemyKind::SleeperPod)
           variant = e.attach + (e.carrier ? 3 : 0); // frosted, thawed, empty; green frost
+        else if (e.kind == EnemyKind::Puffer)
+          variant = std::min(e.attach, 2) + (e.carrier ? 3 : 0) + (e.variant == 1 ? 6 : 0); // swelling, puffed; carrier; ceiling
+        else if (e.kind == EnemyKind::Snapjaw)
+          variant = std::min(e.attach, 2) + 3 * std::clamp(e.variant, 0, 3); // asleep, twitching, biting; facing
+        else if (e.kind == EnemyKind::Glob)
+          variant = e.attach == 2 ? 2 : (e.attach == 1 ? 1 : 0); // squashed, in the air
         else if (e.kind == EnemyKind::Spitpod)
           variant = e.tell > 0 ? 1 : 0; // the bulb swells
         else if (e.kind == EnemyKind::Gloop)
@@ -490,6 +498,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSanctumFront(r, camX, camY, frame, alpha);
   drawStationFront(r, camX, camY, frame, alpha);
   drawCryoFront(r, camX, camY, frame);
+  if (mGreen.on)
+    drawGreenFront(r, camX, camY, frame);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -663,6 +673,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
       const float x = float(tx) * kTilePx - camX;
       const float y = float(ty) * kTilePx - camY;
       const Tile t = mMap.block(tx, ty);
+      if (mLayerMask[std::size_t(ty * mLevel->width + tx)])
+        continue; // a creeper draws itself (level 17)
       if (t == Tile::Ladder)
         r.draw(mArt.ladder, x, y);
       else if (t == Tile::Pipe)
@@ -867,6 +879,8 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
   }
 
   const Texture& tex = spr->get(p.facing);
+  if (mGreen.grow)
+    o.scale *= mGreen.scale(); // Growth Spurt
   if (p.state == PlayerState::Teleporting)
   {
     const float t = std::min(1.0f, float(mStateFrames) / 16.0f);
@@ -978,7 +992,12 @@ void World::drawHud(Renderer& r, int frame) const
     r.draw(mArt.shotNormal, x + 40, top + 44, so);
   }
   if (proto)
-    r.drawText(protoDef(p.proto).name, x + 74, top + 26, {17.0f, mTheme.hudText, kHudInk});
+  {
+    // Long names (HEDGE TRIMMER, LOCK-ON ROCKETS) shrink to clear the ammo count.
+    const std::string name = protoDef(p.proto).name;
+    const float size = name.size() > 11 ? 17.0f * 11.0f / float(name.size()) : 17.0f;
+    r.drawText(name, x + 74, top + 26 + (17.0f - size) * 0.5f, {size, mTheme.hudText, kHudInk});
+  }
   else
     r.drawText(weaponName(p.weapon), x + 74, top + 24, {22.0f, mTheme.hudText, kHudInk});
   if (p.weapon == Weapon::Normal)
@@ -1072,6 +1091,8 @@ void World::drawHud(Renderer& r, int frame) const
   drawSanctumHud(r, frame);
   drawStationHud(r, frame);
   drawCryoHud(r, frame);
+  if (mGreen.on)
+    drawGreenHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 
