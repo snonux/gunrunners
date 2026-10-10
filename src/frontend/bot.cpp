@@ -70,6 +70,8 @@ Input Bot::play(const World& world)
     return surf(world);
   if (world.recoilOnly())
     return drift(world);
+  if (world.cryo().zeroFriction)
+    return hockey(world);
   // Level 13: the bonus patch shows on the boulder that rolls over the
   // runner sheltering in its alcove and teeters at the chute: wait there.
   if (mPlanner.wantsBonus())
@@ -1287,6 +1289,60 @@ Input Bot::surf(const World& world)
 // Asteroid Belt (recoil_only): head for the nearest gem left (the beacon
 // once none are). Tries a shot (8 ways or none) now and another 3 frames
 // on, over 18 frames, and keeps the pair that ends nearest, slowest there.
+// Air Hockey (level 16's bonus): with no friction, glide to a spot a few
+// blocks short of the nearest resting puck (braking by pushing the other
+// way), turn to it crouched and tap the Freeze Ray: every puck kicked
+// slides into the far goal (or knocks the one in front of it on).
+Input Bot::hockey(const World& world)
+{
+  Input in;
+  const auto& p = world.player();
+  const float slide = world.cryo().slide;
+  const Enemy* best = nullptr;
+  bool moving = false;
+  for (const auto& e : world.enemies())
+  {
+    if (!e.alive || e.kind != EnemyKind::Puck || e.variant == 1)
+      continue; // (not the goalies)
+    moving = moving || e.vx != 0.0f;
+    if (e.vx == 0.0f && (!best || std::abs(e.x - p.x) < std::abs(best->x - p.x)))
+      best = &e;
+  }
+  if (!best)
+    return in;
+  // Shoot it from the runner's side, on into the goal beyond it.
+  const int dir = best->x > p.x ? 1 : -1;
+  const int spot = best->x + (dir > 0 ? -12 : best->w + 10);
+  const float want = std::clamp(float(spot - p.x) / 10.0f, -1.0f, 1.0f);
+  const bool there = std::abs(spot - p.x) <= 3;
+  if (!there || std::abs(slide) > 0.07f)
+  {
+    const float target = there ? 0.0f : want;
+    if (slide < target - 0.07f)
+      in.right = true;
+    else if (slide > target + 0.07f)
+      in.left = true;
+    return in;
+  }
+  in.down = true;
+  if (dir != p.facing)
+  {
+    (dir > 0 ? in.right : in.left) = true;
+    return in;
+  }
+  if (moving || (world.stats().frames % 2) != 0)
+    return in;
+  // Past the goalie? Try the shot in a copy of the rink first.
+  World sim(world);
+  Input shot = in, crouch = in;
+  shot.fire = true;
+  sim.update(asPlayerInput(shot, Input{}));
+  for (int f = 0; f < 50 && sim.cryo().scored == world.cryo().scored; ++f)
+    sim.update(asPlayerInput(crouch, shot));
+  in.fire = sim.cryo().scored > world.cryo().scored;
+  return in;
+}
+
 Input Bot::drift(const World& world)
 {
   if (!mDriftQueue.empty())

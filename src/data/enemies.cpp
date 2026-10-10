@@ -113,6 +113,15 @@ const EnemyDef kEnemies[] = {
   {"loader_mech", "LOADER MECH", K::Loader, L::Styled, 6, 8, 8, 1200, 4, 40, 12, 24, 0, 0},
   {"weld_drone", "WELD DRONE", K::WeldDrone, L::Styled, 2, 2, 2, 400, 1, 15, 8, 0, 0, 0},
   {"tether_pair", "TETHER DRONE", K::Tether, L::Styled, 2, 2, 2, 500, 2, 0, 8, 0, 0, 0},
+  // Level 16. Puck Drone: cooldown is its rest after 3 bounces, tell the
+  // spin-up. Sleeper Pod: range is how close (cells) the runner comes before
+  // its frost melts (over `tell` frames). Mutant: range is its lunge
+  // (cells). Lab Arm: stepEvery is its ride along the rail, tell the red
+  // lamp before it drops.
+  {"puck_drone", "PUCK DRONE", K::Puck, L::Styled, 4, 2, 2, 400, 1, 30, 10, 0, 0, 0},
+  {"sleeper_pod", "SLEEPER POD", K::SleeperPod, L::Styled, 4, 6, 99, 0, 0, 0, 15, 8, kEnemyHarmless | kEnemyNoTally, 0},
+  {"pod_mutant", "POD MUTANT", K::Mutant, L::Styled, 3, 5, 4, 600, 3, 30, 10, 4, 0, 0},
+  {"lab_arm", "LAB ARM", K::LabArm, L::Styled, 4, 4, 6, 800, 2, 45, 12, 0, kEnemyHarmless, 0},
   {"sentinel", "GLYPH SENTINEL", K::Sentinel, L::Styled, 4, 4, 6, 600, 0, 45, 24, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
   // Deep water (world_sea.cpp). Fish and Angler: range is how close (cells)

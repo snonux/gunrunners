@@ -3498,8 +3498,106 @@ Texture bakeMagmaNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isCryo(const Theme& t) { return std::string_view(t.look) == "cryo"; }
+
+// Level 16's labs: a white panelled back wall under strip lights, frost
+// creeping in from the corners.
+Texture bakeCryoSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyMid}, {0.6, t.skyTop}, {1.0, t.skyBottom}});
+  for (int y = 0; y < kScreenH; y += 120)
+    for (int x = 0; x < kScreenW; x += 160)
+    {
+      cairo_rectangle(cr, x + 3, y + 3, 154, 114);
+      setColor(cr, withAlpha(rgb(255, 255, 255), 40));
+      cairo_fill(cr);
+      cairo_rectangle(cr, x + 3, y + 3, 154, 114);
+      setColor(cr, withAlpha(t.skyBottom, 120));
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+  for (int k = 0; k < 4; ++k)
+  {
+    cairo_rectangle(cr, 80 + k * 320.0, 30, 200, 12);
+    setColor(cr, rgb(250, 254, 255));
+    cairo_fill(cr);
+    radialGlow(cr, 180 + k * 320.0, 36, 180, rgb(230, 248, 255), 0.25);
+  }
+  for (const double cx : {0.0, double(kScreenW)})
+    for (const double cy : {0.0, double(kScreenH)})
+      radialGlow(cr, cx, cy, 380, rgb(255, 255, 255), 0.45);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: rows of tall cryo tanks with their status lights, behind glass.
+Texture bakeCryoFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1601u);
+  const Color shade = lerpColor(t.farLayer, t.skyMid, 0.2f);
+  for (double x = 30; x < kLayerW - 100; x += 170)
+  {
+    const double top = 200 + rng.range(0, 60);
+    cairo_rectangle(cr, x, top, 110, kScreenH - top);
+    setColor(cr, shade);
+    cairo_fill(cr);
+    cairo_rectangle(cr, x + 14, top + 30, 82, kScreenH - top - 120);
+    setColor(cr, withAlpha(lerpColor(shade, rgb(120, 200, 255), 0.4f), 220));
+    cairo_fill(cr);
+    for (double y = top + 40; y < kScreenH - 100; y += rng.range(30, 60))
+    {
+      cairo_arc(cr, x + 30 + rng.range(0, 50), y, rng.range(2, 5), 0, 2 * kPi);
+      setColor(cr, withAlpha(rgb(255, 255, 255), 120));
+      cairo_fill(cr);
+    }
+    for (int k = 0; k < 3; ++k)
+      radialGlow(cr, x + 30 + k * 25, kScreenH - 70, 8, k == 1 ? rgb(255, 120, 80) : rgb(90, 255, 160), 0.8);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: frosted pipes along the ceiling and icicles hanging off them.
+Texture bakeCryoNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(1609u);
+  for (int k = 0; k < 2; ++k)
+  {
+    const double y = 20 + k * 34;
+    cairo_rectangle(cr, 0, y, kLayerW, 20);
+    setColor(cr, withAlpha(t.nearLayer, 230));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, y, kLayerW, 5);
+    setColor(cr, withAlpha(rgb(240, 250, 255), 220));
+    cairo_fill(cr);
+  }
+  for (double x = 10; x < kLayerW; x += rng.range(24, 70))
+  {
+    const double len = rng.range(12, 60);
+    cairo_move_to(cr, x - 5, 74);
+    cairo_line_to(cr, x + 5, 74);
+    cairo_line_to(cr, x, 74 + len);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(rgb(220, 244, 255), 200));
+    cairo_fill(cr);
+  }
+  for (int i = 0; i < 70; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kLayerW), rng.range(80, kScreenH), rng.range(1, 2.5), 0, 2 * kPi);
+    setColor(cr, withAlpha(rgb(255, 255, 255), 90 + rng.irange(0, 90)));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isCryo(t))
+    return bakeCryoSky(r, t);
   if (isAlien(t))
     return bakeAlienSky(r, t);
   if (isMagma(t))
@@ -3653,6 +3751,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isCryo(t))
+    return bakeCryoFar(r, t);
   if (isAlien(t))
     return bakeAlienFar(r, t, kLayerW);
   if (isMagma(t))
@@ -3781,6 +3881,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isCryo(t))
+    return bakeCryoNear(r, t);
   if (isAlien(t))
     return bakeAlienNear(r, t, kLayerW);
   if (isMagma(t))

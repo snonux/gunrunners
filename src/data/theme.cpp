@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 19> kVariants{{
+const std::array<Variant, 20> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -265,6 +265,19 @@ const std::array<Variant, 19> kVariants{{
     rgb(26, 36, 62), rgb(14, 20, 38),
     rgb(225, 232, 240), rgb(255, 255, 255), rgb(110, 118, 134), rgb(255, 80, 60),
     rgb(225, 242, 255)}},
+  {"station_cryo",
+   {ThemeId::StationZero,
+    "CRYO LABS",
+    "STATION ZERO'S COLD LABS, WHERE THE CREW SLEEPS",
+    rgb(176, 204, 226), rgb(214, 232, 244), rgb(150, 182, 210),
+    rgb(150, 164, 184), rgb(214, 226, 240), rgb(92, 104, 124),
+    rgb(120, 220, 255), rgb(200, 245, 255),
+    rgb(170, 200, 224), rgb(96, 124, 150),
+    rgb(255, 120, 60), rgb(255, 210, 170),
+    rgb(90, 200, 255), rgb(255, 120, 200),
+    rgb(150, 178, 204), rgb(110, 136, 162),
+    rgb(200, 214, 230), rgb(255, 255, 255), rgb(96, 108, 128), rgb(255, 70, 70),
+    rgb(230, 246, 255), "cryo"}},
   {"gold_sanctum",
    {ThemeId::LostTemple,
     "THE IDOL AWAKENS",
