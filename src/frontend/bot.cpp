@@ -102,6 +102,8 @@ Input Bot::play(const World& world)
     return orbit(world);
   if (world.turntable().on)
     return turntable(world);
+  if (world.glide().on)
+    return glide(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -154,6 +156,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (kitchen(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 25: the dandelion's seed head (mist it, or wait for the sweep).
+  if (world.garden().on)
+  {
+    Input in;
+    if (garden(world, in))
     {
       mPlanner.reset();
       return in;

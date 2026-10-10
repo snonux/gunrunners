@@ -19,6 +19,7 @@
 #include "game/hull.hpp"
 #include "game/reactor.hpp"
 #include "game/west.hpp"
+#include "game/garden.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
@@ -1795,6 +1796,10 @@ public:
   const ManorState& manor() const { return mManor; }
   const KitchenState& kitchen() const { return mKitchen; }
   const TurnState& turntable() const { return mTurn; }
+  const GardenState& garden() const { return mGarden; }
+  int gardenClock() const; // frames into the garden's day/dusk cycle
+  bool gardenDusk() const;
+  const GlideState& glide() const { return mGlide; }
   const Player& twin() const { return mTwin; } // Both Sides: the bottom runner
   bool zeroFight() const;              // the runner is in the arena and ZERO is up
   int zeroHp() const;                  // ZERO's hearts left over all three phases
@@ -2404,6 +2409,35 @@ private:
   void drawManorHud(Renderer& r, int frame) const;
   void drawManorWall(Renderer& r, float camX, float camY, int frame) const; // the inside walls, behind everything
   void drawSplit(Renderer& r, int frame, float alpha) const;
+  // Level 25, Tiny Kingdom (world_garden.cpp, world_garden_draw.cpp).
+  bool setupGardenEntity(const EntityDef& e);
+  void setupGardenEnemy(Enemy& en, const EntityDef& e);
+  void linkGarden();
+  void gardenSay(const std::string& line);
+  CellBox mistBox() const;
+  void updateMister(const Button& fire);
+  void mistCone();
+  void provokeAnts(int column);
+  void updateSoldierAnt(Enemy& e, const EnemyDef& def);
+  void updateJumpingSpider(Enemy& e, const EnemyDef& def);
+  void updateBombardierBeetle(Enemy& e, const EnemyDef& def);
+  bool shotAtGarden(Projectile& pr, const CellBox& b);
+  int shotAtGardenEnemy(Projectile& pr, Enemy& e); // 0 go on
+  void updateGarden(const PlayerInput& input);
+  void resetGarden();
+  bool gardenCanSave() const;
+  std::vector<int> gardenSave() const;
+  bool validGardenSave(const std::vector<int>& v) const;
+  void loadGarden(const std::vector<int>& v);
+  void drawGardenBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawGardenFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawGardenHud(Renderer& r, int frame) const;
+  // Its Dandelion Drift bonus (world_glide.cpp).
+  bool setupGlideEntity(const EntityDef& e);
+  void linkGlide();
+  void updateGlide(const PlayerInput& input);
+  void drawGlideBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawGlideFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
   bool setupKitchenEntity(const EntityDef& e);
   void setupKitchenEnemy(Enemy& en, const EntityDef& e);
@@ -2862,6 +2896,8 @@ private:
   ManorState mManor;
   KitchenState mKitchen;
   TurnState mTurn;
+  GardenState mGarden;
+  GlideState mGlide;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

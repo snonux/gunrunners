@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 31> kVariants{{
+const std::array<Variant, 33> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -468,6 +468,36 @@ const std::array<Variant, 31> kVariants{{
     rgb(38, 32, 62), rgb(14, 12, 26),
     rgb(150, 156, 176), rgb(220, 228, 244), rgb(58, 60, 78), rgb(120, 255, 150),
     rgb(238, 230, 255), "manor"}},
+  // Level 24: a giant TV cooking-show kitchen under studio lights, cream
+  // tiles, white marble counters, butcher-block wood and chrome.
+  {"tv_kitchen",
+   {ThemeId::LostTemple,
+    "TOO MANY COOKS",
+    "A GIANT TV KITCHEN, LIVE, WITH THE BELTS RUNNING",
+    rgb(14, 12, 20), rgb(46, 34, 40), rgb(120, 82, 64),
+    rgb(232, 226, 214), rgb(250, 248, 242), rgb(150, 140, 128),
+    rgb(196, 204, 214), rgb(255, 244, 214),
+    rgb(198, 142, 84), rgb(122, 78, 42),
+    rgb(220, 50, 40), rgb(255, 160, 120),
+    rgb(232, 64, 52), rgb(90, 200, 170),
+    rgb(64, 44, 46), rgb(34, 24, 28),
+    rgb(150, 70, 44), rgb(204, 120, 80), rgb(84, 36, 24), rgb(255, 230, 120),
+    rgb(255, 244, 228), "kitchen"}},
+  // Level 25: a back garden seen from an ant's height, giant grass blades,
+  // dark loam, pebbles like boulders, petals and dew in golden light.
+  {"macro_garden",
+   {ThemeId::LostTemple,
+    "TINY KINGDOM",
+    "A BACK GARDEN AT ANT HEIGHT, FILMED IN TIME-LAPSE",
+    rgb(120, 190, 230), rgb(190, 225, 170), rgb(240, 230, 160),
+    rgb(104, 76, 52), rgb(150, 114, 78), rgb(56, 38, 26),
+    rgb(120, 200, 90), rgb(220, 255, 160),
+    rgb(110, 170, 70), rgb(60, 110, 40),
+    rgb(200, 60, 50), rgb(255, 170, 130),
+    rgb(255, 150, 200), rgb(255, 220, 80),
+    rgb(90, 150, 80), rgb(50, 100, 50),
+    rgb(120, 60, 40), rgb(180, 100, 60), rgb(60, 28, 20), rgb(255, 240, 120),
+    rgb(255, 250, 230), ""}},
 }};
 
 } // namespace

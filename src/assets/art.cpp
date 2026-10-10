@@ -2066,9 +2066,15 @@ bool isManor(const Theme& t);
 Texture bakeManorSolid(const Renderer& r, const Theme& t, int variant);
 Texture bakeManorSolidTop(const Renderer& r, const Theme& t);
 Texture bakeManorPlatform(const Renderer& r, const Theme& t);
+bool isKitchen(const Theme& t);
+Texture bakeKitchenSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakeKitchenSolidTop(const Renderer& r, const Theme& t);
+Texture bakeKitchenPlatform(const Renderer& r, const Theme& t);
 
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isKitchen(t))
+    return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
     return bakeManorSolid(r, t, variant);
   if (isWestern(t))
@@ -2497,6 +2503,8 @@ Texture bakeReactorSolidTop(const Renderer& r, const Theme& t)
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isKitchen(t))
+    return bakeKitchenSolidTop(r, t);
   if (isManor(t))
     return bakeManorSolidTop(r, t);
   if (isWestern(t))
@@ -2618,6 +2626,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isKitchen(t))
+    return bakeKitchenPlatform(r, t);
   if (isManor(t))
     return bakeManorPlatform(r, t);
   if (isWestern(t))
@@ -6415,8 +6425,805 @@ Texture bakeManorNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Level 24's TV kitchen (theme look "kitchen"): a giant cooking-show set.
+// Glazed cream wall tiles for the masses, white marble counter tops with a
+// chrome nosing where you stand, butcher-block shelves for the one-way
+// floors; behind the set the dark studio: a lighting grid of fresnels
+// throwing cones down through the haze, the camera crew in silhouette on
+// the studio floor, and the set's own back flats.
+bool isKitchen(const Theme& t) { return std::string_view(t.look) == "kitchen"; }
+
+namespace
+{
+
+void kitchenStop(cairo_pattern_t* g, double at, Color c, double a = 1.0)
+{
+  cairo_pattern_add_color_stop_rgba(g, at, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a);
+}
+
+// A light cone from a lamp at (x, y) down to `len` px, `spread` px wide at
+// the far end, fading out.
+void kitchenCone(cairo_t* cr, double x, double y, double len, double spread, double lean, Color c, double a)
+{
+  cairo_move_to(cr, x - 10, y);
+  cairo_line_to(cr, x + lean - spread * 0.5, y + len);
+  cairo_line_to(cr, x + lean + spread * 0.5, y + len);
+  cairo_line_to(cr, x + 10, y);
+  cairo_close_path(cr);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y, 0, y + len);
+  kitchenStop(g, 0, c, a);
+  kitchenStop(g, 0.6, c, a * 0.35);
+  kitchenStop(g, 1, c, 0.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+}
+
+// A studio fresnel hanging under the grid at (x, y): a black can with
+// cooling fins, a yoke, barn doors, and a lit lens facing down at `tilt`.
+void kitchenFresnel(cairo_t* cr, double x, double y, double s, double tilt, Color lens, bool lit)
+{
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  // The yoke from the bar.
+  cairo_move_to(cr, -14 * s, -18 * s);
+  cairo_line_to(cr, -14 * s, 2 * s);
+  cairo_move_to(cr, 14 * s, -18 * s);
+  cairo_line_to(cr, 14 * s, 2 * s);
+  cairo_move_to(cr, -14 * s, -18 * s);
+  cairo_line_to(cr, 14 * s, -18 * s);
+  setColor(cr, rgb(30, 28, 34));
+  cairo_set_line_width(cr, 3 * s);
+  cairo_stroke(cr);
+  cairo_rotate(cr, tilt);
+  // The can.
+  roundedRect(cr, -12 * s, -10 * s, 24 * s, 26 * s, 4 * s);
+  setColor(cr, rgb(24, 22, 28));
+  cairo_fill(cr);
+  for (int i = 0; i < 4; ++i)
+  {
+    cairo_rectangle(cr, -12 * s, (-7 + i * 5) * s, 24 * s, 1.4 * s);
+    setColor(cr, rgb(52, 50, 58));
+    cairo_fill(cr);
+  }
+  // Barn doors.
+  cairo_move_to(cr, -12 * s, 16 * s);
+  cairo_line_to(cr, -22 * s, 26 * s);
+  cairo_move_to(cr, 12 * s, 16 * s);
+  cairo_line_to(cr, 22 * s, 26 * s);
+  setColor(cr, rgb(36, 34, 40));
+  cairo_set_line_width(cr, 3 * s);
+  cairo_stroke(cr);
+  // The lens.
+  cairo_save(cr);
+  cairo_translate(cr, 0, 16 * s);
+  cairo_scale(cr, 11 * s, 4 * s);
+  cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+  cairo_restore(cr);
+  setColor(cr, lit ? lighten(lens, 0.5f) : rgb(70, 64, 60));
+  cairo_fill(cr);
+  if (lit)
+    radialGlow(cr, 0, 18 * s, 30 * s, lens, 0.75);
+  cairo_restore(cr);
+}
+
+// A studio camera on its pedestal, its operator behind it with headphones,
+// in silhouette, standing on y = base with the camera's middle at x. dir:
+// the way the lens points. The tally light (red) is lit when `onAir`.
+void kitchenCameraman(cairo_t* cr, double x, double base, double s, int dir, Color body, Color rim, bool onAir)
+{
+  const double d = double(dir);
+  // The pedestal: a column on a three-wheeled base.
+  cairo_rectangle(cr, x - 8 * s, base - 120 * s, 16 * s, 110 * s);
+  cairo_move_to(cr, x - 46 * s, base - 4 * s);
+  cairo_line_to(cr, x - 10 * s, base - 22 * s);
+  cairo_line_to(cr, x + 10 * s, base - 22 * s);
+  cairo_line_to(cr, x + 46 * s, base - 4 * s);
+  cairo_line_to(cr, x + 46 * s, base);
+  cairo_line_to(cr, x - 46 * s, base);
+  cairo_close_path(cr);
+  // The camera: a long box, the lens hood, the viewfinder on top.
+  roundedRect(cr, x - 40 * s, base - 168 * s, 86 * s, 46 * s, 6 * s);
+  cairo_move_to(cr, x + d * 40 * s, base - 164 * s);
+  cairo_line_to(cr, x + d * 78 * s, base - 172 * s);
+  cairo_line_to(cr, x + d * 78 * s, base - 116 * s);
+  cairo_line_to(cr, x + d * 40 * s, base - 124 * s);
+  cairo_close_path(cr);
+  roundedRect(cr, x - d * 30 * s - 16 * s, base - 196 * s, 32 * s, 26 * s, 3 * s);
+  // The pan bars back to the operator.
+  cairo_move_to(cr, x - d * 30 * s, base - 132 * s);
+  cairo_line_to(cr, x - d * 86 * s, base - 116 * s);
+  setColor(cr, body);
+  cairo_fill(cr);
+  cairo_move_to(cr, x - d * 30 * s, base - 132 * s);
+  cairo_line_to(cr, x - d * 86 * s, base - 112 * s);
+  cairo_set_line_width(cr, 5 * s);
+  cairo_stroke(cr);
+  // The operator: legs, body, head with headphones, a hand on the bar.
+  const double ox = x - d * 100 * s;
+  cairo_move_to(cr, ox - 14 * s, base);
+  cairo_line_to(cr, ox - 10 * s, base - 90 * s);
+  cairo_line_to(cr, ox + 12 * s, base - 90 * s);
+  cairo_line_to(cr, ox + 16 * s, base);
+  cairo_close_path(cr);
+  roundedRect(cr, ox - 22 * s, base - 166 * s, 44 * s, 84 * s, 14 * s);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, ox + d * 4 * s, base - 186 * s, 17 * s, 0, 2 * kPi);
+  setColor(cr, body);
+  cairo_fill(cr);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, ox + d * 4 * s, base - 188 * s, 21 * s, kPi * 1.05, kPi * 1.95);
+  cairo_set_line_width(cr, 4 * s);
+  cairo_stroke(cr);
+  // Rim light from the set on the front edges.
+  cairo_move_to(cr, x + d * 78 * s, base - 172 * s);
+  cairo_line_to(cr, x + d * 78 * s, base - 116 * s);
+  cairo_move_to(cr, x + d * 46 * s, base - 168 * s);
+  cairo_line_to(cr, x - 40 * s, base - 168 * s);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, ox + d * 4 * s, base - 186 * s, 17 * s, dir > 0 ? -kPi * 0.5 : kPi * 0.5, dir > 0 ? kPi * 0.3 : kPi * 1.2);
+  setColor(cr, rim);
+  cairo_set_line_width(cr, 2 * s);
+  cairo_stroke(cr);
+  // The glass catching the light, and the tally.
+  cairo_save(cr);
+  cairo_translate(cr, x + d * 78 * s, base - 144 * s);
+  cairo_scale(cr, 4 * s, 22 * s);
+  cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+  cairo_restore(cr);
+  setColor(cr, withAlpha(rim, 160));
+  cairo_fill(cr);
+  if (onAir)
+  {
+    radialGlow(cr, x - 20 * s, base - 202 * s, 16 * s, rgb(255, 40, 30), 0.9);
+    cairo_arc(cr, x - 20 * s, base - 200 * s, 3.5 * s, 0, 2 * kPi);
+    setColor(cr, rgb(255, 120, 100));
+    cairo_fill(cr);
+  }
+}
+
+// A boom operator holding the mic out over the set on a long pole.
+void kitchenBoom(cairo_t* cr, double x, double base, double s, int dir, Color body, Color rim)
+{
+  const double d = double(dir);
+  cairo_move_to(cr, x - 14 * s, base);
+  cairo_line_to(cr, x - 10 * s, base - 92 * s);
+  cairo_line_to(cr, x + 12 * s, base - 92 * s);
+  cairo_line_to(cr, x + 16 * s, base);
+  cairo_close_path(cr);
+  roundedRect(cr, x - 22 * s, base - 168 * s, 44 * s, 86 * s, 14 * s);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, x, base - 188 * s, 17 * s, 0, 2 * kPi);
+  setColor(cr, body);
+  cairo_fill(cr);
+  // Arms up to the pole, and the pole out over the set.
+  cairo_move_to(cr, x - d * 14 * s, base - 150 * s);
+  cairo_line_to(cr, x - d * 6 * s, base - 230 * s);
+  cairo_move_to(cr, x + d * 14 * s, base - 150 * s);
+  cairo_line_to(cr, x + d * 40 * s, base - 248 * s);
+  cairo_set_line_width(cr, 10 * s);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+  cairo_stroke(cr);
+  cairo_move_to(cr, x - d * 40 * s, base - 218 * s);
+  cairo_line_to(cr, x + d * 300 * s, base - 300 * s);
+  cairo_set_line_width(cr, 5 * s);
+  cairo_stroke(cr);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+  // The fluffy windshield on the mic.
+  cairo_save(cr);
+  cairo_translate(cr, x + d * 318 * s, base - 300 * s);
+  cairo_rotate(cr, -0.25 * d);
+  cairo_scale(cr, 28 * s, 11 * s);
+  cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+  cairo_restore(cr);
+  cairo_fill(cr);
+  cairo_move_to(cr, x + d * 300 * s, base - 300 * s);
+  cairo_line_to(cr, x - d * 40 * s, base - 218 * s);
+  setColor(cr, rim);
+  cairo_set_line_width(cr, 1.5 * s);
+  cairo_stroke(cr);
+}
+
+// A director in a folding chair with a megaphone, and a monitor cart.
+void kitchenDirector(cairo_t* cr, double x, double base, double s, Color body, Color rim, Color screen)
+{
+  // The chair: canvas back and seat on crossed legs.
+  cairo_move_to(cr, x - 30 * s, base);
+  cairo_line_to(cr, x + 30 * s, base - 70 * s);
+  cairo_move_to(cr, x + 30 * s, base);
+  cairo_line_to(cr, x - 30 * s, base - 70 * s);
+  setColor(cr, body);
+  cairo_set_line_width(cr, 5 * s);
+  cairo_stroke(cr);
+  cairo_rectangle(cr, x - 36 * s, base - 76 * s, 72 * s, 10 * s);
+  cairo_rectangle(cr, x + 26 * s, base - 150 * s, 8 * s, 80 * s);
+  cairo_rectangle(cr, x - 2 * s, base - 140 * s, 36 * s, 26 * s);
+  cairo_fill(cr);
+  // Him: sitting, a cap, the megaphone at his mouth.
+  roundedRect(cr, x - 20 * s, base - 150 * s, 40 * s, 80 * s, 12 * s);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, x - 4 * s, base - 168 * s, 16 * s, 0, 2 * kPi);
+  cairo_rectangle(cr, x - 30 * s, base - 186 * s, 36 * s, 8 * s);
+  cairo_move_to(cr, x - 18 * s, base - 172 * s);
+  cairo_line_to(cr, x - 58 * s, base - 188 * s);
+  cairo_line_to(cr, x - 58 * s, base - 150 * s);
+  cairo_close_path(cr);
+  cairo_fill(cr);
+  cairo_move_to(cr, x - 58 * s, base - 188 * s);
+  cairo_line_to(cr, x - 58 * s, base - 150 * s);
+  setColor(cr, rim);
+  cairo_set_line_width(cr, 2 * s);
+  cairo_stroke(cr);
+  // The monitor cart beside him, its screen glowing.
+  const double mx = x + 110 * s;
+  cairo_rectangle(cr, mx - 40 * s, base - 80 * s, 80 * s, 8 * s);
+  cairo_rectangle(cr, mx - 36 * s, base - 72 * s, 6 * s, 72 * s);
+  cairo_rectangle(cr, mx + 30 * s, base - 72 * s, 6 * s, 72 * s);
+  roundedRect(cr, mx - 44 * s, base - 150 * s, 88 * s, 66 * s, 6 * s);
+  setColor(cr, body);
+  cairo_fill(cr);
+  radialGlow(cr, mx, base - 117 * s, 90 * s, screen, 0.35);
+  cairo_rectangle(cr, mx - 36 * s, base - 143 * s, 72 * s, 52 * s);
+  setColor(cr, withAlpha(screen, 200));
+  cairo_fill(cr);
+  // On it, the set: a counter line and a little chef's hat shape.
+  cairo_rectangle(cr, mx - 36 * s, base - 106 * s, 72 * s, 3 * s);
+  cairo_new_sub_path(cr);
+  cairo_arc(cr, mx, base - 124 * s, 8 * s, 0, 2 * kPi);
+  setColor(cr, withAlpha(lighten(screen, 0.6f), 220));
+  cairo_fill(cr);
+}
+
+} // namespace
+
+// Glazed cream tiles, four to a block, set in pale grout; each tile a
+// little different in tone with a gloss sheen across it. Variant 1 has a
+// hand-painted blue herb sprig on one tile, 2 a splash of tomato sauce.
+Texture bakeKitchenSolid(const Renderer& r, const Theme& t, int variant)
+{
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  Rng rng(std::uint32_t(variant * 7919 + 2411));
+  cairo_rectangle(cr, 0, 0, 64, 64);
+  setColor(cr, lerpColor(t.rockDark, t.rock, 0.45f));
+  cairo_fill(cr);
+  for (int i = 0; i < 4; ++i)
+  {
+    const double x = (i % 2) * 32 + 1.5, y = (i / 2) * 32 + 1.5, w = 29, h = 29;
+    const Color base = lerpColor(t.rock, i % 3 == 0 ? t.rockLight : rgb(236, 224, 200), rng.range(0.0f, 0.5f));
+    roundedRect(cr, x, y, w, h, 3.5);
+    cairo_pattern_t* g = cairo_pattern_create_linear(x, y, x + w, y + h);
+    kitchenStop(g, 0, lighten(base, 0.35f));
+    kitchenStop(g, 0.5, base);
+    kitchenStop(g, 1, darken(base, 0.1f));
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The glaze pooling darker at the edges.
+    roundedRect(cr, x + 0.6, y + 0.6, w - 1.2, h - 1.2, 3);
+    setColor(cr, withAlpha(darken(base, 0.18f), 120));
+    cairo_set_line_width(cr, 1.2);
+    cairo_stroke(cr);
+    // The sheen: a soft diagonal band.
+    cairo_move_to(cr, x + 4, y + h * 0.55);
+    cairo_line_to(cr, x + w * 0.55, y + 4);
+    cairo_line_to(cr, x + w * 0.75, y + 4);
+    cairo_line_to(cr, x + 4, y + h * 0.75);
+    cairo_close_path(cr);
+    setColor(cr, rgba(255, 255, 255, 70));
+    cairo_fill(cr);
+    cairo_arc(cr, x + 6, y + 6, 1.6, 0, 2 * kPi);
+    setColor(cr, rgba(255, 255, 255, 200));
+    cairo_fill(cr);
+  }
+  if (variant == 1)
+  {
+    // A blue herb sprig painted on the bottom right tile.
+    const double cx = 48, cy = 50;
+    cairo_move_to(cr, cx - 7, cy + 9);
+    cairo_curve_to(cr, cx - 3, cy + 2, cx + 1, cy - 4, cx + 6, cy - 10);
+    setColor(cr, rgb(50, 90, 170));
+    cairo_set_line_width(cr, 1.4);
+    cairo_stroke(cr);
+    for (int k = 0; k < 4; ++k)
+    {
+      const double u = 0.2 + k * 0.22;
+      const double lx = cx - 7 + u * 13, ly = cy + 9 - u * 19;
+      for (const int side : {-1, 1})
+      {
+        cairo_save(cr);
+        cairo_translate(cr, lx, ly);
+        cairo_rotate(cr, side * 0.9 - 0.6);
+        cairo_scale(cr, 4.2, 1.8);
+        cairo_arc(cr, side * 0.9, 0, 1, 0, 2 * kPi);
+        cairo_restore(cr);
+        setColor(cr, rgb(70, 110, 190));
+        cairo_fill(cr);
+      }
+    }
+    cairo_rectangle(cr, 34.5, 34.5, 27, 27);
+    setColor(cr, rgba(60, 100, 180, 90));
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+  }
+  else if (variant == 2)
+  {
+    // A splash of sauce: a blob and its droplets, glossy.
+    const double cx = 20, cy = 40;
+    for (int k = 0; k < 9; ++k)
+    {
+      const double a = rng.range(0, float(2 * kPi)), d = k == 0 ? 0.0 : rng.range(5, 13);
+      const double rr = k == 0 ? 5.5 : rng.range(1.0f, 2.6f);
+      cairo_arc(cr, cx + std::cos(a) * d, cy + std::sin(a) * d * 0.8, rr, 0, 2 * kPi);
+      setColor(cr, rgba(196, 40, 28, 230));
+      cairo_fill(cr);
+    }
+    cairo_move_to(cr, cx, cy + 4);
+    cairo_line_to(cr, cx + 1, cy + 14);
+    setColor(cr, rgba(196, 40, 28, 230));
+    cairo_set_line_width(cr, 2.4);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_stroke(cr);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+    cairo_arc(cr, cx - 1.6, cy - 1.8, 1.6, 0, 2 * kPi);
+    setColor(cr, rgba(255, 210, 190, 200));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Where you stand: a white marble counter top, its rounded nosing catching
+// the studio lights, grey veins through it, a chrome strip under the lip
+// and its shadow on the tiles.
+Texture bakeKitchenSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  // The shadow under the lip.
+  cairo_rectangle(cr, 0, y + 14, 64, 9);
+  cairo_pattern_t* sh = cairo_pattern_create_linear(0, y + 14, 0, y + 23);
+  cairo_pattern_add_color_stop_rgba(sh, 0, 0.2, 0.12, 0.06, 0.45);
+  cairo_pattern_add_color_stop_rgba(sh, 1, 0.2, 0.12, 0.06, 0.0);
+  cairo_set_source(cr, sh);
+  cairo_fill(cr);
+  cairo_pattern_destroy(sh);
+  // The chrome strip.
+  cairo_rectangle(cr, 0, y + 10, 64, 4.5);
+  cairo_pattern_t* ch = cairo_pattern_create_linear(0, y + 10, 0, y + 14.5);
+  kitchenStop(ch, 0, rgb(250, 252, 255));
+  kitchenStop(ch, 0.4, t.trim);
+  kitchenStop(ch, 1, darken(t.trim, 0.45f));
+  cairo_set_source(cr, ch);
+  cairo_fill(cr);
+  // The slab, its nosing rounded: bright on top, shaded under.
+  cairo_rectangle(cr, 0, y - 4, 64, 14);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y - 4, 0, y + 10);
+  kitchenStop(g, 0, rgb(255, 255, 255));
+  kitchenStop(g, 0.25, rgb(246, 244, 240));
+  kitchenStop(g, 0.7, rgb(222, 220, 216));
+  kitchenStop(g, 1, rgb(176, 172, 168));
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // Veins wandering across (they meet at the edges so the strip tiles).
+  Rng rng(2417u);
+  for (int i = 0; i < 2; ++i)
+  {
+    const double y0 = y - 1 + i * 6.0;
+    cairo_move_to(cr, 0, y0);
+    cairo_curve_to(cr, 18, y0 + rng.range(-3, 3), 40, y0 + rng.range(-3, 3), 64, y0);
+    setColor(cr, rgba(140, 140, 150, i == 0 ? 120 : 80));
+    cairo_set_line_width(cr, i == 0 ? 1.1 : 0.7);
+    cairo_stroke(cr);
+  }
+  cairo_move_to(cr, 22, y - 1 + rng.range(-1, 1));
+  cairo_curve_to(cr, 28, y + 3, 30, y + 5, 38, y + 8);
+  setColor(cr, rgba(150, 150, 160, 90));
+  cairo_set_line_width(cr, 0.6);
+  cairo_stroke(cr);
+  // The polish: a bright line along the top edge and one along the nosing.
+  cairo_rectangle(cr, 0, y - 4, 64, 1.4);
+  setColor(cr, rgba(255, 255, 255, 255));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, y + 1.5, 64, 1.2);
+  setColor(cr, rgba(255, 255, 255, 150));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
+// A one-way floor: a butcher-block shelf (end-grain strips of maple and
+// walnut glued up), oiled, on a chrome bracket.
+Texture bakeKitchenPlatform(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, 40);
+  cairo_t* cr = img.cr();
+  // The bracket: a small chrome gusset under the middle, a hole in it.
+  cairo_move_to(cr, 24, 12);
+  cairo_line_to(cr, 40, 12);
+  cairo_curve_to(cr, 40, 18, 36, 22, 32, 24);
+  cairo_curve_to(cr, 28, 22, 24, 18, 24, 12);
+  cairo_close_path(cr);
+  cairo_new_sub_path(cr);
+  cairo_arc_negative(cr, 32, 16, 2.4, 2 * kPi, 0);
+  cairo_close_path(cr);
+  cairo_pattern_t* bg = cairo_pattern_create_linear(24, 0, 40, 0);
+  kitchenStop(bg, 0, rgb(250, 252, 255));
+  kitchenStop(bg, 0.5, t.trim);
+  kitchenStop(bg, 1, darken(t.trim, 0.5f));
+  cairo_set_source(cr, bg);
+  cairo_fill(cr);
+  cairo_pattern_destroy(bg);
+  // The block: strips of light and dark wood.
+  for (int i = 0; i < 8; ++i)
+  {
+    const Color c = i % 3 == 1 ? t.platformDark : (i % 3 == 2 ? lerpColor(t.platform, t.platformDark, 0.35f) : t.platform);
+    cairo_rectangle(cr, i * 8, 0, 8, 12);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 12);
+    kitchenStop(g, 0, lighten(c, 0.3f));
+    kitchenStop(g, 0.35, c);
+    kitchenStop(g, 1, darken(c, 0.25f));
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_rectangle(cr, i * 8, 0, 0.8, 12);
+    setColor(cr, withAlpha(darken(t.platformDark, 0.4f), 160));
+    cairo_fill(cr);
+    // A growth ring or two.
+    cairo_move_to(cr, i * 8 + 2, 4 + (i % 2) * 2);
+    cairo_curve_to(cr, i * 8 + 4, 3 + (i % 2) * 2, i * 8 + 5, 7, i * 8 + 7, 6);
+    setColor(cr, withAlpha(darken(c, 0.35f), 120));
+    cairo_set_line_width(cr, 0.6);
+    cairo_stroke(cr);
+  }
+  cairo_rectangle(cr, 0, 0, 64, 1.5);
+  setColor(cr, rgba(255, 240, 210, 200));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, 12, 64, 1.2);
+  setColor(cr, withAlpha(darken(t.platformDark, 0.6f), 230));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// The studio overhead: black rafters, a lighting grid of two truss bars
+// with fresnels on them, their cones of warm light falling through the haze.
+Texture bakeKitchenSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.55, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(2423u);
+  // Rafters far up in the dark.
+  for (int i = 0; i < 7; ++i)
+  {
+    cairo_move_to(cr, i * 210.0 - 40, 0);
+    cairo_line_to(cr, i * 210.0 + 60, 30);
+    setColor(cr, rgba(40, 34, 44, 200));
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+  }
+  // Light cones, the back row first (fainter), each from a lamp on a bar.
+  struct Lamp
+  {
+    double x, y, s, tilt;
+    Color c;
+  };
+  std::vector<Lamp> lamps;
+  for (int row = 0; row < 2; ++row)
+  {
+    const double barY = row == 0 ? 44.0 : 112.0;
+    const double step = row == 0 ? 150.0 : 220.0;
+    for (double x = row == 0 ? 60.0 : 130.0; x < kScreenW; x += step)
+    {
+      const double tilt = rng.range(-0.35f, 0.35f);
+      const Color c = rng.uniform() < 0.25f ? rgb(255, 200, 160) : (rng.uniform() < 0.2f ? rgb(200, 220, 255) : t.trimGlow);
+      lamps.push_back({x + rng.range(-20, 20), barY + 20, row == 0 ? 0.7 : 1.0, tilt, c});
+    }
+  }
+  for (const auto& l : lamps)
+    kitchenCone(cr, l.x - std::sin(l.tilt) * 16 * l.s, l.y + 18 * l.s, kScreenH, 260 * l.s + 120, -std::sin(l.tilt) * 700,
+      l.c, l.s < 0.9 ? 0.08 : 0.12);
+  // Haze drifting in the beams.
+  for (int i = 0; i < 16; ++i)
+    radialGlow(cr, rng.range(0, float(kScreenW)), rng.range(180, float(kScreenH)), rng.range(140, 300), t.skyBottom, 0.1);
+  // The two truss bars.
+  for (const double by : {44.0, 112.0})
+  {
+    const double hgt = by < 60 ? 10 : 16;
+    cairo_rectangle(cr, 0, by - hgt, kScreenW, 3);
+    cairo_rectangle(cr, 0, by, kScreenW, 3);
+    setColor(cr, rgb(46, 42, 50));
+    cairo_fill(cr);
+    for (double x = 0; x < kScreenW; x += hgt * 1.6)
+    {
+      cairo_move_to(cr, x, by);
+      cairo_line_to(cr, x + hgt * 0.8, by - hgt);
+      cairo_line_to(cr, x + hgt * 1.6, by);
+    }
+    setColor(cr, rgb(56, 52, 60));
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+  }
+  for (const auto& l : lamps)
+    kitchenFresnel(cr, l.x, l.y, l.s, l.tilt, l.c, true);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: the studio floor behind the set: camera crews on their pedestals
+// with the tally lights on, a boom operator, the director and his monitor,
+// a jib arm swung up, cables across the floor, an ON AIR box over the door,
+// and a bank of audience bleachers fading into the dark.
+Texture bakeKitchenFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2437u);
+  const Color body = t.farLayer, rim = rgba(255, 214, 160, 170);
+  // The bleachers: rows of heads in the dark.
+  for (int row = 0; row < 4; ++row)
+  {
+    const double y = 400 + row * 34.0;
+    cairo_rectangle(cr, 0, y, kLayerW, 34);
+    setColor(cr, lerpColor(t.skyMid, body, 0.3f + row * 0.12f));
+    cairo_fill(cr);
+    for (double x = rng.range(0, 20); x < kLayerW; x += rng.range(26, 40))
+    {
+      cairo_new_sub_path(cr);
+      cairo_arc(cr, x, y + 4, rng.range(9, 12), 0, 2 * kPi);
+    }
+    setColor(cr, lerpColor(t.skyMid, body, 0.45f + row * 0.12f));
+    cairo_fill(cr);
+  }
+  // The studio floor.
+  cairo_rectangle(cr, 0, 536, kLayerW, kScreenH - 536);
+  setColor(cr, darken(body, 0.25f));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, 536, kLayerW, 2);
+  setColor(cr, rim);
+  cairo_fill(cr);
+  // ON AIR over a door.
+  for (const double ax : {420.0, 1700.0})
+  {
+    radialGlow(cr, ax, 300, 90, rgb(255, 40, 30), 0.35);
+    roundedRect(cr, ax - 56, 284, 112, 34, 5);
+    setColor(cr, rgb(200, 24, 20));
+    cairo_fill(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 22);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "ON AIR", &te);
+    cairo_move_to(cr, ax - te.x_advance / 2, 309);
+    setColor(cr, rgb(255, 230, 220));
+    cairo_show_text(cr, "ON AIR");
+  }
+  // Cables snaking across the floor.
+  for (int i = 0; i < 6; ++i)
+  {
+    const double x0 = rng.range(0, float(kLayerW));
+    cairo_move_to(cr, x0, 720);
+    cairo_curve_to(cr, x0 + rng.range(-200, 200), 640, x0 + rng.range(-300, 300), 600, x0 + rng.range(-400, 400), 545);
+    setColor(cr, darken(body, 0.5f));
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+  }
+  // The jib: a long arm on a tripod swung up, a camera at its end.
+  for (const double jx : {980.0, 980.0 + kLayerW})
+  {
+    cairo_move_to(cr, jx - 60, 560);
+    cairo_line_to(cr, jx, 470);
+    cairo_line_to(cr, jx + 60, 560);
+    setColor(cr, body);
+    cairo_set_line_width(cr, 8);
+    cairo_stroke(cr);
+    cairo_move_to(cr, jx - 140, 520);
+    cairo_line_to(cr, jx + 360, 250);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, jx - 190, 500, 60, 50);
+    roundedRect(cr, jx + 340, 230, 70, 44, 6);
+    cairo_fill(cr);
+    cairo_move_to(cr, jx + 360, 250);
+    cairo_line_to(cr, jx - 140, 520);
+    setColor(cr, rim);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    radialGlow(cr, jx + 352, 226, 12, rgb(255, 40, 30), 0.9);
+  }
+  // The crew: three cameras, a boom, the director.
+  kitchenCameraman(cr, 260, 600, 1.0, 1, body, rim, true);
+  kitchenBoom(cr, 640, 590, 0.95, 1, body, rim);
+  kitchenCameraman(cr, 1420, 604, 1.05, 1, body, rim, false);
+  kitchenDirector(cr, 1880, 600, 1.0, body, rim, rgb(120, 190, 255));
+  kitchenCameraman(cr, 2300, 598, 0.95, -1, body, rim, true);
+  // The floor's front edge in shadow.
+  cairo_rectangle(cr, 0, 640, kLayerW, 80);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, 640, 0, 720);
+  kitchenStop(g, 0, t.skyTop, 0.0);
+  kitchenStop(g, 1, t.skyTop, 0.9);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: the set's back flats seen from inside the giant kitchen, in the
+// shade of the lights: tiled wall panels with their timber bracing showing
+// above, open shelves of giant jars, copper pans on a rail, a range hood,
+// a window flat with painted sky, and the show's sign.
+Texture bakeKitchenNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2441u);
+  const double top = 530;
+  const Color wall = lerpColor(t.rock, t.nearLayer, 0.62f), tile = lerpColor(t.rockLight, t.nearLayer, 0.55f);
+  // The flats, with gaps between some of them (the crew shows through).
+  double x = 0;
+  while (x < kLayerW)
+  {
+    const double w = rng.range(380, 620);
+    const double ft = top + rng.range(-40, 30);
+    // The bracing behind, showing over the top.
+    cairo_move_to(cr, x + 20, ft);
+    cairo_line_to(cr, x + 60, ft - 50);
+    cairo_line_to(cr, x + w - 60, ft - 50);
+    cairo_line_to(cr, x + w - 20, ft);
+    setColor(cr, lerpColor(t.platformDark, t.nearLayer, 0.6f));
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    // The face: tiles in rows.
+    cairo_rectangle(cr, x, ft, w, kScreenH - ft);
+    setColor(cr, wall);
+    cairo_fill(cr);
+    for (double ty = ft + 4; ty < kScreenH; ty += 26)
+      for (double tx = x + 4 + (int((ty - ft) / 26) % 2) * 13; tx < x + w - 8; tx += 26)
+      {
+        roundedRect(cr, tx, ty, 22, 22, 2);
+        setColor(cr, lerpColor(tile, wall, rng.range(0.0f, 0.35f)));
+        cairo_fill(cr);
+      }
+    cairo_rectangle(cr, x, ft, w, 5);
+    setColor(cr, lerpColor(t.platform, t.nearLayer, 0.45f));
+    cairo_fill(cr);
+    // Edge shading.
+    cairo_rectangle(cr, x + w - 10, ft, 10, kScreenH - ft);
+    setColor(cr, rgba(0, 0, 0, 70));
+    cairo_fill(cr);
+    // Something on it.
+    const int what = int(rng.uniform() * 4.0f);
+    const double cx = x + w * 0.5;
+    if (what == 0)
+    {
+      // A shelf of giant jars.
+      cairo_rectangle(cr, x + 30, ft + 120, w - 60, 10);
+      setColor(cr, lerpColor(t.platform, t.nearLayer, 0.5f));
+      cairo_fill(cr);
+      for (double jx = x + 50; jx < x + w - 90; jx += rng.range(70, 100))
+      {
+        const double jh = rng.range(60, 96), jw = rng.range(44, 64);
+        roundedRect(cr, jx, ft + 120 - jh, jw, jh, 10);
+        setColor(cr, withAlpha(lerpColor(rgb(200, 220, 230), t.nearLayer, 0.55f), 220));
+        cairo_fill(cr);
+        roundedRect(cr, jx + 4, ft + 120 - jh * 0.6, jw - 8, jh * 0.6 - 4, 6);
+        const Color fill = rng.uniform() < 0.5f ? rgb(220, 120, 50) : (rng.uniform() < 0.5f ? rgb(230, 200, 120) : rgb(120, 160, 70));
+        setColor(cr, lerpColor(fill, t.nearLayer, 0.5f));
+        cairo_fill(cr);
+        cairo_rectangle(cr, jx - 3, ft + 120 - jh - 8, jw + 6, 12);
+        setColor(cr, lerpColor(t.hazard, t.nearLayer, 0.5f));
+        cairo_fill(cr);
+      }
+    }
+    else if (what == 1)
+    {
+      // Copper pans hanging on a rail.
+      cairo_rectangle(cr, x + 30, ft + 40, w - 60, 6);
+      setColor(cr, lerpColor(t.trim, t.nearLayer, 0.5f));
+      cairo_fill(cr);
+      for (double px = x + 60; px < x + w - 80; px += rng.range(80, 120))
+      {
+        const double pr = rng.range(26, 40);
+        cairo_move_to(cr, px, ft + 46);
+        cairo_line_to(cr, px, ft + 80);
+        setColor(cr, lerpColor(rgb(180, 110, 60), t.nearLayer, 0.5f));
+        cairo_set_line_width(cr, 6);
+        cairo_stroke(cr);
+        cairo_arc(cr, px, ft + 80 + pr, pr, 0, 2 * kPi);
+        setColor(cr, lerpColor(rgb(200, 110, 60), t.nearLayer, 0.45f));
+        cairo_fill(cr);
+        cairo_arc(cr, px - pr * 0.3, ft + 80 + pr * 0.7, pr * 0.35, 0, 2 * kPi);
+        setColor(cr, withAlpha(lerpColor(rgb(255, 210, 160), t.nearLayer, 0.4f), 160));
+        cairo_fill(cr);
+      }
+    }
+    else if (what == 2)
+    {
+      // A window flat: a painted sunny sky behind mullions, gingham curtains.
+      const double ww = std::min(220.0, w - 80), wh = 150;
+      cairo_rectangle(cr, cx - ww * 0.5, ft + 40, ww, wh);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, ft + 40, 0, ft + 40 + wh);
+      kitchenStop(g, 0, lerpColor(rgb(120, 180, 240), t.nearLayer, 0.45f));
+      kitchenStop(g, 1, lerpColor(rgb(230, 240, 250), t.nearLayer, 0.45f));
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+      cairo_rectangle(cr, cx - 3, ft + 40, 6, wh);
+      cairo_rectangle(cr, cx - ww * 0.5, ft + 40 + wh * 0.5 - 3, ww, 6);
+      setColor(cr, lerpColor(rgb(250, 250, 250), t.nearLayer, 0.5f));
+      cairo_fill(cr);
+      for (const int side : {-1, 1})
+      {
+        const double ex = cx + side * ww * 0.5;
+        cairo_move_to(cr, ex, ft + 30);
+        cairo_line_to(cr, ex - side * 50, ft + 30);
+        cairo_curve_to(cr, ex - side * 20, ft + 90, ex - side * 30, ft + 140, ex + side * 6, ft + 40 + wh + 10);
+        cairo_line_to(cr, ex + side * 14, ft + 30);
+        cairo_close_path(cr);
+        setColor(cr, lerpColor(t.hazard, t.nearLayer, 0.45f));
+        cairo_fill(cr);
+      }
+    }
+    else
+    {
+      // A range hood, its lamp lit under it.
+      cairo_move_to(cr, cx - 140, ft + 170);
+      cairo_line_to(cr, cx - 60, ft + 60);
+      cairo_line_to(cr, cx - 60, ft - 10);
+      cairo_line_to(cr, cx + 60, ft - 10);
+      cairo_line_to(cr, cx + 60, ft + 60);
+      cairo_line_to(cr, cx + 140, ft + 170);
+      cairo_close_path(cr);
+      cairo_pattern_t* g = cairo_pattern_create_linear(cx - 140, 0, cx + 140, 0);
+      kitchenStop(g, 0, lerpColor(t.trim, t.nearLayer, 0.6f));
+      kitchenStop(g, 0.4, lerpColor(rgb(240, 244, 250), t.nearLayer, 0.45f));
+      kitchenStop(g, 1, lerpColor(t.trim, t.nearLayer, 0.7f));
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+      radialGlow(cr, cx, ft + 190, 110, rgb(255, 220, 160), 0.25);
+    }
+    x += w + (rng.uniform() < 0.4f ? rng.range(40, 120) : 0.0);
+  }
+  // The show's sign, hung high on a flat.
+  for (const double sx : {1180.0})
+  {
+    roundedRect(cr, sx - 190, 270, 380, 90, 14);
+    setColor(cr, lerpColor(t.hazard, t.nearLayer, 0.25f));
+    cairo_fill(cr);
+    roundedRect(cr, sx - 182, 278, 364, 74, 10);
+    setColor(cr, lerpColor(rgb(255, 240, 220), t.nearLayer, 0.3f));
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    selectGameFont(cr, true);
+    cairo_set_font_size(cr, 40);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "TOO MANY COOKS", &te);
+    cairo_set_font_size(cr, 40 * std::min(1.0, 320.0 / te.x_advance));
+    cairo_text_extents(cr, "TOO MANY COOKS", &te);
+    cairo_move_to(cr, sx - te.x_advance / 2, 330);
+    setColor(cr, lerpColor(rgb(255, 244, 220), t.nearLayer, 0.25f));
+    cairo_show_text(cr, "TOO MANY COOKS");
+    for (int i = 0; i < 14; ++i)
+    {
+      const double a = double(i) / 14.0 * 2 * kPi;
+      cairo_arc(cr, sx + std::cos(a) * 200, 315 + std::sin(a) * 56, 4, 0, 2 * kPi);
+      setColor(cr, lerpColor(rgb(255, 230, 150), t.nearLayer, 0.2f));
+      cairo_fill(cr);
+    }
+    cairo_move_to(cr, sx - 150, 270);
+    cairo_line_to(cr, sx - 150, 0);
+    cairo_move_to(cr, sx + 150, 270);
+    cairo_line_to(cr, sx + 150, 0);
+    setColor(cr, rgba(30, 26, 30, 200));
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isKitchen(t))
+    return bakeKitchenSky(r, t);
   if (isManor(t))
     return bakeManorSky(r, t);
   if (isWestern(t))
@@ -6578,6 +7385,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isKitchen(t))
+    return bakeKitchenFar(r, t);
   if (isManor(t))
     return bakeManorFar(r, t);
   if (isWestern(t))
@@ -6722,6 +7531,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isKitchen(t))
+    return bakeKitchenNear(r, t);
   if (isManor(t))
     return bakeManorNear(r, t);
   if (isWestern(t))

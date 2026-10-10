@@ -17,6 +17,7 @@
 #include "assets/enemy_art_zero.hpp"
 #include "assets/enemy_art_west.hpp"
 #include "assets/enemy_art_manor.hpp"
+#include "assets/enemy_art_kitchen.hpp"
 #include "assets/enemy_art_hull.hpp"
 #include "assets/enemy_art_station.hpp"
 #include "assets/vehicle_art.hpp"
@@ -2646,6 +2647,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
            !drawZeroArt(c.cr, t, key, w, h, variant, frame) &&
            !drawWestArt(c.cr, t, key, w, h, variant, frame) &&
            !drawManorArt(c.cr, t, key, w, h, variant, frame) &&
+           !drawKitchenArt(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;

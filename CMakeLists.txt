@@ -35,6 +35,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_zero.cpp
   src/assets/enemy_art_west.cpp
   src/assets/enemy_art_manor.cpp
+  src/assets/enemy_art_kitchen.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
@@ -100,6 +101,9 @@ add_library(gunrunners_core STATIC
   src/game/world_manor_draw.cpp
   src/game/world_kitchen.cpp
   src/game/world_kitchen_draw.cpp
+  src/game/world_garden.cpp
+  src/game/world_garden_draw.cpp
+  src/game/world_glide.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
   src/game/world_hull.cpp
@@ -121,6 +125,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_west.cpp
   src/frontend/bot_manor.cpp
   src/frontend/bot_kitchen.cpp
+  src/frontend/bot_garden.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
@@ -279,3 +284,8 @@ add_test(NAME savegame_too_many_cooks COMMAND savegame_test ${CMAKE_SOURCE_DIR}/
 add_executable(kitchen_test tests/kitchen_test.cpp)
 target_link_libraries(kitchen_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME kitchen COMMAND kitchen_test ${CMAKE_SOURCE_DIR}/levels/24_bonus_turntable.txt)
+add_test(NAME savegame_tiny_kingdom COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/25_tiny_kingdom.txt 330)
+add_executable(garden_test tests/garden_test.cpp)
+target_link_libraries(garden_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME garden COMMAND garden_test ${CMAKE_SOURCE_DIR}/levels/25_tiny_kingdom.txt
+  ${CMAKE_SOURCE_DIR}/levels/25_bonus_dandelion_drift.txt)

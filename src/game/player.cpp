@@ -951,7 +951,11 @@ void World::hurtPlayer(int amount)
       shots += pr.alive && pr.kind == ShotKind::Enemy && pr.box().intersects(p.box());
     int touching = 0;
     for (const auto& e : mEnemies)
-      touching += e.alive && e.box().intersects(p.box());
+      if (e.alive && e.box().intersects(p.box()))
+      {
+        ++touching;
+        std::fprintf(stderr, "touching %s at %d,%d\n", enemyDef(e.def).key, e.x, e.y);
+      }
     std::fprintf(stderr, "hurt at %d,%d frame %d hp %d: strikes %zu shots %d touching %d sweep %d ram %d pod %d\n", p.x,
       p.y, mStats.frames, p.hp, mStrikes.size(), shots, touching, mBoss.sweepX, mBoss.ram, mBoss.podX);
   }
@@ -1101,6 +1105,8 @@ void World::respawnPlayer()
     resetManor();
   if (mKitchen.on)
     resetKitchen();
+  if (mGarden.on)
+    resetGarden();
   if (mWest.on)
     resetWest();
   if (!mVehicles.empty())

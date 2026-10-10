@@ -1916,6 +1916,124 @@ std::vector<float> makeSfx(Sfx id)
         return (crack * 0.35 + roll * 0.75 + body * 0.4) * env;
       });
     }
+    case Sfx::BellDing:
+    {
+      // A chef's brass bell: a bright strike and its inharmonic partials
+      // ringing out, the top ones dying first, a slow shimmer between two
+      // near-unison strings of it.
+      std::vector<float> out(std::size_t(samples(1.6)), 0.0f);
+      const double f = midiFreq(86.0);
+      static const double kPartials[5][3] = {
+        {1.0, 0.2, 1.1}, {2.0, 0.09, 0.7}, {2.76, 0.11, 0.55}, {5.4, 0.06, 0.25}, {8.93, 0.035, 0.12}};
+      for (const auto& pt : kPartials)
+      {
+        addTone(out, 0.0, 1.6, f * pt[0], Wave::Sine, pt[1], pt[2]);
+        addTone(out, 0.0, 1.6, f * pt[0] * 1.004, Wave::Sine, pt[1] * 0.6, pt[2]);
+      }
+      Noise n(601);
+      Svf bp;
+      for (int i = 0; i < samples(0.03); ++i)
+      {
+        const double t = double(i) / kRate;
+        out[std::size_t(i)] += float(bp.band(n.next(), 5200.0, 2.0) * decay(t, 0.006) * 0.6);
+      }
+      return out;
+    }
+    case Sfx::Sneeze:
+    {
+      // A cartoon sneeze: "ah... ah..." (a voiced vowel rising twice), then
+      // "CHOO!" (a burst of breath noise through a closing formant).
+      Osc voice, vib;
+      Noise n(607);
+      Svf f1, f2, b1, b2;
+      return render(1.05, [&](double t, double total) {
+        double v = 0.0;
+        auto ah = [&](double t0, double len, double p0, double p1) {
+          const double u = (t - t0) / len;
+          if (u < 0.0 || u > 1.0)
+            return 0.0;
+          const double pitch = sweep(p0, p1, u) * (1.0 + 0.02 * vib.step(6.0, Wave::Sine));
+          const float x = voice.step(pitch, Wave::Saw);
+          const double vowel = f1.band(x, 800.0, 6.0) * 0.6 + f2.band(x, 1250.0, 7.0) * 0.4;
+          return vowel * std::sin(kPi * u) * (0.6 + 0.4 * u);
+        };
+        v += ah(0.0, 0.26, 330.0, 420.0);
+        v += ah(0.32, 0.3, 360.0, 520.0) * 1.2;
+        const double tc = t - 0.7;
+        if (tc > 0)
+        {
+          const double u = tc / (total - 0.7);
+          const float x = n.next();
+          const double ch = b1.band(x, sweep(3400.0, 1400.0, u), 1.6) * 0.8 + b2.band(x, sweep(1200.0, 500.0, u), 2.5) * 0.5;
+          v += ch * attack(tc, 0.004) * decay(tc, 0.12) * 1.6;
+        }
+        return v * 0.55 * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::EggRing:
+    {
+      // A wind-up kitchen timer's bell: the little hammer chattering on it
+      // (25 strikes a second), its partials ringing between strikes.
+      Osc a, b, c;
+      Noise n(613);
+      OnePole hp;
+      return render(0.26, [&](double t, double total) {
+        const double ph = std::fmod(t * 25.0, 1.0);
+        const double strike = std::exp(-ph * 9.0);
+        const double f = 2350.0;
+        const double bell = a.step(f, Wave::Sine) * 0.5 + b.step(f * 2.71, Wave::Sine) * 0.22 + c.step(f * 0.5, Wave::Sine) * 0.2;
+        const double tick = hp.highpass(n.next(), 4000.0) * std::exp(-ph * 40.0);
+        return (bell * (0.35 + 0.65 * strike) + tick * 0.4) * 0.42 * std::min(1.0, (total - t) / 0.03) * attack(t, 0.002);
+      });
+    }
+    case Sfx::GrinderWhir:
+    {
+      // The Pepper Grinder spinning up: a motor whine climbing over a second
+      // and the crackle of peppercorns cracking in the burr.
+      Osc motor, sub;
+      Noise n(617), m(619);
+      Svf whine, crack;
+      return render(1.05, [&](double t, double total) {
+        const double u = std::min(1.0, t / 0.95);
+        const double f = sweep(70.0, 240.0, u * (2.0 - u));
+        const float saw = motor.step(f, Wave::Saw);
+        const double hum = whine.band(saw, f * 6.0, 3.0) * 0.55 + sub.step(f * 0.5, Wave::Square, 0.3) * 0.12;
+        const double rate = lerp(0.992, 0.94, u);
+        const double cr = n.next() > rate ? crack.band(m.next(), 3200.0, 2.5) * 2.4 : crack.band(0.0f, 3200.0, 2.5);
+        return (hum * (0.4 + 0.6 * u) + cr * 0.4) * 0.5 * attack(t, 0.04) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Toaster:
+    {
+      // The toast popping: the latch clacks, the spring twangs (a bent
+      // pitch with a wobble), the bread thumps up.
+      Osc spring, wob;
+      Noise n(631);
+      Svf clack;
+      OnePole lp;
+      return render(0.6, [&](double t, double total) {
+        const double c = clack.band(n.next(), 2600.0, 3.0) * decay(t, 0.008) * 1.4;
+        const double f = 180.0 + 260.0 * decay(t, 0.05) + 18.0 * wob.step(24.0, Wave::Sine) * decay(t, 0.2);
+        const double tw = spring.step(f, Wave::Triangle) * decay(t, 0.16) * 0.45;
+        const double th = t > 0.02 ? lp.lowpass(n.next(), 300.0) * decay(t - 0.02, 0.04) * 1.6 : 0.0;
+        return (c + tw + th) * 0.6 * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::CleaverThunk:
+    {
+      // A cleaver biting into the wall: a heavy woody thunk and the blade
+      // left quivering (a metal ring with a fast wobble).
+      Osc body, r1, r2, wob;
+      Noise n(641);
+      Svf wood;
+      return render(0.7, [&](double t, double total) {
+        const double k = body.step(sweep(150.0, 60.0, t / 0.08), Wave::Sine) * decay(t, 0.06);
+        const double knock = wood.band(n.next(), 520.0, 2.0) * decay(t, 0.03);
+        const double q = 0.6 + 0.4 * wob.step(14.0, Wave::Sine);
+        const double ring = (r1.step(930.0, Wave::Sine) * 0.5 + r2.step(2410.0, Wave::Sine) * 0.25) * decay(t, 0.22) * q;
+        return (k * 0.9 + knock * 0.8 + ring * 0.3) * 0.75 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
     case Sfx::Count:
       break;
   }

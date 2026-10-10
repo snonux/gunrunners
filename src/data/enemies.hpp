@@ -117,6 +117,10 @@ enum class EnemyKind
   Meatball,      // rolls along belts, grows in sauce, bounces small runners back
   CleaverBot,    // stands on a rim and lobs cleavers that stick in walls
   EggTimer,      // walks at you and pops when its dial runs out
+  // Level 25, Tiny Kingdom (world_garden.cpp).
+  SoldierAnt,       // marches in a column; hit or touched, the column turns on you
+  JumpingSpider,    // stalks at a distance, crouches, leaps where you stood
+  BombardierBeetle, // patrols; a boiling jet out of its back at a runner behind it
 };
 
 enum EnemyFlag : unsigned

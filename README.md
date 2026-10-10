@@ -17,11 +17,12 @@ playable any time from DEEP SPACE on the title screen. Six vehicles (tank,
 helicopter, hoverbike, submarine, space ship and mech) turn up along the
 way, and two EXTRAS levels are built around them.
 
-**Playable now: 31 levels.** Episodes 1 to 3 (Levels 1-21), every level
-with its bonus level and every episode with its ending, Levels 22 to 24
-of Episode 4 (Dry Gulch, Fright Night Manor and Too Many Cooks) with their
-bonus levels, all of Episode 7 (Levels 43-49) with its ending, and both
-EXTRAS. The rest of Episodes 4 to 6 (Levels 25-42) is being built now.
+**Playable now: 32 levels.** Episodes 1 to 3 (Levels 1-21), every level
+with its bonus level and every episode with its ending, Levels 22 to 25
+of Episode 4 (Dry Gulch, Fright Night Manor, Too Many Cooks and Tiny
+Kingdom) with their bonus levels, all of Episode 7 (Levels 43-49) with its
+ending, and both EXTRAS. The rest of Episodes 4 to 6 (Levels 26-42) is
+being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

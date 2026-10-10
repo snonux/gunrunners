@@ -46,6 +46,9 @@ public:
   Input orbit(const World& world);
   Input turntable(const World& world); // bot_kitchen.cpp
   bool kitchen(const World& world, Input& in);
+  bool garden(const World& world, Input& in); // bot_garden.cpp
+  Input glide(const World& world);
+  std::deque<Input> mGlideQueue;
   Input mKitchenPrev;
   std::deque<Input> mTurnQueue;
   Input mTurnPrev;

@@ -29,6 +29,7 @@ constexpr int kGrinderSpin = 15;   // spin-up frames before the first shot
 constexpr int kHandFrames = 60;    // the chef's hand: lift, show, set down
 constexpr int kToastPop = 30;      // frames from the toaster's lever to the pop
 constexpr int kToastLaunch = 12;   // cells the toast launches a runner
+constexpr int kThumbsFrames = 30;  // the hand's thumbs-up at the exit (no damage taken)
 
 // `@ belt ID rect=x0,y,x1,y speed=1/4 dir=l|r station=S loop=1 hang=1`: the
 // rect row is the belt's top surface (solid; a hang bar for hang=1).
@@ -87,6 +88,14 @@ struct StuckCleaver
   bool set = false;   // it put the platform tile there
 };
 
+// `@ deco kind=basket|pot|oven rect=`: the set dressing the kitchen draws
+// itself (world_kitchen_draw.cpp).
+struct KitchenDeco
+{
+  std::string kind;
+  KitchenRect r;
+};
+
 struct KitchenState
 {
   bool on = false;
@@ -108,6 +117,10 @@ struct KitchenState
   int hand = 0;            // frames left of the lift
   bool handDone = false;
   int handBaseY = 0;       // the runner's feet when it took them
+  // Finished without a scratch: at the exit the hand comes back for a
+  // thumbs-up (`hand` counts it down, the runner held still) first.
+  bool thumbs = false, thumbsDone = false;
+  std::vector<KitchenDeco> decos;
   // The toaster (`@ toaster rect=x0,y0,x1,y1 lever=x,y`).
   KitchenRect toaster{-1, -1, -1, -1};
   int leverX = -1, leverY = -1;

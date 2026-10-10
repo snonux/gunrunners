@@ -173,6 +173,22 @@ std::vector<float> makeNamedSfx(const std::string& id)
     return makeSfx(Sfx::LightClunk);
   if (id == "crowd_cheer")
     return makeSfx(Sfx::Applause);
+  // Level 24's briefing: Lance taps his spoon on the pot (a bright, short
+  // ding of a steel spoon on a stockpot's rim, with a little wobble).
+  if (id == "spoon_ding")
+  {
+    std::vector<float> out(std::size_t(samples(1.2)), 0.0f);
+    const double f = midiFreq(84.0);
+    addTone(out, 0.0, 1.2, f, Wave::Sine, 0.22, 0.6);
+    addTone(out, 0.0, 1.2, f * 1.006, Wave::Sine, 0.12, 0.55);
+    addTone(out, 0.0, 0.8, f * 2.42, Wave::Sine, 0.1, 0.25);
+    addTone(out, 0.0, 0.5, f * 4.1, Wave::Sine, 0.06, 0.09);
+    Noise n(seed);
+    OnePole hp;
+    for (int i = 0; i < samples(0.02); ++i)
+      out[std::size_t(i)] += float(hp.highpass(n.next(), 3000.0) * decay(double(i) / kRate, 0.004) * 0.5);
+    return out;
+  }
   if (id == "tv_on")
   {
     // An old TV coming on: the power thunk, the flyback whine and a

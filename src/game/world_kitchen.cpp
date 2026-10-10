@@ -112,6 +112,16 @@ bool World::setupKitchenEntity(const EntityDef& e)
     mTurn.grilles.push_back({std::min(x0, x1), std::min(y0, y1), std::max(x0, x1), std::max(y0, y1)});
     return true;
   }
+  if (e.kind == "deco" && e.rect("rect", x0, y0, x1, y1))
+  {
+    const std::string kind = e.str("kind");
+    if (kind == "basket" || kind == "pot" || kind == "oven")
+    {
+      k.decos.push_back({kind, {std::min(x0, x1), std::min(y0, y1), std::max(x0, x1), std::max(y0, y1)}});
+      k.on = true;
+      return true;
+    }
+  }
   if (e.kind == "toaster" && e.rect("rect", x0, y0, x1, y1))
   {
     k.toaster = {x0, y0, x1, y1};
@@ -588,7 +598,29 @@ void World::updateKitchen(const PlayerInput& input)
     p.facing = 1;
     showMessage("TODAY'S SPECIAL!");
   }
-  if (k.hand > 0)
+  // No damage taken all level: the hand comes back by the exit for a
+  // thumbs-up, holding the runner still a moment before the exit takes them.
+  if (!k.thumbsDone && k.handX >= 0 && k.hand == 0 && !mStats.tookDamage && mLevel->hasExit && standingState(p))
+  {
+    const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
+    const CellBox nearZone{exitZone.x - 4, exitZone.y, exitZone.w + 8, exitZone.h};
+    if (nearZone.intersects(p.box()) && !exitZone.intersects(p.box()))
+    {
+      k.thumbsDone = true;
+      k.thumbs = true;
+      k.hand = kThumbsFrames;
+      k.handBaseY = p.y;
+      playSound(Sfx::BellDing);
+    }
+  }
+  if (k.hand > 0 && k.thumbs)
+  {
+    p.prevX = p.x;
+    p.prevY = p.y;
+    if (--k.hand == 0)
+      k.thumbs = false;
+  }
+  else if (k.hand > 0)
   {
     const int f = kHandFrames - k.hand;
     const int lift = f < 8 ? f / 2 : (f < 48 ? 4 : std::max(0, 4 - (f - 48) / 3));
@@ -659,6 +691,7 @@ void World::resetKitchen()
 {
   auto& k = mKitchen;
   k.hand = 0;
+  k.thumbs = false;
   k.toast = 0;
   for (auto& f : k.flaps)
   {
@@ -739,6 +772,7 @@ void World::loadKitchen(const std::vector<int>& s)
         h.balls.push_back(int(j));
   }
   k.hand = 0;
+  k.thumbs = false;
   k.checkpoints = -1;
 }
 

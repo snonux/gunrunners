@@ -178,6 +178,8 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkManor();
   linkKitchen();
   linkTurntable();
+  linkGarden();
+  linkGlide();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -330,6 +332,8 @@ void World::update(const PlayerInput& input)
         updateOrbit(input);
       else if (mTurn.on)
         updateTurntable(input);
+      else if (mGlide.on)
+        updateGlide(input);
       else if (mGrav.on)
         updateGravPlayer(input);
       else if (mManor.flip > 0)
@@ -415,6 +419,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateManor(input);
   if (mKitchen.on)
     updateKitchen(input);
+  if (mGarden.on)
+    updateGarden(input);
   updateHatches();
   updateProps(input);
 }
@@ -845,6 +851,15 @@ void World::updateEnemies()
       case EnemyKind::CleaverBot:
         updateCleaverBot(e, def);
         break;
+      case EnemyKind::SoldierAnt:
+        updateSoldierAnt(e, def);
+        break;
+      case EnemyKind::JumpingSpider:
+        updateJumpingSpider(e, def);
+        break;
+      case EnemyKind::BombardierBeetle:
+        updateBombardierBeetle(e, def);
+        break;
       case EnemyKind::EggTimer:
         updateEggTimer(e, def);
         break;
@@ -943,6 +958,9 @@ void World::updateProjectiles()
       return true;
     // Level 19: a shot throws a gravity switch.
     if (mGrav.on && pr.kind != ShotKind::Enemy && shotAtGrav(pr, b))
+      return true;
+    // Level 25: anything but the mister scares the rare butterfly off.
+    if (mGarden.on && pr.kind != ShotKind::Enemy && shotAtGarden(pr, b))
       return true;
     // Level 17: a switch lights its grow lamps.
     if (mGreen.on && pr.kind != ShotKind::Enemy && shotAtGreen(pr, b))
@@ -1122,6 +1140,9 @@ void World::updateProjectiles()
         if (r == 2)
           continue;
       }
+      // Level 25: a shot ant turns its column.
+      if (mGarden.on && pr.kind != ShotKind::Enemy)
+        shotAtGardenEnemy(pr, e);
       // Level 24: the Pepper Grinder's sneeze, an Egg Timer wound back.
       if ((mKitchen.on || (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::PepperGrinder))) &&
           pr.kind != ShotKind::Enemy)

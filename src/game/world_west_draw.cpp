@@ -1732,7 +1732,7 @@ void World::drawWestBack(Renderer& r, float camX, float camY, int frame, float a
   // The gold-plated revolver on its hook.
   for (const auto& pz : w.prizes)
   {
-    if (pz.taken)
+    if (pz.taken || pz.kind == "golden_whisk") // Level 24 draws its whisk (world_kitchen_draw.cpp)
       continue;
     const float x = sx(float(pz.x) + 0.5f), y = sy(float(pz.y));
     if (!visible(x - 50, y - 10, 100, 100))

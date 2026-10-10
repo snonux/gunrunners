@@ -37,7 +37,7 @@ const std::array<CampaignLevel, kAllLevels> kLevels{{
   {22, "dry_gulch", "DRY GULCH", "high_noon"},
   {23, "fright_night_manor", "FRIGHT NIGHT MANOR", "both_sides"},
   {24, "too_many_cooks", "TOO MANY COOKS", "turntable"},
-  {25, "tiny_kingdom", "TINY KINGDOM", ""},
+  {25, "tiny_kingdom", "TINY KINGDOM", "dandelion_drift"},
   {26, "kaiju_tonight", "KAIJU TONIGHT", "top_down"},
   {27, "the_long_rain", "THE LONG RAIN", "silent_picture"},
   {28, "toon_town_throwdown", "TOON TOWN THROWDOWN", "inkwell"},

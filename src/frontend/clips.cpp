@@ -5,6 +5,7 @@
 
 #include "assets/art.hpp"
 #include "assets/enemy_art.hpp"
+#include "assets/enemy_art_kitchen.hpp"
 #include "assets/enemy_art_manor.hpp"
 #include "assets/enemy_art_west.hpp"
 #include "assets/enemy_art_zero.hpp"
@@ -5861,6 +5862,494 @@ void lanceCapeClip(ClipKit& k, int frame, float t, int ticks, float ox, float oy
     k.r.fillRect(0, 0, W, H, rgba(220, 220, 255, 40));
 }
 
+// --- Level 24: Channel 24, Cooking ---------------------------------------------
+
+// A red-and-white gingham tablecloth, 1280 x 720: the weave where the
+// stripes cross darker, a thread texture, folds in the light.
+const Texture& gingham(ClipKit& k)
+{
+  return cached(k, "e4_gingham", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    setRgbaC(cr, rgb(250, 246, 238), 1.0);
+    cairo_fill(cr);
+    const double sq = 64;
+    for (int i = 0; i < 21; ++i)
+    {
+      cairo_rectangle(cr, i * sq * 2 - 20, 0, sq, 720);
+      cairo_rectangle(cr, 0, i * sq * 2 - 30, 1280, sq);
+    }
+    setRgbaC(cr, rgb(214, 34, 40), 0.55);
+    cairo_fill(cr);
+    // Where the stripes cross, the red doubles.
+    for (int x = 0; x < 11; ++x)
+      for (int y = 0; y < 7; ++y)
+      {
+        cairo_rectangle(cr, x * sq * 2 - 20, y * sq * 2 - 30, sq, sq);
+        setRgbaC(cr, rgb(170, 16, 24), 0.55);
+        cairo_fill(cr);
+      }
+    // Threads.
+    for (double y = 0; y < 720; y += 4)
+    {
+      cairo_rectangle(cr, 0, y, 1280, 1);
+      setRgbaC(cr, rgb(120, 40, 40), 0.06);
+      cairo_fill(cr);
+    }
+    // Soft folds and a vignette.
+    for (const double fx : {300.0, 900.0})
+    {
+      cairo_rectangle(cr, fx - 80, 0, 160, 720);
+      cairo_pattern_t* g = cairo_pattern_create_linear(fx - 80, 0, fx + 80, 0);
+      cairo_pattern_add_color_stop_rgba(g, 0, 0, 0, 0, 0.0);
+      cairo_pattern_add_color_stop_rgba(g, 0.5, 0, 0, 0, 0.1);
+      cairo_pattern_add_color_stop_rgba(g, 0.6, 1, 1, 1, 0.12);
+      cairo_pattern_add_color_stop_rgba(g, 1, 1, 1, 1, 0.0);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    cairo_pattern_t* v = cairo_pattern_create_radial(640, 360, 200, 640, 360, 800);
+    cairo_pattern_add_color_stop_rgba(v, 0, 0, 0, 0, 0.0);
+    cairo_pattern_add_color_stop_rgba(v, 1, 0.2, 0, 0, 0.45);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, v);
+    cairo_fill(cr);
+    cairo_pattern_destroy(v);
+  });
+}
+
+// "CH 24" as a rubber stamp in chocolate-brown ink: a rounded frame round
+// the letters, the ink uneven, 640 x 300, centred.
+const Texture& ch24Stamp(ClipKit& k)
+{
+  return cached(k, "e4_ch24_stamp", 640, 300, 320, 150, [](cairo_t* cr) {
+    const Color ink = rgb(70, 30, 20);
+    // A white plate under it so it reads on the cloth.
+    cairo_new_path(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 320, 150);
+    cairo_scale(cr, 300, 140);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(255, 255, 252), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(180, 170, 160), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    cairo_new_path(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 320, 150);
+    cairo_scale(cr, 250, 110);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(220, 212, 204), 1.0);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    // The stamp's frame and its letters.
+    roundedRect(cr, 120, 70, 400, 160, 26);
+    setRgbaC(cr, ink, 0.92);
+    cairo_set_line_width(cr, 10);
+    cairo_stroke(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 124);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "CH 24", &te);
+    cairo_move_to(cr, 320 - te.x_advance / 2, 196);
+    cairo_text_path(cr, "CH 24");
+    setRgbaC(cr, ink, 0.92);
+    cairo_fill(cr);
+    // Where the stamp missed: specks of the plate showing through the ink.
+    std::uint32_t sd = 2423u;
+    for (int i = 0; i < 260; ++i)
+    {
+      sd = sd * 1664525u + 1013904223u;
+      const double x = 120 + double(sd >> 8) / double(1u << 24) * 400;
+      sd = sd * 1664525u + 1013904223u;
+      const double y = 70 + double(sd >> 8) / double(1u << 24) * 160;
+      cairo_new_path(cr);
+      cairo_arc(cr, x, y, 1 + (sd % 3u), 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 255, 252), 0.85);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// "COOKING" piped in icing: thick cream strokes round the letters, a pink
+// shadow, a glossy highlight; `upTo` 0..1 how much of it is written.
+const Texture& icingWord(ClipKit& k)
+{
+  return cached(k, "e4_icing", 1000, 220, 500, 110, [](cairo_t* cr) {
+    selectGameFont(cr, true);
+    cairo_set_font_size(cr, 150);
+    cairo_text_extents_t te;
+    cairo_text_extents(cr, "COOKING", &te);
+    const double x0 = 500 - te.x_advance / 2;
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    // Shadow, body, highlight.
+    cairo_move_to(cr, x0 + 6, 172);
+    cairo_text_path(cr, "COOKING");
+    setRgbaC(cr, rgb(120, 20, 30), 0.45);
+    cairo_set_line_width(cr, 22);
+    cairo_stroke(cr);
+    cairo_move_to(cr, x0, 166);
+    cairo_text_path(cr, "COOKING");
+    setRgbaC(cr, rgb(244, 160, 180), 1.0);
+    cairo_set_line_width(cr, 20);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, rgb(255, 250, 244), 1.0);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke_preserve(cr);
+    cairo_fill(cr);
+    cairo_move_to(cr, x0 - 3, 162);
+    cairo_text_path(cr, "COOKING");
+    setRgbaC(cr, rgb(255, 255, 255), 0.9);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // Sprinkles.
+    std::uint32_t sd = 2441u;
+    for (int i = 0; i < 70; ++i)
+    {
+      sd = sd * 1664525u + 1013904223u;
+      const double x = x0 + double(sd >> 8) / double(1u << 24) * te.x_advance;
+      sd = sd * 1664525u + 1013904223u;
+      const double y = 60 + double(sd >> 8) / double(1u << 24) * 110;
+      static const Color kSprinkle[4] = {rgb(255, 80, 120), rgb(80, 200, 255), rgb(255, 210, 60), rgb(120, 220, 110)};
+      cairo_save(cr);
+      cairo_translate(cr, x, y);
+      cairo_rotate(cr, double(sd % 628u) / 100.0);
+      cairo_rectangle(cr, -4, -1.3, 8, 2.6);
+      cairo_restore(cr);
+      setRgbaC(cr, kSprinkle[sd % 4u], 0.95);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// A piping bag, its nozzle at (0, 0), pointing down-left.
+const Texture& pipingBag(ClipKit& k)
+{
+  return cached(k, "e4_piping_bag", 200, 200, 20, 180, [](cairo_t* cr) {
+    cairo_translate(cr, 20, 180);
+    cairo_rotate(cr, -0.7);
+    cairo_move_to(cr, 0, 0);
+    cairo_line_to(cr, -50, -160);
+    cairo_curve_to(cr, -40, -200, 40, -200, 50, -160);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(-50, 0, 50, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.92, 0.94, 0.98);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.7, 0.74, 0.82);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, rgb(10, 8, 20), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_move_to(cr, -10, -28);
+    cairo_line_to(cr, 0, 2);
+    cairo_line_to(cr, 10, -28);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(200, 206, 216), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(10, 8, 20), 1.0);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+  });
+}
+
+// Shot: the Channel 24 ident. The tablecloth; "CH 24" stamped down on a
+// plate on frame 2 (squashed flat that frame, springing back the next);
+// "COOKING" piped in icing left to right over frames 4-11.
+void identCh24(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(gingham(k), ox, oy);
+  const float cx = 640.0f + ox, cy = 230.0f + oy;
+  const Texture& stamp = ch24Stamp(k);
+  if (frame < 2)
+  {
+    // The stamp's shadow closing in from above.
+    const float s = 1.0f + float(2 - frame) * 0.25f;
+    k.r.fillRect(cx - 200.0f * s, cy - 80.0f * s, 400.0f * s, 160.0f * s, rgba(60, 0, 0, 30 + frame * 30));
+  }
+  else if (frame == 2 || frame == 3)
+  {
+    // The squash: wide and flat on the impact, then a little tall.
+    const float sxv = frame == 2 ? 1.22f : 0.94f, syv = frame == 2 ? 0.7f : 1.08f;
+    stretchTex(k, stamp, cx - 320.0f * sxv, cy - 150.0f * syv, 640.0f * sxv, 300.0f * syv, rgb(255, 255, 255), 1.0f);
+    if (frame == 2)
+      for (int i = 0; i < 10; ++i)
+      {
+        const float a = float(i) / 10.0f * 6.2832f;
+        k.r.drawLine(cx + std::cos(a) * 340.0f, cy + std::sin(a) * 170.0f, cx + std::cos(a) * 420.0f,
+          cy + std::sin(a) * 210.0f, 6.0f, rgb(255, 255, 255));
+      }
+  }
+  else
+    k.r.draw(stamp, cx, cy);
+  if (frame >= 4)
+  {
+    // Piped left to right: the word revealed up to the nozzle.
+    const Texture& word = icingWord(k);
+    const float wx = 640.0f + ox, wy = 540.0f + oy;
+    const float sub = std::clamp((float(ticks) / 4.8f) - std::floor(float(ticks) / 4.8f), 0.0f, 1.0f);
+    const float u = std::min(1.0f, (float(frame - 4) + (frame < 11 ? sub : 1.0f)) / 7.0f);
+    const float left = wx - 430.0f, right = left + 860.0f * u;
+    clipTo(k, 0.0f, 0.0f, right, H);
+    k.r.draw(word, wx, wy);
+    unclip(k);
+    if (u < 1.0f)
+      k.r.draw(pipingBag(k), right, wy + 20.0f + std::sin(float(ticks) * 0.9f) * 18.0f);
+  }
+  k.r.drawText("MAXTV  CHANNEL 24  COOKING", 640 + ox, 676 + oy, {18.0f, rgb(255, 240, 230), rgb(90, 10, 16)}, Align::Center);
+  scanlines(k, 30);
+}
+
+// The giant kitchen set under the studio lights, 1280 x 720 (anchored at
+// its middle so it can zoom): the lighting grid and its cones, the tiled
+// back wall, shelves of jars, copper pans, the range with a pot steaming,
+// the marble counter across the bottom.
+const Texture& kitchenSet(ClipKit& k)
+{
+  return cached(k, "e4_kitchen_set", 1280, 720, 640, 360, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 720);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.05, 0.04, 0.08);
+    cairo_pattern_add_color_stop_rgb(g, 0.3, 0.16, 0.12, 0.14);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.3, 0.2, 0.16);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The back wall: cream tiles.
+    cairo_rectangle(cr, 0, 170, 1280, 420);
+    setRgbaC(cr, rgb(214, 204, 186), 1.0);
+    cairo_fill(cr);
+    for (int y = 0; y < 9; ++y)
+      for (int x = 0; x < 28; ++x)
+      {
+        roundedRect(cr, x * 48 + (y % 2) * 24 - 20, 174 + y * 48, 44, 44, 4);
+        setRgbaC(cr, (x * 7 + y * 3) % 11 == 0 ? rgb(196, 216, 236) : rgb(240, 234, 222), 1.0);
+        cairo_fill(cr);
+      }
+    // Shelves of jars on the left.
+    cairo_rectangle(cr, 40, 320, 360, 14);
+    setRgbaC(cr, rgb(150, 98, 52), 1.0);
+    cairo_fill(cr);
+    const Color jars[5] = {rgb(230, 120, 50), rgb(230, 200, 110), rgb(120, 170, 70), rgb(200, 60, 40), rgb(150, 110, 70)};
+    for (int i = 0; i < 6; ++i)
+    {
+      const double jx = 56 + i * 58, jh = 70 + (i % 3) * 14;
+      roundedRect(cr, jx, 320 - jh, 46, jh, 10);
+      setRgbaC(cr, rgb(220, 236, 240), 0.9);
+      cairo_fill(cr);
+      roundedRect(cr, jx + 4, 320 - jh * 0.65, 38, jh * 0.65 - 4, 6);
+      setRgbaC(cr, jars[i % 5], 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, jx - 2, 320 - jh - 10, 50, 12);
+      setRgbaC(cr, rgb(200, 40, 40), 1.0);
+      cairo_fill(cr);
+    }
+    // Copper pans on a rail on the right.
+    cairo_rectangle(cr, 760, 220, 480, 8);
+    setRgbaC(cr, rgb(200, 206, 216), 1.0);
+    cairo_fill(cr);
+    for (int i = 0; i < 5; ++i)
+    {
+      const double px = 800 + i * 96, pr = 30 + (i % 2) * 10;
+      cairo_move_to(cr, px, 228);
+      cairo_line_to(cr, px, 262);
+      setRgbaC(cr, rgb(170, 100, 50), 1.0);
+      cairo_set_line_width(cr, 8);
+      cairo_stroke(cr);
+      cairo_new_path(cr);
+      cairo_arc(cr, px, 262 + pr, pr, 0, 2 * kPi);
+      cairo_pattern_t* cg = cairo_pattern_create_radial(px - pr * 0.4, 262 + pr * 0.6, 2, px, 262 + pr, pr);
+      cairo_pattern_add_color_stop_rgb(cg, 0, 1.0, 0.8, 0.6);
+      cairo_pattern_add_color_stop_rgb(cg, 1, 0.6, 0.3, 0.14);
+      cairo_set_source(cr, cg);
+      cairo_fill(cr);
+      cairo_pattern_destroy(cg);
+    }
+    // The range hood over the middle.
+    cairo_move_to(cr, 480, 400);
+    cairo_line_to(cr, 560, 250);
+    cairo_line_to(cr, 560, 170);
+    cairo_line_to(cr, 720, 170);
+    cairo_line_to(cr, 720, 250);
+    cairo_line_to(cr, 800, 400);
+    cairo_close_path(cr);
+    cairo_pattern_t* hg = cairo_pattern_create_linear(480, 0, 800, 0);
+    cairo_pattern_add_color_stop_rgb(hg, 0, 0.6, 0.64, 0.7);
+    cairo_pattern_add_color_stop_rgb(hg, 0.4, 0.95, 0.96, 0.98);
+    cairo_pattern_add_color_stop_rgb(hg, 1, 0.5, 0.54, 0.6);
+    cairo_set_source(cr, hg);
+    cairo_fill(cr);
+    cairo_pattern_destroy(hg);
+    radialGlow(cr, 640, 420, 140, rgb(255, 220, 160), 0.45);
+    // The counter: tiled front, marble top.
+    cairo_rectangle(cr, 0, 560, 1280, 160);
+    setRgbaC(cr, rgb(232, 226, 214), 1.0);
+    cairo_fill(cr);
+    for (int x = 0; x < 20; ++x)
+    {
+      cairo_rectangle(cr, x * 72, 590, 2, 130);
+      setRgbaC(cr, rgb(180, 172, 160), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, 548, 1280, 28);
+    cairo_pattern_t* mg = cairo_pattern_create_linear(0, 548, 0, 576);
+    cairo_pattern_add_color_stop_rgb(mg, 0, 1, 1, 1);
+    cairo_pattern_add_color_stop_rgb(mg, 1, 0.75, 0.74, 0.72);
+    cairo_set_source(cr, mg);
+    cairo_fill(cr);
+    cairo_pattern_destroy(mg);
+    cairo_rectangle(cr, 0, 576, 1280, 6);
+    setRgbaC(cr, rgb(200, 206, 216), 1.0);
+    cairo_fill(cr);
+    // The stock pot on the counter, right.
+    roundedRect(cr, 960, 420, 200, 132, 10);
+    cairo_pattern_t* pg = cairo_pattern_create_linear(960, 0, 1160, 0);
+    cairo_pattern_add_color_stop_rgb(pg, 0, 0.6, 0.64, 0.7);
+    cairo_pattern_add_color_stop_rgb(pg, 0.3, 0.97, 0.98, 1.0);
+    cairo_pattern_add_color_stop_rgb(pg, 1, 0.45, 0.5, 0.56);
+    cairo_set_source(cr, pg);
+    cairo_fill(cr);
+    cairo_pattern_destroy(pg);
+    roundedRect(cr, 950, 412, 220, 16, 8);
+    setRgbaC(cr, rgb(230, 234, 240), 1.0);
+    cairo_fill(cr);
+    // The lighting grid and its cones over everything.
+    cairo_rectangle(cr, 0, 40, 1280, 10);
+    setRgbaC(cr, rgb(40, 36, 44), 1.0);
+    cairo_fill(cr);
+    for (int i = 0; i < 8; ++i)
+    {
+      const double lx = 80 + i * 160;
+      cairo_move_to(cr, lx - 12, 70);
+      cairo_line_to(cr, lx - 150, 720);
+      cairo_line_to(cr, lx + 150, 720);
+      cairo_line_to(cr, lx + 12, 70);
+      cairo_close_path(cr);
+      cairo_pattern_t* lg = cairo_pattern_create_linear(0, 70, 0, 720);
+      cairo_pattern_add_color_stop_rgba(lg, 0, 1, 0.95, 0.8, 0.22);
+      cairo_pattern_add_color_stop_rgba(lg, 1, 1, 0.95, 0.8, 0.0);
+      cairo_set_source(cr, lg);
+      cairo_fill(cr);
+      cairo_pattern_destroy(lg);
+      roundedRect(cr, lx - 14, 46, 28, 26, 4);
+      setRgbaC(cr, rgb(20, 18, 24), 1.0);
+      cairo_fill(cr);
+      radialGlow(cr, lx, 72, 26, rgb(255, 240, 200), 0.9);
+    }
+  });
+}
+
+// Lance in a chef's hat: pose 9 (the mic up), a tall toque on his quiff.
+const Texture& lanceChef(ClipKit& k, bool mouth)
+{
+  const std::string key = std::string("e4_lance_chef") + (mouth ? "o" : "c");
+  // Design coords plus 40 px of headroom over the hat (feet at (120, 480)).
+  return cached(k, key, 320, 600, 160, 580, [&](cairo_t* cr) {
+    cairo_translate(cr, 40, 100);
+    paintLance(cr, 9, mouth);
+    paintChefHat(cr, 132, 96, 96, 120, -0.06);
+  });
+}
+
+// The big wooden spoon, its bowl's middle at (110, 70) and the handle down
+// to (110, 700); 220 x 720.
+const Texture& woodenSpoon(ClipKit& k)
+{
+  return cached(k, "e4_wooden_spoon", 220, 720, 110, 70, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(80, 0, 140, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.62, 0.4, 0.2);
+    cairo_pattern_add_color_stop_rgb(g, 0.4, 0.9, 0.7, 0.44);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.5, 0.3, 0.14);
+    roundedRect(cr, 96, 110, 28, 600, 14);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The bowl: a broad oval, seen from a little above.
+    cairo_new_path(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 110, 70);
+    cairo_scale(cr, 104, 48);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_new_path(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 110, 64);
+    cairo_scale(cr, 88, 32);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(120, 70, 30), 0.5);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Grain.
+    for (int i = 0; i < 5; ++i)
+    {
+      cairo_move_to(cr, 102 + i * 4, 130);
+      cairo_line_to(cr, 104 + i * 3, 690);
+    }
+    setRgbaC(cr, rgb(110, 66, 30), 0.35);
+    cairo_set_line_width(cr, 1);
+    cairo_stroke(cr);
+  });
+}
+
+// Shot: Lance on the cooking show. The kitchen set under the lights,
+// zooming in slowly; Lance in his toque; a giant wooden spoon rises from
+// below the frame (frames 0-5) with the three runners on it, tiny, waving
+// (4-frame loop); steam rolls up through the foreground (8-frame loop).
+void lanceChefClip(ClipKit& k, int frame, float t, int ticks, float ox, float oy)
+{
+  // The shot's own frame across repeats (90 ms a frame), for the zoom and
+  // the spoon's rise, which happen once.
+  const float abs = float(ticks) / 5.4f;
+  DrawOpts zo;
+  zo.scale = (1280.0f + 2.0f * abs) / 1280.0f;
+  k.r.draw(kitchenSet(k), 640.0f + ox, 360.0f + oy, zo);
+  // Lance.
+  const bool talking = t > 0.12f && t < 0.6f && (ticks / 7) % 2 == 0;
+  const float lx = 380.0f + ox, ly = 720.0f + oy + std::sin(float(ticks) * 0.06f) * 2.0f;
+  drawGlow(k.r, k.art, lx, ly - 320.0f, 300.0f, rgb(255, 230, 180), 0.25f);
+  k.r.draw(lanceChef(k, talking), lx, ly);
+  // The spoon rising from below, eased out, then bobbing.
+  const float rise = std::min(1.0f, abs / 6.0f);
+  const float e = 1.0f - (1.0f - rise) * (1.0f - rise);
+  const float bx = 840.0f + ox, by = 400.0f + (1.0f - e) * 520.0f + oy + (rise >= 1.0f ? std::sin(float(ticks) * 0.08f) * 6.0f : 0.0f);
+  // The spoon, then the three runners standing in its bowl, waving.
+  k.r.draw(woodenSpoon(k), bx, by);
+  static constexpr float kWave[4] = {-0.9f, -0.4f, 0.1f, -0.4f};
+  for (int who = 0; who < 3; ++who)
+  {
+    const float rx = bx - 56.0f + float(who) * 56.0f, ry = by + 16.0f;
+    const float a = kWave[(frame + who) % 4] - 1.57f;
+    const float shx = rx + (who == 2 ? -10.0f : 10.0f), shy = ry - 52.0f;
+    k.r.draw(runner(k, who, 0, 0.9f, who == 2), rx, ry);
+    k.r.drawLine(shx, shy, shx + std::cos(a) * 26.0f, shy + std::sin(a) * 26.0f, 7.0f, kInk);
+    k.r.drawLine(shx, shy, shx + std::cos(a) * 26.0f, shy + std::sin(a) * 26.0f, 4.0f, rgb(246, 206, 170));
+  }
+  // The spoon's front lip over their feet.
+  k.r.fillRect(bx - 84.0f, by + 12.0f, 168.0f, 8.0f, rgba(170, 112, 56, 235));
+  k.r.fillRect(bx - 84.0f, by + 12.0f, 168.0f, 2.0f, rgba(230, 180, 120, 200));
+  if (abs < 7.0f && abs >= 5.5f)
+    drawGlow(k.r, k.art, bx, by, 160.0f, rgb(255, 250, 220), 0.5f);
+  // Steam rolling up in front.
+  for (int i = 0; i < 6; ++i)
+  {
+    const float u = std::fmod(float(frame % 8) / 8.0f + float(i) / 6.0f, 1.0f);
+    const float sx = 120.0f + float(i) * 210.0f + std::sin(u * 6.0f + float(i)) * 40.0f;
+    drawGlow(k.r, k.art, sx + ox, 760.0f - u * 420.0f + oy, 90.0f + u * 80.0f, rgb(255, 255, 255), 0.3f * std::sin(u * 3.14f));
+  }
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -5905,6 +6394,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return identCh13(k, frame, ticks, ox, oy);
   if (clip == "lance_cape")
     return lanceCapeClip(k, frame, t, ticks, ox, oy);
+  if (clip == "ident_ch24")
+    return identCh24(k, frame, ticks, ox, oy);
+  if (clip == "lance_chef")
+    return lanceChefClip(k, frame, t, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

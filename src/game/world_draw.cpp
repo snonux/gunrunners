@@ -181,6 +181,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawKitchenBack(r, camX, camY, frame, alpha);
   if (mTurn.on)
     drawTurntableBack(r, camX, camY, frame, alpha);
+  if (mGarden.on)
+    drawGardenBack(r, camX, camY, frame, alpha);
+  if (mGlide.on)
+    drawGlideBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -292,6 +296,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cape", 0, 0, 2, 2).get(1), x + 32, y + 64);
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cape", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
+      {
+        // Too Many Cooks' duck wears a chef's hat.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_chef", 0, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mWest.on && mLevel->themeKey == "western_gulch")
@@ -511,6 +522,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.dive > 0 ? 3 : (e.attach == 2 ? 2 : (e.attach == 1 && e.stun == 0 ? 1 : 0)); // walking, visor, swing
         else if (e.kind == EnemyKind::Poltergeist)
           variant = std::clamp(e.variant, 0, 2) + (e.tell > 0 && e.stun == 0 ? 3 : 0); // book, tureen, candelabra; rattling
+        else if (e.kind == EnemyKind::Meatball)
+          variant = std::clamp(e.variant, 0, 2) + (e.carrier ? 3 : 0); // small, big, giant; moldy
+        else if (e.kind == EnemyKind::CleaverBot)
+          variant = e.tell > 0 ? 1 : (e.cool > enemyDef(e.def).cooldown - 6 ? 2 : 0); // arm up; follow-through
+        else if (e.kind == EnemyKind::EggTimer)
+          variant = e.attach == 0 ? 24 // asleep; the dial, ringing at the end
+                                  : std::clamp(e.cool * 12 / (kEggDial + 1), 0, 11) + (e.cool <= kEggRing ? 12 : 0);
         else if (e.kind == EnemyKind::Imp)
           variant = (e.aimX > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0))) + (e.variant == 1 ? 4 : 0) +
             8 * std::clamp(e.attach, 0, 4); // glowing, lunging, saluting; hard hat; hotter after each pulse
@@ -571,6 +589,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
           : e.kind == EnemyKind::PortraitGhost         ? (frame / 6) % 2
           : e.kind == EnemyKind::HauntedArmor          ? (e.attach == 1 ? (e.x / 3) % 2 : 0)
           : e.kind == EnemyKind::Poltergeist           ? (e.tell > 0 ? (frame / 2) % 2 : (frame / 10) % 2)
+          : e.kind == EnemyKind::Meatball              ? ((e.x % 4) + 4) % 4 // the crust turns as it rolls
+          : e.kind == EnemyKind::EggTimer              ? (e.attach != 0 && e.cool <= kEggRing ? (frame / 2) % 2 : (e.x / 2) % 2)
           : e.kind == EnemyKind::TumbleMine || e.kind == EnemyKind::WindowBandit ? 0
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
@@ -679,7 +699,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
         continue;
       }
     }
-    if (e.flags() & kEnemyCarrier)
+    if ((e.flags() & kEnemyCarrier) && e.kind != EnemyKind::Meatball) // the moldy meatball is green already
       eo.tint = lerpColor(eo.tint, rgb(120, 255, 80), 0.5f);
     if (e.tangle > 0 && e.kind != EnemyKind::Guardian)
     {
@@ -759,6 +779,10 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawKitchenFront(r, camX, camY, frame, alpha);
   if (mTurn.on)
     drawTurntableFront(r, camX, camY, frame, alpha);
+  if (mGarden.on)
+    drawGardenFront(r, camX, camY, frame, alpha);
+  if (mGlide.on)
+    drawGlideFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -767,6 +791,19 @@ void World::draw(Renderer& r, int frame, float alpha) const
     float cy = lerpCells(pr.prevY, pr.y, alpha) + float(pr.h) * kCellPx * 0.5f - camY;
     if (mZero.on && drawZeroShot(r, mArt, pr, cx, cy, frame))
       continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
+    if (pr.thrown == 4)
+    {
+      // Level 24: a Cleaver Bot's cleaver, spinning end over end.
+      const int d = pr.dx < 0 ? -1 : 1;
+      const float a = float(frame + pr.age * 3) * 0.5f * float(d);
+      const float rad = 32.0f;
+      DrawOpts o;
+      o.angle = a * 57.2958f;
+      drawGlow(r, mArt, cx, cy, 40.0f, rgb(220, 230, 255), 0.25f);
+      r.draw(styledEnemySprite(mArt, r, mTheme, "cleaver", 0, (frame / 3) % 2, 2, 2).get(d), cx - rad * std::sin(a),
+        cy + rad * std::cos(a), o);
+      continue;
+    }
     if (pr.thrown > 0)
     {
       // Level 23: a Poltergeist's book, plate or candlestick, tumbling; a
@@ -1541,6 +1578,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawManorHud(r, frame);
   if (mKitchen.on)
     drawKitchenHud(r, frame);
+  if (mGarden.on)
+    drawGardenHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

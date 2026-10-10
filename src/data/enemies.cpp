@@ -211,6 +211,12 @@ const EnemyDef kEnemies[] = {
   {"meatball", "MEATBALL", K::Meatball, L::Styled, 3, 3, 2, 300, 2, 0, 0, 0, kEnemyHarmless, 0},
   {"cleaver_bot", "CLEAVER BOT", K::CleaverBot, L::Styled, 3, 5, 5, 700, 0, 36, 12, 24, 0, 0},
   {"egg_timer", "EGG TIMER", K::EggTimer, L::Styled, 3, 3, 4, 500, 2, 0, 12, 0, kEnemyHarmless, 0},
+  // Level 25. Soldier Ant: harmless until its column turns (the bite is
+  // world_garden.cpp's); Jumping Spider: cooldown after a leap, tell its
+  // crouch (only its leap hurts); Bombardier Beetle: only its jet hurts, tell the swelling.
+  {"soldier_ant", "SOLDIER ANT", K::SoldierAnt, L::Styled, 3, 2, 1, 150, 2, 30, 10, 0, kEnemyHarmless, 0},
+  {"jumping_spider", "JUMPING SPIDER", K::JumpingSpider, L::Styled, 4, 3, 4, 600, 2, 40, 15, 0, kEnemyHarmless, 0},
+  {"bombardier_beetle", "BOMBARDIER BEETLE", K::BombardierBeetle, L::Styled, 4, 3, 5, 500, 4, 30, 12, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

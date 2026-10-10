@@ -180,6 +180,8 @@ void World::setupEntities()
       continue;
     if (setupKitchenEntity(e))
       continue;
+    if (setupGardenEntity(e) || setupGlideEntity(e))
+      continue;
     if (setupZeroEntity(e))
       continue;
     if (setupWestEntity(e))
@@ -213,6 +215,7 @@ void World::setupEntities()
       setupWestEnemy(en, e);
       setupManorEnemy(en, e);
       setupKitchenEnemy(en, e);
+      setupGardenEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:

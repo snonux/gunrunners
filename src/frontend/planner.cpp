@@ -1042,7 +1042,9 @@ void Planner::buildField(const World& w, const Goal& goal)
       top[i] = top[i] || !blocked[i];
   for (const auto& pl : w.platforms())
   {
-    if (pl.hidden)
+    // Level 25: the dandelion's seed head comes once it goes to seed (Bot::garden sees to that).
+    const bool seedhead = w.garden().seedhead >= 0 && &pl == &w.platforms()[std::size_t(w.garden().seedhead)];
+    if (pl.hidden && !seedhead)
       continue; // a train not here yet
     int y0 = pl.y, y1 = pl.y;
     int x0 = pl.x, x1 = pl.x;
@@ -1072,6 +1074,15 @@ void Planner::buildField(const World& w, const Goal& goal)
       for (int x = std::max(0, x0); x < std::min(W, x1 + pl.w); ++x)
         top[std::size_t(y * W + x)] = 1;
   }
+  // Level 25: the pond is no floor; only what floats over it is.
+  for (const auto& pd : w.garden().ponds)
+    for (int y = std::max(0, pd.y0); y <= std::min(H - 1, pd.y1 + 1); ++y)
+      for (int x = std::max(0, pd.x0); x <= std::min(W - 1, pd.x1); ++x)
+      {
+        blocked[std::size_t(y * W + x)] = 1;
+        if (y > pd.y0)
+          top[std::size_t(y * W + x)] = 0;
+      }
   auto isBlocked = [&](int x, int y) {
     if (x < 0 || x >= W)
       return true;

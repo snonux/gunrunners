@@ -113,6 +113,12 @@ void World::updateProtoShooting(const Button& fire)
     updateTrimmer(fire);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::ChronoMister)
+  {
+    // Held: a cone of mist that fast-forwards things (world_garden.cpp).
+    updateMister(fire);
+    return;
+  }
   if (ProtoId(p.proto) == ProtoId::SunstoneLance)
   {
     // Hold for the beam (world_light.cpp traces it), a shot of ammo every
@@ -254,9 +260,9 @@ void World::fireProto(int ox, int oy, int dx, int dy)
   }
   if (ProtoId(p.proto) == ProtoId::RecoilCannon)
     recoilKick(dx, dy); // and the shot goes on below
-  if (ProtoId(p.proto) == ProtoId::HedgeTrimmer)
+  if (ProtoId(p.proto) == ProtoId::HedgeTrimmer || ProtoId(p.proto) == ProtoId::ChronoMister)
   {
-    // Aimed up or down, the Trimmer's handle fires a plain shot.
+    // Aimed up or down, the Trimmer's handle (the Mister's nozzle) fires a plain shot.
     spawnProjectile(ShotKind::Normal, ox, oy, dx, dy);
     return;
   }
