@@ -43,7 +43,11 @@ and down move a cursor along the plates, fire springs the plate's trap and
 left and right pan the camera, while treasure hunters walk in from the left;
 `negative`: every 75 frames the sun and the moon swap, and with them the
 `style=sun` and `style=moon` timer layers, shimmering for the last 15 frames
-before they come back; the HUD shows which is up),
+before they come back; the HUD shows which is up; `pinball`: you are the
+ball on a pinball table: hold jump or fire to pull the plunger back and let
+go to launch, then jump works the left flipper and fire the right one;
+light every lantern to open the gate, the way out, while the drain only
+sends you back to the plunger),
 `timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -129,6 +133,17 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | enemy keys `wraith`, `monk` (`patrol=x0..x1`, `dir`) | | a Wraith drifts through walls and only sunbeams, the Sunstone Lance's beam or Turbo shots hurt it; a Monk's shield holds off shots and throws beams back along his facing (he freezes in the light), and drops for a moment after his bash |
 | `deco` `kind=reflection` `text=odd` | `rect` | Sun Mirrors: a gilt mirror that shows one of the other runners |
 | `layer` … `style=sun\|moon` | | a block for the `negative` rule |
+| `rail` | `id`, `path=x,g;x,g` (blocks; g is the ground row the track lies on), `gaps=a..b;c..d`, `branch=LEVER:state`, `reset=1` | mine-cart track, straight between its points; a cart in a gap falls unless it is hopping; a `branch` rail is taken by a cart crossing its first point while its lever is in that state (`reset=1` throws the lever back once a cart has ridden it); a cart at a rail's end rolls on to a rail through that point, or stops at a bumper, or falls |
+| `cart` | `id`, `x y` (its left block, on the rail), `rail`, `dir=-1`, `paint42=1` | a mine cart: jump or drop into it to ride; a still cart sets off the way you face. Speed 1-3 cells a frame (downhill faster, uphill slower, Turbo flat out); jump hops 4 cells, jump again in the air bails out, down ducks; a lost cart is back at its dock 60 frames later |
+| `bumper`, `lantern` | `x y` | a buffer that stops a cart at a rail's end (faster than 2 cells a frame is a crash: thrown forward, no damage); a red lantern before every gap and dead end |
+| `lever` | `id`, `x y`, `states`, `state` | a junction lever: shoot it to throw it; the arrow sign shows the way the next cart goes |
+| `vein`, `respawn`, `trapdoor`, `rubble` | `rect`, `carrier=1`; `x y frames=`; `x y w=`; `x y breakable=N` | cursed gold that gives you the Virus if your head touches it; a box (at that block) that comes back `frames` after it was opened; a floor that gives way under Rocco; a block of rubble that lands at x y once breakable number N (0-based, in file order) is blown |
+| `dayssign` | `x y w h` | the DAYS WITHOUT ACCIDENT sign: 41, one more every 900 frames, 0 on every crash or lost cart |
+| `batcloud` | `x y` (its middle), `count`, `patrol=x0..x1`, `amp` (blocks) | a cloud of bats swarming along its tunnel on a sine path |
+| enemy keys `cartbandit` (`rail`), `mole` | | a Cart Bandit rides its own rail level with you (one at a time; a cap in its cart finishes it); a Rock Mole burrows, surfaces next to a wall near you (only one out at a time, never with a Bandit on screen) and lobs a rock |
+| `breakable` … `look=rock` | | cracked rock with a chalk cross; with `by=explosion` only a Blasting Cap breaks it |
+| `platform` … `wait=rider` | | a lift that parks at each end: stand on it and it rings and goes; stand on the far landing and it comes for you |
+| `flipper`, `pbumper`, `lamp`, `plunger`, `gate`, `drain`, `pwall` | `x y side=l\|r len=`; `x y`; `rect`; `path=` (block corners) | the `pinball` rule's table: flippers (their pivots), bumpers, lanterns to light, the plunger, the gate that opens when every lantern is lit, the drain back to the plunger, and slanted rails |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

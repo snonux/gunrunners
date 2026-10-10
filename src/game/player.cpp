@@ -147,12 +147,22 @@ void World::updatePlayer(const PlayerInput& raw)
       playSound(Sfx::Jump);
     }
   }
+  if (p.cart >= 0)
+  {
+    // Level 11: riding a mine cart (world_mine.cpp).
+    updateRide(mvX, mvY, in);
+    updateShooting(in.fire);
+    return;
+  }
   if (mLaunch > 0)
     updateLaunch(mvX);
   else
   {
+    const bool wasAir = p.state == PlayerState::Jumping || p.state == PlayerState::Falling;
     updateLadderAttachment(mvX, mvY);
     updatePlayerMovement(mvX, mvY, in.jump, in.fire);
+    if (!mCarts.empty() && (p.state == PlayerState::Falling || (wasAir && p.state == PlayerState::OnGround)))
+      boardCarts();
     // Swing vines: hands that meet one in the air grab it (world_jungle.cpp).
     if (!mVines.empty() && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
       tryGrabVine();
@@ -887,6 +897,8 @@ void World::respawnPlayer()
     resetJungle();
   if (!mTraps.empty() || !mCollapse.empty())
     resetTemple();
+  if (!mCarts.empty() || !mCaps.empty() || !mRails.empty())
+    resetMine();
   showMessage("BACK IN ACTION");
 }
 
@@ -934,7 +946,7 @@ void World::updatePlayerInteractions()
   }
 
   const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
-  if (exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce) && exitPowered())
+  if (!mPinball && exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce) && exitPowered())
   {
     p.state = PlayerState::Teleporting;
     setVisual(PlayerVisual::Standing);

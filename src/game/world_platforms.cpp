@@ -69,6 +69,7 @@ void World::setupPlatform(const EntityDef& e)
     const auto slash = sp.find('/');
     pl.speedNum = std::max(1, std::atoi(sp.substr(0, slash).c_str()));
     pl.speedDen = slash == std::string::npos ? 1 : std::max(1, std::atoi(sp.substr(slash + 1).c_str()));
+    pl.waitRider = pl.parked = e.str("wait") == "rider";
   }
   // powered=BREAKER: a lift that is locked until that breaker is thrown.
   const std::string power = e.str("powered");
@@ -191,6 +192,31 @@ void World::updatePlatforms()
         a.running = true;
         playSound(Sfx::Clunk);
       }
+      if (a.parked)
+      {
+        // The mine elevator: a rider rings the bell and it goes 15 frames
+        // later; a runner on the far landing calls it over.
+        const auto& p = mPlayer;
+        const bool rider = p.state == PlayerState::OnGround && standsOn(p.box(), a);
+        const auto [fx, fy] = a.path[std::size_t(a.target)];
+        const bool called = !rider && p.state == PlayerState::OnGround && std::abs(p.y + 1 - fy) <= 2 &&
+          p.x + 3 >= fx - 10 && p.x <= fx + a.w + 10;
+        if (rider || called)
+        {
+          if (a.bell == 0)
+            playSound(Sfx::Bell);
+          if (++a.bell < 15)
+            continue;
+        }
+        else
+        {
+          a.bell = 0;
+          continue;
+        }
+        a.parked = false;
+        a.bell = 0;
+        playSound(Sfx::Clunk);
+      }
       // speedNum cells every speedDen frames.
       if (++a.moveTick % a.speedDen != 0)
         continue;
@@ -211,8 +237,13 @@ void World::updatePlatforms()
           else if (a.pingpong)
           {
             if (a.target + a.step < 0 || a.target + a.step >= int(a.path.size()))
+            {
               a.step = -a.step;
+              a.parked = a.waitRider;
+            }
             a.target += a.step;
+            if (a.parked)
+              break;
           }
           else
           {
@@ -511,7 +542,7 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
-    if (b.look != 0 && b.look != 3)
+    if (b.look != 0 && b.look != 3 && b.look != 6)
     {
       const float x = float(b.x0) * kTilePx - camX, y = float(b.y0) * kTilePx - camY;
       const float w = float(b.x1 - b.x0 + 1) * kTilePx, h = float(b.y1 - b.y0 + 1) * kTilePx;
@@ -596,6 +627,21 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
         if (x < -64.0f || x > float(kScreenW) || y < -64.0f || y > float(kScreenH))
           continue;
         const unsigned hsh = hash2(tx, ty);
+        if (b.look == 6)
+        {
+          // Cracked rock: a seam of fractures and the miners' chalk mark
+          // that says a cap will take it.
+          r.drawLine(x + 12.0f, y + 4.0f, x + 30.0f, y + 30.0f, 2.0f, rgba(20, 14, 8, 200));
+          r.drawLine(x + 30.0f, y + 30.0f, x + 22.0f, y + 60.0f, 2.0f, rgba(20, 14, 8, 200));
+          r.drawLine(x + 30.0f, y + 30.0f, x + 54.0f, y + 40.0f, 2.0f, rgba(20, 14, 8, 180));
+          r.drawLine(x + float(hsh % 20u) + 36.0f, y + 6.0f, x + 46.0f, y + 22.0f, 1.5f, rgba(20, 14, 8, 160));
+          if (ty == b.y0 && tx == b.x0)
+          {
+            r.drawLine(x + 18.0f, y + 18.0f, x + 46.0f, y + 46.0f, 4.0f, rgba(240, 236, 220, 210));
+            r.drawLine(x + 46.0f, y + 18.0f, x + 18.0f, y + 46.0f, 4.0f, rgba(240, 236, 220, 210));
+          }
+          continue;
+        }
         if (b.look == 3)
         {
           // A painted high-water mark on plain wall; hairline cracks give it away.

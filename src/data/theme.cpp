@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 9> kVariants{{
+const std::array<Variant, 10> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -173,6 +173,19 @@ const std::array<Variant, 9> kVariants{{
     rgb(196, 186, 168), rgb(160, 146, 120),
     rgb(80, 70, 110), rgb(130, 120, 170), rgb(40, 34, 60), rgb(150, 230, 255),
     rgb(60, 44, 20), "observatory"}},
+  {"gold_mines",
+   {ThemeId::LostTemple,
+    "IDOL MINES",
+    "TIMBER, RAILS AND CURSED GOLD UNDER THE MOUNTAIN",
+    rgb(18, 12, 10), rgb(42, 28, 20), rgb(70, 46, 28),
+    rgb(118, 84, 58), rgb(166, 124, 84), rgb(66, 46, 32),
+    rgb(230, 180, 60), rgb(255, 224, 120),
+    rgb(150, 104, 60), rgb(96, 64, 34),
+    rgb(230, 70, 40), rgb(255, 170, 110),
+    rgb(255, 200, 70), rgb(120, 220, 255),
+    rgb(64, 44, 30), rgb(40, 28, 18),
+    rgb(110, 80, 60), rgb(170, 130, 90), rgb(50, 36, 26), rgb(255, 90, 60),
+    rgb(255, 240, 200), "mine"}},
 }};
 
 } // namespace

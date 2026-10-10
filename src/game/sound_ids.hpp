@@ -65,6 +65,11 @@ enum class Sfx
   Drum,      // the Hall of Traps' drum egg
   Dart,      // a Dart Face's dart
   Skitter,   // a Scarab Tide on the move
+  Bell,      // the mine elevator setting off
+  Fuse,      // a Blasting Cap's fuse
+  Flap,      // a Bat Cloud's wingbeats
+  Dig,       // a Rock Mole breaking out of the rock
+  Rail,      // a cart's wheels hitting the track
   Count,
 };
 

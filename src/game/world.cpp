@@ -159,6 +159,9 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   }
   setupEntities();
   linkPlatforms();
+  linkMine();
+  if (mPinball)
+    setupPinball();
   mLevelEnemyCount = mEnemies.size();
   mStats.enemiesTotal = 0;
   for (const auto& e : mEnemies)
@@ -247,6 +250,8 @@ void World::update(const PlayerInput& input)
         updateFlight(input);
       else if (mTrapmaster)
         updateTrapmaster(input);
+      else if (mPinball)
+        updatePinball(input);
       else
         updatePlayer(input);
       updateClub();
@@ -257,11 +262,12 @@ void World::update(const PlayerInput& input)
       updateJungle(input);
       updateTemple(input);
       updateLight(input);
+      updateMine(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
       updateSpawners();
-      if (mPlayer.state == PlayerState::OnGround && !mMap.overlapsHazard(mPlayer.box()) &&
+      if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && !mMap.overlapsHazard(mPlayer.box()) &&
           (mFluids.empty() || wadeFluid() < 0))
       {
         mSafeX = mPlayer.x;
@@ -510,10 +516,20 @@ void World::updateEnemies()
       case EnemyKind::Moth:
         updateMoth(e, def);
         break;
+      case EnemyKind::Bandit:
+        updateBandit(e, def);
+        break;
+      case EnemyKind::Bat:
+        updateBat(e, def);
+        break;
+      case EnemyKind::Mole:
+        updateMole(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
-    if (e.alive && playerVulnerable && !frozen && !(def.flags & kEnemyHarmless) && e.box().intersects(p.hitBox()))
+    if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) &&
+        e.box().intersects(p.hitBox()))
       touchPlayer(e);
   }
 }
@@ -600,6 +616,13 @@ void World::updateProjectiles()
     {
       if (b.intersects(mPlayer.hitBox()) && mPlayer.state != PlayerState::Dying)
       {
+        if (mPlayer.turbo > 0 && mPlayer.cart >= 0)
+        {
+          // Level 11: in Turbo, shots bounce off a runner in a cart.
+          burst(cellCenter(b), rgb(255, 255, 255), rgb(255, 200, 60), 6, 1.4f);
+          playSound(Sfx::Hit);
+          return true;
+        }
         if (pr.carrier)
         {
           if (mPlayer.mercy == 0 && mPlayer.virus == 0)
@@ -617,6 +640,8 @@ void World::updateProjectiles()
       return false;
     }
     shotAtProps(b);
+    if (!mLevers.empty() && shotAtMine(pr, b))
+      return true;
     if (!mMirrors.empty() && shotAtLight(pr, b))
       return true;
     if (!mBubbles.empty() && shotAtBubbles(b))

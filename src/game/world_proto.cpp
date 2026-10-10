@@ -168,6 +168,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
     fireArc(ox, oy, dx, damage);
     return;
   }
+  if (ProtoId(p.proto) == ProtoId::BlastingCaps)
+  {
+    // Not a projectile: a cap with a fuse (world_mine.cpp).
+    throwCap(ox, oy);
+    return;
+  }
   spawnProjectile(ShotKind::Proto, ox, oy, dx, dy);
   Projectile& pr = mProjectiles.back();
   pr.proto = p.proto;

@@ -1681,6 +1681,210 @@ void sunMoth(const Ctx& c)
   fillOutline(cr, rgb(120, 90, 50), kInk, 1.4);
 }
 
+// A mine cart (level 11): riveted iron tub on four wheels. Variant 1 has a
+// big 42 painted on its side (cart CT1).
+void mineCart(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const Color iron = rgb(110, 92, 84), rust = rgb(160, 84, 44);
+  // The tub, wider at the top.
+  cairo_move_to(cr, x0 + 2, y0 + h * 0.08);
+  cairo_line_to(cr, x0 + w - 2, y0 + h * 0.08);
+  cairo_line_to(cr, x0 + w * 0.9, y0 + h * 0.78);
+  cairo_line_to(cr, x0 + w * 0.1, y0 + h * 0.78);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0, y0 + h * 0.8, lighten(rust, 0.15f), darken(iron, 0.25f), kInk, kLine);
+  // The rim and two bands of rivets.
+  roundedRect(cr, x0 - 2, y0 + h * 0.02, w + 4, h * 0.12, 4);
+  fillOutline(cr, rgb(90, 84, 90), kInk, kLine);
+  for (double band : {0.32, 0.6})
+  {
+    cairo_move_to(cr, x0 + w * (0.06 + band * 0.06), y0 + h * band);
+    cairo_line_to(cr, x0 + w * (0.94 - band * 0.06), y0 + h * band);
+    cairo_set_line_width(cr, 5);
+    setColor(cr, rgb(80, 72, 76));
+    cairo_stroke(cr);
+    for (double rx = 0.14; rx < 0.9; rx += 0.12)
+    {
+      circle(cr, x0 + w * rx, y0 + h * band, 2.2);
+      setColor(cr, rgb(200, 190, 180));
+      cairo_fill(cr);
+    }
+  }
+  if (c.variant == 1)
+  {
+    selectGameFont(cr);
+    cairo_set_font_size(cr, h * 0.42);
+    cairo_move_to(cr, x0 + w * 0.36, y0 + h * 0.62);
+    setColor(cr, rgb(255, 214, 70));
+    cairo_show_text(cr, "42");
+  }
+  // Wheels.
+  for (double wx : {0.24, 0.76})
+  {
+    circle(cr, x0 + w * wx, y0 + h * 0.84, h * 0.16);
+    fillOutline(cr, rgb(60, 56, 62), kInk, kLine);
+    circle(cr, x0 + w * wx, y0 + h * 0.84, h * 0.05);
+    setColor(cr, rgb(170, 160, 150));
+    cairo_fill(cr);
+  }
+}
+
+// Cart Bandit (level 11): a masked outlaw in his own cart, pistol drawn.
+// Variant 1 raises the pistol (about to shoot).
+void cartBandit(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const double cartTop = y0 + h * 0.42;
+  // Him, from the waist up.
+  cairo_move_to(cr, x0 + w * 0.32, y0 + h * 0.2);
+  cairo_line_to(cr, x0 + w * 0.66, y0 + h * 0.2);
+  cairo_line_to(cr, x0 + w * 0.7, cartTop + 10);
+  cairo_line_to(cr, x0 + w * 0.28, cartTop + 10);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.2, cartTop, rgb(150, 60, 50), rgb(90, 36, 30), kInk, kLine);
+  circle(cr, x0 + w * 0.5, y0 + h * 0.12, w * 0.12);
+  fillOutline(cr, rgb(214, 170, 130), kInk, kLine);
+  // Bandana over the face and a wide hat.
+  cairo_rectangle(cr, x0 + w * 0.38, y0 + h * 0.12, w * 0.24, h * 0.05);
+  setColor(cr, rgb(200, 40, 50));
+  cairo_fill(cr);
+  roundedRect(cr, x0 + w * 0.26, y0 + h * 0.02, w * 0.48, h * 0.04, 3);
+  fillOutline(cr, rgb(80, 56, 40), kInk, kLine);
+  roundedRect(cr, x0 + w * 0.38, y0 - h * 0.04, w * 0.24, h * 0.08, 5);
+  fillOutline(cr, rgb(80, 56, 40), kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.44, y0 + h * 0.08, w * 0.04, 3);
+  cairo_rectangle(cr, x0 + w * 0.54, y0 + h * 0.08, w * 0.04, 3);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  // The pistol arm.
+  const double gy = c.variant == 1 ? y0 + h * 0.1 : y0 + h * 0.3;
+  strokeLimb(cr, {{x0 + w * 0.62, y0 + h * 0.26}, {x0 + w * 0.82, gy}}, 7, rgb(150, 60, 50), kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.8, gy - 5, w * 0.16, 7);
+  fillOutline(cr, rgb(60, 60, 70), kInk, 1.6);
+  if (c.variant == 1)
+    radialGlow(cr, x0 + w * 0.98, gy - 2, 12, rgb(255, 240, 160), 0.9);
+  // His cart.
+  cairo_move_to(cr, x0, cartTop);
+  cairo_line_to(cr, x0 + w, cartTop);
+  cairo_line_to(cr, x0 + w * 0.92, y0 + h * 0.86);
+  cairo_line_to(cr, x0 + w * 0.08, y0 + h * 0.86);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, cartTop, y0 + h, rgb(120, 110, 100), rgb(60, 54, 58), kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.1, cartTop + h * 0.16, w * 0.8, 4);
+  setColor(cr, rgb(200, 160, 60));
+  cairo_fill(cr);
+  for (double wx : {0.24, 0.76})
+  {
+    circle(cr, x0 + w * wx, y0 + h * 0.9, h * 0.08);
+    fillOutline(cr, rgb(50, 46, 52), kInk, kLine);
+  }
+}
+
+// Cave bat (level 11): leathery wings, frame 0 up and 1 down.
+void caveBat(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double cx = kM + c.w * 0.5, cy = kM + c.h * 0.5;
+  const double lift = c.frame ? 0.5 : -0.6;
+  for (int side : {-1, 1})
+  {
+    cairo_move_to(cr, cx, cy);
+    cairo_curve_to(cr, cx + side * c.w * 0.3, cy + lift * c.h * 0.6, cx + side * c.w * 0.6, cy + lift * c.h * 0.7,
+      cx + side * c.w * 0.75, cy + lift * c.h * 0.2);
+    cairo_line_to(cr, cx + side * c.w * 0.5, cy + c.h * 0.12);
+    cairo_line_to(cr, cx + side * c.w * 0.32, cy + c.h * 0.02);
+    cairo_line_to(cr, cx + side * c.w * 0.18, cy + c.h * 0.16);
+    cairo_close_path(cr);
+    fillOutline(cr, rgb(70, 50, 70), kInk, 1.6);
+  }
+  cairo_save(cr);
+  cairo_translate(cr, cx, cy);
+  cairo_scale(cr, 0.7, 1.0);
+  circle(cr, 0, 0, c.h * 0.24);
+  cairo_restore(cr);
+  fillOutline(cr, rgb(90, 64, 84), kInk, 1.6);
+  for (int side : {-1, 1})
+  {
+    circle(cr, cx + side * c.w * 0.07, cy - c.h * 0.06, 2.4);
+    setColor(cr, rgb(255, 80, 60));
+    cairo_fill(cr);
+  }
+}
+
+// Rock Mole (level 11): a burly digger with a miner's lamp and big claws.
+// Variant 1 holds a rock up to throw.
+void rockMole(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.5, y0 + h * 0.58);
+  cairo_scale(cr, 1.0, 0.86);
+  circle(cr, 0, 0, w * 0.44);
+  cairo_restore(cr);
+  fillGradientOutline(cr, y0 + h * 0.1, y0 + h, rgb(140, 110, 90), rgb(84, 62, 50), kInk, kLine);
+  // Snout and nose.
+  circle(cr, x0 + w * 0.82, y0 + h * 0.5, w * 0.12);
+  fillOutline(cr, rgb(230, 170, 160), kInk, kLine);
+  circle(cr, x0 + w * 0.92, y0 + h * 0.48, w * 0.05);
+  setColor(cr, rgb(220, 90, 110));
+  cairo_fill(cr);
+  // Squinting eye and the helmet lamp.
+  cairo_rectangle(cr, x0 + w * 0.6, y0 + h * 0.36, w * 0.1, 3);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  cairo_arc(cr, x0 + w * 0.5, y0 + h * 0.28, w * 0.3, kPi, 2 * kPi);
+  fillOutline(cr, rgb(240, 200, 60), kInk, kLine);
+  radialGlow(cr, x0 + w * 0.7, y0 + h * 0.14, 16, rgb(255, 250, 200), 0.8);
+  // Claws.
+  const double ry = c.variant == 1 ? y0 + h * 0.02 : y0 + h * 0.84;
+  for (int k = 0; k < 3; ++k)
+    strokeLimb(cr, {{x0 + w * 0.7, y0 + h * 0.7}, {x0 + w * (0.86 + 0.04 * k), ry + k * 4.0}}, 4, rgb(240, 230, 210),
+      kInk, 1.2);
+  if (c.variant == 1)
+  {
+    circle(cr, x0 + w * 0.92, y0 + h * 0.0, w * 0.14);
+    fillOutline(cr, rgb(130, 120, 110), kInk, kLine);
+  }
+}
+
+// A Blasting Cap: a red stick with a spitting fuse. Variant 1 is the blink.
+void blastingCap(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  roundedRect(cr, x0 + w * 0.1, y0 + h * 0.25, w * 0.8, h * 0.75, 4);
+  fillGradientOutline(cr, y0, y0 + h, c.variant ? rgb(255, 200, 180) : rgb(230, 60, 50), rgb(140, 30, 30), kInk, 1.8);
+  cairo_rectangle(cr, x0 + w * 0.1, y0 + h * 0.55, w * 0.8, 3);
+  setColor(cr, rgb(250, 230, 200));
+  cairo_fill(cr);
+  strokeLimb(cr, {{x0 + w * 0.5, y0 + h * 0.25}, {x0 + w * 0.65, y0 - h * 0.1}}, 2.5, rgb(90, 80, 70), kInk, 1.0);
+  radialGlow(cr, x0 + w * 0.68, y0 - h * 0.14, 9, rgb(255, 230, 120), 1.0);
+}
+
+// Pinball Mine's ball: a gold nugget with the runner's colour stripe.
+void pinBall(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double cx = kM + c.w * 0.5, cy = kM + c.h * 0.5, rad = c.w * 0.48;
+  const Color stripe = c.variant == 0 ? rgb(0, 220, 255) : (c.variant == 1 ? rgb(255, 120, 40) : rgb(220, 90, 255));
+  circle(cr, cx, cy, rad);
+  fillGradientOutline(cr, cy - rad, cy + rad, rgb(255, 240, 170), rgb(200, 140, 30), kInk, kLine);
+  cairo_save(cr);
+  circle(cr, cx, cy, rad);
+  cairo_clip(cr);
+  cairo_rectangle(cr, cx - rad, cy - rad * 0.2, rad * 2, rad * 0.4);
+  setColor(cr, stripe);
+  cairo_fill(cr);
+  cairo_restore(cr);
+  circle(cr, cx - rad * 0.35, cy - rad * 0.4, rad * 0.22);
+  setColor(cr, rgba(255, 255, 255, 200));
+  cairo_fill(cr);
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -1726,6 +1930,12 @@ DrawFn routineFor(const std::string& key)
     {"wraith", wraith},
     {"monk", monk},
     {"moth", sunMoth},
+    {"cartbandit", cartBandit},
+    {"bat", caveBat},
+    {"mole", rockMole},
+    {"mine_cart", mineCart},
+    {"blasting_cap", blastingCap},
+    {"pin_ball", pinBall},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

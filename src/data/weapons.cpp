@@ -32,7 +32,7 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
    "TOPPLES AND TANGLES WALKERS"},
   {ProtoId::SunstoneLance, "sunstone_lance", "SUNSTONE LANCE", 10, M::Hold, 0, 4, 1, 30, 60, rgb(255, 220, 90),
    "A SUNBEAM THAT BOUNCES OFF MIRRORS"},
-  {ProtoId::BlastingCaps, "blasting_caps", "BLASTING CAPS", 11, M::Tap, 0, 2, 8, 8, 16, rgb(230, 70, 50),
+  {ProtoId::BlastingCaps, "blasting_caps", "BLASTING CAPS", 11, M::Tap, 8, 2, 8, 8, 16, rgb(230, 70, 50),
    "BOUNCING DYNAMITE WITH A SHORT FUSE"},
   {ProtoId::SerpentSpear, "serpent_spear", "SERPENT SPEAR", 12, M::Tap, 0, 3, 2, 8, 16, rgb(90, 200, 120),
    "STICKS IN WALLS: A STEP YOU CAN STAND ON"},

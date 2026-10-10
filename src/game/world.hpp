@@ -111,6 +111,8 @@ struct Player
   int turbo = 0;     // frames of Turbo Mode left: every stat maxed
   int virus = 0;     // frames of infection left: slower and weaker
   bool hasKey = false;
+  int cart = -1;   // riding this mine cart (level 11)
+  bool cartDuck = false;
   int vine = -1;   // Swing: the vine held
   int vineAt = 0;  // Swing: cells from the anchor to the hands
   int fling = 0;   // cells a frame sideways until landing (let go of a vine)
@@ -403,6 +405,11 @@ struct Platform
   std::string latchId;
   bool running = false;
   bool hidden = false;
+  // wait=rider (level 11's mine elevator): parks at each end until someone
+  // stands on it (a bell, then it goes) or calls it from the far landing.
+  bool waitRider = false;
+  bool parked = false;
+  int bell = 0;
   CellBox box() const { return {x, y, w, h}; }
 };
 
@@ -983,6 +990,115 @@ struct CursedMirror
   int stare = 0;
 };
 
+// --- Level 11: Idol Mines (world_mine.cpp) ---------------------------------
+
+// A mine track: a line of points in cells (x, and the top row of the ground
+// the track lies on), with gaps where the track is missing. A branch leaves
+// another rail at its first point while its lever is in `state`.
+struct Rail
+{
+  std::string id;
+  std::vector<std::pair<int, int>> pts;  // cells
+  std::vector<std::pair<int, int>> gaps; // cells: x ranges with no track
+  std::string leverId;
+  int lever = -1;
+  int state = 1;
+  bool resets = false; // the loop: puts its lever back to 0 at its end
+  int len = 0;         // eighths of a cell, each segment counted by its longer side
+};
+
+// A mine cart (2 x 1.5 blocks) on a rail. Positions are the middle of its
+// bottom edge, in cells, on the track's row.
+struct Cart
+{
+  std::string id;
+  int rail = -1;
+  int s = 0;     // eighths of a cell along the rail
+  int dir = 1;   // +1 along the rail's points, -1 back
+  int speed = 0; // eighths of a cell a frame; 0 standing
+  int hop = 0;   // frame of a hop, 0 on the track
+  bool falling = false;
+  float fx = 0.0f, fy = 0.0f, vx = 0.0f, vy = 0.0f;
+  float prevFx = 0.0f, prevFy = 0.0f;
+  float angle = 0.0f, prevAngle = 0.0f; // radians, the track's slope (0 flat)
+  int lost = 0; // frames until a lost cart is back at its dock
+  int dockRail = -1, dockS = 0;
+  bool painted = false; // the 42 on its side
+  static constexpr int kW = 4, kH = 3;
+  CellBox box() const;
+};
+
+// A lever by the track: shoot it to throw the junction.
+struct Lever
+{
+  std::string id;
+  int x = 0, y = 0; // cells, top-left of its 2 x 4 box
+  int state = 0;
+  int states = 2;
+  int cool = 0;
+  CellBox box() const { return {x, y, 2, 4}; }
+};
+
+// A Blasting Cap: lobbed, bounces twice, rolls, and goes off after its fuse.
+struct Cap
+{
+  float fx = 0.0f, fy = 0.0f, vx = 0.0f, vy = 0.0f; // cells: the middle of its bottom
+  float prevFx = 0.0f, prevFy = 0.0f;
+  int fuse = 30;
+  int bounces = 0;
+  int rail = -1; // rolling along this rail
+  int rs = 0, rdir = 1;
+  bool alive = true;
+};
+
+// A trapdoor in a floor that gives way under a heavy runner (Rocco).
+struct Trapdoor
+{
+  int x0 = 0, x1 = 0, y = 0; // blocks
+  bool open = false;
+};
+
+// Pinball Mine (rules=pinball): the runner is the ball.
+struct PinSeg
+{
+  float x0, y0, x1, y1; // cells
+};
+
+struct PinBumper
+{
+  float x, y, r; // cells
+  int flash = 0;
+};
+
+struct PinLamp
+{
+  float x, y; // cells
+  bool lit = false;
+  int flash = 0;
+};
+
+struct Pinball
+{
+  float x = 0.0f, y = 0.0f, vx = 0.0f, vy = 0.0f; // the ball's middle, cells
+  float prevX = 0.0f, prevY = 0.0f;
+  int flipL = 0, flipR = 0;  // 0 down .. kFlipSteps up
+  int holdL = 0, holdR = 0;  // frames the button has been held
+  float lx = 0.0f, ly = 0.0f, rx = 0.0f, ry = 0.0f; // the flippers' pivots
+  float flipLen = 7.0f;
+  std::vector<PinSeg> segs;
+  std::vector<PinBumper> bumpers;
+  std::vector<PinLamp> lamps;
+  float plungerX = 0.0f, plungerY = 0.0f;
+  bool inPlunger = true;
+  int plungeWait = 0;
+  int pull = 0; // frames the plunger has been pulled back (held jump or fire)
+  float gateX = 0.0f, gateY = 0.0f;
+  bool gateOpen = false;
+  CellBox drain{0, 0, 0, 0};
+  int drains = 0;
+  static constexpr int kFlipSteps = 3;
+};
+
 struct Checkpoint
 {
   int x = 0, y = 0; // bottom-left, 2x4 cells
@@ -1203,6 +1319,17 @@ public:
   const std::vector<BeamPath>& beamPaths() const { return mBeamPaths; }
   bool lanceOn() const { return mLanceOn; }
   bool negative() const { return mNegative; }
+  // Level 11: tracks, carts, levers, caps and Pinball Mine.
+  const std::vector<Rail>& rails() const { return mRails; }
+  const std::vector<Cart>& carts() const { return mCarts; }
+  const std::vector<Lever>& levers() const { return mLevers; }
+  const std::vector<Cap>& caps() const { return mCaps; }
+  const std::vector<Trapdoor>& trapdoors() const { return mTrapdoors; }
+  bool pinball() const { return mPinball; }
+  const Pinball& pin() const { return mPin; }
+  // The track's row (cells) under x on this rail, and whether there is
+  // track there at all (false in a gap or past its ends).
+  bool railY(const Rail& r, float x, float& y) const;
   int negativePhase() const; // 0 sun, 1 moon
   // Level 10, for the bot: where a sunbeam from (x, y) going `dir` ends up
   // with these mirror angles (doors as they are, no Monks or moths): the
@@ -1460,6 +1587,38 @@ private:
   void drawLightBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawLightFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawLightHud(Renderer& r, int frame) const;
+  // Level 11 (world_mine.cpp).
+  bool setupMineEntity(const EntityDef& e);
+  void setupMineEnemy(Enemy& en, const EntityDef& e);
+  void linkMine();
+  void updateMine(const PlayerInput& input);
+  void updateRide(int mvX, int mvY, const PlayerInput& in);
+  void stepCart(Cart& c, bool ridden);
+  void placeCart(Cart& c);
+  void railPoint(const Rail& r, int s, float& x, float& y, float& angle, int* seg = nullptr) const;
+  int railNear(float x, float y, int skip, int& s) const;
+  bool overGap(const Rail& r, float x) const;
+  void loseCart(Cart& c);
+  void dockCart(Cart& c);
+  void leaveCart(bool jump, int fling);
+  void placeRider();
+  void boardCarts();
+  void resetMine(); // after a respawn
+  void throwCap(int ox, int oy);
+  void updateCaps();
+  void blowCap(Cap& cap);
+  bool shotAtMine(Projectile& pr, const CellBox& b);
+  void updateBandit(Enemy& e, const EnemyDef& def);
+  void updateBat(Enemy& e, const EnemyDef& def);
+  void updateMole(Enemy& e, const EnemyDef& def);
+  void crashed();
+  void setupPinball();
+  void updatePinball(const PlayerInput& input);
+  void drawMineBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMineFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawCart(Renderer& r, const Cart& c, float camX, float camY, float alpha, bool front) const;
+  void drawPinball(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMineHud(Renderer& r, int frame) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1639,6 +1798,23 @@ private:
   bool mLanceOn = false;            // the Sunstone Lance's beam is out
   int mLanceDir = 0;
   bool mNegative = false;           // bonus rule: sun and moon blocks swap every 75 frames
+  // Level 11: tracks and carts, levers, bumpers, lanterns, the cursed veins,
+  // Blasting Caps, the W box that comes back, Rocco's trapdoor, the foreman's
+  // rubble, the DAYS WITHOUT ACCIDENT sign, and Pinball Mine.
+  std::vector<Rail> mRails;
+  std::vector<Cart> mCarts;
+  std::vector<Lever> mLevers;
+  std::vector<CellBox> mBumpers;
+  std::vector<std::pair<int, int>> mLanterns; // cells: where each lantern's post stands
+  std::vector<CellBox> mVeins;
+  std::vector<Cap> mCaps;
+  std::vector<std::array<int, 3>> mRespawns; // box index, frames, frames left
+  std::vector<Trapdoor> mTrapdoors;
+  std::vector<std::array<int, 4>> mRubble; // breakable, block x, y, placed
+  CellBox mDaysSign{0, 0, 0, 0};
+  int mDays = 41, mDaysFrames = 0;
+  bool mPinball = false; // bonus rule: you are the ball
+  Pinball mPin;
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up

@@ -1381,6 +1381,131 @@ void sunUp(ClipKit& k, int frame, int ticks, float ox, float oy)
     k.r.draw(runner(k, who, 0, 3.2f, who == 2), 360.0f + float(who) * 280.0f + ox, 900.0f + tilt + oy);
 }
 
+// Level 11's briefing: the mouth of the Idol Mines, timber shoring and a
+// swinging lantern, rails running off into the dark.
+void mineMouth(ClipKit& k, int ticks, float ox, float oy)
+{
+  const Texture& bg = cached(k, "mine_mouth", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(60, 42, 30), rgb(40, 28, 20), rgb(22, 16, 12));
+    // The rock face, rough blocks.
+    for (int i = 0; i < 90; ++i)
+    {
+      const double x = double(hash2(i, 5) % 1280u), y = double(hash2(i, 6) % 720u);
+      cairo_rectangle(cr, x, y, 60 + hash2(i, 7) % 60u, 30 + hash2(i, 8) % 30u);
+      setColor(cr, rgba(0, 0, 0, 40));
+      cairo_fill(cr);
+    }
+    // The tunnel mouth: black, with the shoring around it.
+    cairo_move_to(cr, 380, 720);
+    cairo_line_to(cr, 380, 250);
+    cairo_line_to(cr, 900, 250);
+    cairo_line_to(cr, 900, 720);
+    cairo_close_path(cr);
+    setColor(cr, rgb(6, 4, 3));
+    cairo_fill(cr);
+    for (const double x : {350.0, 900.0})
+    {
+      cairo_rectangle(cr, x, 230, 34, 490);
+      setColor(cr, rgb(130, 90, 54));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 330, 214, 624, 40);
+    setColor(cr, rgb(150, 104, 62));
+    cairo_fill(cr);
+    // Rails to the vanishing point, sleepers getting closer together.
+    for (int i = 0; i < 14; ++i)
+    {
+      const double t = std::pow(double(i) / 14.0, 1.8);
+      const double y = 720 - t * 300, half = 300 * (1 - t) + 30;
+      cairo_rectangle(cr, 640 - half - 20, y - 8 * (1 - t) - 2, 2 * half + 40, 14 * (1 - t) + 3);
+      setColor(cr, rgb(90, 60, 36));
+      cairo_fill(cr);
+    }
+    for (const double side : {-1.0, 1.0})
+    {
+      cairo_move_to(cr, 640 + side * 330, 720);
+      cairo_line_to(cr, 640 + side * 30, 420);
+      cairo_set_line_width(cr, 10);
+      setColor(cr, rgb(150, 150, 160));
+      cairo_stroke(cr);
+    }
+  });
+  k.r.draw(bg, ox * 0.3f, oy * 0.3f);
+  // The lantern on the lintel, swinging on a 12-frame loop.
+  const float a = 0.35f * std::sin(float(ticks % 48) / 48.0f * 6.2832f);
+  const float lx = 520.0f + ox + std::sin(a) * 70.0f, ly = 260.0f + oy + std::cos(a) * 70.0f;
+  k.r.drawLine(520.0f + ox, 254.0f + oy, lx, ly, 3.0f, rgb(40, 30, 20));
+  drawGlow(k.r, k.art, lx, ly + 18.0f, 160, rgb(255, 170, 70), 0.6f);
+  k.r.fillRect(lx - 14, ly, 28, 36, rgb(255, 196, 90));
+  k.r.fillRect(lx - 16, ly - 4, 32, 6, rgb(60, 40, 24));
+}
+
+// A mine cart seen from the front, `s` its size (1 = 400 px wide).
+void cartFront(ClipKit& k, float cx, float bottom, float s, bool painted)
+{
+  const float w = 400.0f * s, h = 220.0f * s;
+  for (int i = 0; i < int(h); i += 2)
+  {
+    const float t = float(i) / h, half = w * (0.5f - 0.08f * t);
+    k.r.fillRect(cx - half, bottom - h * 0.25f - h + float(i), half * 2, 2, lerpColor(rgb(150, 100, 60), rgb(110, 72, 44), t));
+  }
+  k.r.fillRect(cx - w * 0.52f, bottom - h * 1.25f - 10 * s, w * 1.04f, 18 * s, rgb(90, 90, 100));
+  for (int b = -1; b <= 1; ++b)
+    k.r.fillRect(cx + float(b) * w * 0.3f - 6 * s, bottom - h * 1.25f, 12 * s, h, rgb(80, 70, 66));
+  for (const float side : {-1.0f, 1.0f})
+  {
+    k.r.fillRect(cx + side * w * 0.33f - 34 * s, bottom - 70 * s, 68 * s, 70 * s, rgb(40, 40, 46));
+    k.r.fillRect(cx + side * w * 0.33f - 12 * s, bottom - 48 * s, 24 * s, 24 * s, rgb(140, 140, 150));
+  }
+  if (painted)
+    k.r.drawText("42", cx, bottom - h * 0.9f, {90.0f * s, rgb(240, 200, 70), rgb(60, 40, 20)}, Align::Center);
+}
+
+void mineTunnel(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  mineMouth(k, ticks, ox, oy);
+  // The empty cart rolls out of the dark toward the camera and stops at the
+  // bumper on frame 16.
+  const float t = std::min(1.0f, float(std::min(frame, 15)) / 15.0f);
+  const float s = 0.15f + 0.85f * t * t;
+  const float jolt = frame == 16 ? 8.0f : 0.0f;
+  cartFront(k, 640 + ox, 430.0f + 290.0f * t * t + oy - jolt, s, true);
+  // The bumper in the foreground.
+  k.r.fillRect(520 + ox, 690 + oy, 240, 30, rgb(120, 84, 50));
+  k.r.fillRect(540 + ox, 670 + oy, 40, 30, rgb(200, 60, 40));
+  k.r.fillRect(700 + ox, 670 + oy, 40, 30, rgb(200, 60, 40));
+  // The runners at the bottom edge, looking on.
+  for (int who = 0; who < 3; ++who)
+    k.r.draw(runner(k, who, 0, 3.0f, who == 2), 160.0f + float(who) * 480.0f + (who == 1 ? 340.0f : 0.0f) + ox, 900 + oy);
+}
+
+void mineHop(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  mineMouth(k, ticks, ox, oy);
+  cartFront(k, 640 + ox, 700 + oy, 1.0f, true);
+  // Dash vaults in, then Rocco and Nova pile in after him (frames 0, 4, 8).
+  for (int who = 0; who < 3; ++who)
+  {
+    const int start = who * 4, f = frame - start;
+    const float x = 640.0f + float(who - 1) * 110.0f + ox;
+    if (f < 0)
+    {
+      k.r.draw(runner(k, who, 0, 2.2f, who == 1), (who == 0 ? 160.0f : (who == 1 ? 1120.0f : 1000.0f)) + ox, 720 + oy);
+      continue;
+    }
+    const float u = std::min(1.0f, float(f) / 4.0f);
+    const float from = who == 0 ? 160.0f : (who == 1 ? 1120.0f : 1000.0f);
+    const float px = from + (x - from) * u, py = 720.0f - std::sin(u * 3.14159f) * 260.0f - u * 170.0f + oy;
+    k.r.draw(runner(k, who, u < 1.0f ? 2 : 0, 2.2f, who == 1), px, py);
+  }
+  // The cart's front rim over their legs once they are in.
+  k.r.fillRect(640 - 208 + ox, 700 - 275 + oy, 416, 18, rgb(90, 90, 100));
+  for (int i = 0; i < 120; i += 2)
+    k.r.fillRect(640 - 196 + ox + float(i) * 0.1f, 700 - 257 + oy + float(i), 392 - float(i) * 0.2f, 2,
+      lerpColor(rgb(150, 100, 60), rgb(130, 88, 52), float(i) / 120.0f));
+  k.r.drawText("42", 640 + ox, 700 - 190 + oy, {90.0f, rgb(240, 200, 70), rgb(60, 40, 20)}, Align::Center);
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1444,6 +1569,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return sunBeam(k, frame, ticks, ox, oy);
   if (clip == "brief10_up")
     return sunUp(k, frame, ticks, ox, oy);
+  if (clip == "brief11_tunnel")
+    return mineTunnel(k, frame, ticks, ox, oy);
+  if (clip == "brief11_hop")
+    return mineHop(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")
