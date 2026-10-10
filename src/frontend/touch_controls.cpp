@@ -53,6 +53,11 @@ constexpr float kPauseFromRight = 56.0f;
 constexpr float kPauseY = 120.0f;
 constexpr float kPauseR = 36.0f;
 constexpr float kMapFromRight = 150.0f;
+// Menus without the menu pad: a small BACK in the top left corner and the
+// pad button in the bottom left, this far from the corners.
+constexpr float kCornerInset = 56.0f;
+// A menu touch that moves less than this is a tap; further, a drag.
+constexpr float kTapSlop = 18.0f;
 
 constexpr Color kNeon = rgb(46, 242, 255);
 constexpr Color kPink = rgb(255, 46, 196);
@@ -183,6 +188,15 @@ Texture bakeIcon(Renderer& renderer, float r, Color col, int icon)
         cairo_fill(cr);
         break;
       }
+      case 7: // the menu pad: a d-pad's cross
+        for (int i = 0; i < 4; ++i)
+        {
+          const double a = i * M_PI * 0.5;
+          triangle(cr, c + std::cos(a) * s * 0.75, c + std::sin(a) * s * 0.75, s * 0.4, a);
+        }
+        cairo_arc(cr, c, c, s * 0.18, 0.0, 2.0 * M_PI);
+        cairo_fill(cr);
+        break;
       default: // BACK: an arrow pointing left
         cairo_set_line_width(cr, rr * 0.14);
         cairo_move_to(cr, c + s, c);
@@ -203,6 +217,7 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
   , mNub(bakeNub(renderer))
   , mOk(bakeIcon(renderer, kSpecs[kCorner].r, kGold, 4))
   , mBack(bakeIcon(renderer, kSpecs[kInner].r, kPink, 5))
+  , mPadIcon(bakeIcon(renderer, kPauseR, kNeon, 7))
 {
   mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[kInner].r, kNeon, 0);
   mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kCorner].r, kPink, 1);
@@ -213,6 +228,10 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
 
 void TouchControls::configure(Layout layout, int size)
 {
+  // A finger pointing at a menu that just went away taps nothing.
+  if (layout != mLayout)
+    for (auto& f : mFingers)
+      f.dragging = true;
   mLayout = layout;
   mScale = kSizes[std::clamp(size, 0, 2)];
 }
@@ -252,8 +271,21 @@ TouchControls::Circle TouchControls::stickHome() const
   return place({mLeft + kStickFromLeft * mScale, mBottom - kStickFromBottom * mScale, kStickR * mScale}, 0);
 }
 
+bool TouchControls::menuPadShown() const
+{
+  return mLayout == Layout::Menu && !mEditing && mMenuPad;
+}
+
+TouchControls::Circle TouchControls::padToggle() const
+{
+  return {mLeft + kCornerInset * mScale, mBottom - kCornerInset * mScale, kPauseR * mScale};
+}
+
 TouchControls::Circle TouchControls::button(int b) const
 {
+  // Menus without the menu pad keep a small BACK, out of the way.
+  if (b == kFire && mLayout == Layout::Menu && !mEditing && !mMenuPad)
+    return {mLeft + kCornerInset * mScale, mTop + kCornerInset * mScale, kPauseR * mScale};
   if (b == kPause || b == kMap)
     return place({mRight - (b == kPause ? kPauseFromRight : kMapFromRight) * mScale, std::max(mTop, 0.0f) + kPauseY,
                    kPauseR * mScale},
@@ -358,7 +390,28 @@ void TouchControls::editMove(const Finger& f)
 
 bool TouchControls::buttonShown(int b) const
 {
-  return mLayout == Layout::Play || b == kJump || b == kFire;
+  return mLayout == Layout::Play || mEditing || (b == kJump && mMenuPad) || b == kFire;
+}
+
+std::vector<SDL_FPoint> TouchControls::takeTaps()
+{
+  std::vector<SDL_FPoint> taps;
+  taps.swap(mTaps);
+  return taps;
+}
+
+SDL_FPoint TouchControls::takeDrag()
+{
+  const SDL_FPoint d = mDrag;
+  mDrag = {0.0f, 0.0f};
+  return d;
+}
+
+bool TouchControls::takeMenuPadChange()
+{
+  const bool c = mMenuPadChanged;
+  mMenuPadChanged = false;
+  return c;
 }
 
 void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
@@ -411,6 +464,39 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
     mFingers.push_back(f);
     return;
   }
+  if (mLayout == Layout::Menu)
+  {
+    // The pad button switches the menu pad; the finger does nothing more.
+    const Circle t = padToggle();
+    if (std::hypot(x - t.x, y - t.y) < t.r * 1.4f)
+    {
+      mMenuPad = !mMenuPad;
+      mMenuPadChanged = true;
+      f.stick = false;
+      f.pointer = f.dragging = true;
+      mFingers.push_back(f);
+      return;
+    }
+    // The menu pad's d-pad takes a touch on it, a button one near it, and
+    // anything else points at the menu.
+    const Circle home = stickHome();
+    f.stick = mMenuPad && std::hypot(x - home.x, y - home.y) < home.r * 1.3f;
+    if (!f.stick)
+    {
+      f.button = buttonFor(x, y);
+      f.pointer = f.button < 0;
+      f.px = x;
+      f.py = y;
+    }
+    if (f.stick)
+    {
+      f.ox = home.x;
+      f.oy = home.y;
+    }
+    mFingers.push_back(f);
+    mTapped = mTapped | held();
+    return;
+  }
   // A button moved onto the left half still takes a touch right on it.
   if (f.stick)
     for (int b = 0; b < kButtonCount; ++b)
@@ -428,11 +514,6 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
     f.ox = std::clamp(x, mLeft + m, float(kScreenW) * 0.5f - m);
     f.oy = std::clamp(y, std::max(mTop, 0.0f) + 110.0f + m, mBottom - m);
   }
-  else if (f.stick)
-  {
-    f.ox = home.x;
-    f.oy = home.y;
-  }
   else
   {
     f.button = buttonFor(x, y);
@@ -449,6 +530,20 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
       continue;
     f.x = x;
     f.y = y;
+    if (f.pointer)
+    {
+      // Past the slop a tap becomes a drag, reported from where it started.
+      if (!f.dragging && std::hypot(x - f.sx, y - f.sy) > kTapSlop)
+        f.dragging = true;
+      if (f.dragging && mLayout == Layout::Menu)
+      {
+        mDrag.x += x - f.px;
+        mDrag.y += y - f.py;
+        f.px = x;
+        f.py = y;
+      }
+      continue;
+    }
     if (mEditing)
       editMove(f);
     else if (f.stick && mLayout == Layout::Play)
@@ -508,6 +603,9 @@ void TouchControls::swipe(Finger& f)
 
 void TouchControls::lift(SDL_FingerID id)
 {
+  for (const auto& f : mFingers)
+    if (f.id == id && f.pointer && !f.dragging && mLayout == Layout::Menu)
+      mTaps.push_back({f.sx, f.sy});
   mFingers.erase(
     std::remove_if(mFingers.begin(), mFingers.end(), [id](const Finger& f) { return f.id == id; }),
     mFingers.end());
@@ -524,7 +622,8 @@ int TouchControls::buttonFor(float x, float y) const
       continue;
     const Circle c = button(b);
     const float gap = std::hypot(x - c.x, y - c.y) - c.r;
-    const float reach = (b == kPause || b == kMap ? kPauseReach : kReach) * c.r;
+    const bool small = b == kPause || b == kMap || (mLayout == Layout::Menu && !mEditing && !mMenuPad);
+    const float reach = (small ? kPauseReach : kReach) * c.r;
     if (gap < reach && (best < 0 || gap < bestGap))
     {
       best = b;
@@ -669,7 +768,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     renderer.draw(mNub, sx + f.ox + dx, sy + f.oy + dy, n);
     stickDrawn = true;
   }
-  if (!stickDrawn)
+  if (!stickDrawn && (play || mMenuPad))
   {
     DrawOpts o;
     o.scale = scale;
@@ -684,12 +783,27 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
       continue;
     const Circle c = button(b);
     const bool held = buttonHeld(b) || grabbed(1 + b);
+    // The radius each icon was baked for (the menus' small BACK is smaller).
+    const float baked = !play ? kSpecs[b == kJump ? kCorner : kInner].r
+      : b == kPause || b == kMap ? kPauseR
+      : b == kSwap             ? kSpecs[2].r
+                               : kSpecs[b == kFire ? kCorner : kInner].r;
     DrawOpts o;
     o.alpha = held ? 0.95f : idle;
-    o.scale = scale * (held ? 0.92f : 1.0f);
+    o.scale = scale * c.r / (mScale * baked) * (held ? 0.92f : 1.0f);
     o.cull = false;
     const Texture& t = play ? mPlayIcons[std::size_t(b)] : (b == kJump ? mOk : mBack);
     renderer.draw(t, sx + c.x, sy + c.y, o);
+  }
+
+  if (!play)
+  {
+    const Circle c = padToggle();
+    DrawOpts o;
+    o.alpha = mMenuPad ? 0.9f : 0.5f;
+    o.scale = scale;
+    o.cull = false;
+    renderer.draw(mPadIcon, sx + c.x, sy + c.y, o);
   }
 
   if (mEditing)

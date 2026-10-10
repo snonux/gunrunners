@@ -164,8 +164,9 @@ void touchLayout(Renderer& r)
   check(!u.read().jump, "play: the left half is still the stick");
   u.release(4);
   u.configure(TouchControls::Layout::Menu, 1);
+  u.setMenuPad(true);
   u.touch(5, 1160.0f, 580.0f);
-  check(u.read().confirm, "menus keep their own layout");
+  check(u.read().confirm, "the menu pad keeps its own layout");
 }
 
 } // namespace

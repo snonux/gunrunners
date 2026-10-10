@@ -14,6 +14,7 @@
 
 #include <array>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -94,6 +95,15 @@ public:
   void typeText(const std::string& text);
   void textBackspace();
   void textDone();
+
+  // Direct touch in the menus (taps.cpp): a tap at a point of the 1280x720
+  // picture picks what is drawn there, and a drag scrolls (in the map it
+  // pans). Each screen marks its tap targets as it draws itself.
+  void tapAt(float x, float y);
+  void dragBy(float dx, float dy);
+  // The on-screen menu pad (d-pad, OK, BACK in menus), kept in the profile.
+  bool menuPad() const;
+  void setMenuPad(bool on);
 
 private:
   enum class Mode
@@ -181,6 +191,18 @@ private:
   void buildPanels();
   void sound(Sfx s);
 
+  // taps.cpp: what the last frame drew that a tap can hit, newest on top.
+  struct TapTarget
+  {
+    float x, y, w, h;
+    std::function<void(float, float)> act; // gets the tap's position
+  };
+  void clearTapTargets();
+  void tapTarget(float x, float y, float w, float h, std::function<void(float, float)> act);
+  // A press for the next tick, made by a tap or a drag step.
+  void tapPress(bool Input::*button);
+  Input takeTapInput();
+
   // menus.cpp: pause menu, savegame slots, runner switching.
   enum class Menu
   {
@@ -267,6 +289,15 @@ private:
   int mCursor = 0;
   Bot mBot;
   Input mPrev;
+
+  // Direct touch: the targets, the screen they were drawn for, the presses
+  // they made for the next tick, and drag distance not yet turned into steps.
+  std::vector<TapTarget> mTapTargets;
+  int mTapScreen = -1;
+  Input mTapInput;
+  float mDragX = 0.0f, mDragY = 0.0f;
+  int mDragStepsX = 0, mDragStepsY = 0;
+  int tapScreen() const { return int(mMode) * 16 + int(mMenu); }
 
   // Menus.
   Menu mMenu = Menu::None;

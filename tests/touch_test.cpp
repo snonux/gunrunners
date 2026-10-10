@@ -35,10 +35,12 @@ constexpr float kSwapX = 1160.0f, kSwapY = 420.0f;
 constexpr float kPauseX = 1224.0f, kPauseY = 120.0f;
 constexpr float kMapX = 1130.0f, kMapY = 120.0f;
 
+// The menu pad: shown when the player switched it on.
 void menuLayout(Renderer& r)
 {
   TouchControls t(r, true);
   t.configure(Layout::Menu, 1);
+  t.setMenuPad(true);
 
   t.touch(1, kStickX, kStickY - 80.0f);
   Input in = t.read();
@@ -69,6 +71,84 @@ void menuLayout(Renderer& r)
   t.touch(6, kMapX, kMapY);
   in = t.read();
   check(!in.swap && !in.pause && !in.map, "menu: no switch, pause or map buttons");
+  for (int f = 4; f <= 6; ++f)
+    t.release(f);
+  t.takeTaps();
+
+  // Away from the pad a finger still points at the menu.
+  t.touch(7, 640.0f, 300.0f);
+  t.release(7);
+  check(t.takeTaps().size() == 1 && !t.read().confirm, "menu pad: a tap between its controls picks an item");
+}
+
+// Without the menu pad (the default): taps, drags, a small BACK and the
+// pad button.
+void directTouch(Renderer& r)
+{
+  TouchControls t(r, true);
+  t.configure(Layout::Menu, 1);
+  check(!t.menuPad(), "direct: the menu pad starts hidden");
+
+  t.touch(1, 640.0f, 300.0f);
+  Input in = t.read();
+  check(!in.confirm && !in.up && !in.back, "direct: a finger on an item presses nothing");
+  check(t.takeTaps().empty(), "direct: ...and is no tap until it lifts");
+  t.release(1);
+  auto taps = t.takeTaps();
+  check(taps.size() == 1 && taps[0].x == 640.0f && taps[0].y == 300.0f, "direct: lifting it taps there");
+  check(t.takeTaps().empty(), "direct: ...once");
+
+  t.touch(2, kStickX, kStickY - 80.0f);
+  check(!t.read().up, "direct: no d-pad where the menu pad would be");
+  t.release(2);
+  check(t.takeTaps().size() == 1, "direct: ...that spot taps too");
+
+  t.touch(3, 640.0f, 400.0f);
+  t.slide(3, 640.0f, 410.0f);
+  t.release(3);
+  check(t.takeTaps().size() == 1, "direct: a finger that wobbles a little still taps");
+
+  t.touch(4, 640.0f, 400.0f);
+  t.slide(4, 640.0f, 360.0f);
+  t.slide(4, 600.0f, 300.0f);
+  const SDL_FPoint d = t.takeDrag();
+  check(d.x == -40.0f && d.y == -100.0f, "direct: a drag reports how far it went");
+  t.slide(4, 600.0f, 280.0f);
+  check(t.takeDrag().y == -20.0f, "direct: ...since the last call");
+  t.release(4);
+  check(t.takeTaps().empty(), "direct: a drag is no tap");
+
+  t.touch(5, 56.0f, 56.0f);
+  in = t.read();
+  check(in.back && !in.fire && !in.confirm, "direct: the small BACK in the corner backs out");
+  t.release(5);
+  check(t.takeTaps().empty(), "direct: ...and taps nothing");
+
+  t.touch(6, 56.0f, 664.0f);
+  check(t.menuPad() && t.takeMenuPadChange(), "direct: the pad button brings the menu pad");
+  check(!t.takeMenuPadChange(), "direct: ...one change");
+  t.release(6);
+  check(t.takeTaps().empty(), "direct: ...and taps nothing");
+  t.touch(7, kStickX, kStickY - 80.0f);
+  check(t.read().up, "direct: the menu pad's d-pad works then");
+  t.release(7);
+  t.touch(8, 56.0f, 664.0f);
+  t.release(8);
+  check(!t.menuPad(), "direct: the pad button hides it again");
+
+  // A menu that closes under the finger takes no tap, and the finger
+  // does nothing in the level.
+  t.touch(9, 900.0f, 300.0f);
+  t.configure(Layout::Play, 1);
+  t.slide(9, 900.0f, 150.0f, 100);
+  in = t.read();
+  check(!in.jump && !in.swap, "direct: a menu finger does nothing in a level");
+  t.release(9);
+  check(t.takeTaps().empty() && t.takeDrag().y == 0.0f, "direct: ...and taps nothing");
+
+  t.touch(10, 640.0f, 300.0f);
+  t.release(10);
+  check(t.takeTaps().empty(), "direct: in a level a touch is no tap");
 }
 
 void playLayout(Renderer& r)
@@ -215,6 +295,7 @@ void swipes(Renderer& r)
   t.release(3);
 
   t.configure(Layout::Menu, 1);
+  t.setMenuPad(true);
   t.touch(4, kFireX, kFireY, 3000); // BACK
   t.slide(4, kFireX, kFireY - 100.0f, 3100);
   in = t.read();
@@ -247,6 +328,7 @@ int main()
   {
     Renderer r(sdl);
     menuLayout(r);
+    directTouch(r);
     playLayout(r);
     sizes(r);
     forgiving(r);

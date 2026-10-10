@@ -208,11 +208,42 @@ void Game::renderControls()
 
   const auto rows = controlRows();
   const float step = rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
+  // While it listens, a tap anywhere gives up (like BACK).
+  if (mListening)
+    tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::back); });
   for (int i = 0; i < int(rows.size()); ++i)
   {
     const ControlRow& row = rows[std::size_t(i)];
     const bool sel = i == mControlsCursor;
     const float y = 196.0f + float(i) * step + (row.kind == RowKind::Action ? 0.0f : 10.0f);
+    if (!mListening && row.kind != RowKind::Action)
+    {
+      tapTarget(400, y - 4, 480, step, [this, i](float, float) {
+        mControlsCursor = i;
+        tapPress(&Input::confirm);
+      });
+    }
+    else if (!mListening)
+    {
+      // A key or button cell: the first tap picks it, a second one listens
+      // for the new key (a tap on the action's name just picks the row).
+      tapTarget(180, y - 4, 330, step, [this, i](float, float) {
+        if (mControlsCursor != i)
+          sound(Sfx::MenuMove);
+        mControlsCursor = i;
+      });
+      for (int c = 0; c <= kPadColumn; ++c)
+        tapTarget(colX[c] - 88, y - 4, 176, step, [this, i, c](float, float) {
+          if (mControlsCursor == i && mControlsColumn == c)
+          {
+            tapPress(&Input::confirm);
+            return;
+          }
+          mControlsCursor = i;
+          mControlsColumn = c;
+          sound(Sfx::MenuMove);
+        });
+    }
     const TextStyle plain{20.0f, t.hudText, kInk};
     const TextStyle chosen{20.0f, t.accentA, kInk, true};
     if (row.kind != RowKind::Action)
@@ -239,14 +270,17 @@ void Game::renderControls()
     }
   }
 
-  std::string help = "UP/DOWN choose   LEFT/RIGHT key or gamepad   ENTER / A change   ESC / B back";
+  std::string help = mOptions.touch ? "TAP a key or button, TAP it again to change it   BACK to leave"
+                                    : "UP/DOWN choose   LEFT/RIGHT key or gamepad   ENTER / A change   ESC / B back";
   if (mListening)
   {
     const std::string act = actName(rows[std::size_t(mControlsCursor)].act);
     help = mControlsColumn < kPadColumn ? "PRESS A KEY FOR " + act + "   -   ESC cancels"
                                         : "PRESS A GAMEPAD BUTTON FOR " + act + "   -   ESC cancels";
+    if (mOptions.touch)
+      help += " (or TAP)";
   }
-  r.drawText(help, 640, 584, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
+  r.drawText(help, 640, rows.size() > 13 ? 596.0f : 584.0f, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
     Align::Center);
 }
 

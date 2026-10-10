@@ -51,7 +51,27 @@ struct CliOptions
   bool touch = false; // on-screen gamepad (always on Android)
   // Headless: scripted button presses, tick -> buttons held for 3 ticks.
   std::vector<std::pair<long, Input>> presses;
+  // Headless: scripted taps (tick -> x, y) and drags (tick -> dx, dy).
+  std::vector<std::pair<long, SDL_FPoint>> taps, drags;
 };
+
+// "120:640x300,200:100x0" -> (tick, x, y) pairs, for --tap and --drag.
+bool parsePoints(const std::string& spec, std::vector<std::pair<long, SDL_FPoint>>& out)
+{
+  std::stringstream ss(spec);
+  std::string item;
+  while (std::getline(ss, item, ','))
+  {
+    const auto colon = item.find(':');
+    const auto x = item.find('x', colon == std::string::npos ? 0 : colon);
+    if (colon == std::string::npos || x == std::string::npos)
+      return false;
+    out.emplace_back(std::atol(item.substr(0, colon).c_str()),
+      SDL_FPoint{float(std::atof(item.substr(colon + 1, x - colon - 1).c_str())),
+        float(std::atof(item.substr(x + 1).c_str()))});
+  }
+  return true;
+}
 
 // "120:pause,140:down+confirm" -> presses. Used to test menus headlessly.
 bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& out)
@@ -122,6 +142,8 @@ void printUsage()
     "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
     "                       (left right up down jump fire confirm pause back swap\n"
     "                       quicksave quickload use)\n"
+    "  --tap LIST           headless: taps on the 1280x720 screen, e.g. 120:640x300\n"
+    "  --drag LIST          headless: finger drags by dx x dy, e.g. 200:0x-120\n"
     "\n"
     "Keys: arrows/WASD move, X/Ctrl jump, Z/Space fire, Enter confirm,\n"
     "      C switch runner, E get in or out of a vehicle, Esc/P pause menu\n"
@@ -143,6 +165,20 @@ void syncTouch(TouchControls& touch, Game& game)
     game.setTouchLayout(touch.layout());
   else
     touch.setLayout(game.touchLayout());
+  if (touch.takeMenuPadChange())
+    game.setMenuPad(touch.menuPad());
+  else
+    touch.setMenuPad(game.menuPad());
+}
+
+// Taps and drags on the menus go straight to the game (before its tick).
+void forwardTouch(TouchControls& touch, Game& game)
+{
+  for (const SDL_FPoint& p : touch.takeTaps())
+    game.tapAt(p.x, p.y);
+  const SDL_FPoint d = touch.takeDrag();
+  if (d.x != 0.0f || d.y != 0.0f)
+    game.dragBy(d.x, d.y);
 }
 
 // While the CONTROLS menu listens for a new binding, the next key or pad
@@ -290,6 +326,14 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
         std::exit(2);
       }
     }
+    else if (a == "--tap" || a == "--drag")
+    {
+      if (!parsePoints(next(), a == "--tap" ? o.taps : o.drags))
+      {
+        std::fprintf(stderr, "bad %s list\n", a.c_str());
+        std::exit(2);
+      }
+    }
     else if (a == "--help" || a == "-h")
     {
       printUsage();
@@ -411,6 +455,15 @@ int runHeadless(const CliOptions& o)
       for (const auto& [at, in] : o.presses)
         if (frames >= at && frames < at + 3)
           scripted = scripted | in;
+      for (const auto& [at, p] : o.taps)
+        if (frames == at)
+        {
+          game.render(); // what a tap hits is what was drawn
+          game.tapAt(p.x, p.y);
+        }
+      for (const auto& [at, d] : o.drags)
+        if (frames == at)
+          game.dragBy(d.x, d.y);
       if (!game.tick(scripted))
         break;
       ++frames;
@@ -570,6 +623,7 @@ int runWindowed(const CliOptions& o)
       SDL_GetRendererOutputSize(sdlRenderer, &pw, &ph);
       touch->setScreen(pw, ph);
       syncTouch(*touch, game);
+      forwardTouch(*touch, game);
     }
     while (accumulator >= tickSeconds && running)
     {

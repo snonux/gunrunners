@@ -169,8 +169,9 @@ void Game::startLevel()
   playLevelMusic();
 }
 
-bool Game::tick(const Input& raw)
+bool Game::tick(const Input& input)
 {
+  const Input raw = input | takeTapInput();
   ++mFrame;
   ++mModeTicks;
   if (mNoticeTicks > 0)
@@ -425,6 +426,7 @@ float Game::renderAlpha() const
 
 void Game::render()
 {
+  clearTapTargets();
   mRenderer.beginFrame();
   mRenderer.clear(rgb(0, 0, 0));
   const float alpha = renderAlpha();
@@ -436,6 +438,7 @@ void Game::render()
     case Mode::Cutscene:
       if (mCutscene && mClipKit)
         mCutscene->render(*mClipKit);
+      tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::confirm); });
       break;
     case Mode::Arsenal:
       renderArsenal();
@@ -459,6 +462,7 @@ void Game::render()
     case Mode::Bonus:
       mWorld->draw(mRenderer, mFrame, 0.0f);
       renderBonus();
+      tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::confirm); });
       break;
   }
   if (mMenu != Menu::None)

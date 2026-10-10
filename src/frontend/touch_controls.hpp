@@ -17,7 +17,11 @@ namespace gr
 // - In a level: a floating stick on the left half (it centres wherever the
 //   thumb lands) and Jump, Fire, Switch runner, Pause and Map on the
 //   right, mapped like a pad's A, B, Y, Start and Back.
-// - In menus, cutscenes and tallies: a fixed d-pad, OK and BACK.
+// - In menus, cutscenes and tallies: direct touch. A tap on an item picks
+//   it and a drag scrolls (the game gets them from takeTaps / takeDrag);
+//   a small BACK sits in the top left corner. The pad button in the bottom
+//   left corner brings back the menu pad (a fixed d-pad, OK and BACK) for
+//   those who'd rather steer the menus like a gamepad.
 //
 // Three sizes (the TOUCH PAD setting). The overlay hides itself when a
 // keyboard or gamepad is used and comes back with the next touch.
@@ -55,6 +59,16 @@ public:
   Input read();
   // Draws the overlay in the game's 1280x720 logical coordinates.
   void draw(Renderer& renderer) const;
+
+  // Menus: taps since the last call (logical positions), and how far a
+  // finger dragged since the last call. Call once per frame.
+  std::vector<SDL_FPoint> takeTaps();
+  SDL_FPoint takeDrag();
+  // The menu pad (d-pad, OK, BACK) is shown in menus; the player switches
+  // it with the pad button, takeMenuPadChange is true once per switch.
+  void setMenuPad(bool on) { mMenuPad = on; }
+  bool menuPad() const { return mMenuPad; }
+  bool takeMenuPadChange();
 
   // Where the player moved the controls in a level (the profile keeps it):
   // x, y offsets for the stick, then jump, fire, switch, pause and map.
@@ -105,6 +119,10 @@ private:
     Uint32 st;      // ...and when
     bool swipeJump; // swiped up: holds jump until lifted
     bool swiped;    // made a swipe: keeps its button from now on
+    // Menus: a finger on neither the pad nor a button points at the menu.
+    bool pointer = false;
+    bool dragging = false; // moved too far to be a tap (or was used up)
+    float px = 0.0f, py = 0.0f; // where the drag was last reported
   };
 
   void press(SDL_FingerID id, float x, float y);
@@ -118,6 +136,8 @@ private:
   void editPress(Finger& f);
   void editMove(const Finger& f);
   Circle stickHome() const;
+  Circle padToggle() const;
+  bool menuPadShown() const;
   Circle button(int b) const;
   bool buttonShown(int b) const;
   int buttonFor(float x, float y) const;
@@ -137,6 +157,10 @@ private:
   std::array<SDL_FPoint, 1 + kButtonCount> mOffset{};
   bool mEditing = false;
   bool mLayoutChanged = false;
+  bool mMenuPad = false;
+  bool mMenuPadChanged = false;
+  std::vector<SDL_FPoint> mTaps;
+  SDL_FPoint mDrag{0.0f, 0.0f};
 
   Texture mStick;
   Texture mDpad;
@@ -144,6 +168,7 @@ private:
   std::array<Texture, kButtonCount> mPlayIcons;
   Texture mOk;
   Texture mBack;
+  Texture mPadIcon;
 };
 
 } // namespace gr

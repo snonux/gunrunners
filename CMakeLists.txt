@@ -121,6 +121,7 @@ add_library(gunrunners_core STATIC
   src/frontend/controls.cpp
   src/frontend/game.cpp
   src/frontend/menus.cpp
+  src/frontend/taps.cpp
   src/frontend/select.cpp
   src/frontend/runner_editor.cpp
   src/frontend/controls_menu.cpp
@@ -158,6 +159,9 @@ enable_testing()
 add_executable(touch_test tests/touch_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(touch_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME touch_controls COMMAND touch_test)
+add_executable(menu_taps_test tests/menu_taps_test.cpp)
+target_link_libraries(menu_taps_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME menu_taps COMMAND menu_taps_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_executable(gamepad_test tests/gamepad_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(gamepad_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME gamepad COMMAND gamepad_test)

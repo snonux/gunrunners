@@ -171,8 +171,12 @@ a touch near them presses the nearest one, a thumb that drifts keeps its
 button, and sliding onto another button switches to it. Or swipe: a quick
 swipe up anywhere on the right half jumps (also with a thumb on Fire), a
 quick swipe down switches runner. Push the stick up beside a vehicle to climb
-in, and down + Jump to climb out. In menus you get a d-pad with OK and
-BACK. CONTROLS on the title screen and in the pause menu sets the size
+in, and down + Jump to climb out. Menus take your finger directly: tap
+an item to pick it, drag to scroll a list, tap a card on runner select to
+turn to it and tap it again to run, drag the map to pan it and tap it to
+zoom. BACK is the small arrow in the top left corner. If you'd rather steer
+menus like a gamepad, the pad button in the bottom left corner brings back
+a d-pad with OK and BACK. CONTROLS on the title screen and in the pause menu sets the size
 (TOUCH PAD: small, medium or large) and has EDIT TOUCH LAYOUT, where you
 drag the stick and each button to where your thumbs want them. The back
 key pauses. Leaving the app pauses the

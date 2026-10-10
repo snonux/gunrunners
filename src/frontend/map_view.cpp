@@ -2,7 +2,7 @@
 // pad's map button), it freezes the game like the pause menu and shows the
 // part of the level the runners have explored so far. It opens zoomed in
 // on the runner; the zoom button shows the whole level at once, and the
-// stick, d-pad or arrows pan around.
+// stick, d-pad or arrows pan around (on a touch screen, a drag; a tap zooms).
 
 #include "frontend/game.hpp"
 
@@ -156,6 +156,8 @@ void Game::renderMap()
   }
   mWorld->drawMapMarks(r, ox, oy, s, mFrame);
   SDL_RenderSetClipRect(r.sdl(), nullptr);
+  // A tap on the map zooms, a drag pans it (Game::dragBy).
+  tapTarget(kAreaX, kAreaY, kAreaW, kAreaH, [this](float, float) { tapPress(&Input::confirm); });
 
   // Title, zoom and help.
   std::string title = mLevel->name.empty() ? "STAGE 1" : mLevel->name;
@@ -175,7 +177,7 @@ void Game::renderMap()
       s += (s.empty() ? "" : "/") + padName(c);
     return s;
   };
-  std::string help = mOptions.touch ? "D-PAD pan   OK zoom   BACK close" : "ARROWS / STICK pan   ENTER / A zoom   ";
+  std::string help = mOptions.touch ? "DRAG to pan   TAP to zoom   BACK to close" : "ARROWS / STICK pan   ENTER / A zoom   ";
   if (!mOptions.touch)
   {
     std::string shut = keyName(mBindings.keys[std::size_t(Act::Map)][0]);
