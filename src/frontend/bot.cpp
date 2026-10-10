@@ -3,9 +3,11 @@
 #include "game/world.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <string>
 
 namespace gr
 {
@@ -60,6 +62,8 @@ Input Bot::play(const World& world)
     return fly(world);
   if (world.trapmaster())
     return trapmaster(world);
+  if (world.pinball())
+    return pinball(world);
   // Fight from the deck; anywhere below it (fallen down the mast shaft)
   // the planner climbs back up first.
   if (world.bossFight() && world.player().y <= world.boss().deckY + 1)
@@ -71,6 +75,17 @@ Input Bot::play(const World& world)
   {
     mFighting = false;
     mFightQueue.clear();
+    mPlanner.reset();
+  }
+  // Level 11: in a cart (or climbing into one going our way), ride.
+  if (world.player().cart >= 0 || !mRideQueue.empty() || boardable(world) >= 0)
+  {
+    mRiding = true;
+    return ride(world);
+  }
+  if (mRiding)
+  {
+    mRiding = false;
     mPlanner.reset();
   }
   // Campaign levels (with a header) get the planner; the PoC level keeps
@@ -365,6 +380,244 @@ Input Bot::trapmaster(const World& world)
   }
   const Input in = mTrapQueue.front();
   mTrapQueue.pop_front();
+  return in;
+}
+
+Input Bot::pinball(const World& world)
+{
+  if (!mPinQueue.empty())
+  {
+    const Input in = mPinQueue.front();
+    mPinQueue.pop_front();
+    return in;
+  }
+  const Pinball& pin = world.pin();
+  static const bool debug = std::getenv("GR_FIGHT_DEBUG") != nullptr;
+  if (debug && world.clock() % 5 == 0)
+  {
+    std::string lamps;
+    for (const auto& l : pin.lamps)
+      lamps += l.lit ? '*' : '.';
+    std::fprintf(stderr, "pin f%d ball %.1f,%.1f v %.2f,%.2f lamps %s drains %d\n", world.clock(), pin.x, pin.y, pin.vx,
+      pin.vy, lamps.c_str(), pin.drains);
+  }
+  // Only on the plunger and near the flippers is there anything to decide.
+  const float reach = pin.flipLen + 4.0f;
+  const bool near = pin.vy > -1.0f && pin.y > std::min(pin.ly, pin.ry) - 6.0f &&
+    (std::hypot(pin.x - pin.lx, pin.y - pin.ly) < reach || std::hypot(pin.x - pin.rx, pin.y - pin.ry) < reach);
+  if (!near && !pin.inPlunger)
+    return Input{};
+  // Try each flipper after a few frames' delay (and leaving them be) in a
+  // copy of the world, and see which sends the ball best: a lantern lit,
+  // the gate reached, close to the next unlit lantern, not down the drain.
+  auto target = [&](const Pinball& b, float& tx, float& ty) {
+    float best = 1e9f;
+    tx = b.gateX;
+    ty = b.gateY;
+    if (b.gateOpen)
+      return;
+    for (const auto& l : b.lamps)
+      if (!l.lit)
+      {
+        const float d = std::hypot(l.x - b.x, l.y - b.y);
+        if (d < best)
+        {
+          best = d;
+          tx = l.x;
+          ty = l.y;
+        }
+      }
+  };
+  int litNow = 0;
+  for (const auto& l : pin.lamps)
+    litNow += l.lit;
+  auto run = [&](const std::vector<Input>& seq) {
+    auto sim = world.cloneForSim();
+    Input prev;
+    float closest = 1e9f, top = sim->pin().y;
+    int f = 0;
+    const int drains = sim->pin().drains;
+    for (; f < 110; ++f)
+    {
+      const Input in = f < int(seq.size()) ? seq[std::size_t(f)] : Input{};
+      sim->update(asPlayerInput(in, prev));
+      prev = in;
+      if (sim->state() != WorldState::Playing)
+        return 100000.0f - float(f);
+      const Pinball& b = sim->pin();
+      if (b.drains > drains || b.inPlunger)
+        break;
+      float tx = 0.0f, ty = 0.0f;
+      target(b, tx, ty);
+      closest = std::min(closest, std::hypot(b.x - tx, b.y - ty));
+      top = std::min(top, b.y);
+    }
+    int lit = 0;
+    for (const auto& l : sim->pin().lamps)
+      lit += l.lit;
+    return float(lit - litNow) * 1000.0f - closest * 30.0f + (pin.y - top) * 4.0f + float(f) * 2.0f;
+  };
+  std::vector<Input> best;
+  if (pin.inPlunger)
+  {
+    // How far to pull the plunger back.
+    float bestScore = -1e9f;
+    for (int pull = 1; pull <= 15; ++pull)
+    {
+      Input hold;
+      hold.jump = true;
+      std::vector<Input> seq(std::size_t(pull), hold);
+      seq.push_back(Input{});
+      const float sc = run(seq);
+      if (sc > bestScore)
+      {
+        bestScore = sc;
+        best = seq;
+      }
+    }
+    mPinQueue.assign(best.begin(), best.end());
+    mPinQueue.push_back(Input{});
+    return Input{};
+  }
+  float bestScore = run({});
+  for (int side = 0; side < 2; ++side)
+    for (int delay : {0, 1, 2, 3, 4, 5, 6, 8, 10})
+      for (int hold : {2, 6})
+    {
+      std::vector<Input> seq(std::size_t(delay), Input{});
+      Input flip;
+      flip.jump = side == 0;
+      flip.fire = side == 1;
+      seq.insert(seq.end(), std::size_t(hold), flip);
+      seq.push_back(Input{});
+      const float sc = run(seq);
+      if (sc > bestScore + 1.0f)
+      {
+        bestScore = sc;
+        best = seq;
+      }
+    }
+  if (best.empty())
+    best.assign(2, Input{});
+  mPinQueue.assign(best.begin(), best.end());
+  const Input in = mPinQueue.front();
+  mPinQueue.pop_front();
+  return in;
+}
+
+int Bot::boardable(const World& world) const
+{
+  // A cart standing on a long rail that runs on toward the exit, right
+  // where we stand: jump in.
+  const auto& p = world.player();
+  if (p.state != PlayerState::OnGround || p.cart >= 0)
+    return -1;
+  const int exitX = world.level().exitTx * kCellsPerTile;
+  for (std::size_t i = 0; i < world.carts().size(); ++i)
+  {
+    const Cart& c = world.carts()[i];
+    if (c.rail < 0 || c.speed != 0 || c.falling || c.lost > 0)
+      continue;
+    const Rail& r = world.rails()[std::size_t(c.rail)];
+    if (r.len < 40 * 8 || r.pts.back().first < p.x + 40 || exitX < p.x || !r.leverId.empty())
+      continue;
+    const CellBox box = c.box();
+    if (p.x + 1 >= box.x && p.x + 1 < box.x + box.w && std::abs(box.y + box.h - 1 - p.y) <= 1)
+      return int(i);
+  }
+  return -1;
+}
+
+Input Bot::ride(const World& world)
+{
+  if (!mRideQueue.empty())
+  {
+    const Input in = mRideQueue.front();
+    mRideQueue.pop_front();
+    return in;
+  }
+  const auto& p = world.player();
+  if (p.cart < 0)
+  {
+    // Climbing in: straight up, then let it carry us down into the cart.
+    Input jump;
+    jump.jump = true;
+    mRideQueue.assign(3, jump);
+    mRideQueue.push_back(Input{});
+    for (int f = 0; f < 12; ++f)
+      mRideQueue.push_back(Input{});
+    const Input in = mRideQueue.front();
+    mRideQueue.pop_front();
+    return in;
+  }
+  const Cart& cart = world.carts()[std::size_t(p.cart)];
+  if (cart.speed == 0 && !cart.falling && cart.hop == 0)
+  {
+    // Stopped at a bumper: climb out.
+    Input jump;
+    jump.jump = true;
+    mRideQueue.assign(2, jump);
+    mRideQueue.push_back(Input{});
+    return Input{};
+  }
+  // Ride on, hop or duck: whichever keeps cart and rider whole over the
+  // next couple of seconds.
+  // Options: 0 ride on, 1 hop now, 2 duck, 3+k hop k frames from now.
+  auto run = [&](int option) {
+    auto sim = world.cloneForSim();
+    Input prev;
+    const int hp = sim->player().hp;
+    const int hopAt = option == 1 ? 0 : (option >= 3 ? option - 2 : -1);
+    int f = 0;
+    for (; f < 40; ++f)
+    {
+      Input in;
+      in.jump = f == hopAt;
+      in.down = option == 2 && f < 8;
+      sim->update(asPlayerInput(in, prev));
+      prev = in;
+      if (sim->state() != WorldState::Playing || sim->player().state == PlayerState::Dying)
+        break;
+      const auto& sp = sim->player();
+      if (sp.cart < 0)
+        break;
+      const Cart& sc = sim->carts()[std::size_t(sp.cart)];
+      if (sc.falling || sc.lost > 0)
+        break;
+    }
+    const auto& sp = sim->player();
+    float score = float(sp.hp - hp) * 200.0f + float(f) * 5.0f;
+    if (sp.virus > 0 && p.virus == 0)
+      score -= 300.0f;
+    if (sp.state == PlayerState::Dying)
+      score -= 5000.0f;
+    score += float(sp.x) * 0.5f;
+    return score;
+  };
+  int best = 0;
+  float bestScore = run(0);
+  for (int option = 1; option <= 14; ++option)
+  {
+    const float sc = run(option);
+    if (sc > bestScore + 1.0f)
+    {
+      bestScore = sc;
+      best = option;
+    }
+  }
+  if (best >= 3)
+    best = 0; // a hop later on is better: not yet
+  Input in;
+  if (best == 1)
+  {
+    in.jump = true;
+    mRideQueue.push_back(Input{});
+  }
+  else if (best == 2)
+  {
+    in.down = true;
+    mRideQueue.assign(3, in);
+  }
   return in;
 }
 

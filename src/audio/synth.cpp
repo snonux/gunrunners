@@ -564,6 +564,53 @@ std::vector<float> makeSfx(Sfx id)
         return n.next() * 0.25 * tick * std::min(1.0, (total - t) / 0.1);
       });
     }
+    case Sfx::Bell:
+    {
+      // The elevator's bell: two strikes of a small brass bell.
+      Osc a, b;
+      return render(0.9, [&](double t, double) {
+        const double t2 = t < 0.18 ? t : t - 0.18;
+        const double env = std::exp(-t2 * 6.0) * std::min(1.0, t2 / 0.003);
+        return (a.step(1320.0, Wave::Sine) * 0.18 + b.step(1320.0 * 2.76, Wave::Sine) * 0.07) * env;
+      });
+    }
+    case Sfx::Fuse:
+    {
+      Noise n(101);
+      Svf f;
+      return render(0.35, [&](double t, double total) {
+        const double crackle = std::fmod(t, 0.04) < 0.008 ? 1.6 : 0.6;
+        return f.band(n.next(), 5000.0f, 1.5) * 0.25 * crackle * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::Flap:
+    {
+      Noise n(103);
+      Svf f;
+      return render(0.5, [&](double t, double total) {
+        const double beat = 0.5 + 0.5 * std::sin(t * 2.0 * 3.1416 * 14.0);
+        return f.low(n.next(), 900.0f, 1.0) * 0.5 * beat * beat * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Dig:
+    {
+      Noise n(105);
+      Svf f;
+      return render(0.4, [&](double t, double total) {
+        const double grit = std::fmod(t, 0.05) < 0.02 ? 1.0 : 0.4;
+        return f.low(n.next(), 600.0f, 1.3) * 0.7 * grit * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Rail:
+    {
+      // Iron wheels landing on iron rails.
+      Osc a;
+      Noise n(107);
+      return render(0.3, [&](double t, double) {
+        return (a.step(sweep(420.0, 260.0, std::min(1.0, t / 0.3)), Wave::Square, 0.3) * 0.1 + n.next() * 0.15) *
+          std::exp(-t * 14.0);
+      });
+    }
     case Sfx::Count:
       break;
   }

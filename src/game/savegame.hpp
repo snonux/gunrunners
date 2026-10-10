@@ -101,6 +101,9 @@ struct SaveGame
   std::vector<int> temple;
   // Sun Mirrors (level 10): each mirror's angle, then each sun door (open).
   std::vector<int> light;
+  // Idol Mines (level 11): each lever's state, each trapdoor (open), each
+  // pile of rubble (landed), then the DAYS WITHOUT ACCIDENT count.
+  std::vector<int> mine;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

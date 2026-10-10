@@ -100,6 +100,7 @@ void World::setupEntities()
   mBounce = lv.rules.find("bounce") != std::string::npos;
   mTrapmaster = lv.rules.find("trapmaster") != std::string::npos;
   mNegative = lv.rules.find("negative") != std::string::npos;
+  mPinball = lv.rules.find("pinball") != std::string::npos;
   mBonusFramesLeft = lv.timer * 15;
   // The equalizer: the Pulse Pistol's beat, and when the next step lands.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
@@ -173,6 +174,7 @@ void World::setupEntities()
       setupJungleEnemy(en, e);
       setupTempleEnemy(en, e);
       setupLightEnemy(en, e);
+      setupMineEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -262,7 +264,7 @@ void World::setupEntities()
       const std::string by = e.str("by", "any");
       b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : (by == "pry" ? 4 : 0)));
       const std::string look = e.str("look", "glass");
-      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : 0))));
+      b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" ? 6 : 0)))));
       mBreakables.push_back(b);
       continue;
     }
@@ -398,6 +400,8 @@ void World::setupEntities()
     if (setupLightEntity(e))
       continue;
     if (setupJungleEntity(e))
+      continue;
+    if (setupMineEntity(e))
       continue;
 
     if (!mSimulation)

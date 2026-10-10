@@ -46,6 +46,9 @@ add_library(gunrunners_core STATIC
   src/game/world_jungle.cpp
   src/game/world_temple.cpp
   src/game/world_light.cpp
+  src/game/world_mine.cpp
+  src/game/world_mine_draw.cpp
+  src/game/world_pinball.cpp
   src/game/world_cheats.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
@@ -117,3 +120,4 @@ add_test(NAME savegame_canopy_road COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 # A stone key in hand, the dud plate pressed, a Guardian down.
 add_test(NAME savegame_hall_of_traps COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/09_hall_of_traps.txt 400)
 add_test(NAME savegame_sun_mirrors COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/10_sun_mirrors.txt 400)
+add_test(NAME savegame_idol_mines COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/11_idol_mines.txt 400)

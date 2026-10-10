@@ -8,7 +8,7 @@ namespace gr
 bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
-    mPlayer.state != PlayerState::Teleporting;
+    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball;
 }
 
 SaveGame World::snapshot() const
@@ -83,6 +83,13 @@ SaveGame World::snapshot() const
       es.attach = 0;
       es.x = e.railX0;
       es.y = e.aimY;
+    }
+    // A Rock Mole out of the rock comes back burrowed at home.
+    if (e.kind == EnemyKind::Mole)
+    {
+      es.attach = 0;
+      es.x = e.railX0;
+      es.y = e.railX1;
     }
     if (i >= mLevelEnemyCount)
     {
@@ -182,6 +189,16 @@ SaveGame World::snapshot() const
     for (const auto& d : mSunDoors)
       s.light.push_back(d.open);
   }
+  if (!mLevers.empty() || !mTrapdoors.empty() || !mRubble.empty() || mDaysSign.w > 0)
+  {
+    for (const auto& l : mLevers)
+      s.mine.push_back(l.state);
+    for (const auto& t : mTrapdoors)
+      s.mine.push_back(t.open);
+    for (const auto& rb : mRubble)
+      s.mine.push_back(rb[3]);
+    s.mine.push_back(mDays);
+  }
   return s;
 }
 
@@ -222,6 +239,7 @@ bool World::restore(const SaveGame& s)
       (!s.temple.empty() &&
         s.temple.size() != mStoneKeys.size() + mKeyDoors.size() + mSecretDoors.size() + mPlates.size()) ||
       (!s.light.empty() && s.light.size() != mMirrors.size() + mSunDoors.size()) ||
+      (!s.mine.empty() && s.mine.size() != mLevers.size() + mTrapdoors.size() + mRubble.size() + 1) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -348,6 +366,9 @@ bool World::restore(const SaveGame& s)
     pl.step = sp.step < 0 ? -1 : 1;
     pl.braked = sp.braked;
     pl.shudder = 0;
+    pl.bell = 0;
+    pl.parked = pl.waitRider && !pl.path.empty() &&
+      (std::make_pair(pl.x, pl.y) == pl.path.front() || std::make_pair(pl.x, pl.y) == pl.path.back());
   }
   syncPlatformCollision();
   for (std::size_t i = 0; i < s.hatches.size(); ++i)
@@ -528,6 +549,27 @@ bool World::restore(const SaveGame& s)
   mBeamPaths.clear();
   mReflects.clear();
   mLanceOn = false;
+  if (!s.mine.empty())
+  {
+    std::size_t at = 0;
+    for (auto& l : mLevers)
+      l.state = std::clamp(s.mine[at++], 0, l.states - 1);
+    for (auto& t : mTrapdoors)
+      if (s.mine[at++] != 0 && !t.open)
+      {
+        t.open = true;
+        for (int tx = t.x0; tx <= t.x1; ++tx)
+          mMap.setBlock(tx, t.y, Tile::Empty);
+      }
+    for (auto& rb : mRubble)
+      if (s.mine[at++] != 0 && !rb[3])
+      {
+        rb[3] = 1;
+        mMap.setBlock(rb[1], rb[2], Tile::Solid);
+      }
+    mDays = std::max(0, s.mine[at++]);
+  }
+  resetMine();
   // Scarab Tides: the carpet is as wide as the beetles left.
   for (auto& e : mEnemies)
     if (e.kind == EnemyKind::Scarabs)

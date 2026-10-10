@@ -71,6 +71,11 @@ const EnemyDef kEnemies[] = {
   {"wraith", "SHADE WRAITH", K::Wraith, L::Styled, 3, 5, 6, 800, 4, 30, 8, 0, 0, 0, 0},
   {"monk", "MIRROR MONK", K::Monk, L::Styled, 3, 5, 4, 700, 2, 30, 10, 2, 0, 0},
   {"moth", "SUN MOTH", K::Moth, L::Styled, 2, 2, 1, 100, 2, 0, 0, 24, kEnemyHarmless | kEnemyNoTally, 0, 0},
+  // Level 11: Idol Mines. Bandit: rides its rail (4 x 5 with the cart). Bat:
+  // one of a cloud. Mole: range is how far (cells) from its home it surfaces.
+  {"cartbandit", "CART BANDIT", K::Bandit, L::Styled, 4, 5, 6, 800, 1, 30, 10, 0, 0, 0},
+  {"bat", "CAVE BAT", K::Bat, L::Styled, 2, 2, 1, 40, 1, 0, 0, 0, kEnemyNoTally, 0, 0},
+  {"mole", "ROCK MOLE", K::Mole, L::Styled, 3, 3, 3, 500, 2, 45, 15, 16, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

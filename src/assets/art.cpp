@@ -2542,8 +2542,121 @@ Texture bakeObservatoryNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+bool isMine(const Theme& t) { return std::string_view(t.look) == "mine"; }
+
+// Under the mountain: black rock, far-off lantern light, glints of gold.
+Texture bakeMineSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH, {{0.0, t.skyTop}, {0.6, t.skyMid}, {1.0, t.skyBottom}});
+  Rng rng(1111u);
+  // Rock strata, lighter bands sloping across.
+  for (int i = 0; i < 9; ++i)
+  {
+    const double y = rng.range(0, kScreenH), tilt = rng.range(-60, 60);
+    cairo_move_to(cr, 0, y);
+    cairo_curve_to(cr, kScreenW * 0.3, y + tilt, kScreenW * 0.7, y - tilt, kScreenW, y + tilt * 0.5);
+    cairo_set_line_width(cr, rng.range(10, 40));
+    setColor(cr, withAlpha(t.rockLight, 18 + rng.irange(0, 18)));
+    cairo_stroke(cr);
+  }
+  // Lantern light far down the galleries.
+  for (int i = 0; i < 5; ++i)
+    radialGlow(cr, rng.range(80, kScreenW - 80), rng.range(200, kScreenH - 120), rng.range(90, 180), rgb(255, 170, 70),
+      0.18);
+  // Gold glints.
+  for (int i = 0; i < 70; ++i)
+  {
+    cairo_arc(cr, rng.range(0, kScreenW), rng.range(0, kScreenH), rng.range(1, 2.5), 0, 2 * kPi);
+    setColor(cr, withAlpha(t.trimGlow, 60 + rng.irange(0, 100)));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: timber shoring frames down a gallery, a lamp on every other one.
+Texture bakeMineFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  const Color wood = lerpColor(t.farLayer, t.platform, 0.35f);
+  for (double x = 40; x < kLayerW - 100; x += 260)
+  {
+    const double top = 160;
+    cairo_rectangle(cr, x, top, 22, kScreenH - top);
+    cairo_rectangle(cr, x + 170, top, 22, kScreenH - top);
+    cairo_rectangle(cr, x - 20, top - 22, 232, 26);
+    setColor(cr, wood);
+    cairo_fill(cr);
+    // Braces in the corners.
+    cairo_move_to(cr, x + 22, top + 60);
+    cairo_line_to(cr, x + 70, top + 4);
+    cairo_move_to(cr, x + 170, top + 60);
+    cairo_line_to(cr, x + 122, top + 4);
+    cairo_set_line_width(cr, 10);
+    setColor(cr, withAlpha(wood, 220));
+    cairo_stroke(cr);
+    if (int(x) % 520 < 260)
+    {
+      cairo_rectangle(cr, x + 88, top + 6, 16, 22);
+      setColor(cr, withAlpha(rgb(255, 190, 90), 200));
+      cairo_fill(cr);
+      radialGlow(cr, x + 96, top + 20, 70, rgb(255, 170, 70), 0.3);
+    }
+  }
+  // The far track on the gallery floor.
+  cairo_rectangle(cr, 0, kScreenH - 70, kLayerW, 6);
+  setColor(cr, withAlpha(t.rockLight, 120));
+  cairo_fill(cr);
+  for (double x = 0; x < kLayerW; x += 34)
+  {
+    cairo_rectangle(cr, x, kScreenH - 64, 18, 8);
+    setColor(cr, withAlpha(wood, 200));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: lanterns on chains and drips from the roof.
+Texture bakeMineNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(3232u);
+  for (double x = 140; x < kLayerW - 60; x += rng.range(320, 560))
+  {
+    const double len = rng.range(60, 180);
+    cairo_move_to(cr, x, 0);
+    cairo_line_to(cr, x, len);
+    cairo_set_line_width(cr, 3);
+    setColor(cr, withAlpha(t.nearLayer, 230));
+    cairo_stroke(cr);
+    cairo_rectangle(cr, x - 12, len, 24, 30);
+    setColor(cr, withAlpha(rgb(60, 50, 44), 240));
+    cairo_fill(cr);
+    cairo_rectangle(cr, x - 8, len + 4, 16, 22);
+    setColor(cr, withAlpha(rgb(255, 196, 90), 230));
+    cairo_fill(cr);
+    radialGlow(cr, x, len + 15, 60, rgb(255, 170, 70), 0.4);
+  }
+  for (int i = 0; i < 40; ++i)
+  {
+    const double x = rng.range(0, kLayerW), len = rng.range(20, 70);
+    cairo_move_to(cr, x - 8, 0);
+    cairo_line_to(cr, x + 8, 0);
+    cairo_line_to(cr, x, len);
+    cairo_close_path(cr);
+    setColor(cr, withAlpha(t.rockDark, 200));
+    cairo_fill(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isMine(t))
+    return bakeMineSky(r, t);
   if (isObservatory(t))
     return bakeObservatorySky(r, t);
   if (isTomb(t))
@@ -2689,6 +2802,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isMine(t))
+    return bakeMineFar(r, t);
   if (isObservatory(t))
     return bakeObservatoryFar(r, t);
   if (isTomb(t))
@@ -2809,6 +2924,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isMine(t))
+    return bakeMineNear(r, t);
   if (isObservatory(t))
     return bakeObservatoryNear(r, t);
   if (isTomb(t))

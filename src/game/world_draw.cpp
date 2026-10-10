@@ -131,6 +131,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawJungleBack(r, camX, camY, frame, alpha);
   drawTempleBack(r, camX, camY, frame, alpha);
   drawLightBack(r, camX, camY, frame, alpha);
+  drawMineBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -200,7 +201,19 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue;
     }
     else if (it.kind == ItemKind::Duck)
+    {
       drawGlow(r, mArt, x + 32, y + 36, 56, rgb(255, 230, 60), 0.35f);
+      if (!mRails.empty())
+      {
+        // Idol Mines' duck wears a miner's helmet with its lamp on.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.fillRect(x + 28, y + 4, 26, 10, rgb(250, 200, 50));
+        r.fillRect(x + 24, y + 13, 34, 4, rgb(190, 140, 30));
+        r.fillRect(x + 48, y + 6, 7, 6, rgb(255, 250, 210));
+        drawGlow(r, mArt, x + 56, y + 9, 28, rgb(255, 250, 200), 0.7f);
+        continue;
+      }
+    }
     else if (it.kind >= ItemKind::LetterG)
       drawGlow(r, mArt, x + 32, y + 32, 64, mTheme.accentA, 0.45f + 0.15f * std::sin(float(frame) * 0.1f));
     r.draw(mArt.items[std::size_t(icon)], x, y);
@@ -291,12 +304,15 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 || e.dive > 0 ? 1 : 0; // smoking edges
         else if (e.kind == EnemyKind::Monk)
           variant = e.aimX > 0 ? 2 : (e.attach > 0 ? 3 : (e.tell > 0 || e.dive > 0 ? 1 : 0)); // frozen; lowered; planted
-        else if (e.kind == EnemyKind::Moth)
+        else if (e.kind == EnemyKind::Moth || e.kind == EnemyKind::Bat)
           variant = 0;
+        else if (e.kind == EnemyKind::Bandit || e.kind == EnemyKind::Mole)
+          variant = e.tell > 0 || (e.kind == EnemyKind::Mole && e.timer >= 4 && e.timer < 11) ? 1 : 0; // pistol up; rock up
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
-        tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, (frame / 8) % 2, e.w, e.h).get(dirForArt);
+        const int animFrame = e.kind == EnemyKind::Bat ? (frame / 3 + e.aimX) % 2 : (frame / 8) % 2;
+        tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
         if (e.kind == EnemyKind::Raver && e.dive > 0)
           hop = 14.0f; // hops on the beat
         if (e.kind == EnemyKind::Bouncer && e.dive < 0)
@@ -369,6 +385,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawDark(r, camX, camY, frame, alpha);
   if (mFlight)
     drawFlightShip(r, camX, camY, frame, alpha);
+  else if (mPinball)
+    drawPinball(r, camX, camY, frame, alpha);
   else
     drawPlayer(r, camX, camY, frame, alpha);
   // Sludge goes over the runner's feet and anything swimming in it.
@@ -378,6 +396,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawJungleFront(r, camX, camY, frame, alpha);
   drawTempleFront(r, camX, camY, frame, alpha);
   drawLightFront(r, camX, camY, frame, alpha);
+  drawMineFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -550,7 +569,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         continue; // drawn by its layer
       bool prop = false; // a mirror ball or speaker draws itself
       for (const auto& b : mBreakables)
-        prop = prop || (b.look != 0 && b.look != 3 && !b.broken && tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1);
+        prop = prop || (b.look != 0 && b.look != 3 && b.look != 6 && !b.broken && tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1);
       if (prop)
         continue;
       switch (mMap.block(tx, ty))
@@ -709,6 +728,22 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     y = (hy + 5.6f * std::cos(a)) * kCellPx - camY;
     o.angle = -a * 57.2958f;
   }
+  if (p.cart >= 0 && std::size_t(p.cart) < mCarts.size())
+  {
+    // Standing (or ducking) in a mine cart, tilted with the track.
+    const Cart& c = mCarts[std::size_t(p.cart)];
+    float da = c.angle - c.prevAngle;
+    if (da > 3.14159f)
+      da -= 6.28318f;
+    else if (da < -3.14159f)
+      da += 6.28318f;
+    const float a = c.prevAngle + da * alpha;
+    const float fx = c.prevFx + (c.fx - c.prevFx) * alpha, fy = c.prevFy + (c.fy - c.prevFy) * alpha;
+    const float off = p.cartDuck ? 0.0f : 1.0f;
+    x = (fx + std::sin(a) * off) * kCellPx - camX;
+    y = (fy - std::cos(a) * off) * kCellPx - camY;
+    o.angle = a * 57.2958f;
+  }
 
   if (p.state == PlayerState::Jetpack)
   {
@@ -866,6 +901,7 @@ void World::drawHud(Renderer& r, int frame) const
   }
   drawTempleHud(r, x + 68.0f, top); // Level 9's stone keys, in the second slot
   drawLightHud(r, frame);           // Negative Space's sun and moon
+  drawMineHud(r, frame);            // Pinball Mine's lanterns
 
   // G-U-N letters.
   x += float(kHudInventoryW) + 10.0f;

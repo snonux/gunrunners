@@ -44,6 +44,9 @@ enum class EnemyKind
   Wraith,    // drifts through walls toward you; only light hurts it
   Monk,      // patrols behind a mirror shield: sends shots and sunbeams back
   Moth,      // drifts to the nearest sunbeam; a few of them block it
+  Bandit,    // rides its own rail level with you and shoots from the cart
+  Bat,       // one of a Bat Cloud: swarms along its tunnel on a sine path
+  Mole,      // burrows through rock, surfaces near you and lobs a rock
 };
 
 enum EnemyFlag : unsigned

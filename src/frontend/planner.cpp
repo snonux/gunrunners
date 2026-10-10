@@ -53,7 +53,7 @@ const Macro kMacros[] = {
   {false, false, false, false, false, 0, false}, // sit out the chorus (laser fans)
 };
 constexpr int kMacroCountBase = int(sizeof(kMacros) / sizeof(kMacros[0]));
-constexpr int kMacroCount = kMacroCountBase + 2;
+constexpr int kMacroCount = kMacroCountBase + 6;
 constexpr int kLongWait = 15;
 constexpr int kWaitLaunch = 16;
 constexpr int kWaitVerse = 17;
@@ -62,11 +62,36 @@ constexpr int kWaitVerse = 17;
 // run (see Planner::plan), not taken from kMacros.
 constexpr int kVineRight = kMacroCountBase;
 constexpr int kVineLeft = kMacroCountBase + 1;
+// Blasting Caps (level 11): throw one at a cracked rock wall (or set one
+// down, crouched), back off out of its blast and wait for the bang.
+constexpr int kCapRight = kMacroCountBase + 2;
+constexpr int kCapLeft = kMacroCountBase + 3;
+constexpr int kCapSetRight = kMacroCountBase + 4;
+constexpr int kCapSetLeft = kMacroCountBase + 5;
+bool capMacro(int m) { return m >= kCapRight && m <= kCapSetLeft; }
+
+// Whether there is a cracked rock wall close enough to be worth a cap.
+bool capsUseful(const World& w)
+{
+  const auto& p = w.player();
+  if (p.weapon != Weapon::Proto || p.proto != int(ProtoId::BlastingCaps) || p.ammo <= 0 || !w.caps().empty() ||
+      p.cart >= 0 || p.state != PlayerState::OnGround)
+    return false;
+  for (const auto& b : w.breakables())
+    if (!b.broken && b.by == 1 &&
+        CellBox{b.x0 * kCellsPerTile - 14, b.y0 * kCellsPerTile - 10, (b.x1 - b.x0 + 1) * kCellsPerTile + 28,
+          (b.y1 - b.y0 + 1) * kCellsPerTile + 20}
+          .intersects(p.box()))
+      return true;
+  return false;
+}
 // Frames a macro runs for in this world, 0 if it does not apply.
 int macroFrames(int m, const World& w)
 {
   if (m == kVineRight || m == kVineLeft)
     return w.player().state == PlayerState::Swing ? 1 : 0; // the real length comes out of the run
+  if (capMacro(m))
+    return capsUseful(w) ? 1 : 0;
   if (m == kLongWait)
   {
     bool opening = false;
@@ -172,6 +197,48 @@ Input vineInput(const World& w, int dir, int f, int& launchedAt, bool& done, boo
   const int sd = w.vines()[std::size_t(p.vine)].swingDir();
   in.right = sd > 0;
   in.left = sd < 0;
+  return in;
+}
+
+// A cap macro's input this frame: face the way, throw (or crouch and set
+// it down), then keep 9 cells from it until it has gone off.
+Input capInput(const World& w, int m, int f, bool& done, bool& fail)
+{
+  Input in;
+  const auto& p = w.player();
+  const int dir = (m == kCapRight || m == kCapSetRight) ? 1 : -1;
+  const bool set = m == kCapSetRight || m == kCapSetLeft;
+  if (f == 0)
+  {
+    // Turn to face it first (a tap that hardly moves you).
+    in.right = dir > 0 && p.facing < 0;
+    in.left = dir < 0 && p.facing > 0;
+    in.down = set;
+    return in;
+  }
+  if (f == 1 || (set && f == 2))
+  {
+    in.down = set;
+    in.fire = f == (set ? 2 : 1);
+    return in;
+  }
+  if (p.state == PlayerState::Dying || f > 60)
+  {
+    fail = true;
+    return in;
+  }
+  if (w.caps().empty())
+  {
+    done = true;
+    return in;
+  }
+  const auto& c = w.caps().front();
+  const float mid = float(p.x) + 1.5f;
+  if (std::abs(c.fx - mid) < 9.0f)
+  {
+    in.right = c.fx < mid;
+    in.left = !in.right;
+  }
   return in;
 }
 
@@ -449,15 +516,19 @@ void Planner::buildField(const World& w, const Goal& goal)
   // Breakables the current weapon can shatter: the search shoots them.
   const auto& pl0 = w.player();
   const bool sound = pl0.weapon == Weapon::Proto && pl0.proto == int(ProtoId::BassCannon);
+  const bool caps = pl0.weapon == Weapon::Proto && pl0.proto == int(ProtoId::BlastingCaps) && pl0.ammo > 0;
   mWalls.clear();
   for (std::size_t bi = 0; bi < w.breakables().size(); ++bi)
   {
     const auto& b = w.breakables()[bi];
-    if (b.broken || !(b.by == 0 || (b.by == 3 && sound) || (b.by == 1 && pl0.weapon == Weapon::Rocket)))
+    if (b.broken || !(b.by == 0 || (b.by == 3 && sound) || (b.by == 1 && (pl0.weapon == Weapon::Rocket || caps))))
       continue;
     const CellBox area{b.x0 * kCellsPerTile - 12, b.y0 * kCellsPerTile - 12, (b.x1 - b.x0 + 1) * kCellsPerTile + 24,
       (b.y1 - b.y0 + 1) * kCellsPerTile + 24};
-    if (area.intersects({goal.x, goal.y - 5, std::max(2, goal.w), std::max(6, goal.h)}))
+    // Cracked rock (level 11) takes a cap thrown and a wait out of its blast:
+    // every one still standing counts the same from anywhere, so blowing one
+    // is progress and walking up to it never looks like a step back.
+    if (area.intersects({goal.x, goal.y - 5, std::max(2, goal.w), std::max(6, goal.h)}) || (b.by == 1 && caps))
       mWalls.push_back(int(bi));
     for (int y = b.y0 * kCellsPerTile; y < (b.y1 + 1) * kCellsPerTile; ++y)
       for (int x = b.x0 * kCellsPerTile; x < (b.x1 + 1) * kCellsPerTile; ++x)
@@ -684,8 +755,15 @@ void Planner::buildField(const World& w, const Goal& goal)
         // Up: within a jump's height of the ground, or on a ladder.
         if (ladder[i] || (s < lift[i] && s < kInf))
           add(x, y - 1, ladder[i] ? 0 : a, 2);
-        // Down: falling, or climbing down.
-        add(x, y + 1, a, 1);
+        // Down: falling, or climbing down; never through a one-way floor
+        // you stand on (there is no dropping through them).
+        bool oneWay = false;
+        if (s == 0 && !ladder[i] && y + 1 < H)
+          for (int xx = x; xx <= x + 2 && !oneWay; ++xx)
+            oneWay = isTop(xx, y + 1) && !isBlocked(xx, y + 1) && map.solidTop(xx, y + 1) &&
+              !map.ladder(xx & ~1, y + 1) && map.block(xx / kCellsPerTile, (y + 1) / kCellsPerTile) == Tile::Platform;
+        if (!oneWay)
+          add(x, y + 1, a, 1);
       }
     }
   // The launch: 14 cells up, 2 a frame sideways, and still 2 a frame
@@ -849,7 +927,7 @@ int Planner::heuristic(const World& w) const
       extra += d.sink < 0 ? 40 : 20 - std::min(d.sink, 20);
   for (int bi : mWalls)
     if (std::size_t(bi) < w.breakables().size() && !w.breakables()[std::size_t(bi)].broken)
-      extra += 12 * std::max(0, w.breakables()[std::size_t(bi)].hp);
+      extra += (w.breakables()[std::size_t(bi)].by == 1 ? 60 : 12) * std::max(0, w.breakables()[std::size_t(bi)].hp);
   if (p.x < 0 || p.y < 0 || p.x >= mW || p.y >= mH)
     return kInf;
   const int A = kAirBudget + 1;
@@ -1312,6 +1390,25 @@ void Planner::plan(const World& world)
         k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
                      (std::uint64_t(e.tell + e.dive * 16 + e.attach * 256) << 32) | (std::uint64_t(e.aimX) << 48) |
                      (std::uint64_t(e.dir > 0) << 60));
+    // Level 11: the carts (where on their rails, how fast, in the air or
+    // not), caps on their fuses, the levers, and the moles, bats and bandits
+    // close by.
+    k = mix(k, std::uint64_t(p.cart + 1) | (std::uint64_t(p.cartDuck) << 8));
+    for (const auto& c : w.carts())
+      if (std::abs(int(c.fx) - p.x) < 64)
+        k = mix(k, std::uint64_t(c.rail + 1) | (std::uint64_t(std::uint32_t(c.s)) << 8) |
+                     (std::uint64_t(c.speed) << 32) | (std::uint64_t(c.dir > 0) << 40) | (std::uint64_t(c.hop) << 41) |
+                     (std::uint64_t(c.falling) << 48) | (std::uint64_t(c.lost) << 49) |
+                     (std::uint64_t(int(c.fy) & 0xff) << 56));
+    for (const auto& c : w.caps())
+      k = mix(k, std::uint64_t(c.fuse) | (std::uint64_t(int(c.fx)) << 8) | (std::uint64_t(int(c.fy)) << 24));
+    for (const auto& l : w.levers())
+      k = mix(k, std::uint64_t(l.state));
+    for (const auto& e : w.enemies())
+      if (e.alive && (e.kind == EnemyKind::Mole || e.kind == EnemyKind::Bat || e.kind == EnemyKind::Bandit) &&
+          std::abs(e.x - p.x) < 48 && std::abs(e.y - p.y) < 24)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                     (std::uint64_t(e.attach + e.tell * 4) << 32) | (std::uint64_t(e.hidden) << 48));
     if (const auto& h = w.hunter(); h.on)
     {
       k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
@@ -1382,15 +1479,16 @@ void Planner::plan(const World& world)
       auto child = std::make_unique<World>(nw);
       Input prev = n.last;
       bool dead = false;
-      const bool vine = m == kVineRight || m == kVineLeft;
+      const bool vine = m == kVineRight || m == kVineLeft || capMacro(m);
       std::vector<Input> seq;
       int launchedAt = -1;
       int ran = 0;
       for (int f = 0; vine || f < frames; ++f)
       {
         bool done = false, fail = false;
-        const Input in =
-          vine ? vineInput(*child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail) : macroInput(kMacros[m], f);
+        const Input in = capMacro(m) ? capInput(*child, m, f, done, fail)
+          : vine ? vineInput(*child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail)
+                 : macroInput(kMacros[m], f);
         if (fail)
         {
           dead = true;
