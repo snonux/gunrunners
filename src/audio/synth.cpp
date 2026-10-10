@@ -657,6 +657,40 @@ std::vector<float> makeSfx(Sfx id)
         return (n.next() * 0.4 + a.step(900.0, Wave::Square, 0.0) * 0.15) * std::exp(-t * 40.0);
       });
     }
+    case Sfx::Squelch:
+    {
+      // Wet goo: a low gulp bending down under filtered slop.
+      Osc a;
+      Noise n(115);
+      Svf f;
+      return render(0.22, [&](double t, double) {
+        const double slop = f.band(n.next(), float(sweep(1400.0, 500.0, std::min(1.0, t / 0.2))), 2.5) * 0.35;
+        return (a.step(sweep(260.0, 90.0, std::min(1.0, t / 0.18)), Wave::Sine, 0.0) * 0.4 + slop) *
+          std::exp(-t * 12.0) * std::min(1.0, t / 0.004);
+      });
+    }
+    case Sfx::Chitter:
+    {
+      // Three quick insect clicks.
+      Noise n(117);
+      Svf f;
+      return render(0.2, [&](double t, double) {
+        const double click = std::fmod(t, 0.05) < 0.008 ? 1.0 : 0.0;
+        return f.band(n.next(), 3200.0f, 3.0) * 0.6 * click * (t < 0.15 ? 1.0 : 0.0);
+      });
+    }
+    case Sfx::Spit:
+    {
+      // A puffed cheek letting go: a breathy pop that rises.
+      Osc a;
+      Noise n(119);
+      OnePole f;
+      return render(0.25, [&](double t, double) {
+        return (a.step(sweep(180.0, 520.0, std::min(1.0, t / 0.08)), Wave::Sine, 0.0) * 0.3 +
+                 f.highpass(n.next(), 1800.0) * 0.25) *
+          std::exp(-t * 14.0);
+      });
+    }
     case Sfx::Count:
       break;
   }

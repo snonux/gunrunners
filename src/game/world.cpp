@@ -265,6 +265,7 @@ void World::update(const PlayerInput& input)
       updateLight(input);
       updateMine(input);
       updateLava(input);
+      updateSpace(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -536,6 +537,15 @@ void World::updateEnemies()
       case EnemyKind::Crab:
         updateCrab(e, def);
         break;
+      case EnemyKind::Skitter:
+        updateSkitter(e, def);
+        break;
+      case EnemyKind::Spitpod:
+        updateSpitpod(e, def);
+        break;
+      case EnemyKind::Gloop:
+        updateGloop(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -621,6 +631,7 @@ void World::updateProjectiles()
         stickFlare(pr, -1);
       if (pr.footRow >= 0)
         stickSpear(pr);
+      shotAtSpace(pr);
       return true;
     }
     if ((!mFluids.empty() || !mDevNull.empty()) && shotAtSludge(pr))
@@ -721,6 +732,9 @@ void World::updateProjectiles()
         continue;
       }
       if (e.kind == EnemyKind::Crab && shotAtCrab(pr, e) == 1)
+        return true;
+      // Episode 7: the Goo Gun glues what it hits.
+      if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GooGun) && shotAtAlien(pr, e))
         return true;
       // The Bubble Gun traps what fits in a bubble.
       if (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::BubbleGun) && trapEnemy(e))
@@ -893,6 +907,8 @@ void World::killEnemy(Enemy& e)
   addScore(def.score, c);
   if (e.kind == EnemyKind::Looter)
     dropLoot(e);
+  if (e.kind == EnemyKind::Gloop)
+    alienKilled(e);
   if (e.kind == EnemyKind::Leech)
     for (const auto& c : mCables)
       if (c.breaker >= 0 && &c - mCables.data() == e.attach)

@@ -166,11 +166,16 @@ void World::updatePlayer(const PlayerInput& raw)
     // Swing vines: hands that meet one in the air grab it (world_jungle.cpp).
     if (!mVines.empty() && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
       tryGrabVine();
+    // Goo walls: pushing into one in the air sticks you to it (world_space.cpp).
+    if (mSpace.goo && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
+      tryCling(mvX);
   }
   if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
   {
     p.fling = 0; // a vine's swing lasts until you land
     p.vineArc = false;
+    p.kick = 0;
+    p.kickArc = false;
   }
   updateShooting(in.fire);
 
@@ -408,6 +413,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       updateSwing(mvX, mvY, jumpButton);
       break;
 
+    case PlayerState::Cling:
+      updateCling(mvX, mvY);
+      break;
+
     case PlayerState::Dying:
     case PlayerState::Teleporting:
       break;
@@ -441,6 +450,16 @@ void World::updateLadderAttachment(int /*mvX*/, int mvY)
 void World::updateHorizontalMovementInAir(int mvX)
 {
   auto& p = mPlayer;
+  if (p.kick != 0)
+  {
+    // Kicked off a goo wall: pushed away from it a cell a frame, no steering.
+    const int dir = p.kick > 0 ? 1 : -1;
+    p.facing = dir;
+    p.kick -= dir;
+    if (mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir) != MoveResult::Completed)
+      p.kick = 0;
+    return;
+  }
   if (p.fling != 0)
   {
     // Off a vine: carried along at the swing's speed, air control on top.
@@ -547,7 +566,7 @@ void World::updateJumpMovement(int mvX, bool jumpPressed)
   }
 
   // On the third frame, a released jump button cuts the arc short.
-  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc;
+  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc && !p.kickArc;
   p.frames = isShortJump ? 6 : p.frames + 1;
 }
 
@@ -882,6 +901,8 @@ void World::respawnPlayer()
   p.vine = -1;
   p.fling = 0;
   p.vineArc = false;
+  p.wall = p.kick = 0;
+  p.kickArc = false;
   mLaunch = mLaunchBump = 0;
   mBreakdance = false;
   p.hp = p.maxHp;
@@ -899,6 +920,8 @@ void World::respawnPlayer()
     resetTemple();
   if (!mCarts.empty() || !mCaps.empty() || !mRails.empty())
     resetMine();
+  if (mSpace.goo)
+    resetSpace();
   showMessage("BACK IN ACTION");
 }
 

@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 11> kVariants{{
+const std::array<Variant, 12> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -199,6 +199,20 @@ const std::array<Variant, 11> kVariants{{
     rgb(60, 30, 26), rgb(34, 18, 16),
     rgb(120, 100, 96), rgb(180, 150, 140), rgb(50, 40, 40), rgb(255, 120, 40),
     rgb(255, 240, 220), "magma"}},
+  // Episode 7, DEEP SPACE: the planet Vurr (assets/art_alien.cpp draws its tiles).
+  {"alien_garden",
+   {ThemeId::StationZero,
+    "CRASH GARDEN",
+    "A GLOWING FUNGUS FOREST ON THE PLANET VURR",
+    rgb(26, 8, 54), rgb(96, 34, 120), rgb(40, 150, 150),
+    rgb(70, 46, 96), rgb(118, 84, 150), rgb(34, 20, 52),
+    rgb(80, 210, 160), rgb(160, 255, 210),
+    rgb(210, 120, 220), rgb(110, 50, 130),
+    rgb(170, 255, 60), rgb(230, 255, 170),
+    rgb(255, 120, 200), rgb(90, 230, 255),
+    rgb(52, 26, 84), rgb(30, 14, 52),
+    rgb(90, 200, 120), rgb(170, 255, 190), rgb(36, 80, 50), rgb(255, 230, 60),
+    rgb(240, 255, 250), "alien_garden"}},
 }};
 
 } // namespace

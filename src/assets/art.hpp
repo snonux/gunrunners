@@ -57,6 +57,7 @@ struct CharacterArt
   Sprite hangAimDown;
   Sprite hangLegsUp;
   Sprite jetpack;
+  Sprite cling; // back to a goo wall, one boot on it (level 44)
   Sprite hurt;
   Texture portrait;
 };

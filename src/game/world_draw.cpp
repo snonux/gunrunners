@@ -133,6 +133,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLightBack(r, camX, camY, frame, alpha);
   drawMineBack(r, camX, camY, frame, alpha);
   drawLavaBack(r, camX, camY, frame, alpha);
+  drawSpaceBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -315,6 +316,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.carrier ? 1 : 0;
         else if (e.kind == EnemyKind::Crab)
           variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.variant ? 3 : 0); // claws open, flipped; party hat
+        else if (e.kind == EnemyKind::Skitter)
+          variant = e.attach == 1 ? 1 : (e.attach == 2 ? 2 : 0); // clicking, leaping
+        else if (e.kind == EnemyKind::Spitpod)
+          variant = e.tell > 0 ? 1 : 0; // the bulb swells
+        else if (e.kind == EnemyKind::Gloop)
+          variant = e.attach == 1 ? 2 : (e.tell > 0 ? 1 : 0); // squashed, in the air
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -405,6 +412,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLightFront(r, camX, camY, frame, alpha);
   drawMineFront(r, camX, camY, frame, alpha);
   drawLavaFront(r, camX, camY, frame, alpha);
+  drawSpaceFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -467,6 +475,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
           // A wobbling soap bubble.
           const float wob = 1.0f + 0.08f * std::sin(float(frame) * 0.5f);
           r.draw(styledEnemySprite(mArt, r, mTheme, "bubble", 2, 0, 2, 2).get(1), cx, cy + 32.0f * wob);
+          continue;
+        }
+        if (pr.proto == int(ProtoId::GooGun))
+        {
+          // A wobbling glob of goo (world_space.cpp splats it on walls).
+          r.draw(styledEnemySprite(mArt, r, mTheme, "goo_blob", 0, (frame / 4) % 2, 1, 1).get(pr.dx < 0 ? -1 : 1), cx,
+            cy + 16.0f);
           continue;
         }
         if (pr.proto == int(ProtoId::SnareBolas))
@@ -713,6 +728,9 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
       break;
     case PlayerVisual::Jetpack:
       spr = &ca.jetpack;
+      break;
+    case PlayerVisual::Clinging:
+      spr = &ca.cling;
       break;
     case PlayerVisual::Dying:
       spr = &ca.hurt;

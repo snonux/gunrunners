@@ -21,6 +21,8 @@ add_library(gunrunners_core STATIC
   src/render/vector.cpp
   src/assets/art.cpp
   src/assets/enemy_art.cpp
+  src/assets/art_alien.cpp
+  src/assets/enemy_art_alien.cpp
   src/data/level.cpp
   src/data/theme.cpp
   src/data/characters.cpp
@@ -48,6 +50,7 @@ add_library(gunrunners_core STATIC
   src/game/world_light.cpp
   src/game/world_mine.cpp
   src/game/world_lava.cpp
+  src/game/world_space.cpp
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
@@ -124,3 +127,4 @@ add_test(NAME savegame_sun_mirrors COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 add_test(NAME savegame_idol_mines COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/11_idol_mines.txt 400)
 # Over the stone chains past the first toads, Serpent Spears in hand.
 add_test(NAME savegame_lava_heart COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/12_lava_heart.txt 400)
+add_test(NAME savegame_crash_garden COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/44_crash_garden.txt 400)

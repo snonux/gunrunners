@@ -1,5 +1,7 @@
 #include "assets/art.hpp"
 
+#include "assets/art_alien.hpp"
+
 #include "base/math.hpp"
 #include "render/vector.hpp"
 
@@ -538,6 +540,22 @@ Pose jetpackPose()
   return p;
 }
 
+// Back to a goo wall: leaning on it, the back boot planted on the wall
+// behind, the front knee up, gun out (level 44).
+Pose clingPose()
+{
+  Pose p;
+  p.bob = 3.0;
+  p.lean = -4.0;
+  p.thigh[0] = -0.85;
+  p.knee[0] = 0.45;
+  p.thigh[1] = 0.95;
+  p.knee[1] = 1.55;
+  p.armLift = 1.0;
+  p.hairSwing = -5.0;
+  return p;
+}
+
 Pose hurtPose()
 {
   Pose p;
@@ -597,6 +615,7 @@ CharacterArt buildCharacter(const Renderer& r, int kind)
   art.hangAimDown = bakeCharacter(r, look, hangAimDownPose());
   art.hangLegsUp = bakeCharacter(r, look, hangLegsUpPose());
   art.jetpack = bakeCharacter(r, look, jetpackPose());
+  art.cling = bakeCharacter(r, look, clingPose());
   art.hurt = bakeCharacter(r, look, hurtPose());
 
   VectorImage portrait(256, 240);
@@ -624,6 +643,7 @@ Pose poseFor(int pose)
     case 5: P = hurtPose(); break;
     case 6: P = coilPose(); break;
     case 7: P = fallPose(true); break;
+    case 10: P = clingPose(); break;
     case 9: // slumped, looking down at your own clothes
       P = idlePose(0);
       P.lean = 5.0;
@@ -1448,6 +1468,8 @@ void speckle(cairo_t* cr, Rng& rng, int count, Color a, Color b, double x0, doub
 
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isAlien(t))
+    return bakeAlienSolid(r, t, variant);
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   Rng rng(std::uint32_t(variant * 7919 + int(t.id) * 31 + 7));
@@ -1560,6 +1582,8 @@ constexpr double kTopOff = 32.0;
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isAlien(t))
+    return bakeAlienSolidTop(r, t, float(kTopOff), kTopTexH);
   VectorImage img(64, kTopTexH);
   cairo_t* cr = img.cr();
   Rng rng(99u + std::uint32_t(t.id));
@@ -1665,6 +1689,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isAlien(t))
+    return bakeAlienPlatform(r, t);
   VectorImage img(64, 40);
   cairo_t* cr = img.cr();
   switch (t.id)
@@ -2754,6 +2780,8 @@ Texture bakeMagmaNear(const Renderer& r, const Theme& t)
 
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isAlien(t))
+    return bakeAlienSky(r, t);
   if (isMagma(t))
     return bakeMagmaSky(r, t);
   if (isMine(t))
@@ -2903,6 +2931,8 @@ void wrapped(F item)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isAlien(t))
+    return bakeAlienFar(r, t, kLayerW);
   if (isMagma(t))
     return bakeMagmaFar(r, t);
   if (isMine(t))
@@ -3027,6 +3057,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isAlien(t))
+    return bakeAlienNear(r, t, kLayerW);
   if (isMagma(t))
     return bakeMagmaNear(r, t);
   if (isMine(t))

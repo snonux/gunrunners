@@ -11,6 +11,7 @@
 #include "game/collision.hpp"
 #include "game/input.hpp"
 #include "game/savegame.hpp"
+#include "game/space.hpp"
 #include "game/sound_ids.hpp"
 #include "render/renderer.hpp"
 
@@ -46,6 +47,7 @@ enum class PlayerState
   Dying,
   Teleporting, // leaving through the exit
   Swing,       // holding a swing vine (level 8, world_jungle.cpp)
+  Cling,       // stuck to a goo wall, sliding down (level 44, world_space.cpp)
 };
 
 // What the player looks like; also decides the hit box (RigelEngine's
@@ -68,6 +70,7 @@ enum class PlayerVisual
   PullingLegsUp,
   Jetpack,
   Dying,
+  Clinging, // on a goo wall, back to it
 };
 
 enum class Stance
@@ -117,6 +120,9 @@ struct Player
   int vineAt = 0;  // Swing: cells from the anchor to the hands
   int fling = 0;   // cells a frame sideways until landing (let go of a vine)
   bool vineArc = false; // this jump is a vine launch (its own arc)
+  int wall = 0;         // Cling: the goo wall's side (-1 left, 1 right)
+  int kick = 0;         // cells still to be pushed off a goo wall (sign: direction)
+  bool kickArc = false; // this jump is a kick off a goo wall (always the full arc)
 
   int walkFrame = 0;
   int climbFrame = 0;
@@ -1374,6 +1380,11 @@ public:
   int headBounces() const { return mHeadBounces; }
   int lavaPops() const { return mLavaPops; }
   int lavaAt(int cx, int cy) const; // the pool covering that cell, -1 for none
+  // Episode 7 (world_space.cpp): goo on walls (level 44).
+  bool hasGoo() const { return mSpace.goo; }
+  bool gooAt(int cx, int cy) const; // a solid cell coated in goo
+  bool gooBlockAt(int tx, int ty) const; // a block coated for good
+  const std::vector<GooPatch>& gooPatches() const { return mSpace.patches; }
   bool inLava(const CellBox& b) const;
   // Fifteenths of a cell a sink platform goes down per frame with its load now.
   int sinkRate(const Platform& pl) const;
@@ -1690,6 +1701,22 @@ private:
   void drawLavaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawLavaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawLavaProp(Renderer& r, const Prop& pr, float x, float y, float w, float h, int frame) const;
+  // Episode 7, DEEP SPACE (world_space.cpp).
+  bool setupSpaceEntity(const EntityDef& e);
+  void updateSpace(const PlayerInput& input);
+  bool tryCling(int mvX);
+  void updateCling(int mvX, int mvY);
+  void addGoo(int x, int y0, int y1, int side, int life);
+  void splatGoo(int cx, int cy, int reach); // on the nearest wall face beside (cx, cy)
+  bool shotAtSpace(Projectile& pr);           // a shot hit a wall: the Goo Gun splats
+  bool shotAtAlien(Projectile& pr, Enemy& e); // true: the shot is used up on it
+  void alienKilled(const Enemy& e);
+  void updateSkitter(Enemy& e, const EnemyDef& def);
+  void updateSpitpod(Enemy& e, const EnemyDef& def);
+  void updateGloop(Enemy& e, const EnemyDef& def);
+  void resetSpace(); // after a respawn
+  void drawSpaceBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSpaceFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
 
   // world_actors.cpp: the campaign's enemy behaviours
   void placeClinger(Enemy& e);
@@ -1898,6 +1925,8 @@ private:
   bool mFloorLava = false; // bonus rule: every floor is lava, bounce on heads
   int mHeadX = 0, mHeadY = 0;
   int mHeadBounces = 0, mLavaPops = 0; // for the bot's look-ahead
+  // Episode 7, DEEP SPACE.
+  SpaceState mSpace;
   std::vector<std::pair<int, int>> mPopups; // cells: where cardboard runners pop up
   int mStreetY = -1;           // cells: the street the trucks drive along
   CellBox mStash{0, 0, 0, 0};        // where Looters' takings end up

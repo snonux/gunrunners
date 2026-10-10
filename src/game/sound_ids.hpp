@@ -75,6 +75,9 @@ enum class Sfx
   Sink,      // a basalt stone grinding down into the lava
   Croak,     // a Magma Toad landing
   Snap,      // a Basalt Crab's claws
+  Squelch,   // goo: sticking to a goo wall, a Goo Gun splat, a Gloop splitting
+  Chitter,   // a Skitter's click before it leaps
+  Spit,      // a Spitpod lobbing acid
   Count,
 };
 
