@@ -12,7 +12,7 @@ cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release > /dev/null
 cmake --build "$ROOT/build" --target gunrunners_cover -j > /dev/null
 
 shots=()
-for name in level01 level03 level05 level07; do
+for name in level21 level43 motor_pool level49; do
   ffmpeg -loglevel error -y -i "$MEDIA/$name.jpg" "$TMP/$name.png"
   shots+=("$TMP/$name.png")
 done
