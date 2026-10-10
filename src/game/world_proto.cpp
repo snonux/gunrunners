@@ -267,6 +267,30 @@ void World::fireProto(int ox, int oy, int dx, int dy)
   else if (p.virus > 0)
     damage = std::max(1, damage / 2);
   pr.damage = damage;
+  if (ProtoId(p.proto) == ProtoId::FanDarts)
+  {
+    // A fan of three: straight on, and 15 degrees either side.
+    const Projectile base = pr;
+    for (int side : {-1, 1})
+    {
+      Projectile d = base;
+      d.precise = true;
+      d.fx = float(d.x);
+      d.fy = float(d.y);
+      if (dx != 0)
+      {
+        d.vx = 0.966f * float(dx);
+        d.vy = 0.259f * float(side);
+      }
+      else
+      {
+        d.vx = 0.259f * float(side);
+        d.vy = 0.966f * float(dy);
+      }
+      mProjectiles.push_back(d);
+    }
+    playSound(Sfx::Dart);
+  }
 }
 
 // Surface riders (the Spark Disc): fly straight; on touching a wall, turn

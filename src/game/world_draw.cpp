@@ -133,6 +133,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLightBack(r, camX, camY, frame, alpha);
   drawMineBack(r, camX, camY, frame, alpha);
   drawLavaBack(r, camX, camY, frame, alpha);
+  drawBoulderBack(r, camX, camY, frame, alpha);
   drawClub(r, camX, camY, frame);
   drawSludgeBack(r, camX, camY, frame);
 
@@ -315,6 +316,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.carrier ? 1 : 0;
         else if (e.kind == EnemyKind::Crab)
           variant = (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0)) + (e.variant ? 3 : 0); // claws open, flipped; party hat
+        else if (e.kind == EnemyKind::SpearRunner)
+          variant = e.attach == 2 ? 1 : 0; // the spear up
+        else if (e.kind == EnemyKind::PitSnake)
+          variant = e.attach == 3 ? 0 : e.attach; // coiled, hissing, reared
+        else if (e.kind == EnemyKind::Totem)
+          variant = e.tell; // which head's mouth glows
         else if (e.stun > 0)
           variant = 0;
         const int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -405,6 +412,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawLightFront(r, camX, camY, frame, alpha);
   drawMineFront(r, camX, camY, frame, alpha);
   drawLavaFront(r, camX, camY, frame, alpha);
+  drawBoulderFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)

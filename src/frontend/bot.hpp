@@ -33,6 +33,7 @@ public:
   // The Floor Is Lava: pick each bounce by trying moves in copies of the
   // world, looking one head further on.
   Input floorLava(const World& world);
+  Input surf(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
@@ -46,6 +47,8 @@ private:
   std::deque<Input> mPinQueue;
   std::deque<Input> mLavaQueue;
   Input mLavaPrev;
+  std::deque<Input> mSurfQueue;
+  Input mSurfPrev;
   std::deque<Input> mRideQueue;
   bool mRiding = false;
   bool mFighting = false;

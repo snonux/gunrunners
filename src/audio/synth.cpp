@@ -657,6 +657,26 @@ std::vector<float> makeSfx(Sfx id)
         return (n.next() * 0.4 + a.step(900.0, Wave::Square, 0.0) * 0.15) * std::exp(-t * 40.0);
       });
     }
+    case Sfx::Crash:
+    {
+      // A ton of stone hitting the floor: a low boom and a spray of grit.
+      Osc a;
+      Noise n(115);
+      Svf f;
+      return render(0.7, [&](double t, double) {
+        const double boom = a.step(sweep(90.0, 38.0, std::min(1.0, t / 0.3)), Wave::Sine, 0.0) * 0.8 * std::exp(-t * 5.0);
+        return boom + f.low(n.next(), 900.0f, 0.9) * 0.45 * std::exp(-t * 9.0);
+      });
+    }
+    case Sfx::Hiss:
+    {
+      // A snake in its hole: breathy noise that swells and stops.
+      Noise n(117);
+      OnePole f;
+      return render(0.4, [&](double t, double total) {
+        return f.highpass(n.next(), 4200.0) * 0.4 * std::min(1.0, t / 0.15) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
     case Sfx::Count:
       break;
   }

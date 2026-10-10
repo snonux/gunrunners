@@ -66,6 +66,17 @@ Input Bot::play(const World& world)
     return pinball(world);
   if (world.floorLava())
     return floorLava(world);
+  if (world.surfing() && !world.surf().free)
+    return surf(world);
+  // Level 13: the bonus patch shows on the boulder that rolls over the
+  // runner sheltering in its alcove and teeters at the chute: wait there.
+  if (mPlanner.wantsBonus())
+    for (const auto& b : world.boulders())
+      if (b.teeter >= 0 && b.state >= Boulder::Dust && b.state <= Boulder::Lip && world.inShelter(b.teeter))
+      {
+        mPlanner.reset();
+        return Input{};
+      }
   // Fight from the deck; anywhere below it (fallen down the mast shaft)
   // the planner climbs back up first.
   if (world.bossFight() && world.player().y <= world.boss().deckY + 1)
@@ -950,6 +961,78 @@ Input Bot::playRules(const World& world)
   }
   mLastX = p.x;
   return in;
+}
+
+// Boulder Surfing: try a handful of ways to push (right for so many frames
+// of every 16, with a jump somewhere or none) a short while ahead, play the
+// first frames of the one that gets furthest without a fall, and look again.
+Input Bot::surf(const World& world)
+{
+  if (!mSurfQueue.empty())
+  {
+    mSurfPrev = mSurfQueue.front();
+    mSurfQueue.pop_front();
+    return mSurfPrev;
+  }
+  const Surf& s0 = world.surf();
+  if (!s0.mounted)
+  {
+    // In the air (or falling): lean for the ledge.
+    Input in;
+    in.right = s0.fall == 0;
+    mSurfPrev = in;
+    return in;
+  }
+  struct Plan
+  {
+    int push, jumpAt;
+  };
+  constexpr int kHorizon = 48;
+  auto inputAt = [](const Plan& pl, int f) {
+    Input in;
+    in.right = f % 16 < pl.push && (pl.jumpAt < 0 || f < pl.jumpAt + 2);
+    in.jump = f == pl.jumpAt;
+    if (pl.jumpAt >= 0 && f > pl.jumpAt)
+      in.right = true; // steer for the ledge
+    return in;
+  };
+  auto score = [&](const Plan& pl) {
+    auto sim = world.cloneForSim();
+    Input prev = mSurfPrev;
+    const int falls = sim->surf().falls;
+    for (int f = 0; f < kHorizon; ++f)
+    {
+      const Input in = inputAt(pl, f);
+      sim->update(asPlayerInput(in, prev));
+      prev = in;
+      if (sim->state() != WorldState::Playing || sim->surf().free)
+        return 2000000000 - f;
+      if (sim->surf().falls > falls)
+        return -2000000000 + f;
+    }
+    const Surf& s = sim->surf();
+    if (!s.mounted)
+      return -1000000000; // still in the air: no better than a fall
+    return int(s.x * 100.0f) - int(std::abs(s.drift) * 40.0f);
+  };
+  Plan best{0, -1};
+  int bestScore = std::numeric_limits<int>::min();
+  for (int push = 0; push <= 12; ++push)
+    for (int jumpAt = -1; jumpAt < kHorizon - 16; jumpAt += (jumpAt < 0 ? 1 : 3))
+    {
+      const Plan pl{push, jumpAt};
+      const int v = score(pl);
+      if (v > bestScore)
+      {
+        bestScore = v;
+        best = pl;
+      }
+    }
+  for (int f = 0; f < 4; ++f)
+    mSurfQueue.push_back(inputAt(best, f));
+  mSurfPrev = mSurfQueue.front();
+  mSurfQueue.pop_front();
+  return mSurfPrev;
 }
 
 Input Bot::floorLava(const World& world)

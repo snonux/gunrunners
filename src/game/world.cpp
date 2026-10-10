@@ -161,8 +161,11 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkPlatforms();
   linkMine();
   linkLava();
+  linkBoulders();
   if (mPinball)
     setupPinball();
+  if (mSurfing)
+    setupSurf();
   mLevelEnemyCount = mEnemies.size();
   mStats.enemiesTotal = 0;
   for (const auto& e : mEnemies)
@@ -180,6 +183,12 @@ Camera::Target World::cameraTarget() const
   if (mFlight)
     return {b.left(), b.top(), b.right(), b.bottom() + 12, false}; // keep the street in view below
   const bool tight = mPlayer.state == PlayerState::Ladder || mPlayer.state == PlayerState::Jetpack;
+  if (mSurfing && !mSurf.free && mSurf.boulder >= 0)
+  {
+    // Boulder Surfing: the boulder and the ground under it in view too.
+    const Boulder& bo = mBoulders[std::size_t(mSurf.boulder)];
+    return {std::min(b.left(), bo.x), b.top(), std::max(b.right(), bo.x + bo.size - 1), bo.y + bo.size + 2, false};
+  }
   return {b.left(), b.top(), b.right(), b.bottom(), tight};
 }
 
@@ -253,6 +262,8 @@ void World::update(const PlayerInput& input)
         updateTrapmaster(input);
       else if (mPinball)
         updatePinball(input);
+      else if (mSurfing && !mSurf.free)
+        updateSurf(input);
       else
         updatePlayer(input);
       updateClub();
@@ -265,6 +276,7 @@ void World::update(const PlayerInput& input)
       updateLight(input);
       updateMine(input);
       updateLava(input);
+      updateBoulders(input);
       updateHatches();
       updateProps(input);
       updatePlayerInteractions();
@@ -536,6 +548,15 @@ void World::updateEnemies()
       case EnemyKind::Crab:
         updateCrab(e, def);
         break;
+      case EnemyKind::SpearRunner:
+        updateSpearRunner(e, def);
+        break;
+      case EnemyKind::PitSnake:
+        updatePitSnake(e, def);
+        break;
+      case EnemyKind::Totem:
+        updateTotem(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
@@ -607,6 +628,9 @@ void World::updateProjectiles()
 {
   auto collide = [this](Projectile& pr) -> bool {
     const CellBox b = pr.box();
+    // Level 13: a Totem Stack's heads are solid, but shots hit the heads.
+    if (!mBoulders.empty() && shotAtTotem(pr, b))
+      return true;
     if (mMap.overlapsSolid(b))
     {
       if (pr.kind != ShotKind::Enemy)

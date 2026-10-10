@@ -1252,6 +1252,7 @@ const Style kStyles[] = {
   {"bonus_negative",          108, 4, 6, Mode::Lydian, 11, Groove::Airy,    BassPat::Roots,    Inst::SubBass,   Inst::Pad,       Comp::Sustain,    Inst::Celesta,   ArpPat::Up16,    Inst::Bell,      Inst::Choir,     1, 0.0f, 0.5f, 0.4f, 0, 16},
   {"bonus_pinball",          138, 4, 1, Mode::Mixo,  15, Groove::Toon,     BassPat::Walking,  Inst::Upright,   Inst::EPiano,    Comp::Stabs,      Inst::Marimba,   ArpPat::Bounce,  Inst::Chip,      Inst::Bell,      2, 0.3f, 0.2f, 0.0f, kSevenths, 16},
   {"bonus_floor_lava",       146, 4, 2, Mode::Phryg, 16, Groove::Jungle,   BassPat::Rolling,  Inst::SynthBass, Inst::None,      Comp::None,       Inst::Marimba,   ArpPat::Bounce,  Inst::Kalimba,   Inst::Dist,      2, 0.2f, 0.25f, 0.0f, 0, 16},
+  {"bonus_boulder_surf",     164, 4, 9, Mode::Mixo,  17, Groove::Gallop,   BassPat::Rock,     Inst::SynthBass, Inst::None,      Comp::Stabs,      Inst::Pluck,     ArpPat::Bounce,  Inst::Dist,      Inst::Trumpet,   2, 0.1f, 0.35f, 0.15f, 0, 16},
 };
 // clang-format on
 

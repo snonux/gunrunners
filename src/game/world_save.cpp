@@ -8,7 +8,7 @@ namespace gr
 bool World::canSave() const
 {
   return mState == WorldState::Playing && mPlayer.state != PlayerState::Dying &&
-    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball;
+    mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && !mPinball && !mSurfing;
 }
 
 SaveGame World::snapshot() const
@@ -101,6 +101,15 @@ SaveGame World::snapshot() const
     }
     if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
       es.attach = 0;
+    // A Spear Runner about to throw comes back fleeing; a Pit Snake back
+    // coiled in its hole.
+    if (e.kind == EnemyKind::SpearRunner && e.attach == 2)
+      es.attach = 1;
+    if (e.kind == EnemyKind::PitSnake)
+    {
+      es.attach = 0;
+      es.y = e.aimY + 1;
+    }
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
@@ -226,6 +235,21 @@ SaveGame World::snapshot() const
       s.mine.push_back(rb[3]);
     s.mine.push_back(mDays);
   }
+  if (!mBoulders.empty() || !mCracks.empty())
+  {
+    // A boulder after the runner comes back up its hole (as on a respawn);
+    // the demo boulder rolling, or one in its chute, counts as gone.
+    for (const auto& b : mBoulders)
+    {
+      const bool gone = b.state == Boulder::Gone || b.state == Boulder::Chute || (b.wake >= 0 && b.state != Boulder::Wait);
+      s.boulder.push_back(gone ? 1 : 0);
+      s.boulder.push_back(b.halted);
+      s.boulder.push_back(b.teeter >= 0);
+    }
+    for (const auto& c : mCracks)
+      s.boulder.push_back(c.open);
+    s.boulder.push_back(mWrongWay);
+  }
   return s;
 }
 
@@ -267,6 +291,7 @@ bool World::restore(const SaveGame& s)
         s.temple.size() != mStoneKeys.size() + mKeyDoors.size() + mSecretDoors.size() + mPlates.size()) ||
       (!s.light.empty() && s.light.size() != mMirrors.size() + mSunDoors.size()) ||
       (!s.mine.empty() && s.mine.size() != mLevers.size() + mTrapdoors.size() + mRubble.size() + 1) ||
+      (!s.boulder.empty() && s.boulder.size() != mBoulders.size() * 3 + mCracks.size() + 1) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -369,6 +394,8 @@ bool World::restore(const SaveGame& s)
     }
     if (e.kind == EnemyKind::Wisp || e.kind == EnemyKind::Crab)
       e.attach = 0;
+    if (e.kind == EnemyKind::SpearRunner)
+      e.attach = se.attach; // asleep, fleeing, or past its throw
     e.stun = 0;
     e.drawSnap = true;
   }
@@ -618,6 +645,38 @@ bool World::restore(const SaveGame& s)
     mDays = std::max(0, s.mine[at++]);
   }
   resetMine();
+  if (!s.boulder.empty())
+  {
+    std::size_t at = 0;
+    for (auto& b : mBoulders)
+    {
+      const bool gone = s.boulder[at++] != 0;
+      b.state = gone ? Boulder::Gone : Boulder::Wait;
+      b.x = b.prevX = b.homeX;
+      b.y = b.prevY = b.homeY;
+      b.acc = b.vy = b.timer = b.shelter = 0;
+      b.angle = b.prevAngle = 0.0f;
+      b.halted = s.boulder[at++] != 0;
+      if (s.boulder[at++] == 0)
+        b.teeter = -1;
+    }
+    for (auto& c : mCracks)
+      if (s.boulder[at++] != 0 && !c.open)
+      {
+        c.open = true;
+        for (int ty = c.by0; ty <= c.by1; ++ty)
+          for (int tx = c.bx0; tx <= c.bx1; ++tx)
+            mMap.setBlock(tx, ty, Tile::Empty);
+      }
+    mWrongWay = s.boulder[at++] != 0;
+  }
+  for (auto& c : mChutes)
+  {
+    c.shut = 0;
+    setChute(c, false);
+  }
+  mStill = 0;
+  syncTotems();
   // Scarab Tides: the carpet is as wide as the beetles left.
   for (auto& e : mEnemies)
     if (e.kind == EnemyKind::Scarabs)

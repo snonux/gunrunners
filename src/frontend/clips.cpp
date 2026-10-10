@@ -1598,6 +1598,91 @@ void magmaHop(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.fillRect(780 + ox, 600 + oy, 280, 12, rgb(255, 210, 90));
 }
 
+// Level 13: the temple corridor at sunset, light through the cracks, dust
+// coming down from the ceiling (an 8-frame loop).
+void templeCorridor(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& bg = cached(k, "temple_corridor", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(70, 30, 26), rgb(130, 60, 40), rgb(60, 30, 22));
+    // Sandstone blocks.
+    for (int row = 0; row < 12; ++row)
+      for (int col = 0; col < 14; ++col)
+      {
+        const double x = double(col) * 100.0 - (row % 2 ? 50.0 : 0.0), y = double(row) * 60.0;
+        cairo_rectangle(cr, x + 2, y + 2, 96, 56);
+        setColor(cr, rgba(150 + int(hash2(row, col) % 30u), 90, 60, 60));
+        cairo_fill(cr);
+      }
+    // Light through the cracks: slanted shafts of sunset.
+    for (int i = 0; i < 5; ++i)
+    {
+      const double x = 120.0 + double(i) * 260.0 + double(hash2(i, 7) % 60u);
+      cairo_move_to(cr, x, 0);
+      cairo_line_to(cr, x + 24, 0);
+      cairo_line_to(cr, x + 220, 560);
+      cairo_line_to(cr, x + 150, 560);
+      cairo_close_path(cr);
+      setColor(cr, rgba(255, 190, 110, 46));
+      cairo_fill(cr);
+    }
+    // The floor and the pillars.
+    cairo_rectangle(cr, 0, 560, 1280, 160);
+    setColor(cr, rgb(110, 70, 44));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 560, 1280, 10);
+    setColor(cr, rgb(200, 150, 100));
+    cairo_fill(cr);
+    for (int i = 0; i < 4; ++i)
+    {
+      cairo_rectangle(cr, 60.0 + double(i) * 360.0, 0, 70, 560);
+      setColor(cr, rgb(80, 44, 30));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(bg, ox, oy);
+  // Dust trickling down, an 8-frame loop.
+  for (int i = 0; i < 40; ++i)
+  {
+    const float x = float(hash2(i, 21) % 1280u);
+    const float y = std::fmod(float(hash2(i, 22) % 560u) + float(frame % 8) * 70.0f, 560.0f);
+    k.r.fillRect(x + ox, y + oy, 3, 10, rgba(230, 200, 150, 150));
+  }
+  (void)ticks;
+}
+
+void templeRumble(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  templeCorridor(k, frame, ticks, ox, oy);
+  // The runners braced on the floor; MAX from Dash's wrist.
+  for (int who = 0; who < 3; ++who)
+  {
+    const float jitter = float((ticks / 2 + who) % 3 - 1) * 3.0f;
+    k.r.draw(runner(k, who, who == 1 ? 3 : 0, 2.6f, who == 2), 380.0f + float(who) * 260.0f + ox + jitter, 560 + oy);
+  }
+  drawMax(k, 250 + ox, 300 + oy, 0.4f, ticks, (ticks / 4) % 6 == 0 ? 0.3f : 0.0f);
+}
+
+void templeGo(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  templeCorridor(k, frame, ticks, ox, oy);
+  // A round shadow grows over the left of the frame.
+  const float grow = std::min(1.0f, float(frame) / 11.0f);
+  const float r = 300.0f + 260.0f * grow, cx = -200.0f + 300.0f * grow;
+  for (int i = 0; i < 24; ++i)
+  {
+    const float rr = r * (1.0f - float(i) * 0.03f);
+    k.r.fillRect(cx - rr + ox, 360 - rr + oy, rr * 2.0f, rr * 2.0f, rgba(20, 8, 6, 20));
+  }
+  // The runners turn and sprint off to the right (frames 0-7).
+  for (int who = 0; who < 3; ++who)
+  {
+    const int f = std::max(0, frame - who);
+    const float x = 380.0f + float(who) * 260.0f + float(f * f) * 22.0f;
+    if (x < 1400.0f)
+      k.r.draw(runner(k, who, f > 0 ? 1 : 0, 2.6f), x + ox, 560 + oy);
+  }
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1669,6 +1754,10 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return magmaHeat(k, frame, ticks, ox, oy);
   if (clip == "brief12_hop")
     return magmaHop(k, frame, ticks, ox, oy);
+  if (clip == "brief13_rumble")
+    return templeRumble(k, frame, ticks, ox, oy);
+  if (clip == "brief13_go")
+    return templeGo(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))
     return briefing(k, clip, frame, ticks, ox, oy, t);
   if (clip == "bridge_wait")
