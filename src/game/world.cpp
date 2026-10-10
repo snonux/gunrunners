@@ -40,6 +40,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   p.ammo = mCharacter->startAmmo;
   mLevelProto = protoIndex(mLevel->weapon);
   mLayerMask.assign(std::size_t(mLevel->width * mLevel->height), 0);
+  mExplored = std::make_shared<std::vector<std::uint8_t>>(std::size_t(mLevel->width * mLevel->height), 0);
 
   int merchCount = 0;
   for (const auto& s : mLevel->spawns)
@@ -291,6 +292,7 @@ void World::update(const PlayerInput& input)
       updateProjectiles();
       updateItems();
       mCamera.update(cameraTarget(), mManualScroll, mMap.width(), mMap.height());
+      markExplored();
       break;
     case WorldState::Exiting:
       if (mStateFrames > 24)

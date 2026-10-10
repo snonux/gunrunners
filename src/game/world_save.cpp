@@ -250,6 +250,7 @@ SaveGame World::snapshot() const
       s.boulder.push_back(c.open);
     s.boulder.push_back(mWrongWay);
   }
+  s.explored = exploredRuns();
   return s;
 }
 
@@ -711,6 +712,7 @@ bool World::restore(const SaveGame& s)
   mState = WorldState::Playing;
   mStateFrames = 0;
   updateLayers(false); // the beat signs follow the restored music clock
+  restoreExplored(s.explored);
   mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
   return true;
 }
