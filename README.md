@@ -173,7 +173,8 @@ that way, and the aim stays for the next shots until you flick again (a
 flick down shoots crouched, or straight down where the game can, from a
 hang bar or the jetpack). Switch runner, Use (get in or out of a vehicle),
 the Map and Pause sit in a row along the top, out of both thumbs' way. If
-you'd rather have buttons, TOUCH in CONTROLS switches to Fire (the big corner
+you'd rather have the classic buttons, TOUCH in CONTROLS (THUMB ZONES or
+CLASSIC BUTTONS) switches to Fire (the big corner
 button) and Jump left of it, with swipes on the right half (up jumps, down
 switches runner); a touch near a button presses the nearest one, a thumb
 that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb

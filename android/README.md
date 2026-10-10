@@ -68,7 +68,7 @@ debug key; see "Releasing".
   that direction for the one logic frame a turn on the spot takes, unless
   the stick is steering. Switch runner, Use, Map and Pause sit in a row
   along the top. `TouchControls::advance` gets the time every tick. TOUCH
-  in CONTROLS switches to the buttons scheme below (`touch.thumbs` 0;
+  in CONTROLS (THUMB ZONES / CLASSIC BUTTONS) switches to the buttons scheme below (`touch.thumbs` 0;
   RESET TO DEFAULTS goes back to thumbs).
 - **Swipes, on the right half in a level (buttons scheme):** a quick swipe up (80 units in
   under 220 ms) jumps and holds jump until the finger lifts, so a thumb on

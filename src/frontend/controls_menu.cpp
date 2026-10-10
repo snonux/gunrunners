@@ -258,7 +258,7 @@ void Game::renderControls()
       if (sel)
         r.fillRect(400, y - 3, 480, step - 4, withAlpha(t.accentA, 60));
       const std::string label = row.kind == RowKind::TouchScheme
-        ? (touchThumbs() ? "TOUCH: LEFT MOVES AND JUMPS, RIGHT SHOOTS" : "TOUCH: JUMP AND FIRE BUTTONS")
+        ? (touchThumbs() ? "TOUCH: THUMB ZONES" : "TOUCH: CLASSIC BUTTONS")
         : row.kind == RowKind::TouchSize                      ? touchSizeLabel()
         : row.kind == RowKind::TouchLayout                    ? "EDIT TOUCH LAYOUT"
                                                               : "RESET TO DEFAULTS";
