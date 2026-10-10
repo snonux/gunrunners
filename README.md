@@ -9,27 +9,19 @@ A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
 runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
 own in the runner editor, and blast your way to the exit.
 
-A 42-level campaign in six episodes: every level has its own twist, its
-own prototype weapon, its own soundtrack, a bonus level behind a flickering
-TV, secrets and a briefing cutscene. Six episodes of seven levels each.
-**Playable now:** all of Episode 1 (Levels 1-7) with its bonus levels and
-ending, and all seven levels of Episode 2 (Level 8, Canopy Road,
-Level 9, Hall of Traps, Level 10, Sun Mirrors, Level 11, Idol Mines,
-Level 12, Lava Heart, Level 13, Boulder Run, and Level 14, The Idol
-Awakens, with the Idol Golem) and its ending, and all seven levels of Episode 3, starting
-with Level 15, Hangar Bay, and its Asteroid Belt bonus, and Level 16,
-Cryo Labs (Ice Floors and the Freeze Ray), with its Air Hockey bonus,
-Level 17, Hydroponics (Grow Lamps and the Hedge Trimmer), with its
-Growth Spurt bonus, and Level 18, Hull Walk (Low Gravity and the Recoil
-Cannon), with its Planetoids bonus, Level 19, Gravity Lab (Gravity
-Switches and the Grav Grenade), with its Gun Gravity bonus, and Level 20,
-Reactor Core (the Core Pulse and the Deflector Bracer), with its Stop
-Motion bonus, and Level 21, ZERO (Live Rewiring, the Phase Rifle and
-ZERO itself), with its Wireframe bonus and the Episode 3 ending.
-Episode 4 has begun with Level 22, Dry Gulch (Fuses and the Six-Shooter),
-with its High Noon bonus, and Level 23, Fright Night Manor (the Mirror
-World and the Silver Crossbow), with its Both Sides bonus. Episodes 4-6
-are being built now.
+The campaign is 42 levels in six episodes: every level has its own twist,
+its own prototype weapon, its own soundtrack, a bonus level behind a
+flickering TV, secrets and a briefing cutscene. On top of that comes
+Episode 7, **Deep Space**: seven levels on the alien hive planet Vurr,
+playable any time from DEEP SPACE on the title screen. Six vehicles (tank,
+helicopter, hoverbike, submarine, space ship and mech) turn up along the
+way, and two EXTRAS levels are built around them.
+
+**Playable now: 30 levels.** Episodes 1 to 3 (Levels 1-21), every level
+with its bonus level and every episode with its ending, Levels 22 and 23
+of Episode 4 (Dry Gulch and Fright Night Manor) with their bonus levels,
+all of Episode 7 (Levels 43-49) with its ending, and both EXTRAS. The rest
+of Episodes 4 to 6 (Levels 24-42) is being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|
@@ -60,6 +52,79 @@ pixels. Every sound and every note of music is made by the game itself.
 | ![Level 7, Chopper Down](docs/media/level07.jpg) | ![The level tally](docs/media/tally.jpg) |
 | ![The title screen](docs/media/title.jpg) | ![A briefing cutscene](docs/media/cutscene.jpg) |
 
+## Episode 2: Lost Temple
+
+| # | Level | Twist | Prototype | Bonus level |
+|---|---|---|---|---|
+| 8 | Canopy Road | swing vines across misty treetops | Boomerang | Bounce House (every surface is a trampoline) |
+| 9 | Hall of Traps | pressure-plate traps that hit enemies too | Snare Bolas | Trapmaster (you are the temple) |
+| 10 | Sun Mirrors | shoot mirror statues to bend sunbeams onto doors | Sunstone Lance | Negative Space (solid and empty swap) |
+| 11 | Idol Mines | mine carts that keep their speed | Blasting Caps | Pinball Mine |
+| 12 | Lava Heart | basalt stones that sink into the magma | Serpent Spear | The Floor Is Lava (only heads are safe) |
+| 13 | Boulder Run | a huge boulder rolls after you | Fan Darts | Boulder Surfing |
+| 14 | The Idol Awakens | boss: Kaan-Tolok, the Idol Golem, and a greed meter | Jade Bow | Golden Touch |
+
+## Episode 3: Station Zero
+
+| # | Level | Twist | Prototype | Bonus level |
+|---|---|---|---|---|
+| 15 | Hangar Bay | blow hull panels open and the air rushes out | Breach Charge | Asteroid Belt (move by recoil) |
+| 16 | Cryo Labs | slippery ice floors | Freeze Ray | Air Hockey |
+| 17 | Hydroponics | grow lamps that grow plant bridges | Hedge Trimmer | Growth Spurt |
+| 18 | Hull Walk | low gravity on the station's hull | Recoil Cannon | Planetoids |
+| 19 | Gravity Lab | gravity switches flip the room | Grav Grenade | Gun Gravity (you fall where you fire) |
+| 20 | Reactor Core | a core pulse every ten seconds | Deflector Bracer | Stop Motion (time moves when you move) |
+| 21 | ZERO | boss: the station's AI rewires the level around you | Phase Rifle | Wireframe |
+
+## Episode 7: Deep Space
+
+A misdialled teleport sends the runners to Vurr, a living planet full of
+aliens, to bring back the Star Seed before the Hive Mother does. Its twists
+appear nowhere else in the game. More in [docs/DEEP_SPACE.md](docs/DEEP_SPACE.md).
+
+| # | Level | Twist | Prototype |
+|---|---|---|---|
+| 43 | Starfall | fly the courier ship through an asteroid field | (the ship's guns) |
+| 44 | Crash Garden | goo walls you cling to and kick off | Goo Gun |
+| 45 | Hive Gullets | gullet tubes that swallow you and spit you out | Bile Blaster |
+| 46 | Crystal Drift | shoot a crystal and swap places with it | Swap Rifle |
+| 47 | Silk Canyon | ride silk lines strung across the canyon | Silk Shooter |
+| 48 | Bounder Plains | ride the Bounders, huge hopping alien beasts | Tamer's Whip |
+| 49 | The Hive Mother | boss: the queen of the hive | Star Seed |
+
+| | |
+|---|---|
+| ![Level 14, The Idol Awakens](docs/media/level14.jpg) | ![Level 19, Gravity Lab](docs/media/level19.jpg) |
+| ![Level 21, ZERO](docs/media/level21.jpg) | ![Level 43, Starfall](docs/media/level43.jpg) |
+| ![Level 44, Crash Garden](docs/media/level44.jpg) | ![Level 49, The Hive Mother](docs/media/level49.jpg) |
+
+## Vehicles
+
+Any runner can climb into a vehicle: walk up to it and press E (gamepad
+LB, or LT on Android), or push up beside it. Inside, hits go to the
+vehicle's armour instead of your hearts; a wreck throws you out and comes
+back at its parking spot after a while.
+
+| Vehicle | What it does |
+|---|---|
+| Tank | slow and heavy: explosive shells (up aims at 45 degrees), crushes small enemies, spikes can't hurt it |
+| Helicopter | flies freely on a fuel tank that refills on the ground; chaingun, and down + fire drops a bomb |
+| Hoverbike | fast, long jumps, floats over spikes and rams enemies |
+| Submarine | for deep water: torpedoes, and you never run out of air inside |
+| Space ship | zero-gravity flight with momentum and twin lasers |
+| Mech | huge jet jumps, landing stomps that break floors, an arm cannon |
+
+A hoverbike waits on Rooftop Run, a helicopter in Chopper Down, a mech on
+Canopy Road and a tank in the Idol Mines, and you fly the ship through all
+of Starfall. EXTRAS on the title screen has two levels made for them:
+**Motor Pool** (tank, hoverbike, helicopter, mech and ship in turn, through
+the Gunrunners' depot) and **Deep Dive** (the submarine, under the
+harbour's reef walls). On Vurr you can also ride a Bounder.
+
+| | |
+|---|---|
+| ![Motor Pool](docs/media/motor_pool.jpg) | ![Deep Dive](docs/media/deep_dive.jpg) |
+
 ## Get the game
 
 Gunrunners runs on Linux and Android.
@@ -72,10 +137,12 @@ or USB gamepad, connected at any time; the on-screen controls step aside
 while you use the pad. Building the APK yourself is described in
 [android/README.md](android/README.md).
 
-**Linux (x86_64):** download `gunrunners-vX.Y.Z-linux-x86_64.tar.gz` from
-the [latest release](https://github.com/snonux/gunrunners/releases/latest),
-unpack it anywhere and start `gunrunners` in it. It needs SDL2 and Cairo,
-which most desktops already have:
+**Linux (x86_64):** when a [release](https://github.com/snonux/gunrunners/releases/latest)
+carries `gunrunners-vX.Y.Z-linux-x86_64.tar.gz`, download it, unpack it
+anywhere and start `gunrunners` in it. The releases so far (up to v0.2.0)
+ship only the Android APK, so until a tarball is there, build from source
+as shown below. The tarball needs SDL2 and Cairo, which most desktops
+already have:
 
 ```sh
 sudo apt install libsdl2-2.0-0 libcairo2 fonts-dejavu-core   # Debian/Ubuntu
@@ -158,8 +225,10 @@ game remembers your choice.
 
 A new game plays the opening movie, then each level's briefing, the level,
 the tally and, after an episode's last level, its ending. Any button skips
-a cutscene. The TRAINING STAGE on the title screen is a free-play level for
-trying the controls.
+a cutscene. The title screen also has DEEP SPACE (Episode 7 from Level 43,
+with its own progress), LEVEL SELECT (any level you have reached), EXTRAS
+(the vehicle levels), RERUNS (cutscenes you have seen) and the TRAINING
+STAGE, a free-play level for trying the controls.
 
 - **Prototypes and the Arsenal.** Each level hides its own prototype weapon
   in a green box. Reach the exit with it and it joins your Arsenal, with
