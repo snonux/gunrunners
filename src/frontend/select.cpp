@@ -219,6 +219,9 @@ void Game::textDone()
   {
     mEditor->finishName();
     sound(Sfx::MenuSelect);
+    // Enter is still down on the next tick: it must not count as a press
+    // (it would open the name again).
+    mPrev.confirm = true;
   }
 }
 

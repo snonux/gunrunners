@@ -122,6 +122,7 @@ Input Controls::readKeys(const Uint8* k, bool menus, bool text) const
     in.up = k[SDL_SCANCODE_UP];
     in.down = k[SDL_SCANCODE_DOWN];
     in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_AC_BACK];
+    in.pause = in.back; // still held once the name is done: not a new press
     return in;
   }
   auto act = [&](Act a) {
