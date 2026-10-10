@@ -91,6 +91,10 @@ void keyboard()
   keys[SDL_SCANCODE_F6] = 0;
   keys[SDL_SCANCODE_F5] = 1;
   check(!c.readKeys(keys, false).quickSave, "...and F5 no longer saves");
+  keys[SDL_SCANCODE_F5] = 0;
+  keys[SDL_SCANCODE_M] = 1;
+  check(c.readKeys(keys, false).map, "M opens the map by default");
+  keys[SDL_SCANCODE_M] = 0;
 }
 
 void pad()
@@ -121,6 +125,10 @@ void pad()
   SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_X, 1);
   pump();
   check(!c.read().jump, "pad: X no longer jumps");
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_X, 0);
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_BACK, 1);
+  pump();
+  check(c.read().map, "pad: Back opens the map by default");
   SDL_JoystickDetachVirtual(device);
   pump();
 #else
