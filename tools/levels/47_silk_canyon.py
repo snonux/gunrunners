@@ -94,7 +94,6 @@ gem((50, 12), (56, 13))         # along the line: picked up as you ride
 L2 = 26
 down_left(R1, L2)
 left_alcove(L2, 21)
-on(25, L2, "T")
 on(24, L2, "W")
 on(27, L2, "c")
 L.at("cocoon", 21, L2 - 2, virus=1)   # the Virus, at the back
@@ -114,7 +113,7 @@ P = 40                          # the pillar's top row
 L.fill(46, 53, P, P + 4, "#")
 line(70, R3 - 2, 50, P - 3)
 on(48, P, "2")                  # letter U
-on(51, P, "T")
+on(51, P, "T")                  # a Turbo box
 on(52, P, "c")
 gem((58, 35), (62, 34))
 
@@ -131,7 +130,7 @@ gem((38, 41), (34, 42))
 R5 = 56
 down_right(L4, R5, spin=1, spider=1)
 right_alcove(R5)
-on(73, R5, "T")
+on(73, R5, "c")
 on(75, R5, "h")
 L.at("cocoon_pod", 74, R5 - 3)
 gem((44, 46), (56, 49))
@@ -141,7 +140,7 @@ L6 = 64
 down_left(R5, L6)
 left_alcove(L6, 20)
 on(25, L6, "3")                 # letter N
-on(22, L6, "T")
+on(22, L6, "c")
 on(20, L6, "h")
 L.at("cocoon_pod", 26, L6 - 3)
 gem((48, 58), (40, 59))
