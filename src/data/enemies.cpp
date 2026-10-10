@@ -68,6 +68,9 @@ const EnemyDef kEnemies[] = {
   {"dartface", "DART FACE", K::DartFace, L::Styled, 2, 2, 4, 500, 0, 30, 10, 0, 0, 0},
   {"scarabs", "SCARAB TIDE", K::Scarabs, L::Styled, 8, 1, 8, 50, 2, 15, 0, 0, 0, 0},
   {"treasure_hunter", "TREASURE HUNTER", K::Hunter, L::Styled, 3, 5, 2, 200, 2, 0, 0, 0, kEnemyHarmless, 0},
+  {"wraith", "SHADE WRAITH", K::Wraith, L::Styled, 3, 5, 6, 800, 4, 30, 8, 0, 0, 0, 0},
+  {"monk", "MIRROR MONK", K::Monk, L::Styled, 3, 5, 4, 700, 2, 30, 10, 2, 0, 0},
+  {"moth", "SUN MOTH", K::Moth, L::Styled, 2, 2, 1, 100, 2, 0, 0, 24, kEnemyHarmless | kEnemyNoTally, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

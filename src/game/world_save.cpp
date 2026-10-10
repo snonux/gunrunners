@@ -174,6 +174,14 @@ SaveGame World::snapshot() const
     for (const auto& pl : mPlates)
       s.temple.push_back(std::min(pl.presses, 99));
   }
+  if (!mMirrors.empty() || !mSunDoors.empty())
+  {
+    // A mirror mid-turn is saved where it is going.
+    for (const auto& m : mMirrors)
+      s.light.push_back(m.to);
+    for (const auto& d : mSunDoors)
+      s.light.push_back(d.open);
+  }
   return s;
 }
 
@@ -213,6 +221,7 @@ bool World::restore(const SaveGame& s)
       (!s.jungle.empty() && s.jungle.size() != mBridges.size() + mJRopes.size() * 2) ||
       (!s.temple.empty() &&
         s.temple.size() != mStoneKeys.size() + mKeyDoors.size() + mSecretDoors.size() + mPlates.size()) ||
+      (!s.light.empty() && s.light.size() != mMirrors.size() + mSunDoors.size()) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -498,6 +507,27 @@ bool World::restore(const SaveGame& s)
     for (auto& pl : mPlates)
       pl.presses = std::max(0, s.temple[at++]);
   }
+  if (!s.light.empty())
+  {
+    std::size_t at = 0;
+    for (auto& m : mMirrors)
+    {
+      m.angle = m.to = ((s.light[at++] % 8) + 8) % 8;
+      m.turn = 0;
+    }
+    for (auto& d : mSunDoors)
+    {
+      const bool open = s.light[at++] != 0;
+      if (open && d.opens >= 0)
+        d.open = true; // the stone sun: its hatch has its own entry
+      else if (open != d.open)
+        setSunDoor(d, open);
+      d.lit = 0;
+    }
+  }
+  mBeamPaths.clear();
+  mReflects.clear();
+  mLanceOn = false;
   // Scarab Tides: the carpet is as wide as the beetles left.
   for (auto& e : mEnemies)
     if (e.kind == EnemyKind::Scarabs)

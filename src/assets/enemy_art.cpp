@@ -1561,6 +1561,126 @@ void treasureHunter(const Ctx& c)
   fillOutline(cr, rgb(255, 220, 120), kInk, 1.6);
 }
 
+// Shade Wraith (level 10): a tattered shadow with two cold eyes. Variant 1
+// smokes at the edges (it is close, and hisses).
+void wraith(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const double sway = c.frame ? 4.0 : -4.0;
+  if (c.variant == 1)
+    for (int k = 0; k < 7; ++k)
+    {
+      circle(cr, x0 + w * (0.1 + 0.13 * k), y0 + h * (0.2 + 0.11 * ((k * 3) % 7)), 8 + (k % 3) * 3);
+      setColor(cr, rgba(40, 20, 60, 110));
+      cairo_fill(cr);
+    }
+  // The shroud, ragged at the hem.
+  cairo_move_to(cr, x0 + w * 0.5, y0 - 4);
+  cairo_curve_to(cr, x0 + w * 1.05, y0 + h * 0.05, x0 + w * 0.95, y0 + h * 0.6, x0 + w * 0.92 + sway, y0 + h);
+  for (int k = 0; k < 5; ++k)
+  {
+    const double fx = 0.92 - 0.2 * (k + 1);
+    cairo_line_to(cr, x0 + w * (fx + 0.1) + sway * 0.5, y0 + h * 0.84);
+    cairo_line_to(cr, x0 + w * fx + (k % 2 ? sway : -sway), y0 + h + (k % 2 ? -2 : 4));
+  }
+  cairo_curve_to(cr, x0 + w * 0.02, y0 + h * 0.6, x0 - w * 0.05, y0 + h * 0.05, x0 + w * 0.5, y0 - 4);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0, y0 + h, rgba(70, 50, 100, 235), rgba(20, 12, 34, 200), rgb(120, 100, 170), kLine);
+  // The hood's hollow and the eyes.
+  cairo_save(cr);
+  cairo_translate(cr, x0 + w * 0.6, y0 + h * 0.2);
+  cairo_scale(cr, 1.0, 0.8);
+  circle(cr, 0, 0, w * 0.24);
+  cairo_restore(cr);
+  setColor(cr, rgb(10, 6, 18));
+  cairo_fill(cr);
+  for (double ex : {0.54, 0.7})
+  {
+    radialGlow(cr, x0 + w * ex, y0 + h * 0.2, 10, rgb(150, 230, 255), 0.8);
+    circle(cr, x0 + w * ex, y0 + h * 0.2, 3);
+    setColor(cr, rgb(220, 250, 255));
+    cairo_fill(cr);
+  }
+  // A reaching hand.
+  strokeLimb(cr, {{x0 + w * 0.7, y0 + h * 0.42}, {x0 + w * 1.0, y0 + h * 0.5}, {x0 + w * 1.12, y0 + h * 0.46}}, 5,
+    rgba(60, 44, 90, 230), rgb(120, 100, 170), 1.4);
+}
+
+// Mirror Monk (level 10): a robed monk behind a round mirror shield.
+// Variant 1 plants the shield (the bash coming), 2 stands frozen in a
+// sunbeam with the shield blazing, 3 has it lowered after a bash.
+void monk(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double x0 = kM, y0 = kM, w = c.w, h = c.h;
+  const double step = c.variant == 0 ? (c.frame ? 0.05 : -0.05) : 0.0;
+  strokeLimb(cr, {{x0 + w * 0.4, y0 + h * 0.72}, {x0 + w * (0.36 + step), y0 + h}}, 8, rgb(120, 80, 50), kInk, kLine);
+  strokeLimb(cr, {{x0 + w * 0.56, y0 + h * 0.72}, {x0 + w * (0.6 - step), y0 + h}}, 8, rgb(120, 80, 50), kInk, kLine);
+  // The robe and the rope belt.
+  cairo_move_to(cr, x0 + w * 0.3, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.64, y0 + h * 0.24);
+  cairo_line_to(cr, x0 + w * 0.78, y0 + h * 0.86);
+  cairo_line_to(cr, x0 + w * 0.16, y0 + h * 0.86);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0 + h * 0.24, y0 + h * 0.86, rgb(236, 226, 206), rgb(190, 174, 150), kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.22, y0 + h * 0.52, w * 0.5, h * 0.04);
+  setColor(cr, rgb(200, 150, 60));
+  cairo_fill(cr);
+  // The shaved head and a calm face.
+  circle(cr, x0 + w * 0.46, y0 + h * 0.15, w * 0.17);
+  fillOutline(cr, rgb(222, 178, 136), kInk, kLine);
+  cairo_rectangle(cr, x0 + w * 0.5, y0 + h * 0.14, w * 0.1, 2.5);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  // The shield: a disc of polished bronze in front of him (lowered to his
+  // side after a bash, variant 3).
+  const double sx = x0 + w * (c.variant == 3 ? 0.62 : (c.variant == 0 ? 0.84 : 0.94)),
+               sy = y0 + h * (c.variant == 3 ? 0.72 : 0.5);
+  if (c.variant == 2)
+    radialGlow(cr, sx, sy, w * 0.9, rgb(255, 230, 140), 0.9);
+  strokeLimb(cr, {{x0 + w * 0.56, y0 + h * 0.34}, {sx - 6, sy}}, 7, rgb(236, 226, 206), kInk, kLine);
+  cairo_save(cr);
+  cairo_translate(cr, sx, sy);
+  cairo_scale(cr, 0.42, 1.0);
+  circle(cr, 0, 0, h * 0.28);
+  cairo_restore(cr);
+  fillGradientOutline(cr, sy - h * 0.28, sy + h * 0.28, c.variant == 2 ? rgb(255, 255, 230) : rgb(250, 230, 170),
+    rgb(190, 140, 60), kInk, kLine);
+  cairo_move_to(cr, sx - 2, sy - h * 0.2);
+  cairo_line_to(cr, sx + 3, sy - h * 0.05);
+  cairo_set_line_width(cr, 3);
+  setColor(cr, rgba(255, 255, 255, 200));
+  cairo_stroke(cr);
+}
+
+// Sun Moth (level 10): a small pale moth with dusty gold wings.
+void sunMoth(const Ctx& c)
+{
+  cairo_t* cr = c.cr;
+  const double cx = kM + c.w * 0.5, cy = kM + c.h * 0.5;
+  const double flap = c.frame ? 0.45 : 1.0;
+  radialGlow(cr, cx, cy, c.w * 0.7, rgb(255, 230, 150), 0.35);
+  for (int side : {-1, 1})
+  {
+    cairo_save(cr);
+    cairo_translate(cr, cx, cy);
+    cairo_scale(cr, side * flap, 1.0);
+    cairo_move_to(cr, 0, -2);
+    cairo_curve_to(cr, c.w * 0.3, -c.h * 0.6, c.w * 0.62, -c.h * 0.3, c.w * 0.5, c.h * 0.05);
+    cairo_curve_to(cr, c.w * 0.42, c.h * 0.4, c.w * 0.12, c.h * 0.36, 0, c.h * 0.1);
+    cairo_close_path(cr);
+    cairo_restore(cr);
+    fillOutline(cr, rgb(250, 226, 160), rgb(160, 120, 60), 1.6);
+  }
+  cairo_save(cr);
+  cairo_translate(cr, cx, cy);
+  cairo_scale(cr, 0.35, 1.0);
+  circle(cr, 0, 0, c.h * 0.3);
+  cairo_restore(cr);
+  fillOutline(cr, rgb(120, 90, 50), kInk, 1.4);
+}
+
 DrawFn routineFor(const std::string& key)
 {
   static const std::map<std::string, DrawFn> kRoutines{
@@ -1603,6 +1723,9 @@ DrawFn routineFor(const std::string& key)
     {"dartface", dartFace},
     {"scarabs", scarabs},
     {"treasure_hunter", treasureHunter},
+    {"wraith", wraith},
+    {"monk", monk},
+    {"moth", sunMoth},
   };
   const auto it = kRoutines.find(key);
   return it == kRoutines.end() ? nullptr : it->second;

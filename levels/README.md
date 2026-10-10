@@ -40,7 +40,10 @@ you never stand, each landing bounces you back to the last height, 2 cells
 higher with jump held, 3 lower with down, 1 lower with neither, 4 to 18
 cells, and walls bounce you back; `trapmaster`: you are off the map, up
 and down move a cursor along the plates, fire springs the plate's trap and
-left and right pan the camera, while treasure hunters walk in from the left),
+left and right pan the camera, while treasure hunters walk in from the left;
+`negative`: every 75 frames the sun and the moon swap, and with them the
+`style=sun` and `style=moon` timer layers, shimmering for the last 15 frames
+before they come back; the HUD shows which is up),
 `timer=` in seconds and `goal=exit`, `goal=collect:N` or `goal=score:N`. Files without the
 sections (like `level1.txt`) are all map, with an optional `name=` line.
 
@@ -119,6 +122,13 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 | `idol` | `x y` | Trapmaster: where the hunters take their coin |
 | enemy keys `guardian` (`sentry=1`, `patrol=x0..x1`, `dir`), `dartface` (`phase`, `silent=1`), `scarabs` (`count`, `carrier=1`) | | the Stone Guardian clubs you up close and shrugs off shots to its face (hit it from behind, with a trap, or tangle it with the Snare Bolas); a Dart Face in the ceiling drops a dart every 30 frames from its phase; a Scarab Tide flows along its floor toward you (a shot kills three beetles, a stone all of them) |
 | `deco` `kind=skeleton\|glyph\|torch` | `x y w h`, `text` (glyph) | Hall of Traps: the explorer's skeleton (press up beside it), red glyph text, a torch |
+| `beam` | `id`, `x y` (where it comes in), `dir=0..7` (0 east, 2 up, 4 west, 6 down) | a sunbeam through a roof slit or sun pipe; it runs until a wall (grates `%` let it through) and is turned by mirrors |
+| `mirror` | `id`, `x y` (its foot block), `angle=0..7` | a mirror statue; a beam from the front leaves at the mirror image of its way in; a shot turns it a step (from the left anticlockwise, from the right clockwise) |
+| `sundoor` | `id`, `x y`, `w`, `h` (blocks, default 1 x 3), `latch=0\|1`, `crack=1`, `opens=ID` | opens after 15 lit frames in a row; `latch=0` ones close 45 frames after the light leaves; `crack=1` is a cracked floor disc (3 x 1); `opens=` makes it open another door instead (declare that one first) |
+| `moths`, `cursedmirror` | `count`; `stare` (frames) | Sun Moths drift to the nearest beam and three in one block stop it (shoot one and the rest scatter); a cursed mirror gives you the Virus if you stand in front of it for `stare` frames |
+| enemy keys `wraith`, `monk` (`patrol=x0..x1`, `dir`) | | a Wraith drifts through walls and only sunbeams, the Sunstone Lance's beam or Turbo shots hurt it; a Monk's shield holds off shots and throws beams back along his facing (he freezes in the light), and drops for a moment after his bash |
+| `deco` `kind=reflection` `text=odd` | `rect` | Sun Mirrors: a gilt mirror that shows one of the other runners |
+| `layer` … `style=sun\|moon` | | a block for the `negative` rule |
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when

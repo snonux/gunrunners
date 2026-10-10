@@ -2,6 +2,7 @@
 
 #include "game/input.hpp"
 
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <vector>
@@ -31,17 +32,22 @@ public:
 private:
   struct Goal
   {
-    int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech,
-                  // 6 a stone key, 7 a plate to press (the bonus patch's)
+    int kind = 0; // 0 exit, 1 key, 2 the level's prototype, 3 bonus entrance, 4 a breaker, 5 a Grid Leech
+                  // (or a Sun Moth), 6 a stone key, 7 a plate to press (the bonus patch's), 8 a mirror to turn
     int x = 0, y = 0;
-    int w = 0, h = 0; // kind 3: the entrance's box
-    int index = -1;   // kind 4: the breaker, kind 5: the Leech (enemy index), kind 7: the plate
+    int w = 0, h = 0; // kind 3: the entrance's box; kind 5: w=1 shoot it from below; kind 8: w the
+                      // shot's direction, h the angle wanted
+    int index = -1;   // kind 4: the breaker, kind 5: the Leech (enemy index), kind 7: the plate, kind 8: the mirror
   };
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;
   void buildField(const World& world, const Goal& goal);
   int heuristic(const World& world) const;
   void dumpField() const;
+  // Level 10: the sun door the way on needs next, and what lights it: a
+  // mirror to turn, moths to clear off the beam, or waiting for it.
+  bool lightGoal(const World& world, Goal& goal);
+  bool solveMirrors(const World& world, int door);
 
   std::deque<Input> mQueue;
   Input mPrev;
@@ -58,6 +64,17 @@ private:
   bool mTakeBonus = false;
   bool mSkipBonus = false;
   int mSkipBonusAt = -1; // where the search gave up on it (-1: for good)
+  // Level 10.
+  std::vector<char> mDoorOpen;  // sun doors the field treats as open
+  std::vector<char> mRouteOpen; // while waiting on a door: it and the route doors after it
+  std::uint64_t mLightKey = 0;
+  int mLightDoor = -1;   // the door the way needs
+  int mPendingDoor = -1; // the slab that will open (the door, or the hatch it opens): wait for it
+  std::uint64_t mSolveKey = 0;
+  bool mSolved = false;
+  int mSolveBeam = -1;
+  std::vector<int> mWant;  // the angle each mirror needs (-1: not on the way)
+  std::vector<int> mOrder; // those mirrors in the order the beam meets them
 };
 
 } // namespace gr
