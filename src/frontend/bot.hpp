@@ -4,6 +4,7 @@
 #include "game/input.hpp"
 
 #include <deque>
+#include <vector>
 
 namespace gr
 {
@@ -38,9 +39,17 @@ public:
   // hopping the gaps and ducking under what hangs low.
   Input ride(const World& world);
   int boardable(const World& world) const;
+  // Vehicles marked bot=1 (bot_drive.cpp): walk to one, climb in, drive it
+  // to its drop point or the exit, climb out.
+  int botVehicle(const World& world) const;
+  Input approach(const World& world, int index);
+  Input drive(const World& world);
   void setTakeBonus(bool take) { mPlanner.setTakeBonus(take); }
 
 private:
+  void buildVehicleField(const World& world, int index);
+  int vehicleDistance(const World& world) const;
+
   Planner mPlanner;
   std::deque<Input> mFightQueue;
   std::deque<Input> mTrapQueue;
@@ -59,6 +68,16 @@ private:
   int mLastX = -1;
   int mJetpackUntilX = -1;
   bool mFiredLast = false;
+  // Driving.
+  std::vector<int> mVehDist; // distance field over the vehicle's bottom-left cell
+  int mVehW = 0, mVehH = 0;
+  int mVehField = -1;           // the vehicle mVehDist is for
+  std::vector<char> mVehDone;   // vehicles already driven (or given up on)
+  std::deque<Input> mDriveQueue;
+  Input mDrivePrev;
+  int mDriveBest = 0, mDriveStall = 0;
+  int mApproachBest = 1 << 30, mApproachStall = 0;
+  bool mDriving = false;
   bool mSeekFlamer = false; // stuck at a jetpack wall: go back for the flamethrower
 };
 

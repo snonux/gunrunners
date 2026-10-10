@@ -181,6 +181,11 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
 
 Camera::Target World::cameraTarget() const
 {
+  if (const Vehicle* v = riding())
+  {
+    const CellBox b = v->box();
+    return {b.left(), b.top(), b.right(), b.bottom(), false};
+  }
   const CellBox b = mPlayer.box();
   if (mFlight)
     return {b.left(), b.top(), b.right(), b.bottom() + 12, false}; // keep the street in view below
@@ -245,6 +250,11 @@ void World::update(const PlayerInput& input)
     pr.prevX = pr.x;
     pr.prevY = pr.y;
   }
+  for (auto& v : mVehicles)
+  {
+    v.prevX = v.x;
+    v.prevY = v.y;
+  }
 
   ++mStateFrames;
   switch (mState)
@@ -268,6 +278,8 @@ void World::update(const PlayerInput& input)
         updateSurf(input);
       else
         updatePlayer(input);
+      updateVehicles(input);
+      updateSea();
       updateClub();
       updateDark(input);
       updateSludge(input);
@@ -284,7 +296,8 @@ void World::update(const PlayerInput& input)
       updateProps(input);
       updatePlayerInteractions();
       updateSpawners();
-      if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && !mMap.overlapsHazard(mPlayer.box()) &&
+      if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && mPlayer.vehicle < 0 &&
+          !mMap.overlapsHazard(mPlayer.box()) &&
           (mFluids.empty() || wadeFluid() < 0))
       {
         mSafeX = mPlayer.x;
@@ -570,11 +583,23 @@ void World::updateEnemies()
       case EnemyKind::Totem:
         updateTotem(e, def);
         break;
+      case EnemyKind::Fish:
+        updateFish(e, def);
+        break;
+      case EnemyKind::Jelly:
+        updateJelly(e, def);
+        break;
+      case EnemyKind::SeaMine:
+        updateSeaMine(e, def);
+        break;
+      case EnemyKind::Angler:
+        updateAngler(e, def);
+        break;
     }
 
     const bool frozen = e.kind == EnemyKind::Stalker && e.attach == 1;
     if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
-        e.box().intersects(p.hitBox()))
+        p.vehicle < 0 && e.box().intersects(p.hitBox()))
       touchPlayer(e);
   }
 }
@@ -647,7 +672,7 @@ void World::updateProjectiles()
     if (mMap.overlapsSolid(b))
     {
       if (pr.kind != ShotKind::Enemy)
-        hitBreakable(b, pr.damage, pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0));
+        hitBreakable(b, pr.damage, pr.vehicle ? 5 : (pr.kind == ShotKind::Rocket ? 1 : (pr.damage >= 4 ? 2 : 0)));
       const Vec2 c = cellCenter(b);
       burst(c, rgb(255, 255, 210), pr.kind == ShotKind::Enemy ? mTheme.enemyEye : mTheme.accentA, 5, 1.0f);
       if (pr.kind == ShotKind::Rocket)
@@ -667,6 +692,8 @@ void World::updateProjectiles()
       return true;
     if (pr.kind == ShotKind::Enemy)
     {
+      if (mPlayer.vehicle >= 0 && shotAtVehicle(b))
+        return true;
       if (b.intersects(mPlayer.hitBox()) && mPlayer.state != PlayerState::Dying)
       {
         if (mPlayer.turbo > 0 && mPlayer.cart >= 0)
@@ -944,6 +971,8 @@ void World::killEnemy(Enemy& e)
         mBreakers[std::size_t(c.breaker)].leechKilled = true;
         mBreakers[std::size_t(c.breaker)].leechIn = -1;
       }
+  if (e.kind == EnemyKind::SeaMine)
+    blowSeaMine(e);
   if (e.kind == EnemyKind::Camera)
   {
     mStats.camera = true;

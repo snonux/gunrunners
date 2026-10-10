@@ -147,6 +147,25 @@ void World::updatePlayer(const PlayerInput& raw)
       playSound(Sfx::Jump);
     }
   }
+  if (p.vehicle >= 0)
+  {
+    // Driving a vehicle (world_vehicle.cpp): its guns, not yours.
+    updateDrive(mvX, mvY, in);
+    mUpHeld = in.up;
+    return;
+  }
+  if (tryBoard(in))
+  {
+    mUpHeld = in.up;
+    return;
+  }
+  mUpHeld = in.up;
+  // Deep water (world_sea.cpp): swim, unless a jump is carrying you out.
+  if (!mSeas.empty() && p.state != PlayerState::Jumping && p.cart < 0 && mLaunch == 0 && updateSwim(mvX, mvY, in))
+  {
+    updateShooting(in.fire);
+    return;
+  }
   if (p.cart >= 0)
   {
     // Level 11: riding a mine cart (world_mine.cpp).
@@ -419,6 +438,7 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
 
     case PlayerState::Dying:
     case PlayerState::Teleporting:
+    case PlayerState::Swim: // world_sea.cpp moves a swimmer
       break;
   }
 }
@@ -793,7 +813,15 @@ void World::switchOrientationWithPositionChange()
 void World::hurtPlayer(int amount)
 {
   auto& p = mPlayer;
-  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.mercy > 0 || p.turbo > 0 || mGod)
+  if (p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.turbo > 0 || mGod)
+    return;
+  if (p.vehicle >= 0)
+  {
+    // The vehicle's armour takes it.
+    damageVehicle(mVehicles[std::size_t(p.vehicle)], amount);
+    return;
+  }
+  if (p.mercy > 0)
     return;
   p.hp -= amount;
   mStats.tookDamage = true;
@@ -825,6 +853,11 @@ void World::killPlayer()
   auto& p = mPlayer;
   if (p.state == PlayerState::Dying)
     return;
+  if (p.vehicle >= 0)
+  {
+    mVehicles[std::size_t(p.vehicle)].occupied = false;
+    p.vehicle = -1;
+  }
   p.state = PlayerState::Dying;
   p.deathPhase = 0;
   p.frames = 0;
@@ -924,6 +957,9 @@ void World::respawnPlayer()
     resetSpace();
   if (!mBoulders.empty())
     resetBoulders();
+  if (!mVehicles.empty())
+    resetVehicles();
+  mAir = kAirFrames;
   showMessage("BACK IN ACTION");
 }
 
@@ -934,8 +970,8 @@ void World::updatePlayerInteractions()
     return;
   const CellBox hit = p.hitBox();
 
-  if (mMap.overlapsHazard(hit))
-    hurtPlayer(1);
+  if (p.vehicle < 0 && mMap.overlapsHazard(hit))
+    hurtPlayer(1); // a vehicle minds the spikes itself (world_vehicle.cpp)
 
   // Force fields: walking up to one with the access card switches it off.
   if (p.hasKey && mMap.forceFieldsOn())
@@ -965,6 +1001,14 @@ void World::updatePlayerInteractions()
     cp.active = true;
     mRespawnX = cp.x;
     mRespawnY = cp.y;
+    if (p.vehicle >= 0)
+    {
+      // The vehicle you drove here waits for you here from now on.
+      Vehicle& v = mVehicles[std::size_t(p.vehicle)];
+      v.homeX = v.x;
+      v.homeY = v.y;
+      v.homeFacing = v.facing;
+    }
     playSound(Sfx::Checkpoint);
     showMessage("CHECKPOINT - YOU WILL RESPAWN HERE");
     flashAt({(float(cp.x) + 1.0f) * kCellSize, (float(cp.y) - 3.0f) * kCellSize}, 90.0f, mTheme.accentB, 30);

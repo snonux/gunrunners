@@ -32,6 +32,7 @@ L.ground(19, 25, 25)
 L.put(1, 29, "*")
 L.on(3, 30, "P")
 L.on(9, 30, "m")
+L.at("vehicle", 5, 29, kind="hoverbike")    # optional: floats over the spike pits (vehicles/README)
 L.at("chrome_cop", 12, 29)
 L.at("roof_turret", 22, 24)
 for x in (6, 7, 8):

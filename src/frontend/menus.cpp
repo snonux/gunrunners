@@ -256,6 +256,7 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     buildPanels();
   }
   auto world = std::make_unique<World>(mLevel, std::clamp(s.character, 0, characterCount() - 1), theme(), *mArt);
+  prepareWorld(*world);
   if (!world->restore(s))
   {
     sound(Sfx::Hurt);

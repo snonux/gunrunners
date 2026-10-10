@@ -267,7 +267,12 @@ void World::setupEntities()
       b.y1 = y1;
       b.hp = e.num("hp", 1);
       const std::string by = e.str("by", "any");
-      b.by = by == "explosion" ? 1 : (by == "heavy" ? 2 : (by == "sound" ? 3 : (by == "pry" ? 4 : 0)));
+      b.by = by == "explosion" ? 1
+        : by == "heavy"        ? 2
+        : by == "sound"        ? 3
+        : by == "pry"          ? 4
+        : by == "vehicle"      ? 5
+                               : 0;
       const std::string look = e.str("look", "glass");
       b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" ? 6 : 0)))));
       mBreakables.push_back(b);
@@ -392,6 +397,10 @@ void World::setupEntities()
       continue;
     }
 
+    if (setupVehicleEntity(e))
+      continue;
+    if (setupSeaEntity(e))
+      continue;
     if (setupDarkEntity(e))
       continue;
     if (setupLavaEntity(e))

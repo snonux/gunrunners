@@ -57,6 +57,7 @@ flags=
 @ bumper 29 13
 @ cart CT0 7 13 rail=R0
 @ dayssign 9 8 w=4 h=2
+@ vehicle 38 13 kind=tank
 @ rail R1 path=35,14;44,14;60,24;103,24 gaps=80..84
 @ rail LOOP path=62,24;66,24;69,23;71,20;70,17;67,15;64,15;61,17;60,20;62,23;65,24;67,24 branch=J1:1 reset=1
 @ bumper 34 13

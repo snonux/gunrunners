@@ -94,6 +94,13 @@ const EnemyDef kEnemies[] = {
   {"pitsnake", "PIT SNAKE", K::PitSnake, L::Styled, 2, 2, 2, 300, 0, 45, 12, 6, 0, 0},
   {"cultist", "CULTIST", K::Walker, L::Styled, 3, 5, 1, 100, 3, 0, 0, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
+  // Deep water (world_sea.cpp). Fish and Angler: range is how close (cells)
+  // something must come before they go for it. Sea Mine: range is how close
+  // sets it off.
+  {"piranha", "PIRANHA", K::Fish, L::Styled, 3, 2, 2, 300, 2, 20, 0, 18, 0, 0},
+  {"jellyfish", "JELLYFISH", K::Jelly, L::Styled, 3, 3, 3, 400, 2, 0, 0, 0, 0, 0},
+  {"sea_mine", "SEA MINE", K::SeaMine, L::Styled, 2, 2, 1, 200, 0, 0, 6, 4, kEnemyHarmless, 0},
+  {"angler", "ANGLERFISH", K::Angler, L::Styled, 6, 4, 12, 2000, 1, 30, 10, 22, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

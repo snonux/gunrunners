@@ -30,6 +30,7 @@ const char* stateName(PlayerState s)
     case PlayerState::Teleporting: return "exit";
     case PlayerState::Swing: return "swing";
     case PlayerState::Cling: return "cling";
+    case PlayerState::Swim: return "swim";
   }
   return "?";
 }
@@ -114,6 +115,7 @@ void Game::setTheme(int index)
   if (progress)
   {
     mWorld = std::make_unique<World>(mLevel, progress->character, theme(), *mArt);
+    prepareWorld(*mWorld);
     mWorld->restore(*progress);
     mSubTick = 0;
     mLatched = PlayerInput{};
@@ -139,9 +141,23 @@ void Game::setMode(Mode m)
   mModeTicks = 0;
 }
 
+void Game::prepareWorld(World& world) const
+{
+  // People can also climb into a vehicle with up; the bot always uses USE,
+  // so it never boards one by accident in a campaign level.
+  world.setUpBoards(!mOptions.autoplay);
+  const auto& keys = mBindings.keys[std::size_t(Act::Use)];
+  std::string label = keyName(keys[0] > 0 ? keys[0] : keys[1]);
+  const auto& pad = mBindings.pad[std::size_t(Act::Use)];
+  if (!pad.empty())
+    label += " / " + padName(pad[0]);
+  world.setUseLabel(label);
+}
+
 void Game::startLevel()
 {
   mWorld = std::make_unique<World>(mLevel, mCursor, theme(), *mArt);
+  prepareWorld(*mWorld);
   if (const auto it = mProfile.scores.find(2); it != mProfile.scores.end())
     mWorld->setHiScore(it->second);
   mBot = Bot{};
@@ -293,6 +309,9 @@ void Game::tickPlay(const Input& raw)
   mLatched.down = in.down;
   mLatched.jump.pressed = in.jump;
   mLatched.fire.pressed = in.fire;
+  mLatched.use.pressed = in.use;
+  if (in.use && !mPrevLogicInput.use)
+    mLatched.use.triggered = true;
   if (in.jump && !mPrevLogicInput.jump)
     mLatched.jump.triggered = true;
   if (in.fire && !mPrevLogicInput.fire)
@@ -308,9 +327,12 @@ void Game::tickPlay(const Input& raw)
       frameInput.jump.pressed = true;
     if (frameInput.fire.triggered)
       frameInput.fire.pressed = true;
+    if (frameInput.use.triggered)
+      frameInput.use.pressed = true;
     mWorld->update(frameInput);
     mLatched.jump.triggered = false;
     mLatched.fire.triggered = false;
+    mLatched.use.triggered = false;
     for (const auto s : mWorld->takeSounds())
       sound(s);
     if (mAudio && !mWorld->musicOverride().empty() && mWorld->musicOverride() != mPlayingOverride)
