@@ -113,6 +113,7 @@ void Game::openMenu(Menu m)
     case Menu::Cheats:
     case Menu::Controls:
     case Menu::TouchEdit:
+    case Menu::Map:
       break;
     case Menu::Slots:
       refreshSlots();
@@ -140,6 +141,7 @@ void Game::openMenu(Menu m)
 void Game::closeMenu()
 {
   mMenu = Menu::None;
+  freeMap();
   // The music kept going under the menu; put it back on the level's beat.
   if (mMode == Mode::Play && mWorld)
     playLevelMusic();
@@ -282,7 +284,7 @@ bool Game::tickMenu(const Input& in)
   {
     // The key or button just bound is still down: it must not also act.
     mMenuHold = in.left || in.right || in.up || in.down || in.jump || in.fire || in.confirm || in.pause ||
-      in.back || in.swap;
+      in.back || in.swap || in.map;
     return !mQuit;
   }
   // Start both opens the pause menu and confirms; in a menu it backs out.
@@ -438,6 +440,10 @@ bool Game::tickMenu(const Input& in)
       tickControls(in, ok, cancel, dir, side);
       break;
 
+    case Menu::Map:
+      tickMap(in, cancel || edge(&Input::map), ok);
+      break;
+
     case Menu::None:
       break;
   }
@@ -459,6 +465,12 @@ void Game::renderMenu()
   const auto& t = theme();
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, 140));
   const TextStyle hint{16.0f, rgb(190, 188, 214), kInk};
+
+  if (mMenu == Menu::Map)
+  {
+    renderMap();
+    return;
+  }
 
   if (mMenu == Menu::Controls || mMenu == Menu::TouchEdit)
   {

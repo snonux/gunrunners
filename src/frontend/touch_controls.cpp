@@ -52,6 +52,7 @@ constexpr ButtonSpec kSpecs[3] = {
 constexpr float kPauseFromRight = 56.0f;
 constexpr float kPauseY = 120.0f;
 constexpr float kPauseR = 36.0f;
+constexpr float kMapFromRight = 150.0f;
 
 constexpr Color kNeon = rgb(46, 242, 255);
 constexpr Color kPink = rgb(255, 46, 196);
@@ -163,6 +164,25 @@ Texture bakeIcon(Renderer& renderer, float r, Color col, int icon)
         cairo_line_to(cr, c + s, c - s * 0.6);
         cairo_stroke(cr);
         break;
+      case 6: // map: a folded map, three panels
+      {
+        const double w = s * 0.62, h = s * 0.8, k = s * 0.18;
+        cairo_set_line_width(cr, rr * 0.1);
+        for (int i = 0; i < 3; ++i)
+        {
+          const double x0 = c - w * 1.5 + w * i;
+          const double t = (i % 2) ? k : 0.0, b = (i % 2) ? 0.0 : k;
+          cairo_move_to(cr, x0, c - h + t);
+          cairo_line_to(cr, x0 + w, c - h + k - t);
+          cairo_line_to(cr, x0 + w, c + h - b);
+          cairo_line_to(cr, x0, c + h - k + b);
+          cairo_close_path(cr);
+        }
+        cairo_stroke(cr);
+        cairo_arc(cr, c + w * 0.5, c - h * 0.15, s * 0.16, 0.0, 2.0 * M_PI);
+        cairo_fill(cr);
+        break;
+      }
       default: // BACK: an arrow pointing left
         cairo_set_line_width(cr, rr * 0.14);
         cairo_move_to(cr, c + s, c);
@@ -188,6 +208,7 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
   mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kCorner].r, kPink, 1);
   mPlayIcons[kSwap] = bakeIcon(renderer, kSpecs[2].r, kNeon, 2);
   mPlayIcons[kPause] = bakeIcon(renderer, kPauseR, kNeon, 3);
+  mPlayIcons[kMap] = bakeIcon(renderer, kPauseR, kGold, 6);
 }
 
 void TouchControls::configure(Layout layout, int size)
@@ -233,8 +254,10 @@ TouchControls::Circle TouchControls::stickHome() const
 
 TouchControls::Circle TouchControls::button(int b) const
 {
-  if (b == kPause)
-    return place({mRight - kPauseFromRight * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale}, 1 + b);
+  if (b == kPause || b == kMap)
+    return place({mRight - (b == kPause ? kPauseFromRight : kMapFromRight) * mScale, std::max(mTop, 0.0f) + kPauseY,
+                   kPauseR * mScale},
+      1 + b);
   int slot = b;
   if (b == kJump || b == kFire)
     slot = (b == kJump) == (mLayout == Layout::Menu && !mEditing) ? kCorner : kInner;
@@ -501,7 +524,7 @@ int TouchControls::buttonFor(float x, float y) const
       continue;
     const Circle c = button(b);
     const float gap = std::hypot(x - c.x, y - c.y) - c.r;
-    const float reach = (b == kPause ? kPauseReach : kReach) * c.r;
+    const float reach = (b == kPause || b == kMap ? kPauseReach : kReach) * c.r;
     if (gap < reach && (best < 0 || gap < bestGap))
     {
       best = b;
@@ -512,12 +535,12 @@ int TouchControls::buttonFor(float x, float y) const
 }
 
 // A held thumb keeps its button however far it drifts, and switches only
-// when it slides right onto another one (pause excepted).
+// when it slides right onto another one (pause and map excepted).
 int TouchControls::buttonSlidTo(float x, float y, int current) const
 {
   for (int b = 0; b < kButtonCount; ++b)
   {
-    if (b == current || b == kPause || !buttonShown(b))
+    if (b == current || b == kPause || b == kMap || !buttonShown(b))
       continue;
     const Circle c = button(b);
     if (std::hypot(x - c.x, y - c.y) < c.r)
@@ -571,6 +594,7 @@ Input TouchControls::held() const
     in.fire = in.back = buttonHeld(kFire);
     in.swap = buttonHeld(kSwap);
     in.pause = buttonHeld(kPause);
+    in.map = buttonHeld(kMap);
   }
   else
   {

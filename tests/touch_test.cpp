@@ -33,6 +33,7 @@ constexpr float kPlayJumpX = kFireX, kPlayJumpY = kFireY;
 constexpr float kPlayFireX = kJumpX, kPlayFireY = kJumpY;
 constexpr float kSwapX = 1160.0f, kSwapY = 420.0f;
 constexpr float kPauseX = 1224.0f, kPauseY = 120.0f;
+constexpr float kMapX = 1130.0f, kMapY = 120.0f;
 
 void menuLayout(Renderer& r)
 {
@@ -65,8 +66,9 @@ void menuLayout(Renderer& r)
 
   t.touch(4, kSwapX, kSwapY);
   t.touch(5, kPauseX, kPauseY);
+  t.touch(6, kMapX, kMapY);
   in = t.read();
-  check(!in.swap && !in.pause, "menu: no switch or pause buttons");
+  check(!in.swap && !in.pause && !in.map, "menu: no switch, pause or map buttons");
 }
 
 void playLayout(Renderer& r)
@@ -102,8 +104,12 @@ void playLayout(Renderer& r)
   t.release(4);
   t.touch(5, kPauseX, kPauseY);
   in = t.read();
-  check(in.pause, "play: pause");
+  check(in.pause && !in.map, "play: pause");
   t.release(5);
+  t.touch(6, kMapX, kMapY);
+  in = t.read();
+  check(in.map && !in.pause, "play: map");
+  t.release(6);
   t.release(1);
   in = t.read();
   check(!in.left && !in.right && !in.jump && !in.pause, "play: nothing held after lifting");

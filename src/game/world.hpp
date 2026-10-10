@@ -1276,6 +1276,17 @@ public:
   // Sounds triggered since the last call; the frontend plays them.
   std::vector<Sfx> takeSounds();
 
+  // The map (world_map.cpp): the blocks the runners have had on screen,
+  // filled in as they go and saved with the game. Dark sectors only count
+  // where they are lit or right around the runner.
+  bool explored(int tx, int ty) const;
+  // Bakes the explored blocks bx0..bx0+bw-1, by0..by0+bh-1 as a map at
+  // `scale` pixels a block; an empty texture if none of them are explored.
+  Texture bakeMap(Renderer& r, float scale, int bx0, int by0, int bw, int bh) const;
+  // The live marks over a map whose block (0, 0) is at (x, y): the runner,
+  // the checkpoints and the exit once seen.
+  void drawMapMarks(Renderer& r, float x, float y, float scale, int frame) const;
+
   // Savegames (world_save.cpp). Saving is refused while dying or leaving.
   bool canSave() const;
   SaveGame snapshot() const;
@@ -1726,6 +1737,10 @@ private:
       mSounds.push_back(s);
   }
   Camera::Target cameraTarget() const;
+  // world_map.cpp
+  void markExplored();
+  std::vector<int> exploredRuns() const;
+  void restoreExplored(const std::vector<int>& runs);
 
   // effects
   void burst(Vec2 at, Color a, Color b, int count, float speed, bool glow = true);
@@ -1753,6 +1768,8 @@ private:
   std::vector<Checkpoint> mCheckpoints;
   std::vector<Layer> mLayers;
   std::vector<std::uint8_t> mLayerMask; // per block: 1 if a layer draws it
+  // Per block: 1 once explored. Shared by copies; simulations have none.
+  std::shared_ptr<std::vector<std::uint8_t>> mExplored;
   std::vector<Prop> mProps;
   std::vector<Zone> mZones;
   std::vector<Platform> mPlatforms;

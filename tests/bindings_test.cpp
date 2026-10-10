@@ -33,6 +33,7 @@ void model()
   Bindings b = Bindings::defaults();
   check(b.keys[std::size_t(Act::Jump)][0] == SDL_SCANCODE_X, "default: X jumps");
   check(b.keys[std::size_t(Act::Fire)][0] == SDL_SCANCODE_Z, "default: Z fires");
+  check(b.keys[std::size_t(Act::Map)][0] == SDL_SCANCODE_M, "default: M opens the map");
 
   b.bindKey(Act::Jump, 0, SDL_SCANCODE_Z);
   check(b.keys[std::size_t(Act::Jump)][0] == SDL_SCANCODE_Z, "Z bound to jump");
@@ -138,7 +139,7 @@ void touchLayout(Renderer& r)
   t.release(1);
   check(t.takeLayoutChange(), "editor: dragging reports a change");
   const std::vector<int> layout = t.layout();
-  check(layout.size() == 10 && layout[2] == -300 && layout[3] == 0, "editor: jump moved 300 left");
+  check(layout.size() == 12 && layout[2] == -300 && layout[3] == 0, "editor: jump moved 300 left");
   check(!t.read().jump, "editor: dragging does not jump");
   t.touch(2, 760.0f, 352.0f); // DONE
   check(t.read().back, "editor: DONE reads as back");

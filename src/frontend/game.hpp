@@ -167,6 +167,7 @@ private:
     Cheats,
     Controls,
     TouchEdit,
+    Map,
   };
   bool tickMenu(const Input& in);
   // The pause menu's items; CHEATS shows up once the code was entered.
@@ -186,6 +187,13 @@ private:
   void notice(const std::string& text);
   void renderMenu();
   void renderNotice();
+  // map_view.cpp: the level map, a pause-style overlay.
+  void openMap();
+  void tickMap(const Input& in, bool close, bool ok);
+  void renderMap();
+  void freeMap();
+  float mapFitScale() const;
+  float mapScale() const;
   // controls_menu.cpp
   struct ControlRow;
   std::vector<ControlRow> controlRows() const;
@@ -255,6 +263,22 @@ private:
   bool mFullscreenNow = false;
   void cycleTouchSize();
   std::string touchSizeLabel() const;
+
+  // The map overlay: zoomed in (else the whole level), the block in the
+  // middle of the view, and the textures baked when it opened.
+  struct MapChunk
+  {
+    int bx = 0, by = 0;
+    Texture tex;
+  };
+  bool mMapClose = true;
+  float mMapX = 0.0f, mMapY = 0.0f;
+  int mMapPanTicks = 0;
+  const World* mMapWorld = nullptr; // what the textures show
+  int mMapTheme = -1;
+  bool mMapWholeBaked = false, mMapChunksBaked = false;
+  Texture mMapWhole;
+  std::vector<MapChunk> mMapChunks;
 
   // CONTROLS menu.
   Bindings mBindings;

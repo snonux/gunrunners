@@ -51,6 +51,7 @@ add_library(gunrunners_core STATIC
   src/game/world_mine_draw.cpp
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
+  src/game/world_map.cpp
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
@@ -61,6 +62,7 @@ add_library(gunrunners_core STATIC
   src/frontend/game.cpp
   src/frontend/menus.cpp
   src/frontend/controls_menu.cpp
+  src/frontend/map_view.cpp
   src/frontend/cutscene.cpp
   src/frontend/clips.cpp
   src/frontend/flow.cpp
