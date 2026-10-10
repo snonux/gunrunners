@@ -105,6 +105,8 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
    "TRADE PLACES WITH WHAT IT HITS; BOUNCES OFF WALLS ONCE"},
   {ProtoId::SilkShooter, "silk_shooter", "SILK SHOOTER", 47, M::Tap, 8, 2, 1, 12, 24, rgb(240, 236, 220),
    "FIRES DOWN AHEAD; WHERE IT HITS ROCK, A SILK LINE TO RIDE"},
+  {ProtoId::TamersWhip, "tamers_whip", "TAMER'S WHIP", 48, M::Tap, 7, 0, 2, 30, 60, rgb(230, 170, 90),
+   "A CRACK THAT STUNS ALIENS AND CALLS A BOUNDER TO YOU"},
 }};
 
 } // namespace

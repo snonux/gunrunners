@@ -1412,6 +1412,7 @@ enum class VehicleKind
   Sub,   // submarine: moves freely in deep water, torpedoes, you never run out of air
   Ship,  // space ship: zero-gravity flight with momentum, twin lasers
   Mech,  // walker: huge jet jumps, landing stomps break floors, arm cannon
+  Bounder, // level 48: a big friendly flea-like alien to ride: huge hops, runs over thorns
   Count,
 };
 
@@ -1453,6 +1454,7 @@ struct Vehicle
   bool bot = false;           // bot=1: the autopilot drives it
   bool pilot = false;         // pilot=1: the runner starts in it, respawns in it and only gets out on the ground
   int dropX = -1, dropY = -1; // cells: where the autopilot climbs out
+  int call = 0;               // a Bounder: frames left trotting to a Tamer's Whip crack
   CellBox box() const { return boxAt(x, y, w, h); }
 };
 
@@ -2283,6 +2285,15 @@ private:
   void updateCocoonPod(Enemy& e, const EnemyDef& def);
   void updateDropling(Enemy& e, const EnemyDef& def);
   void drawSilkBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  // Level 48, Bounder Plains (world_plains.cpp).
+  void crackWhip(int ox, int oy, int dir);
+  void updatePlains();
+  void bounderAir(Vehicle& v, bool held); // a Bounder's hop and fall, a frame of it
+  bool tryMountBounder();
+  void updateParkedBounder(Vehicle& v);
+  void updateThornHog(Enemy& e, const EnemyDef& def);
+  void updateSkyGulper(Enemy& e, const EnemyDef& def);
+  void drawPlainsFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   // Level 13 (world_boulder.cpp).
   bool setupBoulderEntity(const EntityDef& e);
   void setupBoulderEnemy(Enemy& en, const EntityDef& e);
@@ -2313,6 +2324,7 @@ private:
   void driveSub(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
   void driveShip(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
   void driveMech(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
+  void driveBounder(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
   bool vehicleFall(Vehicle& v, int cells); // false once it is on the ground
   bool vehicleStep(Vehicle& v, int dx, int dy); // moves a free mover a cell, true if it moved
   void stomp(Vehicle& v);

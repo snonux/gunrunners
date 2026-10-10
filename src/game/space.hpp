@@ -179,6 +179,10 @@ struct SpaceState
   bool silk = false;
   std::vector<SilkLine> lines, linesAtStart;
   std::vector<SilkCocoon> cocoons, cocoonsAtStart;
+  // Level 48: Bounders to ride, the Tamer's Whip's crack (cells: where it
+  // starts, which way, how long it is; frames it still shows).
+  bool plains = false;
+  int whipX = 0, whipY = 0, whipDir = 1, whipLen = 0, whipShow = 0;
 };
 
 } // namespace gr

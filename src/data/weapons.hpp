@@ -61,6 +61,7 @@ enum class ProtoId
   BileBlaster,
   SwapRifle,
   SilkShooter,
+  TamersWhip,
   Count,
 };
 

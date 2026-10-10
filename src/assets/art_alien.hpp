@@ -49,4 +49,15 @@ Texture bakeSilkSky(const Renderer& r, const Theme& t);
 Texture bakeSilkFar(const Renderer& r, const Theme& t, int layerW);
 Texture bakeSilkNear(const Renderer& r, const Theme& t, int layerW);
 
+// Level 48, Bounder Plains ("alien_plains", art_plains.cpp): thorny violet
+// grass under two moons; its spikes are thorn grass.
+bool isPlains(const Theme& t);
+Texture bakePlainsSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakePlainsSolidTop(const Renderer& r, const Theme& t, float topOffset, int height);
+Texture bakePlainsPlatform(const Renderer& r, const Theme& t);
+Texture bakePlainsSky(const Renderer& r, const Theme& t);
+Texture bakePlainsFar(const Renderer& r, const Theme& t, int layerW);
+Texture bakePlainsNear(const Renderer& r, const Theme& t, int layerW);
+Texture bakePlainsSpikes(const Renderer& r, const Theme& t);
+
 } // namespace gr

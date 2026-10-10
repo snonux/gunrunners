@@ -31,6 +31,7 @@ const char* spriteKey(VehicleKind k)
     case VehicleKind::Sub: return "veh_submarine";
     case VehicleKind::Ship: return "veh_spaceship";
     case VehicleKind::Mech: return "veh_mech";
+    case VehicleKind::Bounder: return "veh_bounder";
     default: return "veh_tank";
   }
 }
@@ -52,6 +53,7 @@ Seat seatOf(VehicleKind k)
     case VehicleKind::Sub: return {0.78f, 0.82f, 0.38f, false};
     case VehicleKind::Ship: return {0.66f, 0.5f, 0.4f, false};
     case VehicleKind::Mech: return {0.7f, 0.4f, 0.48f, false};
+    case VehicleKind::Bounder: return {0.45f, 0.5f, 0.7f, true};
     default: return {0.5f, 0.5f, 0.5f, false};
   }
 }
@@ -82,6 +84,7 @@ void World::drawVehicle(Renderer& r, const Vehicle& v, float camX, float camY, i
     case VehicleKind::Sub: anim = running ? (frame / 3) % 4 : 0; break;
     case VehicleKind::Ship: anim = running ? (frame / 3) % 2 : 0; break;
     case VehicleKind::Mech: anim = v.air >= 0 ? 0 : (v.step / 2) % 4; break;
+    case VehicleKind::Bounder: anim = v.air >= 0 ? (v.air < 10 ? 2 : 3) : (v.step / 3) % 2; break;
     default: break;
   }
   const std::string key = spriteKey(v.kind);
@@ -131,7 +134,8 @@ void World::drawVehicle(Renderer& r, const Vehicle& v, float camX, float camY, i
     const Vec2 s = at(seat.fx, seat.fy);
     DrawOpts o;
     o.scale = seat.scale;
-    const Sprite& rs = v.kind == VehicleKind::Bike ? ca.crouch : ca.idle[std::size_t((frame / 30) % 2)];
+    const Sprite& rs = v.kind == VehicleKind::Bike || v.kind == VehicleKind::Bounder ? ca.crouch
+                                                                                     : ca.idle[std::size_t((frame / 30) % 2)];
     r.draw(rs.get(f), s.x, s.y, o);
   };
   if (!seat.front)

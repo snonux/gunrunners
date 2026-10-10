@@ -2359,6 +2359,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
 
 Texture bakeSpikes(const Renderer& r, const Theme& t)
 {
+  if (isPlains(t))
+    return bakePlainsSpikes(r, t); // thorn grass
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   if (t.id == ThemeId::NeonOverdrive)

@@ -31,11 +31,13 @@ const std::array<VehicleDef, std::size_t(VehicleKind::Count)> kDefs{{
   {"submarine", "SUBMARINE", 9, 4, 10, 0, rgb(250, 200, 40)},
   {"spaceship", "SPACE SHIP", 8, 4, 8, 0, rgb(150, 210, 255)},
   {"mech", "MECH WALKER", 6, 8, 14, 0, rgb(220, 100, 50)},
+  {"bounder", "BOUNDER", 6, 7, 12, 0, rgb(236, 150, 90)},
 }};
 
 // Jump arcs: cells risen per frame.
 constexpr std::array<int, 7> kBikeArc{2, 2, 2, 1, 1, 1, 0};       // 9 cells
 constexpr std::array<int, 9> kMechArc{3, 3, 2, 2, 2, 1, 1, 1, 0}; // 15 cells with jump held
+constexpr std::array<int, 10> kBounderArc{3, 3, 3, 2, 2, 2, 1, 1, 1, 0}; // 18 cells with jump held
 
 // Speeds in sixteenths of a cell a frame.
 constexpr int kHeliSpeed = 24, kHeliAccel = 4;
@@ -59,6 +61,7 @@ const char* vehicleTip(VehicleKind k)
     case VehicleKind::Sub: return "FIRE LAUNCHES TORPEDOES";
     case VehicleKind::Ship: return "NO GRAVITY - IT KEEPS DRIFTING";
     case VehicleKind::Mech: return "HOLD JUMP FOR THE JETS - LAND HARD TO STOMP";
+    case VehicleKind::Bounder: return "HOLD JUMP FOR A BIG HOP - THORNS DON'T BOTHER IT";
     default: return "";
   }
 }
@@ -79,6 +82,7 @@ VehicleKind vehicleKindForKey(const std::string& key, bool* ok)
     {"chopper", VehicleKind::Heli},    {"bike", VehicleKind::Bike},        {"hoverbike", VehicleKind::Bike},
     {"sub", VehicleKind::Sub},         {"submarine", VehicleKind::Sub},    {"ship", VehicleKind::Ship},
     {"spaceship", VehicleKind::Ship},  {"mech", VehicleKind::Mech},        {"walker", VehicleKind::Mech},
+    {"bounder", VehicleKind::Bounder},
   };
   for (const auto& a : kAliases)
     if (key == a.key)
@@ -130,6 +134,8 @@ bool World::setupVehicleEntity(const EntityDef& e)
     v.dropX = drop[0] * kCellsPerTile;
     v.dropY = drop[1] * kCellsPerTile + 1;
   }
+  if (kind == VehicleKind::Bounder)
+    mSpace.plains = true; // landing on its back, the whip calling it (world_plains.cpp)
   mVehicles.push_back(v);
   return true;
 }
@@ -328,6 +334,7 @@ void World::resetVehicles()
     v.vx = v.vy = v.ax = v.ay = 0;
     v.air = -1;
     v.fallen = 0;
+    v.call = 0;
     v.wreck = 0;
     v.mercy = 0;
     v.occupied = false;
@@ -370,6 +377,13 @@ void World::wreckVehicle(Vehicle& v)
     leaveVehicle(true);
   v.occupied = false;
   v.wreck = kWreckFrames;
+  if (v.kind == VehicleKind::Bounder)
+  {
+    // Not a machine: it bolts, and turns up in its pen again.
+    burst(cellCenter(b), rgb(236, 150, 90), rgb(255, 230, 200), 24, 2.0f, false);
+    showMessage("THE BOUNDER BOLTS - IT WILL BE BACK IN ITS PEN");
+    return;
+  }
   explodeAt(b.x + b.w / 2, b.y + b.h / 2, std::max(b.w, b.h) / 2 + 1, 3);
   burst(cellCenter(b), rgb(90, 90, 100), rgb(40, 40, 50), 24, 2.0f, false);
   showMessage(std::string(vehicleDef(v.kind).name) + " DESTROYED - A NEW ONE IS ON ITS WAY");
@@ -463,6 +477,9 @@ void World::updateDrive(int mvX, int mvY, const PlayerInput& input)
       break;
     case VehicleKind::Mech:
       driveMech(v, mvX, mvY, input);
+      break;
+    case VehicleKind::Bounder:
+      driveBounder(v, mvX, mvY, input);
       break;
     case VehicleKind::Count:
       break;
@@ -778,6 +795,74 @@ void World::driveMech(Vehicle& v, int mvX, int mvY, const PlayerInput& input)
   }
 }
 
+void World::driveBounder(Vehicle& v, int mvX, int mvY, const PlayerInput& input)
+{
+  (void)mvY;
+  v.call = 0;
+  if (mvX != 0)
+  {
+    v.facing = mvX;
+    ++v.step;
+    if (v.air < 0)
+      mMap.moveHorizontallyWithStairStepping(v.x, v.y, v.w, v.h, mvX);
+    else
+      mMap.moveHorizontally(v.x, v.y, v.w, v.h, mvX);
+  }
+  if (v.air < 0 && input.jump.triggered && !mMap.touchingCeiling(v.box()))
+  {
+    v.air = 0;
+    v.fallen = 0;
+    playSound(Sfx::Boing);
+  }
+  bounderAir(v, input.jump.pressed);
+  if (input.fire.pressed && v.cool == 0)
+  {
+    // The rider's own blaster, from the saddle.
+    v.cool = 5;
+    vehicleShot(ShotKind::Normal, v.facing > 0 ? float(v.x + v.w) : float(v.x - 2), float(v.y - v.h + 2),
+      float(v.facing), 0.0f, 3, 1);
+    playSound(Sfx::Shot);
+  }
+}
+
+void World::bounderAir(Vehicle& v, bool held)
+{
+  const int arcLen = int(kBounderArc.size());
+  if (v.air < 0)
+  {
+    if (!mMap.onSolidGround(v.box()))
+    {
+      v.air = arcLen; // off a ledge
+      v.fallen = 0;
+    }
+    return;
+  }
+  if (v.air < arcLen)
+  {
+    // Up while jump is held (a short hop if it isn't).
+    if (!held && v.air > 2)
+      v.air = arcLen;
+    else if (mMap.moveVertically(v.x, v.y, v.w, v.h, -kBounderArc[std::size_t(v.air)]) != MoveResult::Completed)
+      v.air = arcLen;
+    else
+      ++v.air;
+    return;
+  }
+  if (mMap.moveVertically(v.x, v.y, v.w, v.h, 2) != MoveResult::Completed)
+  {
+    v.air = -1;
+    playSound(Sfx::Land);
+    burst({(float(v.x) + float(v.w) * 0.5f) * kCellSize, float(v.y + 1) * kCellSize}, rgb(190, 150, 220),
+      rgb(120, 90, 140), 8, 1.2f, false);
+    // Lands on aliens: flattened.
+    const CellBox feet{v.x, v.y - 1, v.w, 3};
+    for (auto& e : mEnemies)
+      if (e.alive && e.active && !e.hidden && e.y >= 0 && !(enemyDef(e.def).flags & kEnemyHarmless) &&
+          e.box().intersects(feet))
+        damageEnemy(e, 3);
+  }
+}
+
 void World::stomp(Vehicle& v)
 {
   // Lands hard: the floor under it cracks if it can, and a shockwave runs
@@ -810,7 +895,7 @@ void World::vehicleContacts(Vehicle& v)
     if (def.flags & kEnemyHarmless)
       continue;
     const bool small = def.hp <= 4 && e.h <= 5 && e.kind != EnemyKind::SeaMine;
-    if ((v.kind == VehicleKind::Tank || v.kind == VehicleKind::Mech) && small)
+    if ((v.kind == VehicleKind::Tank || v.kind == VehicleKind::Mech || v.kind == VehicleKind::Bounder) && small)
     {
       // Crushed under the treads (or the feet).
       playSound(Sfx::Crunch);
@@ -827,7 +912,7 @@ void World::vehicleContacts(Vehicle& v)
     damageVehicle(v, 1);
   }
   // Rotors, hulls and hulls in space don't like spikes; treads, hover
-  // skirts and steel feet don't mind.
+  // skirts, steel feet and a Bounder's horny ones don't mind.
   if ((v.kind == VehicleKind::Heli || v.kind == VehicleKind::Sub || v.kind == VehicleKind::Ship) &&
       mMap.overlapsHazard(vb))
     damageVehicle(v, 1);
@@ -856,6 +941,7 @@ void World::updateVehicles(const PlayerInput& /*input*/)
         v.fuel = vehicleDef(v.kind).fuel;
         v.vx = v.vy = v.ax = v.ay = 0;
         v.air = -1;
+        v.call = 0;
         burst(cellCenter(v.box()), vehicleDef(v.kind).color, rgb(255, 255, 255), 16, 1.6f);
       }
       continue;
@@ -883,6 +969,9 @@ void World::updateVehicles(const PlayerInput& /*input*/)
       case VehicleKind::Mech:
         vehicleFall(v, 2);
         v.air = -1;
+        break;
+      case VehicleKind::Bounder:
+        updateParkedBounder(v);
         break;
       case VehicleKind::Heli:
         v.vx = 0;
