@@ -104,16 +104,26 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
   return Action::None;
 }
 
-Input Controls::read(bool menus) const
+Input Controls::read(bool menus, bool text) const
 {
-  Input in = readKeys(SDL_GetKeyboardState(nullptr), menus);
+  Input in = readKeys(SDL_GetKeyboardState(nullptr), menus, text);
   for (auto* pad : mPads)
     in = in | readPad(pad, menus);
   return in;
 }
 
-Input Controls::readKeys(const Uint8* k, bool menus) const
+Input Controls::readKeys(const Uint8* k, bool menus, bool text) const
 {
+  if (text)
+  {
+    Input in;
+    in.left = k[SDL_SCANCODE_LEFT];
+    in.right = k[SDL_SCANCODE_RIGHT];
+    in.up = k[SDL_SCANCODE_UP];
+    in.down = k[SDL_SCANCODE_DOWN];
+    in.back = k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_AC_BACK];
+    return in;
+  }
   auto act = [&](Act a) {
     for (int key : mBindings.keys[std::size_t(a)])
       if (key > 0 && k[key])

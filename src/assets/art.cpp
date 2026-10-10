@@ -31,38 +31,184 @@ Sprite toSprite(const VectorImage& img, const Renderer& r, float ax, float ay)
 
 // --- Characters --------------------------------------------------------------
 
+// Hair styles and robot head kits, faces and robot optics, and what is
+// printed on the shirt: the parts a runner is drawn from (see RunnerParts).
+enum class Hair
+{
+  Spiky,
+  Bandana,
+  Ponytail,
+  Long,
+  Bun,
+  Mohawk,
+  Bob,
+  Buzz,
+  Afro,
+  Braid,
+  Bald,
+  Antenna, // robots from here on
+  TwinAntennae,
+  Crest,
+  Dome,
+  EarBolts,
+};
+
+enum class Face
+{
+  Eyes,
+  Shades,
+  Beard,
+  Goggles,
+  Patch,
+  Visor, // robots from here on
+  Cyclops,
+  TwinEyes,
+  Grille,
+};
+
+enum class Outfit
+{
+  Stripe,
+  DogTag,
+  Sash,
+  Vest,
+  Harness,
+  Core,
+  Plain,
+};
+
 struct Look
 {
-  int kind; // 0 Dash, 1 Rocco, 2 Nova
   Color skin, skinShade, hair, hairShade;
   Color top, topShade, pants, pantsShade, boots;
   Color gun, gunLight, accent;
   double torsoW, headR;
+  Hair hairStyle = Hair::Spiky;
+  Face face = Face::Eyes;
+  Outfit outfit = Outfit::Plain;
+  bool bareArms = false;
+  bool robot = false; // plated head and joints; skin is the plating
+  double gunLen = 20.0, gunH = 7.5;
+  // The mouth: a short stroke from (x0, y0) to (x1, y1) off the head's
+  // centre, width w.
+  double mouthX0 = 5.0, mouthY0 = 6.0, mouthX1 = 8.0, mouthY1 = 5.6, mouthW = 1.3;
+  Color mouth = rgb(200, 70, 110);
+  // A bandana: light, shaded and the knot's tails.
+  Color band = rgb(240, 70, 70), bandShade = rgb(170, 24, 30), bandTail = rgb(214, 40, 44);
 };
 
+// Dash, Rocco and Nova, exactly as they were first drawn.
 Look lookFor(int kind)
 {
+  Look L{};
   switch (kind)
   {
     case 0:
-      return {0,
-              rgb(246, 200, 160), rgb(214, 156, 118), rgb(255, 214, 72), rgb(226, 140, 30),
-              rgb(232, 64, 52), rgb(150, 28, 40), rgb(54, 76, 150), rgb(32, 44, 96), rgb(80, 52, 36),
-              rgb(150, 160, 182), rgb(220, 228, 240), rgb(64, 226, 255),
-              22.0, 11.5};
+      L = {rgb(246, 200, 160), rgb(214, 156, 118), rgb(255, 214, 72), rgb(226, 140, 30),
+           rgb(232, 64, 52), rgb(150, 28, 40), rgb(54, 76, 150), rgb(32, 44, 96), rgb(80, 52, 36),
+           rgb(150, 160, 182), rgb(220, 228, 240), rgb(64, 226, 255),
+           22.0, 11.5};
+      L.hairStyle = Hair::Spiky;
+      L.face = Face::Shades;
+      L.outfit = Outfit::Stripe;
+      L.mouthX0 = 5.0, L.mouthY0 = 6.0, L.mouthX1 = 8.5, L.mouthY1 = 5.0, L.mouthW = 1.3;
+      L.mouth = kInk;
+      break;
     case 1:
-      return {1,
-              rgb(170, 108, 70), rgb(126, 76, 48), rgb(42, 30, 24), rgb(20, 14, 10),
-              rgb(104, 146, 64), rgb(62, 94, 38), rgb(110, 110, 124), rgb(70, 70, 82), rgb(48, 42, 40),
-              rgb(214, 120, 40), rgb(255, 206, 120), rgb(255, 80, 60),
-              28.0, 12.5};
+      L = {rgb(170, 108, 70), rgb(126, 76, 48), rgb(42, 30, 24), rgb(20, 14, 10),
+           rgb(104, 146, 64), rgb(62, 94, 38), rgb(110, 110, 124), rgb(70, 70, 82), rgb(48, 42, 40),
+           rgb(214, 120, 40), rgb(255, 206, 120), rgb(255, 80, 60),
+           28.0, 12.5};
+      L.hairStyle = Hair::Bandana;
+      L.face = Face::Beard;
+      L.outfit = Outfit::DogTag;
+      L.bareArms = true;
+      L.gunLen = 24.0;
+      L.gunH = 10.0;
+      L.mouthX0 = 5.0, L.mouthY0 = 6.5, L.mouthX1 = 9.0, L.mouthY1 = 6.0, L.mouthW = 1.6;
+      L.mouth = rgb(150, 60, 50);
+      break;
     default:
-      return {2,
-              rgb(252, 214, 186), rgb(224, 164, 142), rgb(255, 86, 184), rgb(180, 30, 120),
-              rgb(132, 66, 216), rgb(78, 34, 140), rgb(132, 66, 216), rgb(78, 34, 140), rgb(238, 238, 248),
-              rgb(110, 236, 255), rgb(240, 255, 255), rgb(64, 255, 220),
-              19.0, 11.0};
+      L = {rgb(252, 214, 186), rgb(224, 164, 142), rgb(255, 86, 184), rgb(180, 30, 120),
+           rgb(132, 66, 216), rgb(78, 34, 140), rgb(132, 66, 216), rgb(78, 34, 140), rgb(238, 238, 248),
+           rgb(110, 236, 255), rgb(240, 255, 255), rgb(64, 255, 220),
+           19.0, 11.0};
+      L.hairStyle = Hair::Ponytail;
+      L.face = Face::Eyes;
+      L.outfit = Outfit::Sash;
+      L.gunLen = 19.0;
+      break;
   }
+  return L;
+}
+
+// Everyone else: built from the editor's parts. The gun's size and colour
+// follow the gun they start with.
+Look lookFromParts(const RunnerParts& p, Weapon gun)
+{
+  Look L{};
+  L.robot = p.body == 1;
+  std::tie(L.skin, L.skinShade) = skinTone(p.body, p.skin);
+  L.hair = paletteColor(p.hairColor);
+  L.hairShade = darken(L.hair, 0.42f);
+  L.top = paletteColor(p.top);
+  L.topShade = darken(L.top, 0.38f);
+  L.pants = paletteColor(p.pants);
+  L.pantsShade = darken(L.pants, 0.38f);
+  L.boots = paletteColor(p.boots);
+  L.accent = paletteColor(p.glow);
+  static const double kTorso[3] = {19.0, 22.0, 28.0};
+  static const double kHead[3] = {11.0, 11.5, 12.5};
+  L.torsoW = kTorso[std::clamp(p.build, 0, 2)];
+  L.headR = kHead[std::clamp(p.build, 0, 2)];
+  L.hairStyle = L.robot ? Hair(int(Hair::Antenna) + std::clamp(p.hair, 0, hairStyleCount(1) - 1))
+                        : Hair(std::clamp(p.hair, 0, hairStyleCount(0) - 1));
+  L.face = L.robot ? Face(int(Face::Visor) + std::clamp(p.face, 0, faceCount(1) - 1))
+                   : Face(std::clamp(p.face, 0, faceCount(0) - 1));
+  L.outfit = Outfit(std::clamp(p.outfit, 0, outfitCount() - 1));
+  L.bareArms = p.sleeves == 1;
+  switch (gun)
+  {
+    case Weapon::Laser:
+      L.gun = rgb(110, 236, 255);
+      L.gunLight = rgb(240, 255, 255);
+      L.gunLen = 19.0;
+      break;
+    case Weapon::Rocket:
+      L.gun = rgb(214, 120, 40);
+      L.gunLight = rgb(255, 206, 120);
+      L.gunLen = 24.0;
+      L.gunH = 10.0;
+      break;
+    case Weapon::Flame:
+      L.gun = rgb(226, 84, 52);
+      L.gunLight = rgb(255, 196, 130);
+      L.gunLen = 22.0;
+      L.gunH = 9.0;
+      break;
+    default:
+      L.gun = rgb(150, 160, 182);
+      L.gunLight = rgb(220, 228, 240);
+      break;
+  }
+  if (L.face == Face::Beard)
+  {
+    L.mouthX0 = 5.0, L.mouthY0 = 6.5, L.mouthX1 = 9.0, L.mouthY1 = 6.0, L.mouthW = 1.6;
+    L.mouth = rgb(150, 60, 50);
+  }
+  else
+  {
+    L.mouth = lerpColor(L.skinShade, rgb(170, 50, 80), 0.55f);
+  }
+  L.band = lighten(L.accent, 0.1f);
+  L.bandShade = darken(L.accent, 0.35f);
+  L.bandTail = darken(L.accent, 0.1f);
+  return L;
+}
+
+Look lookOf(const CharacterDef& def)
+{
+  return def.art >= 0 ? lookFor(def.art) : lookFromParts(def.parts, def.startWeapon);
 }
 
 enum class Arms
@@ -96,6 +242,12 @@ void drawLeg(cairo_t* cr, const Look& L, double hx, double hy, double thigh, dou
   const double a2 = thigh - knee;
   const double fx = kx + std::sin(a2) * l2, fy = ky + std::cos(a2) * l2;
   strokeLimb(cr, {{hx, hy}, {kx, ky}, {fx, fy}}, 10.0, back ? L.pantsShade : L.pants, kInk, kLine);
+  if (L.robot)
+  {
+    // A knee joint.
+    cairo_arc(cr, kx, ky, 3.4, 0, 2 * kPi);
+    fillOutline(cr, back ? L.skinShade : L.skin, kInk, 1.2);
+  }
   cairo_save(cr);
   cairo_translate(cr, fx, fy);
   cairo_rotate(cr, -(a2) * 0.6);
@@ -114,8 +266,8 @@ void drawHand(cairo_t* cr, const Look& L, double x, double y)
 // The gun, drawn around the hand at (hx, hy) and rotated by angle.
 void drawGun(cairo_t* cr, const Look& L, double hx, double hy, double angle)
 {
-  const double gl = L.kind == 1 ? 24.0 : (L.kind == 2 ? 19.0 : 20.0);
-  const double gh = L.kind == 1 ? 10.0 : 7.5;
+  const double gl = L.gunLen;
+  const double gh = L.gunH;
   cairo_save(cr);
   cairo_translate(cr, hx, hy);
   cairo_rotate(cr, angle);
@@ -131,40 +283,444 @@ void drawGun(cairo_t* cr, const Look& L, double hx, double hy, double angle)
   cairo_restore(cr);
 }
 
+void fillHair(cairo_t* cr, const Look& L, double top, double bottom, double lift = 0.0)
+{
+  fillGradientOutline(cr, top, bottom, lift > 0.0 ? lighten(L.hair, float(lift)) : L.hair, L.hairShade, kInk, kLine);
+}
+
+// Hair that hangs behind the body: ponytails, long hair, braids, buns, the
+// bandana's knot.
+void drawBackHair(cairo_t* cr, const Look& L, double hcx, double hcy, double r, double swing)
+{
+  const double s = swing;
+  switch (L.hairStyle)
+  {
+    case Hair::Ponytail:
+      cairo_move_to(cr, hcx - 5, hcy - 9);
+      cairo_curve_to(cr, hcx - 22, hcy - 12, hcx - 26 + s, hcy + 10, hcx - 16 + s * 0.6, hcy + 20);
+      cairo_curve_to(cr, hcx - 14, hcy + 10, hcx - 10, hcy + 2, hcx - 8, hcy - 1);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, hcy - 12, hcy + 20, L.hair, L.hairShade, kInk, kLine);
+      break;
+    case Hair::Bandana:
+      for (double off : {-1.0, 5.0})
+      {
+        const double t = s * 0.6;
+        cairo_move_to(cr, hcx - r + 1, hcy - 5);
+        cairo_curve_to(cr, hcx - r - 6, hcy - 7 + off, hcx - r - 12, hcy - 2 + off + t, hcx - r - 13, hcy + 1 + off + t);
+        cairo_curve_to(cr, hcx - r - 8, hcy + off, hcx - r - 4, hcy - 1, hcx - r + 1, hcy - 1);
+        cairo_close_path(cr);
+        fillOutline(cr, L.bandTail, kInk, kLine);
+      }
+      break;
+    case Hair::Long:
+      cairo_move_to(cr, hcx + 3, hcy - r - 1);
+      cairo_curve_to(cr, hcx - r - 9, hcy - r - 2, hcx - r - 8 + s * 0.5, hcy + 12, hcx - r - 3 + s, hcy + 26);
+      cairo_curve_to(cr, hcx - r + 1 + s, hcy + 27, hcx - 5 + s * 0.6, hcy + 25, hcx - 3 + s * 0.6, hcy + 22);
+      cairo_curve_to(cr, hcx - 3, hcy + 12, hcx - 1, hcy + 6, hcx + 2, hcy + 4);
+      cairo_close_path(cr);
+      fillHair(cr, L, hcy - r, hcy + 26);
+      break;
+    case Hair::Bob:
+      cairo_move_to(cr, hcx + 1, hcy - r - 1);
+      cairo_curve_to(cr, hcx - r - 6, hcy - r - 1, hcx - r - 5 + s * 0.2, hcy + 6, hcx - r - 1 + s * 0.2, hcy + 11);
+      cairo_line_to(cr, hcx - 2, hcy + 11);
+      cairo_line_to(cr, hcx - 1, hcy);
+      cairo_close_path(cr);
+      fillHair(cr, L, hcy - r, hcy + 11);
+      break;
+    case Hair::Bun:
+      cairo_arc(cr, hcx - 7, hcy - r, 6.5, 0, 2 * kPi);
+      fillHair(cr, L, hcy - r - 6.5, hcy - r + 6.5, 0.2);
+      break;
+    case Hair::Afro:
+    {
+      // A cloud of bumps around the head.
+      const double cx = hcx - 2.0, cy = hcy - 4.0, R = r + 3.5;
+      const int n = 11;
+      for (int i = 0; i < n; ++i)
+      {
+        const double a = 2 * kPi * double(i) / double(n);
+        cairo_arc(cr, cx + std::cos(a) * R, cy + std::sin(a) * R, 5.5, a - 1.25, a + 1.25);
+      }
+      cairo_close_path(cr);
+      fillHair(cr, L, cy - R - 5, cy + R + 5, 0.15);
+      break;
+    }
+    case Hair::Braid:
+      // Beads from the bottom up, so each one sits over the next.
+      for (int i = 4; i >= 0; --i)
+      {
+        const double t = double(i) / 4.0;
+        const double bx = hcx - r - 0.5 - double(i) * 1.6 + s * t, by = hcy + 4.0 + double(i) * 5.2;
+        cairo_save(cr);
+        cairo_translate(cr, bx, by);
+        cairo_scale(cr, 1.0, 1.3);
+        cairo_arc(cr, 0, 0, 3.8 - t * 0.9, 0, 2 * kPi);
+        cairo_restore(cr);
+        fillHair(cr, L, by - 5, by + 5, 0.15);
+      }
+      // the tie
+      cairo_arc(cr, hcx - r - 7.0 + s, hcy + 27.5, 1.8, 0, 2 * kPi);
+      fillOutline(cr, L.accent, kInk, 1.0);
+      break;
+    default:
+      break;
+  }
+}
+
+// A cap of hair over the top of the head, ending at the hairline (fx, fy)
+// above the face; lowBack is how far down the back of the head it reaches.
+void hairCap(cairo_t* cr, double hcx, double hcy, double r, double grow, double lowBack, double fx, double fy)
+{
+  cairo_move_to(cr, hcx - r - grow, hcy + lowBack);
+  cairo_arc(cr, hcx, hcy, r + grow, kPi * 0.95, kPi * 1.9);
+  cairo_line_to(cr, hcx + fx, hcy + fy);
+  cairo_curve_to(cr, hcx + fx - 4.0, hcy + fy - 1.5, hcx - 3.0, hcy - 3.0, hcx - 5.0, hcy + lowBack);
+  cairo_close_path(cr);
+}
+
+void drawHairFront(cairo_t* cr, const Look& L, double hcx, double hcy, double r)
+{
+  switch (L.hairStyle)
+  {
+    case Hair::Spiky:
+    {
+      static const double pts[][2] = {
+        {-12, 5}, {-18, -2}, {-12, -5}, {-16, -13}, {-6, -11}, {-5, -21}, {1, -13},
+        {7, -19}, {8, -11}, {15, -12}, {11, -5}, {13, -3}, {7, -5}, {1, -4}, {-4, -1}, {-7, 5}};
+      cairo_move_to(cr, hcx + pts[0][0], hcy + pts[0][1]);
+      for (const auto& p : pts)
+        cairo_line_to(cr, hcx + p[0], hcy + p[1]);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, hcy - 21, hcy + 5, lighten(L.hair, 0.3f), L.hairShade, kInk, kLine);
+      break;
+    }
+    case Hair::Bandana:
+      cairo_arc(cr, hcx, hcy, r + 1.0, kPi * 1.0, kPi * 2.0);
+      cairo_line_to(cr, hcx + r + 1.0, hcy - 3.0);
+      cairo_line_to(cr, hcx - r - 1.0, hcy - 2.0);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, hcy - r, hcy - 2, L.band, L.bandShade, kInk, kLine);
+      for (int i = 0; i < 3; ++i)
+      {
+        cairo_arc(cr, hcx - 5.0 + i * 5.5, hcy - 8.0 + (i % 2) * 2.0, 1.1, 0, 2 * kPi);
+        setColor(cr, rgba(255, 255, 255, 200));
+        cairo_fill(cr);
+      }
+      break;
+    case Hair::Ponytail:
+      // hair cap with bangs
+      cairo_move_to(cr, hcx - r - 1.5, hcy + 5.0);
+      cairo_arc(cr, hcx, hcy, r + 1.5, kPi * 0.92, kPi * 1.92);
+      cairo_line_to(cr, hcx + 7.0, hcy - 3.0);
+      cairo_line_to(cr, hcx + 3.0, hcy - 6.0);
+      cairo_line_to(cr, hcx - 2.0, hcy - 2.0);
+      cairo_line_to(cr, hcx - 5.0, hcy + 6.0);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, hcy - r, hcy + 6, lighten(L.hair, 0.25f), L.hairShade, kInk, kLine);
+      // headband
+      cairo_new_path(cr);
+      cairo_arc(cr, hcx, hcy, r - 0.5, kPi * 1.12, kPi * 1.72);
+      setColor(cr, L.accent);
+      cairo_set_line_width(cr, 3.2);
+      cairo_stroke(cr);
+      break;
+    case Hair::Long:
+      // a cap with bangs swept across the forehead
+      cairo_move_to(cr, hcx - r - 1.5, hcy + 9.0);
+      cairo_arc(cr, hcx, hcy, r + 1.5, kPi * 0.95, kPi * 1.97);
+      cairo_curve_to(cr, hcx + r - 1.0, hcy - 2.0, hcx + 6.0, hcy - 3.5, hcx + 1.0, hcy - 3.5);
+      cairo_curve_to(cr, hcx - 3.0, hcy - 2.0, hcx - 5.0, hcy + 2.0, hcx - 5.0, hcy + 9.0);
+      cairo_close_path(cr);
+      fillHair(cr, L, hcy - r, hcy + 9, 0.25);
+      break;
+    case Hair::Bun:
+    case Hair::Braid:
+      hairCap(cr, hcx, hcy, r, 1.2, 3.0, 6.0, -5.0);
+      fillHair(cr, L, hcy - r, hcy + 3, 0.25);
+      if (L.hairStyle == Hair::Bun)
+      {
+        // the tie round the bun
+        cairo_new_path(cr);
+        cairo_arc(cr, hcx - 7, hcy - r, 6.5, kPi * 0.15, kPi * 0.55);
+        setColor(cr, L.accent);
+        cairo_set_line_width(cr, 2.6);
+        cairo_stroke(cr);
+      }
+      break;
+    case Hair::Mohawk:
+    {
+      // shaved sides
+      cairo_move_to(cr, hcx - r - 0.5, hcy + 2.0);
+      cairo_arc(cr, hcx, hcy, r + 0.6, kPi * 0.98, kPi * 1.85);
+      cairo_line_to(cr, hcx + 5.0, hcy - 6.0);
+      cairo_curve_to(cr, hcx, hcy - 6.5, hcx - 5.0, hcy - 4.0, hcx - 6.0, hcy + 2.0);
+      cairo_close_path(cr);
+      setColor(cr, withAlpha(L.hairShade, 110));
+      cairo_fill(cr);
+      // the crest: spikes standing up along the top of the head
+      const int n = 5;
+      const double a0 = kPi * 1.05, a1 = kPi * 1.78;
+      auto at = [&](double a, double rad) { return std::make_pair(hcx + std::cos(a) * rad, hcy + std::sin(a) * rad); };
+      auto [sx, sy] = at(a0, r - 1.0);
+      cairo_move_to(cr, sx, sy);
+      for (int i = 0; i < n; ++i)
+      {
+        const double am = a0 + (a1 - a0) * (double(i) + 0.5) / n;
+        const double ae = a0 + (a1 - a0) * double(i + 1) / n;
+        const auto [tx, ty] = at(am - 0.12, r + 9.0 - std::abs(double(i) - 2.0) * 1.2);
+        const auto [ex, ey] = at(ae, r - 1.0);
+        cairo_line_to(cr, tx, ty);
+        cairo_line_to(cr, ex, ey);
+      }
+      cairo_arc_negative(cr, hcx, hcy, r - 4.0, a1, a0);
+      cairo_close_path(cr);
+      fillHair(cr, L, hcy - r - 9, hcy, 0.3);
+      break;
+    }
+    case Hair::Bob:
+      cairo_move_to(cr, hcx - r - 1.5, hcy + 10.0);
+      cairo_arc(cr, hcx, hcy, r + 1.5, kPi * 0.95, kPi * 1.98);
+      cairo_line_to(cr, hcx + r + 0.5, hcy - 3.0);
+      cairo_line_to(cr, hcx - 2.0, hcy - 3.5);
+      cairo_line_to(cr, hcx - 3.0, hcy + 10.0);
+      cairo_close_path(cr);
+      fillHair(cr, L, hcy - r, hcy + 10, 0.25);
+      break;
+    case Hair::Buzz:
+      cairo_move_to(cr, hcx - r - 0.5, hcy + 2.0);
+      cairo_arc(cr, hcx, hcy, r + 0.8, kPi * 0.98, kPi * 1.85);
+      cairo_line_to(cr, hcx + 5.0, hcy - 6.5);
+      cairo_curve_to(cr, hcx, hcy - 7.0, hcx - 5.0, hcy - 4.0, hcx - 6.0, hcy + 2.0);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, hcy - r, hcy + 2, L.hair, L.hairShade, kInk, 1.6);
+      break;
+    case Hair::Afro:
+      hairCap(cr, hcx, hcy, r, 2.0, 3.0, 6.5, -5.0);
+      fillHair(cr, L, hcy - r, hcy + 3, 0.15);
+      break;
+    case Hair::Bald:
+      cairo_new_path(cr);
+      cairo_arc(cr, hcx + 1.5, hcy - 2.0, r - 3.5, kPi * 1.3, kPi * 1.6);
+      setColor(cr, rgba(255, 255, 255, 120));
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+      break;
+
+    // Robot head kits, in the trim colour (hair).
+    case Hair::Antenna:
+    case Hair::TwinAntennae:
+    {
+      const bool twin = L.hairStyle == Hair::TwinAntennae;
+      const double bases[2][4] = {{-1.0, -4.0, -10.0, 0.0}, {-6.0, -11.0, 5.0, 8.0}};
+      for (int i = 0; i < (twin ? 2 : 1); ++i)
+      {
+        const double bx = twin ? bases[1][i * 2] : bases[0][0], tx = twin ? bases[1][i * 2 + 1] : bases[0][1];
+        const double tall = twin ? 8.0 : 10.0;
+        strokeLimb(cr, {{hcx + bx, hcy - r + 1.0}, {hcx + tx, hcy - r - tall}}, 2.2, darken(L.hair, 0.3f), kInk, 1.0);
+        cairo_arc(cr, hcx + tx, hcy - r - tall, twin ? 2.6 : 3.2, 0, 2 * kPi);
+        fillGradientOutline(cr, hcy - r - tall - 3, hcy - r - tall + 3, lighten(L.accent, 0.5f), L.accent, kInk, 1.4);
+      }
+      roundedRect(cr, hcx - 6.0, hcy - r - 2.0, 12.0, 4.0, 1.5);
+      fillOutline(cr, L.hair, kInk, 1.4);
+      break;
+    }
+    case Hair::Crest:
+      cairo_move_to(cr, hcx - r + 1.0, hcy - r + 2.0);
+      cairo_curve_to(cr, hcx - r - 3.0, hcy - r - 10.0, hcx + 2.0, hcy - r - 11.0, hcx + 7.0, hcy - r + 1.0);
+      cairo_close_path(cr);
+      fillHair(cr, L, hcy - r - 10, hcy - r + 2, 0.3);
+      strokeLimb(cr, {{hcx - r + 3.0, hcy - r - 1.0}, {hcx + 3.0, hcy - r - 3.0}}, 1.4, L.accent, kInk, 0.0);
+      break;
+    case Hair::Dome:
+      cairo_new_path(cr);
+      cairo_arc(cr, hcx, hcy - r + 2.5, r - 2.0, kPi, 2 * kPi);
+      cairo_close_path(cr);
+      setColor(cr, rgba(200, 240, 255, 110));
+      cairo_fill_preserve(cr);
+      setColor(cr, kInk);
+      cairo_set_line_width(cr, 1.8);
+      cairo_stroke(cr);
+      radialGlow(cr, hcx - 1.0, hcy - r - 1.5, 5.0, L.accent, 0.9);
+      cairo_arc(cr, hcx + 2.5, hcy - r - 3.5, 1.6, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 200));
+      cairo_fill(cr);
+      roundedRect(cr, hcx - r + 1.0, hcy - r + 1.0, 2 * r - 2.0, 3.0, 1.2);
+      fillOutline(cr, L.hair, kInk, 1.2);
+      break;
+    case Hair::EarBolts:
+      strokeLimb(cr, {{hcx - 4.0, hcy - 3.0}, {hcx - 6.0, hcy - r - 7.0}}, 1.8, darken(L.hair, 0.3f), kInk, 0.8);
+      cairo_arc(cr, hcx - 6.0, hcy - r - 7.0, 1.8, 0, 2 * kPi);
+      fillOutline(cr, L.accent, kInk, 1.0);
+      cairo_arc(cr, hcx - 4.0, hcy + 1.0, 5.6, 0, 2 * kPi);
+      fillGradientOutline(cr, hcy - 5, hcy + 7, lighten(L.hair, 0.3f), L.hairShade, kInk, kLine);
+      cairo_arc(cr, hcx - 4.0, hcy + 1.0, 2.4, 0, 2 * kPi);
+      fillOutline(cr, L.accent, kInk, 1.0);
+      break;
+  }
+}
+
+void drawEye(cairo_t* cr, const Look& L, const Pose& P, double hcx, double hcy)
+{
+  cairo_save(cr);
+  cairo_translate(cr, hcx + 5.5, hcy - 1.0);
+  cairo_scale(cr, 1.0, 1.25);
+  cairo_arc(cr, 0, 0, 2.5, 0, 2 * kPi);
+  cairo_restore(cr);
+  fillOutline(cr, rgb(255, 255, 255), kInk, 1.0);
+  const double look = P.arms == Arms::Aim && P.aim < -0.5 ? -1.2 : (P.aim > 0.5 ? 1.0 : 0.0);
+  cairo_arc(cr, hcx + 6.5, hcy - 0.6 + look, 1.4, 0, 2 * kPi);
+  setColor(cr, kInk);
+  cairo_fill(cr);
+  strokeLimb(cr, {{hcx - 0.5, hcy - 5.0}, {hcx + 8.0, hcy - 5.5}}, 1.4, darken(L.hair, 0.1f), kInk, 0.0);
+}
+
+// Beards, shades and goggles over the hair, and the robots' optics.
+void drawFace(cairo_t* cr, const Look& L, double hcx, double hcy, double r)
+{
+  switch (L.face)
+  {
+    case Face::Eyes:
+      break;
+    case Face::Shades:
+      roundedRect(cr, hcx + 1.0, hcy - 4.5, 13.0, 6.5, 3.0);
+      fillGradientOutline(cr, hcy - 4.5, hcy + 2.0, lighten(L.accent, 0.4f), darken(L.accent, 0.35f), kInk, 1.8);
+      strokeLimb(cr, {{hcx + 4.0, hcy - 3.0}, {hcx + 11.0, hcy - 3.0}}, 1.2, rgba(255, 255, 255, 220), kInk, 0.0);
+      break;
+    case Face::Beard:
+      cairo_move_to(cr, hcx - 3.0, hcy + 1.5);
+      cairo_arc_negative(cr, hcx, hcy, r + 0.6, kPi * 0.88, kPi * 0.05);
+      cairo_line_to(cr, hcx + r - 2.0, hcy + 3.0);
+      cairo_line_to(cr, hcx + 4.0, hcy + 4.5);
+      cairo_close_path(cr);
+      fillGradientOutline(cr, hcy, hcy + r, L.hair, L.hairShade, kInk, kLine);
+      break;
+    case Face::Goggles:
+      strokeLimb(cr, {{hcx - r + 0.5, hcy - 3.0}, {hcx + 3.0, hcy - 2.5}}, 3.0, rgb(50, 44, 60), kInk, 0.0);
+      cairo_arc(cr, hcx + 6.5, hcy - 1.5, 4.4, 0, 2 * kPi);
+      fillGradientOutline(cr, hcy - 6, hcy + 3, lighten(L.accent, 0.5f), darken(L.accent, 0.3f), kInk, 1.8);
+      cairo_arc(cr, hcx + 7.8, hcy - 3.0, 1.2, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 220));
+      cairo_fill(cr);
+      break;
+    case Face::Patch:
+      strokeLimb(cr, {{hcx + 4.5, hcy - 3.5}, {hcx - r + 1.0, hcy - 7.0}}, 1.4, kInk, kInk, 0.0);
+      cairo_save(cr);
+      cairo_translate(cr, hcx + 6.2, hcy - 1.0);
+      cairo_scale(cr, 1.0, 1.2);
+      cairo_arc(cr, 0, 0, 3.2, 0, 2 * kPi);
+      cairo_restore(cr);
+      fillOutline(cr, rgb(30, 26, 36), kInk, 1.0);
+      strokeLimb(cr, {{hcx - 0.5, hcy - 5.0}, {hcx + 8.0, hcy - 5.5}}, 1.4, darken(L.hair, 0.1f), kInk, 0.0);
+      break;
+    case Face::Visor:
+      roundedRect(cr, hcx - 2.0, hcy - 5.0, r + 4.5, 7.0, 3.0);
+      fillGradientOutline(cr, hcy - 5, hcy + 2, lighten(L.accent, 0.55f), darken(L.accent, 0.25f), kInk, 1.8);
+      strokeLimb(cr, {{hcx + 1.0, hcy - 3.4}, {hcx + r, hcy - 3.4}}, 1.1, rgba(255, 255, 255, 210), kInk, 0.0);
+      break;
+    case Face::Cyclops:
+      cairo_arc(cr, hcx + 5.0, hcy - 1.5, 4.6, 0, 2 * kPi);
+      fillOutline(cr, rgb(30, 28, 40), kInk, 1.4);
+      radialGlow(cr, hcx + 5.5, hcy - 1.5, 6.0, L.accent, 0.6);
+      cairo_arc(cr, hcx + 5.5, hcy - 1.5, 2.8, 0, 2 * kPi);
+      fillOutline(cr, lighten(L.accent, 0.3f), kInk, 0.8);
+      cairo_arc(cr, hcx + 6.4, hcy - 2.4, 0.9, 0, 2 * kPi);
+      setColor(cr, rgb(255, 255, 255));
+      cairo_fill(cr);
+      break;
+    case Face::TwinEyes:
+      for (double ex : {2.5, 8.5})
+      {
+        cairo_arc(cr, hcx + ex, hcy - 1.5, 2.3, 0, 2 * kPi);
+        fillOutline(cr, lighten(L.accent, 0.35f), kInk, 1.2);
+      }
+      break;
+    case Face::Grille:
+      for (double ex : {2.5, 8.0})
+        strokeLimb(cr, {{hcx + ex - 1.5, hcy - 2.0}, {hcx + ex + 1.5, hcy - 2.0}}, 2.2, lighten(L.accent, 0.3f), kInk, 0.8);
+      roundedRect(cr, hcx + 1.5, hcy + 2.5, 9.0, 6.0, 1.5);
+      fillOutline(cr, darken(L.skin, 0.45f), kInk, 1.2);
+      for (int i = 0; i < 3; ++i)
+        strokeLimb(cr, {{hcx + 3.8 + i * 2.3, hcy + 3.5}, {hcx + 3.8 + i * 2.3, hcy + 7.5}}, 0.9, kInk, kInk, 0.0);
+      break;
+  }
+}
+
+void drawOutfit(cairo_t* cr, const Look& L, double tx, double ty, double tw, double th)
+{
+  switch (L.outfit)
+  {
+    case Outfit::Stripe:
+      roundedRect(cr, tx + tw * 0.55, ty + 3.0, tw * 0.22, th - 10.0, 2.0);
+      fillOutline(cr, rgb(236, 236, 244), kInk, 1.2);
+      break;
+    case Outfit::DogTag:
+      cairo_arc(cr, tx + tw * 0.62, ty + 12.0, 2.4, 0, 2 * kPi);
+      fillOutline(cr, rgb(210, 214, 222), kInk, 1.0);
+      strokeLimb(cr, {{tx + tw * 0.45, ty + 1.0}, {tx + tw * 0.62, ty + 10.0}}, 1.0, rgb(200, 200, 210), kInk, 0.0);
+      break;
+    case Outfit::Sash:
+      strokeLimb(cr, {{tx + 3.0, ty + 5.0}, {tx + tw - 4.0, ty + th - 9.0}}, 3.0, L.accent, kInk, 0.0);
+      break;
+    case Outfit::Vest:
+      // an open jacket over a shirt in the glow colour
+      roundedRect(cr, tx + tw * 0.44, ty + 1.5, tw * 0.2, th - 9.0, 1.5);
+      fillOutline(cr, lighten(L.accent, 0.35f), kInk, 1.0);
+      roundedRect(cr, tx + tw * 0.62, ty + 1.0, tw * 0.38 - 1.0, th - 8.0, 3.0);
+      fillOutline(cr, darken(L.top, 0.22f), kInk, 1.2);
+      cairo_move_to(cr, tx + tw * 0.62, ty + 1.0);
+      cairo_line_to(cr, tx + tw * 0.78, ty + 8.0);
+      cairo_line_to(cr, tx + tw * 0.86, ty + 1.0);
+      cairo_close_path(cr);
+      fillOutline(cr, lighten(L.top, 0.25f), kInk, 1.0);
+      break;
+    case Outfit::Harness:
+      for (int i = 0; i < 2; ++i)
+      {
+        const double x0 = i == 0 ? tx + 2.0 : tx + tw - 2.0, x1 = i == 0 ? tx + tw - 2.0 : tx + 2.0;
+        strokeLimb(cr, {{x0, ty + 2.0}, {x1, ty + th - 9.0}}, 3.2, rgb(78, 56, 42), kInk, 0.0);
+      }
+      roundedRect(cr, tx + tw * 0.5 - 3.0, ty + th * 0.4 - 3.5, 6.0, 6.0, 1.2);
+      fillOutline(cr, L.gunLight, kInk, 1.0);
+      break;
+    case Outfit::Core:
+      radialGlow(cr, tx + tw * 0.6, ty + 12.0, 10.0, L.accent, 0.8);
+      cairo_arc(cr, tx + tw * 0.6, ty + 12.0, 4.5, 0, 2 * kPi);
+      fillGradientOutline(cr, ty + 7.5, ty + 16.5, lighten(L.accent, 0.6f), L.accent, kInk, 1.3);
+      cairo_arc(cr, tx + tw * 0.6, ty + 12.0, 1.8, 0, 2 * kPi);
+      setColor(cr, rgba(255, 255, 255, 230));
+      cairo_fill(cr);
+      break;
+    case Outfit::Plain:
+      break;
+  }
+  if (L.robot)
+  {
+    // panel seams and rivets
+    strokeLimb(cr, {{tx + 3.0, ty + th * 0.48}, {tx + tw - 3.0, ty + th * 0.48}}, 1.0, withAlpha(kInk, 120), kInk, 0.0);
+    for (double rx : {tx + 4.0, tx + tw - 4.0})
+    {
+      cairo_arc(cr, rx, ty + th * 0.48 + 3.0, 1.0, 0, 2 * kPi);
+      setColor(cr, withAlpha(kInk, 160));
+      cairo_fill(cr);
+    }
+  }
+}
+
 void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
 {
   const double hipX = 31.0 + P.lean * 0.3, hipY = 58.0 + P.bob;
   const double lean = P.lean;
-  const bool bareArms = L.kind == 1;
+  const bool bareArms = L.bareArms;
   const Color sleeve = bareArms ? L.skin : L.top;
   const Color sleeveShade = bareArms ? L.skinShade : L.topShade;
   const double hcx = 34.0 + lean, hcy = 16.0 + P.bob, r = L.headR;
   const double bsx = 29.0 + lean, bsy = 37.0 + P.bob; // back shoulder
   const double fsx = 34.0 + lean, fsy = 36.0 + P.bob; // front shoulder
 
-  // Nova's ponytail sits behind everything.
-  if (L.kind == 2)
-  {
-    const double s = P.hairSwing;
-    cairo_move_to(cr, hcx - 5, hcy - 9);
-    cairo_curve_to(cr, hcx - 22, hcy - 12, hcx - 26 + s, hcy + 10, hcx - 16 + s * 0.6, hcy + 20);
-    cairo_curve_to(cr, hcx - 14, hcy + 10, hcx - 10, hcy + 2, hcx - 8, hcy - 1);
-    cairo_close_path(cr);
-    fillGradientOutline(cr, hcy - 12, hcy + 20, L.hair, L.hairShade, kInk, kLine);
-  }
-  // Rocco's bandana knot tails.
-  if (L.kind == 1)
-  {
-    const double s = P.hairSwing * 0.6;
-    for (double off : {-1.0, 5.0})
-    {
-      cairo_move_to(cr, hcx - r + 1, hcy - 5);
-      cairo_curve_to(cr, hcx - r - 6, hcy - 7 + off, hcx - r - 12, hcy - 2 + off + s, hcx - r - 13, hcy + 1 + off + s);
-      cairo_curve_to(cr, hcx - r - 8, hcy + off, hcx - r - 4, hcy - 1, hcx - r + 1, hcy - 1);
-      cairo_close_path(cr);
-      fillOutline(cr, rgb(214, 40, 44), kInk, kLine);
-    }
-  }
+  // Ponytails, braids and the like sit behind everything.
+  drawBackHair(cr, L, hcx, hcy, r, P.hairSwing);
 
   // Back arm.
   switch (P.arms)
@@ -199,21 +755,7 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
   const double tx = 32.0 - tw / 2.0 + lean, ty = 29.0 + P.bob, th = 33.0;
   roundedRect(cr, tx, ty, tw, th, 7.0);
   fillGradientOutline(cr, ty, ty + th, lighten(L.top, 0.15f), L.topShade, kInk, kLine);
-  if (L.kind == 0)
-  {
-    roundedRect(cr, tx + tw * 0.55, ty + 3.0, tw * 0.22, th - 10.0, 2.0);
-    fillOutline(cr, rgb(236, 236, 244), kInk, 1.2);
-  }
-  else if (L.kind == 1)
-  {
-    cairo_arc(cr, tx + tw * 0.62, ty + 12.0, 2.4, 0, 2 * kPi);
-    fillOutline(cr, rgb(210, 214, 222), kInk, 1.0);
-    strokeLimb(cr, {{tx + tw * 0.45, ty + 1.0}, {tx + tw * 0.62, ty + 10.0}}, 1.0, rgb(200, 200, 210), kInk, 0.0);
-  }
-  else
-  {
-    strokeLimb(cr, {{tx + 3.0, ty + 5.0}, {tx + tw - 4.0, ty + th - 9.0}}, 3.0, L.accent, kInk, 0.0);
-  }
+  drawOutfit(cr, L, tx, ty, tw, th);
   roundedRect(cr, tx - 1.0, ty + th - 7.0, tw + 2.0, 6.0, 2.0);
   fillOutline(cr, darken(L.pantsShade, 0.35f), kInk, 1.6);
   roundedRect(cr, tx + tw * 0.6, ty + th - 6.5, 4.0, 5.0, 1.0);
@@ -223,10 +765,22 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
   drawLeg(cr, L, hipX + 2.0, hipY, P.thigh[1], P.knee[1], false);
 
   // Neck and head.
-  roundedRect(cr, 29.0 + lean, 22.0 + P.bob, 8.0, 9.0, 2.0);
-  fillOutline(cr, L.skinShade, kInk, 1.4);
+  if (L.robot)
   {
-    cairo_arc(cr, hcx, hcy, r, 0, 2 * kPi);
+    roundedRect(cr, 30.0 + lean, 22.0 + P.bob, 6.0, 9.0, 1.5);
+    fillOutline(cr, darken(L.skinShade, 0.3f), kInk, 1.4);
+    strokeLimb(cr, {{30.5 + lean, 26.5 + P.bob}, {35.5 + lean, 26.5 + P.bob}}, 1.0, L.skin, kInk, 0.0);
+  }
+  else
+  {
+    roundedRect(cr, 29.0 + lean, 22.0 + P.bob, 8.0, 9.0, 2.0);
+    fillOutline(cr, L.skinShade, kInk, 1.4);
+  }
+  {
+    if (L.robot)
+      roundedRect(cr, hcx - r - 0.5, hcy - r + 0.5, 2 * r + 1.0, 2 * r - 0.5, 5.5);
+    else
+      cairo_arc(cr, hcx, hcy, r, 0, 2 * kPi);
     cairo_pattern_t* p = cairo_pattern_create_radial(hcx + 3, hcy - 4, 1, hcx, hcy, r + 2);
     cairo_pattern_add_color_stop_rgb(p, 0, redOf(L.skin) / 255.0 * 1.05, greenOf(L.skin) / 255.0 * 1.05, blueOf(L.skin) / 255.0 * 1.05);
     cairo_pattern_add_color_stop_rgb(p, 1, redOf(L.skinShade) / 255.0, greenOf(L.skinShade) / 255.0, blueOf(L.skinShade) / 255.0);
@@ -237,89 +791,28 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
     cairo_set_line_width(cr, kLine);
     cairo_stroke(cr);
   }
+  // The ear, or a bolt where it would be.
   cairo_arc(cr, hcx - 4.0, hcy + 1.5, 2.6, 0, 2 * kPi);
   fillOutline(cr, L.skinShade, kInk, 1.2);
-
-  if (L.kind != 0)
+  if (L.robot)
   {
-    // eye
-    cairo_save(cr);
-    cairo_translate(cr, hcx + 5.5, hcy - 1.0);
-    cairo_scale(cr, 1.0, 1.25);
-    cairo_arc(cr, 0, 0, 2.5, 0, 2 * kPi);
-    cairo_restore(cr);
-    fillOutline(cr, rgb(255, 255, 255), kInk, 1.0);
-    const double look = P.arms == Arms::Aim && P.aim < -0.5 ? -1.2 : (P.aim > 0.5 ? 1.0 : 0.0);
-    cairo_arc(cr, hcx + 6.5, hcy - 0.6 + look, 1.4, 0, 2 * kPi);
-    setColor(cr, kInk);
-    cairo_fill(cr);
-    strokeLimb(cr, {{hcx - 0.5, hcy - 5.0}, {hcx + 8.0, hcy - 5.5}}, 1.4, darken(L.hair, 0.1f), kInk, 0.0);
+    strokeLimb(cr, {{hcx - 5.4, hcy + 1.5}, {hcx - 2.6, hcy + 1.5}}, 0.9, kInk, kInk, 0.0);
+    // the jaw seam
+    strokeLimb(cr, {{hcx - 1.0, hcy + r - 4.0}, {hcx + r - 1.0, hcy + r - 4.0}}, 1.0, withAlpha(kInk, 140), kInk, 0.0);
   }
 
-  switch (L.kind)
+  const bool eye = !L.robot && L.face != Face::Shades && L.face != Face::Patch;
+  if (eye)
+    drawEye(cr, L, P, hcx, hcy);
+  drawHairFront(cr, L, hcx, hcy, r);
+  drawFace(cr, L, hcx, hcy, r);
+  if (!L.robot)
+    strokeLimb(cr, {{hcx + L.mouthX0, hcy + L.mouthY0}, {hcx + L.mouthX1, hcy + L.mouthY1}}, L.mouthW, L.mouth, kInk, 0.0);
+  else if (L.face != Face::Grille)
   {
-    case 0:
-    {
-      // spiky hair
-      static const double pts[][2] = {
-        {-12, 5}, {-18, -2}, {-12, -5}, {-16, -13}, {-6, -11}, {-5, -21}, {1, -13},
-        {7, -19}, {8, -11}, {15, -12}, {11, -5}, {13, -3}, {7, -5}, {1, -4}, {-4, -1}, {-7, 5}};
-      cairo_move_to(cr, hcx + pts[0][0], hcy + pts[0][1]);
-      for (const auto& p : pts)
-        cairo_line_to(cr, hcx + p[0], hcy + p[1]);
-      cairo_close_path(cr);
-      fillGradientOutline(cr, hcy - 21, hcy + 5, lighten(L.hair, 0.3f), L.hairShade, kInk, kLine);
-      // visor shades
-      roundedRect(cr, hcx + 1.0, hcy - 4.5, 13.0, 6.5, 3.0);
-      fillGradientOutline(cr, hcy - 4.5, hcy + 2.0, lighten(L.accent, 0.4f), darken(L.accent, 0.35f), kInk, 1.8);
-      strokeLimb(cr, {{hcx + 4.0, hcy - 3.0}, {hcx + 11.0, hcy - 3.0}}, 1.2, rgba(255, 255, 255, 220), kInk, 0.0);
-      strokeLimb(cr, {{hcx + 5.0, hcy + 6.0}, {hcx + 8.5, hcy + 5.0}}, 1.3, kInk, kInk, 0.0);
-      break;
-    }
-    case 1:
-    {
-      // beard
-      cairo_move_to(cr, hcx - 3.0, hcy + 1.5);
-      cairo_arc_negative(cr, hcx, hcy, r + 0.6, kPi * 0.88, kPi * 0.05);
-      cairo_line_to(cr, hcx + r - 2.0, hcy + 3.0);
-      cairo_line_to(cr, hcx + 4.0, hcy + 4.5);
-      cairo_close_path(cr);
-      fillGradientOutline(cr, hcy, hcy + r, L.hair, L.hairShade, kInk, kLine);
-      strokeLimb(cr, {{hcx + 5.0, hcy + 6.5}, {hcx + 9.0, hcy + 6.0}}, 1.6, rgb(150, 60, 50), kInk, 0.0);
-      // bandana
-      cairo_arc(cr, hcx, hcy, r + 1.0, kPi * 1.0, kPi * 2.0);
-      cairo_line_to(cr, hcx + r + 1.0, hcy - 3.0);
-      cairo_line_to(cr, hcx - r - 1.0, hcy - 2.0);
-      cairo_close_path(cr);
-      fillGradientOutline(cr, hcy - r, hcy - 2, rgb(240, 70, 70), rgb(170, 24, 30), kInk, kLine);
-      for (int i = 0; i < 3; ++i)
-      {
-        cairo_arc(cr, hcx - 5.0 + i * 5.5, hcy - 8.0 + (i % 2) * 2.0, 1.1, 0, 2 * kPi);
-        setColor(cr, rgba(255, 255, 255, 200));
-        cairo_fill(cr);
-      }
-      break;
-    }
-    default:
-    {
-      // hair cap with bangs
-      cairo_move_to(cr, hcx - r - 1.5, hcy + 5.0);
-      cairo_arc(cr, hcx, hcy, r + 1.5, kPi * 0.92, kPi * 1.92);
-      cairo_line_to(cr, hcx + 7.0, hcy - 3.0);
-      cairo_line_to(cr, hcx + 3.0, hcy - 6.0);
-      cairo_line_to(cr, hcx - 2.0, hcy - 2.0);
-      cairo_line_to(cr, hcx - 5.0, hcy + 6.0);
-      cairo_close_path(cr);
-      fillGradientOutline(cr, hcy - r, hcy + 6, lighten(L.hair, 0.25f), L.hairShade, kInk, kLine);
-      // headband
-      cairo_new_path(cr);
-      cairo_arc(cr, hcx, hcy, r - 0.5, kPi * 1.12, kPi * 1.72);
-      setColor(cr, L.accent);
-      cairo_set_line_width(cr, 3.2);
-      cairo_stroke(cr);
-      strokeLimb(cr, {{hcx + 5.0, hcy + 6.0}, {hcx + 8.0, hcy + 5.6}}, 1.3, rgb(200, 70, 110), kInk, 0.0);
-      break;
-    }
+    roundedRect(cr, hcx + 3.0, hcy + 4.0, 7.0, 3.2, 1.0);
+    fillOutline(cr, darken(L.skin, 0.45f), kInk, 1.0);
+    strokeLimb(cr, {{hcx + 6.5, hcy + 4.4}, {hcx + 6.5, hcy + 6.8}}, 0.8, kInk, kInk, 0.0);
   }
 
   // Front arm: holds the gun unless both hands are busy.
@@ -367,6 +860,12 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
       drawHand(cr, L, hx, hy);
       break;
     }
+  }
+  if (L.robot)
+  {
+    // a shoulder plate over the front arm
+    roundedRect(cr, fsx - 6.0, fsy - 5.0, 12.0, 9.0, 3.5);
+    fillGradientOutline(cr, fsy - 5.0, fsy + 4.0, lighten(L.skin, 0.2f), L.skinShade, kInk, 1.6);
   }
 }
 
@@ -573,9 +1072,8 @@ Sprite bakeCharacter(const Renderer& r, const Look& look, const Pose& pose, doub
   return toSprite(img, r, float(kCharAnchorX), float(kCharAnchorY));
 }
 
-CharacterArt buildCharacter(const Renderer& r, int kind)
+CharacterArt buildCharacter(const Renderer& r, const Look& look)
 {
-  const Look look = lookFor(kind);
   CharacterArt art;
   for (int i = 0; i < 2; ++i)
     art.idle[std::size_t(i)] = bakeCharacter(r, look, idlePose(i));
@@ -607,6 +1105,29 @@ CharacterArt buildCharacter(const Renderer& r, int kind)
   return art;
 }
 
+Texture bakePortrait(const Renderer& r, const Look& look)
+{
+  VectorImage portrait(256, 240);
+  cairo_scale(portrait.cr(), 2.0, 2.0);
+  cairo_translate(portrait.cr(), 32.0, 20.0);
+  drawCharacter(portrait.cr(), look, idlePose(0));
+  return portrait.toTexture(r, 128.0f, 0.0f);
+}
+
+// What a runner's art depends on: the hand-drawn three by number, everyone
+// else by parts and gun.
+std::string artKey(const CharacterDef& def)
+{
+  if (def.art >= 0)
+    return "art" + std::to_string(def.art);
+  const auto& p = def.parts;
+  std::string key = "parts";
+  for (int v : {p.body, p.build, p.hair, p.face, p.outfit, p.sleeves, p.skin, p.hairColor, p.top, p.pants, p.boots,
+         p.glow, int(def.startWeapon)})
+    key += ' ' + std::to_string(v);
+  return key;
+}
+
 } // namespace
 
 namespace
@@ -630,6 +1151,12 @@ Pose poseFor(int pose)
       P.bob = 3.0;
       P.aim = kPi / 3.0;
       break;
+    case 10: case 11: case 12: case 13: case 14: case 15: case 16: case 17:
+      P = runPose(pose - 10);
+      break;
+    case 18: P = climbPose(0); break;
+    case 19: P = hangPose(1); break;
+    case 20: P = jetpackPose(); break;
     default: P = idlePose(pose == 8 ? 1 : 0); break;
   }
   return P;
@@ -650,6 +1177,64 @@ Texture bakeCharacterPose(const Renderer& r, int kind, int pose, float scale, bo
 void drawCharacterPose(cairo_t* cr, int kind, int pose)
 {
   drawCharacter(cr, lookFor(kind), poseFor(pose));
+}
+
+Texture bakeRunnerPose(const Renderer& r, const CharacterDef& def, int pose, float scale, bool mirror)
+{
+  const int w = int(128 * scale), h = int(130 * scale);
+  VectorImage img(w, h);
+  cairo_scale(img.cr(), scale, scale);
+  cairo_translate(img.cr(), 32.0, 30.0);
+  drawCharacter(img.cr(), lookOf(def), poseFor(pose));
+  return img.toTexture(r, float(w) * 0.5f, float(h), mirror);
+}
+
+void drawRunnerPose(cairo_t* cr, const CharacterDef& def, int pose)
+{
+  drawCharacter(cr, lookOf(def), poseFor(pose));
+}
+
+const CharacterArt& Art::runner(const CharacterDef& def) const
+{
+  const std::string key = artKey(def);
+  ++mRunnerClock;
+  auto it = mRunners.find(key);
+  if (it == mRunners.end())
+  {
+    // Baking a runner is not cheap and its textures are big: keep the few
+    // used last.
+    while (mRunners.size() >= 8)
+    {
+      auto oldest = mRunners.begin();
+      for (auto j = mRunners.begin(); j != mRunners.end(); ++j)
+        if (j->second.second < oldest->second.second)
+          oldest = j;
+      mRunners.erase(oldest);
+    }
+    it = mRunners.emplace(key, std::make_pair(buildCharacter(*mRenderer, lookOf(def)), 0L)).first;
+  }
+  it->second.second = mRunnerClock;
+  return it->second.first;
+}
+
+const Texture& Art::portrait(const CharacterDef& def) const
+{
+  const std::string key = artKey(def);
+  if (auto it = mRunners.find(key); it != mRunners.end())
+    return it->second.first.portrait;
+  auto it = mPortraits.find(key);
+  if (it == mPortraits.end())
+  {
+    if (mPortraits.size() > 64)
+      mPortraits.clear();
+    it = mPortraits.emplace(key, bakePortrait(*mRenderer, lookOf(def))).first;
+  }
+  return it->second;
+}
+
+Color Art::runnerColor(const CharacterDef& def) const
+{
+  return lookOf(def).top;
 }
 
 namespace
@@ -3328,11 +3913,7 @@ Texture makePanel(const Renderer& r, int w, int h, Color fill, Color border, dou
 Art Art::build(const Theme& theme, const Renderer& r)
 {
   Art art;
-  for (int i = 0; i < 3; ++i)
-  {
-    art.characters[std::size_t(i)] = buildCharacter(r, i);
-    art.characterColor[std::size_t(i)] = lookFor(i).top;
-  }
+  art.mRenderer = &r;
   for (int f = 0; f < 2; ++f)
   {
     art.walker[std::size_t(f)] = bakeWalker(r, theme, f);

@@ -43,9 +43,11 @@ public:
 
   // Current state of the keyboard and all connected pads combined. In
   // menus the arrows, Enter, Esc and the d-pad work whatever the bindings.
-  Input read(bool menus = false) const;
+  // While a name is typed (text) the keyboard only moves with the arrows
+  // and leaves with Esc: its letters are text, not jump or fire.
+  Input read(bool menus = false, bool text = false) const;
   // The keyboard part, from a key state array indexed by scancode.
-  Input readKeys(const Uint8* keys, bool menus) const;
+  Input readKeys(const Uint8* keys, bool menus, bool text = false) const;
 
 private:
   Input readPad(SDL_GameController* pad, bool menus) const;

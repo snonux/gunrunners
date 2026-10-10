@@ -47,6 +47,9 @@ struct SaveGame
   int levelNumber = 0;
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
+  // A custom runner's look and stats (encodeRunner), so the save still
+  // loads after the runner was edited or deleted. Empty for the built-in.
+  std::string runner;
   int theme = 0;
 
   // Player: placed on the last solid ground they stood on.

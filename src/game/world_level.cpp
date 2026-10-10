@@ -798,10 +798,12 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
             if (!pr.box().intersects(pbox))
               break;
           }
-          // The odd mirror (Level 10) shows the next runner along: Dash sees
-          // Nova, Nova sees Rocco, Rocco sees Dash.
-          const int who = pr.text == "odd" ? (mCharacterIndex + 2) % 3 : mCharacterIndex;
-          const auto& ca = mArt.characters[std::size_t(who)];
+          // The odd mirror (Level 10) shows another runner: Dash sees Nova,
+          // Nova sees Rocco, Rocco sees Dash, and everyone else one of the
+          // three.
+          const int who = mCharacterIndex >= 0 && mCharacterIndex < 3 ? (mCharacterIndex + 2) % 3
+                                                                      : mCharacterIndex % 3;
+          const auto& ca = pr.text == "odd" ? mArt.runner(characterByIndex(who)) : mArt.runner(mCharacter);
           const Sprite* spr = &ca.idle[0];
           if (pr.timer >= 0)
             spr = (pr.timer / 6) % 2 ? &ca.lookUp : &ca.idle[0];

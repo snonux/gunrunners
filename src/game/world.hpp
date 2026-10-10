@@ -1366,7 +1366,7 @@ public:
   const WorldStats& stats() const { return mStats; }
   std::vector<Bonus> bonuses() const;
   const Player& player() const { return mPlayer; }
-  const CharacterDef& character() const { return *mCharacter; }
+  const CharacterDef& character() const { return mCharacter; }
   const std::vector<Enemy>& enemies() const { return mEnemies; }
   const std::vector<ItemBox>& boxes() const { return mBoxes; }
   const std::vector<Item>& items() const { return mItems; }
@@ -1881,7 +1881,7 @@ private:
 
   std::shared_ptr<const Level> mLevel; // immutable; copies of the world share it
   CollisionMap mMap;
-  const CharacterDef* mCharacter;
+  CharacterDef mCharacter; // a copy: the roster can change under a running level
   int mCharacterIndex;
   const Theme& mTheme;
   const Art& mArt;

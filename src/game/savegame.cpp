@@ -61,6 +61,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   o << "level " << s.levelName << '\n';
   o << "saved " << (s.savedAt.empty() ? now() : s.savedAt) << '\n';
   o << "character " << s.character << '\n';
+  if (!s.runner.empty())
+    o << "runner " << s.runner << '\n';
   o << "theme " << s.theme << '\n';
   o << "player " << s.x << ' ' << s.y << ' ' << s.facing << ' ' << s.hp << ' ' << s.weapon << ' ' << s.ammo << ' '
     << s.rapidFire << ' ' << int(s.hasKey) << '\n';
@@ -174,6 +176,8 @@ std::optional<SaveGame> readSave(const std::string& path)
       s.savedAt = rest();
     else if (key == "character")
       in >> s.character;
+    else if (key == "runner")
+      s.runner = rest();
     else if (key == "theme")
       in >> s.theme;
     else if (key == "player" && in >> s.x >> s.y >> s.facing >> s.hp >> s.weapon >> s.ammo >> s.rapidFire >> a)

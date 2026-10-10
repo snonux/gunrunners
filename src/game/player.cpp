@@ -484,7 +484,7 @@ const std::array<int, 8>& World::jumpArc() const
     return kTurboJumpArc;
   if (mPlayer.virus > 0)
     return kVirusJumpArc;
-  return mCharacter->jumpArc;
+  return mCharacter.jumpArc;
 }
 
 void World::updateJumpMovement(int mvX, bool jumpPressed)
@@ -852,7 +852,7 @@ void World::updateDeathAnimation()
         p.hidden = true;
         const Vec2 c{(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 1.5f) * kCellSize};
         burst(c, rgb(255, 210, 80), rgb(255, 90, 40), 40, 3.2f);
-        burst(c, mArt.characterColor[std::size_t(mCharacterIndex)], rgb(255, 255, 255), 20, 2.2f);
+        burst(c, mArt.runnerColor(mCharacter), rgb(255, 255, 255), 20, 2.2f);
         flashAt(c, 120.0f, rgb(255, 170, 60), 24);
         playSound(Sfx::Explosion);
         mCamera.shake(14, 2.5f);

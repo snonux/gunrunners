@@ -25,7 +25,7 @@ int weaponBit(Weapon w) { return 1 << int(w); }
 World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme& theme, const Art& art)
   : mLevel(std::move(level))
   , mMap(*mLevel)
-  , mCharacter(&characterByIndex(characterIndex))
+  , mCharacter(characterByIndex(characterIndex))
   , mCharacterIndex(characterIndex)
   , mTheme(theme)
   , mArt(art)
@@ -35,9 +35,10 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   p.y = p.prevY = mRespawnY = mLevel->startTy * kCellsPerTile + 1;
   mSafeX = p.x;
   mSafeY = p.y;
-  p.hp = p.maxHp = mCharacter->maxHp;
-  p.weapon = mCharacter->startWeapon;
-  p.ammo = mCharacter->startAmmo;
+  p.hp = p.maxHp = mCharacter.maxHp;
+  p.weapon = mCharacter.startWeapon;
+  p.ammo = mCharacter.startAmmo;
+  p.rapidFire = mCharacter.startRapidFire;
   mLevelProto = protoIndex(mLevel->weapon);
   mLayerMask.assign(std::size_t(mLevel->width * mLevel->height), 0);
   mExplored = std::make_shared<std::vector<std::uint8_t>>(std::size_t(mLevel->width * mLevel->height), 0);
