@@ -1,6 +1,7 @@
 #include "game/world.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace gr
 {
@@ -11,7 +12,7 @@ bool World::canSave() const
     mPlayer.state != PlayerState::Teleporting && mPlayer.cart < 0 && mPlayer.tube < 0 && mPlayer.silk < 0 && !mPinball && !mSurfing &&
     (!mGolem.on || mGolem.phase == GolemPhase::Seated || mGolem.phase == GolemPhase::Done) &&
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
-    (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave());
+    (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -158,6 +159,9 @@ SaveGame World::snapshot() const
       es.attach = 0;
       es.y = e.oy;
     }
+    // Level 17: puffers deflated, Snapjaws asleep, Globs at rest.
+    if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob)
+      es.attach = 0;
     if (i >= mLevelEnemyCount)
     {
       es.def = e.def;
@@ -292,6 +296,21 @@ SaveGame World::snapshot() const
     for (const auto& h : mCoinHeaps)
       s.sanctum.push_back(h.waves);
   }
+  if (mGreen.on)
+  {
+    const auto& g = mGreen;
+    s.green = {g.slow, g.trim, g.size, g.lastGems, int(g.clouds.size())};
+    for (const auto& l : g.lamps)
+      for (int v : {int(l.lit), int(l.locked), l.left, l.hum})
+        s.green.push_back(v);
+    for (const auto& pl : g.plants)
+      for (int v : {pl.prog, pl.shown, int(pl.growing)})
+        s.green.push_back(v);
+    for (const auto& c : g.clouds)
+      for (int v : {int(std::lround(c.x * 1000.0f)), int(std::lround(c.y * 1000.0f)), int(std::lround(c.dx * 1000.0f)),
+             int(std::lround(c.dy * 1000.0f)), c.life, int(c.carrier)})
+        s.green.push_back(v);
+  }
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -372,6 +391,9 @@ bool World::restore(const SaveGame& s)
       (!s.boulder.empty() && s.boulder.size() != mBoulders.size() * 3 + mCracks.size() + 1) ||
       (!s.sanctum.empty() && s.sanctum.size() != 4 + mAltars.size() * 3 + mCoinHeaps.size()) ||
       (!s.station.empty() && s.station.size() != 1 + mStation.panels.size() * 2 + mStation.crates.size() * 3) ||
+      (!s.green.empty() && (s.green.size() < 5 || s.green[4] < 0 ||
+                             s.green.size() != 5 + mGreen.lamps.size() * 4 + mGreen.plants.size() * 3 +
+                               std::size_t(s.green[4]) * 6)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -488,6 +510,11 @@ bool World::restore(const SaveGame& s)
       e.attach = se.attach; // frosted, thawed or empty; an egg or hatched
     if (e.kind == EnemyKind::Puck || e.kind == EnemyKind::Mutant || e.kind == EnemyKind::LabArm)
       e.attach = 0;
+    if (e.kind == EnemyKind::Puffer || e.kind == EnemyKind::Snapjaw || e.kind == EnemyKind::Glob)
+    {
+      e.attach = 0;
+      e.tell = e.dive = 0;
+    }
     e.frozen = 0;
     e.vx = e.fx = 0.0f;
     e.stun = 0;
@@ -768,6 +795,52 @@ bool World::restore(const SaveGame& s)
   {
     c.shut = 0;
     setChute(c, false);
+  }
+  if (!s.green.empty())
+  {
+    auto& g = mGreen;
+    std::size_t at = 0;
+    g.slow = s.green[at++];
+    g.trim = s.green[at++];
+    g.size = s.green[at++];
+    g.lastGems = s.green[at++];
+    const int clouds = s.green[at++];
+    for (auto& l : g.lamps)
+    {
+      l.lit = s.green[at++] != 0;
+      l.locked = s.green[at++] != 0;
+      l.left = s.green[at++];
+      l.hum = s.green[at++];
+    }
+    for (auto& pl : g.plants)
+    {
+      // Off with what has grown here, on with what had grown there.
+      const Tile tile = pl.kind == PlantKind::Ladder ? Tile::Ladder
+        : (pl.kind == PlantKind::Leaf || pl.kind == PlantKind::Flower) ? Tile::Platform
+                                                                       : Tile::Solid;
+      for (int i = 0; i < pl.shown; ++i)
+        if (mMap.block(pl.tiles[std::size_t(i)].first, pl.tiles[std::size_t(i)].second) == tile)
+          mMap.setBlock(pl.tiles[std::size_t(i)].first, pl.tiles[std::size_t(i)].second, Tile::Empty);
+      pl.prog = s.green[at++];
+      pl.shown = std::clamp(s.green[at++], 0, int(pl.tiles.size()));
+      pl.growing = s.green[at++] != 0;
+      for (int i = 0; i < pl.shown; ++i)
+        if (mMap.block(pl.tiles[std::size_t(i)].first, pl.tiles[std::size_t(i)].second) == Tile::Empty)
+          mMap.setBlock(pl.tiles[std::size_t(i)].first, pl.tiles[std::size_t(i)].second, tile);
+    }
+    g.clouds.clear();
+    for (int i = 0; i < clouds; ++i)
+    {
+      SporeCloud c;
+      c.x = float(s.green[at++]) / 1000.0f;
+      c.y = float(s.green[at++]) / 1000.0f;
+      c.dx = float(s.green[at++]) / 1000.0f;
+      c.dy = float(s.green[at++]) / 1000.0f;
+      c.life = s.green[at++];
+      c.carrier = s.green[at++] != 0;
+      g.clouds.push_back(c);
+    }
+    g.splits.clear();
   }
   if (!s.station.empty())
   {

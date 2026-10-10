@@ -41,7 +41,8 @@ private:
                   // 9 an alcove's shelter (index: the alcove) to wait in, 10 an altar to hold up beside for the
                   // bonus (give the gems away, then wake the entrance at the false altar), 11 the last altar
                   // to give gems back at before the golem (index: the altar), 12 a marked block to stand on
-                  // and gild (Golden Touch; index: the block)
+                  // and gild (Golden Touch; index: the block), 13 a grow lamp's switch to hit (index: the
+                  // lamp; x, y, w, h: where to stand)
     int x = 0, y = 0;
     int w = 0, h = 0; // kind 3: the entrance's box; kind 5: w=1 shoot it from below; kind 8: w the
                       // shot's direction, h the angle wanted
@@ -57,6 +58,8 @@ private:
   // mirror to turn, moths to clear off the beam, or waiting for it.
   bool lightGoal(const World& world, Goal& goal);
   bool solveMirrors(const World& world, int door);
+  // Level 17: a grow lamp the way on needs lit, the next one along it.
+  bool lampGoal(const World& world, Goal& goal);
 
   std::deque<Input> mQueue;
   Input mPrev;
@@ -85,6 +88,10 @@ private:
   int mSolveBeam = -1;
   std::vector<int> mWant;  // the angle each mirror needs (-1: not on the way)
   std::vector<int> mOrder; // those mirrors in the order the beam meets them
+  // Level 17: lamps the field takes as lit (empty: as they are).
+  std::vector<char> mLampOn;
+  std::uint64_t mLampKey = 0;
+  int mLampWanted = -1;
 };
 
 } // namespace gr
