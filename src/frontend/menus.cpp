@@ -457,7 +457,8 @@ void Game::renderNotice()
   const float a = std::min(1.0f, float(mNoticeTicks) / 20.0f);
   // Runner select has its EDIT button down there.
   const float y = mMode == Mode::Select && mMenu == Menu::None ? 128.0f : 640.0f;
-  mRenderer.fillRect(340, y, 600, 44, rgba(8, 6, 22, int(230 * a)));
+  const float w = y < 600.0f ? 800.0f : 600.0f;
+  mRenderer.fillRect(640 - w * 0.5f, y, w, 44, rgba(8, 6, 22, int(230 * a)));
   mRenderer.drawText(mNotice, 640, y + 8, {22.0f, theme().accentA, kInk, true}, Align::Center, a);
 }
 
