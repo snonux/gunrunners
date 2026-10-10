@@ -49,6 +49,7 @@ public:
   bool garden(const World& world, Input& in); // bot_garden.cpp
   Input glide(const World& world);
   bool city(const World& world, Input& in); // bot_city.cpp
+  bool noir(const World& world, Input& in); // bot_noir.cpp
   Input fightLizard(const World& world);
   Input topDown(const World& world);
   std::deque<Input> mTopQueue;

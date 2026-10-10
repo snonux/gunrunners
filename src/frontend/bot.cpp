@@ -183,6 +183,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 27: the painting over the safe (for the bonus).
+  if (world.noir().on)
+  {
+    Input in;
+    if (noir(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 23: pin ghosts over the gallery hole for a bridge.
   if (world.manor().on)
   {

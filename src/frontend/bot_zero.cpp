@@ -143,7 +143,7 @@ Input Bot::fightZero(const World& world)
   if (mFightQueue.empty())
   {
     constexpr int kAhead = 48;
-    const int hp0 = world.player().hp, zero0 = world.zeroHp(), echo0 = echoHp(world), turret0 = turretHp(world);
+    const int hp0 = world.player().hp, zero0 = world.zeroHp(), echo0 = echoHp(world);
     const int pops0 = world.lavaPops();
     int best = 0;
     long bestScore = std::numeric_limits<long>::min();

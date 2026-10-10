@@ -189,6 +189,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGlideBack(r, camX, camY, frame, alpha);
   if (mCity.on)
     drawCityBack(r, camX, camY, frame, alpha);
+  if (mNoir.on)
+    drawNoirBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -309,6 +311,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_pith", 0, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mCity.on && mLevel->themeKey == "model_city")
+      {
+        // Kaiju Tonight's duck wears a rubber monster suit.
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_suit", 0, 0, 2, 2).get(1), x + 32, y + 64);
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_suit", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
       {
         // Too Many Cooks' duck wears a chef's hat.
@@ -353,6 +363,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
                            e.y / kCellsPerTile >= b.y0 && e.y / kCellsPerTile <= b.y1);
     if (inside || e.hidden || e.y < 0 || (e.kind == EnemyKind::Decoupler && e.attach == 0))
       continue;
+    if (mTop.on && e.kind == EnemyKind::ModelTank)
+      continue; // seen from above (world_city_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -557,6 +569,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
         else if (e.kind == EnemyKind::BombardierBeetle)
           variant = e.attach == 1 ? 1 + std::clamp((enemyDef(e.def).tell - e.tell) * 3 / std::max(1, enemyDef(e.def).tell), 0, 2)
                                   : (e.cool > enemyDef(e.def).cooldown - 8 ? 4 : 0); // the abdomen swelling; just fired
+        else if (e.kind == EnemyKind::ModelTank)
+          variant = e.tell > 0 ? 1 : 0; // Level 26: the turret lifted and flashing
+        else if (e.kind == EnemyKind::ToyJet)
+          variant = e.tell > 0 ? 1 + (e.tell / 2) % 4 : 0; // spinning out
+        else if (e.kind == EnemyKind::MaserTruck)
+          variant = sectorDark(e.variant) ? 2 : (e.tell > 0 ? 1 : 0); // powerless; charging
         else if (e.stun > 0)
           variant = 0;
         int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -618,6 +636,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
           : e.kind == EnemyKind::EggTimer              ? (e.attach != 0 && e.cool <= kEggRing ? (frame / 2) % 2 : (e.x / 2) % 2)
           : e.kind == EnemyKind::SoldierAnt            ? ((e.x % 4) + 4) % 4 // the march
           : e.kind == EnemyKind::BombardierBeetle      ? ((e.x % 2) + 2) % 2
+          : e.kind == EnemyKind::ModelTank || e.kind == EnemyKind::MaserTruck ? ((e.x % 2) + 2) % 2 // tracks, wheels
+          : e.kind == EnemyKind::ToyJet                ? (frame / 3) % 2
           : e.kind == EnemyKind::TumbleMine || e.kind == EnemyKind::WindowBandit ? 0
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
@@ -812,6 +832,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGlideFront(r, camX, camY, frame, alpha);
   if (mCity.on)
     drawCityFront(r, camX, camY, frame, alpha);
+  if (mNoir.on || mFilm.on)
+    drawNoirFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1118,9 +1140,11 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         {
           if (mZero.wireframe)
             break; // the Wireframe bonus draws its own (world_zero_draw.cpp)
+          if (mCity.on && cityDrawsBlock(tx, ty))
+            break; // a model building (world_city_draw.cpp)
           // Shade blocks darker the deeper they sit below the surface.
           int depth = 0;
-          while (depth < 3 && (mMap.block(tx, ty - depth - 1) == Tile::Solid))
+          while (depth < 3 && (mMap.block(tx, ty - depth - 1) == Tile::Solid) && !(mCity.on && cityDrawsBlock(tx, ty - depth - 1)))
             ++depth;
           static constexpr int kShade[4] = {255, 210, 175, 145};
           const auto h = (hash2(tx, ty) >> 8) % 10u;
@@ -1180,7 +1204,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
   // Surface trims go on top so their glow/grass can overlap neighbours.
   for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
     for (int tx = tx0; tx <= tx1; ++tx)
-      if (mMap.block(tx, ty) == Tile::Solid && mMap.block(tx, ty - 1) != Tile::Solid &&
+      if (mMap.block(tx, ty) == Tile::Solid && (mMap.block(tx, ty - 1) != Tile::Solid || (mCity.on && cityDrawsBlock(tx, ty - 1))) &&
+          !(mCity.on && cityDrawsBlock(tx, ty)) &&
           mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)] && !mZero.wireframe)
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
 }
@@ -1190,6 +1215,11 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
   const auto& p = mPlayer;
   if (p.hidden || p.tube >= 0)
     return; // in a Gullet Tube, drawHiveFront draws you
+  if (mTop.on)
+  {
+    drawTopRunner(r, camX, camY, frame, alpha); // seen from above (world_city_draw.cpp)
+    return;
+  }
   // Mercy frames: Duke blinks the sprite on and off, then flashes it white.
   // Strobing at the logic rate looks harsh in HD, so the runner turns
   // see-through with a gentle pulse instead, and glows white at the end.
@@ -1609,6 +1639,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawKitchenHud(r, frame);
   if (mCity.on)
     drawCityHud(r, frame);
+  if (mNoir.on || mFilm.on)
+    drawNoirHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

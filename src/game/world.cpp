@@ -182,6 +182,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkGlide();
   linkCity();
   linkTopDown();
+  linkNoir();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -275,12 +276,36 @@ std::vector<Bonus> World::bonuses() const
   // falls, every gem of the level counts double.
   if (mGolem.on && mGolem.phase == GolemPhase::Done && mGreed >= 10 && s.gems > 0)
     out.push_back({"GOLD FEVER PAYOUT", s.gems * 500});
+  // Level 27: not one alarm all level.
+  if (mNoir.on && mNoir.alarms == 0)
+    out.push_back({"CASE CLOSED", kCaseClosed});
   return out;
 }
 
 // --- Update ------------------------------------------------------------------
 
 void World::update(const PlayerInput& input)
+{
+  if (!mFilm.on)
+  {
+    updateFrame(input);
+    return;
+  }
+  // The Silent Picture is undercranked: the logic runs at 1.5x (every
+  // other frame runs twice); a title card holds everything still.
+  mFilm.odd = !mFilm.odd;
+  updateFrame(input);
+  if (mFilm.odd && mState == WorldState::Playing && mFilm.card == 0)
+  {
+    PlayerInput again = input;
+    again.jump.triggered = false;
+    again.fire.triggered = false;
+    again.use.triggered = false;
+    updateFrame(again);
+  }
+}
+
+void World::updateFrame(const PlayerInput& input)
 {
   mPlayer.prevX = mPlayer.x;
   mPlayer.prevY = mPlayer.y;
@@ -309,6 +334,11 @@ void World::update(const PlayerInput& input)
   switch (mState)
   {
     case WorldState::Playing:
+      if (mFilm.card > 0)
+      {
+        --mFilm.card; // a title card: the picture holds
+        break;
+      }
       ++mStats.frames;
       updateLayers(false);
       updateBonusRules(input);
@@ -342,6 +372,10 @@ void World::update(const PlayerInput& input)
         updatePlayer(PlayerInput{}); // stepping through a mirror: no control
       else if (mKitchen.hand > 0)
         ; // in the chef's hand (updateKitchen moves the runner)
+      else if (mFilm.on && mFilm.gagState == 1)
+        ; // riding the ladder over (updateFilm moves the runner)
+      else if (filmHolds())
+        updatePlayer(PlayerInput{}); // a pratfall, a banana peel
       else
         updatePlayer(input);
       if (mManor.split.on)
@@ -425,6 +459,10 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateGarden(input);
   if (mCity.on)
     updateCity(input);
+  if (mNoir.on)
+    updateNoir(input);
+  if (mFilm.on)
+    updateFilm(input);
   updateHatches();
   updateProps(input);
 }
@@ -873,6 +911,15 @@ void World::updateEnemies()
       case EnemyKind::MaserTruck:
         updateMaserTruck(e, def);
         break;
+      case EnemyKind::Flatfoot:
+        updateFlatfoot(e, def);
+        break;
+      case EnemyKind::Goon:
+        updateGoon(e, def);
+        break;
+      case EnemyKind::Crow:
+        updateCrow(e, def);
+        break;
       case EnemyKind::EggTimer:
         updateEggTimer(e, def);
         break;
@@ -883,7 +930,8 @@ void World::updateEnemies()
 
     // Growth Spurt: at x1.5 or bigger, small Globs bounce off.
     const bool frozen = (e.kind == EnemyKind::Stalker && e.attach == 1) || (e.kind == EnemyKind::Puck && e.variant == 1) ||
-      (mGreen.grow && mGreen.size >= 2 && e.kind == EnemyKind::Glob && e.w <= 2);
+      (mGreen.grow && mGreen.size >= 2 && e.kind == EnemyKind::Glob && e.w <= 2) ||
+      (e.kind == EnemyKind::Flatfoot && e.dive > 0); // a Silent Picture extra flat on the floor
     if (e.alive && playerVulnerable && !frozen && !e.hidden && !(def.flags & kEnemyHarmless) && !mFloorLava &&
         p.vehicle < 0 && e.box().intersects(p.hitBox()))
       touchPlayer(e);
@@ -977,6 +1025,9 @@ void World::updateProjectiles()
       return true;
     // Level 26: Gorgazilla, and the photo in his trailer.
     if (mCity.on && pr.kind != ShotKind::Enemy && shotAtCity(pr, b))
+      return true;
+    // Level 27: the painting, the office alarm, the jukebox.
+    if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
       return true;
     // Level 17: a switch lights its grow lamps.
     if (mGreen.on && pr.kind != ShotKind::Enemy && shotAtGreen(pr, b))
@@ -1207,7 +1258,11 @@ void World::updateProjectiles()
           shotAtTemple(pr, e))
         return true;
       const bool wasAlive = e.alive;
-      if (!shotHitsEnemy(e, pr.dx, pr.damage))
+      // Level 27: the Silencer hits an unaware enemy three times as hard.
+      const bool quiet = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::Silencer) && noirUnaware(e);
+      if (mFilm.on)
+        filmShotHit(e); // the Silent Picture: his hat goes flying
+      if (!shotHitsEnemy(e, pr.dx, quiet ? pr.damage * 3 : pr.damage))
         return true; // a Bouncer took it on the chest
       if (wasAlive && !e.alive && pr.kind == ShotKind::Proto)
         ++mStats.protoKills;

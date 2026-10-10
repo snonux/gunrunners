@@ -1,6 +1,7 @@
 #include "assets/art.hpp"
 
 #include "assets/art_alien.hpp"
+#include "assets/art_city.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -1846,6 +1847,8 @@ Texture bakeLadder(const Renderer& r, const Theme& t)
 {
   if (isGarden(t))
     return bakeGardenLadder(r, t); // a stalk with leaf nubs
+  if (isCity(t))
+    return bakeCityLadder(r, t); // a galvanized manhole ladder
   // One block of ladder; the rails straddle the left cell column, so the
   // texture is drawn 16 px left of its block.
   VectorImage img(64, 64);
@@ -2078,6 +2081,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
   if (isGarden(t))
     return bakeGardenSolid(r, t, variant);
+  if (isCity(t))
+    return bakeCitySolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2510,6 +2515,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
   if (isGarden(t))
     return bakeGardenSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isCity(t))
+    return bakeCitySolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2635,6 +2642,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
 {
   if (isGarden(t))
     return bakeGardenPlatform(r, t);
+  if (isCity(t))
+    return bakeCityPlatform(r, t);
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -7235,6 +7244,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 {
   if (isGarden(t))
     return bakeGardenSky(r, t);
+  if (isCity(t))
+    return bakeCitySky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7400,6 +7411,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
   if (isGarden(t))
     return bakeGardenFar(r, t, kLayerW);
+  if (isCity(t))
+    return bakeCityFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7548,6 +7561,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
   if (isGarden(t))
     return bakeGardenNear(r, t, kLayerW);
+  if (isCity(t))
+    return bakeCityNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))

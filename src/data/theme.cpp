@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 34> kVariants{{
+const std::array<Variant, 35> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -499,20 +499,36 @@ const std::array<Variant, 34> kVariants{{
     rgb(120, 60, 40), rgb(180, 100, 60), rgb(60, 28, 20), rgb(255, 240, 120),
     rgb(255, 250, 230), "garden"}},
   // Level 26: a 1950s monster-movie model city on a soundstage at night,
-  // a painted Technicolor sky, grey model streets and pastel buildings.
+  // a painted Technicolor sky, a plywood base, grey model streets and
+  // pastel buildings.
   {"model_city",
    {ThemeId::LostTemple,
     "KAIJU TONIGHT",
     "A MODEL CITY ON A SOUNDSTAGE, AND TONIGHT YOU ARE THE MONSTER",
-    rgb(26, 30, 72), rgb(120, 70, 120), rgb(250, 150, 90),
-    rgb(92, 92, 100), rgb(140, 140, 148), rgb(44, 44, 52),
-    rgb(120, 120, 128), rgb(220, 220, 210),
-    rgb(110, 150, 90), rgb(60, 90, 50),
+    rgb(12, 14, 46), rgb(70, 44, 112), rgb(226, 112, 84),
+    rgb(178, 140, 96), rgb(216, 182, 134), rgb(112, 82, 52),
+    rgb(76, 78, 90), rgb(246, 208, 92),
+    rgb(150, 158, 172), rgb(82, 88, 102),
     rgb(80, 120, 70), rgb(160, 220, 140),
     rgb(255, 120, 60), rgb(120, 220, 255),
-    rgb(70, 70, 80), rgb(40, 40, 48),
-    rgb(90, 90, 100), rgb(150, 150, 160), rgb(40, 40, 50), rgb(255, 230, 140),
-    rgb(255, 245, 225), ""}},
+    rgb(56, 50, 100), rgb(34, 30, 48),
+    rgb(90, 96, 80), rgb(150, 160, 130), rgb(40, 44, 36), rgb(255, 230, 140),
+    rgb(255, 245, 225), "city"}},
+  // Level 27: film noir. A rain-soaked city at night in black and white;
+  // only the red things (the EXIT sign, the evidence, the alarm) have colour.
+  {"noir_city",
+   {ThemeId::LostTemple,
+    "THE LONG RAIN",
+    "A BLACK AND WHITE CITY IN THE RAIN, WHERE ONLY THE RED THINGS HAVE COLOUR",
+    rgb(10, 10, 12), rgb(34, 34, 38), rgb(70, 70, 76),
+    rgb(64, 64, 68), rgb(120, 120, 124), rgb(28, 28, 30),
+    rgb(150, 150, 154), rgb(230, 230, 230),
+    rgb(96, 96, 100), rgb(48, 48, 52),
+    rgb(200, 30, 40), rgb(255, 80, 80),
+    rgb(220, 30, 40), rgb(200, 200, 205),
+    rgb(40, 40, 44), rgb(22, 22, 24),
+    rgb(80, 80, 84), rgb(170, 170, 175), rgb(30, 30, 32), rgb(255, 255, 255),
+    rgb(235, 235, 235), ""}},
 }};
 
 } // namespace

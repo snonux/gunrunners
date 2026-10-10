@@ -300,7 +300,7 @@ void World::breakBuilding(int index)
         mMap.setBlock(bx, by, Tile::Empty);
   rateBreak(b);
   burst(cellCenter(buildingBox(b)), mTheme.rockLight, mTheme.rock, 14 + 4 * (b.x1 - b.x0 + b.y1 - b.y0), 1.6f);
-  playSound(b.kind == BuildingKind::House ? Sfx::BoxBreak : Sfx::Crash);
+  playSound(b.kind == BuildingKind::House ? Sfx::BoxBreak : Sfx::BuildingCrumble);
   if (b.kind == BuildingKind::Prize)
     showMessage("THE HALCYON TOWER! +" + std::to_string(b.rating));
   else if (b.kind == BuildingKind::Roof)
@@ -471,7 +471,7 @@ void World::updateBreath(const Button& fire)
   }
   ++c.breath;
   if (c.breath == 1)
-    playSound(Sfx::FlameShot);
+    playSound(Sfx::BreathBeam);
   // Up or Down while breathing sweeps it, a 15-degree step every 3 frames.
   if (c.breath % kBreathStepEvery == 0)
   {
@@ -679,7 +679,7 @@ void World::updateMaserTruck(Enemy& e, const EnemyDef& def)
   {
     e.dir = dx < 0 ? -1 : 1;
     e.tell = def.tell;
-    playSound(Sfx::EyeCharge);
+    playSound(Sfx::MaserHum);
     return;
   }
   if (e.timer % std::max(1, def.stepEvery) != 0)
@@ -861,7 +861,7 @@ void World::damageLizard(int amount)
     z.state = LizardState::Stagger;
     z.t = 0;
     z.attacks = 0;
-    playSound(Sfx::Screech);
+    playSound(Sfx::Roar);
     const int k = lizardPier();
     Item it;
     it.kind = ItemKind::Health;
@@ -957,13 +957,13 @@ void World::updateLizard()
       {
         z.state = LizardState::Roar;
         z.beamRow = -1;
-        playSound(Sfx::Screech);
+        playSound(Sfx::Roar);
       }
       break;
     }
     case LizardState::Roar:
       if (z.t == kRoarLen - kRoarLock)
-        playSound(Sfx::EyeCharge);
+        playSound(Sfx::MaserHum);
       if (z.t == kRoarLock)
         z.beamRow = p.y - 1; // the dish locks onto the runner's row
       if (z.t >= kRoarLen)

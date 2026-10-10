@@ -176,6 +176,8 @@ void World::setupEntities()
       setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupNoirEntity(e))
+      continue;
     if (setupManorEntity(e))
       continue;
     if (setupKitchenEntity(e))
@@ -219,6 +221,7 @@ void World::setupEntities()
       setupKitchenEnemy(en, e);
       setupGardenEnemy(en, e);
       setupCityEnemy(en, e);
+      setupNoirEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:

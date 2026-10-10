@@ -800,7 +800,9 @@ void World::fireShot()
   if (p.weapon == Weapon::Proto)
   {
     fireProto(p.x + off[0], p.y + off[1], dx, dy);
-    sound = protoDef(p.proto).speed >= 3 ? Sfx::LaserShot : Sfx::Shot;
+    sound = ProtoId(p.proto) == ProtoId::Silencer ? Sfx::Puff
+      : protoDef(p.proto).speed >= 3                ? Sfx::LaserShot
+                                                    : Sfx::Shot;
   }
   else
   {
@@ -808,6 +810,8 @@ void World::fireShot()
   }
   playSound(sound);
   sonarPing(p.x + off[0], p.y + off[1]);
+  // Level 27: every gun but the Silencer is heard.
+  noirShotFired(p.x + off[0], p.y + off[1], !(p.weapon == Weapon::Proto && ProtoId(p.proto) == ProtoId::Silencer));
   p.recoil = 1;
   p.muzzleTicks = 6;
   p.muzzleStance = p.stance;
@@ -1115,6 +1119,8 @@ void World::respawnPlayer()
     resetGarden();
   if (mCity.on)
     resetCity();
+  if (mNoir.on || mFilm.on)
+    resetNoir();
   if (mWest.on)
     resetWest();
   if (!mVehicles.empty())
@@ -1177,6 +1183,7 @@ void World::updatePlayerInteractions()
     }
     playSound(Sfx::Checkpoint);
     showMessage("CHECKPOINT - YOU WILL RESPAWN HERE");
+    noirCheckpoint(); // Level 27: Clean Case
     flashAt({(float(cp.x) + 1.0f) * kCellSize, (float(cp.y) - 3.0f) * kCellSize}, 90.0f, mTheme.accentB, 30);
   }
 

@@ -54,7 +54,7 @@ const Macro kMacros[] = {
   {false, false, false, false, false, 0, false}, // sit out the chorus (laser fans)
 };
 constexpr int kMacroCountBase = int(sizeof(kMacros) / sizeof(kMacros[0]));
-constexpr int kMacroCount = kMacroCountBase + 8;
+constexpr int kMacroCount = kMacroCountBase + 11;
 constexpr int kLongWait = 15;
 constexpr int kWaitLaunch = 16;
 constexpr int kWaitVerse = 17;
@@ -75,6 +75,18 @@ bool capMacro(int m) { return m >= kCapRight && m <= kCapSetLeft; }
 constexpr int kSpearRight = kMacroCountBase + 6;
 constexpr int kSpearLeft = kMacroCountBase + 7;
 bool spearMacro(int m) { return m == kSpearRight || m == kSpearLeft; }
+// Level 27: jump straight up and fire at frame 2, 4 or 6 of the jump (a Crow
+// on a ledge, out of reach of a shot from the ground).
+constexpr int kJumpShot = kMacroCountBase + 8;
+bool jumpShotMacro(int m) { return m >= kJumpShot && m < kJumpShot + 3; }
+Input jumpShotInput(int m, int f, bool& done)
+{
+  Input in;
+  in.jump = f < 4;
+  in.fire = f == 2 + (m - kJumpShot) * 2;
+  done = f >= 10;
+  return in;
+}
 
 bool spearsHeld(const World& w)
 {
@@ -152,6 +164,14 @@ int macroFrames(int m, const World& w)
     return capsUseful(w) ? 1 : 0;
   if (spearMacro(m))
     return spearUseful(w, m == kSpearRight ? 1 : -1) ? 1 : 0;
+  if (jumpShotMacro(m))
+  {
+    // Only with a Crow close by.
+    for (const auto& e : w.enemies())
+      if (e.alive && e.kind == EnemyKind::Crow && std::abs(e.x - w.player().x) < 24 && std::abs(e.y - w.player().y) < 16)
+        return 1;
+    return 0;
+  }
   if (m == kLongWait)
   {
     bool opening = false;
@@ -187,6 +207,19 @@ int macroFrames(int m, const World& w)
     return 14 * 30 - w.clock() % kPhraseFrames;
   }
   return 4;
+}
+
+// Level 27: alarms raised, plus one on its way (a Crow's head turning, the
+// "?" half full).
+int alarmHeat(const World& w)
+{
+  const auto& n = w.noir();
+  if (!n.on)
+    return 0;
+  bool coming = n.alarm == 0 && n.suspicion >= kSpotFill / 2;
+  for (const auto& e : w.enemies())
+    coming = coming || (e.alive && e.kind == EnemyKind::Crow && e.tell > 0);
+  return n.alarms + (coming ? 1 : 0);
 }
 
 Input macroInput(const Macro& m, int f)
@@ -450,6 +483,14 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         consider(b.x, b.y);
     if (bestD >= 0)
       return best;
+  }
+  // Level 27: for the bonus, stand under the painting (Bot::noir shoots it open).
+  if (w.noir().paintX >= 0 && !w.noir().paintOpen && mTakeBonus && !mSkipBonus)
+  {
+    const auto& n = w.noir();
+    const int px = w.player().x / kCellsPerTile;
+    if (px <= n.paintX + 2)
+      return {18, n.paintX * kCellsPerTile - 2, (n.paintY + 4) * kCellsPerTile - 5, 3, 5, -1};
   }
   // Level 23: the bonus detour through the crypt; then the next mirror to
   // step through, or lever to throw, on the manor's route.
@@ -1538,6 +1579,18 @@ void Planner::buildField(const World& w, const Goal& goal)
         }
     }
   }
+  // Level 27's Silent Picture: the ladder gag's top carries the runner over
+  // the gap onto the far roof.
+  if (const auto& f = w.film(); f.gagX >= 0 && f.gagState == 0)
+  {
+    const int ex = (f.gagX + f.gagLen + 1) * kCellsPerTile, ey = (f.gagY1 + 1) * kCellsPerTile - 1;
+    if (ex < W && ey < H && valid[std::size_t(ey * W + ex)])
+      for (int fy = std::max(0, f.gagY0 * kCellsPerTile); fy <= std::min(H - 1, f.gagY0 * kCellsPerTile + 6); ++fy)
+        for (int fx = std::max(0, f.gagX * kCellsPerTile - 2); fx <= std::min(W - 1, f.gagX * kCellsPerTile + 1); ++fx)
+          if (valid[std::size_t(fy * W + fx)])
+            for (int a = 0; a < A; ++a)
+              list.push_back({node(fx, fy, a), node(ex, ey, 0), 16});
+  }
   for (const auto& e : list)
     ++revStart[std::size_t(e.to) + 1];
   for (int i = 0; i < N; ++i)
@@ -2246,6 +2299,7 @@ void Planner::plan(const World& world)
     // Level 26: buildings broken, towers fallen.
     for (const auto& b : world.city().buildings)
       powered = int(unsigned(powered) * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u)));
+    powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
     // Level 22: barrels blown (bridges down, rock gone).
     for (const auto& b : world.west().barrels)
       powered = powered * 2 + b.blown;
@@ -2401,6 +2455,21 @@ void Planner::plan(const World& world)
     for (const auto& b : w.breakables())
       cracks = cracks * 7 + b.hp;
     k = mix(k, std::uint64_t(cracks));
+    if (w.film().on)
+      k = mix(k, std::uint64_t(w.film().gagState) | (std::uint64_t(w.film().slide) << 2) |
+                   (std::uint64_t(w.film().pratfall) << 8));
+    // Level 27: the alarm, the "?" and where the Flatfeet and Goons are.
+    if (w.noir().on)
+    {
+      const auto& nr = w.noir();
+      std::uint64_t nk = std::uint64_t(nr.alarm > 0) | (std::uint64_t(nr.suspicion) << 1) |
+        (std::uint64_t(nr.alarms) << 5);
+      for (const auto& e : w.enemies())
+        if (e.alive && !e.hidden && (e.kind == EnemyKind::Flatfoot || e.kind == EnemyKind::Goon) &&
+            std::abs(e.x - p.x) < 48)
+          nk = nk * 131 + std::uint64_t(e.x * 2 + (e.dir > 0)) + (std::uint64_t(e.hp) << 20);
+      k = mix(k, nk);
+    }
     // Level 26: which buildings stand, how cracked the roof under the runner is.
     if (w.city().on)
     {
@@ -2568,6 +2637,7 @@ void Planner::plan(const World& world)
   };
   const int h0 = heuristic(world);
   const int hp0 = p0.hp;
+  static const bool loud = std::getenv("GR_BOT_LOUD") != nullptr;
   auto score = [&](const Node& n) { return n.g + n.h; };
   auto cmp = [&](int a, int b) { return score(nodes[std::size_t(a)]) > score(nodes[std::size_t(b)]); };
   std::priority_queue<int, std::vector<int>, decltype(cmp)> open(cmp);
@@ -2616,7 +2686,8 @@ void Planner::plan(const World& world)
       found = ni;
       break;
     }
-    if (ni != 0 && stable(nw) && np.hp >= hp0 - 1 && !nw.trainDanger())
+    if (ni != 0 && stable(nw) && np.hp >= hp0 - 1 && !nw.trainDanger() &&
+        (loud || nw.noir().suspicion == 0 || nw.noir().alarm > 0)) // not stopping where a Flatfoot is looking
     {
       const bool done = n.h <= h0 - kProgress;
       const bool better = bestStable < 0 || n.h < nodes[std::size_t(bestStable)].h;
@@ -2640,7 +2711,7 @@ void Planner::plan(const World& world)
       auto child = std::make_unique<World>(nw);
       Input prev = n.last;
       bool dead = false;
-      const bool vine = m == kVineRight || m == kVineLeft || capMacro(m) || spearMacro(m);
+      const bool vine = m == kVineRight || m == kVineLeft || capMacro(m) || spearMacro(m) || jumpShotMacro(m);
       std::vector<Input> seq;
       int launchedAt = -1;
       int ran = 0;
@@ -2649,6 +2720,7 @@ void Planner::plan(const World& world)
         bool done = false, fail = false;
         const Input in = spearMacro(m) ? spearInput(*child, m, f, done, fail)
           : capMacro(m)                ? capInput(*child, m, f, done, fail)
+          : jumpShotMacro(m)           ? jumpShotInput(m, f, done)
           : vine ? vineInput(*child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail)
                  : macroInput(kMacros[m], f);
         if (fail)
@@ -2676,7 +2748,11 @@ void Planner::plan(const World& world)
       const auto key = keyOf(*child);
       const int lost = std::max(0, nw.player().hp - child->player().hp);
       // Waiting for the drop counts as a short wait: it is the way up.
+      // Level 27: an alarm costs as much as a lost heart and a half (a
+      // stealthy route is worth waiting for); GR_BOT_LOUD=1 doesn't care.
+      const int alarms = loud ? 0 : std::max(0, alarmHeat(*child) - alarmHeat(nw));
       const int g = n.g + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : (vine ? ran / 2 : frames))) + lost * 60 +
+        alarms * 90 +
         (m >= 10 && m <= 12 ? 1 : 0);
       const auto it = seen.find(key);
       if (it != seen.end() && it->second <= g)

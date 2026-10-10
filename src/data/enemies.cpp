@@ -220,6 +220,13 @@ const EnemyDef kEnemies[] = {
   {"model_tank", "MODEL TANK", K::ModelTank, L::Styled, 3, 2, 2, 200, 2, 30, 10, 0, kEnemyHarmless, 0},
   {"toy_jet", "TOY JET", K::ToyJet, L::Styled, 3, 2, 1, 300, 1, 45, 30, 0, kEnemyHarmless | kEnemyNoTally, 0},
   {"maser_truck", "MASER TRUCK", K::MaserTruck, L::Styled, 6, 4, 10, 1200, 4, 45, 22, 0, kEnemyHarmless, 0},
+  // Level 27, The Long Rain (world_noir.cpp). Flatfoot: tell is the "?"
+  // filling, cooldown the wait before he may whistle again after an alarm.
+  // Goon: tell the tommy gun's click, cooldown between bursts (shared).
+  // Crow: tell the head turn before a caw.
+  {"flatfoot", "FLATFOOT", K::Flatfoot, L::Styled, 3, 5, 3, 500, 2, 45, 8, 0, 0, 0},
+  {"goon", "GOON", K::Goon, L::Styled, 3, 5, 3, 400, 2, 45, 12, 0, kEnemyNoTally, 0},
+  {"crow", "CROW", K::Crow, L::Styled, 2, 2, 1, 100, 0, 0, 10, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

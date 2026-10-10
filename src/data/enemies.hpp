@@ -125,6 +125,10 @@ enum class EnemyKind
   ModelTank,  // patrols in a squad; the squad's tanks fire up at 45 degrees in turn
   ToyJet,     // strafes in a formation of three, dropping a shot over the runner
   MaserTruck, // patrols; a ring grows on its dish, then a beam along its row
+  // Level 27, The Long Rain (world_noir.cpp).
+  Flatfoot,   // patrols with a flashlight; spots a runner who is not hidden and blows the whistle
+  Goon,       // comes out of a door during an alarm, chases, fires a three-shot burst
+  Crow,       // sits on a ledge; caws (an alarm) at a runner who is not hidden close by
 };
 
 enum EnemyFlag : unsigned

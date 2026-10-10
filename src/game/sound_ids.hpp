@@ -164,6 +164,10 @@ enum class Sfx
   AntAlarm,  // a Soldier Ant column alarmed (a rattle of chittering clicks)
   BeetleJet, // a Bombardier Beetle firing (a boiling pop and a scalding hiss)
   Narrator,  // a narrator's subtitle (breathy blips around 200 Hz)
+  Roar,      // Gorgazilla's roar (a growl through a megaphone, rising and cracking)
+  BuildingCrumble, // a model building collapsing (a balsa crunch and a rattle of bits)
+  BreathBeam, // the Atomic Breath (a rising crackling electric whoosh)
+  MaserHum,  // a Maser dish charging (a pulsing hum climbing in pitch)
   Count,
 };
 

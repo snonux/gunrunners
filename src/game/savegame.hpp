@@ -143,6 +143,7 @@ struct SaveGame
   std::vector<int> kitchen; // Level 24 (World::kitchenSave)
   std::vector<int> garden;  // Level 25 (World::gardenSave)
   std::vector<int> city;    // Level 26 (World::citySave)
+  std::vector<int> noir;    // Level 27 (World::noirSave)
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

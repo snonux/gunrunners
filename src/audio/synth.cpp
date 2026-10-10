@@ -2125,6 +2125,94 @@ std::vector<float> makeSfx(Sfx id)
         return v * 0.42 * std::min(1.0, (total - t) / 0.03);
       });
     }
+    case Sfx::Roar:
+    {
+      // Gorgazilla's roar: a man growling into a megaphone off camera. A
+      // rough voice (a saw with a jittering pitch) through two vowel
+      // formants that open from "oo" to "ah", band-limited like a cheap horn
+      // and driven into its distortion; the pitch climbs, then cracks and
+      // falls away.
+      Osc voice, sub, vib;
+      Noise n(701), jit(709);
+      Svf f1, f2, horn, breath;
+      OnePole hp;
+      double wob = 0.0;
+      return render(1.4, [&](double t, double total) {
+        const double u = t / total;
+        wob = wob * 0.995 + double(jit.next()) * 0.005;
+        double p = u < 0.55 ? sweep(82.0, 128.0, u / 0.55) : sweep(150.0, 70.0, (u - 0.55) / 0.45);
+        p *= 1.0 + 0.03 * vib.step(7.0, Wave::Sine) + 0.6 * wob;
+        const float x = voice.step(p, Wave::Saw);
+        const double open = std::min(1.0, u / 0.3);
+        const double vowel = f1.band(x, lerp(380.0, 760.0, open), 4.0) * 0.8 + f2.band(x, lerp(900.0, 1250.0, open), 5.0) * 0.45;
+        const double growl = sub.step(p * 0.5, Wave::Square, 0.3) * 0.25 * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 31.0));
+        const double air = breath.band(n.next(), 1700.0, 0.7) * 0.35;
+        const double megaphone = hp.highpass(horn.band(float(vowel + growl + air), 1100.0, 0.8), 260.0);
+        const double env = attack(t, 0.08) * std::min(1.0, (total - t) / 0.35);
+        return std::tanh(megaphone * 3.2) * 0.42 * env;
+      });
+    }
+    case Sfx::BuildingCrumble:
+    {
+      // A model building giving way: the balsa frame crunching (a burst of
+      // crackling snaps that thins out), a soft thump onto the plywood and
+      // a rattle of little bits bouncing after.
+      Noise n(719), m(727), r(733);
+      Svf snap, bits;
+      Osc body;
+      OnePole lp;
+      double held = 0.0;
+      int counter = 0;
+      return render(0.95, [&](double t, double total) {
+        if (counter-- <= 0)
+        {
+          held = double(m.next());
+          counter = 6 + int(t * 60.0);
+        }
+        const double crunch = lp.lowpass(float(held), 1400.0) * decay(t, 0.18) * 0.9;
+        const double rate = lerp(0.9, 0.995, std::min(1.0, t / 0.5));
+        const double s = n.next() > rate ? snap.band(r.next(), 2400.0, 3.0) * 3.0 : snap.band(0.0f, 2400.0, 3.0);
+        const double thump = t > 0.06 ? body.step(sweep(120.0, 48.0, (t - 0.06) / 0.12), Wave::Sine) * decay(t - 0.06, 0.09) : 0.0;
+        const double rattle = t > 0.25 && n.next() > 0.985 ? bits.band(r.next(), 3600.0, 4.0) * 2.0 : bits.band(0.0f, 3600.0, 4.0);
+        return (crunch + s * 0.5 + thump * 0.8 + rattle * 0.3) * 0.5 * attack(t, 0.002) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::BreathBeam:
+    {
+      // The Atomic Breath: a rising electric whoosh (noise through a band
+      // sweeping up), a buzzing core at the mains hum's harmonics and the
+      // crackle of sparks along the beam.
+      Noise n(739), c(743);
+      Svf rush, zap;
+      Osc buzz, core;
+      OnePole lp;
+      return render(1.1, [&](double t, double total) {
+        const double u = t / total;
+        const double whoosh = rush.band(n.next(), sweep(500.0, 2600.0, std::min(1.0, u * 1.4)), 1.4);
+        const double hum = lp.lowpass(buzz.step(110.0 + 6.0 * std::sin(t * 40.0), Wave::Saw), 900.0) * 0.5;
+        const double hot = core.step(sweep(220.0, 440.0, u), Wave::Sine) * 0.25;
+        const double sp = c.next() > 0.985 ? zap.band(n.next(), 4200.0, 2.0) * 3.0 : zap.band(0.0f, 4200.0, 2.0);
+        const double env = attack(t, 0.12) * std::min(1.0, (total - t) / 0.25);
+        return (whoosh * 0.6 + hum + hot + sp * 0.35) * 0.45 * env;
+      });
+    }
+    case Sfx::MaserHum:
+    {
+      // A Maser dish charging: a heavy transformer hum climbing in pitch,
+      // pulsing faster and faster, with a thin whine riding on top.
+      Osc hum, whine;
+      OnePole lp;
+      double ph = 0.0;
+      return render(0.85, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(70.0, 190.0, u);
+        ph += sweep(5.0, 22.0, u) / kRate;
+        const double pulse = 0.55 + 0.45 * std::sin(2.0 * kPi * ph);
+        const double h = lp.lowpass(hum.step(f, Wave::Square, 0.5), 700.0) * pulse;
+        const double w = whine.step(sweep(1100.0, 2600.0, u), Wave::Sine) * 0.12 * u;
+        return (h * 0.55 + w) * 0.6 * attack(t, 0.03) * std::min(1.0, (total - t) / 0.06);
+      });
+    }
     case Sfx::Count:
       break;
   }

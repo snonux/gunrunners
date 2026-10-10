@@ -22,6 +22,7 @@ add_library(gunrunners_core STATIC
   src/assets/art.cpp
   src/assets/enemy_art.cpp
   src/assets/art_alien.cpp
+  src/assets/art_city.cpp
   src/assets/art_garden.cpp
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
@@ -37,6 +38,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_west.cpp
   src/assets/enemy_art_manor.cpp
   src/assets/enemy_art_kitchen.cpp
+  src/assets/enemy_art_city.cpp
   src/assets/enemy_art_garden.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
@@ -108,6 +110,8 @@ add_library(gunrunners_core STATIC
   src/game/world_glide.cpp
   src/game/world_city.cpp
   src/game/world_city_draw.cpp
+  src/game/world_noir.cpp
+  src/game/world_noir_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -132,6 +136,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_kitchen.cpp
   src/frontend/bot_garden.cpp
   src/frontend/bot_city.cpp
+  src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
@@ -299,3 +304,7 @@ add_test(NAME savegame_kaiju_tonight COMMAND savegame_test ${CMAKE_SOURCE_DIR}/l
 add_executable(city_test tests/city_test.cpp)
 target_link_libraries(city_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME city COMMAND city_test ${CMAKE_SOURCE_DIR}/levels/26_bonus_top_down.txt)
+add_test(NAME savegame_the_long_rain COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/27_the_long_rain.txt 330)
+add_executable(noir_test tests/noir_test.cpp)
+target_link_libraries(noir_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME noir COMMAND noir_test ${CMAKE_SOURCE_DIR}/levels/27_bonus_silent_picture.txt)

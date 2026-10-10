@@ -21,6 +21,7 @@
 #include "game/west.hpp"
 #include "game/garden.hpp"
 #include "game/city.hpp"
+#include "game/noir.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
@@ -1608,6 +1609,7 @@ public:
 
   // One 15 Hz logic frame.
   void update(const PlayerInput& input);
+  void updateFrame(const PlayerInput& input); // one logic frame (update runs it 1.5x in the Silent Picture)
   // One 60 Hz render tick: particles, shake, flashes.
   // 60 Hz effects and camera easing; alpha is the next render's alpha.
   void tickEffects(float alpha);
@@ -1803,6 +1805,14 @@ public:
   const GlideState& glide() const { return mGlide; }
   const CityState& city() const { return mCity; }
   const TopDownState& topDown() const { return mTop; }
+  // Level 27 (world_noir.cpp): the stealth state, and what sees what.
+  const NoirState& noir() const { return mNoir; }
+  const FilmState& film() const { return mFilm; }
+  bool noirHiddenAt(int cx, int cy) const;
+  bool inSpotlight(int cx, int cy) const;
+  bool inFlashlight(const Enemy& e, int cx, int cy) const;
+  int noirSpotX(const NoirSpot& s) const;
+  bool filmHolds() const; // a pratfall, a slide or the ladder gag: no control
   bool lizardFight() const;    // Level 26: the runner is in the arena and Gorgazilla is up
   int lizardHp() const;        // his hearts left over all three phases
   CellBox lizardBox() const;
@@ -2479,10 +2489,39 @@ private:
   void drawCityBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawCityFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawCityHud(Renderer& r, int frame) const;
+  void drawTopRunner(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  bool cityDrawsBlock(int bx, int by) const; // a model building's block: drawCityBack paints it
   // Its Top-Down Rampage bonus (world_topdown.cpp).
   void linkTopDown();
   void updateTopDown(int mvX, int mvY, const PlayerInput& in);
   void updateTopTank(Enemy& e, const EnemyDef& def);
+  // Level 27, The Long Rain (world_noir.cpp, world_noir_draw.cpp), and its
+  // Silent Picture bonus (rules=silent_film).
+  bool setupNoirEntity(const EntityDef& e);
+  void setupNoirEnemy(Enemy& en, const EntityDef& e);
+  void linkNoir();
+  bool noirUnaware(const Enemy& e) const;
+  void raiseAlarm(const std::string& why);
+  void noirShotFired(int x, int y, bool loud);
+  void noirCheckpoint();
+  void updateFlatfoot(Enemy& e, const EnemyDef& def);
+  void updateGoon(Enemy& e, const EnemyDef& def);
+  void updateCrow(Enemy& e, const EnemyDef& def);
+  void updateNoir(const PlayerInput& input);
+  bool shotAtNoir(Projectile& pr, const CellBox& b);
+  void openSafe();
+  void resetNoir();
+  bool noirCanSave() const;
+  std::vector<int> noirSave() const;
+  bool validNoirSave(const std::vector<int>& v) const;
+  void loadNoir(const std::vector<int>& v);
+  void layLadderBridge();
+  void updateFilmExtra(Enemy& e, const EnemyDef& def);
+  void filmShotHit(Enemy& e);
+  void updateFilm(const PlayerInput& input);
+  void drawNoirBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawNoirFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawNoirHud(Renderer& r, int frame) const;
   // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
   bool setupKitchenEntity(const EntityDef& e);
   void setupKitchenEnemy(Enemy& en, const EntityDef& e);
@@ -2742,7 +2781,7 @@ private:
   void showMessage(const std::string& text);
   void playSound(Sfx s)
   {
-    if (!mSimulation)
+    if (!mSimulation && !mFilm.on) // the Silent Picture has no sound at all
       mSounds.push_back(s);
   }
   Camera::Target cameraTarget() const;
@@ -2945,6 +2984,8 @@ private:
   GlideState mGlide;
   CityState mCity;
   TopDownState mTop;
+  NoirState mNoir;
+  FilmState mFilm;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;
