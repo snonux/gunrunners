@@ -103,6 +103,12 @@ enum class Sfx
   Squish,    // a Glob landing, splitting
   LampOn,    // a grow lamp buzzing on
   Grow,      // Growth Spurt: one size up (down is the same, played lower)
+  Recoil,    // the Recoil Cannon: a deep thump with a whoosh of exhaust
+  Thrust,    // an EVA Ram's thruster firing (its ram)
+  Spikes,    // a Space Barnacle's shell snapping open, spikes out
+  Rivet,     // a rivet working loose and popping out (a metallic ping)
+  Hop,       // a Rivet Mite or the runner on a planetoid leaping (a tiny chirp)
+  FlagUp,    // a flag planted: a flap of cloth and a little fanfare
   Count,
 };
 

@@ -3079,6 +3079,288 @@ void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy
   (void)clip;
 }
 
+// Level 18: looking down the airlock chamber to the outer door. The opening
+// is 480 x 400 at (400, 150).
+constexpr float kLockX = 400.0f, kLockY = 150.0f, kLockW = 480.0f, kLockH = 400.0f;
+
+// Through the outer door: open space, the planet's curve and the sun
+// coming up over it.
+void hullSunrise(ClipKit& k, float ox, float oy)
+{
+  const Texture& sky = cached(k, "e3_hull_sunrise", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(2, 3, 12), rgb(10, 16, 44), rgb(40, 60, 110));
+    for (int i = 0; i < 300; ++i)
+    {
+      const double s = double(hash2(i, 181) % 100u) / 100.0;
+      cairo_arc(cr, double(hash2(i, 182) % 1280u), double(hash2(i, 183) % 460u), 0.5 + s * 1.4, 0, 2 * kPi);
+      setColor(cr, rgba(230, 238, 255, 60 + int(s * 190)));
+      cairo_fill(cr);
+    }
+    const double cx = 640, top = 430, pr = 1500, cy = top + pr, sunX = 700;
+    const double sunY = cy - std::sqrt(pr * pr - (sunX - cx) * (sunX - cx));
+    radialGlow(cr, sunX, sunY, 460, rgb(255, 140, 60), 0.45);
+    cairo_arc(cr, cx, cy, pr, 0, 2 * kPi);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, top, 0, 720);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.1, 0.15, 0.3);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.02, 0.03, 0.08);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // City lights on the night side, dawn creeping on near the sun.
+    for (int i = 0; i < 120; ++i)
+    {
+      const double x = double(hash2(i, 184) % 1280u);
+      const double y = cy - std::sqrt(pr * pr - (x - cx) * (x - cx)) + 20 + double(hash2(i, 185) % 200u);
+      cairo_arc(cr, x, y, 0.8, 0, 2 * kPi);
+      setColor(cr, rgba(255, 200, 120, 140));
+      cairo_fill(cr);
+    }
+    // The limb: gold by the sun, blue away from it.
+    for (int pass = 0; pass < 3; ++pass)
+      for (int x = 0; x < 1280; x += 8)
+      {
+        const double d = std::min(1.0, std::abs(x + 4 - sunX) / 500.0);
+        const Color c = lerpColor(rgb(255, 210, 120), rgb(90, 170, 255), float(d));
+        const double y0 = cy - std::sqrt(pr * pr - (x - cx) * (x - cx));
+        const double y1 = cy - std::sqrt(pr * pr - (x + 8 - cx) * (x + 8 - cx));
+        cairo_move_to(cr, x, y0);
+        cairo_line_to(cr, x + 8, y1);
+        cairo_set_source_rgba(cr, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0,
+          (pass == 0 ? 0.2 : (pass == 1 ? 0.5 : 1.0)) * (1.0 - 0.4 * d));
+        cairo_set_line_width(cr, pass == 0 ? 24 : (pass == 1 ? 9 : 3));
+        cairo_stroke(cr);
+      }
+    radialGlow(cr, sunX, sunY, 110, rgb(255, 250, 220), 0.95);
+    cairo_save(cr);
+    cairo_translate(cr, sunX, sunY);
+    cairo_scale(cr, 1.0, 0.02);
+    cairo_arc(cr, 0, 0, 520, 0, 2 * kPi);
+    cairo_restore(cr);
+    setColor(cr, rgba(255, 240, 210, 170));
+    cairo_fill(cr);
+  });
+  k.r.draw(sky, ox, oy);
+}
+
+// The chamber round the opening, with the opening cut out: floor, ceiling
+// and walls running to it, the hazard-banded outer frame, the door's pocket
+// on the right, and the dark inner doorway framing the shot.
+void hullChamber(ClipKit& k, float ox, float oy)
+{
+  const Texture& room = cached(k, "e3_hull_chamber", 1280, 720, 0, 0, [](cairo_t* cr) {
+    const double x0 = kLockX, y0 = kLockY, x1 = kLockX + kLockW, y1 = kLockY + kLockH;
+    const struct
+    {
+      double ax, ay, bx, by, cx, cy, dx, dy;
+      Color c;
+    } faces[] = {
+      {0, 720, 1280, 720, x1, y1, x0, y1, rgb(52, 60, 78)},
+      {0, 0, 1280, 0, x1, y0, x0, y0, rgb(40, 46, 62)},
+      {0, 0, x0, y0, x0, y1, 0, 720, rgb(62, 70, 90)},
+      {1280, 0, x1, y0, x1, y1, 1280, 720, rgb(56, 64, 84)},
+    };
+    for (const auto& f : faces)
+    {
+      cairo_move_to(cr, f.ax, f.ay);
+      cairo_line_to(cr, f.bx, f.by);
+      cairo_line_to(cr, f.cx, f.cy);
+      cairo_line_to(cr, f.dx, f.dy);
+      cairo_close_path(cr);
+      setColor(cr, f.c);
+      cairo_fill(cr);
+    }
+    // Ribs round the chamber, receding to the door.
+    for (int i = 1; i < 4; ++i)
+    {
+      const double t = i / 4.0;
+      const double lx = x0 * t, ty = y0 * t, rx = 1280 - (1280 - x1) * t, by = 720 - (720 - y1) * t;
+      cairo_rectangle(cr, lx, ty, rx - lx, by - ty);
+      setColor(cr, rgba(150, 166, 196, 70));
+      cairo_set_line_width(cr, 10 * (1.0 - t * 0.6));
+      cairo_stroke(cr);
+      // Strip lights on the ceiling ribs.
+      cairo_rectangle(cr, 640 - 60 * (1 - t * 0.6), ty + 6, 120 * (1 - t * 0.6), 6);
+      setColor(cr, rgba(220, 240, 255, 200));
+      cairo_fill(cr);
+    }
+    // Floor grating lines toward the door.
+    for (int i = 0; i <= 10; ++i)
+    {
+      const double fx = 1280.0 * i / 10.0;
+      cairo_move_to(cr, fx, 720);
+      cairo_line_to(cr, x0 + (x1 - x0) * i / 10.0, y1);
+      setColor(cr, rgba(20, 24, 34, 120));
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+    // The outer frame: hazard bands round the opening.
+    const double band = 18;
+    cairo_save(cr);
+    cairo_rectangle(cr, x0 - band, y0 - band, kLockW + 2 * band, kLockH + 2 * band);
+    cairo_rectangle(cr, x0, y0, kLockW, kLockH);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_clip(cr);
+    setColor(cr, rgb(255, 196, 30));
+    cairo_paint(cr);
+    for (int s = -40; s < 80; ++s)
+    {
+      cairo_move_to(cr, x0 - band + s * 24.0, y1 + band);
+      cairo_line_to(cr, x0 - band + s * 24.0 + 12, y1 + band);
+      cairo_line_to(cr, x0 - band + s * 24.0 + 12 + 600, y1 + band - 600);
+      cairo_line_to(cr, x0 - band + s * 24.0 + 600, y1 + band - 600);
+      cairo_close_path(cr);
+    }
+    setColor(cr, rgb(30, 30, 36));
+    cairo_fill(cr);
+    cairo_restore(cr);
+    cairo_rectangle(cr, x0 - band, y0 - band, kLockW + 2 * band, kLockH + 2 * band);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The opening itself, cut out.
+    cairo_save(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+    cairo_rectangle(cr, x0, y0, kLockW, kLockH);
+    cairo_fill(cr);
+    cairo_restore(cr);
+    // The inner doorway, dark against the light: a thick frame round the shot.
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    roundedRect(cr, 70, 46, 1140, 720, 40);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    setColor(cr, rgb(12, 14, 22));
+    cairo_fill(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+    roundedRect(cr, 70, 46, 1140, 720, 40);
+    setColor(cr, rgba(120, 140, 170, 120));
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  });
+  k.r.draw(room, ox, oy);
+}
+
+// The outer door: a heavy panel, hazard-striped along its leading edge, a
+// stencilled 42 and a small round port.
+void hullDoor(ClipKit& k, float x, float y)
+{
+  const Texture& door = cached(k, "e3_hull_door", int(kLockW), int(kLockH), 0, 0, [](cairo_t* cr) {
+    const double w = kLockW, h = kLockH;
+    cairo_rectangle(cr, 0, 0, w, h);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, w, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.84, 0.87, 0.92);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.6, 0.64, 0.72);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (int row = 1; row < 4; ++row)
+    {
+      cairo_rectangle(cr, 40, row * h / 4.0 - 2, w - 80, 4);
+      setColor(cr, rgba(80, 90, 110, 120));
+      cairo_fill(cr);
+    }
+    // The leading edge (on the left: it slides off to the right).
+    cairo_save(cr);
+    cairo_rectangle(cr, 0, 0, 34, h);
+    cairo_clip(cr);
+    setColor(cr, rgb(255, 196, 30));
+    cairo_paint(cr);
+    for (double y = -40; y < h + 40; y += 28)
+    {
+      cairo_move_to(cr, 0, y);
+      cairo_line_to(cr, 34, y - 20);
+      cairo_line_to(cr, 34, y - 6);
+      cairo_line_to(cr, 0, y + 14);
+      cairo_close_path(cr);
+    }
+    setColor(cr, rgb(30, 30, 36));
+    cairo_fill(cr);
+    cairo_restore(cr);
+    cairo_arc(cr, w * 0.55, h * 0.3, 34, 0, 2 * kPi);
+    setColor(cr, rgb(70, 80, 100));
+    cairo_fill(cr);
+    cairo_arc(cr, w * 0.55, h * 0.3, 26, 0, 2 * kPi);
+    setColor(cr, rgb(20, 40, 70));
+    cairo_fill(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 110);
+    cairo_move_to(cr, w * 0.38, h * 0.82);
+    cairo_text_path(cr, "42");
+    setColor(cr, rgba(40, 44, 56, 200));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 0, w, h);
+    setColor(cr, kInk);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  });
+  k.r.draw(door, x, y);
+}
+
+// Level 18's briefing: in the airlock, the outer door slides open on the
+// sunrise over the planet; the crew stands dark in the inner doorway while
+// frost blows out past them into space.
+void hullAirlock(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  hullSunrise(k, ox, oy);
+  const float t = std::min(1.0f, float(frame) / 11.0f);
+  const float open = t * t * (3.0f - 2.0f * t);
+  // Light pouring in as it opens.
+  if (open > 0.0f)
+    drawGlow(k.r, k.art, kLockX + kLockW * 0.6f + ox, kLockY + kLockH * 0.7f + oy, 300.0f * open, rgb(255, 170, 90),
+      0.35f * open);
+  hullDoor(k, kLockX + kLockW * open + ox, kLockY + oy);
+  hullChamber(k, ox, oy);
+  // The warning beacons over the door, turning while it opens.
+  if (frame < 14)
+    for (const float bx : {kLockX - 40.0f, kLockX + kLockW + 40.0f})
+      drawGlow(k.r, k.art, bx + ox, kLockY - 40.0f + oy, (frame % 2 ? 46.0f : 30.0f), rgb(255, 150, 30), 0.9f);
+  // The sunlight falling along the floor toward us.
+  if (open > 0.0f)
+  {
+    DrawOpts lo;
+    lo.blend = Blend::Add;
+    for (int k2 = 0; k2 < 6; ++k2)
+    {
+      const float y = kLockY + kLockH + float(k2) * 30.0f;
+      const float spread = 1.0f + float(k2) * 0.25f;
+      k.r.fillRect(640.0f - kLockW * 0.5f * spread * open + ox, y + oy, kLockW * spread * open, 30.0f,
+        rgba(255, 170, 90, int(40 - k2 * 6)), Blend::Add);
+    }
+  }
+  // The crew in silhouette in the inner doorway, rimmed by the sunrise.
+  static const int kWho[3] = {1, 0, 2};
+  static const float kAt[3] = {300.0f, 600.0f, 960.0f};
+  for (int i = 0; i < 3; ++i)
+  {
+    DrawOpts so;
+    so.tint = rgb(14, 16, 26);
+    const Texture& tex = runner(k, kWho[i], 0, 2.6f, i == 2);
+    DrawOpts rim;
+    rim.blend = Blend::Add;
+    rim.tint = rgb(255, 150, 70);
+    rim.alpha = 0.35f * open;
+    k.r.draw(tex, kAt[i] + 3.0f + ox, 735.0f + oy, rim);
+    k.r.draw(tex, kAt[i] + ox, 735.0f + oy, so);
+  }
+  // Frost flakes blowing out through the opening, a 6-frame loop.
+  if (frame >= 12)
+  {
+    const int f = (frame - 12) % 6;
+    for (int i = 0; i < 60; ++i)
+    {
+      const float sx = float(hash2(i, 191) % 1280u), sy = float(hash2(i, 192) % 720u);
+      const float phase = std::fmod(float(f) / 6.0f + float(hash2(i, 193) % 100u) / 100.0f, 1.0f);
+      // From near the camera, out to the middle of the opening and away.
+      const float tx = kLockX + kLockW * (0.3f + 0.4f * float(hash2(i, 194) % 100u) / 100.0f);
+      const float ty = kLockY + kLockH * (0.3f + 0.4f * float(hash2(i, 195) % 100u) / 100.0f);
+      const float px = sx + (tx - sx) * phase, py = sy + (ty - sy) * phase;
+      const float s = (1.0f - phase) * 9.0f + 2.0f;
+      k.r.fillRect(px - s * 0.5f + ox, py - s * 0.5f + oy, s, s, rgba(235, 248, 255, int(220 * (1.0f - phase * 0.6f))));
+      k.r.drawLine(px + ox, py + oy, px - (tx - sx) * 0.04f + ox, py - (ty - sy) * 0.04f + oy, s * 0.4f,
+        rgba(235, 248, 255, 90));
+    }
+  }
+  (void)ticks;
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -3183,6 +3465,8 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return greenLights(k, frame, ticks, ox, oy);
   if (clip == "brief17_vine")
     return greenVine(k, frame, ticks, ox, oy);
+  if (clip == "brief18_airlock")
+    return hullAirlock(k, frame, ticks, ox, oy);
   if (clip == "brief14_door")
     return goldDoorScratch(k, frame, ticks, ox, oy);
   if (clip == "brief14_pull")

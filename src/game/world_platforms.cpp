@@ -496,6 +496,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
     const auto& pl = mPlatforms[i];
     if (pl.once || pl.mode == PlatformMode::Sink || pl.mode == PlatformMode::Rise)
       continue; // the passing train (world_maglev.cpp) and basalt stones (world_lava.cpp) draw themselves
+    if (pl.id.rfind("plate:", 0) == 0)
+      continue; // a hull plate drifting off (world_hull_draw.cpp)
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;
     const float y = (float(pl.prevY) + (float(pl.y) - float(pl.prevY)) * alpha) * kCellPx - camY;
     const float w = float(pl.w) * kCellPx;
@@ -556,6 +558,11 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
   {
     if (b.broken)
       continue;
+    if (b.look == 13)
+    {
+      drawHullBreakable(r, b, camX, camY, frame); // level 18 (world_hull_draw.cpp)
+      continue;
+    }
     if (b.look >= 11)
     {
       drawGreenBreakable(r, b, camX, camY, frame); // level 17 (world_green_draw.cpp)

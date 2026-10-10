@@ -37,6 +37,9 @@ public:
   Input floorLava(const World& world);
   Input surf(const World& world);
   Input drift(const World& world);
+  // Planetoids: from each planetoid, try every walk-then-jump in copies of
+  // the world and take the one that gets a ship part or lands nearest one.
+  Input orbit(const World& world);
   // Air Hockey: stand still, face the pucks, crouch and shoot.
   Input hockey(const World& world);
   // Idol Mines: climb into a cart that is going your way and ride it,
@@ -63,6 +66,8 @@ private:
   std::deque<Input> mSurfQueue;
   std::deque<Input> mDriftQueue;
   Input mDriftPrev;
+  std::deque<Input> mOrbitQueue;
+  Input mOrbitPrev;
   Input mSurfPrev;
   std::deque<Input> mRideQueue;
   bool mRiding = false;

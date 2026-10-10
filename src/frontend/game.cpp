@@ -484,8 +484,10 @@ void Game::renderPlayOverlay()
     {
       label = "WE INTERRUPT THIS PROGRAM";
       big = "BONUS LEVEL";
-      small = mLevel->goal.rfind("collect:", 0) == 0 ? "COLLECT " + mLevel->goal.substr(8) + " GEMS"
-                                                     : "REACH THE EXIT BEFORE THE TIME RUNS OUT";
+      const bool parts = mLevel->rules.find("radial_gravity") != std::string::npos; // Planetoids
+      small = mLevel->goal.rfind("collect:", 0) == 0
+        ? "COLLECT " + mLevel->goal.substr(8) + (parts ? " SHIP PARTS" : " GEMS")
+        : "REACH THE EXIT BEFORE THE TIME RUNS OUT";
     }
     else if (mLevelNumber > 0)
     {

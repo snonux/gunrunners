@@ -85,6 +85,9 @@ enum class EnemyKind
   Puffer,    // a Spore Puffer: a bulb on a floor or ceiling that puffs spore clouds
   Snapjaw,   // a plant mouth on a floor, wall or ceiling: bites what comes close
   Glob,      // hops at you; splits in two when it dies (big, medium, small)
+  Barnacle,  // clings to the hull; a ring of six spikes when you come close
+  EvaRam,    // hovers to your row, then rams along it
+  Mites,     // a swarm of five Rivet Mites (one enemy, world_hull.cpp moves them)
   Fish,      // deep water: patrols, then chases whatever is in the water with it
   Jelly,     // deep water: pulses up and drifts down, stings on contact
   SeaMine,   // deep water: bobs on its chain, blows up when something comes close

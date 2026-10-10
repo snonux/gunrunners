@@ -180,6 +180,20 @@ std::vector<float> makeNamedSfx(const std::string& id)
     return whoosh(3.0, seed, has(id, "high") ? 0.5 : 0.4, 300.0, 1400.0);
   if (has(id, "whoosh") || has(id, "swish") || has(id, "beam"))
     return whoosh(0.7, seed, 0.5, 400.0, 3000.0);
+  // Level 18: the airlock venting, a long pressurised hiss (it loops).
+  if (has(id, "airlock_hiss"))
+  {
+    Noise n(seed);
+    OnePole lp, hp;
+    Osc lfo;
+    return render(2.4, [&](double t, double total) {
+      const double flutter = 0.85 + 0.15 * lfo.step(7.0, Wave::Sine);
+      const double hiss = hp.highpass(lp.lowpass(n.next(), 7000.0), 1500.0);
+      // Short fades at both ends so the loop joins without a click.
+      const double env = std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.05);
+      return hiss * 0.35 * flutter * env;
+    });
+  }
   if (has(id, "steam") || has(id, "hiss") || has(id, "airlock") || has(id, "sizzle") || has(id, "deflate"))
     return noiseBed(has(id, "static_hiss") ? 3.0 : 1.2, seed, 2000.0, 9000.0, 0.35, 0.05);
   if (has(id, "static") || has(id, "snow") || has(id, "tv_"))

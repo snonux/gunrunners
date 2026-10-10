@@ -12,6 +12,7 @@
 #include "assets/enemy_art_alien.hpp"
 #include "assets/enemy_art_cryo.hpp"
 #include "assets/enemy_art_green.hpp"
+#include "assets/enemy_art_hull.hpp"
 #include "assets/enemy_art_station.hpp"
 #include "assets/vehicle_art.hpp"
 
@@ -2634,6 +2635,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
     fn(c);
   else if (!drawAlienArt(c.cr, t, key, w, h, variant, frame) && !drawStationArt(c.cr, t, key, w, h, variant, frame) &&
            !drawCryoArt(c.cr, t, key, w, h, variant, frame) && !drawGreenArt(c.cr, t, key, w, h, variant, frame) &&
+           !drawHullArt(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;

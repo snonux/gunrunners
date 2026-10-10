@@ -148,6 +148,12 @@ const EnemyDef kEnemies[] = {
   {"glob", "GLOB", K::Glob, L::Styled, 4, 4, 2, 300, 2, 20, 8, 0, 0, 0},
   {"glob_medium", "GLOB", K::Glob, L::Styled, 3, 3, 2, 150, 2, 20, 8, 0, 0, 0},
   {"glob_small", "GLOB", K::Glob, L::Styled, 2, 2, 1, 75, 2, 20, 8, 0, 0, 0},
+  // Level 18. Space Barnacle: range is how close (cells) opens it. EVA Ram:
+  // stepEvery its drift to your row, range its ram (cells). Rivet Mites: one
+  // swarm of five (hp), range how close a mite hops at you.
+  {"space_barnacle", "SPACE BARNACLE", K::Barnacle, L::Styled, 4, 3, 4, 500, 0, 45, 12, 8, 0, 0},
+  {"eva_ram", "EVA RAM", K::EvaRam, L::Styled, 3, 3, 4, 600, 2, 45, 15, 24, 0, 0},
+  {"rivet_mites", "RIVET MITES", K::Mites, L::Styled, 2, 1, 5, 100, 2, 30, 10, 2, kEnemyHarmless, 0},
   {"sentinel", "GLYPH SENTINEL", K::Sentinel, L::Styled, 4, 4, 6, 600, 0, 45, 24, 0, kEnemyHarmless, 0},
   {"totem", "TOTEM STACK", K::Totem, L::Styled, 2, 8, 8, 250, 0, 45, 10, 0, 0, 0},
   // Deep water (world_sea.cpp). Fish and Angler: range is how close (cells)

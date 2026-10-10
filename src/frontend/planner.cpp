@@ -120,7 +120,7 @@ Input spearInput(const World& w, int m, int f, bool& done, bool& fail)
   if (p.state == PlayerState::Jumping)
   {
     in.jump = true;
-    const auto& arc = w.character().jumpArc;
+    const auto& arc = w.runnerJumpArc();
     const bool apex = p.frames >= int(arc.size()) || arc[std::size_t(p.frames)] == 0;
     in.fire = apex && p.shotCooldown == 0 && p.facing == dir;
   }
@@ -664,7 +664,7 @@ void Planner::buildField(const World& w, const Goal& goal)
   // With the card (or once the card is no longer needed) force fields open.
   const bool openFields = goal.kind == 0 || goal.kind == 3 || w.player().hasKey;
   int jumpH = 0;
-  for (int v : w.character().jumpArc)
+  for (int v : w.runnerJumpArc())
     jumpH += v;
   if (w.bounce())
     jumpH = 18; // Bounce House: up to 18 cells, held jump builds it
