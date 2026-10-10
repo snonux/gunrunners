@@ -82,8 +82,14 @@ int weaponIcon(Weapon w)
 
 void World::draw(Renderer& r, int frame, float alpha) const
 {
-  const float camX = mCamera.renderX() * S;
-  const float camY = mCamera.renderY() * S;
+  // Both Sides: the screen is split between the two runners.
+  if (mManor.split.on && mSplitPass == 0)
+  {
+    drawSplit(r, frame, alpha);
+    return;
+  }
+  const float camX = mSplitPass != 0 ? mSplitCamX : mCamera.renderX() * S;
+  const float camY = mSplitPass != 0 ? mSplitCamY : mCamera.renderY() * S;
   if (mTrain)
   {
     // The maglev: the city rushes past (world_maglev.cpp).
@@ -167,6 +173,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawZeroBack(r, camX, camY, frame, alpha);
   if (mWest.on)
     drawWestBack(r, camX, camY, frame, alpha);
+  if (mManor.on)
+    drawManorBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -221,6 +229,18 @@ void World::draw(Renderer& r, int frame, float alpha) const
       r.drawLine(x + 42, y - 13, x + 60, y - 16, 4.0f, rgb(255, 210, 90));
       continue;
     }
+    else if (it.kind == ItemKind::Virus && it.variant == 3)
+    {
+      // Level 22: Dr. Fizz's Miracle Tonic on the saloon shelf, still (it
+      // doesn't bob), a green glow in the glass.
+      const float ty = lerpCells(it.prevY - 1, it.y - 1, alpha) - camY;
+      drawGlow(r, mArt, x + 32, ty + 40, 44, rgb(120, 255, 60), 0.3f + 0.12f * std::sin(float(frame) * 0.13f));
+      DrawOpts tint;
+      tint.tint = rgb(220, 255, 210);
+      r.draw(styledEnemySprite(mArt, r, mTheme, mWest.tonicSkin.empty() ? "tonic_bottle" : mWest.tonicSkin, 0, 0, 2, 2).get(1),
+        x + 32, ty + 64, tint);
+      continue;
+    }
     else if (it.kind == ItemKind::Virus)
     {
       // Drifts and twitches so it reads as alive, and dangerous.
@@ -258,6 +278,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.fillRect(x + 24, y + 13, 34, 4, rgb(190, 140, 30));
         r.fillRect(x + 48, y + 6, 7, 6, rgb(255, 250, 210));
         drawGlow(r, mArt, x + 56, y + 9, 28, rgb(255, 250, 200), 0.7f);
+        continue;
+      }
+      if (mWest.on && mLevel->themeKey == "western_gulch")
+      {
+        // Dry Gulch's duck wears a cowboy hat.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_cowboy", 0, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mSpace.starfall)
@@ -457,6 +484,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 : 0; // the barrel glowing
         else if (e.kind == EnemyKind::RepairSwarm)
           variant = 0;
+        else if (e.kind == EnemyKind::Duelist)
+          variant = e.tell > kDuelDraw / 2 ? 2 // the hand over the holster, twitching
+            : (e.tell > 0 || e.attach == 3 || (mWest.noon.on && mWest.noon.phase == DuelPhase::Fired) ? 1 : 0); // drawn
+        else if (e.kind == EnemyKind::TumbleMine)
+          variant = e.tell > 0 && (frame / 3) % 2 == 0 ? 1 : 0; // blinking red
+        else if (e.kind == EnemyKind::WindowBandit)
+          variant = 0;
         else if (e.kind == EnemyKind::Imp)
           variant = (e.aimX > 0 ? 3 : (e.dive > 0 ? 2 : (e.tell > 0 ? 1 : 0))) + (e.variant == 1 ? 4 : 0) +
             8 * std::clamp(e.attach, 0, 4); // glowing, lunging, saluting; hard hat; hotter after each pulse
@@ -513,6 +547,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
           : e.kind == EnemyKind::Imp                   ? (frame / 4) % 2
           : e.kind == EnemyKind::RepairSwarm           ? (frame / 3) % 4
           : e.kind == EnemyKind::LatticeTurret         ? (frame / 6) % 3
+          : e.kind == EnemyKind::Duelist               ? (frame / 2) % 2
+          : e.kind == EnemyKind::TumbleMine || e.kind == EnemyKind::WindowBandit ? 0
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
         if ((e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::TestSubject) && e.attach == 2)
@@ -525,6 +561,17 @@ void World::draw(Renderer& r, int frame, float alpha) const
         }
         if (e.kind == EnemyKind::Raver && e.dive > 0)
           hop = 14.0f; // hops on the beat
+        if (e.kind == EnemyKind::TumbleMine)
+        {
+          // Rolling: turned by how far it has gone, round its middle (the
+          // sprite turns round its feet, so shift it to keep the middle put).
+          const float rad = float(e.h) * kCellPx * 0.5f, a = e.drawX * kCellPx / rad;
+          eo.angle = a * 57.2958f;
+          x -= rad * std::sin(a);
+          hop = rad - rad * std::cos(a);
+          if (e.tell > 0)
+            x += ((frame / 2) % 2 ? 2.0f : -2.0f); // rattling
+        }
         if (e.kind == EnemyKind::Bouncer && e.dive < 0)
           x += ((frame / 2) % 2 ? 3.0f : -3.0f); // staggered
         if (e.kind == EnemyKind::Crawler && e.tell > 0)
@@ -633,6 +680,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawZeroFront(r, camX, camY, frame, alpha);
   if (mWest.on)
     drawWestFront(r, camX, camY, frame, alpha);
+  if (mManor.on)
+    drawManorFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -837,6 +886,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawSeaFront(r, camX, camY, frame);
   drawProps(r, camX, camY, frame, true);
 
+  if (mSplitPass != 0)
+    return; // Both Sides: the HUD goes over both halves (drawSplit)
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
   drawVehicleHud(r, frame);
@@ -1369,6 +1420,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawZeroHud(r, frame);
   if (mWest.on)
     drawWestHud(r, frame);
+  if (mManor.on)
+    drawManorHud(r, frame);
   if (mGolden)
     drawGoldenHud(r, frame);
 

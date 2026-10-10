@@ -110,6 +110,9 @@ enum class EnemyKind
   Duelist,       // stands and faces you; the bell rings twice, then he draws
   TumbleMine,    // rolls with the wind, rolls over short gaps, blows up on contact
   WindowBandit,  // pops up in a window to fire, ducked he can't be hit
+  PortraitGhost, // leaves its portrait, chases through walls, lunges; pinned it is a platform
+  HauntedArmor,  // wakes as you pass, walks after you, swings its halberd
+  Poltergeist,   // lives in a glowing object and throws things at you
 };
 
 enum EnemyFlag : unsigned

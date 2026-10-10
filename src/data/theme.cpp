@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 29> kVariants{{
+const std::array<Variant, 30> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -438,6 +438,21 @@ const std::array<Variant, 29> kVariants{{
     rgb(30, 10, 16), rgb(12, 6, 10),
     rgb(70, 76, 92), rgb(150, 158, 178), rgb(26, 28, 36), rgb(255, 50, 60),
     rgb(255, 228, 228), "servers"}},
+  // Level 22: a sun-bleached frontier town at sundown, red sandstone,
+  // weathered planks and adobe under a sky of orange and violet.
+  {"western_gulch",
+   {ThemeId::LostTemple,
+    "DRY GULCH",
+    "A FRONTIER TOWN AT SUNDOWN, WIRED WITH DYNAMITE",
+    rgb(52, 34, 86), rgb(222, 108, 74), rgb(255, 200, 120),
+    rgb(184, 98, 62), rgb(228, 146, 96), rgb(108, 52, 36),
+    rgb(240, 204, 140), rgb(255, 232, 170),
+    rgb(176, 128, 80), rgb(100, 66, 38),
+    rgb(220, 60, 40), rgb(255, 170, 120),
+    rgb(255, 200, 70), rgb(255, 120, 50),
+    rgb(160, 80, 84), rgb(96, 50, 48),
+    rgb(150, 112, 74), rgb(196, 160, 112), rgb(80, 54, 34), rgb(255, 80, 50),
+    rgb(255, 240, 210), "western"}},
 }};
 
 } // namespace

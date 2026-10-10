@@ -184,6 +184,22 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return (k * 0.6 + w + st * 0.3) * std::min(1.0, (total - t) / 0.2);
     });
   }
+  if (id == "tv_static")
+  {
+    // A dead channel's snow, held for as long as the picture is (it loops,
+    // see Audio::playNamed): steady hiss with the set's faint line whine
+    // and a slow wash in its loudness. Every part repeats a whole number of
+    // times in the 2 s, so the loop joins without a seam.
+    Noise n(seed);
+    OnePole lp, hp;
+    Osc whine, buzz;
+    return render(2.0, [&](double t, double total) {
+      const double wash = 0.88 + 0.12 * std::sin(2.0 * kPi * t * 1.5);
+      const double hiss = hp.highpass(lp.lowpass(n.next(), 8000.0), 250.0);
+      const double env = std::min(1.0, t / 0.01) * std::min(1.0, (total - t) / 0.01);
+      return (hiss * 0.34 * wash + whine.step(15625.0, Wave::Sine) * 0.012 + buzz.step(60.0, Wave::Saw) * 0.015) * env;
+    });
+  }
   if (id == "channel_click")
   {
     // A channel knob turning one notch: a hard plastic click and a

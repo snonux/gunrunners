@@ -33,6 +33,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_grav.cpp
   src/assets/enemy_art_reactor.cpp
   src/assets/enemy_art_zero.cpp
+  src/assets/enemy_art_west.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
   src/assets/enemy_art_starfall.cpp
@@ -94,6 +95,8 @@ add_library(gunrunners_core STATIC
   src/game/world_zero_draw.cpp
   src/game/world_west.cpp
   src/game/world_west_draw.cpp
+  src/game/world_manor.cpp
+  src/game/world_manor_draw.cpp
   src/game/world_hull_draw.cpp
   src/game/world_hull.cpp
   src/game/world_orbit.cpp
@@ -112,6 +115,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_mother.cpp
   src/frontend/bot_zero.cpp
   src/frontend/bot_west.cpp
+  src/frontend/bot_manor.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
   src/frontend/controls.cpp
@@ -258,3 +262,7 @@ add_test(NAME savegame_dry_gulch COMMAND savegame_test ${CMAKE_SOURCE_DIR}/level
 add_executable(west_test tests/west_test.cpp)
 target_link_libraries(west_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME west COMMAND west_test ${CMAKE_SOURCE_DIR}/levels/22_bonus_high_noon.txt)
+add_test(NAME savegame_fright_night_manor COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/23_fright_night_manor.txt 330)
+add_executable(manor_test tests/manor_test.cpp)
+target_link_libraries(manor_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME manor COMMAND manor_test ${CMAKE_SOURCE_DIR}/levels/23_bonus_both_sides.txt)

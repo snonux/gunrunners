@@ -2057,9 +2057,15 @@ bool isServers(const Theme& t);
 Texture bakeServersSolid(const Renderer& r, const Theme& t, int variant);
 Texture bakeServersSolidTop(const Renderer& r, const Theme& t);
 Texture bakeServersPlatform(const Renderer& r, const Theme& t);
+bool isWestern(const Theme& t);
+Texture bakeWesternSolid(const Renderer& r, const Theme& t, int variant);
+Texture bakeWesternSolidTop(const Renderer& r, const Theme& t);
+Texture bakeWesternPlatform(const Renderer& r, const Theme& t);
 
 Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
 {
+  if (isWestern(t))
+    return bakeWesternSolid(r, t, variant);
   if (isServers(t))
     return bakeServersSolid(r, t, variant);
   if (isHull(t))
@@ -2484,6 +2490,8 @@ Texture bakeReactorSolidTop(const Renderer& r, const Theme& t)
 
 Texture bakeSolidTop(const Renderer& r, const Theme& t)
 {
+  if (isWestern(t))
+    return bakeWesternSolidTop(r, t);
   if (isServers(t))
     return bakeServersSolidTop(r, t);
   if (isReactor(t))
@@ -2601,6 +2609,8 @@ Texture bakeCloud(const Renderer& r, const Theme& t)
 
 Texture bakePlatform(const Renderer& r, const Theme& t)
 {
+  if (isWestern(t))
+    return bakeWesternPlatform(r, t);
   if (isServers(t))
     return bakeServersPlatform(r, t);
   if (isHull(t))
@@ -5339,8 +5349,493 @@ Texture bakeServersNear(const Renderer& r, const Theme& t)
   return img.toTexture(r, 0.0f, 0.0f);
 }
 
+// Level 22's frontier town (theme look "western"): red sandstone strata
+// under a sun-baked crust, boardwalk planks for the one-way floors, and a
+// desert at sundown behind it all: mesas, buttes and saguaros against an
+// orange and violet sky.
+bool isWestern(const Theme& t) { return std::string_view(t.look) == "western"; }
+
+namespace
+{
+
+// A wavy line across a 64 px tile (one period, so neighbours meet).
+double westWave(double x, double phase, double amp) { return amp * std::sin(x / 64.0 * 2.0 * kPi + phase); }
+
+void westPolyFill(cairo_t* cr, double y0, double ph0, double a0, double y1, double ph1, double a1)
+{
+  cairo_move_to(cr, 0, y0 + westWave(0, ph0, a0));
+  for (double x = 4; x <= 64; x += 4)
+    cairo_line_to(cr, x, y0 + westWave(x, ph0, a0));
+  for (double x = 64; x >= 0; x -= 4)
+    cairo_line_to(cr, x, y1 + westWave(x, ph1, a1));
+  cairo_close_path(cr);
+}
+
+// A saguaro in silhouette: trunk from (x, base) up `h` px, with arms.
+void westSaguaro(cairo_t* cr, Rng& rng, double x, double base, double h, Color body, Color rim)
+{
+  const double tw = h * 0.13;
+  auto arm = [&](int side, double at, double len, double up) {
+    const double ax = x + side * tw * 0.5, ay = base - h * at;
+    const double ox = ax + side * len;
+    cairo_move_to(cr, ax, ay);
+    cairo_line_to(cr, ox - side * tw * 0.4, ay);
+    cairo_curve_to(cr, ox, ay, ox, ay, ox, ay - tw * 0.4);
+    cairo_line_to(cr, ox, ay - up);
+    cairo_set_line_width(cr, tw * 0.75);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    setColor(cr, body);
+    cairo_stroke(cr);
+  };
+  if (rng.uniform() < 0.85f)
+    arm(-1, rng.range(0.35f, 0.5f), h * rng.range(0.16f, 0.24f), h * rng.range(0.2f, 0.32f));
+  if (rng.uniform() < 0.75f)
+    arm(1, rng.range(0.45f, 0.62f), h * rng.range(0.14f, 0.22f), h * rng.range(0.16f, 0.28f));
+  roundedRect(cr, x - tw * 0.5, base - h, tw, h + 4, tw * 0.5);
+  setColor(cr, body);
+  cairo_fill(cr);
+  // The sun catches its right edge.
+  cairo_move_to(cr, x + tw * 0.32, base - h + tw * 0.4);
+  cairo_line_to(cr, x + tw * 0.32, base - 4);
+  setColor(cr, rim);
+  cairo_set_line_width(cr, std::max(1.5, tw * 0.12));
+  cairo_stroke(cr);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+  cairo_set_line_join(cr, CAIRO_LINE_JOIN_MITER);
+}
+
+// A mesa or butte: a flat top at `top`, steep sides with a talus apron,
+// from x0 to x1, standing on y = base.
+void westMesa(cairo_t* cr, Rng& rng, double x0, double x1, double top, double base, Color body, Color lit, Color shade)
+{
+  const double w = x1 - x0;
+  const double apron = std::min(w * 0.25, (base - top) * 0.5);
+  cairo_move_to(cr, x0 - apron, base);
+  cairo_curve_to(cr, x0 - apron * 0.4, base - (base - top) * 0.2, x0, base - (base - top) * 0.45, x0 + w * 0.04,
+    top + (base - top) * 0.12);
+  cairo_line_to(cr, x0 + w * 0.08, top);
+  // The cap rock, slightly ragged.
+  for (double x = x0 + w * 0.12; x < x1 - w * 0.1; x += w * 0.12)
+    cairo_line_to(cr, x, top + rng.range(-2.0f, 3.0f));
+  cairo_line_to(cr, x1 - w * 0.06, top + 2);
+  cairo_line_to(cr, x1 - w * 0.03, top + (base - top) * 0.14);
+  cairo_curve_to(cr, x1, base - (base - top) * 0.45, x1 + apron * 0.4, base - (base - top) * 0.2, x1 + apron, base);
+  cairo_close_path(cr);
+  cairo_pattern_t* g = cairo_pattern_create_linear(x0, 0, x1, 0);
+  cairo_pattern_add_color_stop_rgba(g, 0, redOf(shade) / 255.0, greenOf(shade) / 255.0, blueOf(shade) / 255.0, 1);
+  cairo_pattern_add_color_stop_rgba(g, 0.55, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0, 1);
+  cairo_pattern_add_color_stop_rgba(g, 1, redOf(lit) / 255.0, greenOf(lit) / 255.0, blueOf(lit) / 255.0, 1);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // Strata across its face.
+  for (int k = 1; k < 4; ++k)
+  {
+    const double y = top + (base - top) * (0.12 + 0.13 * k);
+    cairo_move_to(cr, x0 + w * 0.05, y);
+    cairo_line_to(cr, x1 - w * 0.04, y + rng.range(-2.0f, 2.0f));
+    setColor(cr, withAlpha(shade, 120));
+    cairo_set_line_width(cr, 2.0);
+    cairo_stroke(cr);
+  }
+  // The sunlit rim of the cap.
+  cairo_move_to(cr, x0 + w * 0.08, top);
+  cairo_line_to(cr, x1 - w * 0.06, top + 2);
+  setColor(cr, withAlpha(lit, 220));
+  cairo_set_line_width(cr, 2.5);
+  cairo_stroke(cr);
+}
+
+} // namespace
+
+// Red sandstone in strata, with grain and pebbles. Variant 1 a crack and
+// more pebbles, 2 a little fossil shell.
+Texture bakeWesternSolid(const Renderer& r, const Theme& t, int variant)
+{
+  VectorImage img(64, 64);
+  cairo_t* cr = img.cr();
+  Rng rng(std::uint32_t(variant * 7919 + 2203));
+  const Color bands[5] = {t.rock, lerpColor(t.rock, t.rockLight, 0.45f), lerpColor(t.rock, t.rockDark, 0.25f),
+    lerpColor(t.rock, rgb(230, 180, 120), 0.3f), lerpColor(t.rock, t.rockDark, 0.12f)};
+  const double ys[6] = {-4, 12, 24, 37, 50, 68};
+  const double ph[6] = {0.0, 1.3, 2.9, 4.1, 5.3, 0.7};
+  for (int b = 0; b < 5; ++b)
+  {
+    westPolyFill(cr, ys[b], ph[b], b == 0 ? 0.0 : 1.6, ys[b + 1], ph[b + 1], b == 4 ? 0.0 : 1.6);
+    setColor(cr, bands[b]);
+    cairo_fill(cr);
+  }
+  // The band lines.
+  for (int b = 1; b < 5; ++b)
+  {
+    cairo_move_to(cr, 0, ys[b] + westWave(0, ph[b], 1.6));
+    for (double x = 4; x <= 64; x += 4)
+      cairo_line_to(cr, x, ys[b] + westWave(x, ph[b], 1.6));
+    setColor(cr, withAlpha(t.rockDark, 110));
+    cairo_set_line_width(cr, 1.2);
+    cairo_stroke(cr);
+  }
+  // Grain: short streaks along the bedding.
+  for (int i = 0; i < 14; ++i)
+  {
+    const double x = rng.range(2, 56), y = rng.range(2, 62), l = rng.range(4, 12);
+    cairo_move_to(cr, x, y);
+    cairo_line_to(cr, x + l, y + rng.range(-0.6f, 0.6f));
+    setColor(cr, rng.uniform() < 0.5f ? withAlpha(t.rockDark, 70) : withAlpha(t.rockLight, 80));
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+  }
+  // Pebbles.
+  const int pebbles = variant == 1 ? 6 : 3;
+  for (int i = 0; i < pebbles; ++i)
+  {
+    const double x = rng.range(6, 58), y = rng.range(6, 58), pr = rng.range(1.2f, 2.6f);
+    cairo_save(cr);
+    cairo_translate(cr, x, y);
+    cairo_scale(cr, 1.4, 1.0);
+    cairo_arc(cr, 0, 0, pr, 0, 2 * kPi);
+    cairo_restore(cr);
+    setColor(cr, rng.uniform() < 0.5f ? lighten(t.rockLight, 0.2f) : darken(t.rockDark, 0.1f));
+    cairo_fill(cr);
+  }
+  if (variant == 1)
+  {
+    cairo_move_to(cr, 18, 6);
+    cairo_line_to(cr, 24, 18);
+    cairo_line_to(cr, 21, 28);
+    cairo_line_to(cr, 29, 40);
+    cairo_line_to(cr, 27, 50);
+    setColor(cr, withAlpha(darken(t.rockDark, 0.3f), 180));
+    cairo_set_line_width(cr, 1.6);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 24, 18);
+    cairo_line_to(cr, 33, 22);
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+  }
+  else if (variant == 2)
+  {
+    // An ammonite: a spiral of ribs pressed into the stone.
+    const double cx = 40, cy = 34;
+    cairo_move_to(cr, cx, cy);
+    for (double a = 0; a < 4.2 * kPi; a += 0.2)
+    {
+      const double rr = 0.9 * std::exp(a * 0.17);
+      cairo_line_to(cr, cx + std::cos(a) * rr, cy + std::sin(a) * rr);
+    }
+    setColor(cr, withAlpha(darken(t.rockDark, 0.2f), 170));
+    cairo_set_line_width(cr, 1.4);
+    cairo_stroke(cr);
+    for (double a = 1.0; a < 4.2 * kPi; a += 0.55)
+    {
+      const double rr = 0.9 * std::exp(a * 0.17);
+      cairo_move_to(cr, cx + std::cos(a) * rr * 0.6, cy + std::sin(a) * rr * 0.6);
+      cairo_line_to(cr, cx + std::cos(a) * rr, cy + std::sin(a) * rr);
+    }
+    setColor(cr, withAlpha(t.rockLight, 140));
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// The surface where you stand: a sun-baked crust of pale sand over the
+// sandstone, a drop of shadow under its lip, grit and a pebble or two.
+Texture bakeWesternSolidTop(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, kTopTexH);
+  cairo_t* cr = img.cr();
+  const double y = kTopOff;
+  Rng rng(2207u);
+  // The shadow the crust throws on the rock.
+  westPolyFill(cr, y + 8, 0.8, 1.2, y + 14, 2.0, 1.0);
+  setColor(cr, withAlpha(t.rockDark, 120));
+  cairo_fill(cr);
+  // The crust.
+  westPolyFill(cr, y - 3, 0.0, 1.4, y + 9, 0.8, 1.2);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, y - 4, 0, y + 10);
+  cairo_pattern_add_color_stop_rgb(g, 0, 0.98, 0.86, 0.64);
+  cairo_pattern_add_color_stop_rgb(g, 0.45, 0.9, 0.72, 0.5);
+  cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.rock) / 255.0, greenOf(t.rock) / 255.0, blueOf(t.rock) / 255.0);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // A bright rim where the low sun hits it.
+  cairo_move_to(cr, 0, y - 3 + westWave(0, 0.0, 1.4));
+  for (double x = 4; x <= 64; x += 4)
+    cairo_line_to(cr, x, y - 3 + westWave(x, 0.0, 1.4));
+  setColor(cr, rgba(255, 236, 196, 220));
+  cairo_set_line_width(cr, 1.6);
+  cairo_stroke(cr);
+  // Grit.
+  for (int i = 0; i < 18; ++i)
+  {
+    cairo_rectangle(cr, rng.range(1, 62), y + rng.range(-1, 7), 1.4, 1.4);
+    setColor(cr, rng.uniform() < 0.5f ? rgba(150, 96, 60, 160) : rgba(255, 240, 210, 160));
+    cairo_fill(cr);
+  }
+  // A pebble sitting on top.
+  cairo_save(cr);
+  cairo_translate(cr, 44, y - 3.5);
+  cairo_scale(cr, 1.6, 1.0);
+  cairo_arc(cr, 0, 0, 2.2, kPi, 2 * kPi);
+  cairo_restore(cr);
+  cairo_close_path(cr);
+  setColor(cr, rgb(170, 120, 84));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, float(kTopOff));
+}
+
+// A one-way floor: a boardwalk of weathered planks seen edge on, a joist
+// under it, nail heads and a little bracket.
+Texture bakeWesternPlatform(const Renderer& r, const Theme& t)
+{
+  VectorImage img(64, 40);
+  cairo_t* cr = img.cr();
+  Rng rng(2213u);
+  // The bracket under the joist.
+  cairo_move_to(cr, 26, 16);
+  cairo_line_to(cr, 38, 16);
+  cairo_line_to(cr, 33, 30);
+  cairo_line_to(cr, 31, 30);
+  cairo_close_path(cr);
+  setColor(cr, withAlpha(darken(t.platformDark, 0.2f), 230));
+  cairo_fill(cr);
+  // The joist.
+  cairo_rectangle(cr, 0, 11, 64, 6);
+  setColor(cr, darken(t.platformDark, 0.15f));
+  cairo_fill(cr);
+  // The planks' top and front edge, two planks to a block.
+  for (const double x0 : {0.0, 32.0})
+  {
+    const Color c = lerpColor(t.platform, rgb(214, 186, 150), x0 > 1 ? 0.25f : 0.1f);
+    cairo_rectangle(cr, x0 + 0.5, 0, 31, 12);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 12);
+    cairo_pattern_add_color_stop_rgb(g, 0, std::min(1.0, redOf(c) / 255.0 * 1.25), std::min(1.0, greenOf(c) / 255.0 * 1.25),
+      std::min(1.0, blueOf(c) / 255.0 * 1.25));
+    cairo_pattern_add_color_stop_rgb(g, 0.3, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1, redOf(t.platformDark) / 255.0, greenOf(t.platformDark) / 255.0,
+      blueOf(t.platformDark) / 255.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Grain.
+    for (int i = 0; i < 3; ++i)
+    {
+      const double gy = rng.range(5, 10);
+      cairo_move_to(cr, x0 + rng.range(2, 10), gy);
+      cairo_curve_to(cr, x0 + 14, gy + rng.range(-1, 1), x0 + 20, gy + rng.range(-1, 1), x0 + rng.range(22, 30), gy);
+      setColor(cr, withAlpha(t.platformDark, 120));
+      cairo_set_line_width(cr, 0.8);
+      cairo_stroke(cr);
+    }
+    // Nail heads.
+    for (const double nx : {x0 + 4, x0 + 28})
+    {
+      cairo_arc(cr, nx, 7, 1.1, 0, 2 * kPi);
+      setColor(cr, rgb(60, 50, 46));
+      cairo_fill(cr);
+    }
+    // The seam.
+    cairo_rectangle(cr, x0, 0, 1.2, 12);
+    setColor(cr, withAlpha(darken(t.platformDark, 0.3f), 200));
+    cairo_fill(cr);
+  }
+  cairo_rectangle(cr, 0, 0, 64, 1.5);
+  setColor(cr, rgba(255, 236, 200, 200));
+  cairo_fill(cr);
+  cairo_rectangle(cr, 0, 12, 64, 1.2);
+  setColor(cr, withAlpha(darken(t.platformDark, 0.4f), 220));
+  cairo_fill(cr);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Sundown over the desert: violet overhead, orange to gold at the horizon,
+// a huge low sun, lit streaks of cloud and the first stars.
+Texture bakeWesternSky(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kScreenW, kScreenH);
+  cairo_t* cr = img.cr();
+  verticalGradient(cr, kScreenW, kScreenH,
+    {{0.0, t.skyTop}, {0.38, rgb(140, 70, 110)}, {0.62, t.skyMid}, {0.86, t.skyBottom}, {1.0, rgb(255, 226, 160)}});
+  Rng rng(2221u);
+  for (int i = 0; i < 70; ++i)
+  {
+    const double x = rng.range(0, float(kScreenW)), y = rng.range(0, 220);
+    cairo_arc(cr, x, y, rng.uniform() < 0.2f ? 1.6 : 0.9, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 1, 0.95, 0.9, 0.25 + 0.5 * (1.0 - y / 220.0) * rng.uniform());
+    cairo_fill(cr);
+  }
+  // The sun, low and huge, its glow over the horizon.
+  const double sx = 900, sy = 560, sr = 92;
+  radialGlow(cr, sx, sy, 520, rgb(255, 170, 80), 0.45);
+  radialGlow(cr, sx, sy, 220, rgb(255, 230, 160), 0.55);
+  cairo_arc(cr, sx, sy, sr, 0, 2 * kPi);
+  cairo_pattern_t* g = cairo_pattern_create_linear(0, sy - sr, 0, sy + sr);
+  cairo_pattern_add_color_stop_rgb(g, 0, 1.0, 0.97, 0.78);
+  cairo_pattern_add_color_stop_rgb(g, 1, 1.0, 0.62, 0.3);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  // Streaks of cloud lit from below.
+  for (int i = 0; i < 9; ++i)
+  {
+    const double cy = rng.range(130, 430), cx = rng.range(-100, float(kScreenW) + 100);
+    const double w = rng.range(220, 520), h = rng.range(8, 20);
+    cairo_save(cr);
+    cairo_translate(cr, cx, cy);
+    cairo_scale(cr, w * 0.5, h * 0.5);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_pattern_t* c = cairo_pattern_create_linear(0, cy - h * 0.5, 0, cy + h * 0.5);
+    const double warm = cy / 430.0;
+    cairo_pattern_add_color_stop_rgba(c, 0, 0.55 + 0.2 * warm, 0.3 + 0.1 * warm, 0.45 - 0.1 * warm, 0.55);
+    cairo_pattern_add_color_stop_rgba(c, 1, 1.0, 0.62 + 0.15 * warm, 0.4, 0.75);
+    cairo_set_source(cr, c);
+    cairo_fill(cr);
+    cairo_pattern_destroy(c);
+  }
+  // Heat haze along the horizon.
+  cairo_rectangle(cr, 0, 600, kScreenW, 120);
+  cairo_pattern_t* hz = cairo_pattern_create_linear(0, 600, 0, kScreenH);
+  cairo_pattern_add_color_stop_rgba(hz, 0, 1.0, 0.85, 0.6, 0.0);
+  cairo_pattern_add_color_stop_rgba(hz, 1, 1.0, 0.85, 0.6, 0.5);
+  cairo_set_source(cr, hz);
+  cairo_fill(cr);
+  cairo_pattern_destroy(hz);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Far: a range of mesas and buttes, hazy violet-red, their caps lit gold,
+// a nearer, darker range in front.
+Texture bakeWesternFar(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2237u);
+  for (int pass = 0; pass < 2; ++pass)
+  {
+    const Color body = pass == 0 ? lerpColor(t.farLayer, t.skyMid, 0.45f) : t.farLayer;
+    const Color lit = pass == 0 ? rgb(255, 196, 140) : rgb(255, 170, 100);
+    const Color shade = darken(body, pass == 0 ? 0.12f : 0.25f);
+    double x = rng.range(0, 200);
+    while (x < kLayerW - 200)
+    {
+      const double w = pass == 0 ? rng.range(180, 420) : rng.range(90, 260);
+      const double top = pass == 0 ? rng.range(400, 470) : rng.range(450, 540);
+      if (x + w + 120 < kLayerW)
+        westMesa(cr, rng, x, x + w, top, kScreenH, body, lit, shade);
+      x += w + rng.range(120, 420);
+    }
+    // The ground under the range.
+    cairo_rectangle(cr, 0, pass == 0 ? 600 : 640, kLayerW, kScreenH);
+    setColor(cr, pass == 0 ? lerpColor(body, t.skyBottom, 0.3f) : darken(body, 0.1f));
+    cairo_fill(cr);
+  }
+  // Haze.
+  cairo_rectangle(cr, 0, 380, kLayerW, kScreenH - 380);
+  cairo_pattern_t* hz = cairo_pattern_create_linear(0, 380, 0, kScreenH);
+  cairo_pattern_add_color_stop_rgba(hz, 0, 1.0, 0.8, 0.6, 0.0);
+  cairo_pattern_add_color_stop_rgba(hz, 1, 1.0, 0.75, 0.5, 0.35);
+  cairo_set_source(cr, hz);
+  cairo_fill(cr);
+  cairo_pattern_destroy(hz);
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
+// Near: low dunes and scrub in shadow, saguaros, a windmill and a line of
+// fence posts, rimmed by the sun.
+Texture bakeWesternNear(const Renderer& r, const Theme& t)
+{
+  VectorImage img(kLayerW, kScreenH);
+  cairo_t* cr = img.cr();
+  Rng rng(2243u);
+  const Color body = t.nearLayer, rim = withAlpha(rgb(255, 170, 100), 200);
+  // The dunes: a rolling line that wraps.
+  auto dune = [&](double x) {
+    return 600.0 + 26.0 * std::sin(x / double(kLayerW) * 2 * kPi * 3) + 14.0 * std::sin(x / double(kLayerW) * 2 * kPi * 7 + 1.0);
+  };
+  cairo_move_to(cr, 0, kScreenH);
+  for (double x = 0; x <= kLayerW; x += 16)
+    cairo_line_to(cr, x, dune(x));
+  cairo_line_to(cr, kLayerW, kScreenH);
+  cairo_close_path(cr);
+  setColor(cr, body);
+  cairo_fill(cr);
+  cairo_move_to(cr, 0, dune(0));
+  for (double x = 16; x <= kLayerW; x += 16)
+    cairo_line_to(cr, x, dune(x));
+  setColor(cr, rim);
+  cairo_set_line_width(cr, 2.0);
+  cairo_stroke(cr);
+  // A windmill.
+  {
+    const double wx = 1500, base = dune(1500) + 4;
+    for (const int side : {-1, 1})
+    {
+      cairo_move_to(cr, wx + side * 26, base);
+      cairo_line_to(cr, wx + side * 4, base - 200);
+    }
+    cairo_move_to(cr, wx - 20, base - 60);
+    cairo_line_to(cr, wx + 16, base - 120);
+    cairo_move_to(cr, wx + 20, base - 60);
+    cairo_line_to(cr, wx - 16, base - 120);
+    setColor(cr, body);
+    cairo_set_line_width(cr, 4.0);
+    cairo_stroke(cr);
+    for (int k = 0; k < 12; ++k)
+    {
+      const double a = k * 2 * kPi / 12;
+      cairo_move_to(cr, wx + std::cos(a) * 8, base - 212 + std::sin(a) * 8);
+      cairo_line_to(cr, wx + std::cos(a) * 46, base - 212 + std::sin(a) * 46);
+    }
+    cairo_set_line_width(cr, 5.0);
+    cairo_stroke(cr);
+    cairo_move_to(cr, wx, base - 212);
+    cairo_line_to(cr, wx - 60, base - 216);
+    cairo_line_to(cr, wx - 60, base - 236);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+  }
+  // Fence posts with a sagging wire.
+  for (double x = 300; x < 900; x += 70)
+  {
+    cairo_rectangle(cr, x, dune(x) - 34, 5, 40);
+    setColor(cr, body);
+    cairo_fill(cr);
+    cairo_move_to(cr, x + 2, dune(x) - 28);
+    cairo_curve_to(cr, x + 30, dune(x) - 20, x + 40, dune(x + 70) - 20, x + 72, dune(x + 70) - 28);
+    cairo_set_line_width(cr, 1.2);
+    cairo_stroke(cr);
+  }
+  // Saguaros and scrub.
+  for (double x = rng.range(60, 200); x < kLayerW - 80; x += rng.range(160, 420))
+  {
+    if (x > 1430 && x < 1570)
+      continue;
+    westSaguaro(cr, rng, x, dune(x) + 6, rng.range(110, 230), body, rim);
+  }
+  for (double x = rng.range(10, 60); x < kLayerW - 30; x += rng.range(50, 140))
+  {
+    const double base = dune(x) + 2, s = rng.range(8, 18);
+    for (int k = 0; k < 6; ++k)
+    {
+      const double a = -kPi * 0.5 + (k - 2.5) * 0.35;
+      cairo_move_to(cr, x, base);
+      cairo_line_to(cr, x + std::cos(a) * s * 1.6, base + std::sin(a) * s);
+    }
+    setColor(cr, body);
+    cairo_set_line_width(cr, 2.0);
+    cairo_stroke(cr);
+  }
+  return img.toTexture(r, 0.0f, 0.0f);
+}
+
 Texture bakeSky(const Renderer& r, const Theme& t)
 {
+  if (isWestern(t))
+    return bakeWesternSky(r, t);
   if (isServers(t))
     return bakeServersSky(r, t);
   if (isReactor(t))
@@ -5498,6 +5993,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
 
 Texture bakeBackFar(const Renderer& r, const Theme& t)
 {
+  if (isWestern(t))
+    return bakeWesternFar(r, t);
   if (isServers(t))
     return bakeServersFar(r, t);
   if (isReactor(t))
@@ -5638,6 +6135,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
 
 Texture bakeBackNear(const Renderer& r, const Theme& t)
 {
+  if (isWestern(t))
+    return bakeWesternNear(r, t);
   if (isServers(t))
     return bakeServersNear(r, t);
   if (isReactor(t))

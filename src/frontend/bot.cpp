@@ -106,6 +106,8 @@ Input Bot::play(const World& world)
     return gunGravity(world);
   if (world.west().noon.on && world.west().noon.phase != DuelPhase::Done)
     return highNoon(world);
+  if (world.manor().split.on)
+    return split(world);
   // Level 13: the bonus patch shows on the boulder that rolls over the
   // runner sheltering in its alcove and teeters at the chute: wait there.
   if (mPlanner.wantsBonus())
@@ -140,6 +142,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (west(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 23: pin ghosts over the gallery hole for a bridge.
+  if (world.manor().on)
+  {
+    Input in;
+    if (manor(world, in))
     {
       mPlanner.reset();
       return in;

@@ -206,7 +206,8 @@ void Audio::playNamed(const std::string& id, float volume)
     mVoices.erase(mVoices.begin());
   Voice v{&it->second, 0, volume, Sfx::Count};
   v.name = &it->first;
-  v.loop = id.find("loop") != std::string::npos;
+  // A TV left on a dead channel hisses until the cutscene stops it.
+  v.loop = id.find("loop") != std::string::npos || id == "tv_static";
   mVoices.push_back(v);
 }
 

@@ -14,7 +14,8 @@ bool World::canSave() const
     (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Asleep) &&
     (!mStation.on() || stationCanSave()) && (!mCryo.on || cryoCanSave()) && (!mGreen.on || greenCanSave()) &&
     (!mHull.on || hullCanSave()) && !mOrbit.on && (!mGrav.on || gravCanSave()) &&
-    (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave()) && (!mWest.on || westCanSave());
+    (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave()) && (!mWest.on || westCanSave()) &&
+    (!mManor.on || manorCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -169,6 +170,10 @@ SaveGame World::snapshot() const
         e.kind == EnemyKind::Barnacle || e.kind == EnemyKind::EvaRam || e.kind == EnemyKind::Mites ||
         e.kind == EnemyKind::FlipWalker || e.kind == EnemyKind::Probe || e.kind == EnemyKind::TestSubject)
       es.attach = 0;
+    // Level 23: a Portrait Ghost is in its frame or out after the runner;
+    // a Haunted Armor asleep or awake.
+    if (e.kind == EnemyKind::PortraitGhost || e.kind == EnemyKind::HauntedArmor)
+      es.attach = e.attach == 0 ? 0 : 1;
     // Level 20: sparks are put back on their wires (s.reactor); an Imp keeps
     // how fast it has got (attach: pulses lived through).
     if (i >= mLevelEnemyCount)
@@ -357,6 +362,8 @@ SaveGame World::snapshot() const
     s.zero = zeroSave();
   if (mWest.on)
     s.west = westSave();
+  if (mManor.on)
+    s.manor = manorSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -445,6 +452,7 @@ bool World::restore(const SaveGame& s)
       (!s.reactor.empty() && !validReactorSave(s.reactor)) ||
       (!s.zero.empty() && !validZeroSave(s.zero)) ||
       (!s.west.empty() && !validWestSave(s.west)) ||
+      (!s.manor.empty() && !validManorSave(s.manor)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -576,6 +584,14 @@ bool World::restore(const SaveGame& s)
     }
     if (e.kind == EnemyKind::Imp)
       e.tell = e.dive = e.aimX = e.cool = 0; // not mid-lunge or saluting
+    if (e.kind == EnemyKind::PortraitGhost || e.kind == EnemyKind::HauntedArmor)
+    {
+      e.attach = se.attach;
+      e.stun = 0;
+      e.cool = 0;
+      if (e.kind == EnemyKind::PortraitGhost)
+        e.hidden = e.attach == 0;
+    }
     e.frozen = 0;
     e.vx = e.fx = 0.0f;
     e.stun = 0;
@@ -863,6 +879,8 @@ bool World::restore(const SaveGame& s)
     loadZero(s.zero);
   if (!s.west.empty())
     loadWest(s.west);
+  if (!s.manor.empty())
+    loadManor(s.manor);
   if (!s.grav.empty())
   {
     auto& g = mGrav;
