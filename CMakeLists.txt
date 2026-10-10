@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.1.2 LANGUAGES CXX)
+project(Gunrunners VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -208,7 +208,7 @@ add_test(NAME savegame_bounder_plains COMMAND savegame_test ${CMAKE_SOURCE_DIR}/
 add_test(NAME savegame_hive_mother COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/49_hive_mother.txt 400)
 add_test(NAME savegame_boulder_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/13_boulder_run.txt 420)
 add_test(NAME savegame_idol_awakens COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/14_idol_awakens.txt 300)
-add_test(NAME savegame_hangar_bay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt 300)
+add_test(NAME savegame_hangar_bay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/15_hangar_bay.txt 800)
 add_test(NAME savegame_cryo_labs COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/16_cryo_labs.txt 1000)
 add_executable(station_test tests/station_test.cpp)
 target_link_libraries(station_test PRIVATE gunrunners_core SDL2::SDL2)
