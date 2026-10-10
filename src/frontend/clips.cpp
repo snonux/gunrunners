@@ -1765,6 +1765,200 @@ void goldDoorPull(ClipKit& k, int frame, int ticks, float ox, float oy)
   (void)ticks;
 }
 
+// Episode 2's end. The golem's gold in a heap on the sanctum floor, its
+// head on top, dust motes drifting through the light from the roof.
+void goldPile(ClipKit& k, int frame, int ticks, float ox, float oy, bool crew = true)
+{
+  const Texture& bg = cached(k, "e2_sanctum", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(22, 14, 8), rgb(56, 36, 16), rgb(30, 20, 10));
+    for (int row = 0; row < 10; ++row)
+      for (int col = 0; col < 14; ++col)
+      {
+        const double x = double(col) * 100.0 - (row % 2 ? 50.0 : 0.0), y = double(row) * 60.0;
+        cairo_rectangle(cr, x + 2, y + 2, 96, 56);
+        setColor(cr, rgba(150 + int(hash2(row, col + 40) % 30u), 100, 40, 40));
+        cairo_fill(cr);
+      }
+    cairo_rectangle(cr, 0, 600, 1280, 120);
+    setColor(cr, rgb(70, 48, 20));
+    cairo_fill(cr);
+  });
+  const Texture& heap = cached(k, "e2_heap", 900, 420, 450, 420, [](cairo_t* cr) {
+    // Chunks of the golem, biggest at the bottom.
+    for (int i = 0; i < 46; ++i)
+    {
+      const double t = double(i) / 46.0;
+      const double w = 150.0 - t * 90.0, h = w * 0.55;
+      const double x = 450.0 + (double(hash2(i, 7) % 1000u) / 1000.0 - 0.5) * (760.0 - t * 560.0) - w / 2;
+      const double y = 420.0 - h - t * 300.0 + double(hash2(i, 8) % 30u);
+      cairo_save(cr);
+      cairo_translate(cr, x + w / 2, y + h / 2);
+      cairo_rotate(cr, (double(hash2(i, 9) % 100u) / 100.0 - 0.5) * 0.8);
+      cairo_rectangle(cr, -w / 2, -h / 2, w, h);
+      setColor(cr, rgb(200 + int(hash2(i, 10) % 40u), 150 + int(hash2(i, 11) % 40u), 50));
+      cairo_fill_preserve(cr);
+      setColor(cr, rgb(120, 80, 20));
+      cairo_set_line_width(cr, 4);
+      cairo_stroke(cr);
+      cairo_rectangle(cr, -w / 2 + 8, -h / 2 + 6, w - 16, 8);
+      setColor(cr, rgba(255, 240, 180, 150));
+      cairo_fill(cr);
+      cairo_restore(cr);
+    }
+    // The head on top, one eye dark, the other a jade gem.
+    cairo_rectangle(cr, 370, 20, 160, 120);
+    setColor(cr, rgb(226, 176, 64));
+    cairo_fill_preserve(cr);
+    setColor(cr, rgb(120, 80, 20));
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 395, 60, 36, 26);
+    setColor(cr, rgb(40, 26, 10));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 469, 60, 36, 26);
+    setColor(cr, rgb(70, 210, 150));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 410, 108, 80, 12);
+    setColor(cr, rgb(90, 60, 16));
+    cairo_fill(cr);
+  });
+  k.r.draw(bg, ox * 0.5f, oy * 0.5f);
+  // The light through the broken roof.
+  for (int i = 0; i < 5; ++i)
+    k.r.fillRect(520.0f + float(i) * 30.0f + ox, 0, 60, 620, rgba(255, 220, 140, 18), Blend::Add);
+  k.r.draw(heap, 640 + ox, 610 + oy);
+  for (int i = 0; i < 40; ++i)
+  {
+    const float x = 470.0f + float(hash2(i, 50) % 340u) + std::sin(float(ticks + i * 37) * 0.02f) * 20.0f;
+    const float y = std::fmod(float(hash2(i, 51) % 600u) + float(ticks) * (0.2f + float(i % 5) * 0.08f), 600.0f);
+    k.r.fillRect(x + ox, 600.0f - y + oy, 3, 3, rgba(255, 240, 200, 160));
+  }
+  if (crew)
+  {
+    k.r.draw(runner(k, 2, 0, 2.6f), 300 + ox, 640 + oy);
+    k.r.draw(runner(k, 0, 0, 2.6f, true), 990 + ox, 640 + oy);
+    k.r.draw(runner(k, 1, 0, 2.6f, true), 1130 + ox, 640 + oy);
+  }
+  (void)frame;
+}
+
+// Nova snaps a chunk of the gold in two: white fiberglass inside. 6 frames.
+void fiberglass(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  goldPile(k, 0, ticks, ox * 0.3f, oy * 0.3f, false);
+  k.r.fillRect(0, 0, W, H, rgba(0, 0, 0, 130));
+  k.r.draw(runner(k, 2, 0, 3.6f), 640 + ox, 720 + oy);
+  // The chunk in her hands: bending (0-2), cracking (3), in two (4-5).
+  const float gap = frame >= 4 ? 30.0f + float(frame - 4) * 16.0f : 0.0f;
+  const float tilt = float(std::min(frame, 3)) * 4.0f;
+  const float cw = 100.0f, ch = 70.0f, cy = 450.0f;
+  for (int side = 0; side < 2; ++side)
+  {
+    const float x = 640.0f + (side ? gap * 0.5f : -gap * 0.5f - cw) + ox;
+    const float y = cy + tilt + oy;
+    k.r.fillRect(x, y, cw, ch, rgb(222, 172, 60));
+    k.r.fillRect(x, y, cw, 10, rgb(255, 226, 140));
+    k.r.fillRect(x, y + ch - 10, cw, 10, rgb(150, 104, 30));
+    if (frame >= 4)
+    {
+      // The broken face: white glass fibres, frayed.
+      const float fx = side ? x : x + cw - 16.0f;
+      k.r.fillRect(fx, y, 16, ch, rgb(240, 240, 232));
+      for (int i = 0; i < 6; ++i)
+        k.r.fillRect(fx + (side ? -8.0f : 16.0f), y + 5.0f + float(i) * 11.0f, 8.0f + float(hash2(i, side) % 8u), 3,
+          rgb(250, 250, 245));
+    }
+  }
+  if (frame == 3)
+    k.r.fillRect(637 + ox, cy + tilt + oy, 6, ch, rgb(255, 255, 255));
+  if (frame >= 3)
+    drawGlow(k.r, k.art, 640 + ox, cy + 35 + oy, 80, rgb(255, 250, 230), frame == 3 ? 0.8f : 0.25f);
+}
+
+// The boulder at the foot of the cliff at sunset; the wind in the grass.
+void boulderCliff(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const Texture& bg = cached(k, "e2_cliff", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(60, 30, 90), rgb(240, 120, 70), rgb(255, 200, 120));
+    cairo_arc(cr, 380, 470, 90, 0, 2 * kPi);
+    setColor(cr, rgba(255, 230, 160, 220));
+    cairo_fill(cr);
+    // Far jungle hills.
+    cairo_move_to(cr, 0, 520);
+    for (int x = 0; x <= 1280; x += 40)
+      cairo_line_to(cr, x, 500 - 30 * std::sin(x * 0.01) - 20 * std::sin(x * 0.027));
+    cairo_line_to(cr, 1280, 720);
+    cairo_line_to(cr, 0, 720);
+    cairo_close_path(cr);
+    setColor(cr, rgb(70, 40, 60));
+    cairo_fill(cr);
+    // The cliff on the right, the boulder's track down its face.
+    cairo_move_to(cr, 860, 720);
+    cairo_line_to(cr, 900, 160);
+    cairo_line_to(cr, 1280, 120);
+    cairo_line_to(cr, 1280, 720);
+    cairo_close_path(cr);
+    setColor(cr, rgb(50, 30, 40));
+    cairo_fill(cr);
+    cairo_move_to(cr, 900, 160);
+    cairo_line_to(cr, 870, 600);
+    setColor(cr, rgba(255, 180, 120, 90));
+    cairo_set_line_width(cr, 10);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 0, 600, 1280, 120);
+    setColor(cr, rgb(40, 50, 30));
+    cairo_fill(cr);
+  });
+  k.r.draw(bg, ox * 0.5f, oy * 0.5f);
+  // The boulder, sunset on its edge, and a crack down one side.
+  const Texture& stone = cached(k, "e2_boulder", 300, 300, 150, 300, [](cairo_t* cr) {
+    cairo_arc(cr, 150, 150, 146, 0, 2 * kPi);
+    setColor(cr, rgb(84, 72, 72));
+    cairo_fill(cr);
+    // Sunset on its left edge, shadow on the right.
+    cairo_arc(cr, 150, 150, 146, 0.6 * kPi, 1.4 * kPi);
+    cairo_set_line_width(cr, 10);
+    setColor(cr, rgb(250, 160, 100));
+    cairo_stroke(cr);
+    cairo_arc(cr, 190, 170, 110, -0.3 * kPi, 0.6 * kPi);
+    cairo_set_line_width(cr, 30);
+    setColor(cr, rgba(30, 20, 30, 120));
+    cairo_stroke(cr);
+    // A crack, and a few pits.
+    cairo_move_to(cr, 170, 20);
+    cairo_line_to(cr, 150, 90);
+    cairo_line_to(cr, 175, 150);
+    cairo_line_to(cr, 160, 200);
+    cairo_set_line_width(cr, 5);
+    setColor(cr, rgb(40, 32, 34));
+    cairo_stroke(cr);
+    for (int i = 0; i < 7; ++i)
+    {
+      cairo_arc(cr, 60 + double(hash2(i, 70) % 180u), 60 + double(hash2(i, 71) % 180u), 6 + double(i % 3) * 3, 0,
+        2 * kPi);
+      setColor(cr, rgba(50, 40, 40, 160));
+      cairo_fill(cr);
+    }
+  });
+  k.r.draw(stone, 760 + ox, 612 + oy);
+  // Grass in the wind.
+  for (int i = 0; i < 70; ++i)
+  {
+    const float x = float(hash2(i, 61) % 1280u);
+    const float sway = std::sin(float(ticks) * 0.05f + float(i)) * 6.0f;
+    k.r.fillRect(x + sway + ox, 590 + float(hash2(i, 62) % 20u) + oy, 3, 24, rgb(70, 90, 50));
+  }
+  for (int i = 0; i < 6; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 63) % 1280u) + float(ticks) * 6.0f, 1400.0f) - 100.0f;
+    k.r.fillRect(x + ox, 300.0f + float(i) * 50.0f + oy, 90, 2, rgba(255, 230, 200, 60));
+  }
+  k.r.draw(runner(k, 1, 0, 2.6f), 330 + ox, 650 + oy);
+  k.r.draw(runner(k, 0, 0, 2.6f), 200 + ox, 650 + oy);
+  k.r.draw(runner(k, 2, 0, 2.6f), 460 + ox, 650 + oy);
+  (void)frame;
+}
+
 void fallback(ClipKit& k, const std::string& clip, int ticks, float ox, float oy)
 {
   drawBackdrop(k.r, k.art, float(ticks) * 1.5f + ox, oy, 0.0f);
@@ -1856,6 +2050,12 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return searchlightSweep(k, frame, ticks, ox, oy);
   if (clip == "rocco_squint")
     return roccoSquint(k, frame, ticks, ox, oy);
+  if (clip == "gold_pile")
+    return goldPile(k, frame, ticks, ox, oy);
+  if (clip == "fiberglass")
+    return fiberglass(k, frame, ticks, ox, oy);
+  if (clip == "boulder_cliff")
+    return boulderCliff(k, frame, ticks, ox, oy);
   if (clip == "wreck")
     return wreck(k, frame, ticks, ox, oy);
   if (clip == "case")
