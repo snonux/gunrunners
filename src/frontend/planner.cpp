@@ -988,6 +988,10 @@ void Planner::buildField(const World& w, const Goal& goal)
   // Level 23: a lever door, once its levers are thrown, is open.
   for (const auto& d : w.manor().doors)
     willOpen[std::size_t(d.layer)] = !w.layers()[std::size_t(d.layer)].solid;
+  // Level 29: a black bar out of its pips is not there.
+  for (const auto& b : w.signal().bars)
+    if (b.color == kSignalBlack && !w.layers()[std::size_t(b.layer)].solid)
+      willOpen[std::size_t(b.layer)] = 1;
   for (std::size_t li = 0; li < w.layers().size(); ++li)
   {
     const auto& l = w.layers()[li];
@@ -1008,8 +1012,9 @@ void Planner::buildField(const World& w, const Goal& goal)
             if (x < 0 || y < 0 || x >= W || y >= H)
               continue;
             // Timed layers are only solid some of the time: the field
-            // treats them as one-way platforms and the search does the timing.
-            const bool timed = l.driver == LayerDriver::Beat || l.driver == LayerDriver::Timer;
+            // treats them as one-way platforms and the search does the timing
+            // (Level 29's colour bars too: the search shoots the dials).
+            const bool timed = l.driver == LayerDriver::Beat || l.driver == LayerDriver::Timer || l.style == 7;
             if (l.tile == Tile::Solid && !timed)
               blocked[std::size_t(y * W + x)] = 1;
             else if (l.tile == Tile::Solid)
@@ -2396,6 +2401,15 @@ void Planner::plan(const World& world)
     for (const auto& b : w.boxes())
       alive += b.alive * 64;
     k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
+    // Level 29: the signal (and a change on its way), the pips, the tint.
+    if (w.signal().on)
+    {
+      const auto& sg = w.signal();
+      k = mix(k, std::uint64_t(sg.color) | (std::uint64_t(sg.pending + 1) << 2) | (std::uint64_t(sg.flash) << 4) |
+                   (std::uint64_t(sg.tint) << 8) | (std::uint64_t(sg.pips[0] > 0) << 10) |
+                   (std::uint64_t(sg.pips[1] > 0) << 11) | (std::uint64_t(sg.pips[2] > 0) << 12) |
+                   (std::uint64_t(sg.wallShut) << 13));
+    }
     // Level 21: where the script's shifts and bulkheads are.
     if (!w.zero().shifts.empty())
     {

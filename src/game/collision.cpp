@@ -22,6 +22,11 @@ CollisionMap::CollisionMap(const Level& level) : mW(level.width), mH(level.heigh
 
 Tile CollisionMap::block(int tx, int ty) const
 {
+  if (mWrap && mW > 0 && mH > 0)
+  {
+    tx = ((tx % mW) + mW) % mW;
+    ty = ((ty % mH) + mH) % mH;
+  }
   if (tx < 0 || tx >= mW)
     return Tile::Solid;
   if (ty < 0 || ty >= mH)
@@ -63,13 +68,13 @@ bool CollisionMap::solid(int cx, int cy) const
 {
   // The map is closed on the left, right and top; falling out of the
   // bottom is deadly.
-  if (cx < 0 || cx >= width() || cy < 0)
+  if (!mWrap && (cx < 0 || cx >= width() || cy < 0))
     return true;
   switch (tileAt(cx, cy))
   {
     case Tile::Solid:
     case Tile::Grate:
-      return cy >= 0 && cy < height();
+      return mWrap || (cy >= 0 && cy < height());
     case Tile::Spikes:
       return (cy & 1) == 1; // the base of the spike block
     case Tile::SpikesDown:

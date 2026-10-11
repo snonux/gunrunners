@@ -249,6 +249,9 @@ void World::updatePlayer(const PlayerInput& raw)
   mLookFrames = looking ? mLookFrames + 1 : 0;
   mManualScroll = mLookFrames > 4 ? (p.visual == PlayerVisual::LookingUp ? -1 : 1) : 0;
 
+  // Level 29's Wraparound: off one edge, on at the other.
+  if (mMap.wraps())
+    wrapRunner();
   if (p.y > mMap.height() + 3)
   {
     playSound(Sfx::Death);

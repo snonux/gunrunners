@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 36> kVariants{{
+const std::array<Variant, 37> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -544,6 +544,21 @@ const std::array<Variant, 36> kVariants{{
     rgb(170, 200, 150), rgb(120, 160, 110),
     rgb(30, 24, 22), rgb(250, 245, 235), rgb(20, 14, 12), rgb(255, 255, 255),
     rgb(30, 22, 20), "toon"}},
+  // Level 29: dead air. A black void of TV static; white floors, the colour
+  // bars and the test card.
+  {"dead_air",
+   {ThemeId::NeonOverdrive,
+    "DEAD AIR",
+    "A BLACK VOID OF STATIC BETWEEN CHANNELS: DON'T FIGHT THE NOISE, TUNE IT",
+    rgb(6, 6, 8), rgb(16, 16, 20), rgb(30, 30, 36),
+    rgb(226, 226, 230), rgb(250, 250, 252), rgb(150, 150, 158),
+    rgb(200, 200, 210), rgb(255, 255, 255),
+    rgb(200, 200, 206), rgb(120, 120, 128),
+    rgb(240, 60, 60), rgb(255, 140, 140),
+    rgb(240, 220, 40), rgb(60, 200, 255),
+    rgb(40, 40, 46), rgb(24, 24, 28),
+    rgb(170, 170, 180), rgb(230, 230, 240), rgb(70, 70, 80), rgb(255, 255, 255),
+    rgb(240, 240, 240), ""}},
 }};
 
 } // namespace

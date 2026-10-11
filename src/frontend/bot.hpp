@@ -53,6 +53,8 @@ public:
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);
+  Input fightCard(const World& world); // bot_signal.cpp
+  Input wraparound(const World& world);
   std::deque<Input> mInkQueue;
   Input mInkPrev;
   Input topDown(const World& world);

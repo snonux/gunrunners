@@ -132,6 +132,9 @@ enum class EnemyKind
   GrinningBomb, // chases; close by it frowns, lunges and goes off on contact
   PianoBird,  // flies east along a row and drops a piano where the runner will be
   RubberGoon, // patrols; punches with an arm that stretches; squashed flat by every hit
+  StaticSwarm, // drifts at the runner through walls; latches on (a carrier infects)
+  TestCard,   // hovers and turns; a quadrant beams at the runner; only the signal's colour is hurt
+  GhostImage, // patrols with two after-images; a tinted halo only the matching tint gets through
 };
 
 enum EnemyFlag : unsigned

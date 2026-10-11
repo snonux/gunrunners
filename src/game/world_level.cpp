@@ -178,6 +178,8 @@ void World::setupEntities()
     }
     if (setupToonEntity(e))
       continue;
+    if (setupSignalEntity(e))
+      continue;
     if (setupNoirEntity(e))
       continue;
     if (setupManorEntity(e))
@@ -225,6 +227,7 @@ void World::setupEntities()
       setupCityEnemy(en, e);
       setupNoirEnemy(en, e);
       setupToonEnemy(en, e);
+      setupSignalEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -771,8 +774,9 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
     const float h = float(l.y1 - l.y0 + 1) * kTilePx;
     if (x > float(kScreenW) + 64.0f || x + w < -64.0f || y > float(kScreenH) + 64.0f || y + h < -64.0f)
       continue;
-    if (l.style == 2 || l.style == 5 || l.style == 6)
-      continue; // the maglev's station, ZERO's bulkheads and floor slide in on their own; the manor draws its sides
+    if (l.style == 2 || l.style == 5 || l.style == 6 || l.style == 7)
+      continue; // the maglev's station, ZERO's bulkheads and floor slide in on their own; the manor
+                // draws its sides; Level 29 its colour bars
     if (mGarden.cycle && (l.id.rfind("day_", 0) == 0 || l.id.rfind("dusk_", 0) == 0))
       continue; // Level 25's flowers and mushrooms (world_garden_draw.cpp)
     if (l.style == 3 || l.style == 4)

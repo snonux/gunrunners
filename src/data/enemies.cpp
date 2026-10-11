@@ -230,6 +230,12 @@ const EnemyDef kEnemies[] = {
   {"grinning_bomb", "GRINNING BOMB", K::GrinningBomb, L::Styled, 3, 3, 1, 300, 1, 0, 10, 0, kEnemyHarmless, 0},
   {"piano_bird", "PIANO BIRD", K::PianoBird, L::Styled, 4, 3, 3, 500, 1, 45, 22, 0, kEnemyHarmless | kEnemyNoTally, 0},
   {"rubber_goon", "RUBBER GOON", K::RubberGoon, L::Styled, 4, 6, 6, 600, 2, 30, 12, 0, 0, 0},
+  // Level 29. Static Swarm: tell the hiss before it latches. Test Card: tell
+  // the quadrant's aim line, cooldown between beams. Ghost Image: tell its
+  // after-images snapping back, cooldown between shots.
+  {"static_swarm", "STATIC SWARM", K::StaticSwarm, L::Styled, 4, 4, 2, 40, 2, 15, 8, 0, kEnemyHarmless, 0},
+  {"test_card", "TEST CARD", K::TestCard, L::Styled, 8, 8, 9, 900, 0, 45, 15, 0, kEnemyHarmless, 0},
+  {"ghost_image", "GHOST IMAGE", K::GhostImage, L::Styled, 3, 5, 4, 600, 2, 30, 12, 0, 0, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

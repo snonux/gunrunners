@@ -66,6 +66,9 @@ void World::updateProtoShooting(const Button& fire)
     mGreen.trim = 0;
     return;
   }
+  // Level 29: Up + fire turns the Tri-Tone's tint instead (world_signal.cpp).
+  if (ProtoId(p.proto) == ProtoId::TriToneBlaster && turnTint(fire))
+    return;
   // Level 28: tap for the blaster, hold to throw the Portable Hole (world_toon.cpp).
   if (ProtoId(p.proto) == ProtoId::PortableHole)
   {
@@ -313,6 +316,8 @@ void World::fireProto(int ox, int oy, int dx, int dy)
   pr.proto = p.proto;
   pr.speed = std::max(1, def.speed);
   int damage = def.damage;
+  if (ProtoId(p.proto) == ProtoId::TriToneBlaster)
+    tintShot(pr); // Level 29: tinted, and its pip lights
   switch (ProtoId(p.proto))
   {
     case ProtoId::PulsePistol:

@@ -23,6 +23,7 @@
 #include "game/city.hpp"
 #include "game/noir.hpp"
 #include "game/toon.hpp"
+#include "game/signal.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
@@ -247,6 +248,7 @@ struct Projectile
   int speed = 2;
   int w = 2, h = 1;
   int damage = 1;
+  int tint = -1; // Level 29: a Tri-Tone shot's tint (0 red, 1 green, 2 blue)
   bool pierce = false;
   int pierceLeft = 0; // enemies it still passes through (pierce-one shots)
   int proto = -1;     // ProtoId for ShotKind::Proto
@@ -1818,6 +1820,13 @@ public:
   // Boom; the Inkwell bonus.
   const ToonState& toon() const { return mToon; }
   const InkState& ink() const { return mInk; }
+  // Level 29 (world_signal.cpp): the signal colour, colour bars, dials, the
+  // Test Card; the Wraparound bonus.
+  const SignalState& signal() const { return mSignal; }
+  int signalShown() const; // the colour the HUD shows (the incoming one while a change waits)
+  bool blackLit() const;   // all three tint pips lit: black bars are solid
+  bool onBar(int c) const; // standing on a solid bar of colour c
+  bool cardFight() const { return mSignal.wallShut && !mSignal.cardDead && mSignal.card >= 0; }
   bool airRunning() const;  // on air (or holding up the "uh-oh" sign)
   bool holeBusy() const;    // a Portable Hole open or in flight
   bool buddyFight() const;  // the runner is in the big top and Buddy Boom is up
@@ -2577,6 +2586,31 @@ private:
   void drawToonBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawToonFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawToonHud(Renderer& r, int frame) const;
+  // Level 29, Dead Air (world_signal.cpp, world_signal_draw.cpp), and its
+  // Wraparound bonus (rules=wrap_xy).
+  bool setupSignalEntity(const EntityDef& e);
+  void setupSignalEnemy(Enemy& en, const EntityDef& e);
+  void linkSignal();
+  void applySignal();
+  void requestSignal(int c);
+  void stepSignal();
+  void wrapRunner();
+  void updateSignal(const PlayerInput& input);
+  void shutCardWall(bool shut);
+  bool turnTint(const Button& fire);
+  void tintShot(Projectile& pr);
+  bool shotAtSignal(Projectile& pr, const CellBox& hit);
+  int shotAtSignalEnemy(Projectile& pr, Enemy& e);
+  void updateStaticSwarm(Enemy& e, const EnemyDef& def);
+  void updateTestCard(Enemy& e, const EnemyDef& def);
+  void updateGhostImage(Enemy& e, const EnemyDef& def);
+  bool signalCanSave() const;
+  std::vector<int> signalSave() const;
+  bool validSignalSave(const std::vector<int>& s) const;
+  void loadSignal(const std::vector<int>& s);
+  void drawSignalBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSignalFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSignalHud(Renderer& r, int frame) const;
   // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
   bool setupKitchenEntity(const EntityDef& e);
   void setupKitchenEnemy(Enemy& en, const EntityDef& e);
@@ -3043,6 +3077,7 @@ private:
   FilmState mFilm;
   ToonState mToon;
   InkState mInk;
+  SignalState mSignal;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

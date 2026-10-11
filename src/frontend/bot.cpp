@@ -108,6 +108,8 @@ Input Bot::play(const World& world)
     return topDown(world);
   if (world.ink().on)
     return inkwell(world);
+  if (world.signal().wrap)
+    return wraparound(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -235,6 +237,12 @@ Input Bot::play(const World& world)
   {
     mFighting = true;
     return fightBuddy(world);
+  }
+  // Level 29: the Test Card, once its arena is shut.
+  if (world.cardFight())
+  {
+    mFighting = true;
+    return fightCard(world);
   }
   // Level 49: the Hive Mother, once the egg chamber's door is shut.
   if (world.motherFight())

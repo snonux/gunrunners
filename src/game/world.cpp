@@ -184,6 +184,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkTopDown();
   linkNoir();
   linkToon();
+  linkSignal();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -468,6 +469,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateToon(input);
   if (mInk.on)
     updateInk(input);
+  if (mSignal.on)
+    updateSignal(input);
   updateHatches();
   updateProps(input);
 }
@@ -934,6 +937,15 @@ void World::updateEnemies()
       case EnemyKind::RubberGoon:
         updateRubberGoon(e, def);
         break;
+      case EnemyKind::StaticSwarm:
+        updateStaticSwarm(e, def);
+        break;
+      case EnemyKind::TestCard:
+        updateTestCard(e, def);
+        break;
+      case EnemyKind::GhostImage:
+        updateGhostImage(e, def);
+        break;
       case EnemyKind::EggTimer:
         updateEggTimer(e, def);
         break;
@@ -1043,6 +1055,9 @@ void World::updateProjectiles()
       return true;
     // Level 28: Buddy Boom.
     if (mToon.on && pr.kind != ShotKind::Enemy && shotAtToon(pr, b))
+      return true;
+    // Level 29: the RGB dials.
+    if (mSignal.on && pr.kind != ShotKind::Enemy && shotAtSignal(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1256,6 +1271,15 @@ void World::updateProjectiles()
       // In the dark, shots pass through a Night Stalker; only light pins it.
       if (e.kind == EnemyKind::Stalker && !pr.flare && e.attach != 1)
         continue;
+      // Level 29: halos and the Test Card's quadrants.
+      if (mSignal.on && pr.kind != ShotKind::Enemy)
+      {
+        const int r = shotAtSignalEnemy(pr, e);
+        if (r == 1)
+          return true;
+        if (r == 2)
+          continue;
+      }
       if (pr.kind == ShotKind::Rocket)
       {
         explodeAt(b.x + b.w / 2, b.y, pr.radius > 0 ? pr.radius : 3, pr.damage);

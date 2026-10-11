@@ -76,6 +76,9 @@ public:
   bool forceField(int cx, int cy) const;
 
   bool forceFieldsOn() const { return mForceFieldsOn; }
+  // Level 29's Wraparound: the edges join up, left to right and top to bottom.
+  void setWrap(bool wrap) { mWrap = wrap; }
+  bool wraps() const { return mWrap; }
   void disableForceFields() { mForceFieldsOn = false; }
 
   bool onSolidGround(const CellBox& b) const;
@@ -106,6 +109,7 @@ private:
   std::vector<CellBox> mPlatforms;
   std::vector<CellBox> mFloats;
   bool mForceFieldsOn = true;
+  bool mWrap = false;
 };
 
 } // namespace gr

@@ -17,7 +17,7 @@ bool World::canSave() const
     (!mReactor.on || reactorCanSave()) && (!mZero.on || zeroCanSave()) && (!mWest.on || westCanSave()) &&
     (!mManor.on || manorCanSave()) && (!mKitchen.on || kitchenCanSave()) && (!mGarden.on || gardenCanSave()) &&
     !mGlide.on && !mTop.on && (!mCity.on || cityCanSave()) && ((!mNoir.on && !mFilm.on) || noirCanSave()) &&
-    (!(mToon.on || mInk.on) || toonCanSave());
+    (!(mToon.on || mInk.on) || toonCanSave()) && (!mSignal.on || signalCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -182,6 +182,9 @@ SaveGame World::snapshot() const
     if (e.kind == EnemyKind::EggTimer)
       es.attach = e.attach == 0 ? 0 : std::max(1, e.cool) + 1;
     if (e.kind == EnemyKind::CleaverBot)
+      es.attach = 0;
+    // Level 29: a latched Static Swarm comes back drifting, off the runner.
+    if (e.kind == EnemyKind::StaticSwarm)
       es.attach = 0;
     // Level 20: sparks are put back on their wires (s.reactor); an Imp keeps
     // how fast it has got (attach: pulses lived through).
@@ -383,6 +386,8 @@ SaveGame World::snapshot() const
     s.noir = noirSave();
   if (mToon.on)
     s.toon = toonSave();
+  if (mSignal.on)
+    s.signal = signalSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -474,6 +479,7 @@ bool World::restore(const SaveGame& s)
       (!s.manor.empty() && !validManorSave(s.manor)) || (!s.kitchen.empty() && !validKitchenSave(s.kitchen)) ||
       (!s.garden.empty() && !validGardenSave(s.garden)) || (!s.city.empty() && !validCitySave(s.city)) ||
       (!s.noir.empty() && !validNoirSave(s.noir)) || (!s.toon.empty() && !validToonSave(s.toon)) ||
+      (!s.signal.empty() && !validSignalSave(s.signal)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -931,6 +937,8 @@ bool World::restore(const SaveGame& s)
     loadNoir(s.noir);
   if (!s.toon.empty())
     loadToon(s.toon);
+  if (!s.signal.empty())
+    loadSignal(s.signal);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

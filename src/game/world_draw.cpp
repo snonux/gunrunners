@@ -196,6 +196,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawNoirBack(r, camX, camY, frame, alpha);
   if (mToon.on || mInk.on)
     drawToonBack(r, camX, camY, frame, alpha);
+  if (mSignal.on)
+    drawSignalBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -377,6 +379,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue;
     if (mTop.on && e.kind == EnemyKind::ModelTank)
       continue; // seen from above (world_city_draw.cpp)
+    if (e.kind == EnemyKind::StaticSwarm || e.kind == EnemyKind::TestCard || e.kind == EnemyKind::GhostImage)
+      continue; // Level 29 (world_signal_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -857,6 +861,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawNoirFront(r, camX, camY, frame, alpha);
   if (mToon.on || mInk.on)
     drawToonFront(r, camX, camY, frame, alpha);
+  if (mSignal.on)
+    drawSignalFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1672,6 +1678,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawNoirHud(r, frame);
   if (mToon.on || mInk.on)
     drawToonHud(r, frame);
+  if (mSignal.on)
+    drawSignalHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)
