@@ -999,6 +999,8 @@ void World::drawSignalBack(Renderer& r, float camX, float camY, int frame, float
       continue; // Level 30 draws its own (world_trench_draw.cpp)
     if (mStorm.on && t.art == "keepers_log")
       continue; // Level 31 draws its own (world_storm_draw.cpp)
+    if (mDish.on && t.art == "halcyon_crate")
+      continue; // Level 32 draws its own (world_dish_draw.cpp)
     const float x = float(t.x) * kTilePx - camX, y = float(t.y) * kTilePx - camY;
     if (offScreen(x, y, kTilePx, kTilePx))
       continue;

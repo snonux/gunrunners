@@ -6,6 +6,7 @@
 #include "game/toon_draw.hpp"
 #include "game/trench_draw.hpp"
 #include "game/storm_draw.hpp"
+#include "game/dish_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -92,7 +93,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSplit(r, frame, alpha);
     return;
   }
-  const float camX = mSplitPass != 0 ? mSplitCamX : mCamera.renderX() * S;
+  const float camX = (mSplitPass != 0 ? mSplitCamX : mCamera.renderX() * S) + dishWobble(*this, frame); // Heatstroke's wobble
   const float camY = mSplitPass != 0 ? mSplitCamY : mCamera.renderY() * S;
   if (mTrain)
   {
@@ -115,6 +116,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawTrenchSet(r, *this, mArt, camX, camY, frame); // Level 30: the deep water, the hold, the station, the cable
   if (mStorm.on)
     drawStormSet(r, *this, mArt, camX, camY, frame); // Level 31: the lightning, the sea, the caves' and the tower's walls
+  if (mDish.on)
+    drawDishSet(r, *this, mArt, camX, camY, frame, alpha); // Level 32: the satellite, the dishes, the cabin, the bunker, the tower
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -307,6 +310,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawTeslaIcon(r, mArt, x, y, 1.0f, frame); // Level 31 (world_storm_draw.cpp)
         continue;
       }
+      if (mDish.on && mLevelProto == int(ProtoId::SignalJammer))
+      {
+        drawJammerIcon(r, mArt, x, y, 1.0f, frame); // Level 32 (world_dish_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -367,6 +375,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         // Fiber Trench's duck wears a diving mask and a snorkel.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_diving_mask", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mDish.on && mLevel->themeKey == "desert_array")
+      {
+        // Dish Array's duck wears sunglasses.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_sunglasses", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mStorm.on && mLevel->themeKey == "storm_cliffs")
@@ -1605,6 +1620,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawHarpoonIcon(r, mArt, x + 18, top + 20); // Level 30: a speargun (world_trench_draw.cpp)
   else if (proto && mStorm.on && p.proto == int(ProtoId::TeslaRod))
     drawTeslaIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 31: a copper rod (world_storm_draw.cpp)
+  else if (proto && mDish.on && p.proto == int(ProtoId::SignalJammer))
+    drawJammerIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 32: a handheld jammer (world_dish_draw.cpp)
   else if (proto)
   {
     DrawOpts io;

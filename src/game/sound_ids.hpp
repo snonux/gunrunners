@@ -209,6 +209,19 @@ enum class Sfx
   BungeeStretch, // Bungee's rope stretching (a rubbery creak)
   BungeeTwang, // let go: flung on the rope (a deep elastic twang)
   StormRing, // a storm ring taken (a crackle and a bright electric chime)
+  DishGroan, // Level 32: a big dish about to turn (a deep steel groan, creaking bearings)
+  DishTurn,  // a dish turning (its drive motors spinning up, gears ticking)
+  JamBurst,  // the Signal Jammer firing (a warbling burst of radio noise)
+  RobotJammed, // a robot jammed (garbled bleeps tumbling down, a fizz)
+  SandBulge, // a Sand Shark about to breach (a low rumble, the sand hissing up)
+  SharkBreach, // a Sand Shark breaching (a spray of sand and a snap of jaws)
+  ScrapDrop, // a Vulture Drone letting go of scrap (a falling whistle)
+  ScrapClank, // scrap landing (a tinny clank and a rattle)
+  MechAim,   // a Scorpion Mech's stinger aiming (a charging whine climbing)
+  MechBeam,  // a Scorpion Mech's laser (a searing zap, a hum)
+  MiniDishTurn, // a minidish knocked round (a little servo whirr and a click)
+  CactusHat, // the cactus's hat popping up (a cork pop and a slide whistle)
+  SwapWarn,  // Heatstroke: left and right about to swap (a wobbling two-tone siren)
   Count,
 };
 

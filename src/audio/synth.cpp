@@ -2843,6 +2843,205 @@ std::vector<float> makeSfx(Sfx id)
       addTone(b, 0.08, 0.45, midiFreq(93), Wave::Triangle, 0.05, 0.12);
       return b;
     }
+    case Sfx::DishGroan:
+    {
+      // Level 32: a big dish about to turn: a deep steel groan bending
+      // under its own weight, the bearings creaking in slow ticks, a
+      // shudder through the frame.
+      Osc a, b, c;
+      Noise n(727), m(733);
+      Svf bp, lp;
+      return render(1.7, [&](double t, double total) {
+        const double u = t / total;
+        const double f = 46.0 * (1.0 + 0.08 * std::sin(t * 2.0 * kPi * 1.3) + 0.04 * std::sin(t * 2.0 * kPi * 3.7)) * sweep(1.0, 0.86, u);
+        const double steel = lp.low(float(a.step(f, Wave::Saw) * 0.6 + b.step(f * 2.02, Wave::Saw) * 0.3 + c.step(f * 3.01, Wave::Square) * 0.12),
+          sweep(380.0, 620.0, std::sin(u * kPi)), 2.4);
+        const double tick = std::fmod(t, 0.11) < 0.03 ? 1.0 : 0.15;
+        const double creak = bp.band(n.next(), sweep(700.0, 420.0, u), 6.0) * tick * (0.6 + 0.4 * (m.next() > 0.0f ? 1.0 : 0.5));
+        const double shudder = 0.75 + 0.25 * std::sin(t * 2.0 * kPi * 7.0);
+        return (steel * 0.25 * shudder + creak * 0.19) * attack(t, 0.25) * std::min(1.0, (total - t) / 0.4);
+      });
+    }
+    case Sfx::DishTurn:
+    {
+      // A dish turning: its drive motors spinning up to a hum, the gears
+      // ticking under it.
+      Osc mo, mo2, hum;
+      Noise n(739);
+      Svf bp;
+      return render(1.3, [&](double t, double total) {
+        const double u = std::min(1.0, t / 0.6);
+        const double f = sweep(30.0, 110.0, u * u * (3.0 - 2.0 * u));
+        const double motor = (mo.step(f, Wave::Saw) * 0.6 + mo2.step(f * 3.0, Wave::Triangle) * 0.3) * 0.18;
+        const double h = hum.step(220.0, Wave::Sine) * 0.05 * u;
+        const double gear = bp.band(n.next(), 2400.0, 3.0) * (std::fmod(t, 0.045) < 0.006 ? 1.0 : 0.0) * 0.2;
+        return (motor + h + gear) * 0.8 * attack(t, 0.08) * std::min(1.0, (total - t) / 0.35);
+      });
+    }
+    case Sfx::JamBurst:
+    {
+      // The Signal Jammer: a warbling burst of radio noise, a carrier
+      // wobbling fast and falling, chopped static on it.
+      Osc car, lfo;
+      Noise n(743), m(751);
+      Svf bp;
+      return render(0.4, [&](double t, double total) {
+        const double wob = std::sin(t * 2.0 * kPi * 38.0);
+        const double f = sweep(1400.0, 500.0, t / total) * (1.0 + 0.25 * wob);
+        const double tone = car.step(f, Wave::Square, 0.4) * 0.14;
+        const double chop = m.next() > 0.1f ? 1.0 : 0.2;
+        const double hiss = bp.band(n.next(), sweep(3200.0, 1200.0, t / total), 1.0) * chop * 0.45;
+        return (tone + hiss) * attack(t, 0.004) * decay(t, 0.18) * 0.95 * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::RobotJammed:
+    {
+      // A robot jammed: garbled little bleeps tumbling down, each a random
+      // pitch, and a fizz under them.
+      Osc a;
+      Noise n(757), pick(761);
+      OnePole hp;
+      double f = 1200.0;
+      int left = 0;
+      return render(0.55, [&](double t, double total) {
+        if (left-- <= 0)
+        {
+          f = (500.0 + 650.0 * (double(pick.next()) + 1.0)) * sweep(1.0, 0.45, t / total);
+          left = int(0.04 * kRate);
+        }
+        const double bleep = a.step(f, Wave::Square, 0.5) * 0.13 * (std::fmod(t, 0.04) < 0.03 ? 1.0 : 0.0);
+        const double fizz = hp.highpass(n.next(), 4500.0) * 0.12 * decay(t, 0.25);
+        return (bleep + fizz) * 1.4 * attack(t, 0.003) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::SandBulge:
+    {
+      // A Sand Shark about to breach: a low rumble swelling under the
+      // sand, the grains hissing up over it.
+      Noise n(769), m(773);
+      OnePole lp;
+      Svf bp;
+      Osc o;
+      return render(0.8, [&](double t, double total) {
+        const double u = t / total;
+        const double rum = lp.lowpass(n.next(), 140.0) * 2.6 + o.step(sweep(42.0, 60.0, u), Wave::Sine) * 0.4;
+        const double hiss = bp.band(m.next(), sweep(1800.0, 4200.0, u), 1.2) * u * 0.5;
+        return (rum * 0.43 + hiss * 0.48) * attack(t, 0.3) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::SharkBreach:
+    {
+      // A Sand Shark breaching: a whoosh of sand spraying up and the snap
+      // of its jaws.
+      Noise n(787), m(797);
+      Svf bp, bp2;
+      Osc thud;
+      return render(0.5, [&](double t, double total) {
+        const double spray = bp.band(n.next(), sweep(900.0, 3000.0, std::min(1.0, t / 0.2)), 0.9) * attack(t, 0.02) * decay(t, 0.16) * 0.6;
+        const double u = t - 0.14;
+        const double snap = u > 0.0 ? bp2.band(m.next(), 1600.0, 2.5) * decay(u, 0.015) * 0.6 : 0.0;
+        const double body = u > 0.0 ? thud.step(sweep(180.0, 70.0, u / 0.06), Wave::Sine) * decay(u, 0.05) * 0.4 : 0.0;
+        return (spray + snap + body) * 0.5 * std::min(1.0, (total - t) / 0.06);
+      });
+    }
+    case Sfx::ScrapDrop:
+    {
+      // Scrap let go: a falling whistle, the air rushing past it.
+      Osc a;
+      Noise n(809);
+      Svf bp;
+      return render(0.7, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(1900.0, 600.0, u);
+        const double w = a.step(f, Wave::Sine) * 0.16;
+        const double air = bp.band(n.next(), f * 1.2, 2.0) * 0.18;
+        return (w + air) * 1.2 * attack(t, 0.04) * std::min(1.0, (total - t) / 0.06);
+      });
+    }
+    case Sfx::ScrapClank:
+    {
+      // Scrap landing: a tinny clank, two odd metal partials, a rattle.
+      Osc a, b, c;
+      Noise n(811), m(821);
+      Svf bp;
+      return render(0.42, [&](double t, double total) {
+        const double hit = bp.band(n.next(), 2100.0, 1.6) * decay(t, 0.012) * 0.7;
+        const double ring = (a.step(940.0, Wave::Sine) + b.step(1530.0, Wave::Sine) * 0.7 + c.step(2470.0, Wave::Sine) * 0.4) * decay(t, 0.07) * 0.1;
+        const double rattle = (std::fmod(t, 0.05) < 0.008 && t > 0.06 ? 1.0 : 0.0) * m.next() * decay(t, 0.12) * 0.35;
+        return (hit + ring + rattle) * 0.72 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::MechAim:
+    {
+      // A Scorpion Mech aiming: a capacitor's whine charging up, a servo
+      // whirr as the stinger tracks, a tick as it locks.
+      Osc a, b, s;
+      Noise n(823);
+      Svf bp;
+      return render(1.3, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(300.0, 2200.0, u * u);
+        const double whine = (a.step(f, Wave::Sine) * 0.6 + b.step(f * 1.5, Wave::Triangle) * 0.25) * (0.3 + 0.7 * u) * 0.2;
+        const double servo = bp.band(float(s.step(sweep(140.0, 210.0, u), Wave::Saw)), 700.0, 2.0) * 0.12 * (1.0 - u);
+        const double lock = t > total - 0.18 ? bp.band(n.next(), 3000.0, 3.0) * decay(t - (total - 0.18), 0.01) * 0.3 : 0.0;
+        return (whine + servo + lock) * attack(t, 0.05) * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::MechBeam:
+    {
+      // A Scorpion Mech's laser: a searing zap and the beam's hum, a
+      // crackle where it burns.
+      Osc a, b, c;
+      Noise n(827), m(829);
+      OnePole hp;
+      return render(0.6, [&](double t, double total) {
+        const double zap = a.step(sweep(3200.0, 900.0, std::min(1.0, t / 0.08)), Wave::Saw) * decay(t, 0.05) * 0.3;
+        const double hum = (b.step(180.0, Wave::Saw) * 0.5 + c.step(362.0, Wave::Square) * 0.25) * 0.16 * (0.7 + 0.3 * std::sin(t * 2.0 * kPi * 30.0));
+        const double burn = (m.next() > 0.7f ? 1.0 : 0.15) * hp.highpass(n.next(), 3500.0) * 0.16;
+        return (zap + hum + burn) * 1.1 * attack(t, 0.002) * std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::MiniDishTurn:
+    {
+      // A minidish knocked round: a little servo whirr and a click home.
+      Osc a;
+      Noise n(839);
+      Svf bp;
+      return render(0.3, [&](double t, double total) {
+        const double w = a.step(sweep(500.0, 900.0, std::min(1.0, t / 0.2)), Wave::Saw) * (t < 0.22 ? 1.0 : 0.0) * 0.1;
+        const double u = t - 0.22;
+        const double click = u > 0.0 ? bp.band(n.next(), 2600.0, 3.0) * decay(u, 0.01) * 0.5 : 0.0;
+        return (w + click) * attack(t, 0.01) * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::CactusHat:
+    {
+      // The cactus's hat popping up: a cork pop and a slide whistle going
+      // up and wobbling.
+      Osc a, b;
+      Noise n(853);
+      Svf bp;
+      return render(0.5, [&](double t, double total) {
+        const double pop = bp.band(n.next(), 1200.0, 2.0) * decay(t, 0.01) * 0.7 + b.step(sweep(500.0, 200.0, t / 0.05), Wave::Sine) * decay(t, 0.03) * 0.3;
+        const double u = t - 0.05;
+        const double f = sweep(500.0, 1500.0, std::min(1.0, u / 0.25)) * (1.0 + 0.03 * std::sin(u * 2.0 * kPi * 12.0));
+        const double slide = u > 0.0 ? a.step(f, Wave::Sine) * 0.2 * std::min(1.0, u / 0.03) : 0.0;
+        return (pop + slide) * 0.8 * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::SwapWarn:
+    {
+      // Heatstroke: left and right about to swap: a wobbling two-tone
+      // siren, the tones trading places.
+      Osc a, b;
+      return render(1.4, [&](double t, double total) {
+        const bool hi = std::fmod(t, 0.35) < 0.175;
+        const double wob = 1.0 + 0.02 * std::sin(t * 2.0 * kPi * 9.0);
+        const double f1 = (hi ? 880.0 : 660.0) * wob, f2 = (hi ? 660.0 : 880.0) * wob * 0.5;
+        const double v = a.step(f1, Wave::Triangle) * 0.6 + b.step(f2, Wave::Square, 0.3) * 0.15;
+        return v * 0.45 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
     case Sfx::Count:
       break;
   }

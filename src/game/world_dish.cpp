@@ -296,7 +296,9 @@ void World::updateDishRides()
   s.t = (s.t + 1) % kDishCycle;
   const bool hear = !mSimulation;
   if (hear && dishPhase(s.t, false).groan && !dishPhase(before, false).groan)
-    playSound(Sfx::Rumble);
+    playSound(Sfx::DishGroan);
+  if (hear && dishPhase(s.t, false).n > 0 && dishPhase(before, false).n == 0)
+    playSound(Sfx::DishTurn);
   for (auto& d : s.small)
   {
     const int dx = std::abs(p.x / kCellsPerTile - d.x), dy = std::abs(p.y / kCellsPerTile - d.y);
@@ -306,7 +308,9 @@ void World::updateDishRides()
     const int was = d.t;
     d.t = (d.t + 1) % kSmallCycle;
     if (hear && dishPhase(d.t, true).groan && !dishPhase(was, true).groan)
-      playSound(Sfx::Rumble);
+      playSound(Sfx::DishGroan);
+    if (hear && dishPhase(d.t, true).n > 0 && dishPhase(was, true).n == 0)
+      playSound(Sfx::DishTurn);
   }
   placeDishes(false);
 }
@@ -324,7 +328,7 @@ void World::fireJam(int ox, int oy, int dir)
   // The minidishes and the cactus take it as a shot.
   shotAtDishProps(c.box());
   if (!mSimulation)
-    playSound(Sfx::Zap);
+    playSound(Sfx::JamBurst);
 }
 
 // The enemy (or the dummy) a jammed robot goes for: the nearest.
@@ -407,6 +411,8 @@ void World::updateJamCones()
           r->jam = kJamFrames;
           r->aimState = 0;
           e.tell = 0;
+          if (!mSimulation)
+            playSound(Sfx::RobotJammed);
         }
       }
       else
@@ -430,14 +436,14 @@ bool World::shotAtDishProps(const CellBox& hit)
       m.turn = 8;
       any = true;
       if (!mSimulation)
-        playSound(Sfx::Clunk);
+        playSound(Sfx::MiniDishTurn);
     }
   if (s.cactusX >= 0 && s.hatUp == 0 && CellBox{s.cactusX, s.cactusY - 3, 2, 4}.intersects(hit))
   {
     s.hatUp = 20;
     any = true;
     if (!mSimulation)
-      playSound(Sfx::Boing);
+      playSound(Sfx::CactusHat);
   }
   return any;
 }
@@ -461,6 +467,8 @@ void World::updateDish(const PlayerInput& input)
   // Heatstroke: left and right swap every 150 frames.
   if (s.swapLr)
   {
+    if (s.swapT + 1 == kSwapEvery - kSwapWobble && !mSimulation)
+      playSound(Sfx::SwapWarn);
     if (++s.swapT >= kSwapEvery)
     {
       s.swapT = 0;
@@ -500,6 +508,8 @@ void World::updateDish(const PlayerInput& input)
       const CellBox b{sc.x, sc.y, 2, 2};
       if (mMap.overlapsSolid(b) || sc.y > mMap.height())
       {
+        if (!mSimulation)
+          playSound(Sfx::ScrapClank);
         sc.vy = -1; // landed: gone
         break;
       }
@@ -512,7 +522,7 @@ void World::updateDish(const PlayerInput& input)
           if (p.state == PlayerState::OnGround && !mMap.onSolidGround(p.box()))
             startFalling();
           if (!mSimulation)
-            playSound(Sfx::Clunk);
+            playSound(Sfx::ScrapClank);
         }
         else if (sc.carrier)
         {
@@ -628,7 +638,7 @@ void World::updateSandShark(Enemy& e, const EnemyDef& def)
         k->t = 0;
         e.tell = def.tell;
         if (!mSimulation)
-          playSound(Sfx::Rumble);
+          playSound(Sfx::SandBulge);
       }
       break;
     }
@@ -641,7 +651,7 @@ void World::updateSandShark(Enemy& e, const EnemyDef& def)
         e.tell = 0;
         e.hidden = false;
         if (!mSimulation)
-          playSound(Sfx::Snap);
+          playSound(Sfx::SharkBreach);
       }
       break;
     case 2: // out of the sand: it bites, and it can be hit
@@ -714,7 +724,7 @@ void World::updateVultureDrone(Enemy& e, const EnemyDef& def)
     s.scraps.push_back(sc);
     e.cool = def.cooldown;
     if (!mSimulation)
-      playSound(Sfx::Whistle);
+      playSound(Sfx::ScrapDrop);
   }
 }
 
@@ -782,7 +792,7 @@ void World::fireBeam(Enemy& e, Robot& r)
   b.y1 = endY;
   s.beams.push_back(b);
   if (!mSimulation)
-    playSound(Sfx::EyeBeam);
+    playSound(Sfx::MechBeam);
 }
 
 void World::updateScorpionMech(Enemy& e, const EnemyDef& def)
@@ -826,7 +836,7 @@ void World::updateScorpionMech(Enemy& e, const EnemyDef& def)
         r->ay = oy;
         e.tell = kAimMax + kAimLock;
         if (!mSimulation)
-          playSound(Sfx::EyeCharge);
+          playSound(Sfx::MechAim);
         break;
       }
       if (e.timer % std::max(1, def.stepEvery) != 0)

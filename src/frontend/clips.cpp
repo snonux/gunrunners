@@ -10370,6 +10370,509 @@ void runnersCliff(ClipKit& k, int frame, int ticks, float ox, float oy)
 
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
+// --- Level 32: Dish Array (brief_32) -----------------------------------------
+
+// The desert sky: deep blue overhead fading to a hazy pale band at the
+// horizon (y 430), the sun's glare up right. Full screen.
+const Texture& desertSky(ClipKit& k)
+{
+  return cached(k, "desert_sky", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 440);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.05, 0.12, 0.34);
+    cairo_pattern_add_color_stop_rgb(g, 0.6, 0.2, 0.4, 0.68);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.86, 0.8, 0.72);
+    cairo_set_source(cr, g);
+    cairo_paint(cr);
+    cairo_pattern_destroy(g);
+    cairo_pattern_t* sun = cairo_pattern_create_radial(1120, 60, 0, 1120, 60, 360);
+    cairo_pattern_add_color_stop_rgba(sun, 0.0, 1.0, 1.0, 0.94, 0.9);
+    cairo_pattern_add_color_stop_rgba(sun, 0.08, 1.0, 0.96, 0.8, 0.55);
+    cairo_pattern_add_color_stop_rgba(sun, 1.0, 1.0, 0.9, 0.7, 0.0);
+    cairo_set_source(cr, sun);
+    cairo_paint(cr);
+    cairo_pattern_destroy(sun);
+    // Thin cirrus.
+    for (int i = 0; i < 9; ++i)
+    {
+      const double x = double(hash2(i, 3201) % 1280u), y = 60.0 + double(hash2(i, 3202) % 220u);
+      const double len = 120.0 + double(hash2(i, 3203) % 160u);
+      cairo_move_to(cr, x, y);
+      cairo_curve_to(cr, x + len * 0.3, y - 6, x + len * 0.7, y + 4, x + len, y - 3);
+      cairo_set_source_rgba(cr, 1, 1, 1, 0.16);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// The mesas on the horizon: flat-topped red buttes, their sunlit faces
+// and shaded sides, banded strata, a haze over the far ones. 1280 x 200,
+// their feet at y 190.
+void paintMesas(cairo_t* cr)
+{
+  {
+    struct Butte
+    {
+      double x, w, h, far;
+    };
+    static constexpr std::array<Butte, 7> kButtes{
+      {{-40, 260, 70, 1}, {260, 150, 92, 1}, {880, 300, 80, 1}, {120, 220, 130, 0}, {560, 330, 150, 0}, {1010, 200, 118, 0}, {1180, 160, 96, 0}}};
+    for (const auto& b : kButtes)
+    {
+      const double foot = 190, top = foot - b.h;
+      const double slope = b.h * 0.35;
+      // The talus skirt.
+      cairo_move_to(cr, b.x - slope, foot);
+      cairo_line_to(cr, b.x + 10, top + b.h * 0.55);
+      cairo_line_to(cr, b.x + b.w - 10, top + b.h * 0.55);
+      cairo_line_to(cr, b.x + b.w + slope, foot);
+      cairo_close_path(cr);
+      cairo_set_source_rgba(cr, 0.72, 0.42, 0.3, b.far > 0 ? 0.55 : 1.0);
+      cairo_fill(cr);
+      // The cliff: lit left face, shaded right.
+      cairo_rectangle(cr, b.x + 12, top, b.w * 0.55, b.h * 0.6);
+      cairo_set_source_rgba(cr, 0.8, 0.42, 0.26, b.far > 0 ? 0.55 : 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, b.x + 12 + b.w * 0.55, top, b.w * 0.45 - 24, b.h * 0.6);
+      cairo_set_source_rgba(cr, 0.55, 0.26, 0.18, b.far > 0 ? 0.55 : 1.0);
+      cairo_fill(cr);
+      for (int s = 1; s < 4; ++s)
+      {
+        cairo_rectangle(cr, b.x + 12, top + b.h * 0.15 * s, b.w - 24, 3);
+        cairo_set_source_rgba(cr, 0.4, 0.18, 0.12, b.far > 0 ? 0.25 : 0.45);
+        cairo_fill(cr);
+      }
+      // The cap rock, catching the sun.
+      cairo_rectangle(cr, b.x + 6, top - 4, b.w - 12, 7);
+      cairo_set_source_rgba(cr, 0.94, 0.62, 0.42, b.far > 0 ? 0.55 : 1.0);
+      cairo_fill(cr);
+    }
+    // The haze over everything at the feet.
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 110, 0, 200);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0.9, 0.82, 0.72, 0.0);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.9, 0.82, 0.72, 0.75);
+    cairo_rectangle(cr, 0, 110, W, 90);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  }
+}
+
+// The mesas in the heat shimmer: drawn in 6 px slices, each nudged
+// sideways on a wave; `phase` 0-3 moves the wave along.
+const Texture& desertMesas(ClipKit& k, int phase, double amp)
+{
+  return cached(k, "desert_mesas" + std::to_string(phase) + "_" + std::to_string(int(amp * 10)), int(W), 200, 0, 0, [phase, amp](cairo_t* cr) {
+    for (int s = 0; s < 200; s += 6)
+    {
+      const double dx = std::sin(s * 0.09 + phase * 1.5708) * amp * (0.3 + 0.7 * s / 200.0);
+      cairo_save(cr);
+      cairo_rectangle(cr, 0, s, W, 6);
+      cairo_clip(cr);
+      cairo_translate(cr, dx, 0);
+      paintMesas(cr);
+      cairo_restore(cr);
+    }
+  });
+}
+
+// The dunes in front: pale sand in long ridges, the sun on their crests,
+// ripples in the troughs. 1280 x 330 from y 390.
+const Texture& desertDunes(ClipKit& k)
+{
+  return cached(k, "desert_dunes", int(W), 330, 0, 0, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 30, W, 300);
+    cairo_set_source_rgb(cr, 0.88, 0.76, 0.6);
+    cairo_fill(cr);
+    for (int d = 0; d < 3; ++d)
+    {
+      const double base = 40.0 + d * 90.0, amp = 18.0 + d * 10.0;
+      cairo_move_to(cr, 0, 330);
+      for (double x = 0; x <= W; x += 16)
+        cairo_line_to(cr, x, base + amp * std::sin(x / (260.0 + d * 90.0) * 2 * kPi + d * 1.9));
+      cairo_line_to(cr, W, 330);
+      cairo_close_path(cr);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, base - amp, 0, base + 160);
+      cairo_pattern_add_color_stop_rgb(g, 0.0, 0.98 - d * 0.02, 0.88 - d * 0.03, 0.7 - d * 0.04);
+      cairo_pattern_add_color_stop_rgb(g, 1.0, 0.8 - d * 0.04, 0.62 - d * 0.04, 0.46 - d * 0.04);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+      // The crest's bright edge.
+      for (double x = 0; x <= W; x += 16)
+      {
+        const double y = base + amp * std::sin(x / (260.0 + d * 90.0) * 2 * kPi + d * 1.9);
+        if (x == 0)
+          cairo_move_to(cr, x, y);
+        else
+          cairo_line_to(cr, x, y);
+      }
+      cairo_set_source_rgba(cr, 1, 0.97, 0.88, 0.7);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+    // Ripples.
+    for (int i = 0; i < 70; ++i)
+    {
+      const double x = double(hash2(i, 3211) % 1280u), y = 80.0 + double(hash2(i, 3212) % 240u);
+      cairo_move_to(cr, x, y);
+      cairo_curve_to(cr, x + 14, y - 3, x + 28, y + 3, x + 42, y);
+      cairo_set_source_rgba(cr, 0.55, 0.38, 0.24, 0.22);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// A radio telescope's bowl seen from the side, 340 x 240, anchored at its
+// hub (the back of the bowl, 170, 190), opening straight up: the white
+// steel dish with its panel seams, the four feed legs to the receiver.
+const Texture& desertBowl(ClipKit& k)
+{
+  return cached(k, "desert_bowl", 340, 240, 170, 190, [](cairo_t* cr) {
+    // The feed legs (behind) and the receiver.
+    cairo_move_to(cr, 30, 120);
+    cairo_line_to(cr, 170, 14);
+    cairo_line_to(cr, 310, 120);
+    cairo_set_source_rgb(cr, 0.76, 0.78, 0.82);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    // The bowl: a parabola's section, the inside lit, the rim an ellipse.
+    cairo_move_to(cr, 10, 120);
+    cairo_curve_to(cr, 40, 200, 300, 200, 330, 120);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 120, 0, 196);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.98, 0.98, 1.0);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.72, 0.74, 0.8);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 170, 120);
+    cairo_scale(cr, 160, 26);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_set_source_rgb(cr, 0.86, 0.88, 0.93);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // Panel seams inside the rim.
+    for (const double s : {0.35, 0.68})
+    {
+      cairo_save(cr);
+      cairo_translate(cr, 170, 120);
+      cairo_scale(cr, 160 * s, 26 * s);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      cairo_set_source_rgba(cr, 0.45, 0.48, 0.56, 0.6);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+    }
+    for (int i = 0; i < 12; ++i)
+    {
+      const double a = i * kPi / 6.0;
+      cairo_move_to(cr, 170, 120);
+      cairo_line_to(cr, 170 + 160 * std::cos(a), 120 + 26 * std::sin(a));
+    }
+    cairo_set_source_rgba(cr, 0.45, 0.48, 0.56, 0.45);
+    cairo_set_line_width(cr, 1);
+    cairo_stroke(cr);
+    // The front feed legs and the receiver box with its horn.
+    cairo_move_to(cr, 90, 138);
+    cairo_line_to(cr, 170, 22);
+    cairo_line_to(cr, 250, 138);
+    cairo_set_source_rgb(cr, 0.9, 0.91, 0.94);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 156, 2, 28, 22);
+    cairo_set_source_rgb(cr, 0.95, 0.95, 0.97);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 162, 24);
+    cairo_line_to(cr, 178, 24);
+    cairo_line_to(cr, 174, 34);
+    cairo_line_to(cr, 166, 34);
+    cairo_close_path(cr);
+    cairo_set_source_rgb(cr, 0.85, 0.6, 0.25);
+    cairo_fill(cr);
+    // The hub on the back.
+    cairo_rectangle(cr, 150, 178, 40, 18);
+    cairo_set_source_rgb(cr, 0.6, 0.62, 0.68);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+  });
+}
+
+// The pedestal under a dish: a white tapering tower on a concrete footing,
+// the yoke's bearing on top. 160 x 260, anchored at the bearing (80, 20).
+const Texture& desertPedestal(ClipKit& k)
+{
+  return cached(k, "desert_pedestal", 160, 260, 80, 20, [](cairo_t* cr) {
+    cairo_move_to(cr, 60, 20);
+    cairo_line_to(cr, 100, 20);
+    cairo_line_to(cr, 120, 236);
+    cairo_line_to(cr, 40, 236);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(40, 0, 120, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.98, 0.98, 1.0);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.7, 0.72, 0.78);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // A door and a hatch band.
+    cairo_rectangle(cr, 70, 190, 20, 40);
+    cairo_set_source_rgb(cr, 0.5, 0.52, 0.58);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 52, 120, 56, 6);
+    cairo_set_source_rgb(cr, 0.95, 0.75, 0.2);
+    cairo_fill(cr);
+    // The footing.
+    cairo_rectangle(cr, 20, 232, 120, 22);
+    cairo_set_source_rgb(cr, 0.72, 0.68, 0.62);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    // The bearing.
+    cairo_arc(cr, 80, 20, 18, 0, 2 * kPi);
+    cairo_set_source_rgb(cr, 0.62, 0.64, 0.7);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_arc(cr, 80, 20, 6, 0, 2 * kPi);
+    cairo_fill(cr);
+  });
+}
+
+// desert_dishes: the array in the desert: a deep blue sky with the
+// satellite crossing it (a bright star moving right to left), red mesas on
+// the horizon in heat shimmer (a 4-frame loop), three white dishes on the
+// dunes. Frames 0-5 the dishes point east; frames 6-11 they have turned to
+// point overhead (frame 6 the turn, a judder).
+void desertDishes(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(desertSky(k), 0, 0);
+  // The satellite: a hard bright point and its glint, crossing.
+  const float sx = 1060.0f - float(frame) * 62.0f - float(ticks % 7) * 1.0f + ox * 0.1f, sy = 110.0f + float(frame) * 3.0f + oy * 0.1f;
+  drawGlow(k.r, k.art, sx, sy, 34.0f, rgb(255, 255, 230), 0.7f);
+  k.r.fillRect(sx - 3, sy - 3, 6, 6, rgb(255, 255, 255));
+  const float tw = (frame % 2 == 0) ? 22.0f : 14.0f;
+  k.r.drawLine(sx - tw, sy, sx + tw, sy, 1.5f, rgba(255, 255, 240, 200), Blend::Add);
+  k.r.drawLine(sx, sy - tw, sx, sy + tw, 1.5f, rgba(255, 255, 240, 200), Blend::Add);
+  k.r.draw(desertMesas(k, frame % 4, 3.0), ox * 0.3f, 250.0f + oy * 0.3f);
+  k.r.draw(desertDunes(k), ox * 0.6f, 390.0f + oy * 0.6f);
+  // A heat haze line over the dunes' far edge.
+  for (int i = 0; i < 6; ++i)
+  {
+    const float y = 410.0f + float(i) * 7.0f;
+    const float dx = std::sin(float(ticks) * 0.12f + float(i)) * 20.0f;
+    k.r.fillRect(dx - 20.0f, y + oy * 0.5f, W + 40.0f, 2.0f, rgba(255, 245, 230, 30));
+  }
+  // The three dishes, nearest last.
+  static constexpr std::array<std::array<float, 3>, 3> kDishes{{{300, 520, 0.62f}, {980, 540, 0.72f}, {640, 590, 0.9f}}};
+  const bool turned = frame >= 6;
+  for (std::size_t i = 0; i < kDishes.size(); ++i)
+  {
+    const float x = kDishes[i][0] + ox * kDishes[i][2], y = kDishes[i][1] + oy * kDishes[i][2], s = kDishes[i][2];
+    const float judder = frame == 6 ? (ticks % 2 ? 2.0f : -2.0f) : 0.0f;
+    DrawOpts p;
+    p.scale = s;
+    k.r.draw(desertPedestal(k), x, y - 236.0f * s + 20.0f * s, p);
+    DrawOpts b;
+    b.scale = s;
+    b.angle = turned ? (frame == 6 ? 12.0f : 0.0f) : 52.0f;
+    k.r.draw(desertBowl(k), x + judder, y - 236.0f * s + 20.0f * s, b);
+    // Its shadow on the sand.
+    k.r.fillRect(x - 90.0f * s, y + 18.0f * s, 260.0f * s, 8.0f * s, rgba(120, 80, 50, 70));
+  }
+}
+
+// One frame of the close-up dish, 1280 x 720 (anchored top-left): the
+// bowl turning to face us (u 0 side on, 1 full on), the receiver at its
+// focus becoming an eye that opens (eye 0 shut .. 1 open).
+const Texture& closeupDish(ClipKit& k, int frame)
+{
+  return cached(k, "dish_closeup" + std::to_string(frame), int(W), int(H), 0, 0, [frame](cairo_t* cr) {
+    const double u0 = std::min(1.0, double(frame) / 5.0);
+    const double u = u0 * u0 * (3.0 - 2.0 * u0);
+    const double eye = std::clamp((double(frame) - 4.0) / 3.0, 0.0, 1.0);
+    const double cx = 640, cy = 380, R = 330;
+    const double rx = R * (0.22 + 0.78 * u);
+    // The yoke behind it and the pedestal going down out of frame.
+    cairo_move_to(cr, cx - 70, H);
+    cairo_line_to(cr, cx - 40, cy + 120);
+    cairo_line_to(cr, cx + 40, cy + 120);
+    cairo_line_to(cr, cx + 70, H);
+    cairo_close_path(cr);
+    cairo_set_source_rgb(cr, 0.82, 0.84, 0.88);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The back of the bowl bulging out behind the rim (a D seen side on,
+    // hidden once it faces us).
+    if (u < 1.0)
+    {
+      cairo_save(cr);
+      cairo_translate(cr, cx, cy);
+      cairo_scale(cr, rx + (1.0 - u) * R * 0.5, R);
+      cairo_arc(cr, 0, 0, 1, kPi * 0.5, kPi * 1.5);
+      cairo_restore(cr);
+      cairo_close_path(cr);
+      cairo_pattern_t* bk = cairo_pattern_create_linear(cx - R, 0, cx, 0);
+      cairo_pattern_add_color_stop_rgb(bk, 0.0, 0.62, 0.64, 0.7);
+      cairo_pattern_add_color_stop_rgb(bk, 1.0, 0.84, 0.86, 0.9);
+      cairo_set_source(cr, bk);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(bk);
+      cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+    // The bowl's inside: the rim ellipse, shaded deeper toward the middle.
+    cairo_save(cr);
+    cairo_translate(cr, cx, cy);
+    cairo_scale(cr, rx, R);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_pattern_t* g = cairo_pattern_create_radial(cx - rx * 0.2, cy - R * 0.2, 0, cx, cy, R);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.78, 0.8, 0.86);
+    cairo_pattern_add_color_stop_rgb(g, 0.7, 0.93, 0.94, 0.97);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 1.0, 1.0, 1.0);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    // Panel seams: rings and ribs.
+    for (const double s : {0.25, 0.5, 0.75})
+    {
+      cairo_save(cr);
+      cairo_translate(cr, cx, cy);
+      cairo_scale(cr, rx * s, R * s);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      cairo_set_source_rgba(cr, 0.4, 0.43, 0.52, 0.55);
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+    for (int i = 0; i < 16; ++i)
+    {
+      const double a = i * kPi / 8.0;
+      cairo_move_to(cr, cx + rx * 0.25 * std::cos(a), cy + R * 0.25 * std::sin(a));
+      cairo_line_to(cr, cx + rx * std::cos(a), cy + R * std::sin(a));
+    }
+    cairo_set_source_rgba(cr, 0.4, 0.43, 0.52, 0.4);
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+    // The focus: out to the right when side on, dead centre facing us.
+    const double fx = cx + (1.0 - u) * R * 0.95, fy = cy;
+    const std::array<std::array<double, 2>, 4> rim{{{cx, cy - R}, {cx, cy + R}, {cx - rx, cy}, {cx + rx, cy}}};
+    for (const auto& p : rim)
+    {
+      cairo_move_to(cr, p[0], p[1]);
+      cairo_line_to(cr, fx, fy);
+    }
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 13);
+    cairo_stroke_preserve(cr);
+    cairo_set_source_rgb(cr, 0.9, 0.91, 0.95);
+    cairo_set_line_width(cr, 8);
+    cairo_stroke(cr);
+    // The receiver: a drum seen end on, its lens an eye.
+    const double er = 84;
+    cairo_save(cr);
+    cairo_translate(cr, fx, fy);
+    cairo_scale(cr, 0.45 + 0.55 * u, 1.0);
+    cairo_arc(cr, 0, 0, er, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_set_source_rgb(cr, 0.85, 0.86, 0.9);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    if (u > 0.6)
+    {
+      // The eye: lids parting on a red iris that glows, a slit pupil.
+      const double open = er * 0.62 * std::max(0.08, eye);
+      cairo_save(cr);
+      cairo_translate(cr, fx, fy);
+      cairo_move_to(cr, -er * 0.8, 0);
+      cairo_curve_to(cr, -er * 0.3, -open, er * 0.3, -open, er * 0.8, 0);
+      cairo_curve_to(cr, er * 0.3, open, -er * 0.3, open, -er * 0.8, 0);
+      cairo_close_path(cr);
+      cairo_set_source_rgb(cr, 0.06, 0.04, 0.08);
+      cairo_fill_preserve(cr);
+      cairo_clip(cr);
+      if (eye > 0.0)
+      {
+        cairo_pattern_t* ir = cairo_pattern_create_radial(0, 0, 0, 0, 0, er * 0.42);
+        cairo_pattern_add_color_stop_rgb(ir, 0.0, 1.0, 0.85, 0.5);
+        cairo_pattern_add_color_stop_rgb(ir, 0.45, 1.0, 0.2, 0.12);
+        cairo_pattern_add_color_stop_rgb(ir, 1.0, 0.45, 0.02, 0.04);
+        cairo_arc(cr, 0, 0, er * 0.42, 0, 2 * kPi);
+        cairo_set_source(cr, ir);
+        cairo_fill(cr);
+        cairo_pattern_destroy(ir);
+        cairo_save(cr);
+        cairo_scale(cr, 0.3, 1.0);
+        cairo_arc(cr, 0, 0, er * 0.3, 0, 2 * kPi);
+        cairo_restore(cr);
+        cairo_set_source_rgb(cr, 0.04, 0.0, 0.02);
+        cairo_fill(cr);
+        cairo_arc(cr, -er * 0.14, -er * 0.14, er * 0.07, 0, 2 * kPi);
+        cairo_set_source_rgba(cr, 1, 1, 1, 0.85);
+        cairo_fill(cr);
+      }
+      cairo_restore(cr);
+    }
+    else
+    {
+      // Side on: the feed horn pointing back into the bowl.
+      cairo_move_to(cr, fx - 30, fy - 24);
+      cairo_line_to(cr, fx - 62, fy - 40);
+      cairo_line_to(cr, fx - 62, fy + 40);
+      cairo_line_to(cr, fx - 30, fy + 24);
+      cairo_close_path(cr);
+      cairo_set_source_rgb(cr, 0.85, 0.6, 0.25);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// dish_closeup: one of the big dishes close up against the sky, turning to
+// face us (frames 0-5); the receiver at its focus is an eye, opening and
+// glowing red (frames 4-7).
+void dishCloseup(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(desertSky(k), 0, -120);
+  k.r.fillRect(0, 600, W, 120, rgb(210, 180, 140));
+  k.r.draw(desertMesas(k, frame % 4, 2.0), ox * 0.2f, 420.0f + oy * 0.2f);
+  const float shake = frame <= 1 ? (ticks % 2 ? 3.0f : -3.0f) : 0.0f; // the groan
+  k.r.draw(closeupDish(k, std::clamp(frame, 0, 7)), ox + shake, oy);
+  if (frame >= 5)
+  {
+    const float a = std::min(1.0f, float(frame - 4) / 3.0f);
+    drawGlow(k.r, k.art, 640.0f + ox + shake, 380.0f + oy, 90.0f + 30.0f * std::sin(float(ticks) * 0.3f), rgb(255, 50, 30), 0.55f * a);
+  }
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -10456,6 +10959,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return lighthouseStorm(k, frame, ticks, ox, oy);
   if (clip == "runners_cliff") // before starts(clip, "runners") below
     return runnersCliff(k, frame, ticks, ox, oy);
+  // Level 32.
+  if (clip == "desert_dishes")
+    return desertDishes(k, frame, ticks, ox, oy);
+  if (clip == "dish_closeup")
+    return dishCloseup(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

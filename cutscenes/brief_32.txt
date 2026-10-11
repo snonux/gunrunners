@@ -1,14 +1,21 @@
 cutscene brief_32
 music theme_desert_slide
 
+# clip desert_dishes: a deep blue sky with the satellite crossing it, red
+#   mesas on the horizon in heat shimmer, three white dishes on the dunes
+#   pointing east (frames 0-5), then turned overhead (frames 6-11); 12 frames
 shot desert_dishes delay=110 repeat=1
   cue 0 fade=in:500
 
+# clip desert_dishes; 12 frames
 shot desert_dishes delay=110 repeat=3
 
+# clip desert_dishes; 12 frames
 shot desert_dishes delay=110 repeat=1
   cue 6 sound=dish_groan
 
+# clip dish_closeup: a big dish close up turning to face us, its feed
+#   horn an eye that opens and glows red; 8 frames
 shot dish_closeup delay=120 repeat=1
   cue 0 sound=dish_groan
   cue 2 say=S "They're looking for you now."
