@@ -135,6 +135,9 @@ enum class EnemyKind
   StaticSwarm, // drifts at the runner through walls; latches on (a carrier infects)
   TestCard,   // hovers and turns; a quadrant beams at the runner; only the signal's colour is hurt
   GhostImage, // patrols with two after-images; a tinted halo only the matching tint gets through
+  Anglerfish, // waits in the dark behind its lure; lunges at a runner close by
+  BoxJelly,   // rises up its column, holds, sinks back; drifts with currents
+  CableEel,   // lunges out of its junction box at a runner close by
 };
 
 enum EnemyFlag : unsigned

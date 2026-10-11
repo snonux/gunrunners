@@ -120,6 +120,8 @@ add_library(gunrunners_core STATIC
   src/game/world_toon_draw.cpp
   src/game/world_signal.cpp
   src/game/world_signal_draw.cpp
+  src/game/world_trench.cpp
+  src/game/world_trench_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -146,6 +148,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_city.cpp
   src/frontend/bot_toon.cpp
   src/frontend/bot_signal.cpp
+  src/frontend/bot_trench.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -323,6 +326,10 @@ add_executable(toon_test tests/toon_test.cpp)
 target_link_libraries(toon_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME toon COMMAND toon_test ${CMAKE_SOURCE_DIR}/levels/28_bonus_inkwell.txt)
 add_test(NAME savegame_dead_air COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/29_dead_air.txt 330)
+add_test(NAME savegame_fiber_trench COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/30_fiber_trench.txt 330)
 add_executable(signal_test tests/signal_test.cpp)
 target_link_libraries(signal_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME signal COMMAND signal_test ${CMAKE_SOURCE_DIR}/levels/29_bonus_wraparound.txt)
+add_executable(trench_test tests/trench_test.cpp)
+target_link_libraries(trench_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME trench COMMAND trench_test ${CMAKE_SOURCE_DIR}/levels/30_bonus_bubble_up.txt)

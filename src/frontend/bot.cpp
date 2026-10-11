@@ -110,6 +110,8 @@ Input Bot::play(const World& world)
     return inkwell(world);
   if (world.signal().wrap)
     return wraparound(world);
+  if (world.trench().bubble)
+    return bubbleUp(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -192,6 +194,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (noir(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 30: string a harpoon line at an anchor ring's spot.
+  if (world.trench().water)
+  {
+    Input in;
+    if (trench(world, in))
     {
       mPlanner.reset();
       return in;

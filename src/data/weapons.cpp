@@ -71,7 +71,7 @@ const std::array<ProtoDef, kProtoCount> kProtos{{
   {ProtoId::TriToneBlaster, "tri_tone_blaster", "TRI-TONE BLASTER", 29, M::Tap, 0, 2, 1, 20, 40, rgb(255, 80, 80),
    "UP + FIRE CHANGES THE COLOUR"},
   {ProtoId::HarpoonLine, "harpoon_line", "HARPOON LINE", 30, M::Tap, 0, 3, 2, 12, 24, rgb(220, 230, 240),
-   "TWO HARPOONS MAKE A LINE YOU CAN WALK OR HANG ON"},
+   "TWO HARPOONS MAKE A LINE YOU CAN WALK ON"},
   {ProtoId::TeslaRod, "tesla_rod", "TESLA ROD", 31, M::Tap, 0, 3, 1, 6, 12, rgb(170, 200, 255),
    "A LIGHTNING ROD YOU CAN THROW"},
   {ProtoId::SignalJammer, "signal_jammer", "SIGNAL JAMMER", 32, M::Tap, 15, 0, 1, 10, 20, rgb(255, 220, 120),

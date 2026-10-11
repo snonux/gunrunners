@@ -24,6 +24,7 @@
 #include "game/noir.hpp"
 #include "game/toon.hpp"
 #include "game/signal.hpp"
+#include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
 #include "game/zero.hpp"
@@ -1823,6 +1824,12 @@ public:
   // Level 29 (world_signal.cpp): the signal colour, colour bars, dials, the
   // Test Card; the Wraparound bonus.
   const SignalState& signal() const { return mSignal; }
+  // Level 30 (world_trench.cpp): the water, air pockets, currents, the
+  // abyss, harpoon lines, the Bubble Up bonus.
+  const TrenchState& trench() const { return mTrench; }
+  bool underwater() const;  // in the water, not in an air pocket
+  bool lineUnder() const;   // standing on the harpoon line
+  int strokesMax() const;   // swim strokes between touching ground (Nova one more)
   int signalShown() const; // the colour the HUD shows (the incoming one while a change waits)
   bool blackLit() const;   // all three tint pips lit: black bars are solid
   bool onBar(int c) const; // standing on a solid bar of colour c
@@ -2611,6 +2618,34 @@ private:
   void drawSignalBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSignalFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSignalHud(Renderer& r, int frame) const;
+  // Level 30, Fiber Trench (world_trench.cpp, world_trench_draw.cpp), and
+  // its Bubble Up bonus.
+  bool setupTrenchEntity(const EntityDef& e);
+  void setupTrenchEnemy(Enemy& en, const EntityDef& e);
+  void linkTrench();
+  bool inPocket(int cx, int cy) const;
+  bool trenchStroke(const Button& jump);
+  int trenchSink();
+  void updateTrench(const PlayerInput& input);
+  bool plantHarpoon();
+  void addHarpoon(int x, int y, int anchor);
+  void remakeLine();
+  void addTrenchPlatforms();
+  void stickHarpoon(Projectile& pr);
+  bool shotAtTrench(Projectile& pr, const CellBox& hit);
+  int shotAtTrenchEnemy(Projectile& pr, Enemy& e);
+  void updateAnglerfish(Enemy& e, const EnemyDef& def);
+  void updateBoxJelly(Enemy& e, const EnemyDef& def);
+  void updateCableEel(Enemy& e, const EnemyDef& def);
+  void updateBubbleRide(int mvX, int mvY, const PlayerInput& in);
+  void updateBubbleWorld();
+  bool trenchCanSave() const;
+  std::vector<int> trenchSave() const;
+  bool validTrenchSave(const std::vector<int>& s) const;
+  void loadTrench(const std::vector<int>& s);
+  void drawTrenchBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTrenchFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTrenchHud(Renderer& r, int frame) const;
   // Level 24, Too Many Cooks (world_kitchen.cpp, world_kitchen_draw.cpp).
   bool setupKitchenEntity(const EntityDef& e);
   void setupKitchenEnemy(Enemy& en, const EntityDef& e);
@@ -3078,6 +3113,7 @@ private:
   ToonState mToon;
   InkState mInk;
   SignalState mSignal;
+  TrenchState mTrench;
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

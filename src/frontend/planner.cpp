@@ -158,6 +158,20 @@ bool capsUseful(const World& w)
 // Frames a macro runs for in this world, 0 if it does not apply.
 int macroFrames(int m, const World& w)
 {
+  // Level 30: crouched, the Harpoon Line plants a harpoon (Bot::trench does that).
+  // Other shots only at an enemy close by: harpoons in the walls string stray lines.
+  if (m < kMacroCountBase && kMacros[m].fire && w.player().weapon == Weapon::Proto &&
+      w.player().proto == int(ProtoId::HarpoonLine))
+  {
+    if (kMacros[m].down)
+      return 0;
+    const auto& p = w.player();
+    bool near = false;
+    for (const auto& e : w.enemies())
+      near = near || (e.alive && !e.hidden && std::abs(e.x - p.x) < 24 && std::abs(e.y - p.y) < 10);
+    if (!near)
+      return 0;
+  }
   if (m == kVineRight || m == kVineLeft)
     return w.player().state == PlayerState::Swing && w.player().vine >= 0 ? 1 : 0; // the real length comes out of the run
   if (capMacro(m))
@@ -846,6 +860,9 @@ void Planner::buildField(const World& w, const Goal& goal)
     jumpH += v;
   if (w.bounce())
     jumpH = 18; // Bounce House: up to 18 cells, held jump builds it
+  // Level 30: under water a jump is a 4-cell swim stroke, and the strokes chain.
+  if (w.trench().water)
+    jumpH = std::max(jumpH, 4 * w.strokesMax());
 
   // Cell solidity as the planner sees it: switchable layers count as solid
   // (the search handles their timing), force fields are open on the way to
@@ -1023,6 +1040,13 @@ void Planner::buildField(const World& w, const Goal& goal)
               top[std::size_t(y * W + x)] = 1;
           }
   }
+  // Level 30: a harpoon line can run from each anchor ring to its planting
+  // spot (Bot::trench strings it there).
+  if (w.trench().on && (w.level().weapon == "harpoon_line"))
+    for (const auto& a : w.trench().anchors)
+      if (a.row >= 0 && a.row < H)
+        for (int x = std::max(0, std::min(a.x, a.spotX)); x <= std::min(W - 1, std::max(a.x + 1, a.spotX)); ++x)
+          top[std::size_t(a.row * W + x)] = 1;
   // Level 23: over the reflected gallery's hole the field counts on a
   // bridge of pinned ghosts (Bot::manor pins them at the edge).
   {
@@ -1342,6 +1366,18 @@ void Planner::buildField(const World& w, const Goal& goal)
   // The same box, turned over: a row of one half to the row of the other.
   auto flipRow = [&](int y) { return 2 * Hc + 3 - y; };
 
+  // Level 30: a current up faster than the water sinks you holds a swimmer
+  // up (sideways is free, down is not); one down faster than strokes climb
+  // only lets them sink. Rocco is too heavy for either.
+  std::vector<std::int8_t> drift(std::size_t(W * H), 0);
+  if (w.trench().water && w.characterIndex() != 1)
+    for (const auto& c : w.trench().currents)
+      if (c.dy != 0 && c.every < kSinkEvery)
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x)
+            if (c.rect.contains(x + 1, y - 2))
+              drift[std::size_t(y * W + x)] = std::int8_t(c.dy);
+
   const int A = kAirBudget + 1;
   const int N = W * H * A;
   auto node = [&](int x, int y, int a) { return (y * W + x) * A + a; };
@@ -1361,7 +1397,8 @@ void Planner::buildField(const World& w, const Goal& goal)
       if (!valid[i])
         continue;
       const int s = support[i];
-      const bool grounded = s == 0 || ladder[i] || hang[i];
+      const bool lifted = drift[i] < 0 && s != 0;
+      const bool grounded = s == 0 || ladder[i] || hang[i] || lifted;
       for (int a = 0; a < A; ++a)
       {
         if (grounded && a > 0)
@@ -1384,7 +1421,7 @@ void Planner::buildField(const World& w, const Goal& goal)
           const std::size_t j = std::size_t(ty * W + tx);
           if (!valid[j])
             return;
-          const bool g2 = support[j] == 0 || ladder[j] || hang[j];
+          const bool g2 = support[j] == 0 || ladder[j] || hang[j] || (drift[j] < 0 && support[j] != 0);
           if (g2)
             ta = 0;
           if (ta >= A)
@@ -1395,13 +1432,13 @@ void Planner::buildField(const World& w, const Goal& goal)
         // Sideways: free on the ground, from the air budget in a jump.
         for (int dx : {-1, 1})
         {
-          add(x + dx, y, grounded ? (s == 0 ? 0 : 1) : a + 1, 2);
+          add(x + dx, y, grounded ? (s == 0 || lifted ? 0 : 1) : a + 1, 2);
           if (s == 0)
             add(x + dx, y - 1, 0, 2); // stair step
         }
         // Up: within a jump's height of the ground, or on a ladder.
-        if (ladder[i] || (s < lift[i] && s < kInf))
-          add(x, y - 1, ladder[i] ? 0 : a, 2);
+        if (ladder[i] || lifted || (s < lift[i] && s < kInf && drift[i] <= 0))
+          add(x, y - 1, ladder[i] || lifted ? 0 : a, 2);
         // Down: falling, or climbing down; never through a one-way floor
         // you stand on (there is no dropping through them).
         bool oneWay = false;
@@ -1409,7 +1446,7 @@ void Planner::buildField(const World& w, const Goal& goal)
           for (int xx = x; xx <= x + 2 && !oneWay; ++xx)
             oneWay = isTop(xx, y + 1) && !isBlocked(xx, y + 1) && map.solidTop(xx, y + 1) &&
               !map.ladder(xx & ~1, y + 1) && map.block(xx / kCellsPerTile, (y + 1) / kCellsPerTile) == Tile::Platform;
-        if (!oneWay)
+        if (!oneWay && !lifted)
           add(x, y + 1, a, 1);
       }
     }
@@ -2409,6 +2446,14 @@ void Planner::plan(const World& world)
                    (std::uint64_t(sg.tint) << 8) | (std::uint64_t(sg.pips[0] > 0) << 10) |
                    (std::uint64_t(sg.pips[1] > 0) << 11) | (std::uint64_t(sg.pips[2] > 0) << 12) |
                    (std::uint64_t(sg.wallShut) << 13));
+    }
+    // Level 30: strokes used, the sinking's beat, the line.
+    if (w.trench().on)
+    {
+      const auto& t = w.trench();
+      k = mix(k, std::uint64_t(t.strokes) | (std::uint64_t(t.sinkTick % 3) << 4) | (std::uint64_t(t.line) << 6) |
+                   (std::uint64_t(t.lineX0) << 8) | (std::uint64_t(t.lineY) << 20) |
+                   (std::uint64_t(t.harpoons.size()) << 32) | (std::uint64_t(t.fade) << 36));
     }
     // Level 21: where the script's shifts and bulkheads are.
     if (!w.zero().shifts.empty())

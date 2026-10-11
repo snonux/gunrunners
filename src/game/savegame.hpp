@@ -146,6 +146,7 @@ struct SaveGame
   std::vector<int> noir;    // Level 27 (World::noirSave)
   std::vector<int> toon;    // Level 28 (World::toonSave)
   std::vector<int> signal;  // Level 29 (World::signalSave)
+  std::vector<int> trench;  // Level 30 (World::trenchSave)
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

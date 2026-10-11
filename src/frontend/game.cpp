@@ -360,6 +360,8 @@ void Game::tickPlay(const Input& raw)
       std::fprintf(stderr, "f%d pos %d,%d %s hp %d w%d/%d turbo %d virus %d in %s%s%s%s%s%s\n", mWorld->stats().frames, p.x, p.y,
         stateName(p.state), p.hp, int(p.weapon), p.ammo, p.turbo, p.virus, frameInput.left ? "L" : "", frameInput.right ? "R" : "", frameInput.up ? "U" : "",
         frameInput.down ? "D" : "", frameInput.jump.pressed ? "J" : "", frameInput.fire.pressed ? "F" : "");
+      if (const auto& t = mWorld->trench(); t.line)
+        std::fprintf(stderr, "  line %d-%d @%d\n", t.lineX0, t.lineX1, t.lineY); // Level 30
     }
   }
   mSubTick = (mSubTick + 1) % kTicksPerLogicFrame;

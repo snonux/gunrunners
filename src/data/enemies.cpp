@@ -236,6 +236,12 @@ const EnemyDef kEnemies[] = {
   {"static_swarm", "STATIC SWARM", K::StaticSwarm, L::Styled, 4, 4, 2, 40, 2, 15, 8, 0, kEnemyHarmless, 0},
   {"test_card", "TEST CARD", K::TestCard, L::Styled, 8, 8, 9, 900, 0, 45, 15, 0, kEnemyHarmless, 0},
   {"ghost_image", "GHOST IMAGE", K::GhostImage, L::Styled, 3, 5, 4, 600, 2, 30, 12, 0, 0, 0},
+  // Level 30. Anglerfish: tell the lure going still before a lunge. Box
+  // Jelly: the column is set up in world_trench.cpp. Cable Eel: tell the
+  // box sparking, cooldown back in its box.
+  {"anglerfish", "ANGLERFISH", K::Anglerfish, L::Styled, 6, 4, 5, 600, 0, 30, 10, 0, 0, 0},
+  {"box_jelly", "BOX JELLY", K::BoxJelly, L::Styled, 4, 4, 2, 300, 0, 15, 8, 0, 0, 0},
+  {"cable_eel", "CABLE EEL", K::CableEel, L::Styled, 3, 12, 4, 700, 0, 40, 12, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

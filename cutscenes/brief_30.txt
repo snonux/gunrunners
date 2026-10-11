@@ -1,6 +1,9 @@
 cutscene brief_30
 music theme_submerged
 
+# clip cable_glow: black water with drifting motes rising, the glowing
+#   cable running diagonally down-right with a light pulse travelling along
+#   it, kelp swaying in front; 12 frames
 shot cable_glow delay=100 repeat=1
   cue 0 fade=in:500
   cue 0 sound=sonar_ping
@@ -12,6 +15,8 @@ shot cable_glow delay=100 repeat=1
   cue 6 say=S "The signal runs under the sea."
   cue 6 hold=2000
 
+# clip runners_dive: the three runners in diving gear sinking past the
+#   camera, bubbles rising, the cable below; 8 frames
 shot runners_dive delay=110 repeat=1
   cue 0 sound=bubbles
   cue 0 say=S "Follow it home."

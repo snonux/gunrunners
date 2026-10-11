@@ -328,6 +328,9 @@ void World::syncPlatformCollision()
     for (const auto& e : mEnemies)
       if (e.alive && e.frozen > 0 && !e.hidden)
         mMap.addPlatform(e.box());
+  // Level 30: the harpoon line.
+  if (mTrench.on)
+    addTrenchPlatforms();
 }
 
 // --- Hatches, breakables, spawners ----------------------------------------------

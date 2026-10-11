@@ -69,6 +69,20 @@ void World::updateProtoShooting(const Button& fire)
   // Level 29: Up + fire turns the Tri-Tone's tint instead (world_signal.cpp).
   if (ProtoId(p.proto) == ProtoId::TriToneBlaster && turnTint(fire))
     return;
+  // Level 30: crouched, the Harpoon Line plants a harpoon at the runner's feet.
+  if (ProtoId(p.proto) == ProtoId::HarpoonLine && fire.triggered && p.stance == Stance::Crouched && p.ammo > 0 &&
+      p.shotCooldown == 0 && plantHarpoon())
+  {
+    --p.ammo;
+    p.shotCooldown = protoDef(p.proto).cooldown;
+    if (p.ammo == 0)
+    {
+      p.weapon = Weapon::Normal;
+      p.proto = -1;
+      showMessage("OUT OF AMMO - BACK TO THE BLASTER");
+    }
+    return;
+  }
   // Level 28: tap for the blaster, hold to throw the Portable Hole (world_toon.cpp).
   if (ProtoId(p.proto) == ProtoId::PortableHole)
   {
@@ -440,6 +454,10 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       pr.y = oy - 1;
       pr.range = 48;
       playSound(Sfx::Bubble);
+      break;
+    case ProtoId::HarpoonLine:
+      // A line's length, on past the edge of the view (world_trench.cpp).
+      pr.range = kLineReach + 2;
       break;
     default:
       break;

@@ -185,6 +185,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkNoir();
   linkToon();
   linkSignal();
+  linkTrench();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -471,6 +472,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateInk(input);
   if (mSignal.on)
     updateSignal(input);
+  if (mTrench.on)
+    updateTrench(input);
   updateHatches();
   updateProps(input);
 }
@@ -940,6 +943,15 @@ void World::updateEnemies()
       case EnemyKind::StaticSwarm:
         updateStaticSwarm(e, def);
         break;
+      case EnemyKind::Anglerfish:
+        updateAnglerfish(e, def);
+        break;
+      case EnemyKind::BoxJelly:
+        updateBoxJelly(e, def);
+        break;
+      case EnemyKind::CableEel:
+        updateCableEel(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1059,6 +1071,9 @@ void World::updateProjectiles()
     // Level 29: the RGB dials.
     if (mSignal.on && pr.kind != ShotKind::Enemy && shotAtSignal(pr, b))
       return true;
+    // Level 30: a harpoon sticks in an anchor ring.
+    if (mTrench.on && shotAtTrench(pr, b))
+      return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
       return true;
@@ -1116,6 +1131,8 @@ void World::updateProjectiles()
         stickFlare(pr, -1);
       if (pr.footRow >= 0)
         stickSpear(pr);
+      if (mTrench.on && pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine))
+        stickHarpoon(pr);
       if (pr.thrown == 4 && mKitchen.on)
         stickCleaver(pr);
       shotAtSpace(pr);
@@ -1280,6 +1297,15 @@ void World::updateProjectiles()
         if (r == 2)
           continue;
       }
+      // Level 30: an eel in its box is out of reach; a harpoon pulls small fry in.
+      if (mTrench.on && pr.kind != ShotKind::Enemy)
+      {
+        const int r = shotAtTrenchEnemy(pr, e);
+        if (r == 1)
+          return true;
+        if (r == 2)
+          continue;
+      }
       if (pr.kind == ShotKind::Rocket)
       {
         explodeAt(b.x + b.w / 2, b.y, pr.radius > 0 ? pr.radius : 3, pr.damage);
@@ -1400,7 +1426,9 @@ void World::updateProjectiles()
     // the crystals hovering up there.
     const bool upAtCrystals = (mSpace.crystals && pr.dy < 0 && !pr.precise) ||
       (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SilkShooter)); // and on down at the rock
-    if (pr.alive && !isOnScreen(pr.box(), pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12 : 2))
+    const bool harpoon = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine);
+    if (pr.alive &&
+        !isOnScreen(pr.box(), harpoon ? kLineReach : pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12 : 2))
       pr.alive = false;
   }
   mProjectiles.erase(

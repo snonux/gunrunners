@@ -201,6 +201,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawToonBack(r, camX, camY, frame, alpha);
   if (mSignal.on)
     drawSignalBack(r, camX, camY, frame, alpha);
+  if (mTrench.on)
+    drawTrenchBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -336,8 +338,6 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_gloves", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
-      if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
-      {
       if (mSignal.air && mLevel->themeKey == "dead_air")
       {
         // Dead Air's duck is striped in the seven bar colours.
@@ -345,6 +345,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_bars", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
+      {
         // Too Many Cooks' duck wears a chef's hat.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_chef", 0, 0, 2, 2).get(1), x + 32, y + 64);
@@ -391,6 +393,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // seen from above (world_city_draw.cpp)
     if (e.kind == EnemyKind::StaticSwarm || e.kind == EnemyKind::TestCard || e.kind == EnemyKind::GhostImage)
       continue; // Level 29 (world_signal_draw.cpp)
+    if (e.kind == EnemyKind::Anglerfish || e.kind == EnemyKind::BoxJelly || e.kind == EnemyKind::CableEel)
+      continue; // Level 30 (world_trench_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -873,6 +877,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawToonFront(r, camX, camY, frame, alpha);
   if (mSignal.on)
     drawSignalFront(r, camX, camY, frame, alpha);
+  if (mTrench.on)
+    drawTrenchFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -881,14 +887,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
     float cy = lerpCells(pr.prevY, pr.y, alpha) + float(pr.h) * kCellPx * 0.5f - camY;
     if (mZero.on && drawZeroShot(r, mArt, pr, cx, cy, frame))
       continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
+    if (mSignal.on && drawSignalShot(r, mArt, pr, cx, cy, frame))
+      continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
       const int d = pr.dx < 0 ? -1 : 1;
       const float a = float(frame + pr.age * 3) * 0.5f * float(d);
       const float rad = 32.0f;
-    if (mSignal.on && drawSignalShot(r, mArt, pr, cx, cy, frame))
-      continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
       DrawOpts o;
       o.angle = a * 57.2958f;
       drawGlow(r, mArt, cx, cy, 40.0f, rgb(220, 230, 255), 0.25f);
@@ -1692,6 +1698,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawToonHud(r, frame);
   if (mSignal.on && mSignal.air)
     drawSignalHud(r, frame);
+  if (mTrench.on)
+    drawTrenchHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

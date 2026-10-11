@@ -208,6 +208,12 @@ void World::updatePlayer(const PlayerInput& raw)
   // Level 28: the "uh-oh" sign after an air-run, a bonk (world_toon.cpp).
   if (mToon.on && toonHolds(in))
     return;
+  // Level 30's Bubble Up: riding a bubble (world_trench.cpp).
+  if (mTrench.bubble)
+  {
+    updateBubbleRide(mvX, mvY, in);
+    return;
+  }
   if (mLaunch > 0)
     updateLaunch(mvX);
   else
@@ -290,6 +296,9 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
   if (mAirJump && jumpButton.triggered &&
       ((p.state == PlayerState::Jumping && p.frames > 0) || p.state == PlayerState::Falling) &&
       !mMap.touchingCeiling(p.box()))
+    jump();
+  // Level 30: in the water, another swim stroke (world_trench.cpp).
+  if (mTrench.water && trenchStroke(jumpButton))
     jump();
 
   switch (p.state)
@@ -383,7 +392,7 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
         setVisual(PlayerVisual::Standing);
         break;
       }
-      const bool terminalVelocity = p.frames >= 2;
+      const bool terminalVelocity = p.frames >= 2 && !(mTrench.water && underwater()); // no hard landing in the water
       if (terminalVelocity)
       {
         setVisual(PlayerVisual::FallingFull);
@@ -398,6 +407,8 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       int fall = terminalVelocity ? 2 : 1;
       if (mHull.lowgrav)
         fall = terminalVelocity && ++mHull.fallTick % 5 == 0 ? 2 : 1; // 1.2 cells a frame at most
+      if (mTrench.water && underwater())
+        fall = trenchSink(); // sinking slowly in the water
       const auto result = moveVerticallyInAir(fall, attached);
       if (!attached && result != MoveResult::Completed)
         landOnGround(terminalVelocity);
@@ -627,6 +638,8 @@ const std::array<int, 8>& World::baseJumpArc() const
 {
   if (mAutorun)
     return kDuckJumpArc;
+  if (mTrench.water && underwater())
+    return kStrokeArc; // a swim stroke (world_trench.cpp)
   if (mPlayer.vineArc)
     return kVineJumpArc;
   if (mPlayer.turbo > 0)
@@ -698,7 +711,7 @@ void World::updateJumpMovement(int mvX, bool jumpPressed)
   }
 
   // On the third frame, a released jump button cuts the arc short.
-  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc && !p.kickArc;
+  const bool isShortJump = p.frames == 2 && !jumpPressed && !p.vineArc && !p.kickArc && !(mTrench.water && underwater());
   p.frames = isShortJump ? 6 : p.frames + 1;
 }
 
@@ -1158,8 +1171,8 @@ void World::updatePlayerInteractions()
     return;
   const CellBox hit = p.hitBox();
 
-  if (p.vehicle < 0 && mMap.overlapsHazard(hit))
-    hurtPlayer(1); // a vehicle minds the spikes itself (world_vehicle.cpp)
+  if (p.vehicle < 0 && !mTrench.bubble && mMap.overlapsHazard(hit))
+    hurtPlayer(1); // a vehicle minds the spikes itself (world_vehicle.cpp); a bubble pops (world_trench.cpp)
 
   // Force fields: walking up to one with the access card switches it off.
   if (p.hasKey && mMap.forceFieldsOn())
@@ -1204,7 +1217,7 @@ void World::updatePlayerInteractions()
   }
 
   const CellBox exitZone{mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 6, 2, 6};
-  if (!mPinball && (mLevel->hasExit || !mBonusLevel) && exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce) && exitPowered())
+  if (!mPinball && (mLevel->hasExit || !mBonusLevel) && exitZone.intersects(p.box()) && (p.state == PlayerState::OnGround || mBounce || mTrench.bubble) && exitPowered())
   {
     p.state = PlayerState::Teleporting;
     setVisual(PlayerVisual::Standing);

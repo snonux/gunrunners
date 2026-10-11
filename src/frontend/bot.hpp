@@ -50,6 +50,15 @@ public:
   Input glide(const World& world);
   bool city(const World& world, Input& in); // bot_city.cpp
   bool noir(const World& world, Input& in); // bot_noir.cpp
+  // Fiber Trench (bot_trench.cpp): at an anchor ring's planting spot, plant
+  // a harpoon and shoot the ring, so the planner walks the line.
+  bool trench(const World& world, Input& in);
+  std::deque<Input> mTrenchQueue;
+  // Bubble Up: each short steer (and taps of jump to sink) tried two deep,
+  // scored by a distance field to the exit that keeps clear of the spikes.
+  Input bubbleUp(const World& world);
+  std::vector<int> mBubbleField;
+  Input mBubblePrev;
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);
