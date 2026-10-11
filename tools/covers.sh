@@ -9,7 +9,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release > /dev/null
-cmake --build "$ROOT/build" --target gunrunners_cover -j > /dev/null
+cmake --build "$ROOT/build" --target gunrunners_cover -j"$(nproc)" > /dev/null
 
 shots=()
 for name in level21 level43 motor_pool level49; do

@@ -639,7 +639,7 @@ void back(const std::string& path, const std::vector<std::string>& shots)
   font(cr, 26);
   text(cr, "FEATURES", 60, fy, 0x2ee6ff);
   const char* features[] = {
-    "28 levels out now, 21 more on the way",
+    "Every level has its own twist and soundtrack",
     "A prototype weapon hidden in every level",
     "Bonus levels behind every flickering TV",
     "Drive a tank, chopper, mech, sub, bike or ship",
