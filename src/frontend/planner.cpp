@@ -423,6 +423,11 @@ int clockPeriod(const World& w)
   for (const auto& t : w.gulletTubes())
     if (t.breath)
       period = std::max(period, World::kBreathPeriod);
+  // Level 32: the dishes' cycle; Heatstroke's swaps.
+  if (w.dish().on)
+    period = std::max(period, kDishCycle);
+  if (w.dish().swapLr)
+    period = std::max(period, 2 * kSwapEvery);
   // Level 46: crystals drifting back and forth.
   for (const auto& c : w.swapCrystals())
     if (c.drifting)
@@ -1015,6 +1020,9 @@ void Planner::buildField(const World& w, const Goal& goal)
   for (const auto& b : w.signal().bars)
     if (b.color == kSignalBlack && !w.layers()[std::size_t(b.layer)].solid)
       willOpen[std::size_t(b.layer)] = 1;
+  std::vector<std::uint8_t> dishStrut(w.layers().size());
+  for (const auto& st : w.dish().struts)
+    dishStrut[std::size_t(st.layer)] = 1;
   for (std::size_t li = 0; li < w.layers().size(); ++li)
   {
     const auto& l = w.layers()[li];
@@ -1037,7 +1045,8 @@ void Planner::buildField(const World& w, const Goal& goal)
             // Timed layers are only solid some of the time: the field
             // treats them as one-way platforms and the search does the timing
             // (Level 29's colour bars too: the search shoots the dials).
-            const bool timed = l.driver == LayerDriver::Beat || l.driver == LayerDriver::Timer || l.style == 7;
+            const bool timed = l.driver == LayerDriver::Beat || l.driver == LayerDriver::Timer || l.style == 7 ||
+              dishStrut[li]; // Level 32: a strut is there in some of the dishes' poses
             if (l.tile == Tile::Solid && !timed)
               blocked[std::size_t(y * W + x)] = 1;
             else if (l.tile == Tile::Solid)
@@ -2479,6 +2488,28 @@ void Planner::plan(const World& world)
         if (e.alive && e.kind == EnemyKind::Foghorn)
           sk = sk * 64 + std::uint64_t(e.dive + e.tell * 9 + (e.cool > 0 ? 1 : 0) * 37);
       k = mix(k, sk);
+    }
+    // Level 32: the teaching dish's clock, the sharks', drones' and mechs'
+    // attacks on their way, a mech's HP, scrap falling.
+    if (w.dish().on)
+    {
+      const auto& d = w.dish();
+      std::uint64_t dk = 11;
+      for (const auto& sd : d.small)
+        dk = dk * 181 + std::uint64_t(sd.t);
+      for (const auto& sh : d.sharks)
+        dk = dk * 64 + std::uint64_t(sh.state * 21 + std::min(sh.t, 20));
+      for (const auto& r : d.robots)
+      {
+        const Enemy& e = w.enemies()[std::size_t(r.enemy)];
+        dk = dk * 97 + std::uint64_t(r.aimState * 31 + std::min(r.aimT, 30)) + (r.jam > 0 ? 3000u : 0u) +
+          (e.cool > 0 ? 6000u : 0u);
+        if (e.kind == EnemyKind::ScorpionMech)
+          dk = dk * 16 + std::uint64_t(std::max(0, e.hp));
+      }
+      for (const auto& sc : d.scraps)
+        dk = dk * 131 + std::uint64_t(sc.y);
+      k = mix(k, dk);
     }
     // Level 21: where the script's shifts and bulkheads are.
     if (!w.zero().shifts.empty())

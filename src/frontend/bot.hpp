@@ -64,6 +64,11 @@ public:
   bool storm(const World& world, Input& in);
   Input bungee(const World& world);
   std::deque<Input> mStormQueue;
+  // Dish Array (bot_dish.cpp): on a dish's ride, stand still through a turn
+  // when the next pose is nearer the goal.
+  bool dish(const World& world, Input& in);
+  int mDishWait = 0;
+  int mDishChecked = -1;
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);

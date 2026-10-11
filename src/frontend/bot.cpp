@@ -221,6 +221,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 32: stay on a dish's ride through a turn that helps.
+  if (world.dish().on)
+  {
+    Input in;
+    if (dish(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 23: pin ghosts over the gallery hole for a bridge.
   if (world.manor().on)
   {

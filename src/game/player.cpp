@@ -116,6 +116,8 @@ void World::updatePlayer(const PlayerInput& raw)
   PlayerInput in = mBeatStep ? beatStepInput(raw) : raw;
   if (mAutorun)
     in.left = in.right = false; // the duck does the paddling (world_sludge.cpp)
+  if (mDish.swapped)
+    std::swap(in.left, in.right); // Heatstroke (world_dish.cpp)
   if (in.left && in.right)
     in.left = in.right = false;
   if (in.up && in.down)

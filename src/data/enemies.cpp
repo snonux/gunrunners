@@ -248,6 +248,12 @@ const EnemyDef kEnemies[] = {
   {"storm_gull", "STORM GULL", K::StormGull, L::Styled, 4, 3, 2, 300, 0, 45, 12, 0, kEnemyNoTally, 0},
   {"kite_drone", "KITE DRONE", K::KiteDrone, L::Styled, 4, 4, 4, 600, 0, 30, 8, 0, kEnemyRobot, 0},
   {"foghorn", "FOGHORN", K::Foghorn, L::Styled, 6, 6, 8, 800, 0, 45, 22, 0, kEnemyHarmless, 0},
+  // Level 32. Sand Shark: tell the fin stopping and the sand bulging before
+  // it breaches. Vulture Drone: the scrap's shadow shrinking as it falls.
+  // Scorpion Mech: its aim line turning toward you, then locking.
+  {"sand_shark", "SAND SHARK", K::SandShark, L::Styled, 6, 4, 4, 700, 1, 40, 12, 0, 0, 0},
+  {"vulture_drone", "VULTURE DRONE", K::VultureDrone, L::Styled, 6, 3, 3, 400, 1, 45, 22, 0, kEnemyRobot | kEnemyHarmless, 0},
+  {"scorpion_mech", "SCORPION MECH", K::ScorpionMech, L::Styled, 8, 6, 10, 1200, 4, 45, 38, 0, kEnemyRobot, 0, 3},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

@@ -142,6 +142,9 @@ enum class EnemyKind
   StormGull,  // wheels high over the runner, screams, then a V-dive through them
   KiteDrone,  // flies a figure eight on its tether; turns at a runner close by
   Foghorn,    // static: a cone of sound that blows a runner back
+  SandShark,  // swims under `@ sand` (only its fin shows), breaches and bites
+  VultureDrone, // circles high over its stretch and drops scrap on the runner
+  ScorpionMech, // patrols; its tail's aim line turns toward the runner, locks, and a beam fires
 };
 
 enum EnemyFlag : unsigned

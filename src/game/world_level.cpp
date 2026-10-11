@@ -176,6 +176,8 @@ void World::setupEntities()
       setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupDishEntity(e))
+      continue;
     if (setupStormEntity(e))
       continue;
     if (setupTrenchEntity(e))
@@ -234,6 +236,7 @@ void World::setupEntities()
       setupSignalEnemy(en, e);
       setupTrenchEnemy(en, e);
       setupStormEnemy(en, e);
+      setupDishEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -328,6 +331,7 @@ void World::setupEntities()
         : by == "vehicle"      ? 5
         : by == "trimmer"      ? 6
         : by == "stomp"        ? 7
+        : by == "beam"         ? 8
                                : 0;
       const std::string look = e.str("look", "glass");
       b.look = look == "ball" ? 1 : (look == "speaker" ? 2 : (look == "mark" ? 3 : (look == "panel" ? 4 : (look == "mixer" ? 5 : (look == "rock" || look == "crack" ? 6 : (look == "hatch" ? 7 : (look == "pod" ? 8 : (look == "ice" ? 9 : (look == "seedpod" ? 11 : (look == "thorn" ? 12 : (look == "ufo" ? 13 : (look == "rackdoor" ? 14 : (look == "grate" ? 15 : 0)))))))))))));

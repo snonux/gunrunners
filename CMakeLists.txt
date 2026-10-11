@@ -126,6 +126,8 @@ add_library(gunrunners_core STATIC
   src/game/world_trench_draw.cpp
   src/game/world_storm.cpp
   src/game/world_storm_draw.cpp
+  src/game/world_dish.cpp
+  src/game/world_dish_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -154,6 +156,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_signal.cpp
   src/frontend/bot_trench.cpp
   src/frontend/bot_storm.cpp
+  src/frontend/bot_dish.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -342,3 +345,7 @@ add_executable(storm_test tests/storm_test.cpp)
 target_link_libraries(storm_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME storm COMMAND storm_test ${CMAKE_SOURCE_DIR}/levels/31_bonus_bungee.txt)
 add_test(NAME savegame_storm_relay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/31_storm_relay.txt 330)
+add_executable(dish_test tests/dish_test.cpp)
+target_link_libraries(dish_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME dish COMMAND dish_test ${CMAKE_SOURCE_DIR}/levels/32_bonus_heatstroke.txt)
+add_test(NAME savegame_dish_array COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/32_dish_array.txt 330)

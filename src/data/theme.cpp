@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 39> kVariants{{
+const std::array<Variant, 40> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -590,6 +590,21 @@ const std::array<Variant, 39> kVariants{{
     rgb(30, 36, 52), rgb(14, 16, 26),
     rgb(150, 156, 170), rgb(214, 220, 232), rgb(60, 64, 76), rgb(255, 210, 90),
     rgb(230, 238, 255), "storm"}},
+  // Level 32: a radio telescope array in the desert, red mesas and pale
+  // sand under a deep blue sky, white dishes, rusty machinery.
+  {"desert_array",
+   {ThemeId::LostTemple,
+    "DISH ARRAY",
+    "ACROSS THE DESERT, PAST THE DISHES THAT FOLLOW THE SATELLITE",
+    rgb(20, 40, 96), rgb(70, 110, 180), rgb(230, 190, 140),
+    rgb(176, 96, 60), rgb(222, 150, 100), rgb(104, 52, 34),
+    rgb(240, 240, 246), rgb(255, 255, 255),
+    rgb(200, 200, 210), rgb(120, 120, 134),
+    rgb(230, 70, 40), rgb(255, 170, 110),
+    rgb(255, 220, 120), rgb(110, 200, 255),
+    rgb(160, 90, 70), rgb(120, 66, 48),
+    rgb(150, 140, 130), rgb(210, 200, 186), rgb(70, 62, 56), rgb(255, 60, 60),
+    rgb(255, 246, 230), "dish"}},
 }};
 
 } // namespace

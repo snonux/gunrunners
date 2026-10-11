@@ -187,6 +187,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkSignal();
   linkTrench();
   linkStorm();
+  linkDish();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -477,6 +478,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateTrench(input);
   if (mStorm.on)
     updateStorm(input);
+  if (mDish.on || mDish.swapLr)
+    updateDish(input);
   updateHatches();
   updateProps(input);
 }
@@ -964,6 +967,15 @@ void World::updateEnemies()
       case EnemyKind::Foghorn:
         updateFoghorn(e, def);
         break;
+      case EnemyKind::SandShark:
+        updateSandShark(e, def);
+        break;
+      case EnemyKind::VultureDrone:
+        updateVultureDrone(e, def);
+        break;
+      case EnemyKind::ScorpionMech:
+        updateScorpionMech(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1088,6 +1100,9 @@ void World::updateProjectiles()
       return true;
     // Level 31: a Tesla rod sticks in a machine; shots scare the fry gull off.
     if (mStorm.on && pr.kind != ShotKind::Enemy && shotAtStorm(pr, b))
+      return true;
+    // Level 32: the minidishes turn, the cactus's hat pops up.
+    if (mDish.on && shotAtDish(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))

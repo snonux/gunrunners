@@ -289,6 +289,12 @@ void World::fireProto(int ox, int oy, int dx, int dy)
   }
   if (ProtoId(p.proto) == ProtoId::RecoilCannon)
     recoilKick(dx, dy); // and the shot goes on below
+  if (ProtoId(p.proto) == ProtoId::SignalJammer)
+  {
+    // Not a projectile: a cone of noise (world_dish.cpp).
+    fireJam(ox, oy, dx != 0 ? dx : p.facing);
+    return;
+  }
   if (ProtoId(p.proto) == ProtoId::HedgeTrimmer || ProtoId(p.proto) == ProtoId::ChronoMister)
   {
     // Aimed up or down, the Trimmer's handle (the Mister's nozzle) fires a plain shot.

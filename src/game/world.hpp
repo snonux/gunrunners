@@ -25,6 +25,7 @@
 #include "game/toon.hpp"
 #include "game/signal.hpp"
 #include "game/storm.hpp"
+#include "game/dish.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1830,6 +1831,7 @@ public:
   // abyss, harpoon lines, the Bubble Up bonus.
   const TrenchState& trench() const { return mTrench; }
   const StormState& storm() const { return mStorm; }
+  const DishState& dish() const { return mDish; }
   bool underwater() const;  // in the water, not in an air pocket
   bool lineUnder() const;   // standing on the harpoon line
   int strokesMax() const;   // swim strokes between touching ground (Nova one more)
@@ -2648,6 +2650,33 @@ private:
   void drawStormBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStormFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawStormHud(Renderer& r, int frame) const;
+  // Level 32, Dish Array (world_dish.cpp, world_dish_draw.cpp), and its
+  // Heatstroke bonus.
+  bool setupDishEntity(const EntityDef& e);
+  void setupDishEnemy(Enemy& en, const EntityDef& e);
+  void linkDish();
+  DishPhase ridePhase(int dish) const;
+  void placeDishes(bool snap);
+  void updateDishRides();
+  void updateDish(const PlayerInput& input);
+  void fireJam(int ox, int oy, int dir);
+  bool jamTarget(Robot& r, const Enemy& self, CellBox& out);
+  Robot* robotOf(const Enemy& e);
+  int groundUnder(int x, int y) const;
+  void updateJamCones();
+  bool shotAtDishProps(const CellBox& hit);
+  bool shotAtDish(Projectile& pr, const CellBox& hit);
+  void updateSandShark(Enemy& e, const EnemyDef& def);
+  void updateVultureDrone(Enemy& e, const EnemyDef& def);
+  void updateScorpionMech(Enemy& e, const EnemyDef& def);
+  void fireBeam(Enemy& e, Robot& r);
+  bool dishCanSave() const;
+  std::vector<int> dishSave() const;
+  bool validDishSave(const std::vector<int>& s) const;
+  void loadDish(const std::vector<int>& s);
+  void drawDishBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawDishFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawDishHud(Renderer& r, int frame) const;
   // Level 30, Fiber Trench (world_trench.cpp, world_trench_draw.cpp), and
   // its Bubble Up bonus.
   bool setupTrenchEntity(const EntityDef& e);
@@ -3145,6 +3174,7 @@ private:
   SignalState mSignal;
   TrenchState mTrench;
   StormState mStorm;
+  DishState mDish;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.

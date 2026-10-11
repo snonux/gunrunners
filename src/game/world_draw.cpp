@@ -208,6 +208,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawTrenchBack(r, camX, camY, frame, alpha);
   if (mStorm.on)
     drawStormBack(r, camX, camY, frame, alpha);
+  if (mDish.on)
+    drawDishBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -409,6 +411,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 30 (world_trench_draw.cpp)
     if (e.kind == EnemyKind::StormGull || e.kind == EnemyKind::KiteDrone || e.kind == EnemyKind::Foghorn)
       continue; // Level 31 (world_storm_draw.cpp)
+    if (e.kind == EnemyKind::SandShark || e.kind == EnemyKind::VultureDrone || e.kind == EnemyKind::ScorpionMech)
+      continue; // Level 32 (world_dish_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -895,6 +899,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawTrenchFront(r, camX, camY, frame, alpha);
   if (mStorm.on)
     drawStormFront(r, camX, camY, frame, alpha);
+  if (mDish.on)
+    drawDishFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1722,6 +1728,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawTrenchHud(r, frame);
   if (mStorm.on)
     drawStormHud(r, frame);
+  if (mDish.swapLr)
+    drawDishHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

@@ -165,7 +165,11 @@ bool World::movePlatform(Platform& pl, int dx, int dy)
 void World::updatePlatforms()
 {
   if (mPlatforms.empty())
+  {
+    if (mDish.on)
+      updateDishRides(); // Level 32: the dishes' clock runs on (world_dish.cpp)
     return;
+  }
   for (auto& pl : mPlatforms)
   {
     pl.prevX = pl.x;
@@ -307,6 +311,8 @@ void World::updatePlatforms()
       mPlayer = savedPlayer;
     }
   }
+  if (mDish.on)
+    updateDishRides(); // Level 32: the dishes' rims and feed arms (world_dish.cpp)
   updateLavaPlatforms();
   syncPlatformCollision();
 }
@@ -368,7 +374,8 @@ bool World::hitBreakable(const CellBox& shot, int damage, int kind)
     // Kind 5 is a vehicle's gun or a mech's stomp: it counts as an explosion
     // and a heavy hit too.
     if ((b.by == 1 && kind != 1 && kind != 5) || (b.by == 2 && kind == 0) || (b.by == 3 && kind != 3) ||
-        (b.by == 4 && kind != 4) || (b.by == 5 && kind != 5) || (b.by == 6 && kind != 6) || (b.by == 7 && kind != 7))
+        (b.by == 4 && kind != 4) || (b.by == 5 && kind != 5) || (b.by == 6 && kind != 6) || (b.by == 7 && kind != 7) ||
+        (b.by == 8 && kind != 8))
       return true; // only explosions (heavy hits, the Bass Cannon, vehicles) break this
     b.hp -= std::max(1, damage);
     const Vec2 c = cellCenter(shot);
