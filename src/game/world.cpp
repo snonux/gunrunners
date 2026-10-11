@@ -186,6 +186,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkToon();
   linkSignal();
   linkTrench();
+  linkStorm();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -474,6 +475,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateSignal(input);
   if (mTrench.on)
     updateTrench(input);
+  if (mStorm.on)
+    updateStorm(input);
   updateHatches();
   updateProps(input);
 }
@@ -952,6 +955,15 @@ void World::updateEnemies()
       case EnemyKind::CableEel:
         updateCableEel(e, def);
         break;
+      case EnemyKind::StormGull:
+        updateStormGull(e, def);
+        break;
+      case EnemyKind::KiteDrone:
+        updateKiteDrone(e, def);
+        break;
+      case EnemyKind::Foghorn:
+        updateFoghorn(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1074,6 +1086,9 @@ void World::updateProjectiles()
     // Level 30: a harpoon sticks in an anchor ring.
     if (mTrench.on && shotAtTrench(pr, b))
       return true;
+    // Level 31: a Tesla rod sticks in a machine; shots scare the fry gull off.
+    if (mStorm.on && pr.kind != ShotKind::Enemy && shotAtStorm(pr, b))
+      return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
       return true;
@@ -1133,6 +1148,8 @@ void World::updateProjectiles()
         stickSpear(pr);
       if (mTrench.on && pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine))
         stickHarpoon(pr);
+      if (mStorm.on && pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::TeslaRod))
+        stickRod(pr, -1);
       if (pr.thrown == 4 && mKitchen.on)
         stickCleaver(pr);
       shotAtSpace(pr);
@@ -1298,6 +1315,8 @@ void World::updateProjectiles()
           continue;
       }
       // Level 30: an eel in its box is out of reach; a harpoon pulls small fry in.
+      if (mStorm.on && pr.kind != ShotKind::Enemy)
+        shotAtStormEnemy(pr, e); // Level 31: a spark down a Kite Drone's tether
       if (mTrench.on && pr.kind != ShotKind::Enemy)
       {
         const int r = shotAtTrenchEnemy(pr, e);
@@ -1426,9 +1445,13 @@ void World::updateProjectiles()
     // the crystals hovering up there.
     const bool upAtCrystals = (mSpace.crystals && pr.dy < 0 && !pr.precise) ||
       (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SilkShooter)); // and on down at the rock
+    // Harpoons and Tesla rods fly on past the edge of the view to stick.
     const bool harpoon = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine);
-    if (pr.alive &&
-        !isOnScreen(pr.box(), harpoon ? kLineReach : pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12 : 2))
+    const bool rod = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::TeslaRod);
+    if (pr.alive && !isOnScreen(pr.box(), rod ? kRodFlight
+          : harpoon                           ? kLineReach
+          : pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12
+                                                                           : 2))
       pr.alive = false;
   }
   mProjectiles.erase(

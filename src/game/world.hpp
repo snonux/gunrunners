@@ -24,6 +24,7 @@
 #include "game/noir.hpp"
 #include "game/toon.hpp"
 #include "game/signal.hpp"
+#include "game/storm.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -471,6 +472,7 @@ struct Platform
   int step = 1;
   int speedNum = 1, speedDen = 1;
   int powered = -1; // a lift: only moves while this breaker is on
+  bool dead = false; // Level 31: a dead lift until lightning powers it (world_storm.cpp)
   bool once = false;   // mode=once: hidden until a script starts it, gone at the end
   int latch = -1;      // a hook: held by this latch until it is shot, then runs once you stand on it
   std::string latchId;
@@ -1827,6 +1829,7 @@ public:
   // Level 30 (world_trench.cpp): the water, air pockets, currents, the
   // abyss, harpoon lines, the Bubble Up bonus.
   const TrenchState& trench() const { return mTrench; }
+  const StormState& storm() const { return mStorm; }
   bool underwater() const;  // in the water, not in an air pocket
   bool lineUnder() const;   // standing on the harpoon line
   int strokesMax() const;   // swim strokes between touching ground (Nova one more)
@@ -2618,6 +2621,33 @@ private:
   void drawSignalBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSignalFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSignalHud(Renderer& r, int frame) const;
+  // Level 31, Storm Relay (world_storm.cpp, world_storm_draw.cpp), and its
+  // Bungee bonus.
+  bool setupStormEntity(const EntityDef& e);
+  void setupStormEnemy(Enemy& en, const EntityDef& e);
+  void linkStorm();
+  void updateStorm(const PlayerInput& input);
+  void chooseStrike(StormZone& z);
+  void strike(StormZone& z);
+  std::vector<CellBox> struckMetal(const StormZone& z, const StrikeTarget& t) const;
+  void powerMachine(int index);
+  void openMachine(const Machine& m);
+  void stickRod(Projectile& pr, int machine);
+  bool shotAtStorm(Projectile& pr, const CellBox& hit);
+  int shotAtStormEnemy(Projectile& pr, Enemy& e);
+  void sparkKite(Kite& k);
+  bool touchesTether(const Kite& k, const CellBox& b) const;
+  void updateStormGull(Enemy& e, const EnemyDef& def);
+  void updateKiteDrone(Enemy& e, const EnemyDef& def);
+  void updateFoghorn(Enemy& e, const EnemyDef& def);
+  void updateBungeeRide(int mvX, const PlayerInput& in);
+  bool stormCanSave() const;
+  std::vector<int> stormSave() const;
+  bool validStormSave(const std::vector<int>& s) const;
+  void loadStorm(const std::vector<int>& s);
+  void drawStormBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawStormFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawStormHud(Renderer& r, int frame) const;
   // Level 30, Fiber Trench (world_trench.cpp, world_trench_draw.cpp), and
   // its Bubble Up bonus.
   bool setupTrenchEntity(const EntityDef& e);
@@ -3114,6 +3144,8 @@ private:
   InkState mInk;
   SignalState mSignal;
   TrenchState mTrench;
+  StormState mStorm;
+  std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
   std::vector<std::pair<int, std::string>> mManorLinks, mManorDoorLevers;

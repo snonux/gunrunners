@@ -180,7 +180,7 @@ void World::updatePlatforms()
     {
       if (a.path.size() < 2 || a.frozen)
         continue;
-      if (a.powered >= 0 && !mBreakers[std::size_t(a.powered)].on)
+      if ((a.powered >= 0 && !mBreakers[std::size_t(a.powered)].on) || a.dead)
         continue;
       if (a.once && !a.running)
       {

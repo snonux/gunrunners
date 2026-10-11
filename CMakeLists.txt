@@ -122,6 +122,8 @@ add_library(gunrunners_core STATIC
   src/game/world_signal_draw.cpp
   src/game/world_trench.cpp
   src/game/world_trench_draw.cpp
+  src/game/world_storm.cpp
+  src/game/world_storm_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -149,6 +151,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_toon.cpp
   src/frontend/bot_signal.cpp
   src/frontend/bot_trench.cpp
+  src/frontend/bot_storm.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -333,3 +336,7 @@ add_test(NAME signal COMMAND signal_test ${CMAKE_SOURCE_DIR}/levels/29_bonus_wra
 add_executable(trench_test tests/trench_test.cpp)
 target_link_libraries(trench_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME trench COMMAND trench_test ${CMAKE_SOURCE_DIR}/levels/30_bonus_bubble_up.txt)
+add_executable(storm_test tests/storm_test.cpp)
+target_link_libraries(storm_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME storm COMMAND storm_test ${CMAKE_SOURCE_DIR}/levels/31_bonus_bungee.txt)
+add_test(NAME savegame_storm_relay COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/31_storm_relay.txt 330)

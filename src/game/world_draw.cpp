@@ -206,6 +206,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
+  if (mStorm.on)
+    drawStormBack(r, camX, camY, frame, alpha);
   drawSludgeBack(r, camX, camY, frame);
 
   // Item boxes and items; ones still sealed inside a breakable (the mixer,
@@ -405,6 +407,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (def.tint != 0)
       eo.tint = def.tint;
     if (e.kind == EnemyKind::Wraith)
+    if (e.kind == EnemyKind::StormGull || e.kind == EnemyKind::KiteDrone || e.kind == EnemyKind::Foghorn)
+      continue; // Level 31 (world_storm_draw.cpp)
       eo.alpha = 0.72f; // half there
     switch (def.look)
     {
@@ -889,6 +893,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
     if (mSignal.on && drawSignalShot(r, mArt, pr, cx, cy, frame))
       continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
+  if (mStorm.on)
+    drawStormFront(r, camX, camY, frame, alpha);
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1714,6 +1720,8 @@ void World::drawHud(Renderer& r, int frame) const
     r.drawText(buf, float(kScreenW) / 2.0f, 88, {40.0f, hurry ? rgb(255, 80, 80) : mTheme.accentA, kHudInk, true}, Align::Center);
   }
 
+  if (mStorm.on)
+    drawStormHud(r, frame);
   // Pickup and tutorial messages, like Duke's message line.
   if (mMessageTicks > 0)
   {

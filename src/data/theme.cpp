@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 37> kVariants{{
+const std::array<Variant, 38> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -559,6 +559,21 @@ const std::array<Variant, 37> kVariants{{
     rgb(40, 40, 46), rgb(24, 24, 28),
     rgb(170, 170, 180), rgb(230, 230, 240), rgb(70, 70, 80), rgb(255, 255, 255),
     rgb(240, 240, 240), "dead_air"}},
+  // Level 31: a sea cliff and its lighthouse in a thunderstorm, wet black
+  // rock, rusted metal stairs and grating, lightning white-blue.
+  {"storm_cliffs",
+   {ThemeId::LostTemple,
+    "STORM RELAY",
+    "UP A SEA CLIFF TO THE LIGHTHOUSE, IN A THUNDERSTORM",
+    rgb(6, 8, 16), rgb(26, 32, 50), rgb(60, 70, 92),
+    rgb(52, 56, 64), rgb(104, 110, 120), rgb(22, 24, 30),
+    rgb(170, 210, 255), rgb(235, 245, 255),
+    rgb(120, 84, 60), rgb(64, 44, 32),
+    rgb(240, 220, 90), rgb(255, 250, 200),
+    rgb(170, 210, 255), rgb(255, 210, 90),
+    rgb(30, 36, 52), rgb(14, 16, 26),
+    rgb(150, 156, 170), rgb(214, 220, 232), rgb(60, 64, 76), rgb(255, 210, 90),
+    rgb(230, 238, 255), "storm"}},
 }};
 
 } // namespace

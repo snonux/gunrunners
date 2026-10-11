@@ -176,6 +176,8 @@ void World::setupEntities()
       setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupStormEntity(e))
+      continue;
     if (setupTrenchEntity(e))
       continue;
     if (setupToonEntity(e))
@@ -231,6 +233,7 @@ void World::setupEntities()
       setupToonEnemy(en, e);
       setupSignalEnemy(en, e);
       setupTrenchEnemy(en, e);
+      setupStormEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:

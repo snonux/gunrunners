@@ -138,6 +138,10 @@ enum class EnemyKind
   Anglerfish, // waits in the dark behind its lure; lunges at a runner close by
   BoxJelly,   // rises up its column, holds, sinks back; drifts with currents
   CableEel,   // lunges out of its junction box at a runner close by
+  // Level 31, Storm Relay (world_storm.cpp).
+  StormGull,  // wheels high over the runner, screams, then a V-dive through them
+  KiteDrone,  // flies a figure eight on its tether; turns at a runner close by
+  Foghorn,    // static: a cone of sound that blows a runner back
 };
 
 enum EnemyFlag : unsigned

@@ -242,6 +242,12 @@ const EnemyDef kEnemies[] = {
   {"anglerfish", "ANGLERFISH", K::Anglerfish, L::Styled, 6, 4, 5, 600, 0, 30, 10, 0, 0, 0},
   {"box_jelly", "BOX JELLY", K::BoxJelly, L::Styled, 4, 4, 2, 300, 0, 15, 8, 0, 0, 0},
   {"cable_eel", "CABLE EEL", K::CableEel, L::Styled, 3, 12, 4, 700, 0, 40, 12, 0, kEnemyHarmless, 0},
+  // Level 31. Storm Gull: tell the scream before a dive (spawned, so not in
+  // the tally). Kite Drone: tell the rotor's pitch rising before it turns at
+  // you. Foghorn: tell the bellows swelling before a blast.
+  {"storm_gull", "STORM GULL", K::StormGull, L::Styled, 4, 3, 2, 300, 0, 45, 12, 0, kEnemyNoTally, 0},
+  {"kite_drone", "KITE DRONE", K::KiteDrone, L::Styled, 4, 4, 4, 600, 0, 30, 8, 0, kEnemyRobot, 0},
+  {"foghorn", "FOGHORN", K::Foghorn, L::Styled, 6, 6, 8, 800, 0, 45, 22, 0, kEnemyHarmless, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

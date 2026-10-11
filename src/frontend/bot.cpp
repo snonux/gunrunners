@@ -112,6 +112,8 @@ Input Bot::play(const World& world)
     return wraparound(world);
   if (world.trench().bubble)
     return bubbleUp(world);
+  if (world.storm().bungee)
+    return bungee(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -204,6 +206,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (trench(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 31: a rod in the dead generator.
+  if (world.storm().on)
+  {
+    Input in;
+    if (storm(world, in))
     {
       mPlanner.reset();
       return in;

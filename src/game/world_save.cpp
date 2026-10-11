@@ -18,7 +18,7 @@ bool World::canSave() const
     (!mManor.on || manorCanSave()) && (!mKitchen.on || kitchenCanSave()) && (!mGarden.on || gardenCanSave()) &&
     !mGlide.on && !mTop.on && (!mCity.on || cityCanSave()) && ((!mNoir.on && !mFilm.on) || noirCanSave()) &&
     (!(mToon.on || mInk.on) || toonCanSave()) && (!mSignal.on || signalCanSave()) &&
-    (!mTrench.on || trenchCanSave());
+    (!mTrench.on || trenchCanSave()) && (!mStorm.on || stormCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -391,6 +391,8 @@ SaveGame World::snapshot() const
     s.signal = signalSave();
   if (mTrench.on)
     s.trench = trenchSave();
+  if (mStorm.on)
+    s.storm = stormSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -483,6 +485,7 @@ bool World::restore(const SaveGame& s)
       (!s.garden.empty() && !validGardenSave(s.garden)) || (!s.city.empty() && !validCitySave(s.city)) ||
       (!s.noir.empty() && !validNoirSave(s.noir)) || (!s.toon.empty() && !validToonSave(s.toon)) ||
       (!s.signal.empty() && !validSignalSave(s.signal)) || (!s.trench.empty() && !validTrenchSave(s.trench)) ||
+      (!s.storm.empty() && !validStormSave(s.storm)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -944,6 +947,8 @@ bool World::restore(const SaveGame& s)
     loadSignal(s.signal);
   if (!s.trench.empty())
     loadTrench(s.trench);
+  if (!s.storm.empty())
+    loadStorm(s.storm);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

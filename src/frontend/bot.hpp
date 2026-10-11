@@ -59,6 +59,11 @@ public:
   Input bubbleUp(const World& world);
   std::vector<int> mBubbleField;
   Input mBubblePrev;
+  // Storm Relay (bot_storm.cpp): a rod in the dead generator (for the
+  // bonus); Bungee: the fling that gets the most rings.
+  bool storm(const World& world, Input& in);
+  Input bungee(const World& world);
+  std::deque<Input> mStormQueue;
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);

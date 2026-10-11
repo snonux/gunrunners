@@ -459,6 +459,10 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       // A line's length, on past the edge of the view (world_trench.cpp).
       pr.range = kLineReach + 2;
       break;
+    case ProtoId::TeslaRod:
+      // A rod flies on until it sticks in something (world_storm.cpp).
+      pr.range = kRodFlight;
+      break;
     default:
       break;
   }

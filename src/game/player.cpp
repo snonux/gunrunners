@@ -214,6 +214,13 @@ void World::updatePlayer(const PlayerInput& raw)
     updateBubbleRide(mvX, mvY, in);
     return;
   }
+  // Level 31's Bungee: on the rope (world_storm.cpp).
+  if (mStorm.bungee)
+  {
+    updateBungeeRide(mvX, in);
+    updateShooting(in.fire);
+    return;
+  }
   if (mLaunch > 0)
     updateLaunch(mvX);
   else

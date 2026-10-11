@@ -506,6 +506,12 @@ Planner::Goal Planner::chooseGoal(const World& w) const
     if (px <= n.paintX + 2)
       return {18, n.paintX * kCellsPerTile - 2, (n.paintY + 4) * kCellsPerTile - 5, 3, 5, -1};
   }
+  // Level 31: for the bonus, stand on the cave floor a way off the dead
+  // generator (Bot::storm sticks a rod in it; the strike opens the hatch).
+  if (w.storm().on && mTakeBonus && !mSkipBonus)
+    for (const auto& m : w.storm().machines)
+      if (m.kind == MachineKind::Generator && !m.powered && w.player().y > m.box.y - 20)
+        return {18, m.box.x + 10, m.box.bottom() - 4, 3, 5, -1};
   // Level 23: the bonus detour through the crypt; then the next mirror to
   // step through, or lever to throw, on the manor's route.
   bool inCrypt = false;
@@ -2342,6 +2348,9 @@ void Planner::plan(const World& world)
     for (const auto& b : world.city().buildings)
       powered = int(unsigned(powered) * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u)));
     powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
+    // Level 31: machines powered (the generator's hatch, the lift).
+    for (const auto& m : world.storm().machines)
+      powered = powered * 2 + m.powered;
     // Level 22: barrels blown (bridges down, rock gone).
     for (const auto& b : world.west().barrels)
       powered = powered * 2 + b.blown;
@@ -2454,6 +2463,22 @@ void Planner::plan(const World& world)
       k = mix(k, std::uint64_t(t.strokes) | (std::uint64_t(t.sinkTick % 3) << 4) | (std::uint64_t(t.line) << 6) |
                    (std::uint64_t(t.lineX0) << 8) | (std::uint64_t(t.lineY) << 20) |
                    (std::uint64_t(t.harpoons.size()) << 32) | (std::uint64_t(t.fade) << 36));
+    }
+    // Level 31: each zone's clock (its glow and strike), rods, powered
+    // machines, a Foghorn's blast.
+    if (w.storm().on)
+    {
+      const auto& s = w.storm();
+      std::uint64_t sk = 7;
+      for (const auto& z : s.zones)
+        sk = sk * 131 + std::uint64_t(z.t);
+      for (const auto& m : s.machines)
+        sk = sk * 2 + std::uint64_t(m.powered);
+      sk = sk * 3 + s.rods.size();
+      for (const auto& e : w.enemies())
+        if (e.alive && e.kind == EnemyKind::Foghorn)
+          sk = sk * 64 + std::uint64_t(e.dive + e.tell * 9 + (e.cool > 0 ? 1 : 0) * 37);
+      k = mix(k, sk);
     }
     // Level 21: where the script's shifts and bulkheads are.
     if (!w.zero().shifts.empty())

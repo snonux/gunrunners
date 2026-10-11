@@ -17,11 +17,11 @@ playable any time from DEEP SPACE on the title screen. Six vehicles (tank,
 helicopter, hoverbike, submarine, space ship and mech) turn up along the
 way, and two EXTRAS levels are built around them.
 
-**Playable now: 37 levels.** Episodes 1 to 4 (Levels 1-28), every level
-with its bonus level and every episode with its ending, Levels 29-30 of
-Episode 5 (Dead Air, Fiber Trench) with their bonus levels, all of
-Episode 7 (Levels 43-49) with its ending, and both EXTRAS. The rest of
-Episodes 5 and 6 (Levels 31-42) is being built now.
+**Playable now: 38 levels.** Episodes 1 to 4 (Levels 1-28), every level
+with its bonus level and every episode with its ending, Levels 29-31 of
+Episode 5 (Dead Air, Fiber Trench, Storm Relay) with their bonus levels,
+all of Episode 7 (Levels 43-49) with its ending, and both EXTRAS. The rest
+of Episodes 5 and 6 (Levels 32-42) is being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|
