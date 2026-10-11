@@ -2,6 +2,7 @@
 
 #include "assets/enemy_art.hpp"
 #include "game/reactor_draw.hpp"
+#include "game/toon_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -103,6 +104,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawStarfallSky(r, camX, camY, frame);
   if (mManor.on)
     drawManorWall(r, camX, camY, frame); // Level 23: the inside walls and windows
+  if (mToon.on || mInk.on)
+    drawToonSet(r, *this, mArt, camX, camY, frame); // Level 28: rooms, the big top, the Inkwell's page
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -319,6 +322,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_suit", 0, 0, 2, 2).get(1), x + 32, y + 64);
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_suit", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mToon.on && mLevel->themeKey == "rubber_hose_toon")
+      {
+        // Toon Town Throwdown's duck wears white gloves.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_gloves", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
@@ -577,6 +587,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
           variant = e.tell > 0 ? 1 + (e.tell / 2) % 4 : 0; // spinning out
         else if (e.kind == EnemyKind::MaserTruck)
           variant = sectorDark(e.variant) ? 2 : (e.tell > 0 ? 1 : 0); // powerless; charging
+        else if (e.kind == EnemyKind::GrinningBomb)
+          variant = std::clamp(e.attach, 0, 2); // Level 28: grinning, the frown, the lunge
+        else if (e.kind == EnemyKind::PianoBird)
+          variant = e.cool <= 20 ? 0 : 1; // carrying a piano; let go of it
+        else if (e.kind == EnemyKind::RubberGoon)
+          variant = e.dive > 0 ? (e.aimY > 0 ? 4 : 3) : (e.attach > 0 ? 2 : (e.tell > 0 ? 1 : 0)); // flat; punching, coiled
         else if (e.stun > 0)
           variant = 0;
         int dirForArt = e.kind == EnemyKind::Crawler && variant == 0 ? -e.attach : e.dir;
@@ -640,6 +656,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
           : e.kind == EnemyKind::BombardierBeetle      ? ((e.x % 2) + 2) % 2
           : e.kind == EnemyKind::ModelTank || e.kind == EnemyKind::MaserTruck ? ((e.x % 2) + 2) % 2 // tracks, wheels
           : e.kind == EnemyKind::ToyJet                ? (frame / 3) % 2
+          : e.kind == EnemyKind::GrinningBomb          ? (e.attach == 0 ? (e.x / 2) % 2 : (frame / 2) % 2)
+          : e.kind == EnemyKind::PianoBird             ? (frame / 4) % 2
+          : e.kind == EnemyKind::RubberGoon            ? (e.dive > 0 ? (frame / 2) % 2 : (e.x / 2) % 2)
           : e.kind == EnemyKind::TumbleMine || e.kind == EnemyKind::WindowBandit ? 0
                                                        : (frame / 8) % 2;
         tex = &styledEnemySprite(mArt, r, mTheme, def.key, variant, animFrame, e.w, e.h).get(dirForArt);
@@ -1146,6 +1165,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
             break; // the Wireframe bonus draws its own (world_zero_draw.cpp)
           if (mCity.on && cityDrawsBlock(tx, ty))
             break; // a model building (world_city_draw.cpp)
+          if ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty))
+            break; // a piano standing (world_toon_draw.cpp)
           // Shade blocks darker the deeper they sit below the surface.
           int depth = 0;
           while (depth < 3 && (mMap.block(tx, ty - depth - 1) == Tile::Solid) && !(mCity.on && cityDrawsBlock(tx, ty - depth - 1)))
@@ -1158,6 +1179,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
           break;
         }
         case Tile::Platform:
+          if ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty))
+            break; // an inked line (world_toon_draw.cpp)
           r.draw(platformTex, x, y);
           break;
         case Tile::Grate:
@@ -1208,8 +1231,10 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
   // Surface trims go on top so their glow/grass can overlap neighbours.
   for (int ty = std::max(1, ty0); ty <= ty1; ++ty)
     for (int tx = tx0; tx <= tx1; ++tx)
-      if (mMap.block(tx, ty) == Tile::Solid && (mMap.block(tx, ty - 1) != Tile::Solid || (mCity.on && cityDrawsBlock(tx, ty - 1))) &&
+      if (mMap.block(tx, ty) == Tile::Solid && (mMap.block(tx, ty - 1) != Tile::Solid || (mCity.on && cityDrawsBlock(tx, ty - 1)) ||
+                                                  ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty - 1))) &&
           !(mCity.on && cityDrawsBlock(tx, ty)) &&
+          !((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty)) &&
           mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)] && !mZero.wireframe)
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
 }

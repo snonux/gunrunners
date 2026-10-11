@@ -342,6 +342,25 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return hiss * 0.35 * flutter * env;
     });
   }
+  if (id == "deflate")
+  {
+    // A cartoon balloon letting go (end_e4, Buddy Boom): the neck's rubbery
+    // squeal fluttering and climbing as the air runs out, a rush of air
+    // under it, and the last flap of the empty skin.
+    Osc reed, flap;
+    Noise n(seed);
+    Svf body, air;
+    return render(1.9, [&](double t, double total) {
+      const double u = t / 1.6;
+      const double wob = 1.0 + 0.08 * std::sin(t * 2.0 * kPi * 17.0) + 0.05 * std::sin(t * 2.0 * kPi * 5.3);
+      const double f = sweep(260.0, 720.0, u) * wob;
+      const double squeal = body.band(float(reed.step(f, Wave::Square, 0.3)), f * 2.2, 3.0) * 0.2;
+      const double rush = air.band(n.next(), 1800.0 + 900.0 * std::sin(t * 9.0), 0.8) * 0.12;
+      const double held = attack(t, 0.03) * std::clamp((1.6 - t) / 0.08, 0.0, 1.0) * (0.75 + 0.25 * std::sin(t * 2.0 * kPi * 3.0));
+      const double end = t >= 1.6 ? flap.step(90.0, Wave::Triangle) * decay(t - 1.6, 0.05) * 0.4 : 0.0;
+      return (squeal + rush) * held + end * std::min(1.0, (total - t) / 0.05);
+    });
+  }
   if (has(id, "steam") || has(id, "hiss") || has(id, "airlock") || has(id, "sizzle") || has(id, "deflate"))
     return noiseBed(has(id, "static_hiss") ? 3.0 : 1.2, seed, 2000.0, 9000.0, 0.35, 0.05);
   if (has(id, "static") || has(id, "snow") || has(id, "tv_"))

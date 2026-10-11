@@ -168,6 +168,15 @@ enum class Sfx
   BuildingCrumble, // a model building collapsing (a balsa crunch and a rattle of bits)
   BreathBeam, // the Atomic Breath (a rising crackling electric whoosh)
   MaserHum,  // a Maser dish charging (a pulsing hum climbing in pitch)
+  SlideWhistle, // Level 28: a cartoon slide whistle falling (the "uh-oh" drop, Buddy into the ink)
+  Bonk,      // running into painted rock (a wood block knock with a wobbling boing)
+  HoleGulp,  // a Portable Hole opening (a cartoon gulp: a hollow bloop swallowed down)
+  PianoCrash, // a piano landing (a smash of wood with every string jangling)
+  PieSplat,  // a cream pie in the face (a wet splat and a soft plop)
+  PencilScratch, // the giant pencil drawing (a dry graphite scratch)
+  EraserRub, // the eraser rubbing a floor out (a squeaking rubber scrub)
+  Honk,      // Buddy Boom hit (a squeeze-bulb horn honk)
+  RubberBoing, // a flat Rubber Goon bouncing a runner (a long twanging boing)
   Count,
 };
 

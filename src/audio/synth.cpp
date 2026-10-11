@@ -2213,6 +2213,141 @@ std::vector<float> makeSfx(Sfx id)
         return (h * 0.55 + w) * 0.32 * attack(t, 0.03) * std::min(1.0, (total - t) / 0.06);
       });
     }
+    case Sfx::SlideWhistle:
+    {
+      // Level 28's fall: a slide whistle gliding down two octaves, with the
+      // player's breathy vibrato and a little air on top.
+      Osc o, vib;
+      Noise n(751);
+      Svf air;
+      return render(0.75, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(1500.0, 360.0, u * u * 0.4 + u * 0.6) * (1.0 + 0.012 * vib.step(9.0, Wave::Sine));
+        const double tone = o.step(f, Wave::Sine);
+        const double breath = air.band(n.next(), f * 1.5, 2.0) * 0.25;
+        return (tone + breath) * 0.3 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.12);
+      });
+    }
+    case Sfx::Bonk:
+    {
+      // Running into painted rock: a hollow wood block knock, then a spring
+      // boinging out of it, wobbling down.
+      Osc block, spring, wob;
+      Noise n(757);
+      Svf knock;
+      return render(0.6, [&](double t, double total) {
+        const double k = (block.step(sweep(820.0, 560.0, t / 0.03), Wave::Sine) * 0.8 + knock.band(n.next(), 1600.0, 6.0) * 0.6) *
+          decay(t, 0.025);
+        const double ts = std::max(0.0, t - 0.03);
+        const double f = 220.0 + 140.0 * std::sin(2.0 * kPi * 11.0 * ts) * decay(ts, 0.2);
+        const double boing = t > 0.03 ? spring.step(f * (1.0 + 0.02 * wob.step(30.0, Wave::Sine)), Wave::Triangle) * decay(ts, 0.18) : 0.0;
+        return (k + boing * 0.5) * 0.42 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::HoleGulp:
+    {
+      // A Portable Hole opening: a cartoon gulp. A deep hollow bloop that
+      // drops in pitch through a throaty vowel, then a little click of a
+      // swallow.
+      Osc o, sub;
+      Svf throat;
+      Noise n(761);
+      return render(0.45, [&](double t, double) {
+        const double f = sweep(330.0, 70.0, std::min(1.0, t / 0.28));
+        const double v = throat.band(o.step(f, Wave::Saw), lerp(900.0, 380.0, std::min(1.0, t / 0.28)), 3.0);
+        const double body = sub.step(f * 0.5, Wave::Sine) * 0.6;
+        const double click = t > 0.3 ? n.next() * decay(t - 0.3, 0.006) * 0.5 : 0.0;
+        return (v * 0.9 + body) * 0.38 * attack(t, 0.01) * decay(t, 0.16) + click * 0.3;
+      });
+    }
+    case Sfx::PianoCrash:
+    {
+      // A piano landing: a wooden smash, a low thud through the floor and
+      // every string jangling at once, out of tune, ringing down.
+      std::vector<float> out(std::size_t(samples(1.4)), 0.0f);
+      for (int k = 0; k < 9; ++k)
+        addPiano(out, 0.005 * double(k), 1.3, 33.0 + double(k) * 5.0 + double(k % 3) * 0.4, 0.13);
+      Noise n(769);
+      Svf wood;
+      Osc thud;
+      for (int i = 0; i < samples(0.4); ++i)
+      {
+        const double t = double(i) / kRate;
+        const double smash = wood.band(n.next(), sweep(2200.0, 500.0, t / 0.3), 1.2) * decay(t, 0.08);
+        const double boom = thud.step(sweep(95.0, 38.0, t / 0.2), Wave::Sine) * decay(t, 0.1);
+        out[std::size_t(i)] += float((smash * 0.7 + boom * 0.6) * attack(t, 0.001));
+      }
+      for (auto& v : out)
+        v = float(std::tanh(double(v) * 1.2) * 0.55);
+      return out;
+    }
+    case Sfx::PieSplat:
+    {
+      // A cream pie in the face: a wet splat (noise squeezed through a
+      // falling band) and a soft low plop under it.
+      Noise n(773);
+      Svf wet;
+      Osc plop;
+      OnePole lp;
+      return render(0.4, [&](double t, double total) {
+        const double s = wet.band(n.next(), sweep(2600.0, 400.0, t / 0.2), 0.9) * decay(t, 0.07);
+        const double drip = lp.lowpass(n.next(), 600.0) * decay(t, 0.15) * 0.4;
+        const double p = plop.step(sweep(260.0, 90.0, t / 0.08), Wave::Sine) * decay(t, 0.05);
+        return (s * 0.8 + drip + p * 0.6) * 0.45 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::PencilScratch:
+    {
+      // The giant pencil drawing: dry graphite on paper, a scratchy noise
+      // band that rasps in strokes.
+      Noise n(787), g(797);
+      Svf lead;
+      OnePole hp;
+      return render(0.7, [&](double t, double total) {
+        const double stroke = 0.5 + 0.5 * std::sin(2.0 * kPi * 7.0 * t);
+        const double grit = g.next() > 0.6f ? 1.0 : 0.35;
+        const double x = hp.highpass(lead.band(n.next(), 3200.0 + 900.0 * stroke, 1.5), 900.0);
+        return x * grit * (0.35 + 0.65 * stroke) * 0.4 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::EraserRub:
+    {
+      // The eraser on the floor: a squeaking rubber scrub, back and forth.
+      Osc squeak;
+      Noise n(809);
+      Svf rub;
+      return render(0.75, [&](double t, double total) {
+        const double ph = std::sin(2.0 * kPi * 6.0 * t);
+        const double f = 700.0 + 260.0 * ph;
+        const double sq = squeak.step(f, Wave::Square, 0.3) * 0.2 * std::max(0.0, std::abs(ph) - 0.3);
+        const double scrub = rub.band(n.next(), 1300.0 + 500.0 * ph, 1.1) * 0.6;
+        return (sq + scrub) * 0.42 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::Honk:
+    {
+      // Buddy Boom hit: a squeeze-bulb horn, a reedy double honk.
+      Osc a, b;
+      Svf reed;
+      return render(0.36, [&](double t, double total) {
+        const double on = t < 0.14 ? 1.0 : (t > 0.18 ? 1.0 : 0.0);
+        const double f = t < 0.16 ? 420.0 : 380.0;
+        const double x = a.step(f, Wave::Saw) + b.step(f * 1.01, Wave::Square, 0.4) * 0.5;
+        const double env = t < 0.16 ? attack(t, 0.01) * decay(t, 0.2) : attack(t - 0.18, 0.01) * decay(t - 0.18, 0.12);
+        return reed.band(float(x), 1100.0, 1.5) * on * env * 0.36 * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::RubberBoing:
+    {
+      // A flat Rubber Goon bouncing a runner up: a long twanging boing, the
+      // pitch wobbling wide and settling up high.
+      Osc o, sub;
+      return render(0.8, [&](double t, double total) {
+        const double f = sweep(120.0, 420.0, std::min(1.0, t / 0.4)) * (1.0 + 0.25 * std::sin(2.0 * kPi * 13.0 * t) * decay(t, 0.25));
+        const double v = o.step(f, Wave::Triangle) + 0.4 * sub.step(f * 0.5, Wave::Sine);
+        return v * 0.34 * attack(t, 0.004) * decay(t, 0.35) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
     case Sfx::Count:
       break;
   }

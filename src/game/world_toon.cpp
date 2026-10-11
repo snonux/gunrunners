@@ -231,7 +231,7 @@ bool World::toonAirRun(int mvX)
     t.airT = 0;
     t.uhOh = mCharacterIndex == 2 ? kUhOhNova : kUhOh;
     setVisual(PlayerVisual::Standing);
-    playSound(Sfx::Whistle);
+    playSound(Sfx::SlideWhistle);
     return true;
   }
   ++t.airT;
@@ -314,7 +314,7 @@ void World::toonAfterMove(int mvX)
       {
         t.bonkLatch = true;
         t.bonk = kBonk;
-        playSound(Sfx::Boing);
+        playSound(Sfx::Bonk);
         showMessage("BONK!");
         const CellBox b = p.box();
         burst({(float(b.x) + 1.5f) * kCellSize, float(b.top()) * kCellSize}, rgb(255, 240, 120), rgb(255, 255, 255), 8, 1.0f);
@@ -453,7 +453,7 @@ void World::openHole(bool wall, int x0, int y0, int x1, int y1)
         killEnemy(e);
       }
     }
-  playSound(Sfx::Gulp);
+  playSound(Sfx::HoleGulp);
   burst(cellCenter(r), rgb(30, 20, 40), rgb(120, 100, 140), 14, 1.4f);
 }
 
@@ -732,7 +732,7 @@ void World::updateRubberGoon(Enemy& e, const EnemyDef& def)
     {
       p.y = b.top() - 1;
       startLaunch(kGoonBounce + (mToon.jumpHeld ? jumpHeight() : 0));
-      playSound(Sfx::Boing);
+      playSound(Sfx::RubberBoing);
       e.aimY = 6; // the bounce
       return;
     }
@@ -855,7 +855,7 @@ void World::updatePianos()
         if (alive && box.intersects(p.hitBox()))
         {
           hurtPlayer(2);
-          playSound(Sfx::Crash);
+          playSound(Sfx::PianoCrash);
         }
         for (auto& e : mEnemies)
           if (e.alive && !e.hidden && e.kind != EnemyKind::PianoBird && box.intersects(e.box()))
@@ -877,7 +877,7 @@ void World::updatePianos()
               if (mMap.block(bx, by) == Tile::Empty)
                 mMap.setBlock(bx, by, Tile::Solid);
             }
-          playSound(Sfx::Crash);
+          playSound(Sfx::PianoCrash);
           mCamera.shake(6, 1.5f);
           burst({(float(pn.x) + 3.0f) * kCellSize, float(pn.floor) * kCellSize}, rgb(255, 255, 255), rgb(200, 200, 200), 14, 1.6f);
           // A runner caught under it is pushed out on top.
@@ -1078,7 +1078,7 @@ void World::damageBuddy(int amount)
     return;
   b.hp -= amount;
   b.flash = 4;
-  playSound(Sfx::Boing);
+  playSound(Sfx::Honk);
   if (b.hp > 0)
     return;
   const Vec2 at = cellCenter(buddyBox());
@@ -1130,7 +1130,7 @@ void World::buddyFall(bool holed)
     showMessage("CRACK! DOWN HE GOES");
   setBuddyLine(false);
   b.lineY = -1;
-  playSound(Sfx::Whistle);
+  playSound(Sfx::SlideWhistle);
 }
 
 int World::segmentUnder(int cx) const
@@ -1195,7 +1195,7 @@ void World::updateBuddy()
     {
       hurtPlayer(1);
       (pie.side < 0 ? b.whiteL : b.whiteR) = kPieWhite;
-      playSound(Sfx::Squelch);
+      playSound(Sfx::PieSplat);
       pie.side = 9;
     }
     else if (mMap.solid(pb.x, pb.y + 1) || pie.y > float(mMap.height()))
@@ -1376,7 +1376,7 @@ void World::updateBuddy()
         b.y = ty;
         b.state = BuddyState::Draw;
         b.t = 0;
-        playSound(Sfx::Trim);
+        playSound(Sfx::PencilScratch);
       }
       break;
     }
@@ -1408,7 +1408,7 @@ void World::updateBuddy()
           b.eraseSeg = s;
           b.state = BuddyState::Erase;
           b.t = 0;
-          playSound(Sfx::Rattle);
+          playSound(Sfx::EraserRub);
         }
         else
           b.cool = 15;
@@ -1722,7 +1722,7 @@ void World::updateInk(const PlayerInput& input)
     p.state = PlayerState::OnGround;
     setVisual(PlayerVisual::Standing);
     k.drawing = false;
-    playSound(Sfx::Whistle);
+    playSound(Sfx::SlideWhistle);
     return;
   }
   // Hold fire to draw: the pen tip starts under the runner's leading foot

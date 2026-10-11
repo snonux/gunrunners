@@ -1971,6 +1971,84 @@ void clubhouseDrop(Stereo& mix, double bpm)
   }
 }
 
+// The Halcyon Arms jingle (end_e4's ad): six seconds of slick corporate
+// gloss, played once. A shimmer of bells and electric piano climbing a
+// major ninth, a warm string pad, a confident brass motif on "peace
+// through firepower" (G G A C B, landing on D), a sub hit under the
+// logo, and the final chord left ringing.
+Stereo halcyonJingle()
+{
+  const double beat = 60.0 / 132.0;
+  Bus b(14.0 * beat + 1.0);
+  const Send pad{0.32f, 0.0f, 0.6f, 0.0f}, keys{0.42f, 0.0f, 0.5f, 0.2f}, lead{0.62f, 0.0f, 0.45f, 0.15f};
+  // The shimmer: an arpeggio up C major 9, bells over the piano.
+  static const int kArp[] = {60, 64, 67, 71, 74, 76, 79, 83};
+  for (int i = 0; i < 8; ++i)
+  {
+    const double t0 = i * beat * 0.25;
+    play(b, Inst::EPiano, {t0, beat * 0.5, double(kArp[i]), 0.0, 0.6f}, {keys.vol, (i % 2 ? 0.4f : -0.4f), keys.rev, keys.echo}, 11u + std::uint32_t(i));
+    play(b, Inst::Bell, {t0, beat * 0.4, double(kArp[i] + 12), 0.0, 0.35f}, {0.25f, (i % 2 ? -0.5f : 0.5f), 0.6f, 0.2f}, 21u + std::uint32_t(i));
+  }
+  // The pad under it all: C maj9, then F/C, then back home.
+  struct Chord
+  {
+    double t0, dur;
+    int notes[4];
+  };
+  static const Chord kPad[] = {{0.0, 4.0, {48, 55, 64, 71}}, {4.0, 2.0, {53, 57, 65, 72}}, {6.0, 2.0, {55, 59, 65, 74}}, {8.0, 6.0, {48, 55, 64, 74}}};
+  for (const Chord& c : kPad)
+    for (int k = 0; k < 4; ++k)
+      play(b, Inst::Strings, {c.t0 * beat, c.dur * beat, double(c.notes[k]), 0.0, 0.5f}, {pad.vol, float(k - 1.5) * 0.3f, pad.rev, 0.0f}, 31u + std::uint32_t(k));
+  // The motif: "PEACE THROUGH FIRE-POW-ER".
+  static const double kMotif[][3] = {{2.0, 0.5, 67}, {2.5, 0.5, 67}, {3.0, 0.75, 69}, {4.0, 1.0, 72}, {5.0, 0.5, 71}, {6.0, 2.0, 74}};
+  for (const auto& m : kMotif)
+  {
+    play(b, Inst::Brass, {m[0] * beat, m[1] * beat * 0.9, m[2], 0.0, 0.8f}, lead, 41u);
+    play(b, Inst::Brass, {m[0] * beat, m[1] * beat * 0.9, m[2] - 5.0, 0.0, 0.5f}, {0.4f, 0.2f, 0.45f, 0.1f}, 43u);
+  }
+  // The logo: a sub hit and the last chord ringing on piano and celesta.
+  play(b, Inst::SubBass, {8.0 * beat, 3.0 * beat, 36.0, 0.0, 0.9f}, {0.7f, 0.0f, 0.1f, 0.0f}, 51u);
+  hit(b, Perc::Kick808, 8.0 * beat, 0.8f, 'm', 0.0f, 52u);
+  hit(b, Perc::Crash, 8.0 * beat, 0.35f, 'm', 0.2f, 53u);
+  for (int k = 0; k < 5; ++k)
+  {
+    static const int kEnd[] = {48, 60, 64, 67, 74};
+    play(b, Inst::Piano, {8.0 * beat, 4.0 * beat, double(kEnd[k]), 0.0, 0.6f}, keys, 61u + std::uint32_t(k));
+    play(b, Inst::Celesta, {8.0 * beat + k * 0.06, 3.0 * beat, double(kEnd[k] + 24), 0.0, 0.4f}, {0.22f, float(k - 2) * 0.3f, 0.6f, 0.3f}, 71u + std::uint32_t(k));
+  }
+  // A short room: three damped feedback delays (it plays once, so no
+  // wrapping reverb), then the same loudness as the tracks.
+  Stereo out{b.l, b.r};
+  static const int kTaps[3] = {1931, 2803, 3697};
+  for (int side = 0; side < 2; ++side)
+  {
+    auto& dst = side == 0 ? out.l : out.r;
+    std::vector<float> wet(b.rev.size(), 0.0f);
+    for (int k = 0; k < 3; ++k)
+    {
+      const int d = kTaps[k] + side * 113;
+      OnePole damp;
+      for (std::size_t i = std::size_t(d); i < wet.size(); ++i)
+        wet[i] += damp.lowpass(b.rev[i - std::size_t(d)] * 0.05f + wet[i - std::size_t(d)] * 0.55f, 4500.0);
+    }
+    for (std::size_t i = 0; i < dst.size(); ++i)
+      dst[i] += wet[i] * 0.6f;
+  }
+  double sum = 0.0;
+  for (std::size_t i = 0; i < out.l.size(); ++i)
+    sum += double(out.l[i]) * out.l[i] + double(out.r[i]) * out.r[i];
+  const double rms = std::sqrt(sum / std::max<std::size_t>(1, out.l.size() * 2));
+  const float gain = float(std::clamp(0.24 / std::max(1e-6, rms), 0.2, 8.0));
+  const int fade = samples(0.5);
+  for (std::size_t i = 0; i < out.l.size(); ++i)
+  {
+    const float f = std::min(1.0f, float(out.l.size() - i) / float(fade));
+    out.l[i] = std::tanh(out.l[i] * gain) * f;
+    out.r[i] = std::tanh(out.r[i] * gain) * f;
+  }
+  return out;
+}
+
 } // namespace
 
 MusicTrack makeStyledMusic(const std::string& id)
@@ -1988,6 +2066,16 @@ MusicTrack makeStyledMusic(const std::string& id)
     opt.cover = true;
   }
   Stereo mix;
+  if (base == "jingle_halcyon")
+  {
+    // The ad's jingle plays once.
+    mix = halcyonJingle();
+    MusicTrack once;
+    once.left = std::move(mix.l);
+    once.right = std::move(mix.r);
+    once.loops = false;
+    return once;
+  }
   if (base == "theme_medley" && !opt.cover)
     mix = medley();
   else

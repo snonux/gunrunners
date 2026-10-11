@@ -8,6 +8,7 @@
 #include "assets/enemy_art_city.hpp"
 #include "assets/enemy_art_kitchen.hpp"
 #include "assets/enemy_art_manor.hpp"
+#include "assets/enemy_art_toon.hpp"
 #include "assets/enemy_art_west.hpp"
 #include "assets/enemy_art_zero.hpp"
 #include "base/math.hpp"
@@ -16,9 +17,11 @@
 #include "render/vector.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <functional>
+#include <vector>
 
 // cached() returns a reference into ClipKit::cache, not into its painter
 // argument; GCC's heuristic flags every call that passes a lambda.
@@ -5028,15 +5031,10 @@ void trapdoorClip(ClipKit& k, int frame, int ticks, float ox, float oy)
 
 // --- Level 22 briefing: Channel 7, Westerns ----------------------------------
 
-// Shot: a dead channel. Four baked frames of snow (each pixel its own grey,
-// with the darker bands a weak signal rolls through), a bright tear running
-// down the screen, scanlines and a dark tube edge.
-void staticSnow(ClipKit& k, int frame, int ticks, float ox, float oy)
+// One frame of TV snow, 640 x 360 (drawn at 2x), 4 frames a loop.
+const Texture& snowFrame(ClipKit& k, int f)
 {
-  (void)ox;
-  (void)oy;
-  const int f = frame % 4;
-  const Texture& snow = cached(k, "e4_snow" + std::to_string(f), 640, 360, 0, 0, [f](cairo_t* cr) {
+  return cached(k, "e4_snow" + std::to_string(f), 640, 360, 0, 0, [f](cairo_t* cr) {
     cairo_surface_t* s = cairo_get_target(cr);
     cairo_surface_flush(s);
     unsigned char* px = cairo_image_surface_get_data(s);
@@ -5061,6 +5059,16 @@ void staticSnow(ClipKit& k, int frame, int ticks, float ox, float oy)
     }
     cairo_surface_mark_dirty(s);
   });
+}
+
+// Shot: a dead channel. Four baked frames of snow (each pixel its own grey,
+// with the darker bands a weak signal rolls through), a bright tear running
+// down the screen, scanlines and a dark tube edge.
+void staticSnow(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)ox;
+  (void)oy;
+  const Texture& snow = snowFrame(k, frame % 4);
   DrawOpts o;
   o.scale = 2.0f;
   k.r.draw(snow, 0, 0, o);
@@ -7491,6 +7499,1700 @@ void lizardWave(ClipKit& k, int frame, int ticks, float ox, float oy)
   }
 }
 
+// --- Level 28: Toon Town Throwdown (Channel 1, Cartoons) and the end of Episode 4 ---
+
+constexpr Color kToonCream = rgb(250, 240, 214);
+constexpr Color kToonWhite = rgb(255, 255, 255);
+
+// Rubber-hose cartoons ink everything: fills the current path, then strokes
+// it black.
+void toonFill(cairo_t* cr, Color c, double lw)
+{
+  setRgbaC(cr, c, 1.0);
+  cairo_fill_preserve(cr);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, lw);
+  cairo_stroke(cr);
+}
+
+void toonOval(cairo_t* cr, double x, double y, double rx, double ry, double angle = 0.0)
+{
+  cairo_new_sub_path(cr);
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_rotate(cr, angle);
+  cairo_scale(cr, rx, ry);
+  cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+  cairo_restore(cr);
+}
+
+// A rubber-hose limb: a bendy tube from (x0, y0) bowing toward (bx, by) and
+// ending at (x1, y1), w thick and inked.
+void hose(cairo_t* cr, double x0, double y0, double bx, double by, double x1, double y1, double w, Color c)
+{
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+  cairo_move_to(cr, x0, y0);
+  cairo_curve_to(cr, bx, by, bx, by, x1, y1);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, w + 6.0);
+  cairo_stroke_preserve(cr);
+  setRgbaC(cr, c, 1.0);
+  cairo_set_line_width(cr, w);
+  cairo_stroke(cr);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
+}
+
+// A pie-cut eye: a tall white oval, the black pupil with its wedge of
+// shine cut out, looking along (lx, ly).
+void pieEye(cairo_t* cr, double x, double y, double rx, double ry, double lx, double ly)
+{
+  toonOval(cr, x, y, rx, ry);
+  toonFill(cr, kToonWhite, 2.4);
+  const double px = x + lx * rx * 0.35, py = y + ly * ry * 0.3;
+  toonOval(cr, px, py, rx * 0.56, ry * 0.62);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_fill(cr);
+  cairo_move_to(cr, px, py);
+  cairo_arc(cr, px, py, ry * 0.7, -kPi * 0.48, -kPi * 0.2);
+  cairo_close_path(cr);
+  setRgbaC(cr, kToonWhite, 1.0);
+  cairo_fill(cr);
+}
+
+// Throws a baked picture out of focus: three box blurs each way over the
+// image's own pixels (premultiplied, so the edges fade cleanly).
+void defocus(cairo_t* cr, int radius)
+{
+  cairo_surface_t* s = cairo_get_target(cr);
+  cairo_surface_flush(s);
+  unsigned char* px = cairo_image_surface_get_data(s);
+  const int w = cairo_image_surface_get_width(s), h = cairo_image_surface_get_height(s);
+  const int stride = cairo_image_surface_get_stride(s);
+  std::vector<int> line(std::size_t(std::max(w, h)) * 4);
+  auto pass = [&](int n, int count, int step, int lineStep) {
+    for (int l = 0; l < count; ++l)
+    {
+      unsigned char* base = px + l * lineStep;
+      for (int i = 0; i < n; ++i)
+        for (int c = 0; c < 4; ++c)
+          line[std::size_t(i * 4 + c)] = base[i * step + c];
+      for (int c = 0; c < 4; ++c)
+      {
+        int sum = 0;
+        for (int i = -radius; i <= radius; ++i)
+          sum += line[std::size_t(std::clamp(i, 0, n - 1) * 4 + c)];
+        for (int i = 0; i < n; ++i)
+        {
+          base[i * step + c] = static_cast<unsigned char>(sum / (2 * radius + 1));
+          sum += line[std::size_t(std::min(i + radius + 1, n - 1) * 4 + c)] - line[std::size_t(std::max(i - radius, 0) * 4 + c)];
+        }
+      }
+    }
+  };
+  for (int k = 0; k < 3; ++k)
+  {
+    pass(w, h, 4, stride);
+    pass(h, w, stride, 4);
+  }
+  cairo_surface_mark_dirty(s);
+}
+
+// A rubber-hose figure's pose in design px: feet at y 0, facing +x. Each
+// limb is the bend, then the hand or foot.
+struct HoseRig
+{
+  double hipX = 0, hipY = -96, shX = 4, shY = -176, headX = 10, headY = -236, tilt = 0;
+  double sx = 1.0, sy = 1.0; // the body's squash
+  std::array<double, 4> legBack{-24, -48, -24, -4}, legFront{26, -48, 28, -4};
+  std::array<double, 4> armBack{-56, -150, -44, -112}, armFront{60, -150, 46, -112};
+  bool openBack = false, openFront = false;
+  bool frontLeg = true;
+  double lookX = 1.0, lookY = 0.0;
+  int mouth = 0; // 0 grin, 1 open, 2 a small o, 3 a closed smile
+};
+
+// The dance on the beat, b 0-3: down in a squash, a kick, up on the toes
+// with jazz hands, the other kick.
+HoseRig bounceRig(int b)
+{
+  HoseRig g;
+  static constexpr double kBob[4] = {8, -2, -14, -2};
+  const double bob = kBob[b & 3];
+  g.hipY += bob;
+  g.shY += bob;
+  g.headY += bob;
+  if ((b & 3) == 0)
+  {
+    g.sx = 1.08;
+    g.sy = 0.92;
+  }
+  else if ((b & 3) == 2)
+  {
+    g.sx = 0.95;
+    g.sy = 1.06;
+  }
+  g.legBack = {-30, -44 + bob * 0.5, -24, -4};
+  g.legFront = {32, -44 + bob * 0.5, 28, -4};
+  g.armBack = {-60, -150 + bob, -44, -112 + bob};
+  g.armFront = {62, -150 + bob, 46, -112 + bob};
+  switch (b & 3)
+  {
+    case 1:
+      g.legFront = {40, -64, 54, -30};
+      g.armFront = {62, -206 + bob, 66, -252 + bob};
+      g.openFront = true;
+      break;
+    case 2:
+      g.armBack = {-62, -206 + bob, -60, -254 + bob};
+      g.armFront = {64, -206 + bob, 68, -256 + bob};
+      g.openBack = g.openFront = true;
+      g.mouth = 1;
+      break;
+    case 3:
+      g.legBack = {-40, -64, -50, -30};
+      g.armBack = {-62, -206 + bob, -62, -252 + bob};
+      g.openBack = true;
+      break;
+    default:
+      break;
+  }
+  return g;
+}
+
+struct ToonLook
+{
+  Color skin, hair, top, legs, shoe, sleeve;
+  double torsoW;
+};
+
+ToonLook toonLook(int who)
+{
+  switch (who)
+  {
+    case 0: // Dash: red top, blue jeans, brown boots
+      return {rgb(246, 200, 160), rgb(255, 214, 72), rgb(232, 64, 52), rgb(54, 76, 150), rgb(96, 62, 40), rgb(232, 64, 52), 66};
+    case 1: // Rocco: green tank, bare arms, grey trousers
+      return {rgb(170, 108, 70), rgb(30, 22, 18), rgb(104, 146, 64), rgb(110, 110, 124), rgb(48, 42, 40), rgb(170, 108, 70), 86};
+    default: // Nova: purple suit, white boots
+      return {rgb(252, 214, 186), rgb(255, 86, 184), rgb(132, 66, 216), rgb(132, 66, 216), rgb(238, 238, 248), rgb(132, 66, 216), 58};
+  }
+}
+
+// A rubber-hose arm with its white glove, the fingers pointing on from
+// the bend.
+void hoseArm(cairo_t* cr, double x0, double y0, const std::array<double, 4>& a, double w, Color c, bool open, double size)
+{
+  hose(cr, x0, y0, a[0], a[1], a[2], a[3], w, c);
+  paintToonGlove(cr, a[2], a[3], size, std::atan2(a[3] - a[1], a[2] - a[0]), open);
+}
+
+void hoseLeg(cairo_t* cr, double x0, double y0, const std::array<double, 4>& l, double w, Color c, Color shoe)
+{
+  hose(cr, x0, y0, l[0], l[1], l[2], l[3], w, c);
+  // A big round shoe, toe forward.
+  toonOval(cr, l[2] + 12, l[3] - 8, 26, 14);
+  toonFill(cr, shoe, 3.0);
+  toonOval(cr, l[2] + 4, l[3] - 14, 9, 4, -0.2);
+  setRgbaC(cr, kToonWhite, 0.45);
+  cairo_fill(cr);
+}
+
+// The mouths, in head coordinates (the head 46 px round, facing +x).
+void toonMouth(cairo_t* cr, int mouth, Color skin)
+{
+  (void)skin;
+  if (mouth == 1)
+  {
+    toonOval(cr, 28, 24, 13, 12);
+    toonFill(cr, rgb(120, 24, 34), 2.6);
+    toonOval(cr, 30, 30, 7, 4);
+    setRgbaC(cr, rgb(240, 110, 120), 1.0);
+    cairo_fill(cr);
+  }
+  else if (mouth == 2)
+  {
+    toonOval(cr, 32, 24, 5, 6);
+    toonFill(cr, rgb(120, 24, 34), 2.0);
+  }
+  else if (mouth == 3)
+  {
+    cairo_move_to(cr, 10, 20);
+    cairo_curve_to(cr, 20, 32, 38, 30, 44, 16);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3.0);
+    cairo_stroke(cr);
+  }
+  else
+  {
+    cairo_move_to(cr, 6, 16);
+    cairo_curve_to(cr, 12, 46, 40, 44, 48, 12);
+    cairo_curve_to(cr, 34, 22, 18, 22, 6, 16);
+    cairo_close_path(cr);
+    toonFill(cr, rgb(120, 24, 34), 2.6);
+    toonOval(cr, 28, 32, 9, 5);
+    setRgbaC(cr, rgb(240, 110, 120), 1.0);
+    cairo_fill(cr);
+  }
+}
+
+// Dash, Rocco or Nova as a 1930s cartoon: noodle limbs, white gloves, pie-cut
+// eyes (Dash keeps his shades), about 300 px tall, feet at (0, 0).
+void paintToonRunner(cairo_t* cr, int who, const HoseRig& g)
+{
+  const ToonLook L = toonLook(who);
+  const double tw = L.torsoW;
+  const double armW = who == 1 ? 15 : 12, legW = who == 1 ? 16 : 13;
+  const double shBX = g.shX - tw * 0.4, shFX = g.shX + tw * 0.4, shAY = g.shY + 14;
+  // Nova's ponytail swings out behind everything.
+  if (who == 2)
+  {
+    cairo_save(cr);
+    cairo_translate(cr, g.headX, g.headY);
+    cairo_rotate(cr, g.tilt);
+    cairo_move_to(cr, -30, -30);
+    cairo_curve_to(cr, -80, -50, -110, 0, -96, 44);
+    cairo_curve_to(cr, -86, 20, -70, 10, -56, 20);
+    cairo_curve_to(cr, -60, 0, -50, -10, -34, -6);
+    cairo_close_path(cr);
+    toonFill(cr, L.hair, 3.0);
+    cairo_restore(cr);
+  }
+  hoseArm(cr, shBX, shAY, g.armBack, armW, L.sleeve, g.openBack, 17);
+  hoseLeg(cr, g.hipX - 14, g.hipY + 6, g.legBack, legW, L.legs, L.shoe);
+  if (g.frontLeg)
+    hoseLeg(cr, g.hipX + 16, g.hipY + 6, g.legFront, legW, L.legs, L.shoe);
+  // Shorts or the trousers' seat.
+  toonOval(cr, g.hipX, g.hipY, tw * 0.5, 22);
+  toonFill(cr, L.legs, 3.0);
+  // The body, a bean.
+  const double dx = g.shX - g.hipX, dy = g.shY - g.hipY;
+  const double len = std::sqrt(dx * dx + dy * dy);
+  const double ang = std::atan2(dx, -dy);
+  cairo_save(cr);
+  cairo_translate(cr, (g.hipX + g.shX) * 0.5, (g.hipY + g.shY) * 0.5);
+  cairo_rotate(cr, ang);
+  toonOval(cr, 0, 0, tw * 0.5 * g.sx, (len * 0.5 + 18) * g.sy);
+  setRgbaC(cr, L.top, 1.0);
+  cairo_fill_preserve(cr);
+  cairo_save(cr);
+  cairo_clip_preserve(cr);
+  cairo_new_path(cr);
+  if (who == 0)
+  {
+    // Dash's stripe.
+    cairo_rectangle(cr, -tw, -12, tw * 2, 14);
+    setRgbaC(cr, kToonWhite, 1.0);
+    cairo_fill(cr);
+  }
+  else if (who == 2)
+  {
+    // Nova's sash.
+    cairo_move_to(cr, -tw * 0.6, -len * 0.5);
+    cairo_line_to(cr, tw * 0.6, len * 0.4);
+    setRgbaC(cr, rgb(64, 255, 220), 1.0);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke(cr);
+  }
+  // Shading down the back.
+  toonOval(cr, -tw * 0.5, 6, tw * 0.3, len * 0.6);
+  setRgbaC(cr, rgb(0, 0, 0), 0.14);
+  cairo_fill(cr);
+  cairo_restore(cr);
+  toonOval(cr, 0, 0, tw * 0.5 * g.sx, (len * 0.5 + 18) * g.sy);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, 3.4);
+  cairo_stroke(cr);
+  if (who == 1)
+  {
+    // Rocco's dog tag on its chain.
+    cairo_move_to(cr, -18, -len * 0.5 - 6);
+    cairo_line_to(cr, 4, -len * 0.5 + 26);
+    cairo_line_to(cr, 22, -len * 0.5 - 6);
+    setRgbaC(cr, rgb(200, 200, 210), 1.0);
+    cairo_set_line_width(cr, 2.2);
+    cairo_stroke(cr);
+    roundedRect(cr, -4, -len * 0.5 + 24, 16, 22, 4);
+    toonFill(cr, rgb(214, 214, 224), 2.0);
+  }
+  cairo_restore(cr);
+  // The head.
+  cairo_save(cr);
+  cairo_translate(cr, g.headX, g.headY);
+  cairo_rotate(cr, g.tilt);
+  const double hr = 46;
+  if (who == 0)
+  {
+    // Spiky hair behind.
+    for (int i = 0; i <= 12; ++i)
+    {
+      const double a = -kPi * 1.04 + i * kPi * 1.08 / 12.0;
+      const double r = i % 2 ? hr + 30 : hr - 4;
+      if (i == 0)
+        cairo_move_to(cr, std::cos(a) * r, std::sin(a) * r);
+      else
+        cairo_line_to(cr, std::cos(a) * r, std::sin(a) * r);
+    }
+    cairo_close_path(cr);
+    toonFill(cr, L.hair, 3.0);
+  }
+  else if (who == 1)
+  {
+    // The bandana's knot tails.
+    cairo_move_to(cr, -38, -22);
+    cairo_curve_to(cr, -70, -30, -78, -6, -84, 8);
+    cairo_curve_to(cr, -66, 0, -56, -6, -40, -8);
+    cairo_close_path(cr);
+    toonFill(cr, rgb(232, 64, 52), 2.6);
+  }
+  toonOval(cr, 0, 0, hr, hr * 1.02);
+  toonFill(cr, L.skin, 3.4);
+  // An ear.
+  toonOval(cr, -18, 6, 9, 12);
+  toonFill(cr, L.skin, 2.4);
+  if (who == 1)
+  {
+    // The beard round the jaw.
+    cairo_move_to(cr, -24, 2);
+    cairo_curve_to(cr, -26, 40, 8, 56, 30, 48);
+    cairo_curve_to(cr, 46, 42, 54, 24, 52, 10);
+    cairo_curve_to(cr, 40, 20, 14, 16, 2, 14);
+    cairo_close_path(cr);
+    toonFill(cr, L.hair, 2.6);
+  }
+  // The face.
+  if (who == 0)
+  {
+    // Shades: two cyan lenses on a band.
+    cairo_move_to(cr, -30, -10);
+    cairo_line_to(cr, 4, -10);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    for (const double ex : {12.0, 38.0})
+    {
+      roundedRect(cr, ex - 13, -20, 26, 20, 8);
+      toonFill(cr, rgb(64, 226, 255), 3.0);
+      cairo_move_to(cr, ex - 8, -14);
+      cairo_line_to(cr, ex - 2, -18);
+      setRgbaC(cr, kToonWhite, 0.9);
+      cairo_set_line_width(cr, 2.4);
+      cairo_stroke(cr);
+    }
+    cairo_move_to(cr, 24, -12);
+    cairo_line_to(cr, 26, -12);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+  }
+  else
+  {
+    pieEye(cr, 14, -12, 9, 14, g.lookX, g.lookY);
+    pieEye(cr, 36, -14, 9, 14, g.lookX, g.lookY);
+    if (who == 1)
+    {
+      cairo_move_to(cr, 4, -32);
+      cairo_line_to(cr, 24, -30);
+      cairo_move_to(cr, 28, -34);
+      cairo_line_to(cr, 46, -32);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+    else
+    {
+      // Nova's lashes, a blush.
+      for (int i = 0; i < 3; ++i)
+      {
+        cairo_move_to(cr, 40 + i * 4, -27);
+        cairo_line_to(cr, 44 + i * 6, -34 + i);
+      }
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 2.2);
+      cairo_stroke(cr);
+      toonOval(cr, 20, 12, 9, 5);
+      setRgbaC(cr, rgb(255, 120, 150), 0.45);
+      cairo_fill(cr);
+    }
+  }
+  // The nose.
+  toonOval(cr, 50, 4, who == 1 ? 10 : 7, who == 1 ? 8 : 6);
+  toonFill(cr, L.skin, 2.4);
+  toonMouth(cr, g.mouth, L.skin);
+  // Hair over the head.
+  if (who == 0)
+  {
+    for (int i = 0; i < 3; ++i)
+    {
+      const double x = -6 + i * 16;
+      cairo_move_to(cr, x - 10, -38 + i * 2);
+      cairo_line_to(cr, x + 4, -58 + i * 3);
+      cairo_line_to(cr, x + 8, -36 + i * 2);
+    }
+    cairo_close_path(cr);
+    toonFill(cr, L.hair, 2.6);
+  }
+  else if (who == 1)
+  {
+    // The bandana over the top, white polka dots.
+    cairo_arc(cr, 0, 0, hr + 2, kPi * 1.04, kPi * 1.94);
+    cairo_curve_to(cr, 30, -26, -20, -24, -46, -4);
+    cairo_close_path(cr);
+    toonFill(cr, rgb(232, 64, 52), 3.0);
+    for (const auto& d : {std::array<double, 2>{-20, -30}, std::array<double, 2>{6, -38}, std::array<double, 2>{26, -34}})
+    {
+      toonOval(cr, d[0], d[1], 3.5, 3.5);
+      setRgbaC(cr, kToonWhite, 1.0);
+      cairo_fill(cr);
+    }
+  }
+  else
+  {
+    // Nova's bangs, scalloped.
+    cairo_move_to(cr, -44, 0);
+    cairo_curve_to(cr, -52, -50, 10, -64, 46, -24);
+    cairo_curve_to(cr, 36, -30, 30, -22, 24, -28);
+    cairo_curve_to(cr, 16, -20, 8, -24, 2, -30);
+    cairo_curve_to(cr, -10, -18, -20, -16, -28, -22);
+    cairo_curve_to(cr, -32, -10, -38, -6, -44, 0);
+    cairo_close_path(cr);
+    toonFill(cr, L.hair, 3.0);
+  }
+  cairo_restore(cr);
+  hoseArm(cr, shFX, shAY, g.armFront, armW, L.sleeve, g.openFront, 17);
+}
+
+// Lance Marquee as a 1930s cartoon: a sequinned blue bean of a tux, a
+// golden quiff, a chin, a grin of teeth, white gloves, a microphone in one
+// hand. About 420 px tall, feet at (0, 0); b is the dance's beat.
+void paintToonLance(cairo_t* cr, int b, bool mouthOpen)
+{
+  cairo_save(cr);
+  cairo_scale(cr, 1.38, 1.38);
+  HoseRig g = bounceRig(b);
+  // The microphone hand stays by his mouth.
+  g.armFront = {80, -168 + (g.headY + 236), 58, -192 + (g.headY + 236)};
+  const Color suit = rgb(44, 76, 196), trousers = rgb(26, 30, 60), skin = rgb(244, 204, 168);
+  const double tw = 70;
+  hoseArm(cr, g.shX - tw * 0.4, g.shY + 14, g.armBack, 12, suit, g.openBack, 18);
+  // Black shoes with white spats.
+  for (int i = 0; i < 2; ++i)
+  {
+    const auto& l = i == 0 ? g.legBack : g.legFront;
+    hose(cr, g.hipX + (i == 0 ? -14 : 16), g.hipY + 6, l[0], l[1], l[2], l[3], 13, trousers);
+    toonOval(cr, l[2] + 12, l[3] - 8, 26, 13);
+    toonFill(cr, rgb(20, 18, 24), 3.0);
+    toonOval(cr, l[2] + 2, l[3] - 14, 13, 8);
+    toonFill(cr, kToonWhite, 2.2);
+  }
+  // The tails flapping behind.
+  cairo_move_to(cr, g.hipX - 20, g.hipY - 30);
+  cairo_curve_to(cr, g.hipX - 50, g.hipY - 6, g.hipX - 60, g.hipY + 20, g.hipX - 56, g.hipY + 40);
+  cairo_line_to(cr, g.hipX - 30, g.hipY + 14);
+  cairo_close_path(cr);
+  toonFill(cr, rgb(28, 50, 140), 3.0);
+  toonOval(cr, g.hipX, g.hipY, tw * 0.48, 20);
+  toonFill(cr, trousers, 3.0);
+  // The jacket.
+  const double cx = (g.hipX + g.shX) * 0.5, cy = (g.hipY + g.shY) * 0.5;
+  const double ry = (g.hipY - g.shY) * 0.5 + 20;
+  toonOval(cr, cx, cy, tw * 0.5 * g.sx, ry * g.sy);
+  {
+    cairo_pattern_t* p = cairo_pattern_create_linear(cx - tw * 0.5, 0, cx + tw * 0.5, 0);
+    cairo_pattern_add_color_stop_rgb(p, 0, 0.43, 0.59, 1.0);
+    cairo_pattern_add_color_stop_rgb(p, 1, 0.1, 0.16, 0.5);
+    cairo_set_source(cr, p);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(p);
+  }
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, 3.4);
+  cairo_stroke(cr);
+  // Shirt front, gold lapels, the red bow tie, sequins.
+  const double top = cy - ry * g.sy;
+  cairo_move_to(cr, cx - 12, top + 6);
+  cairo_line_to(cr, cx + 14, top + 6);
+  cairo_line_to(cr, cx + 2, top + 64);
+  cairo_close_path(cr);
+  toonFill(cr, kToonWhite, 2.0);
+  for (const int side : {-1, 1})
+  {
+    cairo_move_to(cr, cx + side * 14, top + 4);
+    cairo_line_to(cr, cx + side * 30, top + 14);
+    cairo_line_to(cr, cx + side * 6, top + 70);
+    cairo_close_path(cr);
+    toonFill(cr, rgb(255, 210, 70), 2.2);
+    cairo_move_to(cr, cx, top + 10);
+    cairo_line_to(cr, cx + side * 18, top);
+    cairo_line_to(cr, cx + side * 18, top + 20);
+    cairo_close_path(cr);
+    toonFill(cr, rgb(226, 36, 52), 2.2);
+  }
+  toonOval(cr, cx, top + 10, 5, 5);
+  toonFill(cr, rgb(226, 36, 52), 2.0);
+  std::uint32_t sd = 2828u;
+  for (int i = 0; i < 18; ++i)
+  {
+    sd = sd * 1664525u + 1013904223u;
+    const double a = double(sd % 628u) / 100.0, r = double((sd >> 10) % 100u) / 100.0;
+    toonOval(cr, cx + std::cos(a) * r * tw * 0.4, cy + 10 + std::sin(a) * r * ry * 0.7, 1.8, 1.8);
+    setRgbaC(cr, rgb(210, 230, 255), 0.85);
+    cairo_fill(cr);
+  }
+  // The head: a big chin, the quiff, the grin.
+  cairo_save(cr);
+  cairo_translate(cr, g.headX + 4, g.headY + 2);
+  cairo_rotate(cr, g.tilt);
+  cairo_move_to(cr, -40, -20);
+  cairo_curve_to(cr, -46, 30, -10, 58, 34, 52);
+  cairo_curve_to(cr, 62, 48, 62, 20, 52, -6);
+  cairo_curve_to(cr, 44, -50, -34, -60, -40, -20);
+  cairo_close_path(cr);
+  toonFill(cr, skin, 3.4);
+  toonOval(cr, -26, 6, 9, 12);
+  toonFill(cr, skin, 2.4);
+  // The quiff, a golden wave.
+  cairo_move_to(cr, -44, 0);
+  cairo_curve_to(cr, -60, -60, 0, -80, 40, -76);
+  cairo_curve_to(cr, 76, -74, 84, -44, 66, -30);
+  cairo_curve_to(cr, 58, -48, 36, -50, 26, -34);
+  cairo_curve_to(cr, 10, -26, -14, -30, -26, -12);
+  cairo_close_path(cr);
+  toonFill(cr, rgb(255, 210, 70), 3.0);
+  cairo_move_to(cr, -30, -26);
+  cairo_curve_to(cr, -20, -56, 20, -66, 50, -60);
+  setRgbaC(cr, rgb(255, 246, 200), 0.9);
+  cairo_set_line_width(cr, 3.0);
+  cairo_stroke(cr);
+  pieEye(cr, 12, -10, 8, 13, 1.0, 0.0);
+  pieEye(cr, 34, -12, 8, 13, 1.0, 0.0);
+  cairo_move_to(cr, 2, -30);
+  cairo_curve_to(cr, 10, -36, 18, -36, 24, -32);
+  cairo_move_to(cr, 28, -34);
+  cairo_curve_to(cr, 34, -38, 42, -38, 46, -32);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, 3.4);
+  cairo_stroke(cr);
+  toonOval(cr, 54, 6, 8, 7);
+  toonFill(cr, skin, 2.4);
+  // The grin: a wall of teeth, open on the beat.
+  cairo_move_to(cr, 2, 20);
+  if (mouthOpen)
+    cairo_curve_to(cr, 8, 58, 48, 56, 56, 16);
+  else
+    cairo_curve_to(cr, 10, 40, 46, 38, 56, 16);
+  cairo_curve_to(cr, 38, 26, 18, 26, 2, 20);
+  cairo_close_path(cr);
+  toonFill(cr, mouthOpen ? rgb(120, 24, 34) : kToonWhite, 2.6);
+  if (mouthOpen)
+  {
+    cairo_move_to(cr, 4, 21);
+    cairo_curve_to(cr, 18, 30, 40, 29, 54, 18);
+    cairo_line_to(cr, 53, 26);
+    cairo_curve_to(cr, 40, 35, 18, 36, 6, 28);
+    cairo_close_path(cr);
+    toonFill(cr, kToonWhite, 1.8);
+    toonOval(cr, 30, 42, 10, 5);
+    setRgbaC(cr, rgb(240, 110, 120), 1.0);
+    cairo_fill(cr);
+  }
+  else
+    for (int i = 1; i < 6; ++i)
+    {
+      cairo_move_to(cr, 4 + i * 8.5, 22);
+      cairo_line_to(cr, 4 + i * 8.5, 32);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 1.6);
+      cairo_stroke(cr);
+    }
+  cairo_restore(cr);
+  // The microphone, then the hand round it.
+  cairo_move_to(cr, g.armFront[2], g.armFront[3] + 20);
+  cairo_line_to(cr, g.armFront[2] + 10, g.armFront[3] - 18);
+  setRgbaC(cr, kInk, 1.0);
+  cairo_set_line_width(cr, 8);
+  cairo_stroke(cr);
+  toonOval(cr, g.armFront[2] + 12, g.armFront[3] - 24, 11, 11);
+  toonFill(cr, rgb(200, 204, 214), 2.6);
+  for (int i = -1; i <= 1; ++i)
+  {
+    cairo_move_to(cr, g.armFront[2] + 4, g.armFront[3] - 24 + i * 5);
+    cairo_line_to(cr, g.armFront[2] + 20, g.armFront[3] - 24 + i * 5);
+  }
+  setRgbaC(cr, rgb(110, 114, 128), 1.0);
+  cairo_set_line_width(cr, 1.4);
+  cairo_stroke(cr);
+  hoseArm(cr, g.shX + tw * 0.4, g.shY + 14, g.armFront, 12, suit, false, 18);
+  cairo_restore(cr);
+}
+
+// Toon Lance, baked at `scale` (feet at the anchor), out of focus if asked.
+const Texture& toonLance(ClipKit& k, int b, bool mouth, float scale, bool soft = false)
+{
+  const int w = int(560.0f * scale), h = int(620.0f * scale);
+  const std::string key = "e4_toon_lance" + std::to_string(b & 3) + (mouth ? "o" : "c") + (soft ? "s" : "") +
+    std::to_string(int(scale * 100.0f));
+  return cached(k, key, w, h, float(w) * 0.5f, 600.0f * scale, [&](cairo_t* cr) {
+    cairo_scale(cr, scale, scale);
+    cairo_translate(cr, 280, 600);
+    paintToonLance(cr, b, mouth);
+    if (soft)
+      defocus(cr, 4);
+  });
+}
+
+// A toon runner in a pose, baked at `scale` (feet at the anchor), mirrored
+// to face left if asked. Poses: 0-3 the dance, 4 Nova whispering (leaning in,
+// a hand cupped to her mouth), 5 Dash listening (head cocked toward her), 6
+// leaning back for a kick (the kicking leg left out: the clip draws it), 7
+// standing, looking up.
+HoseRig toonPose(int pose, bool talking)
+{
+  if (pose < 4)
+    return bounceRig(pose);
+  HoseRig g;
+  switch (pose)
+  {
+    case 4:
+      g.shX = 22;
+      g.headX = 44;
+      g.headY = -228;
+      g.tilt = 0.18;
+      g.armFront = {84, -140, 100, -196};
+      g.openFront = true;
+      g.armBack = {-30, -140, -40, -104};
+      g.mouth = talking ? 1 : 3;
+      break;
+    case 5:
+      g.headX = 18;
+      g.tilt = 0.14;
+      g.mouth = 2;
+      break;
+    case 6:
+      g.shX = -24;
+      g.shY = -170;
+      g.headX = -30;
+      g.headY = -230;
+      g.tilt = -0.22;
+      g.armBack = {-70, -210, -84, -250};
+      g.armFront = {20, -214, 10, -262};
+      g.openBack = g.openFront = true;
+      g.frontLeg = false;
+      g.mouth = 3;
+      break;
+    default:
+      g.lookY = -1.0;
+      g.mouth = 2;
+      break;
+  }
+  return g;
+}
+
+const Texture& toonRunner(ClipKit& k, int who, int pose, bool talking, float scale, bool mirror)
+{
+  const int w = int(400.0f * scale), h = int(420.0f * scale);
+  const std::string key = "e4_toon_runner" + std::to_string(who) + "_" + std::to_string(pose) + (talking ? "t" : "") +
+    (mirror ? "m" : "") + std::to_string(int(scale * 100.0f));
+  return cached(k, key, w, h, float(w) * 0.5f, 400.0f * scale, [&](cairo_t* cr) {
+    cairo_translate(cr, double(w) * 0.5, 400.0 * scale);
+    cairo_scale(cr, mirror ? -scale : scale, scale);
+    paintToonRunner(cr, who, toonPose(pose, talking));
+  });
+}
+
+// A painted cartoon street, 1280 x 720 and seamless side to side: cream
+// sky and inked clouds, a row of leaning pastel shopfronts with awnings
+// and signs, curly lampposts, the sidewalk and the road.
+void paintToonStreet(cairo_t* cr)
+{
+  gradient(cr, 1280, 720, rgb(252, 244, 222), rgb(248, 234, 204), rgb(240, 222, 188));
+  // Clouds.
+  for (const auto& c : {std::array<double, 3>{180, 110, 1.0}, std::array<double, 3>{700, 70, 0.8}, std::array<double, 3>{1050, 130, 1.1}})
+  {
+    for (const auto& p : {std::array<double, 3>{-50, 10, 34}, std::array<double, 3>{0, -8, 44}, std::array<double, 3>{50, 8, 34}})
+      toonOval(cr, c[0] + p[0] * c[2], c[1] + p[1] * c[2], p[2] * c[2], p[2] * c[2] * 0.8);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, kToonWhite, 1.0);
+    cairo_fill(cr);
+  }
+  // The shopfronts.
+  struct Shop
+  {
+    double x, w, h, lean;
+    Color c;
+    int roof;
+    const char* sign;
+  };
+  static const Shop kShops[] = {
+    {20, 190, 330, -0.03, rgb(246, 170, 170), 0, "HATS"},
+    {230, 200, 400, 0.02, rgb(170, 220, 190), 1, nullptr},
+    {450, 210, 300, -0.02, rgb(250, 220, 140), 2, "PIANOS"},
+    {680, 180, 380, 0.03, rgb(160, 200, 236), 0, nullptr},
+    {880, 200, 320, -0.025, rgb(200, 180, 230), 1, "BAKERY"},
+    {1100, 160, 360, 0.02, rgb(250, 190, 150), 2, nullptr},
+  };
+  const double base = 560;
+  for (const Shop& s : kShops)
+  {
+    const double top = base - s.h, lx = s.lean * s.h;
+    // The walls: wobbly sides, leaning.
+    cairo_move_to(cr, s.x, base);
+    cairo_curve_to(cr, s.x - 6 + lx * 0.3, base - s.h * 0.4, s.x + 6 + lx * 0.7, base - s.h * 0.7, s.x + lx, top);
+    if (s.roof == 1)
+      cairo_line_to(cr, s.x + lx + s.w * 0.5, top - 70);
+    else if (s.roof == 2)
+      cairo_curve_to(cr, s.x + lx + 10, top - 80, s.x + lx + s.w - 10, top - 80, s.x + lx + s.w, top);
+    cairo_line_to(cr, s.x + lx + s.w, top);
+    cairo_curve_to(cr, s.x + s.w + 6 + lx * 0.7, base - s.h * 0.7, s.x + s.w - 6 + lx * 0.3, base - s.h * 0.4, s.x + s.w, base);
+    cairo_close_path(cr);
+    toonFill(cr, s.c, 5.0);
+    if (s.roof == 0)
+    {
+      // A cornice.
+      cairo_rectangle(cr, s.x + lx - 10, top - 4, s.w + 20, 22);
+      toonFill(cr, darken(s.c, 0.25f), 4.0);
+    }
+    // Windows: two rows of rounded panes with crosses, lit cream.
+    const int rows = s.h > 340 ? 3 : 2;
+    for (int r = 0; r < rows; ++r)
+      for (int c = 0; c < 2; ++c)
+      {
+        const double yy = top + 50 + r * 84;
+        const double xx = s.x + 30 + c * (s.w - 100) + s.lean * (base - yy);
+        roundedRect(cr, xx, yy, 44, 54, 12);
+        toonFill(cr, rgb(255, 246, 200), 3.4);
+        cairo_move_to(cr, xx + 22, yy);
+        cairo_line_to(cr, xx + 22, yy + 54);
+        cairo_move_to(cr, xx, yy + 27);
+        cairo_line_to(cr, xx + 44, yy + 27);
+        setRgbaC(cr, kInk, 1.0);
+        cairo_set_line_width(cr, 3);
+        cairo_stroke(cr);
+      }
+    // The shop window and its striped awning.
+    const double ay = base - 130;
+    cairo_rectangle(cr, s.x + 22, ay + 30, s.w - 44, 80);
+    toonFill(cr, rgb(190, 226, 240), 3.4);
+    cairo_move_to(cr, s.x + 34, ay + 96);
+    cairo_line_to(cr, s.x + 64, ay + 44);
+    setRgbaC(cr, kToonWhite, 0.8);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    const int stripes = 6;
+    for (int i = 0; i < stripes; ++i)
+    {
+      const double x0 = s.x + 10 + (s.w - 20) * i / stripes, x1 = s.x + 10 + (s.w - 20) * (i + 1) / stripes;
+      cairo_move_to(cr, x0 + 8, ay - 10);
+      cairo_line_to(cr, x1 + 8, ay - 10);
+      cairo_line_to(cr, x1, ay + 22);
+      cairo_curve_to(cr, x1 - 4, ay + 34, x0 + 4, ay + 34, x0, ay + 22);
+      cairo_close_path(cr);
+      toonFill(cr, i % 2 ? kToonWhite : darken(s.c, 0.35f), 3.0);
+    }
+    if (s.sign)
+    {
+      selectGameFont(cr);
+      cairo_set_font_size(cr, 26);
+      cairo_text_extents_t te;
+      cairo_text_extents(cr, s.sign, &te);
+      const double sx = s.x + s.w * 0.5 + s.lean * 160, sy = ay - 34;
+      roundedRect(cr, sx - te.width * 0.5 - 14, sy - 26, te.width + 28, 38, 10);
+      toonFill(cr, kToonCream, 3.4);
+      cairo_move_to(cr, sx - te.width * 0.5 - te.x_bearing, sy + 2);
+      cairo_text_path(cr, s.sign);
+      setRgbaC(cr, rgb(200, 40, 40), 1.0);
+      cairo_fill(cr);
+    }
+  }
+  // Curly lampposts.
+  for (const double x : {220.0, 670.0, 1090.0})
+  {
+    cairo_move_to(cr, x, 600);
+    cairo_curve_to(cr, x - 8, 500, x + 8, 420, x, 360);
+    cairo_curve_to(cr, x - 4, 330, x + 30, 320, x + 26, 344);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 8);
+    cairo_stroke(cr);
+    toonOval(cr, x, 340, 18, 22);
+    toonFill(cr, rgb(255, 230, 120), 3.4);
+  }
+  // The sidewalk, the curb, the road.
+  cairo_rectangle(cr, 0, 556, 1280, 84);
+  toonFill(cr, rgb(228, 214, 190), 4.0);
+  for (int i = 0; i < 16; ++i)
+  {
+    cairo_move_to(cr, 40 + i * 80, 560);
+    cairo_line_to(cr, 30 + i * 80, 636);
+  }
+  setRgbaC(cr, rgb(150, 130, 110), 0.8);
+  cairo_set_line_width(cr, 2.4);
+  cairo_stroke(cr);
+  cairo_rectangle(cr, -4, 638, 1288, 14);
+  toonFill(cr, rgb(250, 246, 236), 3.4);
+  cairo_rectangle(cr, -4, 652, 1288, 80);
+  toonFill(cr, rgb(130, 130, 156), 3.4);
+  for (int i = 0; i < 8; ++i)
+  {
+    cairo_rectangle(cr, 40 + i * 160, 684, 80, 10);
+    setRgbaC(cr, kToonCream, 1.0);
+    cairo_fill(cr);
+  }
+}
+
+const Texture& toonStreet(ClipKit& k, bool soft)
+{
+  if (soft)
+    return cached(k, "e4_toon_street_soft", 1280, 720, 0, 0, [](cairo_t* cr) {
+      paintToonStreet(cr);
+      defocus(cr, 5);
+    });
+  return cached(k, "e4_toon_street", 1280, 720, 0, 0, [](cairo_t* cr) { paintToonStreet(cr); });
+}
+
+// An old cartoon's grain: a couple of scratches and a flicker.
+void filmGrain(ClipKit& k, int ticks, int alpha)
+{
+  for (int i = 0; i < 3; ++i)
+  {
+    const unsigned h = hash2(ticks / 3, i * 7 + 1);
+    if (h % 3u == 0)
+      continue;
+    const float x = float(h % 1280u);
+    k.r.fillRect(x, 0, 2, H, rgba(60, 40, 20, alpha));
+  }
+  const unsigned f = hash2(ticks / 2, 99);
+  k.r.fillRect(0, 0, W, H, rgba(255, 240, 200, int(f % 12u)));
+}
+
+// The concentric rings behind the Channel 1 ident, 4 steps of their pulse
+// outward (two rings a loop, so it joins).
+const Texture& ch1Rings(ClipKit& k, int f)
+{
+  return cached(k, "e4_ch1_rings" + std::to_string(f & 3), 1280, 720, 0, 0, [f](cairo_t* cr) {
+    const double cx = 640, cy = 300, ring = 72;
+    for (int i = 20; i >= 0; --i)
+    {
+      const double r = (double(i) + double(f & 3) * 0.5) * ring;
+      if (r <= 0.0)
+        continue;
+      cairo_arc(cr, cx, cy, r, 0, 2 * kPi);
+      setRgbaC(cr, i % 2 ? rgb(232, 64, 52) : rgb(250, 200, 70), 1.0);
+      cairo_fill_preserve(cr);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+    // The old film's vignette.
+    cairo_pattern_t* g = cairo_pattern_create_radial(cx, 360, 320, cx, 360, 820);
+    cairo_pattern_add_color_stop_rgba(g, 0, 0, 0, 0, 0);
+    cairo_pattern_add_color_stop_rgba(g, 1, 0.1, 0.04, 0.0, 0.7);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// Inked display lettering centred on (x, y): a drop shadow, a thick black
+// outline, a fill lit from above.
+void toonLetters(cairo_t* cr, const char* s, double x, double y, double size, Color fill, double angle = 0.0)
+{
+  selectGameFont(cr);
+  cairo_set_font_size(cr, size);
+  cairo_text_extents_t te;
+  cairo_text_extents(cr, s, &te);
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_rotate(cr, angle);
+  for (int pass = 0; pass < 3; ++pass)
+  {
+    const double o = pass == 0 ? size * 0.06 : 0.0;
+    cairo_move_to(cr, -te.width * 0.5 - te.x_bearing + o, te.height * 0.5 + o);
+    cairo_text_path(cr, s);
+    if (pass == 0)
+    {
+      setRgbaC(cr, kInk, 0.6);
+      cairo_fill(cr);
+    }
+    else if (pass == 1)
+    {
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, size * 0.1);
+      cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+      cairo_stroke(cr);
+    }
+    else
+    {
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, -te.height * 0.5, 0, te.height * 0.5);
+      const Color hi = lighten(fill, 0.35f);
+      cairo_pattern_add_color_stop_rgb(g, 0, redOf(hi) / 255.0, greenOf(hi) / 255.0, blueOf(hi) / 255.0);
+      cairo_pattern_add_color_stop_rgb(g, 1, redOf(fill) / 255.0, greenOf(fill) / 255.0, blueOf(fill) / 255.0);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+  }
+  cairo_restore(cr);
+}
+
+// "CARTOONS" with every letter bobbing and rocking (4 wobble steps).
+const Texture& cartoonsWord(ClipKit& k, int f)
+{
+  return cached(k, "e4_cartoons" + std::to_string(f & 3), 1000, 220, 500, 110, [f](cairo_t* cr) {
+    static const char* kLetters[] = {"C", "A", "R", "T", "O", "O", "N", "S"};
+    static const Color kFill[] = {rgb(255, 214, 72), rgb(90, 200, 240), rgb(255, 130, 180), rgb(140, 214, 100)};
+    for (int i = 0; i < 8; ++i)
+    {
+      const double ph = double(i) * 1.3 + double(f & 3) * kPi * 0.5;
+      toonLetters(cr, kLetters[i], 90 + i * 117, 110 + std::sin(ph) * 14, 120, kFill[i % 4], std::sin(ph + 0.8) * 0.16);
+    }
+  });
+}
+
+// Shot: the Channel 1 ident. Cartoon rings pulse outward; "CH 1" drops in and
+// bounces with a squash (frames 0-5); "CARTOONS" pops up under it, every
+// letter wobbling.
+void identCh1(ClipKit& k, int ticks, float ox, float oy)
+{
+  const float abs = float(ticks) / 4.8f; // 80 ms a frame
+  k.r.draw(ch1Rings(k, (ticks / 5) & 3), ox, oy);
+  const Texture& badge = cached(k, "e4_ch1_badge", 640, 300, 320, 150, [](cairo_t* cr) {
+    toonLetters(cr, "CH 1", 320, 150, 210, kToonCream);
+  });
+  // The drop and the bounce: (time, y, x-squash, y-squash) keys.
+  static constexpr float kKeys[6][4] = {{0.0f, -240.0f, 0.88f, 1.2f}, {1.9f, 250.0f, 0.86f, 1.22f}, {2.4f, 262.0f, 1.34f, 0.66f},
+                                        {3.2f, 214.0f, 0.88f, 1.14f}, {4.0f, 252.0f, 1.08f, 0.93f}, {4.8f, 250.0f, 1.0f, 1.0f}};
+  float y = 250.0f, sx = 1.0f, sy = 1.0f;
+  for (int i = 0; i < 5; ++i)
+    if (abs >= kKeys[i][0] && abs < kKeys[i + 1][0])
+    {
+      float u = (abs - kKeys[i][0]) / (kKeys[i + 1][0] - kKeys[i][0]);
+      if (i == 0)
+        u = u * u; // falling, faster and faster
+      y = kKeys[i][1] + (kKeys[i + 1][1] - kKeys[i][1]) * u;
+      sx = kKeys[i][2] + (kKeys[i + 1][2] - kKeys[i][2]) * u;
+      sy = kKeys[i][3] + (kKeys[i + 1][3] - kKeys[i][3]) * u;
+    }
+  // Squash about the badge's bottom edge.
+  const float bw = 640.0f * sx, bh = 300.0f * sy, bottom = y + 150.0f;
+  stretchTex(k, badge, 640.0f - bw * 0.5f + ox, bottom - bh + oy, bw, bh, rgb(255, 255, 255), 1.0f);
+  if (abs >= 2.2f && abs < 3.4f)
+  {
+    // The impact's puff lines.
+    const float u = (abs - 2.2f) / 1.2f;
+    for (int i = 0; i < 6; ++i)
+    {
+      const float side = i < 3 ? -1.0f : 1.0f, a = float(i % 3) * 0.35f + 0.1f;
+      const float x0 = 640.0f + side * (250.0f + u * 60.0f), y0 = bottom - 30.0f - float(i % 3) * 40.0f;
+      k.r.drawLine(x0 + ox, y0 + oy, x0 + side * std::cos(a) * 50.0f + ox, y0 - std::sin(a) * 50.0f + oy, 7.0f,
+        rgba(10, 8, 20, int(255 * (1.0f - u))));
+    }
+  }
+  if (abs >= 5.0f)
+  {
+    const float u = std::min(1.0f, (abs - 5.0f) / 1.6f);
+    DrawOpts wo;
+    wo.scale = u < 0.7f ? 0.3f + u / 0.7f * 0.85f : 1.15f - (u - 0.7f) / 0.3f * 0.15f;
+    k.r.draw(cartoonsWord(k, (ticks / 4) & 3), 640.0f + ox, 500.0f + oy, wo);
+  }
+  k.r.drawText("MAXTV  CHANNEL 1  CARTOONS", 640 + ox, 676 + oy, {18.0f, kToonCream, rgb(90, 10, 16)}, Align::Center);
+  filmGrain(k, ticks, 50);
+}
+
+// A little inked music note (rising from Lance's microphone).
+const Texture& musicNote(ClipKit& k)
+{
+  return cached(k, "e4_note", 60, 80, 30, 40, [](cairo_t* cr) {
+    toonOval(cr, 22, 60, 13, 10, -0.4);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 31, 12, 5, 48);
+    cairo_fill(cr);
+    cairo_move_to(cr, 36, 12);
+    cairo_curve_to(cr, 48, 20, 54, 30, 46, 44);
+    cairo_curve_to(cr, 48, 32, 42, 26, 36, 26);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+  });
+}
+
+// Shot: Lance as a cartoon, dancing on a painted street that scrolls by,
+// the three runners beside him in rubber hose, bouncing to the same beat
+// (a 4-frame loop), music notes rising.
+void lanceToon(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float abs = float(ticks) / 5.4f; // 90 ms a frame
+  panLayer(k, toonStreet(k, false), abs * 2.0f, oy);
+  const int b = frame & 3;
+  const float lx = 400.0f + ox, fy = 616.0f + oy;
+  // Shadows under everyone, smaller when they are up on their toes.
+  const float shrink = b == 2 ? 0.8f : 1.0f;
+  const Texture& shadow = cached(k, "e4_toon_shadow", 200, 40, 100, 20, [](cairo_t* cr) {
+    toonOval(cr, 100, 20, 96, 16);
+    setRgbaC(cr, rgb(60, 40, 30), 0.3);
+    cairo_fill(cr);
+  });
+  for (int i = 0; i < 4; ++i)
+  {
+    DrawOpts o;
+    o.scale = shrink * (i == 0 ? 1.2f : 0.9f);
+    k.r.draw(shadow, (i == 0 ? 400.0f : 740.0f + float(i - 1) * 165.0f) + ox, fy + 2.0f, o);
+  }
+  drawGlow(k.r, k.art, lx, fy - 260.0f, 260.0f, rgb(255, 240, 200), 0.25f);
+  k.r.draw(toonLance(k, b, b == 1 || b == 2, 1.0f), lx, fy);
+  static constexpr int kWho[3] = {0, 2, 1};
+  for (int i = 0; i < 3; ++i)
+    k.r.draw(toonRunner(k, kWho[i], b, false, 0.82f, false), 740.0f + float(i) * 165.0f + ox, fy);
+  // Notes floating up from the microphone.
+  for (int i = 0; i < 4; ++i)
+  {
+    const float u = std::fmod(abs / 8.0f + float(i) * 0.25f, 1.0f);
+    DrawOpts no;
+    no.alpha = std::sin(u * 3.14159f);
+    no.angle = std::sin(u * 9.0f + float(i)) * 20.0f;
+    k.r.draw(musicNote(k), lx + 110.0f + u * 160.0f + std::sin(u * 12.0f) * 16.0f, fy - 380.0f - u * 220.0f, no);
+  }
+  filmGrain(k, ticks, 40);
+}
+
+// Shot: close on Nova leaning in to whisper to Dash; Lance dancing out of
+// focus behind them.
+void novaWhisper(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  k.r.draw(toonStreet(k, true), ox * 0.3f, oy * 0.3f);
+  // Lance behind them, out of focus, still dancing.
+  const int b = (ticks / 5) & 3;
+  k.r.draw(toonLance(k, b, b == 1 || b == 2, 0.9f, true), 640.0f + ox * 0.5f, 600.0f + oy * 0.5f);
+  k.r.fillRect(0, 0, W, H, rgba(250, 236, 210, 70));
+  // Dash, cocking his head; Nova leaning to his ear, talking behind her glove.
+  const bool talking = ticks < 150 && (ticks / 7) % 2 == 0;
+  k.r.draw(toonRunner(k, 0, 5, false, 2.4f, false), 330.0f + ox, 900.0f + oy);
+  k.r.draw(toonRunner(k, 2, 4, talking, 2.4f, true), 960.0f + ox, 916.0f + oy);
+  filmGrain(k, ticks, 36);
+}
+
+// The big top's inside, 1280 x 720: red and cream canvas raking up to the
+// peak, the scalloped valance, two spotlights, the stage boards and the
+// red apron with its bulbs.
+const Texture& bigTop(ClipKit& k)
+{
+  return cached(k, "e4_bigtop", 1280, 720, 0, 0, [](cairo_t* cr) {
+    for (int i = -14; i < 14; ++i)
+    {
+      cairo_move_to(cr, 640, -260);
+      cairo_line_to(cr, 640 + i * 110, 720);
+      cairo_line_to(cr, 640 + (i + 1) * 110, 720);
+      cairo_close_path(cr);
+      setRgbaC(cr, (i & 1) ? rgb(240, 226, 198) : rgb(200, 44, 48), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_pattern_t* g = cairo_pattern_create_radial(640, 320, 200, 640, 320, 820);
+    cairo_pattern_add_color_stop_rgba(g, 0, 0, 0, 0, 0.05);
+    cairo_pattern_add_color_stop_rgba(g, 1, 0.12, 0.02, 0.04, 0.65);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Spotlights.
+    for (const double x : {300.0, 980.0})
+    {
+      cairo_move_to(cr, x - 20, 0);
+      cairo_line_to(cr, x + 20, 0);
+      cairo_line_to(cr, 640 + (x - 640) * 0.3 + 170, 640);
+      cairo_line_to(cr, 640 + (x - 640) * 0.3 - 170, 640);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(255, 250, 220), 0.12);
+      cairo_fill(cr);
+    }
+    // The valance.
+    cairo_rectangle(cr, -4, -4, 1288, 50);
+    toonFill(cr, rgb(170, 30, 40), 4.0);
+    for (int i = 0; i < 16; ++i)
+    {
+      cairo_move_to(cr, i * 80.0, 44);
+      cairo_curve_to(cr, i * 80.0 + 10, 92, i * 80.0 + 70, 92, i * 80.0 + 80, 44);
+      cairo_close_path(cr);
+      toonFill(cr, (i & 1) ? rgb(250, 200, 70) : rgb(200, 40, 46), 3.4);
+    }
+    // The stage.
+    cairo_rectangle(cr, -4, 600, 1288, 70);
+    toonFill(cr, rgb(196, 136, 76), 4.0);
+    for (int i = 0; i < 20; ++i)
+    {
+      cairo_move_to(cr, i * 70.0 + 20, 602);
+      cairo_line_to(cr, i * 70.0, 668);
+    }
+    setRgbaC(cr, rgb(120, 70, 30), 0.7);
+    cairo_set_line_width(cr, 2.4);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, -4, 668, 1288, 60);
+    toonFill(cr, rgb(170, 30, 40), 4.0);
+    for (int i = 0; i < 22; ++i)
+    {
+      toonOval(cr, 30 + i * 60.0, 694, 9, 9);
+      toonFill(cr, rgb(255, 236, 150), 2.4);
+    }
+  });
+}
+
+// Buddy Boom at deflate stage d (0 full .. 4 the empty skin), anchored at his
+// feet, or at his middle to tumble through the air.
+const Texture& buddyDeflating(ClipKit& k, int d, bool middle)
+{
+  const std::string key = "e4_buddy_deflate" + std::to_string(d) + (middle ? "m" : "");
+  return cached(k, key, 600, 660, 300, middle ? 420 : 620, [d](cairo_t* cr) { paintBuddy(cr, 300, 620, 1.15, 14, d); });
+}
+
+// Shot: Buddy Boom lets go like a balloon: the air whistles out of his nose
+// as he sags (frames 0-2), he rockets round the big top in loops, shrinking
+// (3-9), and his empty skin flutters down onto the stage (10-11).
+void buddyDeflate(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  const float abs = std::min(12.0f, float(ticks) / 4.8f); // 80 ms a frame
+  k.r.draw(bigTop(k), ox, oy);
+  auto flight = [](float u, float& x, float& y) {
+    x = 640.0f + 440.0f * std::sin(u * 6.2832f * 1.25f);
+    y = 330.0f - 170.0f * std::sin(u * 6.2832f * 2.1f) + 40.0f * u;
+  };
+  if (abs < 3.0f)
+  {
+    // Sagging on the spot, air jetting from the nose.
+    const int d = abs < 1.0f ? 0 : (abs < 2.0f ? 1 : 2);
+    const float fx = 640.0f + ox, fy = 640.0f + oy;
+    k.r.draw(buddyDeflating(k, d, false), fx + std::sin(float(ticks) * 1.9f) * 3.0f, fy);
+    const float nx = fx + 144.0f * 1.15f, ny = fy - 352.0f * 1.15f * (1.0f - float(d) * 0.1f);
+    for (int i = 0; i < 5; ++i)
+    {
+      const float u = std::fmod(float(ticks) * 0.12f + float(i) * 0.2f, 1.0f);
+      const float a = -0.3f + float(i) * 0.15f;
+      const float x0 = nx + 30.0f + u * 160.0f, y0 = ny + std::sin(a) * u * 120.0f;
+      k.r.drawLine(x0, y0, x0 + 40.0f, y0 + std::sin(a) * 30.0f, 5.0f, rgba(255, 255, 255, int(220 * (1.0f - u))));
+    }
+    return;
+  }
+  if (abs < 9.5f)
+  {
+    // Zooming round: a dotted trail, tumbling along his path.
+    const float u = (abs - 3.0f) / 6.5f;
+    for (int i = 1; i <= 12; ++i)
+    {
+      const float pu = u - float(i) * 0.012f;
+      if (pu < 0.0f)
+        break;
+      float tx = 0, ty = 0;
+      flight(pu, tx, ty);
+      k.r.fillRect(tx - 4.0f + ox, ty - 4.0f + oy, 8, 8, rgba(10, 8, 20, 200 - i * 15));
+    }
+    float x = 0, y = 0, px = 0, py = 0;
+    flight(u, x, y);
+    flight(u - 0.01f, px, py);
+    DrawOpts o;
+    o.scale = 0.75f - 0.3f * u;
+    o.angle = std::atan2(x - px, -(y - py)) * 57.2958f;
+    k.r.draw(buddyDeflating(k, 3, true), x + ox, y + oy, o);
+    return;
+  }
+  // The empty skin, see-sawing down onto the stage.
+  float sx = 0, sy = 0;
+  flight(1.0f, sx, sy);
+  const float u = std::min(1.0f, (abs - 9.5f) / 1.6f);
+  DrawOpts o;
+  o.scale = 0.6f;
+  o.angle = u < 1.0f ? std::sin(abs * 4.0f) * 30.0f * (1.0f - u) : 0.0f;
+  // (Landed, his middle anchor sits 200 px x 0.6 over the stage.)
+  const float x = sx + (640.0f - sx) * u + std::sin(u * 9.0f) * 40.0f * (1.0f - u), y = sy + (492.0f - sy) * u * u;
+  k.r.draw(buddyDeflating(k, 4, true), x + ox, y + oy, o);
+}
+
+// Shot: the cartoon's iris closes on the runners on the empty stage
+// (frames 0-5), the dead channel's snow showing round it, and Nova kicks it
+// open: her boot jams the rim (6) and it shudders, held.
+void irisClip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  const float abs = std::min(10.0f, float(ticks) / 5.4f); // 90 ms a frame
+  const float cx = 640.0f + ox, cy = 430.0f + oy;
+  // The radius: closing faster and faster, then caught and wobbling.
+  float rad = 0.0f;
+  if (abs < 6.0f)
+  {
+    const float u = abs / 6.0f;
+    rad = 900.0f - (900.0f - 196.0f) * u * (0.6f + 0.4f * u);
+  }
+  else
+    rad = 212.0f + 18.0f * std::sin((abs - 6.0f) * 9.0f) * std::exp(-(abs - 6.0f) * 1.1f);
+  // Inside: the stage, Buddy's empty skin, the three of them looking up.
+  k.r.draw(bigTop(k), ox, oy);
+  DrawOpts so;
+  so.scale = 0.42f;
+  k.r.draw(buddyDeflating(k, 4, false), 330.0f + ox, 636.0f + oy, so);
+  const bool kick = abs >= 5.6f;
+  k.r.draw(toonRunner(k, 0, 7, false, 0.85f, false), 520.0f + ox, 616.0f + oy);
+  k.r.draw(toonRunner(k, 1, 7, false, 0.85f, false), 640.0f + ox, 616.0f + oy);
+  k.r.draw(toonRunner(k, 2, kick ? 6 : 7, false, 0.85f, false), 760.0f + ox, 616.0f + oy);
+  // Outside the circle: the snow, row by row.
+  const Texture& snow = snowFrame(k, (ticks / 3) & 3);
+  DrawOpts sn;
+  sn.scale = 2.0f;
+  sn.tint = rgb(170, 170, 180);
+  for (float y = 0.0f; y < H; y += 4.0f)
+  {
+    const float dy = y + 2.0f - cy;
+    const float half = std::abs(dy) < rad ? std::sqrt(rad * rad - dy * dy) : -1.0f;
+    if (half < 0.0f)
+    {
+      clipTo(k, 0.0f, y, W, 4.0f);
+      k.r.draw(snow, 0, 0, sn);
+      continue;
+    }
+    clipTo(k, 0.0f, y, std::max(0.0f, cx - half), 4.0f);
+    k.r.draw(snow, 0, 0, sn);
+    clipTo(k, cx + half, y, std::max(0.0f, W - cx - half), 4.0f);
+    k.r.draw(snow, 0, 0, sn);
+  }
+  unclip(k);
+  // The iris's inked rim.
+  const Texture& rim = cached(k, "e4_iris_rim", 640, 640, 320, 320, [](cairo_t* cr) {
+    cairo_arc(cr, 320, 320, 300, 0, 2 * kPi);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 22);
+    cairo_stroke(cr);
+    cairo_arc(cr, 320, 320, 286, 0, 2 * kPi);
+    setRgbaC(cr, rgb(80, 70, 90), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+  });
+  DrawOpts ro;
+  ro.scale = rad / 300.0f;
+  ro.cull = false;
+  k.r.draw(rim, cx, cy, ro);
+  if (!kick)
+    return;
+  // Nova's leg stretched out like a hose, her boot wedged in the rim.
+  const float hipX = 760.0f + ox, hipY = 616.0f - 90.0f * 0.85f + oy;
+  const float a = -0.3f;
+  const float bootX = cx + std::cos(a) * (rad - 6.0f), bootY = cy + std::sin(a) * (rad - 6.0f);
+  const float bendX = (hipX + bootX) * 0.5f + 10.0f, bendY = std::max(hipY, bootY) + 30.0f;
+  float px = hipX, py = hipY;
+  for (int i = 1; i <= 12; ++i)
+  {
+    const float t = float(i) / 12.0f;
+    const float qx = (1 - t) * (1 - t) * hipX + 2 * (1 - t) * t * bendX + t * t * bootX;
+    const float qy = (1 - t) * (1 - t) * hipY + 2 * (1 - t) * t * bendY + t * t * bootY;
+    k.r.drawLine(px, py, qx, qy, 18.0f, kInk);
+    px = qx;
+    py = qy;
+  }
+  px = hipX;
+  py = hipY;
+  for (int i = 1; i <= 12; ++i)
+  {
+    const float t = float(i) / 12.0f;
+    const float qx = (1 - t) * (1 - t) * hipX + 2 * (1 - t) * t * bendX + t * t * bootX;
+    const float qy = (1 - t) * (1 - t) * hipY + 2 * (1 - t) * t * bendY + t * t * bootY;
+    k.r.drawLine(px, py, qx, qy, 12.0f, rgb(132, 66, 216));
+    px = qx;
+    py = qy;
+  }
+  const Texture& boot = cached(k, "e4_nova_boot", 120, 90, 40, 45, [](cairo_t* cr) {
+    roundedRect(cr, 14, 18, 44, 50, 14);
+    toonFill(cr, rgb(238, 238, 248), 3.4);
+    toonOval(cr, 66, 52, 46, 22);
+    toonFill(cr, rgb(238, 238, 248), 3.4);
+    cairo_rectangle(cr, 24, 66, 90, 10);
+    toonFill(cr, rgb(100, 100, 120), 2.6);
+    toonOval(cr, 62, 42, 14, 6, -0.2);
+    setRgbaC(cr, kToonWhite, 0.8);
+    cairo_fill(cr);
+  });
+  DrawOpts bo;
+  bo.angle = a * 57.2958f - 90.0f;
+  bo.cull = false;
+  k.r.draw(boot, bootX, bootY, bo);
+  if (abs < 8.0f)
+  {
+    // The clang: a burst of lines round the boot.
+    const float u = (abs - 5.6f) / 2.4f;
+    for (int i = 0; i < 10; ++i)
+    {
+      const float t = float(i) * 0.628f;
+      const float r0 = 46.0f + u * 30.0f, r1 = r0 + 40.0f * (1.0f - u);
+      k.r.drawLine(bootX + std::cos(t) * r0, bootY + std::sin(t) * r0, bootX + std::cos(t) * r1, bootY + std::sin(t) * r1, 6.0f,
+        rgb(255, 240, 120));
+    }
+  }
+}
+
+// Shot: out of the cartoon: the three of them dive into the snow, one
+// after another, shrinking away into it; on frame 4 it swallows them in a
+// flash and ripples close over the spot.
+void jumpStatic(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  staticSnow(k, frame, ticks, ox, oy);
+  const float abs = float(ticks) / 4.8f; // 80 ms a frame
+  const float tx = 640.0f + ox, ty = 360.0f + oy;
+  for (int who = 0; who < 3; ++who)
+  {
+    const float u = (abs - float(who) * 0.45f) / 3.4f;
+    if (u < 0.0f || u >= 1.0f)
+      continue;
+    const float sx = 160.0f + float(who) * 140.0f, sy = 820.0f;
+    const float e = u * u;
+    const float x = sx + (tx - sx) * e, y = sy + (ty - sy) * e - std::sin(u * 3.14159f) * 260.0f * (1.0f - u);
+    DrawOpts o;
+    o.scale = (3.4f - 3.1f * e) / 3.0f;
+    o.angle = -10.0f + 100.0f * u;
+    o.alpha = u > 0.8f ? (1.0f - u) / 0.2f : 1.0f;
+    k.r.draw(runner(k, who, 2, 3.0f), x, y, o);
+  }
+  if (abs >= 3.8f)
+  {
+    // The splash into the snow: a flash and rings spreading out.
+    const float u = (abs - 3.8f) / 4.2f;
+    if (u < 0.3f)
+      k.r.fillRect(0, 0, W, H, rgba(255, 255, 255, int(200 * (1.0f - u / 0.3f))), Blend::Add);
+    const Texture& ring = cached(k, "e4_static_ring", 400, 200, 200, 100, [](cairo_t* cr) {
+      cairo_save(cr);
+      cairo_translate(cr, 200, 100);
+      cairo_scale(cr, 1.0, 0.5);
+      cairo_arc(cr, 0, 0, 180, 0, 2 * kPi);
+      cairo_restore(cr);
+      setRgbaC(cr, rgb(255, 255, 255), 0.9);
+      cairo_set_line_width(cr, 8);
+      cairo_stroke(cr);
+    });
+    for (int i = 0; i < 3; ++i)
+    {
+      const float ru = std::clamp(u * 1.4f - float(i) * 0.2f, 0.0f, 1.0f);
+      if (ru <= 0.0f || ru >= 1.0f)
+        continue;
+      DrawOpts o;
+      o.scale = 0.2f + ru * 2.6f;
+      o.alpha = 1.0f - ru;
+      o.blend = Blend::Add;
+      o.cull = false;
+      k.r.draw(ring, tx, ty, o);
+    }
+  }
+}
+
+// Lance, horrified: his own art (arms flung wide) with the eyes popped
+// wide, the brows up and the jaw dropped; baked at 1.45x (feet at the
+// anchor).
+const Texture& lanceHorror(ClipKit& k, bool wide)
+{
+  constexpr double s = 1.45;
+  return cached(k, std::string("e4_lance_horror") + (wide ? "w" : "n"), int(320 * s), int(600 * s), float(160 * s), float(580 * s),
+    [wide](cairo_t* cr) {
+    cairo_scale(cr, s, s);
+    cairo_translate(cr, 40, 100);
+    paintLance(cr, 8, false);
+    const double hx = 126, hy = 112;
+    // Paint the old brow and eye out with the face's own shading.
+    cairo_pattern_t* skin = cairo_pattern_create_linear(hx - 34, hy - 40, hx + 40, hy + 48);
+    cairo_pattern_add_color_stop_rgb(skin, 0, 244 / 255.0, 204 / 255.0, 168 / 255.0);
+    cairo_pattern_add_color_stop_rgb(skin, 1, 206 / 255.0, 156 / 255.0, 120 / 255.0);
+    toonOval(cr, hx + 18, hy - 12, 13, 10);
+    cairo_set_source(cr, skin);
+    cairo_fill(cr);
+    cairo_pattern_destroy(skin);
+    // Brows shot up, the eye a white saucer with a pinprick.
+    cairo_move_to(cr, hx + 4, hy - 26);
+    cairo_curve_to(cr, hx + 12, hy - 36, hx + 22, hy - 36, hx + 30, hy - 30);
+    setRgbaC(cr, rgb(150, 100, 30), 1.0);
+    cairo_set_line_width(cr, 3.4);
+    cairo_stroke(cr);
+    toonOval(cr, hx + 19, hy - 8, 9, 11);
+    toonFill(cr, kToonWhite, 1.8);
+    toonOval(cr, hx + 21, hy - 7, 2, 2.4);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_fill(cr);
+    // The jaw dropped in a scream.
+    toonOval(cr, hx + 22, hy + 34, wide ? 15 : 12, wide ? 18 : 13);
+    toonFill(cr, rgb(90, 16, 30), 2.2);
+    cairo_rectangle(cr, hx + 12, hy + (wide ? 18 : 23), 21, 5);
+    setRgbaC(cr, kToonWhite, 1.0);
+    cairo_fill(cr);
+    // Sweat.
+    for (const auto& d : {std::array<double, 2>{hx - 10, hy - 30}, std::array<double, 2>{hx + 40, hy - 26}})
+    {
+      cairo_move_to(cr, d[0], d[1] - 8);
+      cairo_curve_to(cr, d[0] + 6, d[1], d[0] + 5, d[1] + 6, d[0], d[1] + 6);
+      cairo_curve_to(cr, d[0] - 5, d[1] + 6, d[0] - 6, d[1], d[0], d[1] - 8);
+      cairo_close_path(cr);
+      toonFill(cr, rgb(180, 220, 255), 1.4);
+    }
+  });
+}
+
+// The gallery: dark, a bank of small monitors all showing snow, the desk's
+// lit buttons, and a big monitor's bezel in the middle (its screen is
+// (330, 80) .. (950, 480)).
+const Texture& controlRoom(ClipKit& k)
+{
+  return cached(k, "e4_control_room", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(16, 18, 30), rgb(22, 24, 40), rgb(10, 10, 18));
+    for (int i = 0; i < 8; ++i)
+    {
+      const double x = i < 4 ? 30 + (i % 2) * 140 : 970 + (i % 2) * 140, y = 70 + ((i / 2) % 2) * 120;
+      roundedRect(cr, x, y, 126, 96, 8);
+      setRgbaC(cr, rgb(40, 40, 52), 1.0);
+      cairo_fill(cr);
+    }
+    roundedRect(cr, 300, 50, 680, 460, 22);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 50, 0, 510);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.28, 0.28, 0.34);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.12, 0.12, 0.16);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The desk.
+    cairo_move_to(cr, 0, 560);
+    cairo_line_to(cr, 1280, 560);
+    cairo_line_to(cr, 1280, 720);
+    cairo_line_to(cr, 0, 720);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(30, 30, 40), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 556, 1280, 8);
+    setRgbaC(cr, rgb(70, 70, 86), 1.0);
+    cairo_fill(cr);
+    std::uint32_t sd = 777u;
+    for (int i = 0; i < 60; ++i)
+    {
+      sd = sd * 1664525u + 1013904223u;
+      const double x = 40 + (i % 30) * 41, y = 590 + (i / 30) * 40;
+      static const Color kLit[] = {rgb(255, 80, 70), rgb(90, 220, 120), rgb(255, 200, 70), rgb(80, 160, 255)};
+      roundedRect(cr, x, y, 24, 16, 3);
+      setRgbaC(cr, (sd >> 8) % 3u ? rgb(60, 60, 74) : kLit[(sd >> 12) % 4u], 1.0);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// Shot: the gallery. Lance on the big monitor, horrified, shaking, arms
+// flung up (a 4-frame loop), the feed tearing; ON AIR blinking.
+void lancePanic(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(controlRoom(k), ox, oy);
+  for (int i = 0; i < 8; ++i)
+  {
+    const float x = (i < 4 ? 30.0f + float(i % 2) * 140.0f : 970.0f + float(i % 2) * 140.0f) + 8.0f;
+    const float y = 70.0f + float((i / 2) % 2) * 120.0f + 8.0f;
+    clipTo(k, x + ox, y + oy, 110, 80);
+    staticNoise(k, ticks / 2 + i * 13, 0.85f, x + ox, y + oy, 110, 80);
+  }
+  unclip(k);
+  const float sx = 330.0f + ox, sy = 80.0f + oy, sw = 620.0f, sh = 400.0f;
+  clipTo(k, sx, sy, sw, sh);
+  k.r.fillRect(sx, sy, sw, sh, rgb(60, 20, 70));
+  drawGlow(k.r, k.art, sx + sw * 0.5f, sy + sh * 0.4f, 360.0f, rgb(255, 120, 160), 0.35f);
+  static constexpr float kShake[4][2] = {{-7, 2}, {6, -3}, {-3, -5}, {7, 4}};
+  const int f = frame & 3;
+  k.r.draw(lanceHorror(k, f % 2 == 1), sx + sw * 0.5f - 10.0f + kShake[f][0], sy + 830.0f + kShake[f][1]);
+  // The feed tearing.
+  for (int i = 0; i < 3; ++i)
+  {
+    const unsigned h = hash2(ticks / 3, i);
+    const float y = sy + float(h % 400u);
+    k.r.fillRect(sx, y, sw, 3.0f + float(h % 5u), rgba(255, 255, 255, 40));
+  }
+  scanlines(k, 60, sy, sy + sh, sx, sw);
+  unclip(k);
+  // ON AIR.
+  const bool lit = (ticks / 15) % 2 == 0;
+  k.r.fillRect(840 + ox, 54 + oy, 100, 22, lit ? rgb(230, 30, 40) : rgb(70, 20, 24));
+  k.r.drawText("ON AIR", 890 + ox, 56 + oy, {15.0f, lit ? rgb(255, 240, 240) : rgb(120, 60, 60), 0}, Align::Center);
+  if (lit)
+    drawGlow(k.r, k.art, 890 + ox, 65 + oy, 110.0f, rgb(255, 60, 60), 0.3f);
+}
+
+// The Halcyon Arms rifle, sleek white and gold, 760 x 240, side on (the
+// mirrored bake is its other side).
+const Texture& halcyonRifle(ClipKit& k, bool back)
+{
+  return cached(k, std::string("e4_halcyon_rifle") + (back ? "b" : "f"), 760, 240, 380, 120, [back](cairo_t* cr) {
+    if (back)
+    {
+      cairo_translate(cr, 760, 0);
+      cairo_scale(cr, -1, 1);
+    }
+    auto shape = [cr]() {
+      cairo_move_to(cr, 40, 110);
+      cairo_curve_to(cr, 60, 70, 200, 66, 320, 70);
+      cairo_line_to(cr, 640, 76);
+      cairo_line_to(cr, 730, 84);
+      cairo_line_to(cr, 730, 104);
+      cairo_line_to(cr, 560, 112);
+      cairo_line_to(cr, 470, 124);
+      cairo_line_to(cr, 440, 196);
+      cairo_line_to(cr, 396, 196);
+      cairo_line_to(cr, 400, 128);
+      cairo_line_to(cr, 250, 130);
+      cairo_curve_to(cr, 180, 150, 90, 190, 52, 186);
+      cairo_curve_to(cr, 30, 170, 30, 130, 40, 110);
+      cairo_close_path(cr);
+    };
+    shape();
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 66, 0, 196);
+    cairo_pattern_add_color_stop_rgb(g, 0, 1, 1, 1);
+    cairo_pattern_add_color_stop_rgb(g, 0.45, 0.86, 0.88, 0.92);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.5, 0.52, 0.6);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, rgb(40, 44, 60), 1.0);
+    cairo_set_line_width(cr, 2.4);
+    cairo_stroke(cr);
+    // The gold inlays and the scope.
+    cairo_move_to(cr, 120, 104);
+    cairo_line_to(cr, 620, 92);
+    setRgbaC(cr, rgb(230, 190, 80), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    roundedRect(cr, 300, 40, 180, 24, 12);
+    cairo_pattern_t* s = cairo_pattern_create_linear(0, 40, 0, 64);
+    cairo_pattern_add_color_stop_rgb(s, 0, 0.3, 0.32, 0.4);
+    cairo_pattern_add_color_stop_rgb(s, 1, 0.08, 0.08, 0.12);
+    cairo_set_source(cr, s);
+    cairo_fill(cr);
+    cairo_pattern_destroy(s);
+    cairo_arc(cr, 480, 52, 12, 0, 2 * kPi);
+    setRgbaC(cr, rgb(90, 200, 255), 0.9);
+    cairo_fill(cr);
+    // The halo emblem on the stock.
+    cairo_arc(cr, 140, 140, 18, 0, 2 * kPi);
+    setRgbaC(cr, rgb(230, 190, 80), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // A long highlight.
+    cairo_move_to(cr, 70, 96);
+    cairo_curve_to(cr, 160, 76, 400, 76, 700, 86);
+    setRgbaC(cr, rgb(255, 255, 255), 0.8);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  });
+}
+
+// The Halcyon Arms logo: a gold halo with a dove's wing through it, and the
+// name, 820 x 170.
+const Texture& halcyonLogo(ClipKit& k)
+{
+  return cached(k, "e4_halcyon_logo", 820, 170, 410, 85, [](cairo_t* cr) {
+    cairo_pattern_t* gold = cairo_pattern_create_linear(0, 20, 0, 150);
+    cairo_pattern_add_color_stop_rgb(gold, 0, 1.0, 0.92, 0.6);
+    cairo_pattern_add_color_stop_rgb(gold, 0.5, 0.9, 0.74, 0.3);
+    cairo_pattern_add_color_stop_rgb(gold, 1, 0.62, 0.44, 0.12);
+    cairo_arc(cr, 85, 85, 62, 0, 2 * kPi);
+    cairo_set_source(cr, gold);
+    cairo_set_line_width(cr, 10);
+    cairo_stroke(cr);
+    // The wing.
+    cairo_move_to(cr, 40, 110);
+    cairo_curve_to(cr, 70, 60, 110, 40, 150, 34);
+    cairo_curve_to(cr, 128, 52, 132, 58, 140, 60);
+    cairo_curve_to(cr, 118, 70, 124, 76, 132, 80);
+    cairo_curve_to(cr, 108, 88, 110, 94, 118, 98);
+    cairo_curve_to(cr, 92, 108, 70, 110, 40, 110);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(250, 250, 255), 1.0);
+    cairo_fill(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 72);
+    cairo_move_to(cr, 180, 112);
+    cairo_text_path(cr, "HALCYON ARMS");
+    cairo_set_source(cr, gold);
+    cairo_fill(cr);
+    cairo_pattern_destroy(gold);
+  });
+}
+
+// Shot: the sponsor's ad, all gloss. The rifle turning slowly on a black
+// turntable under a spotlight, the logo (from frame 10) and the slogan
+// (typed out from 14), the small print last.
+void halcyonAd(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  const float abs = std::min(24.0f, float(ticks) / 6.0f); // 100 ms a frame
+  const Texture& bg = cached(k, "e4_halcyon_bg", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_radial(640, 260, 40, 640, 300, 900);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.16, 0.2, 0.36);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.05, 0.07, 0.16);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.01, 0.01, 0.03);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Gold dust floating out of focus.
+    for (int i = 0; i < 40; ++i)
+    {
+      const unsigned h = hash2(i, 404);
+      cairo_arc(cr, h % 1280u, (h / 1280u) % 720u, 4 + h % 14u, 0, 2 * kPi);
+      setRgbaC(cr, rgb(230, 190, 80), 0.06 + double(h % 7u) * 0.01);
+      cairo_fill(cr);
+    }
+    // The turntable.
+    cairo_save(cr);
+    cairo_translate(cr, 640, 400);
+    cairo_scale(cr, 1.0, 0.18);
+    cairo_arc(cr, 0, 0, 300, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_pattern_t* t = cairo_pattern_create_linear(0, 346, 0, 454);
+    cairo_pattern_add_color_stop_rgb(t, 0, 0.22, 0.24, 0.3);
+    cairo_pattern_add_color_stop_rgb(t, 1, 0.02, 0.02, 0.04);
+    cairo_set_source(cr, t);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(t);
+    setRgbaC(cr, rgb(230, 190, 80), 0.9);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  });
+  k.r.draw(bg, ox, oy);
+  drawGlow(k.r, k.art, 640.0f + ox, 260.0f + oy, 420.0f, rgb(200, 220, 255), 0.18f);
+  // The turn: a squeeze across, flipping to its other side past edge-on.
+  const float theta = abs * 0.26f;
+  const float c = std::cos(theta);
+  const Texture& rifle = halcyonRifle(k, c < 0.0f);
+  const float w = 760.0f * std::max(0.05f, std::abs(c)), h = 240.0f;
+  const float ry = 300.0f + std::sin(abs * 0.4f) * 6.0f + oy;
+  stretchTex(k, rifle, 640.0f - w * 0.5f + ox, ry - h * 0.5f, w, h, rgb(255, 255, 255), 1.0f);
+  // The glint running along it when it is side on.
+  if (std::abs(c) > 0.85f)
+  {
+    const float g = std::fmod(abs * 0.9f, 3.0f) / 3.0f;
+    drawGlow(k.r, k.art, 640.0f - w * 0.5f + w * g + ox, ry - 30.0f, 60.0f, rgb(255, 255, 255), 0.6f * (std::abs(c) - 0.85f) / 0.15f);
+  }
+  if (abs >= 10.0f)
+  {
+    const float u = std::min(1.0f, (abs - 10.0f) / 3.0f);
+    DrawOpts lo;
+    lo.alpha = u;
+    lo.scale = 0.96f + 0.04f * u;
+    k.r.draw(halcyonLogo(k), 640.0f + ox, 520.0f + oy, lo);
+    // A sheen sweeping across it.
+    const float sweep = (abs - 10.0f) / 6.0f;
+    if (sweep < 1.0f)
+    {
+      clipTo(k, 230.0f + ox, 435.0f + oy, 820.0f, 170.0f);
+      drawGlow(k.r, k.art, 200.0f + sweep * 900.0f + ox, 520.0f + oy, 90.0f, rgb(255, 250, 220), 0.5f);
+      unclip(k);
+    }
+  }
+  if (abs >= 14.0f)
+  {
+    const float u = std::min(1.0f, (abs - 14.0f) / 6.0f);
+    clipTo(k, 330.0f + ox, 590.0f + oy, 620.0f * u, 60.0f);
+    k.r.drawText("PEACE THROUGH FIREPOWER", 640 + ox, 600 + oy, {34.0f, rgb(250, 250, 255), rgb(10, 14, 40)}, Align::Center);
+    unclip(k);
+  }
+  if (abs >= 20.0f)
+    k.r.drawText("Halcyon Arms. Trusted in forty countries. Peace sold separately.", 640 + ox, 686 + oy,
+      {13.0f, rgba(170, 176, 200, int(255 * std::min(1.0f, (abs - 20.0f) / 2.0f))), 0}, Align::Center);
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -7547,7 +9249,24 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return identCh50(k, ticks, ox, oy);
   if (clip == "lizard_wave")
     return lizardWave(k, frame, ticks, ox, oy);
-  if (starts(clip, "static") || clip == "monitors_snow" || clip == "jump_static")
+  // Level 28 and the end of Episode 4.
+  if (clip == "ident_ch1")
+    return identCh1(k, ticks, ox, oy);
+  if (clip == "lance_toon")
+    return lanceToon(k, frame, ticks, ox, oy);
+  if (clip == "nova_whisper") // before starts(clip, "nova_") below
+    return novaWhisper(k, frame, ticks, ox, oy);
+  if (clip == "buddy_deflate")
+    return buddyDeflate(k, frame, ticks, ox, oy);
+  if (clip == "iris")
+    return irisClip(k, frame, ticks, ox, oy);
+  if (clip == "jump_static")
+    return jumpStatic(k, frame, ticks, ox, oy);
+  if (clip == "lance_panic")
+    return lancePanic(k, frame, ticks, ox, oy);
+  if (clip == "halcyon_ad")
+    return halcyonAd(k, frame, ticks, ox, oy);
+  if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")
     return towerTilt(k, frame, ticks, ox, oy);

@@ -23,6 +23,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art.cpp
   src/assets/art_alien.cpp
   src/assets/art_city.cpp
+  src/assets/art_toon.cpp
   src/assets/art_garden.cpp
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
@@ -39,6 +40,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_manor.cpp
   src/assets/enemy_art_kitchen.cpp
   src/assets/enemy_art_city.cpp
+  src/assets/enemy_art_toon.cpp
   src/assets/enemy_art_garden.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
