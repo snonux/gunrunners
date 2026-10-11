@@ -145,6 +145,9 @@ enum class EnemyKind
   SandShark,  // swims under `@ sand` (only its fin shows), breaches and bites
   VultureDrone, // circles high over its stretch and drops scrap on the runner
   ScorpionMech, // patrols; its tail's aim line turns toward the runner, locks, and a beam fires
+  Firewall,   // a wall of flame sweeping its floor; it dips at each port (only Heat Sink fireballs hurt it)
+  LavaDaemon, // leaps between perches on its floor and lobs fireballs
+  FanBot,     // on the shaft wall: blows gusts across; its blades turn shots from the front
 };
 
 enum EnemyFlag : unsigned

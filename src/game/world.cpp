@@ -188,6 +188,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkTrench();
   linkStorm();
   linkDish();
+  linkMagma();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -291,6 +292,18 @@ std::vector<Bonus> World::bonuses() const
 
 void World::update(const PlayerInput& input)
 {
+  // Overclock: three logic frames for every one.
+  if (mMagma.overclock)
+  {
+    PlayerInput again = input;
+    updateFrame(input);
+    again.jump.triggered = false;
+    again.fire.triggered = false;
+    again.use.triggered = false;
+    for (int i = 0; i < 2 && mState == WorldState::Playing; ++i)
+      updateFrame(again);
+    return;
+  }
   if (!mFilm.on)
   {
     updateFrame(input);
@@ -480,6 +493,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateStorm(input);
   if (mDish.on || mDish.swapLr)
     updateDish(input);
+  if (mMagma.on)
+    updateMagma(input);
   updateHatches();
   updateProps(input);
 }
@@ -976,6 +991,15 @@ void World::updateEnemies()
       case EnemyKind::ScorpionMech:
         updateScorpionMech(e, def);
         break;
+      case EnemyKind::Firewall:
+        updateFirewall(e, def);
+        break;
+      case EnemyKind::LavaDaemon:
+        updateLavaDaemon(e, def);
+        break;
+      case EnemyKind::FanBot:
+        updateFanBot(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1103,6 +1127,9 @@ void World::updateProjectiles()
       return true;
     // Level 32: the minidishes turn, the cactus's hat pops up.
     if (mDish.on && shotAtDish(pr, b))
+      return true;
+    // Level 33: a Heat Sink fireball goes off; the racks and the RATINGS server.
+    if (mMagma.on && shotAtMagma(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1332,6 +1359,15 @@ void World::updateProjectiles()
       // Level 30: an eel in its box is out of reach; a harpoon pulls small fry in.
       if (mStorm.on && pr.kind != ShotKind::Enemy)
         shotAtStormEnemy(pr, e); // Level 31: a spark down a Kite Drone's tether
+      // Level 33: a Firewall soaks shots; a Fan Bot's blades turn them.
+      if (mMagma.on && pr.kind != ShotKind::Enemy)
+      {
+        const int r = shotAtMagmaEnemy(pr, e);
+        if (r == 1)
+          return true;
+        if (r == 2)
+          continue;
+      }
       if (mTrench.on && pr.kind != ShotKind::Enemy)
       {
         const int r = shotAtTrenchEnemy(pr, e);
@@ -1504,6 +1540,12 @@ void World::damageEnemy(Enemy& e, int damage)
   // Level 20: nothing in a Shield Drone's bubble can be hurt.
   if (mReactor.on && reactorBlocksDamage(e))
     return;
+  // Level 33: only a Heat Sink fireball hurts a Firewall.
+  if (mMagma.on && magmaBlocksDamage(e))
+  {
+    e.flash = 2;
+    return;
+  }
   // High Noon (rules=onehit): every hit kills.
   if (mWest.oneHit)
     damage = std::max(damage, e.hp);

@@ -269,6 +269,8 @@ void World::syncFloats()
     mMap.addFloat({t.x, t.y, Player::kWidth, 1}); // Light Trail (world_maglev.cpp)
   for (const auto& f : mFootholds)
     mMap.addFloat({f.x, f.y, 2, 1}); // Serpent Spears in the wall (world_lava.cpp)
+  if (mMagma.rising && mPlayer.turbo > 0)
+    mMap.addFloat({mMagma.x0, mMagma.surface, mMagma.x1 - mMagma.x0 + 1, 1}); // Level 33: Turbo walks on the lava
 }
 
 void World::floatItem(Item& it) const

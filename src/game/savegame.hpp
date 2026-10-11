@@ -149,6 +149,7 @@ struct SaveGame
   std::vector<int> trench;  // Level 30 (World::trenchSave)
   std::vector<int> storm;   // Level 31 (World::stormSave)
   std::vector<int> dish;    // Level 32 (World::dishSave)
+  std::vector<int> magma;   // Level 33 (World::magmaSave)
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

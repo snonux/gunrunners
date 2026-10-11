@@ -176,6 +176,8 @@ void World::setupEntities()
       setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupMagmaEntity(e))
+      continue;
     if (setupDishEntity(e))
       continue;
     if (setupStormEntity(e))
@@ -237,6 +239,7 @@ void World::setupEntities()
       setupTrenchEnemy(en, e);
       setupStormEnemy(en, e);
       setupDishEnemy(en, e);
+      setupMagmaEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -789,6 +792,8 @@ void World::drawLayers(Renderer& r, float camX, float camY, int frame) const
                 // draws its sides; Level 29 its colour bars
     if (mGarden.cycle && (l.id.rfind("day_", 0) == 0 || l.id.rfind("dusk_", 0) == 0))
       continue; // Level 25's flowers and mushrooms (world_garden_draw.cpp)
+    if (mDish.on && l.driver == LayerDriver::Script)
+      continue; // Level 32's struts (world_dish_draw.cpp)
     if (l.style == 3 || l.style == 4)
     {
       drawNegativeLayer(r, l, x, y, w, h, frame); // Negative Space's sun and moon blocks (world_light.cpp)
@@ -882,7 +887,7 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         }
         break;
       case PropKind::Deco42:
-        if (!foreground && onScreen && mWest.posters.empty()) // Dry Gulch prints it on its wanted posters
+        if (!foreground && onScreen && mWest.posters.empty() && !mDish.on) // Dry Gulch prints it on its wanted posters; Dish Array on D4
           r.drawText(pr.text, x + w * 0.5f, y + h * 0.5f - 16, {28.0f, rgba(255, 255, 255, 150), kInk, true},
             Align::Center);
         break;

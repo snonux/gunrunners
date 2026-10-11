@@ -254,6 +254,12 @@ const EnemyDef kEnemies[] = {
   {"sand_shark", "SAND SHARK", K::SandShark, L::Styled, 6, 4, 4, 700, 1, 40, 12, 0, 0, 0},
   {"vulture_drone", "VULTURE DRONE", K::VultureDrone, L::Styled, 6, 3, 3, 400, 1, 45, 22, 0, kEnemyRobot | kEnemyHarmless, 0},
   {"scorpion_mech", "SCORPION MECH", K::ScorpionMech, L::Styled, 8, 6, 10, 1200, 4, 45, 38, 0, kEnemyRobot, 0, 3},
+  // Level 33. Firewall: its flames flicker for 8 frames, then dip for 30 at
+  // a port. Lava Daemon: its arm glows and winds up (12 frames). Fan Bot:
+  // the blades spin up with a rising whine (15 frames).
+  {"firewall", "FIREWALL", K::Firewall, L::Styled, 4, 6, 6, 900, 2, 0, 8, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  {"lava_daemon", "LAVA DAEMON", K::LavaDaemon, L::Styled, 3, 4, 3, 600, 1, 40, 12, 0, 0, 0},
+  {"fan_bot", "FAN BOT", K::FanBot, L::Styled, 4, 6, 6, 500, 1, 45, 15, 0, kEnemyHarmless | kEnemyRobot, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

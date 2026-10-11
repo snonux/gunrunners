@@ -517,6 +517,11 @@ Planner::Goal Planner::chooseGoal(const World& w) const
     for (const auto& m : w.storm().machines)
       if (m.kind == MachineKind::Generator && !m.powered && w.player().y > m.box.y - 20)
         return {18, m.box.x + 10, m.box.bottom() - 4, 3, 5, -1};
+  // Level 33: for the bonus, stand in the coolant pipe's nook beside the
+  // RATINGS server (Bot::magma shoots it; that opens the entrance).
+  if (w.magma().serverX >= 0 && !w.magma().serverShot && mTakeBonus && !mSkipBonus &&
+      std::abs(w.player().y - w.magma().serverY) <= 30)
+    return {18, w.magma().serverX + 8, w.magma().serverY - 4, 3, 5, -1};
   // Level 23: the bonus detour through the crypt; then the next mirror to
   // step through, or lever to throw, on the manor's route.
   bool inCrypt = false;

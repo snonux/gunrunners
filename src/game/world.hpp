@@ -26,6 +26,7 @@
 #include "game/signal.hpp"
 #include "game/storm.hpp"
 #include "game/dish.hpp"
+#include "game/magma.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1832,6 +1833,8 @@ public:
   const TrenchState& trench() const { return mTrench; }
   const StormState& storm() const { return mStorm; }
   const DishState& dish() const { return mDish; }
+  const MagmaState& magma() const { return mMagma; }
+  int lavaGap() const; // blocks between the runner and the rising lava
   bool underwater() const;  // in the water, not in an air pocket
   bool lineUnder() const;   // standing on the harpoon line
   int strokesMax() const;   // swim strokes between touching ground (Nova one more)
@@ -2677,6 +2680,29 @@ private:
   void drawDishBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawDishFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawDishHud(Renderer& r, int frame) const;
+  // Level 33, Magma Mainframe (world_magma.cpp, world_magma_draw.cpp), and
+  // its Overclock bonus.
+  bool setupMagmaEntity(const EntityDef& e);
+  void setupMagmaEnemy(Enemy& en, const EntityDef& e);
+  void linkMagma();
+  bool findLavaPop(int& outX, int& outY) const;
+  void touchLava();
+  void updateMagma(const PlayerInput& input);
+  void resetMagma();
+  void updateHeatSink(const Button& fire);
+  bool shotAtMagma(Projectile& pr, const CellBox& hit);
+  bool magmaBlocksDamage(const Enemy& e) const;
+  int shotAtMagmaEnemy(Projectile& pr, Enemy& e);
+  void updateFirewall(Enemy& e, const EnemyDef& def);
+  void updateLavaDaemon(Enemy& e, const EnemyDef& def);
+  void updateFanBot(Enemy& e, const EnemyDef& def);
+  bool magmaCanSave() const;
+  std::vector<int> magmaSave() const;
+  bool validMagmaSave(const std::vector<int>& s) const;
+  void loadMagma(const std::vector<int>& s);
+  void drawMagmaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMagmaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawMagmaHud(Renderer& r, int frame) const;
   // Level 30, Fiber Trench (world_trench.cpp, world_trench_draw.cpp), and
   // its Bubble Up bonus.
   bool setupTrenchEntity(const EntityDef& e);
@@ -3175,6 +3201,7 @@ private:
   TrenchState mTrench;
   StormState mStorm;
   DishState mDish;
+  MagmaState mMagma;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.

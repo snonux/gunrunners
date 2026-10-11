@@ -83,6 +83,12 @@ void World::updateProtoShooting(const Button& fire)
     }
     return;
   }
+  // Level 33: hold to suck fireballs in, release to throw them back (world_magma.cpp).
+  if (ProtoId(p.proto) == ProtoId::HeatSink)
+  {
+    updateHeatSink(fire);
+    return;
+  }
   // Level 28: tap for the blaster, hold to throw the Portable Hole (world_toon.cpp).
   if (ProtoId(p.proto) == ProtoId::PortableHole)
   {

@@ -213,6 +213,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawStormBack(r, camX, camY, frame, alpha);
   if (mDish.on)
     drawDishBack(r, camX, camY, frame, alpha);
+  if (mMagma.on)
+    drawMagmaBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -428,6 +430,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 31 (world_storm_draw.cpp)
     if (e.kind == EnemyKind::SandShark || e.kind == EnemyKind::VultureDrone || e.kind == EnemyKind::ScorpionMech)
       continue; // Level 32 (world_dish_draw.cpp)
+    if (e.kind == EnemyKind::Firewall || e.kind == EnemyKind::LavaDaemon || e.kind == EnemyKind::FanBot)
+      continue; // Level 33 (world_magma_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -916,6 +920,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawStormFront(r, camX, camY, frame, alpha);
   if (mDish.on)
     drawDishFront(r, camX, camY, frame, alpha);
+  if (mMagma.on)
+    drawMagmaFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1749,6 +1755,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawStormHud(r, frame);
   if (mDish.swapLr)
     drawDishHud(r, frame);
+  if (mMagma.on)
+    drawMagmaHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)
@@ -1757,7 +1765,8 @@ void World::drawHud(Renderer& r, int frame) const
   // Bonus level countdown.
   if (mBonusLevel && mLevel->timer > 0)
   {
-    std::snprintf(buf, sizeof(buf), "%d", (mBonusFramesLeft + 14) / 15);
+    const int perSecond = mMagma.overclock ? 45 : 15; // Overclock runs three frames to one
+    std::snprintf(buf, sizeof(buf), "%d", (mBonusFramesLeft + perSecond - 1) / perSecond);
     const bool hurry = mBonusFramesLeft < 150 && (frame / 10) % 2 == 0;
     r.fillRect(float(kScreenW) / 2.0f - 70.0f, 84, 140, 52, rgba(8, 6, 22, 190));
     r.drawText(buf, float(kScreenW) / 2.0f, 88, {40.0f, hurry ? rgb(255, 80, 80) : mTheme.accentA, kHudInk, true}, Align::Center);

@@ -118,6 +118,8 @@ void World::updatePlayer(const PlayerInput& raw)
     in.left = in.right = false; // the duck does the paddling (world_sludge.cpp)
   if (mDish.swapped)
     std::swap(in.left, in.right); // Heatstroke (world_dish.cpp)
+  if (mMagma.sucking && p.oddFrame && p.state == PlayerState::OnGround)
+    in.left = in.right = false; // the Heat Sink held: half speed (world_magma.cpp)
   if (in.left && in.right)
     in.left = in.right = false;
   if (in.up && in.down)
@@ -1161,6 +1163,8 @@ void World::respawnPlayer()
     resetToon();
   if (mWest.on)
     resetWest();
+  if (mMagma.on)
+    resetMagma();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

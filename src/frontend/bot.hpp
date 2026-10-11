@@ -69,6 +69,10 @@ public:
   bool dish(const World& world, Input& in);
   int mDishWait = 0;
   int mDishChecked = -1;
+  // Magma Mainframe (bot_magma.cpp): shoot the RATINGS server from the
+  // nook for the bonus.
+  bool magma(const World& world, Input& in);
+  std::deque<Input> mMagmaQueue;
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);

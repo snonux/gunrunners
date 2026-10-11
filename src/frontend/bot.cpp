@@ -221,6 +221,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 33: the RATINGS server, for the bonus.
+  if (world.magma().on)
+  {
+    Input in;
+    if (magma(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 32: stay on a dish's ride through a turn that helps.
   if (world.dish().on)
   {

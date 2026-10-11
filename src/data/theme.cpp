@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 40> kVariants{{
+const std::array<Variant, 41> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -605,6 +605,21 @@ const std::array<Variant, 40> kVariants{{
     rgb(160, 90, 70), rgb(120, 66, 48),
     rgb(150, 140, 130), rgb(210, 200, 186), rgb(70, 62, 56), rgb(255, 60, 60),
     rgb(255, 246, 230), "dish"}},
+  // Level 33: a data centre inside a volcano, black basalt and steel racks
+  // with blue status lights over orange magma glow.
+  {"volcano_datacenter",
+   {ThemeId::StationZero,
+    "MAGMA MAINFRAME",
+    "UP THROUGH THE SERVER FLOORS BEFORE THE LAVA GETS THERE",
+    rgb(20, 8, 10), rgb(70, 20, 14), rgb(200, 70, 20),
+    rgb(52, 44, 46), rgb(96, 84, 86), rgb(22, 18, 20),
+    rgb(80, 170, 255), rgb(150, 220, 255),
+    rgb(120, 126, 136), rgb(60, 64, 72),
+    rgb(255, 90, 20), rgb(255, 190, 80),
+    rgb(80, 170, 255), rgb(255, 150, 40),
+    rgb(60, 30, 26), rgb(90, 44, 34),
+    rgb(110, 110, 120), rgb(180, 180, 190), rgb(40, 40, 46), rgb(255, 60, 40),
+    rgb(255, 236, 220), "magma"}},
 }};
 
 } // namespace
