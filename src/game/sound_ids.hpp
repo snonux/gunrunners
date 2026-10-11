@@ -177,6 +177,14 @@ enum class Sfx
   EraserRub, // the eraser rubbing a floor out (a squeaking rubber scrub)
   Honk,      // Buddy Boom hit (a squeeze-bulb horn honk)
   RubberBoing, // a flat Rubber Goon bouncing a runner (a long twanging boing)
+  DialTurn,  // Level 29: an RGB dial clicking round, a signal change on its way (a knob notch, a blip of static, two rising notes)
+  ChannelFlip, // the change landing, every bar swapping (a CRT's thump with a crackle)
+  TintTurn,  // the Tri-Tone turning its tint (a selector's detent and a pure blip)
+  SnowHiss,  // a Static Swarm about to latch on (TV snow swelling up)
+  SnowLatch, // a Static Swarm latching on (a burst of static clamping down)
+  TestTone,  // the Test Card's tell (the 1 kHz test tone)
+  CardBeam,  // the Test Card's beam (a hard bright buzz falling away)
+  TuneIn,    // tuned in: the static narrowing into a clean tone that resolves into a chord
   Count,
 };
 

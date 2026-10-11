@@ -361,6 +361,27 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return (squeal + rush) * held + end * std::min(1.0, (total - t) / 0.05);
     });
   }
+  if (id == "static_hiss")
+  {
+    // Dead air (brief_29): the snow between channels for as long as S
+    // talks through it (the cutscene stops it). Steady hiss with the set's
+    // mains buzz, crackles popping in it, a slow wash in its loudness, and
+    // toward the end the hiss thinning out as the runners start to tune.
+    Noise n(seed), m(seed + 11u);
+    OnePole lp, hp;
+    Osc buzz;
+    double crackle = 0.0;
+    return render(12.0, [&](double t, double total) {
+      const double thin = std::clamp((t - 7.0) / 4.0, 0.0, 1.0);
+      const double wash = 0.82 + 0.1 * std::sin(2.0 * kPi * t * 0.37) + 0.08 * std::sin(2.0 * kPi * t * 1.9);
+      const double hiss = hp.highpass(lp.lowpass(n.next(), 8000.0 - 4500.0 * thin), 250.0 + 900.0 * thin);
+      if (m.next() > 0.9996f)
+        crackle = 1.0;
+      crackle *= 0.995;
+      const double env = std::min(1.0, t / 0.3) * std::min(1.0, (total - t) / 0.8);
+      return (hiss * 0.3 * wash * (1.0 - 0.45 * thin) + crackle * m.next() * 0.2 + buzz.step(60.0, Wave::Saw) * 0.012) * env;
+    });
+  }
   if (has(id, "steam") || has(id, "hiss") || has(id, "airlock") || has(id, "sizzle") || has(id, "deflate"))
     return noiseBed(has(id, "static_hiss") ? 3.0 : 1.2, seed, 2000.0, 9000.0, 0.35, 0.05);
   if (has(id, "static") || has(id, "snow") || has(id, "tv_"))

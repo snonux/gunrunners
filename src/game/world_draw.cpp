@@ -2,6 +2,7 @@
 
 #include "assets/enemy_art.hpp"
 #include "game/reactor_draw.hpp"
+#include "game/signal_draw.hpp"
 #include "game/toon_draw.hpp"
 #include "game/zero_draw.hpp"
 
@@ -106,6 +107,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawManorWall(r, camX, camY, frame); // Level 23: the inside walls and windows
   if (mToon.on || mInk.on)
     drawToonSet(r, *this, mArt, camX, camY, frame); // Level 28: rooms, the big top, the Inkwell's page
+  if (mSignal.on && mSignal.air)
+    drawSignalSet(r, *this, mArt, camX, camY, frame); // Level 29: the snow, the Test Card's circle, the bars by the exit
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -335,6 +338,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
       }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
       {
+      if (mSignal.air && mLevel->themeKey == "dead_air")
+      {
+        // Dead Air's duck is striped in the seven bar colours.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_bars", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
         // Too Many Cooks' duck wears a chef's hat.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_chef", 0, 0, 2, 2).get(1), x + 32, y + 64);
@@ -877,6 +887,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       const int d = pr.dx < 0 ? -1 : 1;
       const float a = float(frame + pr.age * 3) * 0.5f * float(d);
       const float rad = 32.0f;
+    if (mSignal.on && drawSignalShot(r, mArt, pr, cx, cy, frame))
+      continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
       DrawOpts o;
       o.angle = a * 57.2958f;
       drawGlow(r, mArt, cx, cy, 40.0f, rgb(220, 230, 255), 0.25f);
@@ -1678,7 +1690,7 @@ void World::drawHud(Renderer& r, int frame) const
     drawNoirHud(r, frame);
   if (mToon.on || mInk.on)
     drawToonHud(r, frame);
-  if (mSignal.on)
+  if (mSignal.on && mSignal.air)
     drawSignalHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);

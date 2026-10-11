@@ -1,6 +1,9 @@
 cutscene brief_29
 music theme_glitch
 
+# clip static_void: the void between channels, ghosted colour bars drifting
+#   through the snow and the three runners tumbling past in silhouette;
+#   8 frames
 shot static_void delay=80 repeat=1
   cue 0 fade=in:400
   cue 0 sound=static_hiss
@@ -11,6 +14,9 @@ shot static_void delay=80 repeat=1
   cue 4 say=S "...can... hear... me..."
   cue 4 hold=1500
 
+# clip runners_listen: the three on a white bar in the static, a test card
+#   behind them, a trace over them steadying from noise to a clean sine;
+#   16 frames
 shot runners_listen delay=120 repeat=1
   cue 0 say=S "Don't fight the noise."
   cue 0 hold=2500

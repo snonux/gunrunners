@@ -9193,6 +9193,204 @@ void halcyonAd(ClipKit& k, int frame, int ticks, float ox, float oy)
       {13.0f, rgba(170, 176, 200, int(255 * std::min(1.0f, (abs - 20.0f) / 2.0f))), 0}, Align::Center);
 }
 
+// --- Level 29: Dead Air (Episode 5 opens between channels) -------------------------
+
+// The SMPTE bars, as the void remembers them.
+constexpr std::array<Color, 7> kVoidBars{rgb(192, 192, 192), rgb(192, 192, 0), rgb(0, 192, 192), rgb(0, 192, 0),
+  rgb(192, 0, 192), rgb(192, 0, 0), rgb(0, 0, 192)};
+
+// The dark round the edge of a dead tube.
+const Texture& voidTube(ClipKit& k)
+{
+  return cached(k, "e5_tube", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_radial(640, 360, 260, 640, 360, 800);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0, 0, 0, 0.0);
+    cairo_pattern_add_color_stop_rgba(g, 0.6, 0, 0, 0, 0.35);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0, 0, 0, 0.92);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// The void: black, the snow over it, faint bars drifting left (2 px a clip
+// frame at 80 ms) with their rows slipping now and then.
+void voidBack(ClipKit& k, int frame, int ticks, float snow)
+{
+  k.r.fillRect(0, 0, W, H, rgb(4, 4, 6));
+  DrawOpts o;
+  o.scale = 2.0f;
+  o.alpha = snow;
+  k.r.draw(snowFrame(k, frame % 4), 0, 0, o);
+  const float bw = 130.0f, drift = std::fmod(float(ticks) * 2.0f / 4.8f, bw * 7.0f);
+  for (float y = 0.0f; y < H; y += 24.0f)
+  {
+    const std::uint32_t hs = hash2(int(y), ticks / 10);
+    const float slip = hs % 9u == 0 ? float(int(hs % 61u) - 30) : 0.0f;
+    for (int i = -1; i < 11; ++i)
+      k.r.fillRect(float(i) * bw - drift + slip, y, bw + 1.0f, 24.0f, withAlpha(kVoidBars[std::size_t((i + 7) % 7)], 30));
+  }
+}
+
+// A runner as a dark silhouette rimmed in white, tumbling: rotated `angle`
+// degrees round its middle.
+void silhouette(ClipKit& k, int who, int pose, float x, float y, float scale, float angle, bool mirror)
+{
+  const Texture& t = runner(k, who, pose, 3.0f, mirror);
+  // The sprite turns round its feet; walk the feet round so it turns round
+  // its middle instead.
+  const float half = float(t.h()) * 0.45f * scale, a = angle * float(kPi) / 180.0f;
+  const float fx = x - std::sin(a) * half, fy = y + std::cos(a) * half;
+  DrawOpts rim;
+  rim.scale = scale;
+  rim.angle = angle;
+  rim.tint = rgb(220, 225, 240);
+  rim.blend = Blend::Add;
+  rim.alpha = 0.35f;
+  for (const auto& d : {std::array<float, 2>{-3, 0}, std::array<float, 2>{3, 0}, std::array<float, 2>{0, -3}, std::array<float, 2>{0, 3}})
+    k.r.draw(t, fx + d[0], fy + d[1], rim);
+  DrawOpts body;
+  body.scale = scale;
+  body.angle = angle;
+  body.tint = rgb(14, 14, 20);
+  k.r.draw(t, fx, fy, body);
+}
+
+// static_void: the void between channels, the bars drifting through it and
+// the three runners tumbling in silhouette (a turn every 12 frames).
+void staticVoid(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  voidBack(k, frame, ticks, 0.42f);
+  const float turns = float(ticks) / (12.0f * 4.8f);
+  struct Fall
+  {
+    int who;
+    float x, y, scale, phase, spin;
+  };
+  static constexpr std::array<Fall, 3> kFalls{{{0, 360, 330, 0.9f, 0.0f, 1.0f}, {1, 700, 420, 1.15f, 2.1f, -0.8f},
+    {2, 990, 260, 0.75f, 4.2f, 1.2f}}};
+  for (const auto& f : kFalls)
+  {
+    const float a = turns * 2.0f * float(kPi) * 0.25f + f.phase;
+    const float x = f.x + std::cos(a) * 40.0f + ox, y = f.y + std::sin(a * 1.3f) * 30.0f + oy;
+    silhouette(k, f.who, f.who == 1 ? 7 : 2, x, y, f.scale, turns * 360.0f * f.spin + f.phase * 50.0f, f.who == 2);
+  }
+  // A roll of brighter snow down the picture.
+  const float band = std::fmod(float(ticks) * 3.0f, H + 160.0f) - 80.0f;
+  k.r.fillRect(0, band, W, 30, rgba(255, 255, 255, 30), Blend::Add);
+  scanlines(k, 70);
+  k.r.draw(voidTube(k), 0, 0);
+}
+
+// The test card behind runners_listen: a grey field with its grid, a great
+// circle, a band of bars, a step wedge and the crosshair, all half lost.
+const Texture& listenCard(ClipKit& k)
+{
+  return cached(k, "e5_listen_card", 1280, 720, 0, 0, [](cairo_t* cr) {
+    const double cx = 640, cy = 300, R = 280;
+    for (int x = 0; x <= 1280; x += 64)
+    {
+      cairo_rectangle(cr, x - 1, 0, 2, 720);
+      setRgbaC(cr, rgb(220, 220, 235), 0.08);
+      cairo_fill(cr);
+    }
+    for (int y = 12; y <= 720; y += 64)
+    {
+      cairo_rectangle(cr, 0, y - 1, 1280, 2);
+      setRgbaC(cr, rgb(220, 220, 235), 0.08);
+      cairo_fill(cr);
+    }
+    cairo_save(cr);
+    cairo_arc(cr, cx, cy, R, 0, 2 * kPi);
+    cairo_clip(cr);
+    cairo_rectangle(cr, cx - R, cy - R, 2 * R, 2 * R);
+    setRgbaC(cr, rgb(40, 40, 46), 0.6);
+    cairo_fill(cr);
+    for (int i = 0; i < 7; ++i)
+    {
+      cairo_rectangle(cr, cx - R + i * 2 * R / 7.0, cy - 170, 2 * R / 7.0 + 0.5, 110);
+      setRgbaC(cr, kVoidBars[std::size_t(i)], 0.5);
+      cairo_fill(cr);
+    }
+    for (int i = 0; i < 6; ++i)
+    {
+      const int v = 240 - i * 42;
+      cairo_rectangle(cr, cx - 200 + i * 400 / 6.0, cy + 80, 400 / 6.0 + 0.5, 50);
+      setRgbaC(cr, rgb(v, v, v), 0.45);
+      cairo_fill(cr);
+    }
+    // Resolution gratings either side of the middle.
+    for (int i = 0; i < 12; ++i)
+    {
+      cairo_rectangle(cr, cx - 240 + i * 6, cy - 40, 3, 80);
+      cairo_rectangle(cr, cx + 170 + i * 6, cy - 40, 3, 80);
+    }
+    setRgbaC(cr, rgb(230, 230, 240), 0.35);
+    cairo_fill(cr);
+    cairo_restore(cr);
+    cairo_arc(cr, cx, cy, R, 0, 2 * kPi);
+    setRgbaC(cr, rgb(240, 240, 250), 0.55);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    cairo_arc(cr, cx, cy, 70, 0, 2 * kPi);
+    setRgbaC(cr, rgb(240, 240, 250), 0.4);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, cx - R, cy - 1, 2 * R, 2);
+    cairo_rectangle(cr, cx - 1, cy - R, 2, 2 * R);
+    setRgbaC(cr, rgb(240, 240, 250), 0.3);
+    cairo_fill(cr);
+  });
+}
+
+// runners_listen: the three standing on a white bar in the static, heads on
+// one side, a test card behind them, and over them a trace that steadies
+// from noise into a clean sine over the 16 frames.
+void runnersListen(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float u = std::clamp((float(frame) + float(ticks % 7) / 7.0f) / 15.0f, 0.0f, 1.0f);
+  voidBack(k, frame, ticks, 0.3f * (1.0f - 0.5f * u));
+  // The card, jittering less as the signal steadies.
+  DrawOpts card;
+  card.alpha = 0.55f + 0.35f * u;
+  const float jit = (1.0f - u) * float(int(hash2(ticks / 2, 7) % 13u) - 6);
+  k.r.draw(listenCard(k), jit + ox * 0.5f, oy * 0.5f, card);
+  // The white bar they stand on, glowing into the dark.
+  const float barY = 500.0f + oy; // clear of the speech box
+  drawGlow(k.r, k.art, 640 + ox, barY + 10, 380.0f, rgb(230, 235, 255), 0.18f);
+  k.r.fillRect(180 + ox, barY, 920, 40, rgb(244, 244, 248));
+  k.r.fillRect(180 + ox, barY, 920, 4, rgb(255, 255, 255));
+  k.r.fillRect(180 + ox, barY + 36, 920, 4, rgb(176, 178, 190));
+  k.r.fillRect(180 + ox, barY - 3, 920, 2, rgba(255, 70, 80, 90));
+  // Dash, Rocco and Nova, heads tilted to the sound.
+  static constexpr std::array<std::array<float, 3>, 3> kStand{{{430, -7, 0}, {640, 5, 1}, {850, -6, 2}}};
+  for (const auto& s : kStand)
+  {
+    DrawOpts o;
+    o.angle = s[1] + std::sin(float(ticks) * 0.05f + s[2]) * 1.5f;
+    k.r.draw(runner(k, int(s[2]), 0, 2.6f, s[2] == 2.0f), s[0] + ox, barY + 2, o);
+  }
+  // The trace: noise settling into a sine.
+  const float y0 = 150.0f + oy, amp = 46.0f;
+  float px = 150.0f, py = y0;
+  for (float x = 150.0f; x <= 1130.0f; x += 6.0f)
+  {
+    const float sine = std::sin((x - 150.0f) / 980.0f * 6.0f * float(kPi) - float(ticks) * 0.12f) * amp * u;
+    const float noise = (float(int(hash2(int(x), ticks / 2) % 200u)) / 100.0f - 1.0f) * amp * 1.2f * (1.0f - u);
+    const float y = y0 + sine + noise;
+    if (x > 150.0f)
+    {
+      k.r.drawLine(px + ox, py, x + ox, y, 10.0f, rgba(120, 255, 170, 40), Blend::Add);
+      k.r.drawLine(px + ox, py, x + ox, y, 3.0f, lerpColor(rgb(200, 210, 220), rgb(150, 255, 190), u));
+    }
+    px = x;
+    py = y;
+  }
+  scanlines(k, 50);
+  k.r.draw(voidTube(k), 0, 0);
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -9266,6 +9464,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return lancePanic(k, frame, ticks, ox, oy);
   if (clip == "halcyon_ad")
     return halcyonAd(k, frame, ticks, ox, oy);
+  // Level 29.
+  if (clip == "static_void") // before starts(clip, "static") below
+    return staticVoid(k, frame, ticks, ox, oy);
+  if (clip == "runners_listen") // before starts(clip, "runners") below
+    return runnersListen(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

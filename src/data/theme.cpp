@@ -558,7 +558,7 @@ const std::array<Variant, 37> kVariants{{
     rgb(240, 220, 40), rgb(60, 200, 255),
     rgb(40, 40, 46), rgb(24, 24, 28),
     rgb(170, 170, 180), rgb(230, 230, 240), rgb(70, 70, 80), rgb(255, 255, 255),
-    rgb(240, 240, 240), ""}},
+    rgb(240, 240, 240), "dead_air"}},
 }};
 
 } // namespace

@@ -172,7 +172,8 @@ void World::linkSignal()
     s.homeX = mPlayer.x;
     s.homeY = mPlayer.y;
   }
-  s.on = s.on || mLevel->themeKey == "dead_air";
+  s.air = s.wrap || mLevel->themeKey == "dead_air";
+  s.on = s.on || s.air || !s.treasures.empty(); // Episode 5's treasures, in any level
   if (!s.on)
     return;
   applySignal();
@@ -207,7 +208,7 @@ void World::requestSignal(int c)
     return;
   s.pending = c;
   s.flash = kSignalFlash;
-  playSound(Sfx::Blink);
+  playSound(Sfx::DialTurn);
 }
 
 void World::stepSignal()
@@ -308,7 +309,7 @@ void World::updateSignal(const PlayerInput& input)
       s.color = s.pending;
       s.pending = -1;
       applySignal();
-      playSound(Sfx::Zap);
+      playSound(Sfx::ChannelFlip);
     }
   }
   // The Test Card down by any means counts.
@@ -333,7 +334,7 @@ void World::updateSignal(const PlayerInput& input)
     s.shake = kTuneShake;
     mCamera.shake(8, 2.0f);
     showMessage("SIGNAL LOCKED: TUNED IN");
-    playSound(Sfx::Chime);
+    playSound(Sfx::TuneIn);
   }
   // Treasures.
   for (auto& t : s.treasures)
@@ -347,12 +348,12 @@ void World::updateSignal(const PlayerInput& input)
       playSound(Sfx::Chime);
     }
   // The bonus entrance shows (and counts) only while the black bars are solid.
-  if (!s.wrap)
+  if (!s.wrap && s.air)
     for (auto& pr : mProps)
       if (pr.kind == PropKind::BonusDoor)
         pr.dormant = !blackLit();
   // Frame 4242: the backdrop static says thanks, for one frame.
-  s.egg = mStats.frames == 4242 ? 1 : 0;
+  s.egg = s.air && mStats.frames == 4242 ? 1 : 0;
 }
 
 void World::shutCardWall(bool shut)
@@ -377,7 +378,7 @@ bool World::turnTint(const Button& fire)
   {
     s.tint = (s.tint + 1) % 3;
     s.tintCool = kTintCool;
-    playSound(Sfx::Click);
+    playSound(Sfx::TintTurn);
   }
   return true;
 }
@@ -551,7 +552,7 @@ void World::updateStaticSwarm(Enemy& e, const EnemyDef& def)
   if (e.tell == 0)
   {
     e.tell = kSwarmHiss;
-    playSound(Sfx::Hiss);
+    playSound(Sfx::SnowHiss);
   }
   if (--e.tell > 0)
     return;
@@ -563,7 +564,7 @@ void World::updateStaticSwarm(Enemy& e, const EnemyDef& def)
     mSignal.snow = kSnowFrames;
     mSignal.snowQuarter = e.attach > 0 ? 1 : 0;
   }
-  playSound(Sfx::Hiss);
+  playSound(Sfx::SnowLatch);
 }
 
 void World::updateTestCard(Enemy& e, const EnemyDef& def)
@@ -585,7 +586,7 @@ void World::updateTestCard(Enemy& e, const EnemyDef& def)
     {
       b.burning = true;
       b.t = 0;
-      playSound(Sfx::EyeBeam);
+      playSound(Sfx::CardBeam);
     }
     if (b.burning)
     {
@@ -650,7 +651,7 @@ void World::updateTestCard(Enemy& e, const EnemyDef& def)
   b.y0 = by;
   b.x1 = bx + dx / len * float(kCardReach);
   b.y1 = by + dy / len * float(kCardReach);
-  playSound(Sfx::Beep);
+  playSound(Sfx::TestTone);
 }
 
 void World::updateGhostImage(Enemy& e, const EnemyDef& def)

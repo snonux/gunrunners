@@ -2348,6 +2348,128 @@ std::vector<float> makeSfx(Sfx id)
         return v * 0.34 * attack(t, 0.004) * decay(t, 0.35) * std::min(1.0, (total - t) / 0.08);
       });
     }
+    case Sfx::DialTurn:
+    {
+      // An RGB dial clicking round a notch: a hard plastic click, a blip of
+      // static as the picture starts to change, and two rising notes.
+      Noise n(401), m(409);
+      Svf bp;
+      OnePole hp;
+      Osc a;
+      return render(0.32, [&](double t, double total) {
+        const double c = bp.band(n.next(), 2600.0, 3.0) * decay(t, 0.005) * 0.45;
+        const double st = t > 0.015 ? hp.highpass(m.next(), 1800.0) * decay(t - 0.015, 0.04) * 0.22 : 0.0;
+        const double u = t - 0.05;
+        const double tone = u > 0.0 ? a.step(u < 0.08 ? 660.0 : 990.0, Wave::Sine) * 0.15 * attack(u, 0.004) *
+            (u < 0.08 ? 1.0 : decay(u - 0.08, 0.07)) : 0.0;
+        return (c + st + tone) * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::ChannelFlip:
+    {
+      // The change landing: a picture tube's thump as every bar swaps, the
+      // mains hum swelling and dying under it, a crackle across the top.
+      Osc thump, hum;
+      Noise n(419);
+      OnePole hp;
+      Svf lp;
+      return render(0.34, [&](double t, double total) {
+        const double th = thump.step(sweep(110.0, 45.0, t / 0.12), Wave::Sine) * decay(t, 0.06) * 0.36;
+        const double h = lp.low(float(hum.step(120.0, Wave::Saw)), 700.0, 1.0) * decay(t, 0.1) * 0.12;
+        const double cr = (n.next() > 0.88f ? 1.0 : 0.0) * hp.highpass(n.next(), 3000.0) * decay(t, 0.05) * 0.28;
+        return (th + h + cr) * attack(t, 0.002) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::TintTurn:
+    {
+      // The Tri-Tone's selector: a tight detent and a short pure blip.
+      Noise n(421);
+      Svf bp;
+      Osc a;
+      return render(0.12, [&](double t, double total) {
+        const double c = bp.band(n.next(), 3400.0, 4.0) * decay(t, 0.003) * 0.35;
+        const double b = t > 0.012 ? a.step(1320.0, Wave::Sine) * 0.14 * attack(t - 0.012, 0.003) * decay(t - 0.012, 0.035) : 0.0;
+        return (c + b) * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::SnowHiss:
+    {
+      // A Static Swarm winding up: TV snow swelling, its band climbing.
+      Noise n(431);
+      Svf bp;
+      return render(0.2, [&](double t, double total) {
+        const double u = t / total;
+        return bp.band(n.next(), sweep(1800.0, 6500.0, u), 0.9) * 0.3 * u * u * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::SnowLatch:
+    {
+      // A Static Swarm latching on: a burst of static clamping down, the
+      // crackle held and stuttering, and a buzzy chirp.
+      Noise n(433), m(439);
+      OnePole hp;
+      Osc chirp;
+      double held = 0.0;
+      int hold = 0;
+      return render(0.36, [&](double t, double total) {
+        if (hold-- <= 0)
+        {
+          held = m.next();
+          hold = 6 + int(t * 60.0);
+        }
+        const double st = hp.highpass(n.next(), 900.0) * 0.5 + held * 0.25;
+        const double gate = std::sin(t * 2.0 * kPi * 22.0) > -0.3 ? 1.0 : 0.35;
+        const double ch = t < 0.08 ? chirp.step(sweep(900.0, 2400.0, t / 0.08), Wave::Square, 0.3) * 0.08 : 0.0;
+        return (st * gate * 0.45 + ch) * attack(t, 0.004) * decay(t, 0.16) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::TestTone:
+    {
+      // The Test Card's tell: the 1 kHz test tone, a quarter second, with
+      // the faintest hum under it.
+      Osc a, b;
+      return render(0.25, [&](double t, double total) {
+        const double tone = a.step(1000.0, Wave::Sine) + b.step(3000.0, Wave::Sine) * 0.04;
+        return tone * 0.12 * attack(t, 0.01) * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::CardBeam:
+    {
+      // The Test Card's beam: a hard bright buzz, the sweep falling away,
+      // fizzing at the edges.
+      Osc a, b;
+      Noise n(443);
+      OnePole hp;
+      Svf f;
+      return render(0.4, [&](double t, double total) {
+        const double fr = sweep(1400.0, 360.0, t / total);
+        const double buzz = f.low(float(a.step(fr, Wave::Saw) * 0.6 + b.step(fr * 1.5, Wave::Square, 0.3) * 0.4), 3200.0, 1.2);
+        const double fizz = hp.highpass(n.next(), 4000.0) * 0.5;
+        return (buzz * 0.24 + fizz * 0.1) * attack(t, 0.004) * decay(t, 0.18) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::TuneIn:
+    {
+      // Tuned in: the static narrows to a clean tone, then the tone opens
+      // into a bright major chord.
+      std::vector<float> b(std::size_t(samples(1.6)), 0.0f);
+      {
+        Noise n(449);
+        Svf bp;
+        Osc tone;
+        for (std::size_t i = 0; i < b.size(); ++i)
+        {
+          const double t = double(i) / kRate, u = std::min(1.0, t / 0.7);
+          const double hiss = u < 1.0 ? bp.band(n.next(), 880.0, lerp(0.7, 12.0, u * u)) * (1.0 - u) * 0.3 : 0.0;
+          const double pure = tone.step(880.0, Wave::Sine) * 0.12 * u * (t < 0.7 ? 1.0 : decay(t - 0.7, 0.3));
+          b[i] = float((hiss + pure) * attack(t, 0.02));
+        }
+      }
+      for (const double note : {69.0, 73.0, 76.0, 81.0})
+        addTone(b, 0.62, 0.95, midiFreq(note), Wave::Triangle, 0.1, 0.5);
+      addTone(b, 0.62, 0.95, midiFreq(57.0), Wave::Sine, 0.12, 0.6);
+      return b;
+    }
     case Sfx::Count:
       break;
   }

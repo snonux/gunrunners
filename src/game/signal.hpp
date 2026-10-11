@@ -78,6 +78,7 @@ struct Treasure
 struct SignalState
 {
   bool on = false;
+  bool air = false; // Dead Air itself (or Wraparound), not just a level with a treasure
   int color = kSignalRed;
   int pending = -1; // the incoming colour while a change waits
   int flash = 0;    // frames left of the incoming bars' flash
