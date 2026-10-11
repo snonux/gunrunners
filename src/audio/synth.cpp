@@ -2635,6 +2635,214 @@ std::vector<float> makeSfx(Sfx id)
       addTone(b, 0.18, 0.5, midiFreq(91), Wave::Sine, 0.04, 0.12);
       return b;
     }
+    case Sfx::StormStrike:
+    {
+      // Level 31: lightning close by: a tearing crack (bright noise in fast
+      // ragged bursts), the boom of the air closing behind it and a rumble
+      // rolling away down the cliff.
+      Noise n(601), m(607), q(613);
+      OnePole hp, lp2;
+      Svf lp;
+      Osc boom;
+      double held = 0.0;
+      int counter = 0;
+      return render(2.6, [&](double t, double total) {
+        if (counter-- <= 0)
+        {
+          held = m.next();
+          counter = int(lerp(2.0, 30.0, t / total));
+        }
+        const double rip = t < 0.12 ? hp.highpass(n.next(), 2200.0) * (q.next() > -0.2f ? 1.0 : 0.25) * decay(t, 0.04) : 0.0;
+        const double bm = boom.step(sweep(70.0, 30.0, t / 0.6), Wave::Sine) * attack(t, 0.01) * decay(t, 0.35);
+        const double roll = lp.low(float(held * 0.7 + n.next() * 0.3), sweep(1400.0, 80.0, t / total), 1.2) *
+          (0.6 + 0.4 * std::sin(t * 9.0 + std::sin(t * 3.1) * 2.0)) * attack(t, 0.05) * decay(t, 0.9);
+        const double body = lp2.lowpass(n.next(), 110.0) * 2.4 * decay(t, 0.6);
+        return (rip * 0.5 + bm * 0.3 + roll * 0.5 + body * 0.35) * 0.68 * std::min(1.0, (total - t) / 0.3);
+      });
+    }
+    case Sfx::StormGlow:
+    {
+      // The metal charging before a strike: a buzz of static that climbs
+      // and swells, crackles coming faster and harder toward the end.
+      Noise n(617), m(619);
+      OnePole hp;
+      Osc buzz, buzz2;
+      return render(0.4, [&](double t, double total) {
+        const double u = t / total;
+        const double b = (buzz.step(sweep(90.0, 240.0, u), Wave::Saw) + buzz2.step(sweep(180.0, 486.0, u), Wave::Saw) * 0.4) *
+          (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 60.0)) * 0.12 * (0.3 + 0.7 * u);
+        const double crack = (m.next() > float(0.94 - 0.12 * u) ? 1.0 : 0.0) * hp.highpass(n.next(), 3000.0) * (0.35 + 0.5 * u);
+        return (b + crack) * 0.56 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::RodThunk:
+    {
+      // A Tesla rod biting into rock: a hard thunk, a short copper ring and
+      // a little electric zing off its bulb.
+      Noise n(631);
+      Svf bp;
+      Osc a, b, c, z;
+      return render(0.42, [&](double t, double total) {
+        const double tk = bp.band(n.next(), 1500.0, 1.4) * decay(t, 0.012) * 0.45;
+        const double body = a.step(sweep(200.0, 90.0, t / 0.08), Wave::Sine) * decay(t, 0.05) * 0.3;
+        const double ring = (b.step(1320.0, Wave::Sine) + c.step(2150.0, Wave::Sine) * 0.5) * decay(t, 0.12) * 0.09;
+        const double u = t - 0.04;
+        const double zing = u > 0.0 ? z.step(sweep(2400.0, 5200.0, u / 0.15), Wave::Square, 0.3) * decay(u, 0.05) * 0.05 : 0.0;
+        return (tk + body + ring + zing) * 0.84 * attack(t, 0.001) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::RodArc:
+    {
+      // A struck rod's arcs: a sharp zap leaping out and a sizzle after.
+      Noise n(641), m(643);
+      OnePole hp;
+      Osc z, z2;
+      return render(0.4, [&](double t, double total) {
+        const double zap = (z.step(sweep(2600.0, 300.0, t / 0.12), Wave::Saw) * 0.5 + z2.step(sweep(1300.0, 160.0, t / 0.12), Wave::Square) * 0.3) *
+          decay(t, 0.05);
+        const double sz = (m.next() > 0.6f ? 1.0 : 0.2) * hp.highpass(n.next(), 4000.0) * decay(t, 0.12);
+        return (zap * 0.36 + sz * 0.3) * attack(t, 0.001) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::MachinePower:
+    {
+      // A dead machine waking: a relay's clack, then a motor spinning up
+      // from a growl to a steady electric hum.
+      Noise n(653);
+      Svf bp;
+      Osc mo, mo2, hum;
+      return render(1.1, [&](double t, double total) {
+        const double clack = bp.band(n.next(), 1800.0, 2.0) * decay(t, 0.01) * 0.6;
+        const double u = std::min(1.0, t / 0.7);
+        const double f = sweep(40.0, 180.0, u * u * (3.0 - 2.0 * u));
+        const double motor = (mo.step(f, Wave::Saw) * 0.6 + mo2.step(f * 2.0, Wave::Triangle) * 0.4) * 0.16 * attack(t, 0.08);
+        const double h = hum.step(120.0, Wave::Sine) * 0.08 * std::max(0.0, (t - 0.5) / 0.5);
+        return (clack + motor + h) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::GullCry:
+    {
+      // A herring gull's cry: a harsh "kee-yow", pitch flung up then
+      // falling, its rasp in the overtones; a second shorter one after.
+      Osc a, b, c;
+      Noise n(659);
+      Svf bp;
+      return render(0.62, [&](double t, double total) {
+        auto call = [&](double u, double len) {
+          if (u < 0.0 || u > len)
+            return 0.0;
+          const double k = u / len;
+          const double f = k < 0.25 ? sweep(1100.0, 1900.0, k / 0.25) : sweep(1900.0, 850.0, (k - 0.25) / 0.75);
+          const double rasp = 1.0 + 0.35 * std::sin(u * 2.0 * kPi * 70.0);
+          const double v = (a.step(f, Wave::Saw) * 0.5 + b.step(f * 1.5, Wave::Triangle) * 0.3 + c.step(f * 0.5, Wave::Sine) * 0.2) * rasp;
+          return bp.band(float(v + n.next() * 0.15), f * 1.4, 1.2) * std::min(1.0, u / 0.015) * std::min(1.0, (len - u) / 0.05);
+        };
+        return (call(t, 0.34) + call(t - 0.38, 0.2) * 0.7) * 0.42 * std::min(1.0, (total - t) / 0.02);
+      });
+    }
+    case Sfx::GullDive:
+    {
+      // A Storm Gull diving: wind rushing past its folded wings, rising.
+      Noise n(661);
+      Svf bp;
+      return render(0.5, [&](double t, double total) {
+        const double u = t / total;
+        return bp.band(n.next(), sweep(500.0, 2600.0, u), 1.6) * attack(t, 0.15) * decay(t, 0.3) * 0.9 *
+          std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::KiteWhine:
+    {
+      // A Kite Drone turning at you: its rotors' whine climbing, a buzz in
+      // the blades, a wobble of the wind on them.
+      Osc a, b, lfo;
+      Noise n(673);
+      OnePole hp;
+      return render(0.55, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(380.0, 1500.0, std::min(1.0, u * 1.3));
+        const double chop = 0.65 + 0.35 * std::sin(t * 2.0 * kPi * sweep(30.0, 90.0, u));
+        const double v = (a.step(f, Wave::Saw) * 0.45 + b.step(f * 2.0, Wave::Sine) * 0.35) * chop;
+        const double air = hp.highpass(n.next(), 2500.0) * 0.12;
+        return (v * 0.22 + air) * attack(t, 0.03) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::FogWheeze:
+    {
+      // A Foghorn's bellows filling: a breathy inhale rising, a reed
+      // wheezing in it.
+      Noise n(677);
+      Svf bp, bp2;
+      Osc reed;
+      return render(0.4, [&](double t, double total) {
+        const double u = t / total;
+        const double breath = bp.band(n.next(), sweep(500.0, 1400.0, u), 1.3) * 0.5;
+        const double wz = bp2.band(float(reed.step(sweep(300.0, 460.0, u), Wave::Saw)), 900.0, 3.0) * 0.25 * u;
+        return (breath + wz) * 0.86 * attack(t, 0.12) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::FogBlast:
+    {
+      // A Foghorn's blast: a deep brassy diaphone, the "BEEE-oh" of a
+      // lighthouse horn, its grunt at the end, the air rumbling with it.
+      Osc a, b, c, d;
+      Svf lp;
+      Noise n(683);
+      OnePole lp2;
+      return render(1.0, [&](double t, double total) {
+        const double fall = t > 0.7 ? sweep(1.0, 0.82, (t - 0.7) / 0.3) : 1.0;
+        const double f = 98.0 * fall * (1.0 + 0.004 * std::sin(t * 2.0 * kPi * 5.0));
+        const double v = a.step(f, Wave::Saw) * 0.55 + b.step(f * 2.0, Wave::Saw) * 0.3 + c.step(f * 3.0, Wave::Square) * 0.12 +
+          d.step(f * 0.5, Wave::Sine) * 0.4;
+        const double brass = lp.low(float(v), sweep(600.0, 1500.0, std::min(1.0, t / 0.15)), 1.6);
+        const double air = lp2.lowpass(n.next(), 300.0) * 0.6;
+        return (brass * 0.4 + air * 0.3) * 0.9 * attack(t, 0.04) * std::min(1.0, (total - t) / 0.12);
+      });
+    }
+    case Sfx::BungeeStretch:
+    {
+      // Bungee's rope stretching: a rubbery creak, slow ticks of friction.
+      Noise n(691);
+      Svf bp;
+      Osc o;
+      return render(0.45, [&](double t, double total) {
+        const double tick = std::fmod(t, 0.035) < 0.012 ? 1.0 : 0.25;
+        const double creak = bp.band(n.next(), sweep(300.0, 650.0, t / total), 5.0) * tick * 0.7;
+        const double groan = o.step(sweep(90.0, 140.0, t / total), Wave::Triangle) * 0.08;
+        return (creak + groan) * 0.64 * attack(t, 0.03) * std::min(1.0, (total - t) / 0.06);
+      });
+    }
+    case Sfx::BungeeTwang:
+    {
+      // Let go: a deep elastic twang that bends up, its wobble dying away.
+      Osc a, b;
+      Noise n(701);
+      Svf bp;
+      return render(0.7, [&](double t, double total) {
+        const double f = sweep(55.0, 140.0, std::min(1.0, t / 0.25)) * (1.0 + 0.06 * std::sin(t * 2.0 * kPi * 9.0) * decay(t, 0.2));
+        const double v = (a.step(f, Wave::Saw) * 0.6 + b.step(f * 2.0, Wave::Triangle) * 0.4) * decay(t, 0.22);
+        const double slap = bp.band(n.next(), 900.0, 1.5) * decay(t, 0.02);
+        return (v * 0.32 + slap * 0.4) * attack(t, 0.002) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::StormRing:
+    {
+      // A storm ring taken: a crackle, then a bright electric chime.
+      std::vector<float> b(std::size_t(samples(0.7)), 0.0f);
+      {
+        Noise n(709), m(719);
+        OnePole hp;
+        for (std::size_t i = 0; i < b.size(); ++i)
+        {
+          const double t = double(i) / kRate;
+          b[i] = t < 0.1 ? float((m.next() > 0.5f ? 1.0 : 0.15) * hp.highpass(n.next(), 3500.0) * decay(t, 0.03) * 0.3) : 0.0f;
+        }
+      }
+      addTone(b, 0.03, 0.55, midiFreq(81), Wave::Sine, 0.15, 0.2);
+      addTone(b, 0.08, 0.55, midiFreq(88), Wave::Sine, 0.13, 0.22);
+      addTone(b, 0.08, 0.45, midiFreq(93), Wave::Triangle, 0.05, 0.12);
+      return b;
+    }
     case Sfx::Count:
       break;
   }

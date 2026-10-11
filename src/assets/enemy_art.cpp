@@ -22,6 +22,7 @@
 #include "assets/enemy_art_toon.hpp"
 #include "assets/enemy_art_signal.hpp"
 #include "assets/enemy_art_trench.hpp"
+#include "assets/enemy_art_storm.hpp"
 #include "assets/enemy_art_garden.hpp"
 #include "assets/enemy_art_hull.hpp"
 #include "assets/enemy_art_station.hpp"
@@ -2658,6 +2659,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
            !drawToonArt(c.cr, t, key, w, h, variant, frame) &&
            !drawSignalArt(c.cr, t, key, w, h, variant, frame) &&
            !drawTrenchArt(c.cr, t, key, w, h, variant, frame) &&
+           !drawStormArt(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;

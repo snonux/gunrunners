@@ -1,19 +1,26 @@
 cutscene brief_31
 music theme_rock_storm
 
+# clip lighthouse_storm: slate cloud rolling over a heaving sea, the
+#   lighthouse on its headland with the relay dish, its beam turning, surf
+#   bursting on the rocks, rain; lightning on frames 3 and 9; 12 frames
 shot lighthouse_storm delay=100 repeat=1
   cue 0 fade=in:400
   cue 3 sound=thunder
   cue 3 flash=white:120
 
+# clip lighthouse_storm; 12 frames
 shot lighthouse_storm delay=100 repeat=2
 
+# clip lighthouse_storm; 12 frames
 shot lighthouse_storm delay=100 repeat=1
   cue 9 sound=thunder
   cue 9 flash=white:120
   cue 10 say=S "The relay's up there."
   cue 10 hold=2000
 
+# clip runners_cliff: the three runners at the foot of the cliff in the
+#   rain, Rocco eyeing the rusted stair as its metal starts to glow; 8 frames
 shot runners_cliff delay=120 repeat=1
   cue 0 sound=rain
   cue 2 say=S "Mind the metal."

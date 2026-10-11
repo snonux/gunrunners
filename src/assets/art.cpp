@@ -5,6 +5,7 @@
 #include "assets/art_toon.hpp"
 #include "assets/art_signal.hpp"
 #include "assets/art_trench.hpp"
+#include "assets/art_storm.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -1856,6 +1857,8 @@ Texture bakeLadder(const Renderer& r, const Theme& t)
     return bakeToonLadder(r, t); // a crooked wooden ladder
   if (isDeadAir(t))
     return bakeSignalLadder(r, t); // a white rack
+  if (isStormCliffs(t))
+    return bakeStormLadder(r, t); // rusted iron
   // One block of ladder; the rails straddle the left cell column, so the
   // texture is drawn 16 px left of its block.
   VectorImage img(64, 64);
@@ -2096,6 +2099,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeSignalSolid(r, t, variant);
   if (isFiberTrench(t))
     return bakeTrenchSolid(r, t, variant);
+  if (isStormCliffs(t))
+    return bakeStormSolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2536,6 +2541,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeSignalSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isFiberTrench(t))
     return bakeTrenchSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isStormCliffs(t))
+    return bakeStormSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2667,6 +2674,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
     return bakeToonPlatform(r, t);
   if (isDeadAir(t))
     return bakeSignalPlatform(r, t);
+  if (isStormCliffs(t))
+    return bakeStormPlatform(r, t); // rusted steel grating
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -7277,6 +7286,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeSignalSky(r, t);
   if (isFiberTrench(t))
     return bakeTrenchSky(r, t);
+  if (isStormCliffs(t))
+    return bakeStormSky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7450,6 +7461,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeSignalFar(r, t, kLayerW);
   if (isFiberTrench(t))
     return bakeTrenchFar(r, t, kLayerW);
+  if (isStormCliffs(t))
+    return bakeStormFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7606,6 +7619,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeSignalNear(r, t, kLayerW);
   if (isFiberTrench(t))
     return bakeTrenchNear(r, t, kLayerW);
+  if (isStormCliffs(t))
+    return bakeStormNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))
@@ -7871,6 +7886,8 @@ Texture bakeExitBase(const Renderer& r, const Theme& t)
 {
   if (isFiberTrench(t))
     return bakeTrenchExitBase(r, t); // the cable station's relay
+  if (isStormCliffs(t))
+    return bakeStormExitBase(r, t); // the relay dish
   // 96 wide, 144 tall; anchor so (0,0) is the top-left of the 64x128 exit area.
   VectorImage img(96, 144);
   cairo_t* cr = img.cr();

@@ -135,6 +135,25 @@ std::vector<float> makeNamedSfx(const std::string& id)
   const std::uint32_t seed = seedOf(id);
   const bool loop = has(id, "loop");
   const double len = loop ? 6.0 : 1.0;
+  if (id == "rain")
+  {
+    // Storm Relay (brief_31): rain driving in on the wind at the foot of the
+    // cliff: a dense hiss with big drops spattering, the wind gusting, and
+    // the surf breaking on the rocks below in slow swells.
+    Noise n(seed), drops(seed + 7u), w(seed + 13u), sea(seed + 29u);
+    OnePole lp, hp, slp;
+    Svf wind, surf;
+    return render(6.0, [&](double t, double total) {
+      const double env = std::min(1.0, t / 0.5) * std::min(1.0, (total - t) / 0.6);
+      const double hiss = hp.highpass(lp.lowpass(n.next(), 6000.0), 900.0) * 0.4;
+      const double drop = slp.lowpass(drops.next() > 0.993f ? 1.0f : 0.0f, 3000.0) * 1.6;
+      const double gust = 0.55 + 0.45 * std::sin(t * 1.3 + std::sin(t * 0.7) * 1.5);
+      const double wd = wind.band(w.next(), 380.0 + 260.0 * gust, 2.0) * 0.35 * gust;
+      const double swell = 0.5 + 0.5 * std::sin(t * 2.0 * 3.14159265 / 3.2);
+      const double sf = surf.low(sea.next(), 500.0 + 900.0 * swell, 0.8) * 0.5 * swell * swell;
+      return (hiss + drop + wd + sf) * env * 0.42;
+    });
+  }
   if (id == "sonar_ping")
   {
     // Fiber Trench (brief_30): a submarine's sonar ping, a pure high tone

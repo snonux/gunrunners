@@ -5,6 +5,7 @@
 #include "game/signal_draw.hpp"
 #include "game/toon_draw.hpp"
 #include "game/trench_draw.hpp"
+#include "game/storm_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -112,6 +113,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSignalSet(r, *this, mArt, camX, camY, frame); // Level 29: the snow, the Test Card's circle, the bars by the exit
   if (mTrench.on)
     drawTrenchSet(r, *this, mArt, camX, camY, frame); // Level 30: the deep water, the hold, the station, the cable
+  if (mStorm.on)
+    drawStormSet(r, *this, mArt, camX, camY, frame); // Level 31: the lightning, the sea, the caves' and the tower's walls
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -297,6 +300,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
     {
       const Color c = mLevelProto >= 0 ? protoDef(mLevelProto).color : mTheme.accentA;
       drawGlow(r, mArt, x + 32, y + 32, 72, c, 0.6f + 0.2f * std::sin(float(frame) * 0.2f));
+      if (mStorm.on && mLevelProto == int(ProtoId::TeslaRod))
+      {
+        drawTeslaIcon(r, mArt, x, y, 1.0f, frame); // Level 31 (world_storm_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -357,6 +365,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         // Fiber Trench's duck wears a diving mask and a snorkel.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_diving_mask", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mStorm.on && mLevel->themeKey == "storm_cliffs")
+      {
+        // Storm Relay's duck wears a sou'wester.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_sou_wester", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
@@ -913,6 +928,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
     if (mTrench.on && drawTrenchShot(r, mArt, pr, cx, cy, frame))
       continue; // a harpoon and its line (world_trench_draw.cpp)
+    if (mStorm.on && drawStormShot(r, mArt, pr, cx, cy, frame))
+      continue; // a Tesla rod (world_storm_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1580,6 +1597,8 @@ void World::drawHud(Renderer& r, int frame) const
   const bool proto = p.weapon == Weapon::Proto && p.proto >= 0;
   if (proto && mTrench.on && p.proto == int(ProtoId::HarpoonLine))
     drawHarpoonIcon(r, mArt, x + 18, top + 20); // Level 30: a speargun (world_trench_draw.cpp)
+  else if (proto && mStorm.on && p.proto == int(ProtoId::TeslaRod))
+    drawTeslaIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 31: a copper rod (world_storm_draw.cpp)
   else if (proto)
   {
     DrawOpts io;

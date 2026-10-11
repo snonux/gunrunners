@@ -346,7 +346,7 @@ void World::strike(StormZone& z)
   if (!z.cycle.empty())
     z.cycleAt = (z.cycleAt + 1) % int(z.cycle.size());
   if (!mSimulation)
-    playSound(Sfx::Thunder);
+    playSound(Sfx::StormStrike);
   if (!mSimulation)
     mCamera.shake(6, 1.5f);
   // Enemies touching the struck metal (the target itself included).
@@ -381,6 +381,8 @@ void World::strike(StormZone& z)
           damageEnemy(e, kRodArc);
         }
       }
+      if (!mSimulation)
+        playSound(Sfx::RodArc); // sound only
       if (r.machine >= 0)
         powerMachine(r.machine);
       removeRod(s, t.index);
@@ -423,7 +425,7 @@ void World::powerMachine(int index)
       break;
   }
   if (!mSimulation)
-    playSound(Sfx::Clunk);
+    playSound(Sfx::MachinePower);
 }
 
 void World::openMachine(const Machine& m)
@@ -453,7 +455,7 @@ void World::stickRod(Projectile& pr, int machine)
     removeRod(s, 0);
   s.rods.push_back(r);
   if (!mSimulation)
-    playSound(Sfx::BoltThunk);
+    playSound(Sfx::RodThunk);
   // Its zone's next strike comes to the rod, after the full glow.
   for (auto& z : s.zones)
     if (z.rect.contains(r.x + 1, r.y))
@@ -548,7 +550,7 @@ void World::updateStorm(const PlayerInput& input)
         s.ringTaken[i] = true;
         mStats.score += kBungeeRing;
         if (!mSimulation)
-          playSound(Sfx::Chime);
+          playSound(Sfx::StormRing);
       }
     return;
   }
@@ -561,7 +563,17 @@ void World::updateStorm(const PlayerInput& input)
   {
     ++z.t;
     if (z.t == z.period - z.glow && z.target.kind == TargetKind::None)
+    {
       chooseStrike(z);
+      // Sound only: the metal starts to crackle (when it is in sight).
+      if (!mSimulation)
+        for (const auto& b : struckMetal(z, z.target))
+          if (isOnScreen(b, 4))
+          {
+            playSound(Sfx::StormGlow);
+            break;
+          }
+    }
     if (z.t >= z.period)
     {
       z.t = 0;
@@ -654,7 +666,7 @@ void World::updateStormGull(Enemy& e, const EnemyDef& def)
         e.dive = 1;
         e.tell = def.tell;
         if (!mSimulation)
-          playSound(Sfx::Screech);
+          playSound(Sfx::GullCry);
       }
       break;
     }
@@ -667,6 +679,8 @@ void World::updateStormGull(Enemy& e, const EnemyDef& def)
         e.oy = cy;
         e.aimX = pcx; // through the runner's spot
         e.aimY = pcy;
+        if (!mSimulation)
+          playSound(Sfx::GullDive); // sound only
       }
       break;
     case 2: // down the V
@@ -728,7 +742,7 @@ void World::updateKiteDrone(Enemy& e, const EnemyDef& def)
         k->state = 2;
         k->t = 0;
         if (!mSimulation)
-          playSound(Sfx::Whine);
+          playSound(Sfx::KiteWhine);
       }
       break;
     case 2: // at the runner, as far as the tether lets it
@@ -787,7 +801,7 @@ void World::updateFoghorn(Enemy& e, const EnemyDef& def)
     {
       e.dive = kFogPush;
       if (!mSimulation)
-        playSound(Sfx::Honk);
+        playSound(Sfx::FogBlast);
     }
     return;
   }
@@ -801,7 +815,7 @@ void World::updateFoghorn(Enemy& e, const EnemyDef& def)
   {
     e.tell = def.tell;
     if (!mSimulation)
-      playSound(Sfx::Inhale);
+      playSound(Sfx::FogWheeze);
   }
 }
 
@@ -838,6 +852,8 @@ void World::updateBungeeRide(int mvX, const PlayerInput& in)
       const float ndx = s.postX - (mx + float(mvX));
       if (std::sqrt(ndx * ndx + dy * dy) <= kBungeeMax)
         mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), mvX);
+      if (!s.stretching && dist > kBungeeRest && !mSimulation)
+        playSound(Sfx::BungeeStretch); // sound only
       s.stretching = true;
       p.state = PlayerState::OnGround;
       setVisual(PlayerVisual::Walking);
@@ -851,7 +867,7 @@ void World::updateBungeeRide(int mvX, const PlayerInput& in)
       s.vy = dy / dist * speed;
       s.flying = true;
       if (!mSimulation)
-        playSound(Sfx::RubberBoing);
+        playSound(Sfx::BungeeTwang);
     }
     else
     {

@@ -9707,6 +9707,667 @@ void runnersDive(ClipKit& k, int frame, int ticks, float ox, float oy)
   }
 }
 
+// --- Level 31: Storm Relay (brief_31) ----------------------------------------
+
+constexpr Color kStormBolt = rgb(200, 220, 255);
+
+// The storm sky: low slate cloud over a pale band at the horizon (y 420).
+const Texture& stormSky(ClipKit& k)
+{
+  return cached(k, "storm_sky", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 430);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.07, 0.08, 0.11);
+    cairo_pattern_add_color_stop_rgb(g, 0.65, 0.17, 0.19, 0.23);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.36, 0.4, 0.44);
+    cairo_set_source(cr, g);
+    cairo_paint(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// A cloud bank, 1280 wide and tileable: lumpy slate cloud, darker
+// underneath, lit faintly along the tops. `v` 0 the high bank, 1 the scud.
+const Texture& stormCloud(ClipKit& k, int v)
+{
+  return cached(k, "storm_cloud" + std::to_string(v), int(W), 260, 0, 0, [v](cairo_t* cr) {
+    const double base = v == 0 ? 0.13 : 0.2;
+    for (int pass = 0; pass < 2; ++pass)
+      for (int i = 0; i < 26; ++i)
+      {
+        const double x = std::fmod(i * 97.0 + v * 31.0 + (hash2(i, 401 + v) % 50u), 1280.0);
+        const double y = (v == 0 ? 70.0 : 150.0) + double(hash2(i, 402 + v) % 70u) - pass * 18.0;
+        const double rx = 90.0 + double(hash2(i, 403 + v) % 90u), ry = rx * 0.42;
+        for (const double dx : {0.0, -1280.0, 1280.0})
+        {
+          cairo_save(cr);
+          cairo_translate(cr, x + dx, y);
+          cairo_scale(cr, rx, ry);
+          cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+          cairo_restore(cr);
+          const double s = base + (pass == 1 ? 0.05 : 0.0) + (i % 3) * 0.012;
+          cairo_set_source_rgba(cr, s, s + 0.015, s + 0.035, pass == 0 ? 0.95 : 0.8);
+          cairo_fill(cr);
+        }
+      }
+    // A pale rim along the tops where the sheet lightning catches them.
+    for (int i = 0; i < 26; i += 2)
+    {
+      const double x = std::fmod(i * 97.0 + v * 31.0 + (hash2(i, 401 + v) % 50u), 1280.0);
+      const double y = (v == 0 ? 70.0 : 150.0) + double(hash2(i, 402 + v) % 70u) - 18.0;
+      const double rx = 90.0 + double(hash2(i, 403 + v) % 90u);
+      cairo_new_path(cr);
+      cairo_save(cr);
+      cairo_translate(cr, x, y);
+      cairo_scale(cr, rx, rx * 0.42);
+      cairo_arc(cr, 0, 0, 1, kPi * 1.15, kPi * 1.75);
+      cairo_restore(cr);
+      cairo_set_source_rgba(cr, 0.6, 0.66, 0.75, 0.14);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// The headland on the right and the rocks below it: wet black rock from
+// x 640 to the edge, its top at about y 330, glints of wet on the faces.
+// Anchored at the top-left of the screen.
+const Texture& stormHeadland(ClipKit& k)
+{
+  return cached(k, "storm_headland", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    cairo_move_to(cr, 600, H);
+    cairo_line_to(cr, 640, 520);
+    cairo_line_to(cr, 690, 470);
+    cairo_line_to(cr, 720, 410);
+    cairo_line_to(cr, 770, 372);
+    cairo_line_to(cr, 820, 350);
+    cairo_line_to(cr, 900, 336);
+    cairo_line_to(cr, 1010, 330);
+    cairo_line_to(cr, 1120, 334);
+    cairo_line_to(cr, 1200, 322);
+    cairo_line_to(cr, 1280, 318);
+    cairo_line_to(cr, 1280, H);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 320, 0, H);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.11, 0.12, 0.14);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.03, 0.035, 0.045);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // Strata and cracks, and the wet catching the light.
+    cairo_set_line_width(cr, 2);
+    for (int i = 0; i < 18; ++i)
+    {
+      const double y = 370.0 + i * 20.0, x0 = 700.0 + (hash2(i, 411) % 120u) - std::max(0.0, (y - 470.0) * 0.6);
+      cairo_move_to(cr, x0, y);
+      cairo_curve_to(cr, x0 + 120, y - 8, x0 + 260, y + 10, x0 + 380 + (hash2(i, 412) % 160u), y - 4);
+      cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.45);
+      cairo_stroke(cr);
+      cairo_move_to(cr, x0 + 20, y + 3);
+      cairo_line_to(cr, x0 + 110, y);
+      cairo_set_source_rgba(cr, 0.55, 0.62, 0.72, 0.16);
+      cairo_stroke(cr);
+    }
+    // Grass on the top, beaten flat.
+    cairo_move_to(cr, 770, 372);
+    cairo_line_to(cr, 820, 350);
+    cairo_line_to(cr, 900, 336);
+    cairo_line_to(cr, 1010, 330);
+    cairo_line_to(cr, 1120, 334);
+    cairo_line_to(cr, 1200, 322);
+    cairo_line_to(cr, 1280, 318);
+    cairo_set_source_rgb(cr, 0.14, 0.2, 0.14);
+    cairo_set_line_width(cr, 7);
+    cairo_stroke(cr);
+    // Boulders at the foot, out in the surf (lighthouseStorm draws all this
+    // 50 px lower).
+    for (const auto& b : {std::array<double, 3>{560, 590, 58}, std::array<double, 3>{470, 626, 40},
+           std::array<double, 3>{660, 560, 70}, std::array<double, 3>{360, 650, 34}})
+    {
+      cairo_save(cr);
+      cairo_translate(cr, b[0], b[1]);
+      cairo_scale(cr, b[2], b[2] * 0.7);
+      cairo_arc(cr, 0, 0, 1, kPi, 2 * kPi);
+      cairo_line_to(cr, 1, 0.6);
+      cairo_line_to(cr, -1, 0.6);
+      cairo_close_path(cr);
+      cairo_restore(cr);
+      cairo_set_source_rgb(cr, 0.06, 0.065, 0.08);
+      cairo_fill(cr);
+      cairo_save(cr);
+      cairo_translate(cr, b[0], b[1]);
+      cairo_scale(cr, b[2], b[2] * 0.7);
+      cairo_arc(cr, 0, 0, 0.92, kPi * 1.15, kPi * 1.55);
+      cairo_restore(cr);
+      cairo_set_source_rgba(cr, 0.6, 0.68, 0.78, 0.3);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// The lighthouse on the headland: a white stone tower banded red, the
+// gallery and its railing, the lamp room's glass and dome, and the relay
+// dish on a mast at the gallery. 180 x 330, anchored at its foot.
+const Texture& stormLighthouse(ClipKit& k)
+{
+  return cached(k, "storm_lighthouse", 180, 330, 90, 326, [](cairo_t* cr) {
+    // The tower, tapering.
+    cairo_move_to(cr, 52, 326);
+    cairo_line_to(cr, 128, 326);
+    cairo_line_to(cr, 116, 112);
+    cairo_line_to(cr, 64, 112);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(52, 0, 128, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.5, 0.52, 0.56);
+    cairo_pattern_add_color_stop_rgb(g, 0.35, 0.82, 0.83, 0.86);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.36, 0.37, 0.42);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_source_rgb(cr, 0.06, 0.06, 0.09);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    // Two red bands.
+    for (const auto& band : {std::array<double, 2>{170, 206}, std::array<double, 2>{250, 286}})
+    {
+      const auto xAt = [](double y) { return 64.0 - (y - 112.0) / 214.0 * 12.0; };
+      cairo_move_to(cr, xAt(band[0]), band[0]);
+      cairo_line_to(cr, 180 - xAt(band[0]), band[0]);
+      cairo_line_to(cr, 180 - xAt(band[1]), band[1]);
+      cairo_line_to(cr, xAt(band[1]), band[1]);
+      cairo_close_path(cr);
+      cairo_set_source_rgba(cr, 0.62, 0.12, 0.1, 0.9);
+      cairo_fill(cr);
+    }
+    // The door and two slit windows, lit.
+    cairo_rectangle(cr, 80, 296, 20, 30);
+    cairo_set_source_rgb(cr, 0.1, 0.09, 0.1);
+    cairo_fill(cr);
+    for (const double y : {140.0, 226.0})
+    {
+      cairo_rectangle(cr, 86, y, 8, 18);
+      cairo_set_source_rgb(cr, 1.0, 0.82, 0.45);
+      cairo_fill(cr);
+    }
+    // The gallery and its railing.
+    cairo_rectangle(cr, 46, 104, 88, 10);
+    cairo_set_source_rgb(cr, 0.16, 0.17, 0.2);
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 2);
+    cairo_move_to(cr, 46, 88);
+    cairo_line_to(cr, 134, 88);
+    for (double x = 48; x <= 134; x += 11)
+    {
+      cairo_move_to(cr, x, 88);
+      cairo_line_to(cr, x, 104);
+    }
+    cairo_set_source_rgb(cr, 0.12, 0.13, 0.16);
+    cairo_stroke(cr);
+    // The lamp room: dark frames round warm glass, the dome and its vent.
+    cairo_rectangle(cr, 66, 60, 48, 44);
+    cairo_set_source_rgb(cr, 1.0, 0.9, 0.62);
+    cairo_fill(cr);
+    cairo_set_source_rgb(cr, 0.1, 0.1, 0.12);
+    cairo_set_line_width(cr, 3);
+    cairo_rectangle(cr, 66, 60, 48, 44);
+    cairo_stroke(cr);
+    for (const double x : {82.0, 98.0})
+    {
+      cairo_move_to(cr, x, 60);
+      cairo_line_to(cr, x, 104);
+    }
+    cairo_stroke(cr);
+    cairo_move_to(cr, 60, 62);
+    cairo_curve_to(cr, 64, 34, 116, 34, 120, 62);
+    cairo_close_path(cr);
+    cairo_set_source_rgb(cr, 0.2, 0.22, 0.24);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 86, 26, 8, 14);
+    cairo_fill(cr);
+    // The relay: a mast off the gallery with a dish on it, aimed out to sea.
+    cairo_set_source_rgb(cr, 0.12, 0.13, 0.16);
+    cairo_set_line_width(cr, 3);
+    cairo_move_to(cr, 136, 108);
+    cairo_line_to(cr, 150, 30);
+    cairo_stroke(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 152, 28);
+    cairo_rotate(cr, -0.5);
+    cairo_scale(cr, 10, 22);
+    cairo_arc(cr, 0, 0, 1, kPi * 0.5, kPi * 1.5);
+    cairo_restore(cr);
+    cairo_close_path(cr);
+    cairo_set_source_rgb(cr, 0.72, 0.74, 0.78);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.06, 0.06, 0.09);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_arc(cr, 160, 20, 3, 0, 2 * kPi);
+    cairo_set_source_rgb(cr, 1.0, 0.3, 0.25);
+    cairo_fill(cr);
+  });
+}
+
+// The lamp's beam: a long wedge of warm light fading out, 760 x 180,
+// anchored at its narrow end.
+const Texture& stormBeam(ClipKit& k)
+{
+  return cached(k, "storm_beam", 760, 180, 0, 90, [](cairo_t* cr) {
+    cairo_move_to(cr, 0, 82);
+    cairo_line_to(cr, 760, 0);
+    cairo_line_to(cr, 760, 180);
+    cairo_line_to(cr, 0, 98);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 760, 0);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1.0, 0.95, 0.75, 0.55);
+    cairo_pattern_add_color_stop_rgba(g, 0.4, 1.0, 0.92, 0.7, 0.22);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 1.0, 0.9, 0.7, 0.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// A burst of spray off the rocks: soft white blobs, 260 x 200, anchored at
+// the bottom centre.
+const Texture& stormSpray(ClipKit& k)
+{
+  return cached(k, "storm_spray", 260, 200, 130, 200, [](cairo_t* cr) {
+    for (int i = 0; i < 34; ++i)
+    {
+      const double u = double(hash2(i, 421) % 100u) / 100.0;
+      const double x = 130.0 + (double(hash2(i, 422) % 200u) - 100.0) * (0.3 + u * 0.7);
+      const double y = 190.0 - u * 170.0;
+      const double rad = 8.0 + double(hash2(i, 423) % 22u) * (1.0 - u * 0.5);
+      cairo_pattern_t* g = cairo_pattern_create_radial(x, y, 0, x, y, rad);
+      cairo_pattern_add_color_stop_rgba(g, 0.0, 0.92, 0.95, 1.0, 0.75);
+      cairo_pattern_add_color_stop_rgba(g, 1.0, 0.92, 0.95, 1.0, 0.0);
+      cairo_set_source(cr, g);
+      cairo_arc(cr, x, y, rad, 0, 2 * kPi);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+  });
+}
+
+// A lightning bolt from (x0, y0) to (x1, y1): a jagged line and two
+// branches, a blue halo round a white core.
+void stormBolt(ClipKit& k, float x0, float y0, float x1, float y1, int seed, float alpha)
+{
+  constexpr int kSegs = 14;
+  std::array<std::array<float, 2>, kSegs + 1> pts{};
+  for (int i = 0; i <= kSegs; ++i)
+  {
+    const float u = float(i) / float(kSegs);
+    const float jit = (i == 0 || i == kSegs) ? 0.0f : (float(hash2(seed, i) % 100u) - 50.0f) * 0.9f;
+    pts[i] = {x0 + (x1 - x0) * u + jit, y0 + (y1 - y0) * u + (float(hash2(seed, i + 40) % 20u) - 10.0f)};
+  }
+  const auto stroke = [&](const auto& p, float scale) {
+    for (std::size_t i = 1; i < p.size(); ++i)
+    {
+      k.r.drawLine(p[i - 1][0], p[i - 1][1], p[i][0], p[i][1], 16.0f * scale, rgba(120, 150, 255, int(50 * alpha)), Blend::Add);
+      k.r.drawLine(p[i - 1][0], p[i - 1][1], p[i][0], p[i][1], 6.0f * scale, rgba(200, 220, 255, int(200 * alpha)), Blend::Add);
+      k.r.drawLine(p[i - 1][0], p[i - 1][1], p[i][0], p[i][1], 2.5f * scale, rgba(255, 255, 255, int(255 * alpha)));
+    }
+  };
+  stroke(pts, 1.0f);
+  for (int b = 0; b < 2; ++b)
+  {
+    const int from = 3 + b * 4;
+    std::array<std::array<float, 2>, 5> br{};
+    br[0] = pts[from];
+    const float dir = b == 0 ? -1.0f : 1.0f;
+    for (int i = 1; i < 5; ++i)
+      br[i] = {br[i - 1][0] + dir * (18.0f + float(hash2(seed + b, i + 70) % 22u)),
+        br[i - 1][1] + 16.0f + float(hash2(seed + b, i + 80) % 20u)};
+    stroke(br, 0.55f);
+  }
+  drawGlow(k.r, k.art, x1, y1, 120.0f, kStormBolt, 0.8f * alpha);
+}
+
+// lighthouse_storm: slate cloud rolling left over a heaving sea, the
+// lighthouse on its headland with the relay dish beside the lamp, the
+// lamp's beam turning (12 frames a turn), surf bursting on the rocks below
+// (a 12-frame loop), rain driving across; lightning on frames 3 and 9 (the
+// second strikes the relay's mast).
+void lighthouseStorm(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const bool strike = frame == 3 || frame == 9;
+  const bool after = frame == 4 || frame == 10;
+  k.r.draw(stormSky(k), 0, 0);
+  // The far rain and the sheet lightning behind the clouds.
+  if (strike || after)
+    k.r.fillRect(0, 0, W, 430, rgba(150, 170, 220, strike ? 90 : 36), Blend::Add);
+  panLayer(k, stormCloud(k, 0), float(ticks) * 0.6f + ox * 0.2f, -10 + oy * 0.2f);
+  panLayer(k, stormCloud(k, 1), float(ticks) * 1.4f + ox * 0.4f, 40 + oy * 0.4f, 0.85f);
+  // The sea: dark swells to the horizon, whitecaps running in.
+  k.r.fillRect(0, 418 + oy * 0.5f, W, H, rgb(18, 26, 30));
+  for (int i = 0; i < 12; ++i)
+  {
+    const float y = 420.0f + float(i * i) * 2.3f + oy * 0.5f;
+    k.r.fillRect(0, y, W, 2.0f + float(i) * 0.4f, rgba(70, 92, 100, 60 + i * 6));
+  }
+  k.r.fillRect(0, 418 + oy * 0.5f, W, 3, rgba(150, 165, 175, 140));
+  for (int i = 0; i < 60; ++i)
+  {
+    const float depth = float(hash2(i, 431) % 100u) / 100.0f;
+    const float y = 424.0f + depth * depth * 290.0f + oy * 0.5f;
+    const float speed = 0.3f + depth * 1.6f;
+    const float x = std::fmod(float(hash2(i, 432) % 1400u) - float(ticks) * speed + 14000.0f, 1400.0f) - 60.0f;
+    const float life = std::fmod(float(ticks) * 0.02f + float(hash2(i, 433) % 100u) / 100.0f, 1.0f);
+    const int a = int(std::sin(life * 3.14159f) * (90.0f + 120.0f * depth));
+    k.r.fillRect(x + ox * depth, y, 10.0f + 40.0f * depth, 1.5f + 2.5f * depth, rgba(210, 225, 230, a));
+  }
+  // The first bolt, out at sea.
+  if (frame == 3)
+    stormBolt(k, 300 + ox * 0.3f, 60, 420 + ox * 0.3f, 420 + oy * 0.5f, 31, 1.0f);
+  // The beam: seen from the side it swings out left and right; facing us it
+  // is a flare. Behind the tower when it points away.
+  // The headland sits 50 px lower than its texture, the lighthouse drawn at
+  // 0.85 on top of it, so the lamp clears the letterbox.
+  constexpr float kDrop = 50.0f, kLs = 0.85f, kFootY = 380.0f;
+  const float lampX = 1010.0f + ox, lampY = kFootY - (326.0f - 82.0f) * kLs + oy;
+  const float th = float(frame % 12) / 12.0f * 2.0f * 3.14159f;
+  const float side = std::sin(th), facing = std::cos(th);
+  const auto beam = [&]() {
+    DrawOpts b;
+    b.blend = Blend::Add;
+    b.scale = 0.18f + 0.82f * std::fabs(side);
+    b.alpha = 0.55f + 0.45f * std::fabs(side);
+    b.angle = side < 0.0f ? 180.0f : 0.0f;
+    k.r.draw(stormBeam(k), lampX, lampY, b);
+  };
+  if (facing < 0.0f)
+    beam();
+  k.r.draw(stormHeadland(k), ox, kDrop + oy);
+  DrawOpts lh;
+  lh.scale = kLs;
+  k.r.draw(stormLighthouse(k), 1010 + ox, kFootY + oy, lh);
+  drawGlow(k.r, k.art, lampX, lampY, 60.0f, rgb(255, 220, 140), 0.6f);
+  if (facing >= 0.0f)
+  {
+    beam();
+    drawGlow(k.r, k.art, lampX, lampY, 40.0f + 150.0f * facing, rgb(255, 240, 200), 0.8f * facing);
+  }
+  // The second bolt strikes the relay's mast; the dish and the mast crackle
+  // blue-white after it.
+  const float mastX = 1010.0f + (160.0f - 90.0f) * kLs + ox, mastY = kFootY - (326.0f - 20.0f) * kLs + oy;
+  if (frame == 9)
+    stormBolt(k, 1180 + ox * 0.6f, -20, mastX, mastY, 97, 1.0f);
+  if (frame >= 9)
+  {
+    const float fade = frame == 9 ? 1.0f : frame == 10 ? 0.6f : 0.3f;
+    drawGlow(k.r, k.art, mastX, mastY + 20.0f, 70.0f, kStormBolt, 0.7f * fade);
+    for (int i = 0; i < 5; ++i)
+    {
+      const float a = float(hash2(ticks / 2, i) % 628u) / 100.0f;
+      const float len = 10.0f + float(hash2(ticks / 2, i + 9) % 18u);
+      k.r.drawLine(mastX, mastY + 18.0f, mastX + std::cos(a) * len, mastY + 18.0f + std::sin(a) * len, 1.5f,
+        rgba(220, 235, 255, int(230 * fade)), Blend::Add);
+    }
+  }
+  // Surf bursting on the rocks below, each rock on its own beat.
+  static constexpr std::array<std::array<float, 3>, 4> kRocks{{{560, 640, 0}, {660, 612, 4}, {470, 676, 7}, {760, 690, 9}}};
+  for (const auto& rk : kRocks)
+  {
+    const float ph = std::fmod((float(frame) + float(ticks % 6) / 6.0f - rk[2] + 12.0f), 12.0f) / 12.0f;
+    if (ph > 0.55f)
+      continue;
+    const float u = ph / 0.55f;
+    DrawOpts s;
+    s.scale = 0.35f + 0.9f * std::sqrt(u);
+    s.alpha = u < 0.25f ? u / 0.25f : 1.0f - (u - 0.25f) / 0.75f;
+    k.r.draw(stormSpray(k), rk[0] + ox, rk[1] + 8.0f + oy, s);
+  }
+  // Foam along the foot of the rocks.
+  for (int i = 0; i < 40; ++i)
+  {
+    const float x = 300.0f + float(i) * 26.0f + std::sin(float(ticks) * 0.08f + float(i)) * 8.0f;
+    const float y = 690.0f + float(hash2(i, 441) % 30u) - std::max(0.0f, x - 600.0f) * 0.12f;
+    k.r.fillRect(x + ox, y + oy, 22, 3, rgba(210, 225, 235, 90 + int(hash2(i, 442) % 80u)));
+  }
+  // Rain, slanting hard on the wind.
+  for (int i = 0; i < 110; ++i)
+  {
+    const float depth = 0.5f + float(hash2(i, 451) % 50u) / 100.0f;
+    const float y = std::fmod(float(hash2(i, 452) % 800u) + float(ticks) * 26.0f * depth, 800.0f) - 40.0f;
+    const float x = std::fmod(float(hash2(i, 453) % 1500u) - float(ticks) * 9.0f * depth - y * 0.35f + 15000.0f, 1500.0f) - 100.0f;
+    k.r.drawLine(x + ox, y + oy, x - 10.0f * depth + ox, y + 30.0f * depth + oy, 1.5f, rgba(180, 200, 230, int(70 + 60 * depth)));
+  }
+  if (strike)
+    k.r.fillRect(0, 0, W, H, rgba(200, 215, 255, 60), Blend::Add);
+}
+
+// The foot of the cliff in runners_cliff: the sea and sky off to the left,
+// the wet black rock face on the right with a rusted iron stair zig-zagging
+// up it, shingle under foot. Full screen.
+const Texture& cliffFoot(ClipKit& k)
+{
+  return cached(k, "storm_cliff_foot", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    // The sky and the sea, left.
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 420);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.09, 0.1, 0.13);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.33, 0.37, 0.41);
+    cairo_set_source(cr, g);
+    cairo_paint(cr);
+    cairo_pattern_destroy(g);
+    cairo_rectangle(cr, 0, 400, W, H);
+    cairo_set_source_rgb(cr, 0.07, 0.1, 0.12);
+    cairo_fill(cr);
+    for (int i = 0; i < 9; ++i)
+    {
+      cairo_rectangle(cr, 0, 402 + i * i * 3.0, W, 2 + i * 0.4);
+      cairo_set_source_rgba(cr, 0.35, 0.45, 0.5, 0.25);
+      cairo_fill(cr);
+    }
+    // The cliff face: a mass of black rock from x 480 rightwards, leaning.
+    cairo_move_to(cr, 470, H);
+    cairo_line_to(cr, 500, 520);
+    cairo_line_to(cr, 540, 360);
+    cairo_line_to(cr, 590, 180);
+    cairo_line_to(cr, 620, 0);
+    cairo_line_to(cr, W, 0);
+    cairo_line_to(cr, W, H);
+    cairo_close_path(cr);
+    cairo_pattern_t* rock = cairo_pattern_create_linear(470, 0, W, 0);
+    cairo_pattern_add_color_stop_rgb(rock, 0.0, 0.13, 0.14, 0.16);
+    cairo_pattern_add_color_stop_rgb(rock, 0.3, 0.08, 0.085, 0.1);
+    cairo_pattern_add_color_stop_rgb(rock, 1.0, 0.05, 0.055, 0.07);
+    cairo_set_source(cr, rock);
+    cairo_fill(cr);
+    cairo_pattern_destroy(rock);
+    // Its strata, and the wet shine on the ledges.
+    for (int i = 0; i < 26; ++i)
+    {
+      const double y = 20.0 + i * 26.0 + double(hash2(i, 461) % 10u);
+      const double x0 = 620.0 - y * 0.2 + double(hash2(i, 462) % 60u);
+      cairo_move_to(cr, x0, y);
+      cairo_curve_to(cr, x0 + 200, y + 10, x0 + 400, y - 6, W, y + 8 - double(hash2(i, 463) % 20u));
+      cairo_set_source_rgba(cr, 0, 0, 0, 0.5);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+      cairo_move_to(cr, x0 + 30, y + 4);
+      cairo_line_to(cr, x0 + 90 + double(hash2(i, 464) % 120u), y + 5);
+      cairo_set_source_rgba(cr, 0.6, 0.68, 0.8, 0.14);
+      cairo_set_line_width(cr, 1.5);
+      cairo_stroke(cr);
+    }
+    // Water running down the face in threads.
+    for (int i = 0; i < 7; ++i)
+    {
+      const double x = 660.0 + i * 88.0 + double(hash2(i, 465) % 30u);
+      cairo_move_to(cr, x, 0);
+      for (double y = 0; y < 640; y += 40)
+        cairo_line_to(cr, x + std::sin(y * 0.03 + i) * 4.0, y);
+      cairo_set_source_rgba(cr, 0.55, 0.65, 0.78, 0.06);
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+    // The stair: three rusted flights and their landings up the face, iron
+    // stringers, treads, posts and a handrail, bolted into the rock.
+    const std::array<std::array<double, 4>, 3> flights{{{820, 640, 1110, 460}, {1110, 460, 860, 290}, {860, 290, 1140, 110}}};
+    const auto rust = [&](double a) { cairo_set_source_rgba(cr, 0.45, 0.22, 0.11, a); };
+    for (const auto& f : flights)
+    {
+      const double dx = f[2] - f[0], dy = f[3] - f[1];
+      // Brackets into the rock.
+      for (int s = 1; s < 4; ++s)
+      {
+        const double x = f[0] + dx * s / 4.0, y = f[1] + dy * s / 4.0;
+        cairo_move_to(cr, x, y + 6);
+        cairo_line_to(cr, x + (dx > 0 ? -18 : 18), y + 40);
+        cairo_set_source_rgb(cr, 0.2, 0.12, 0.08);
+        cairo_set_line_width(cr, 4);
+        cairo_stroke(cr);
+      }
+      // Treads.
+      const int steps = 16;
+      for (int s = 0; s < steps; ++s)
+      {
+        const double x = f[0] + dx * (s + 0.5) / steps, y = f[1] + dy * (s + 0.5) / steps;
+        cairo_rectangle(cr, x - 9, y - 2, 18, 4);
+        rust(1.0);
+        cairo_fill(cr);
+        cairo_rectangle(cr, x - 9, y - 2, 18, 1.2);
+        cairo_set_source_rgba(cr, 0.78, 0.5, 0.32, 0.8);
+        cairo_fill(cr);
+      }
+      // The stringer and the handrail on its posts.
+      cairo_move_to(cr, f[0], f[1] + 4);
+      cairo_line_to(cr, f[2], f[3] + 4);
+      cairo_set_source_rgb(cr, 0.3, 0.15, 0.08);
+      cairo_set_line_width(cr, 6);
+      cairo_stroke(cr);
+      for (int s = 0; s <= 4; ++s)
+      {
+        const double x = f[0] + dx * s / 4.0, y = f[1] + dy * s / 4.0;
+        cairo_move_to(cr, x, y);
+        cairo_line_to(cr, x, y - 46);
+      }
+      cairo_move_to(cr, f[0], f[1] - 46);
+      cairo_line_to(cr, f[2], f[3] - 46);
+      rust(1.0);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+      cairo_move_to(cr, f[0], f[1] - 47.5);
+      cairo_line_to(cr, f[2], f[3] - 47.5);
+      cairo_set_source_rgba(cr, 0.8, 0.86, 0.95, 0.35); // rain on the rail
+      cairo_set_line_width(cr, 1);
+      cairo_stroke(cr);
+    }
+    // The landings: grating platforms.
+    for (const auto& l : {std::array<double, 2>{1110, 460}, std::array<double, 2>{860, 290}})
+    {
+      cairo_rectangle(cr, l[0] - 46, l[1], 92, 8);
+      rust(1.0);
+      cairo_fill(cr);
+      for (double x = l[0] - 42; x < l[0] + 46; x += 8)
+      {
+        cairo_rectangle(cr, x, l[1] + 2, 3, 4);
+        cairo_set_source_rgb(cr, 0.12, 0.07, 0.05);
+        cairo_fill(cr);
+      }
+    }
+    // The shingle under foot: wet stones, a puddle catching the sky.
+    cairo_move_to(cr, 0, 630);
+    cairo_curve_to(cr, 300, 618, 700, 640, W, 626);
+    cairo_line_to(cr, W, H);
+    cairo_line_to(cr, 0, H);
+    cairo_close_path(cr);
+    cairo_set_source_rgb(cr, 0.1, 0.1, 0.11);
+    cairo_fill(cr);
+    for (int i = 0; i < 90; ++i)
+    {
+      const double x = double(hash2(i, 471) % 1280u), y = 640.0 + double(hash2(i, 472) % 80u);
+      const double r = 4.0 + double(hash2(i, 473) % 9u);
+      cairo_save(cr);
+      cairo_translate(cr, x, y);
+      cairo_scale(cr, r, r * 0.6);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      const double s = 0.12 + double(hash2(i, 474) % 10u) * 0.012;
+      cairo_set_source_rgb(cr, s, s, s + 0.02);
+      cairo_fill(cr);
+    }
+    cairo_save(cr);
+    cairo_translate(cr, 340, 690);
+    cairo_scale(cr, 170, 14);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_set_source_rgba(cr, 0.35, 0.4, 0.46, 0.55);
+    cairo_fill(cr);
+  });
+}
+
+// runners_cliff: the three runners at the foot of the cliff in the rain
+// (a 4-frame loop), Rocco looking up at the rusted stair; the stair's
+// metal begins to glow blue-white from frame 4 and crackles by frame 6.
+void runnersCliff(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(cliffFoot(k), ox * 0.5f, oy * 0.5f);
+  // Surf breaking out on the left.
+  for (int i = 0; i < 18; ++i)
+  {
+    const float x = float(i) * 28.0f + std::sin(float(ticks) * 0.07f + float(i)) * 10.0f;
+    k.r.fillRect(x + ox * 0.5f, 598.0f + float(hash2(i, 481) % 18u) + oy * 0.5f, 24, 3,
+      rgba(210, 225, 235, 80 + int(hash2(i, 482) % 90u)));
+  }
+  // The metal charging: a pale blue-white glow along the stair, then sparks.
+  const float charge = frame < 4 ? 0.0f : float(frame - 3) / 4.0f;
+  if (charge > 0.0f)
+  {
+    static constexpr std::array<std::array<float, 4>, 3> kFlights{
+      {{820, 640, 1110, 460}, {1110, 460, 860, 290}, {860, 290, 1140, 110}}};
+    for (const auto& f : kFlights)
+    {
+      const float x0 = f[0] + ox * 0.5f, y0 = f[1] + oy * 0.5f, x1 = f[2] + ox * 0.5f, y1 = f[3] + oy * 0.5f;
+      k.r.drawLine(x0, y0 - 46.0f, x1, y1 - 46.0f, 10.0f, rgba(140, 180, 255, int(70 * charge)), Blend::Add);
+      k.r.drawLine(x0, y0 + 4.0f, x1, y1 + 4.0f, 12.0f, rgba(140, 180, 255, int(70 * charge)), Blend::Add);
+      k.r.drawLine(x0, y0 - 46.0f, x1, y1 - 46.0f, 2.0f, rgba(220, 235, 255, int(160 * charge)), Blend::Add);
+      if (frame >= 6)
+        for (int i = 0; i < 4; ++i)
+        {
+          const float u = float(hash2(ticks / 2, i + int(f[0])) % 100u) / 100.0f;
+          const float cx = x0 + (x1 - x0) * u, cy = y0 + (y1 - y0) * u - 46.0f;
+          float px = cx, py = cy;
+          for (int s = 0; s < 3; ++s)
+          {
+            const float nx = px + float(int(hash2(ticks + s, i * 7 + int(f[1])) % 30u) - 15);
+            const float ny = py + float(int(hash2(ticks + s, i * 7 + 3) % 30u) - 15);
+            k.r.drawLine(px, py, nx, ny, 1.5f, rgba(230, 240, 255, 230), Blend::Add);
+            px = nx;
+            py = ny;
+          }
+          drawGlow(k.r, k.art, cx, cy, 26.0f, kStormBolt, 0.5f);
+        }
+    }
+  }
+  // The runners on the shingle: Nova and Dash with their backs to the sea,
+  // Rocco a step ahead, looking up at the stair.
+  k.r.draw(runner(k, 2, frame % 4 < 2 ? 0 : 8, 2.6f), 250 + ox, 668 + oy);
+  k.r.draw(runner(k, 0, frame % 4 < 2 ? 8 : 0, 2.6f), 440 + ox, 672 + oy);
+  k.r.draw(runner(k, 1, 3, 2.8f), 660 + ox, 680 + oy);
+  if (charge > 0.0f)
+    drawGlow(k.r, k.art, 700 + ox, 470 + oy, 90.0f, kStormBolt, 0.15f * charge);
+  // Rain on a 4-frame loop, hard and slanting, splashes on the stones.
+  const int loop = frame % 4;
+  for (int i = 0; i < 130; ++i)
+  {
+    const float depth = 0.5f + float(hash2(i, 491) % 50u) / 100.0f;
+    const float y = std::fmod(float(hash2(i, 492) % 800u) + float(loop) * 200.0f * depth, 800.0f) - 40.0f;
+    const float x = std::fmod(float(hash2(i, 493) % 1500u) - y * 0.3f + 1500.0f, 1500.0f) - 100.0f;
+    k.r.drawLine(x + ox, y + oy, x - 12.0f * depth + ox, y + 38.0f * depth + oy, 1.6f, rgba(180, 200, 230, int(70 + 70 * depth)));
+  }
+  for (int i = 0; i < 24; ++i)
+  {
+    if ((hash2(i, 494) + unsigned(loop)) % 4u != 0u)
+      continue;
+    const float x = float(hash2(i, 495) % 1280u), y = 640.0f + float(hash2(i, 496) % 70u);
+    k.r.fillRect(x - 5 + ox, y + oy, 10, 2, rgba(210, 225, 240, 160));
+    k.r.fillRect(x - 1 + ox, y - 5 + oy, 2, 4, rgba(210, 225, 240, 120));
+  }
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -9790,6 +10451,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return cableGlow(k, frame, ticks, ox, oy);
   if (clip == "runners_dive") // before starts(clip, "runners") below
     return runnersDive(k, frame, ticks, ox, oy);
+  // Level 31.
+  if (clip == "lighthouse_storm")
+    return lighthouseStorm(k, frame, ticks, ox, oy);
+  if (clip == "runners_cliff") // before starts(clip, "runners") below
+    return runnersCliff(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

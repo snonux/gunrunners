@@ -196,6 +196,19 @@ enum class Sfx
   JellyPulse, // a Box Jelly contracting before a rise (a soft glassy pulse)
   BubblePop, // the Bubble Up bubble popping (a bright pop and a spray)
   RingPass,  // a Bubble Up ring passed (a rising bubbly chime)
+  StormStrike, // Level 31: lightning striking close (a tearing crack, a boom and a rolling rumble)
+  StormGlow, // metal glowing before a strike (a buzz of static climbing, crackling harder)
+  RodThunk,  // a Tesla rod sticking in rock or a machine (a hard thunk, a copper ring, a zing)
+  RodArc,    // a struck rod arcing to the enemies round it (a sharp zap and a sizzle)
+  MachinePower, // a dead machine powered by a strike (a relay's clack, a motor spinning up to a hum)
+  GullCry,   // a Storm Gull's cry before its dive (a harsh falling kee-yow)
+  GullDive,  // a Storm Gull diving (wind rushing past folded wings)
+  KiteWhine, // a Kite Drone's rotors climbing in pitch as it turns at you
+  FogWheeze, // a Foghorn's bellows filling (a reedy wheezing inhale)
+  FogBlast,  // a Foghorn's blast (a deep brassy diaphone groan)
+  BungeeStretch, // Bungee's rope stretching (a rubbery creak)
+  BungeeTwang, // let go: flung on the rope (a deep elastic twang)
+  StormRing, // a storm ring taken (a crackle and a bright electric chime)
   Count,
 };
 
