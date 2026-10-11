@@ -70,6 +70,8 @@ std::string cutsceneLabel(const std::string& name)
 // three theme families per episode.
 int themeFor(int ep, const std::string& key, int fallback)
 {
+  if (key == "deep_sea" && ep == 5)
+    return themeFor(ep, "fiber_trench", fallback); // Level 30 and Bubble Up; Deep Dive (an extra) keeps its reef
   if (const int v = themeIndexForKey(key.c_str()); v >= 0)
     return v;
   if (key.rfind("station", 0) == 0)

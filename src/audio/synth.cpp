@@ -2470,6 +2470,171 @@ std::vector<float> makeSfx(Sfx id)
       addTone(b, 0.62, 0.95, midiFreq(57.0), Wave::Sine, 0.12, 0.6);
       return b;
     }
+    case Sfx::SwimStroke:
+    {
+      // Level 30: a swim stroke: a soft muffled whoosh of water pushed back
+      // and a burble of small bubbles rising after it.
+      Noise n(503);
+      Svf lp;
+      Osc b;
+      return render(0.34, [&](double t, double total) {
+        const double env = attack(t, 0.03) * decay(t, 0.08);
+        const double wh = lp.low(n.next(), sweep(500.0, 1400.0, std::min(1.0, t / 0.08)), 1.4) * env * 0.8;
+        const double u = t - 0.07;
+        double bub = 0.0;
+        if (u > 0.0)
+        {
+          const double k = std::fmod(u, 0.055) / 0.055;
+          const int i = int(u / 0.055);
+          bub = b.step(sweep(500.0 + 90.0 * i, 1100.0 + 140.0 * i, k), Wave::Sine) * 0.12 * (1.0 - k) * decay(u, 0.1);
+        }
+        return (wh + bub) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::AbyssSplash:
+    {
+      // Spat back out of the abyss: a deep muffled boom, as if far below,
+      // and a rush of bubbles climbing after it.
+      Osc boom;
+      Noise n(509), m(521);
+      Svf lp, bp;
+      Osc b;
+      return render(0.8, [&](double t, double total) {
+        const double bm = boom.step(sweep(90.0, 38.0, t / 0.4), Wave::Sine) * decay(t, 0.18) * 0.3;
+        const double rush = lp.low(n.next(), sweep(300.0, 1800.0, t / total), 1.0) * attack(t, 0.12) * decay(t, 0.25) * 0.42;
+        const double k = std::fmod(t, 0.07) / 0.07;
+        const double bub = t > 0.12 ? b.step(sweep(380.0, 1300.0, k), Wave::Sine) * 0.09 * (1.0 - k) * decay(t - 0.12, 0.25) : 0.0;
+        const double fizz = bp.band(m.next(), 2400.0, 2.0) * 0.06 * decay(t, 0.3);
+        return (bm + rush + bub + fizz) * attack(t, 0.004) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::HarpoonPlant:
+    {
+      // A harpoon driven into the floor: a dull thud through the water and
+      // a short muffled ring of its shaft.
+      Noise n(523);
+      Svf lp;
+      Osc a, ring;
+      return render(0.32, [&](double t, double total) {
+        const double th = lp.low(n.next(), 600.0, 1.0) * decay(t, 0.03) * 0.5;
+        const double body = a.step(sweep(140.0, 70.0, t / 0.12), Wave::Sine) * decay(t, 0.06) * 0.3;
+        const double rg = ring.step(720.0, Wave::Triangle) * decay(t, 0.09) * 0.08 * (1.0 + 0.3 * std::sin(t * 2.0 * kPi * 9.0));
+        return (th + body + rg) * attack(t, 0.002) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::HarpoonStick:
+    {
+      // A harpoon biting into rock or an anchor ring: a sharp thunk and a
+      // bright clang with a short wobble.
+      Noise n(541);
+      Svf bp;
+      Osc a, b, c;
+      return render(0.4, [&](double t, double total) {
+        const double tk = bp.band(n.next(), 1800.0, 1.5) * decay(t, 0.012) * 0.3;
+        const double body = a.step(sweep(220.0, 110.0, t / 0.08), Wave::Sine) * decay(t, 0.04) * 0.2;
+        const double wob = 1.0 + 0.004 * std::sin(t * 2.0 * kPi * 7.0);
+        const double cl = (b.step(1180.0 * wob, Wave::Sine) + c.step(1740.0 * wob, Wave::Sine) * 0.6) * decay(t, 0.12) * 0.1;
+        return (tk + body + cl) * attack(t, 0.001) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::LineTaut:
+    {
+      // The harpoon line snapping taut: a rope's creak and a low twang that
+      // bends up as it settles.
+      Noise n(547);
+      Svf bp;
+      Osc tw, tw2;
+      return render(0.42, [&](double t, double total) {
+        const double creak = bp.band(n.next(), 900.0, 6.0) * (std::fmod(t, 0.018) < 0.006 ? 1.0 : 0.3) * decay(t, 0.05) * 0.35;
+        const double fr = sweep(70.0, 98.0, std::min(1.0, t / 0.06));
+        const double twang = (tw.step(fr, Wave::Saw) * 0.5 + tw2.step(fr * 2.0, Wave::Triangle) * 0.5) * decay(t, 0.14) * 0.26;
+        return (creak + twang) * attack(t, 0.003) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::EelSpark:
+    {
+      // A Cable Eel's box waking: crackling arcs over a hum that climbs.
+      Noise n(557), m(563);
+      OnePole hp;
+      Osc hum;
+      return render(0.5, [&](double t, double total) {
+        const double u = t / total;
+        const double arc = (m.next() > 0.8f ? 1.0 : 0.15) * hp.highpass(n.next(), 2500.0) * 0.34;
+        const double h = hum.step(sweep(100.0, 240.0, u), Wave::Saw) * 0.12 * (0.6 + 0.4 * std::sin(t * 2.0 * kPi * 30.0));
+        return (arc + h) * attack(t, 0.01) * (0.5 + 0.5 * u) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::EelSnap:
+    {
+      // A Cable Eel lunging out: a zap down its length, then a wet snap of
+      // its jaws.
+      Noise n(569), m(571);
+      OnePole hp;
+      Svf bp;
+      Osc z;
+      return render(0.36, [&](double t, double total) {
+        const double zp = t < 0.14 ? (z.step(sweep(1600.0, 240.0, t / 0.14), Wave::Saw) * 0.16 + hp.highpass(n.next(), 3000.0) * 0.18) *
+            decay(t, 0.07) : 0.0;
+        const double u = t - 0.1;
+        const double snap = u > 0.0 ? bp.band(m.next(), 1400.0, 2.0) * decay(u, 0.018) * 0.55 : 0.0;
+        return (zp + snap) * attack(t, 0.002) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::AnglerLunge:
+    {
+      // An Anglerfish lunging: a rushing gulp of water and a clap of teeth.
+      Noise n(577), m(587);
+      Svf lp, bp;
+      Osc g;
+      return render(0.42, [&](double t, double total) {
+        const double rush = lp.low(n.next(), sweep(250.0, 1200.0, std::min(1.0, t / 0.2)), 1.2) * attack(t, 0.06) * decay(t, 0.12) * 0.45;
+        const double gulp = g.step(sweep(180.0, 60.0, t / 0.25), Wave::Sine) * decay(t, 0.1) * 0.22;
+        const double u = t - 0.16;
+        const double clap = u > 0.0 ? bp.band(m.next(), 2200.0, 1.6) * decay(u, 0.012) * 0.34 : 0.0;
+        return (rush + gulp + clap) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::JellyPulse:
+    {
+      // A Box Jelly's bell contracting: a soft glassy pulse that swells and
+      // sinks, like a finger round a wet glass.
+      Osc a, b;
+      return render(0.4, [&](double t, double total) {
+        const double fr = sweep(520.0, 760.0, t / total);
+        const double v = a.step(fr, Wave::Sine) + b.step(fr * 2.01, Wave::Sine) * 0.3;
+        return v * 0.2 * attack(t, 0.06) * decay(t, 0.2) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::BubblePop:
+    {
+      // The Bubble Up bubble popping: a bright pop and a fine spray.
+      Osc a;
+      Noise n(593);
+      OnePole hp;
+      return render(0.24, [&](double t, double total) {
+        const double pop = a.step(sweep(1500.0, 420.0, std::min(1.0, t / 0.05)), Wave::Sine) * decay(t, 0.03) * 0.36;
+        const double spray = hp.highpass(n.next(), 3500.0) * decay(t, 0.06) * 0.16;
+        return (pop + spray) * attack(t, 0.001) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::RingPass:
+    {
+      // A Bubble Up ring passed: two quick bubble blips and a rising bell.
+      std::vector<float> b(std::size_t(samples(0.7)), 0.0f);
+      {
+        Osc a;
+        for (std::size_t i = 0; i < b.size(); ++i)
+        {
+          const double t = double(i) / kRate;
+          const double k = std::fmod(t, 0.06) / 0.06;
+          b[i] = t < 0.12 ? float(a.step(sweep(500.0, 1400.0, k), Wave::Sine) * 0.14 * (1.0 - k)) : 0.0f;
+        }
+      }
+      addTone(b, 0.1, 0.5, midiFreq(79), Wave::Sine, 0.16, 0.18);
+      addTone(b, 0.18, 0.5, midiFreq(84), Wave::Sine, 0.14, 0.22);
+      addTone(b, 0.18, 0.5, midiFreq(91), Wave::Sine, 0.04, 0.12);
+      return b;
+    }
     case Sfx::Count:
       break;
   }

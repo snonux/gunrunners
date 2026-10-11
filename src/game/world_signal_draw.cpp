@@ -995,6 +995,8 @@ void World::drawSignalBack(Renderer& r, float camX, float camY, int frame, float
   {
     if (t.taken)
       continue;
+    if (mTrench.on && t.art == "maxtv_tape_waterproof")
+      continue; // Level 30 draws its own (world_trench_draw.cpp)
     const float x = float(t.x) * kTilePx - camX, y = float(t.y) * kTilePx - camY;
     if (offScreen(x, y, kTilePx, kTilePx))
       continue;

@@ -243,6 +243,9 @@ void World::updateTrench(const PlayerInput& input)
   const bool alive = p.state != PlayerState::Dying && p.state != PlayerState::Teleporting;
   if (t.fade > 0)
     --t.fade;
+  // Sound only: a jump in the water (a stroke) is heard as a swim stroke.
+  if (underwater())
+    std::replace(mSounds.begin(), mSounds.end(), Sfx::Jump, Sfx::SwimStroke);
   if (t.bubble)
   {
     updateBubbleWorld();
@@ -300,7 +303,7 @@ void World::updateTrench(const PlayerInput& input)
         setVisual(PlayerVisual::Standing);
         t.fade = kAbyssFade;
         t.strokes = 0;
-        playSound(Sfx::Splash);
+        playSound(Sfx::AbyssSplash);
         break;
       }
   // Harpooned enemies come in.
@@ -357,7 +360,7 @@ bool World::plantHarpoon()
   if (p.stance != Stance::Crouched || p.state != PlayerState::OnGround)
     return false;
   addHarpoon(p.x + 1, p.y + 1, -1);
-  playSound(Sfx::Clunk);
+  playSound(Sfx::HarpoonPlant);
   return true;
 }
 
@@ -393,7 +396,7 @@ void World::remakeLine()
       else if (b.anchor >= 0)
         row = t.anchors[std::size_t(b.anchor)].row;
       t.lineY = row;
-      playSound(Sfx::Zip);
+      playSound(Sfx::LineTaut);
     }
   }
   syncPlatformCollision();
@@ -418,7 +421,7 @@ void World::stickHarpoon(Projectile& pr)
 {
   const int x = pr.dx > 0 ? pr.x + pr.w : pr.x - 1;
   addHarpoon(x, pr.y, -1);
-  playSound(Sfx::Clunk);
+  playSound(Sfx::HarpoonStick);
 }
 
 // A harpoon at an anchor ring sticks in it; true if it did.
@@ -431,7 +434,7 @@ bool World::shotAtTrench(Projectile& pr, const CellBox& hit)
     if (t.anchors[i].catchBox().intersects(hit))
     {
       addHarpoon(t.anchors[i].x + (pr.dx > 0 ? 0 : 1), t.anchors[i].y + 1, int(i));
-      playSound(Sfx::Clunk);
+      playSound(Sfx::HarpoonStick);
       burst(cellCenter(t.anchors[i].catchBox()), rgb(230, 240, 255), rgb(120, 180, 220), 6, 1.0f);
       return true;
     }
@@ -486,7 +489,7 @@ void World::updateAnglerfish(Enemy& e, const EnemyDef& def)
     if (--e.tell == 0)
     {
       e.dive = kAnglerLunge;
-      playSound(Sfx::Snap);
+      playSound(Sfx::AnglerLunge);
     }
     return;
   }
@@ -521,6 +524,8 @@ void World::updateBoxJelly(Enemy& e, const EnemyDef& def)
       lift = 0;
       if (ph >= j.rest - 8)
         e.tell = j.rest - ph; // the bell contracts before a rise
+      if (ph == j.rest - 8 && isOnScreen(e.box(), 4))
+        playSound(Sfx::JellyPulse); // sound only
     }
     else if (ph < j.rest + j.up)
       lift = j.rise * (ph - j.rest) / j.up;
@@ -566,7 +571,7 @@ void World::updateCableEel(Enemy& e, const EnemyDef& def)
           b.state = 1;
           b.t = 0;
           e.tell = def.tell;
-          playSound(Sfx::Zap);
+          playSound(Sfx::EelSpark);
         }
         break;
       case 1: // the box sparks and hums
@@ -575,7 +580,7 @@ void World::updateCableEel(Enemy& e, const EnemyDef& def)
         {
           b.state = 2;
           b.t = 0;
-          playSound(Sfx::Snap);
+          playSound(Sfx::EelSnap);
         }
         break;
       case 2: // out
@@ -668,12 +673,12 @@ void World::updateBubbleWorld()
     {
       t.ringY = r;
       t.ringX = p.x;
-      playSound(Sfx::Chime);
+      playSound(Sfx::RingPass);
     }
   // Coral spikes pop the bubble.
   if (mMap.overlapsHazard(boxAt(p.x - 1, p.y + 1, Player::kWidth + 2, p.height() + 2)))
   {
-    playSound(Sfx::Bubble);
+    playSound(Sfx::BubblePop);
     burst({(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 2.0f) * kCellSize}, rgb(220, 245, 255), rgb(120, 200, 240),
       16, 1.6f);
     p.x = p.prevX = t.ringX;

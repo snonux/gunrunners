@@ -185,6 +185,17 @@ enum class Sfx
   TestTone,  // the Test Card's tell (the 1 kHz test tone)
   CardBeam,  // the Test Card's beam (a hard bright buzz falling away)
   TuneIn,    // tuned in: the static narrowing into a clean tone that resolves into a chord
+  SwimStroke, // Level 30: a swim stroke (a soft underwater whoosh and a burble of bubbles)
+  AbyssSplash, // spat back out of the abyss (a deep muffled boom, bubbles rushing up)
+  HarpoonPlant, // a harpoon planted in the floor (a dull thud and a metal ring, muffled)
+  HarpoonStick, // a harpoon sticking in a wall or an anchor ring (a sharp thunk and a clang)
+  LineTaut,  // the harpoon line pulled taut (a rope creak and a low twang)
+  EelSpark,  // a Cable Eel's box sparking (crackling arcs and a rising hum)
+  EelSnap,   // a Cable Eel lunging out (a zap and a wet snap of jaws)
+  AnglerLunge, // an Anglerfish lunging (a rushing gulp and a clap of teeth)
+  JellyPulse, // a Box Jelly contracting before a rise (a soft glassy pulse)
+  BubblePop, // the Bubble Up bubble popping (a bright pop and a spray)
+  RingPass,  // a Bubble Up ring passed (a rising bubbly chime)
   Count,
 };
 

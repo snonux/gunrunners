@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 38> kVariants{{
+const std::array<Variant, 39> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -559,6 +559,22 @@ const std::array<Variant, 38> kVariants{{
     rgb(40, 40, 46), rgb(24, 24, 28),
     rgb(170, 170, 180), rgb(230, 230, 240), rgb(70, 70, 80), rgb(255, 255, 255),
     rgb(240, 240, 240), "dead_air"}},
+  // Level 30: the sea floor down to the fiber trench (and its Bubble Up
+  // bonus). Its levels say theme=deep_sea; the Game picks this look for
+  // that key in Episode 5 (flow.cpp), so Deep Dive keeps its reef.
+  {"fiber_trench",
+   {ThemeId::LostTemple,
+    "FIBER TRENCH",
+    "DOWN THE SEA FLOOR AFTER THE GLOWING CABLE, INTO THE DARK",
+    rgb(2, 10, 26), rgb(8, 44, 82), rgb(30, 116, 156),
+    rgb(54, 74, 94), rgb(110, 150, 168), rgb(22, 32, 46),
+    rgb(90, 230, 220), rgb(180, 255, 245),
+    rgb(120, 150, 156), rgb(50, 70, 82),
+    rgb(240, 80, 70), rgb(255, 200, 120),
+    rgb(255, 200, 90), rgb(90, 236, 230),
+    rgb(14, 46, 76), rgb(6, 26, 46),
+    rgb(64, 84, 112), rgb(140, 190, 210), rgb(20, 30, 48), rgb(255, 230, 120),
+    rgb(220, 248, 255), "fiber_trench"}},
   // Level 31: a sea cliff and its lighthouse in a thunderstorm, wet black
   // rock, rusted metal stairs and grating, lightning white-blue.
   {"storm_cliffs",

@@ -4,6 +4,7 @@
 #include "game/reactor_draw.hpp"
 #include "game/signal_draw.hpp"
 #include "game/toon_draw.hpp"
+#include "game/trench_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -109,6 +110,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawToonSet(r, *this, mArt, camX, camY, frame); // Level 28: rooms, the big top, the Inkwell's page
   if (mSignal.on && mSignal.air)
     drawSignalSet(r, *this, mArt, camX, camY, frame); // Level 29: the snow, the Test Card's circle, the bars by the exit
+  if (mTrench.on)
+    drawTrenchSet(r, *this, mArt, camX, camY, frame); // Level 30: the deep water, the hold, the station, the cable
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -203,11 +206,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSignalBack(r, camX, camY, frame, alpha);
   if (mTrench.on)
     drawTrenchBack(r, camX, camY, frame, alpha);
+  if (mStorm.on)
+    drawStormBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
-  if (mStorm.on)
-    drawStormBack(r, camX, camY, frame, alpha);
   drawSludgeBack(r, camX, camY, frame);
 
   // Item boxes and items; ones still sealed inside a breakable (the mixer,
@@ -347,6 +350,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_bars", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mTrench.on && mLevel->themeKey == "deep_sea")
+      {
+        // Fiber Trench's duck wears a diving mask and a snorkel.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_diving_mask", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
       {
         // Too Many Cooks' duck wears a chef's hat.
@@ -397,6 +407,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 29 (world_signal_draw.cpp)
     if (e.kind == EnemyKind::Anglerfish || e.kind == EnemyKind::BoxJelly || e.kind == EnemyKind::CableEel)
       continue; // Level 30 (world_trench_draw.cpp)
+    if (e.kind == EnemyKind::StormGull || e.kind == EnemyKind::KiteDrone || e.kind == EnemyKind::Foghorn)
+      continue; // Level 31 (world_storm_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -407,8 +419,6 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (def.tint != 0)
       eo.tint = def.tint;
     if (e.kind == EnemyKind::Wraith)
-    if (e.kind == EnemyKind::StormGull || e.kind == EnemyKind::KiteDrone || e.kind == EnemyKind::Foghorn)
-      continue; // Level 31 (world_storm_draw.cpp)
       eo.alpha = 0.72f; // half there
     switch (def.look)
     {
@@ -883,6 +893,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSignalFront(r, camX, camY, frame, alpha);
   if (mTrench.on)
     drawTrenchFront(r, camX, camY, frame, alpha);
+  if (mStorm.on)
+    drawStormFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -893,8 +905,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
     if (mSignal.on && drawSignalShot(r, mArt, pr, cx, cy, frame))
       continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
-  if (mStorm.on)
-    drawStormFront(r, camX, camY, frame, alpha);
+    if (mTrench.on && drawTrenchShot(r, mArt, pr, cx, cy, frame))
+      continue; // a harpoon and its line (world_trench_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1560,7 +1572,9 @@ void World::drawHud(Renderer& r, int frame) const
   r.drawText("WEAPON", x + 16, top + 6, label);
   const int icon = weaponIcon(p.weapon);
   const bool proto = p.weapon == Weapon::Proto && p.proto >= 0;
-  if (proto)
+  if (proto && mTrench.on && p.proto == int(ProtoId::HarpoonLine))
+    drawHarpoonIcon(r, mArt, x + 18, top + 20); // Level 30: a speargun (world_trench_draw.cpp)
+  else if (proto)
   {
     DrawOpts io;
     io.scale = 0.62f;
@@ -1706,6 +1720,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawSignalHud(r, frame);
   if (mTrench.on)
     drawTrenchHud(r, frame);
+  if (mStorm.on)
+    drawStormHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)
@@ -1720,8 +1736,6 @@ void World::drawHud(Renderer& r, int frame) const
     r.drawText(buf, float(kScreenW) / 2.0f, 88, {40.0f, hurry ? rgb(255, 80, 80) : mTheme.accentA, kHudInk, true}, Align::Center);
   }
 
-  if (mStorm.on)
-    drawStormHud(r, frame);
   // Pickup and tutorial messages, like Duke's message line.
   if (mMessageTicks > 0)
   {

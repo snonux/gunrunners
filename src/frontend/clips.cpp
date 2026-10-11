@@ -9391,6 +9391,322 @@ void runnersListen(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.draw(voidTube(k), 0, 0);
 }
 
+// --- Level 30: Fiber Trench (brief_30) ---------------------------------------
+
+constexpr Color kDiveFiber = rgb(90, 240, 255);
+constexpr Color kDiveFiberCore = rgb(215, 255, 255);
+
+// The deep water: a dim blue from above sinking to black, faint shafts of
+// light slanting down.
+const Texture& diveWater(ClipKit& k)
+{
+  return cached(k, "dive_water", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, H);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.04, 0.2, 0.34);
+    cairo_pattern_add_color_stop_rgb(g, 0.4, 0.01, 0.08, 0.17);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.0, 0.01, 0.05);
+    cairo_set_source(cr, g);
+    cairo_paint(cr);
+    cairo_pattern_destroy(g);
+    for (int i = 0; i < 5; ++i)
+    {
+      const double x = 120.0 + i * 270.0 + (i % 2) * 50.0, top = 46.0 + (i % 3) * 22.0;
+      cairo_pattern_t* s = cairo_pattern_create_linear(0, 0, 0, H * 0.85);
+      cairo_pattern_add_color_stop_rgba(s, 0.0, 0.55, 0.85, 1.0, 0.11);
+      cairo_pattern_add_color_stop_rgba(s, 1.0, 0.55, 0.85, 1.0, 0.0);
+      cairo_move_to(cr, x - 30, 0);
+      cairo_line_to(cr, x + top, 0);
+      cairo_line_to(cr, x + top + 190, H * 0.85);
+      cairo_line_to(cr, x + 70, H * 0.85);
+      cairo_close_path(cr);
+      cairo_set_source(cr, s);
+      cairo_fill(cr);
+      cairo_pattern_destroy(s);
+    }
+  });
+}
+
+// Motes drifting up through the water (`speed` px a tick; the camera
+// sinking makes them rise faster).
+void diveMotes(ClipKit& k, int ticks, float speed, int count, float ox, float oy)
+{
+  for (int i = 0; i < count; ++i)
+  {
+    const float depth = 0.4f + float(hash2(i, 61) % 60u) / 100.0f;
+    const float x = float(hash2(i, 62) % 1320u) - 20.0f + std::sin(float(ticks) * 0.02f + float(i)) * 6.0f;
+    const float y = std::fmod(float(hash2(i, 63) % 760u) - float(ticks) * speed * depth + 7600.0f, 760.0f) - 20.0f;
+    const float s = 1.5f + 2.0f * depth;
+    const int a = int(40.0f + 90.0f * depth);
+    k.r.fillRect(x + ox * depth, y + oy * depth, s, s, rgba(170, 225, 255, a), Blend::Add);
+  }
+}
+
+// A kelp stalk, backlit: a dark wavy stem with blades up both sides and a
+// thin rim of light. 120 x 560, anchored at its root.
+const Texture& diveKelp(ClipKit& k, int v)
+{
+  return cached(k, "dive_kelp" + std::to_string(v), 120, 560, 60, 560, [v](cairo_t* cr) {
+    const double bend = v == 0 ? 14.0 : -18.0;
+    auto stemX = [&](double y) { return 60.0 + std::sin((560.0 - y) / 560.0 * 2.6 + v) * bend; };
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_move_to(cr, stemX(560), 560);
+    for (double y = 552; y >= 20; y -= 8)
+      cairo_line_to(cr, stemX(y), y);
+    cairo_set_source_rgb(cr, 0.03, 0.1, 0.08);
+    cairo_set_line_width(cr, 7);
+    cairo_stroke_preserve(cr);
+    cairo_set_source_rgba(cr, 0.35, 0.95, 0.85, 0.18);
+    cairo_set_line_width(cr, 1.5);
+    cairo_stroke(cr);
+    for (int i = 0; i < 11; ++i)
+    {
+      const double y = 520.0 - i * 46.0, x = stemX(y), side = (i + v) % 2 ? 1.0 : -1.0;
+      const double len = 70.0 - i * 3.0;
+      cairo_save(cr);
+      cairo_translate(cr, x, y);
+      cairo_rotate(cr, side * (0.9 - i * 0.03) - kPi / 2.0);
+      cairo_move_to(cr, 0, 0);
+      cairo_curve_to(cr, len * 0.3, -11, len * 0.75, -9, len, 0);
+      cairo_curve_to(cr, len * 0.75, 8, len * 0.3, 10, 0, 0);
+      cairo_restore(cr);
+      cairo_set_source_rgb(cr, 0.04, 0.14, 0.1);
+      cairo_fill_preserve(cr);
+      cairo_set_source_rgba(cr, 0.35, 0.95, 0.85, 0.16);
+      cairo_set_line_width(cr, 1.2);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// A glowing fiber cable along `pts`, its light pulse at `pulse` (0..1 along
+// it), with a dark jacket and a soft halo.
+void diveCable(ClipKit& k, const std::vector<std::array<float, 2>>& pts, float pulse, float glow)
+{
+  const std::size_t n = pts.size();
+  for (std::size_t i = 1; i < n; ++i)
+    k.r.drawLine(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], 18.0f, rgb(6, 14, 22));
+  for (std::size_t i = 1; i < n; ++i)
+    k.r.drawLine(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], 30.0f, rgba(90, 240, 255, int(26.0f * glow)), Blend::Add);
+  const float at = pulse * float(n - 1);
+  for (std::size_t i = 1; i < n; ++i)
+  {
+    const float d = std::fabs(float(i) - at);
+    const float hot = d < 14.0f ? 1.0f - d / 14.0f : 0.0f;
+    k.r.drawLine(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], 4.0f + 3.0f * hot, lerpColor(kDiveFiber, kDiveFiberCore, hot));
+  }
+  // Glints along it, and the pulse itself.
+  for (std::size_t i = 6; i < n; i += 12)
+    drawGlow(k.r, k.art, pts[i][0], pts[i][1], 40.0f, kDiveFiber, 0.18f * glow);
+  const std::size_t p = std::min(n - 1, std::size_t(std::max(0.0f, at)));
+  drawGlow(k.r, k.art, pts[p][0], pts[p][1], 170.0f, kDiveFiber, 0.5f);
+  drawGlow(k.r, k.art, pts[p][0], pts[p][1], 60.0f, kDiveFiberCore, 0.7f);
+}
+
+// cable_glow: black water with motes rising, the glowing cable running
+// down-right across it with a light pulse travelling along it (12-frame
+// loop), kelp swaying in front.
+void cableGlow(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  k.r.fillRect(0, 0, W, H, rgb(0, 2, 6));
+  DrawOpts dim;
+  dim.alpha = 0.35f;
+  k.r.draw(diveWater(k), ox * 0.3f, oy * 0.3f, dim);
+  diveMotes(k, ticks, 0.5f, 90, ox, oy);
+  std::vector<std::array<float, 2>> pts;
+  for (int i = 0; i <= 120; ++i)
+  {
+    const float u = float(i) / 120.0f;
+    pts.push_back({-60.0f + u * 1420.0f + ox, 110.0f + u * 520.0f + std::sin(u * 5.0f) * 26.0f + oy});
+  }
+  diveCable(k, pts, float(ticks % 72) / 72.0f, 1.0f);
+  // Kelp in front, swaying.
+  static constexpr std::array<std::array<float, 4>, 5> kKelp{{{70, 1.15f, 0, 0}, {210, 0.9f, 1, 1.7f},
+    {980, 1.0f, 1, 0.6f}, {1130, 1.25f, 0, 2.4f}, {1240, 0.8f, 1, 4.0f}}};
+  for (const auto& kp : kKelp)
+  {
+    DrawOpts o;
+    o.scale = kp[1];
+    o.angle = std::sin(float(ticks) * 0.035f + kp[3]) * 4.0f;
+    k.r.draw(diveKelp(k, int(kp[2])), kp[0] + ox * 1.4f, H + 30.0f + oy, o);
+  }
+}
+
+// A runner in diving gear: the tank on the back, the mask and the
+// regulator, fins on the feet, in the sinking pose (facing left if
+// `mirror`). Anchored at the feet, like runner().
+const Texture& diver(ClipKit& k, int kind, float scale, bool mirror)
+{
+  const int w = int(128 * scale), h = int(130 * scale);
+  return cached(k, "diver" + std::to_string(kind) + "_" + std::to_string(int(scale * 100)) + (mirror ? "m" : ""), w, h,
+    float(w) * 0.5f, float(h), [kind, scale, mirror, w](cairo_t* cr) {
+      if (mirror)
+      {
+        cairo_translate(cr, w, 0);
+        cairo_scale(cr, -1, 1);
+      }
+      cairo_scale(cr, scale, scale);
+      cairo_translate(cr, 32.0, 30.0);
+      cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+      auto outline = [&](double r, double g, double b, double lw) {
+        cairo_set_source_rgb(cr, r, g, b);
+        cairo_fill_preserve(cr);
+        cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+        cairo_set_line_width(cr, lw);
+        cairo_stroke(cr);
+      };
+      // The tank, behind.
+      cairo_new_path(cr);
+      cairo_move_to(cr, 6, 26);
+      cairo_curve_to(cr, 6, 18, 18, 18, 18, 26);
+      cairo_line_to(cr, 18, 56);
+      cairo_curve_to(cr, 18, 59, 6, 59, 6, 56);
+      cairo_close_path(cr);
+      outline(0.96, 0.74, 0.16, 1.6);
+      cairo_rectangle(cr, 7.5, 30, 9, 2.5);
+      cairo_set_source_rgba(cr, 0.04, 0.03, 0.08, 0.5);
+      cairo_fill(cr);
+      cairo_rectangle(cr, 10, 15, 4, 5);
+      outline(0.6, 0.62, 0.66, 1.2);
+      drawCharacterPose(cr, kind, 7);
+      // The hose over the shoulder to the regulator.
+      cairo_move_to(cr, 12, 16);
+      cairo_curve_to(cr, 14, 4, 46, 14, 44, 24);
+      cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+      cairo_set_line_width(cr, 3.2);
+      cairo_stroke_preserve(cr);
+      cairo_set_source_rgb(cr, 0.2, 0.22, 0.28);
+      cairo_set_line_width(cr, 1.6);
+      cairo_stroke(cr);
+      cairo_arc(cr, 45, 24, 3.2, 0, 2 * kPi);
+      outline(0.16, 0.17, 0.2, 1.2);
+      // The strap round the head and the mask over the eyes.
+      cairo_move_to(cr, 34, 11);
+      cairo_curve_to(cr, 28, 6, 21, 10, 21, 16);
+      cairo_set_source_rgb(cr, 0.04, 0.03, 0.08);
+      cairo_set_line_width(cr, 3.0);
+      cairo_stroke(cr);
+      cairo_new_path(cr);
+      cairo_move_to(cr, 35, 9);
+      cairo_line_to(cr, 49, 8);
+      cairo_curve_to(cr, 52, 8, 52, 20, 49, 20);
+      cairo_line_to(cr, 35, 20);
+      cairo_curve_to(cr, 32, 20, 32, 9, 35, 9);
+      cairo_close_path(cr);
+      outline(0.1, 0.12, 0.16, 1.4);
+      cairo_new_path(cr);
+      cairo_move_to(cr, 36.5, 11);
+      cairo_line_to(cr, 48.5, 10.5);
+      cairo_curve_to(cr, 50, 10.5, 50, 17.5, 48.5, 17.5);
+      cairo_line_to(cr, 36.5, 17.5);
+      cairo_curve_to(cr, 35, 17.5, 35, 11, 36.5, 11);
+      cairo_close_path(cr);
+      cairo_pattern_t* glass = cairo_pattern_create_linear(36, 10, 48, 18);
+      cairo_pattern_add_color_stop_rgba(glass, 0.0, 0.7, 0.95, 1.0, 0.75);
+      cairo_pattern_add_color_stop_rgba(glass, 1.0, 0.25, 0.6, 0.8, 0.55);
+      cairo_set_source(cr, glass);
+      cairo_fill(cr);
+      cairo_pattern_destroy(glass);
+      cairo_move_to(cr, 38, 12.5);
+      cairo_line_to(cr, 42, 12.3);
+      cairo_set_source_rgba(cr, 1, 1, 1, 0.85);
+      cairo_set_line_width(cr, 1.2);
+      cairo_stroke(cr);
+      // Fins on the feet.
+      for (const auto& f : {std::array<double, 3>{6, 84, 2.5}, std::array<double, 3>{50, 89, 0.5}})
+      {
+        cairo_save(cr);
+        cairo_translate(cr, f[0], f[1]);
+        cairo_rotate(cr, f[2]);
+        cairo_new_path(cr);
+        cairo_move_to(cr, -3, -4);
+        cairo_line_to(cr, 16, -8);
+        cairo_curve_to(cr, 19, -3, 19, 3, 16, 8);
+        cairo_line_to(cr, -3, 4);
+        cairo_close_path(cr);
+        cairo_restore(cr);
+        outline(0.12, 0.55, 0.62, 1.4);
+      }
+    });
+}
+
+// A bubble: a thin bright ring with a highlight. 24 x 24, anchored at its
+// centre.
+const Texture& diveBubble(ClipKit& k)
+{
+  return cached(k, "dive_bubble", 24, 24, 12, 12, [](cairo_t* cr) {
+    cairo_arc(cr, 12, 12, 9.5, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 0.7, 0.92, 1.0, 0.18);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgba(cr, 0.85, 0.97, 1.0, 0.85);
+    cairo_set_line_width(cr, 1.6);
+    cairo_stroke(cr);
+    cairo_arc(cr, 8.5, 8.5, 2.6, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 1, 1, 1, 0.9);
+    cairo_fill(cr);
+  });
+}
+
+// runners_dive: the three runners in diving gear sinking past the camera,
+// bubbles streaming up from their masks, the glowing cable coming up from
+// below.
+void runnersDive(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  (void)frame;
+  const float sink = float(ticks); // the camera sinks with them
+  k.r.draw(diveWater(k), ox * 0.3f, oy * 0.3f - std::min(60.0f, sink * 0.25f));
+  diveMotes(k, ticks, 1.1f, 80, ox, oy);
+  // The cable on the floor below, rising into view as they go down.
+  const float floorY = H - std::min(230.0f, sink * 1.6f);
+  k.r.fillRect(0, floorY + 24.0f + oy, W, H, rgb(1, 4, 10));
+  std::vector<std::array<float, 2>> pts;
+  for (int i = 0; i <= 100; ++i)
+  {
+    const float u = float(i) / 100.0f;
+    pts.push_back({-40.0f + u * 1360.0f + ox, floorY + std::sin(u * 7.0f + 0.5f) * 14.0f - u * 40.0f + oy});
+  }
+  diveCable(k, pts, float(ticks % 72) / 72.0f, 0.9f);
+  // Dash, Rocco and Nova at three depths: far and dim, then nearer and
+  // bigger, sinking at different rates and turning a little.
+  struct Diver
+  {
+    int who;
+    float x, y0, rate, scale, phase;
+    bool mirror;
+    Color tint;
+  };
+  static const std::array<Diver, 3> kDivers{{{1, 930, 230, 0.5f, 1.7f, 1.3f, true, rgb(120, 160, 200)},
+    {2, 360, 260, 0.8f, 2.2f, 0.4f, false, rgb(190, 215, 235)}, {0, 700, 310, 1.3f, 2.9f, 2.1f, false, rgb(255, 255, 255)}}};
+  for (const auto& d : kDivers)
+  {
+    const float y = d.y0 + sink * d.rate + std::sin(float(ticks) * 0.04f + d.phase) * 6.0f;
+    const float x = d.x + std::sin(float(ticks) * 0.025f + d.phase) * 14.0f + ox * d.scale * 0.4f;
+    const float headY = y - 86.0f * d.scale;
+    // Bubbles from the regulator, streaming up and wobbling.
+    const float headX = x + (d.mirror ? -1.0f : 1.0f) * 13.0f * d.scale;
+    for (int i = 0; i < 14; ++i)
+    {
+      const float ph = std::fmod(float(ticks) * 0.018f + float(i) / 14.0f + d.phase, 1.0f);
+      DrawOpts b;
+      b.scale = (0.25f + 0.35f * float(hash2(i, int(d.who)) % 100u) / 100.0f) * d.scale * (0.7f + 0.6f * ph);
+      b.alpha = (1.0f - ph) * 0.9f;
+      k.r.draw(diveBubble(k), headX + std::sin(ph * 9.0f + float(i)) * 10.0f * ph * d.scale,
+        headY - ph * 520.0f + oy, b);
+    }
+    DrawOpts o;
+    o.tint = d.tint;
+    o.angle = std::sin(float(ticks) * 0.03f + d.phase) * 6.0f;
+    k.r.draw(diver(k, d.who, d.scale, d.mirror), x, y + oy, o);
+  }
+  // A few big soft motes right by the lens.
+  for (int i = 0; i < 6; ++i)
+  {
+    const float x = float(hash2(i, 71) % 1280u);
+    const float y = std::fmod(float(hash2(i, 72) % 900u) - float(ticks) * 2.2f + 9000.0f, 900.0f) - 90.0f;
+    drawGlow(k.r, k.art, x + ox * 2.0f, y + oy * 2.0f, 26.0f, rgb(170, 220, 255), 0.18f);
+  }
+}
+
 bool starts(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
 
 } // namespace
@@ -9469,6 +9785,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return staticVoid(k, frame, ticks, ox, oy);
   if (clip == "runners_listen") // before starts(clip, "runners") below
     return runnersListen(k, frame, ticks, ox, oy);
+  // Level 30.
+  if (clip == "cable_glow")
+    return cableGlow(k, frame, ticks, ox, oy);
+  if (clip == "runners_dive") // before starts(clip, "runners") below
+    return runnersDive(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

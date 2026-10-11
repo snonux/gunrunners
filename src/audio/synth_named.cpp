@@ -135,6 +135,50 @@ std::vector<float> makeNamedSfx(const std::string& id)
   const std::uint32_t seed = seedOf(id);
   const bool loop = has(id, "loop");
   const double len = loop ? 6.0 : 1.0;
+  if (id == "sonar_ping")
+  {
+    // Fiber Trench (brief_30): a submarine's sonar ping, a pure high tone
+    // struck hard, ringing out, then its echo coming back off the sea floor
+    // fainter and duller, over a low swell of the deep.
+    Osc a, b, e, deep;
+    Svf lp;
+    Noise n(seed);
+    return render(2.6, [&](double t, double total) {
+      const double ping = (a.step(1480.0, Wave::Sine) + b.step(2960.0, Wave::Sine) * 0.08) * attack(t, 0.004) * decay(t, 0.35) * 0.3;
+      const double u = t - 0.95;
+      const double echo = u > 0.0 ? e.step(1476.0, Wave::Sine) * attack(u, 0.03) * decay(u, 0.4) * 0.09 : 0.0;
+      const double swell = lp.low(n.next(), 180.0, 0.8) * 0.18 + deep.step(55.0, Wave::Sine) * 0.03;
+      return (ping + echo + swell * std::min(1.0, t / 0.4)) * std::min(1.0, (total - t) / 0.5);
+    });
+  }
+  if (id == "bubbles")
+  {
+    // Fiber Trench (brief_30): the runners' breath bubbling up past the
+    // camera: bursts of little rising bloops, thick at first and thinning,
+    // over the muffled wash of the water.
+    Noise n(seed), m(seed + 7u);
+    Svf lp;
+    Osc o;
+    double fr = 0.0, age = 1.0, life = 0.05;
+    return render(3.0, [&](double t, double total) {
+      const double perSecond = 26.0 * (1.0 - 0.6 * std::min(1.0, t / total));
+      if (age >= life && m.next() * 0.5 + 0.5 < perSecond / kRate)
+      {
+        fr = 380.0 + 700.0 * (m.next() * 0.5 + 0.5);
+        life = 0.03 + 0.04 * (m.next() * 0.5 + 0.5);
+        age = 0.0;
+      }
+      double bloop = 0.0;
+      if (age < life)
+      {
+        const double k = age / life;
+        bloop = o.step(fr * (1.0 + 1.6 * k), Wave::Sine) * (1.0 - k) * std::min(1.0, k / 0.1) * 0.24;
+        age += 1.0 / kRate;
+      }
+      const double wash = lp.low(n.next(), 400.0, 0.7) * 0.2;
+      return (bloop + wash) * std::min(1.0, t / 0.08) * std::min(1.0, (total - t) / 0.6);
+    });
+  }
   // The end of Episode 3: the back wall cracking from end to end and
   // landing, the studio's lights and its audience, the TV in the dark and
   // ZERO's servers humming.

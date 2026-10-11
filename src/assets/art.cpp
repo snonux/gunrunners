@@ -4,6 +4,7 @@
 #include "assets/art_city.hpp"
 #include "assets/art_toon.hpp"
 #include "assets/art_signal.hpp"
+#include "assets/art_trench.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -2093,6 +2094,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeToonSolid(r, t, variant);
   if (isDeadAir(t))
     return bakeSignalSolid(r, t, variant);
+  if (isFiberTrench(t))
+    return bakeTrenchSolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2531,6 +2534,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeToonSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isDeadAir(t))
     return bakeSignalSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isFiberTrench(t))
+    return bakeTrenchSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2716,6 +2721,8 @@ Texture bakeSpikes(const Renderer& r, const Theme& t)
     return bakeGardenSpikes(r, t); // bramble thorns
   if (isPlains(t))
     return bakePlainsSpikes(r, t); // thorn grass
+  if (isFiberTrench(t))
+    return bakeTrenchSpikes(r, t); // fire coral
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   if (t.id == ThemeId::NeonOverdrive)
@@ -7268,6 +7275,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeToonSky(r, t);
   if (isDeadAir(t))
     return bakeSignalSky(r, t);
+  if (isFiberTrench(t))
+    return bakeTrenchSky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7439,6 +7448,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeToonFar(r, t, kLayerW);
   if (isDeadAir(t))
     return bakeSignalFar(r, t, kLayerW);
+  if (isFiberTrench(t))
+    return bakeTrenchFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7593,6 +7604,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeToonNear(r, t, kLayerW);
   if (isDeadAir(t))
     return bakeSignalNear(r, t, kLayerW);
+  if (isFiberTrench(t))
+    return bakeTrenchNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))
@@ -7856,6 +7869,8 @@ Texture bakeDecoLit(const Renderer& r, const Theme& t)
 
 Texture bakeExitBase(const Renderer& r, const Theme& t)
 {
+  if (isFiberTrench(t))
+    return bakeTrenchExitBase(r, t); // the cable station's relay
   // 96 wide, 144 tall; anchor so (0,0) is the top-left of the 64x128 exit area.
   VectorImage img(96, 144);
   cairo_t* cr = img.cr();
