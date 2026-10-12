@@ -16,9 +16,9 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 ```
 
 The first run calls `build-deps.sh`, which fetches SDL2 (a pinned commit),
-FreeType, pixman and Cairo (checksummed release tarballs) into
-`android/deps/` and cross-compiles FreeType, pixman and Cairo for the three
-ABIs. Without `android/key.properties` the release APK is signed with the
+FreeType, pixman, Cairo, Mbed TLS and libcurl (checksummed release tarballs) into
+`android/deps/` and cross-compiles them for the three ABIs. Without
+`android/key.properties` the release APK is signed with the
 debug key; see "Releasing".
 
 ## How it fits together
@@ -35,6 +35,13 @@ debug key; see "Releasing".
 | Saves, profile | `$XDG_DATA_HOME/gunrunners/saves` | the app's private storage (`/data/data/org.buetow.gunrunners/files/saves`) |
 | Input | keyboard, gamepads | on-screen gamepad, Bluetooth/USB gamepads (the same SDL GameController code), the back key |
 | Leaving the app | | the pause menu opens over a running level and the profile is saved (`Game::suspend`), since Android may close a background app |
+
+Cloud saves use the same S3-compatible backend on both platforms. On Android,
+copy the six-line configuration block documented in
+[`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md), open CLOUD SAVES on the title
+screen, and tap PASTE CONFIG FROM CLIPBOARD. This avoids typing long access and
+secret keys with the on-screen keyboard. The configuration is kept in the
+app's private storage and the keys are not drawn back to the screen.
 
 ## Touch controls
 

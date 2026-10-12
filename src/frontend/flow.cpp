@@ -7,6 +7,8 @@
 #include "data/campaign.hpp"
 #include "data/weapons.hpp"
 
+#include <SDL.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -142,6 +144,7 @@ std::vector<std::string> Game::titleItems() const
   if (mOptions.window)
     items.emplace_back(mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
   items.emplace_back("CONTROLS");
+  items.emplace_back("CLOUD SAVES");
   items.emplace_back("QUIT");
   return items;
 }
@@ -221,6 +224,11 @@ void Game::tickTitle(const Input& raw)
     mControlsReturn = Menu::None;
     openControls();
   }
+  else if (item == "CLOUD SAVES")
+  {
+    mCloudCursor = 0;
+    setMode(Mode::Cloud);
+  }
   else if (item == "QUIT")
   {
     mQuit = true;
@@ -242,10 +250,10 @@ void Game::renderTitle()
   r.drawText("42 LEVELS  -  42 PROTOTYPES  -  ONE SHOW", cx, 186, {22.0f, t.hudText, kInk}, Align::Center);
 
   const auto items = titleItems();
-  // Twelve items at most (every unlock, a window): they close up a little.
+  // All unlocked items plus settings still fit above the status line.
   const bool crowded = items.size() > 10;
   const float top = crowded ? 218.0f : 236.0f;
-  const float step = items.size() > 11 ? 34.5f : (crowded ? 38.0f : 44.0f);
+  const float step = items.size() > 12 ? 31.0f : (items.size() > 11 ? 34.5f : (crowded ? 38.0f : 44.0f));
   for (std::size_t i = 0; i < items.size(); ++i)
   {
     const bool sel = int(i) == mTitleCursor;
@@ -269,6 +277,116 @@ void Game::renderTitle()
   r.drawText(buf, cx, 640, {17.0f, t.accentB, kInk}, Align::Center);
   r.drawText(mOptions.touch ? "TAP to choose" : "UP/DOWN choose   ENTER / A select   ESC quit", cx, 676,
     {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
+}
+
+void Game::tickCloud(const Input& in)
+{
+  auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
+  constexpr int kItems = 3;
+  if (edge(&Input::back) || edge(&Input::pause))
+  {
+    goTitle();
+    return;
+  }
+  if (edge(&Input::up) || edge(&Input::down))
+  {
+    mCloudCursor = (mCloudCursor + (edge(&Input::up) ? kItems - 1 : 1)) % kItems;
+    sound(Sfx::MenuMove);
+  }
+  if (!(edge(&Input::confirm) || edge(&Input::jump)) || mModeTicks < 15)
+    return;
+  sound(Sfx::MenuSelect);
+  if (mCloudCursor == 2)
+  {
+    goTitle();
+    return;
+  }
+  if (mCloudCursor == 1)
+  {
+    std::string error;
+    if (!removeS3Config(saveDir(), &error))
+    {
+      notice("COULD NOT REMOVE CLOUD SETTINGS");
+      return;
+    }
+    {
+      std::lock_guard<std::mutex> lock(*mCloudCommitMutex);
+      mCloudGeneration->fetch_add(1);
+    }
+    mCloudRefreshPending = false;
+    const std::string caBundle = mOptions.s3.caBundle;
+    mOptions.s3 = {};
+    mOptions.s3.caBundle = caBundle;
+    notice("CLOUD SAVES DISABLED");
+    return;
+  }
+
+  char* clipboard = SDL_GetClipboardText();
+  const std::string text = clipboard ? clipboard : "";
+  SDL_free(clipboard);
+  S3Config config;
+  std::string error;
+  if (!parseS3Config(text, config, &error))
+  {
+    std::fprintf(stderr, "invalid cloud settings on clipboard: %s\n", error.c_str());
+    notice("CLIPBOARD IS NOT A CLOUD CONFIG");
+    return;
+  }
+  if (!saveS3Config(saveDir(), config, &error))
+  {
+    std::fprintf(stderr, "could not save cloud settings: %s\n", error.c_str());
+    notice("COULD NOT SAVE CLOUD SETTINGS");
+    return;
+  }
+  config.caBundle = mOptions.s3.caBundle;
+  {
+    std::lock_guard<std::mutex> lock(*mCloudCommitMutex);
+    mCloudGeneration->fetch_add(1);
+  }
+  mOptions.s3 = std::move(config);
+  SDL_SetClipboardText("");
+  beginCloudRefresh();
+  notice("CLOUD SAVES CONFIGURED");
+}
+
+void Game::renderCloud()
+{
+  auto& r = mRenderer;
+  const auto& t = theme();
+  drawBackdrop(r, *mArt, float(mFrame) * 0.8f, 0.0f, 0.0f);
+  r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(4, 2, 12, 190));
+  r.drawText("CLOUD SAVES", 640, 60, {56.0f, t.accentA, kInk, true}, Align::Center);
+  r.drawText(mOptions.s3.enabled() ? "ENABLED" : "NOT CONFIGURED", 640, 140,
+    {24.0f, mOptions.s3.enabled() ? t.accentB : t.hudText, kInk, true}, Align::Center);
+  if (mOptions.s3.enabled())
+  {
+    r.drawText(mOptions.s3.endpoint, 640, 180, {17.0f, t.hudText, kInk}, Align::Center);
+    r.drawText("BUCKET " + mOptions.s3.bucket +
+        (mOptions.s3.prefix.empty() ? "" : "  /  " + mOptions.s3.prefix),
+      640, 210, {17.0f, t.hudText, kInk}, Align::Center);
+  }
+  r.drawText("Copy one block containing endpoint, bucket, region, prefix,",
+    640, 270, {18.0f, t.hudText, kInk}, Align::Center);
+  r.drawText("access_key and secret_key lines, then paste it here.",
+    640, 300, {18.0f, t.hudText, kInk}, Align::Center);
+  r.drawText("The keys are stored privately and never shown on screen.",
+    640, 335, {16.0f, rgb(190, 190, 210), kInk}, Align::Center);
+
+  const std::string items[3] = {"PASTE CONFIG FROM CLIPBOARD", "DISABLE CLOUD SAVES", "BACK"};
+  for (int i = 0; i < 3; ++i)
+  {
+    const float y = 410.0f + float(i) * 65.0f;
+    const bool selected = i == mCloudCursor;
+    tapTarget(350, y - 10, 580, 54, [this, i](float, float) {
+      mCloudCursor = i;
+      tapPress(&Input::confirm);
+    });
+    r.fillRect(350, y - 8, 580, 48,
+      selected ? withAlpha(t.accentA, 65) : rgba(255, 255, 255, 16));
+    r.drawText(items[i], 640, y, {24.0f, selected ? t.accentA : t.hudText, kInk, selected}, Align::Center);
+  }
+  r.drawText(mOptions.touch ? "TAP to choose" : "UP/DOWN choose   ENTER / A select   ESC / B back",
+    640, 665, {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
 }
 
 // --- Levels ------------------------------------------------------------------

@@ -100,6 +100,7 @@ def syncGameData = tasks.register('syncGameData') {
     inputs.dir("${gameData}/levels")
     inputs.dir("${gameData}/cutscenes")
     inputs.dir("${gameData}/fonts")
+    inputs.file("${rootDir}/deps/cacert.pem")
     outputs.dir(out)
     doLast {
         project.delete(out)
@@ -112,6 +113,11 @@ def syncGameData = tasks.register('syncGameData') {
             }
             new File(out, "data/${dir}").eachFile { f -> files << "${dir}/${f.name}" }
         }
+        project.copy {
+            from "${rootDir}/deps/cacert.pem"
+            into new File(out, 'data')
+        }
+        files << 'cacert.pem'
         new File(out, 'data/manifest.txt').text = files.sort().join('\n') + '\n'
     }
 }

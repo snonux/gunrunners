@@ -255,6 +255,9 @@ STAGE, a free-play level for trying the controls.
   screen. A save keeps everything: your runner, score, health, weapons,
   items and what is left of the level. A sixth, the quick save, needs no
   menu: F5 saves and F9 loads (both rebindable, and also in the pause menu).
+  CLOUD SAVES on the title screen can back these files with an S3-compatible
+  bucket on Linux or Android; the whole setup, including long access keys, is
+  pasted as one block instead of typed on the gamepad.
 
 ## Plays like Duke Nukem II
 

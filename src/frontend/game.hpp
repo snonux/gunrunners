@@ -7,13 +7,17 @@
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
 #include "frontend/runner_editor.hpp"
-#include "game/profile.hpp"
 #include "game/input.hpp"
+#include "game/profile.hpp"
+#include "game/s3.hpp"
 #include "game/savegame.hpp"
 #include "game/world.hpp"
 
 #include <array>
+#include <atomic>
+#include <cstdint>
 #include <deque>
+#include <future>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -32,6 +36,7 @@ struct GameOptions
   bool trace = false;
   std::string levelPath; // a stand-alone level; empty plays the campaign
   std::string saveDir;   // where the 5 savegame slots and the profile live
+  S3Config s3;           // optional remote backing for savegame files
   std::string dataDir;   // holds levels/ and cutscenes/
   int startLevel = 0;    // campaign: start at this level (with skipMenu)
   bool noCutscenes = false;
@@ -119,6 +124,7 @@ private:
     Bonus, // the tally
     Arsenal,
     List,      // level select, bonus channel, reruns
+    Cloud,     // copy/paste S3 configuration
     Continued, // the campaign ran out of built levels
     Editor,    // the runner editor, from runner select
   };
@@ -191,6 +197,8 @@ private:
   void tickList(const Input& in);
   void renderList();
   void renderContinued();
+  void tickCloud(const Input& in);
+  void renderCloud();
   float renderAlpha() const;
   void buildPanels();
   void sound(Sfx s);
@@ -231,6 +239,9 @@ private:
   void quickSave();
   bool quickLoad();
   bool saveTo(const std::string& path);
+  void beginCloudRefresh();
+  void queueCloudUpload(const std::string& path);
+  void pollCloud();
   bool loadSave(SaveGame s, const std::string& message);
   void switchRunner(int index);
   void setTheme(int index);
@@ -272,6 +283,7 @@ private:
   After mAfter = After::Title;
   Mode mCutsceneReturn = Mode::Title; // where a skipped-into-nothing queue lands
   int mTitleCursor = 0;
+  int mCloudCursor = 0;
   int mPendingLevel = 1;    // runner select leads into this campaign level
   bool mPendingNewGame = false;
   int mArsenalCursor = 0;
@@ -320,6 +332,18 @@ private:
   std::string mNotice;
   std::string mPlayingOverride; // the world's music override now playing
   int mNoticeTicks = 0;
+  std::future<std::string> mCloudRefresh;
+  struct CloudUpload
+  {
+    std::uint64_t generation = 0;
+    std::future<std::string> result;
+  };
+  std::vector<CloudUpload> mCloudUploads;
+  std::shared_ptr<std::atomic<std::uint64_t>> mCloudGeneration =
+    std::make_shared<std::atomic<std::uint64_t>>(0);
+  std::shared_ptr<std::mutex> mCloudCommitMutex = std::make_shared<std::mutex>();
+  std::uint64_t mCloudRefreshGeneration = 0;
+  bool mCloudRefreshPending = false;
   bool mQuit = false;
   bool mFullscreenToggle = false;
   bool mFullscreenNow = false;

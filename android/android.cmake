@@ -3,8 +3,9 @@
 # pixman are the static libraries android/build-deps.sh cross-compiles.
 
 set(GR_ANDROID_DEPS ${CMAKE_CURRENT_LIST_DIR}/deps)
-if(NOT EXISTS ${GR_ANDROID_DEPS}/${ANDROID_ABI}/lib/libcairo.a)
-  message(FATAL_ERROR "No Cairo for ${ANDROID_ABI}: run android/build-deps.sh first")
+if(NOT EXISTS ${GR_ANDROID_DEPS}/${ANDROID_ABI}/lib/libcairo.a OR
+   NOT EXISTS ${GR_ANDROID_DEPS}/${ANDROID_ABI}/lib/libcurl.a)
+  message(FATAL_ERROR "No Cairo/libcurl for ${ANDROID_ABI}: run android/build-deps.sh first")
 endif()
 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
@@ -22,6 +23,13 @@ set_target_properties(PkgConfig::CAIRO PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS GR_BUNDLED_FONT
   INTERFACE_LINK_LIBRARIES
     "${GR_ABI_PREFIX}/lib/libcairo.a;${GR_ABI_PREFIX}/lib/libpixman-1.a;${GR_ABI_PREFIX}/lib/libfreetype.a;m")
+
+add_library(CURL::libcurl INTERFACE IMPORTED)
+set_target_properties(CURL::libcurl PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "${GR_ABI_PREFIX}/include"
+  INTERFACE_LINK_LIBRARIES
+    "${GR_ABI_PREFIX}/lib/libcurl.a;${GR_ABI_PREFIX}/lib/libmbedtls.a;${GR_ABI_PREFIX}/lib/libmbedx509.a;${GR_ABI_PREFIX}/lib/libmbedcrypto.a")
+set(CURL_FOUND TRUE)
 
 # SDL's Java activity loads libmain.so and calls SDL_main (main.cpp's main,
 # renamed by SDL_main.h).

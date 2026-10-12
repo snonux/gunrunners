@@ -13,6 +13,7 @@ else()
   find_package(SDL2 REQUIRED)
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(CAIRO REQUIRED IMPORTED_TARGET cairo)
+  find_package(CURL REQUIRED)
 endif()
 
 add_library(gunrunners_core STATIC
@@ -149,6 +150,7 @@ add_library(gunrunners_core STATIC
   src/data/weapons.cpp
   src/data/enemies.cpp
   src/game/savegame.cpp
+  src/game/s3.cpp
   src/frontend/bot.cpp
   src/frontend/bot_drive.cpp
   src/frontend/bot_mother.cpp
@@ -182,7 +184,7 @@ add_library(gunrunners_core STATIC
   src/game/profile.cpp
 )
 target_include_directories(gunrunners_core PUBLIC src)
-target_link_libraries(gunrunners_core PUBLIC SDL2::SDL2 PkgConfig::CAIRO)
+target_link_libraries(gunrunners_core PUBLIC SDL2::SDL2 PkgConfig::CAIRO CURL::libcurl)
 target_compile_definitions(gunrunners_core PUBLIC GR_DATA_DIR="${CMAKE_SOURCE_DIR}")
 if(NOT MSVC)
   target_compile_options(gunrunners_core PRIVATE -Wall -Wextra)
@@ -232,6 +234,9 @@ endforeach()
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)
+add_executable(s3_test tests/s3_test.cpp)
+target_link_libraries(s3_test PRIVATE gunrunners_core)
+add_test(NAME s3 COMMAND s3_test)
 add_test(NAME savegame_rooftop_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
 # Far enough up the tower for gondolas to have moved and hatches to be open.
 add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/02_glass_canyon.txt 700)

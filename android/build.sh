@@ -8,12 +8,19 @@
 
 set -euo pipefail
 
-readonly HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly HERE
 readonly TYPE="${1:-release}"
 
 : "${ANDROID_HOME:?set ANDROID_HOME to your Android SDK}"
 
-if [[ ! -f "$HERE/deps/arm64-v8a/lib/libcairo.a" || ! -f "$HERE/deps/x86_64/lib/libcairo.a" ]]; then
+if [[ ! -f "$HERE/deps/arm64-v8a/lib/libcairo.a" ||
+      ! -f "$HERE/deps/arm64-v8a/lib/libcurl.a" ||
+      ! -f "$HERE/deps/armeabi-v7a/lib/libcairo.a" ||
+      ! -f "$HERE/deps/armeabi-v7a/lib/libcurl.a" ||
+      ! -f "$HERE/deps/x86_64/lib/libcairo.a" ||
+      ! -f "$HERE/deps/x86_64/lib/libcurl.a" ||
+      ! -f "$HERE/deps/cacert.pem" ]]; then
     "$HERE/build-deps.sh"
 fi
 
