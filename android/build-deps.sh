@@ -146,6 +146,10 @@ build_abi() {
         -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_PREFIX_PATH="$prefix" \
         -DBUILD_CURL_EXE=OFF -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF \
         -DBUILD_SHARED_LIBS=OFF -DHTTP_ONLY=ON -DCURL_USE_MBEDTLS=ON \
+        -DMBEDTLS_INCLUDE_DIR="$prefix/include" \
+        -DMBEDTLS_LIBRARY="$prefix/lib/libmbedtls.a" \
+        -DMBEDX509_LIBRARY="$prefix/lib/libmbedx509.a" \
+        -DMBEDCRYPTO_LIBRARY="$prefix/lib/libmbedcrypto.a" \
         -DCURL_USE_LIBPSL=OFF -DCURL_ZLIB=OFF -DCURL_BROTLI=OFF \
         -DCURL_ZSTD=OFF -DUSE_NGHTTP2=OFF -DUSE_LIBIDN2=OFF
     cmake --build "$work/curl" --target install
