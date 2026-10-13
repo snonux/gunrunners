@@ -158,6 +158,8 @@ L.row(48, 58, 57, "#")
 L.col(48, 53, 56, "#")
 L.at("breakable", rect=(48, 53, 48, 56), hp=2, by="any")
 ladder(56, 46, 56)
+L.put(55, 46, "=")                    # room beside the ladder: down from L8,
+L.put(55, 52, "=")                    # through the ceiling and back up
 for x in (50, 52, 54, 55):
     L.on(x, 57, "m")
 L.on(57, 57, "2")                     # letter U
@@ -187,10 +189,10 @@ L.at("penthouse_sniper", 25, 23)
 ledge(1, 4, 11)                       # the penthouse balcony
 L.at("penthouse_sniper", 2, 10, dir="r")
 # Window-cleaning carts: solid, and they cut the snipers' lines.
-for x, y in ((13, 30), (3, 27), (19, 14)):
+for x, y in ((13, 30), (2, 27), (19, 14)):
     L.fill(x, x + 1, y, y + 1, "#")
 L.at("squeegee_drone", None, None, "sq3", rect=(5, 26, 26, 27))
-gems((12, 30), (4, 26), (14, 18), (22, 11))
+gems((12, 30), (3, 26), (14, 18), (22, 11))
 
 # --- 6. Roof ----------------------------------------------------------------
 ladder(2, 1, 6)

@@ -118,7 +118,7 @@ put(134, 37, "$")
 L.at("treasure", 133, 37, score=10000, art="halcyon_crate")
 
 # --- 4. The control bunker (141-184) -----------------------------------------------------------------
-L.col(141, 24, 37, "H")                       # down the mesa's east face
+L.col(142, 24, 37, "H")                       # down the mesa's east face, a block off it
 L.row(155, 170, 32, "#")                      # the bunker's roof (g32)
 L.col(155, 33, 34, "#")                       # its walls (doorways rows 35-37)
 L.col(170, 33, 34, "#")

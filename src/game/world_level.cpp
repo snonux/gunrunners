@@ -909,9 +909,11 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
             r.fillRect(x - 6, y - 6, w + 12, h + 12, rgb(200, 160, 70));
             r.fillRect(x, y, w, h, rgb(190, 205, 215));
             r.fillRect(x + 6, y + 6, 6, h - 12, rgba(255, 255, 255, 150));
-            if (!pr.box().intersects(pbox))
-              break;
           }
+          // Only the glass in its rect mirrors you; elsewhere the reflection
+          // read as a ghost following the runner round the level.
+          if (!pr.box().intersects(pbox))
+            break;
           // The odd mirror (Level 10) shows another runner: Dash sees Nova,
           // Nova sees Rocco, Rocco sees Dash, and everyone else one of the
           // three.

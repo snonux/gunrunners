@@ -267,6 +267,12 @@ add_test(NAME savegame_hive_gullets COMMAND savegame_test ${CMAKE_SOURCE_DIR}/le
 add_executable(hive_test tests/hive_test.cpp)
 target_link_libraries(hive_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME hive_tubes COMMAND hive_test)
+add_executable(ladder_test tests/ladder_test.cpp)
+target_link_libraries(ladder_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME ladders COMMAND ladder_test ${CMAKE_SOURCE_DIR}/levels)
+add_executable(reflection_test tests/reflection_test.cpp)
+target_link_libraries(reflection_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME reflections COMMAND reflection_test)
 # Level 43: in the ship, through the asteroids.
 add_test(NAME savegame_starfall COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/43_starfall.txt 500)
 add_executable(starfall_test tests/starfall_test.cpp)

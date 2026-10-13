@@ -469,7 +469,14 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
         const int attachX = b.left() + 1;
         const int nextY = mvY < 0 ? b.top() - 1 : b.bottom() + 1;
         if (mMap.ladder(attachX, nextY))
-          mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), mvY);
+        {
+          // Down the ladder passes one-way blocks beside it (the hatch in
+          // a floor the ladder goes through); only walls and lifts stop it.
+          if (mvY < 0)
+            mMap.moveVertically(p.x, p.y, Player::kWidth, p.height(), mvY);
+          else if (ladderClearBelow(b))
+            ++p.y;
+        }
         else if (mvY > 0)
           startFalling();
       }
@@ -548,10 +555,32 @@ void World::updateLadderAttachment(int /*mvX*/, int mvY)
   const bool canAttach = p.state != PlayerState::Ladder && p.state != PlayerState::Dying &&
     p.state != PlayerState::Swing &&
     p.state != PlayerState::Teleporting && (p.state != PlayerState::Jumping || p.frames >= 3);
-  if (!canAttach || mvY >= 0)
+  if (!canAttach || mvY == 0)
     return;
 
   const CellBox b = p.box();
+  if (mvY > 0)
+  {
+    // Down while standing over the top of a ladder: onto it, then down it.
+    if (p.state != PlayerState::OnGround)
+      return;
+    for (int i = 0; i < b.w; ++i)
+    {
+      const int lx = b.left() + i;
+      if (!mMap.ladder(lx, b.bottom() + 1))
+        continue;
+      const CellBox snapped{lx - 1, b.y, b.w, b.h};
+      if (mMap.overlapsSolid(snapped) || !ladderClearBelow(snapped))
+        return; // no room beside the ladder to climb down
+      p.state = PlayerState::Ladder;
+      p.frames = 0;
+      p.somersault = -1;
+      setVisual(PlayerVisual::ClimbingLadder);
+      p.x = snapped.x;
+      return;
+    }
+    return;
+  }
   for (int i = 0; i < b.w; ++i)
   {
     if (!mMap.ladder(b.left() + i, b.top()))
@@ -564,6 +593,17 @@ void World::updateLadderAttachment(int /*mvX*/, int mvY)
     p.x -= (b.left() + 1) - (b.left() + i);
     return;
   }
+}
+
+bool World::ladderClearBelow(const CellBox& b) const
+{
+  // Walls and the tops of lifts and floats stop a climber; one-way blocks
+  // don't.
+  const int y = b.bottom() + 1;
+  for (int x = b.left(); x <= b.right(); ++x)
+    if (mMap.solid(x, y) || mMap.platformAt(x, y) >= 0 || mMap.floatTop(x, y))
+      return false;
+  return true;
 }
 
 void World::updateHorizontalMovementInAir(int mvX)

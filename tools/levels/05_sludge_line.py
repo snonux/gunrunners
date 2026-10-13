@@ -42,7 +42,7 @@ def gems(*pts):
 # --- 1. High catwalk and first tide (0-35) ---------------------------------------
 L.clear(0, 27, 6, 11)                        # above the catwalk (row 12)
 L.clear(28, 29, 6, 18)                       # the shaft down to the tunnel
-L.col(28, 11, 25, "H")
+L.col(29, 11, 25, "H")
 L.clear(7, 35, 19, 25)                       # the tunnel
 L.row(7, 35, 26, "%")                        # its grate floor
 L.clear(7, 34, 27, 28)                       # the channel under it
@@ -82,12 +82,13 @@ L.clear(82, 89, 35, 37)                      # the culvert
 L.clear(90, 111, 35, 36)                     # the channel under the grate
 L.clear(90, 92, 34, 34)                      # the carrier's pool gap
 L.col(89, 31, 37, "H")                       # out of the culvert
-L.fill(86, 88, 31, 33, "#")                  # crates
+L.fill(85, 87, 31, 33, "#")                  # crates (room beside the ladder)
+L.put(88, 34, "=")                           # the grate beside the ladder
 L.fill(100, 103, 31, 33, "#")
-L.put(88, 30, "h")
+L.put(87, 30, "h")
 L.put(95, 33, "W")
 L.put(101, 30, "m")
-gems((87, 29), (96, 31), (102, 29))
+gems((86, 29), (96, 31), (102, 29))
 
 # --- 4. Highest catwalk (104-120) ----------------------------------------------------
 L.clear(110, 111, 15, 27)                    # the shaft up from the flood room

@@ -56,6 +56,11 @@ L.row(42, 51, 32, "^")
 L.ground(52, 59, 31)
 L.row(52, 55, 30, "^")
 L.col(41, 25, 32, "H")
+# A climber on a ladder fills half the block to its left: the roof's edge
+# beside it is a one-way top over an open slot.
+L.put(40, 25, "=")
+L.clear(40, 40, 26, 31)
+L.put(40, 32, "^")
 L.col(59, 25, 30, "H")
 sign("s1", 42, 25, 45, 25, color="cyan")
 sign("s2", 48, 25, 51, 25, color="pink")

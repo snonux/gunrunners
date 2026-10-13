@@ -175,6 +175,9 @@ L.ground(167, 167, 22)                       # rock pillar
 L.put(167, 40, "#")
 L.ground(174, 181, 22)                       # M7
 L.col(160, 23, 40, "H")
+L.put(159, 30, "=")                          # room beside the ladder
+L.clear(159, 159, 31, 39)
+L.put(159, 40, "^")
 L.at("log", 163, 6, "L1", len=7, hang=3, tie=(158, 21), lands=(160, 166, 22))
 L.at("log", 171, 6, "L2", len=6, hang=3, tie=(175, 21), lands=(168, 173, 22))
 L.at("cage", 170, 15, "C1", gems=6, rope=(170, 12))

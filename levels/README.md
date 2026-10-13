@@ -385,7 +385,7 @@ hanging), and jumps 6 to 9 cells high depending on the runner.
 | `=`  | one-way platform (jump up through it, land on top) |
 | `^`  | spikes: the top half hurts, the bottom half is solid |
 | `v`  | spikes hanging from a ceiling: the top half is solid, the bottom half hurts |
-| `H`  | ladder: press up to grab it, jump off at the top |
+| `H`  | ladder: press up to grab it, or down while standing over its top to climb down it; jump off at the top. A climber fills half the block to the ladder's left, so that block is never solid (`.` or a one-way `=`, which a climber passes both ways; `ladders` ctest checks every level) |
 | `-`  | hang bar (pipe): you grab it automatically when jumping into it; down aims down, up pulls your legs in, down+jump drops |
 | `D`  | force field: solid and deadly until you touch it while carrying the access card |
 | `%`  | grate: solid to walk on, sludge rises through it |

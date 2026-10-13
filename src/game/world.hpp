@@ -1955,6 +1955,7 @@ private:
   void updatePlayer(const PlayerInput& input);
   void updatePlayerMovement(int mvX, int mvY, const Button& jump, const Button& fire);
   void updateLadderAttachment(int mvX, int mvY);
+  bool ladderClearBelow(const CellBox& b) const; // a climber can go down a cell
   void updateJumpMovement(int mvX, bool jumpPressed);
   void updateHorizontalMovementInAir(int mvX);
   void updateShooting(const Button& fire);
