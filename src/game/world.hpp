@@ -32,6 +32,7 @@
 #include "game/warehouse.hpp"
 #include "game/wardrobe.hpp"
 #include "game/writers.hpp"
+#include "game/gallery.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -44,6 +45,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <deque>
 #include <vector>
 
 namespace gr
@@ -283,6 +285,7 @@ struct Projectile
   int phase = -1;       // a Phase Rifle shot: the wall it is passing through (-1 none yet, -2 done)
   bool echo = false;    // fired by an Echo (drawn as a hologram's shot)
   bool ricochet = false; // a Six-Shooter bullet that already glanced off metal
+  int hopCool = 0;       // Level 39: out of a monitor, frames (negative, counting up) it flies on off screen
   int thrown = 0;        // a Poltergeist's throw: 1 book, 2 plate, 3 candlestick
   int anchorX = -1, anchorY = -1; // a Silk Shooter shot: the hands it was fired from
   bool alive = true;
@@ -1851,6 +1854,11 @@ public:
   const WardrobeState& wardrobe() const { return mWardrobe; }
   const WritersState& writers() const { return mWriters; }
   bool writersStepDone(int i) const; // Level 38: the bot's route step i is done
+  const GalleryState& gallery() const { return mGallery; }
+  bool galleryStepDone(int i) const; // Level 39: the bot's route step i is done
+  int camX(const CamSpot& c) const;  // where a panning camera looks now (cells)
+  bool atMonitor(const Monitor& m) const;
+  CellBox boomArc(const Enemy& e) const;
   int writersFloor(int cy) const;    // Level 38: 0 the script floor, 1 the corkboard, 2 the desks
   bool wardrobeStepDone(int i) const; // Level 37: the bot's route step i is done
   int rackLaunch() const;             // Level 37: cells a spring rack throws the runner now
@@ -2759,6 +2767,31 @@ private:
   void updateWriters(const PlayerInput& input);
   void updateWritersEgg();
   void resetWriters();
+  // Level 39 (world_gallery.cpp).
+  bool setupGalleryEntity(const EntityDef& e);
+  void setupGalleryEnemy(Enemy& en, const EntityDef& e);
+  void linkGallery();
+  bool monitorExit(const Monitor& m, int& x, int& y) const;
+  PlayerInput galleryInput(const PlayerInput& raw);
+  void finishHop();
+  bool shotAtGallery(Projectile& pr, const CellBox& b);
+  GalleryActor* galleryActor(const Enemy& e);
+  void galleryPatrol(Enemy& e, const EnemyDef& def);
+  void updateCableWrangler(Enemy& e, const EnemyDef& def);
+  void updateBoomOp(Enemy& e, const EnemyDef& def);
+  bool lineOfSight(int x0, int y0, int x1, int y1) const;
+  void updateFloorManager(Enemy& e, const EnemyDef& def);
+  void updateGallery();
+  bool galleryRewindDeath();
+  void finishRewind();
+  void resetGallery();
+  bool galleryCanSave() const;
+  std::vector<int> gallerySave() const;
+  bool validGallerySave(const std::vector<int>& v) const;
+  void loadGallery(const std::vector<int>& v);
+  void drawGalleryBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawGalleryFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawGalleryHud(Renderer& r, int frame) const;
   PlayerInput breakoutInput(const PlayerInput& raw);
   void updateBreakout();
   bool writersCanSave() const;
@@ -3413,6 +3446,18 @@ private:
   WarehouseState mWarehouse;
   WardrobeState mWardrobe;
   WritersState mWriters;
+  GalleryState mGallery;
+  // Level 39's Rewind bonus: the last kGlRewindKeep frames.
+  struct RewindFrame
+  {
+    Player player;
+    std::vector<Enemy> enemies;
+    std::vector<Item> items;
+    std::vector<Platform> platforms;
+    std::vector<GlCrusher> crushers;
+    int gems = 0, score = 0;
+  };
+  std::deque<RewindFrame> mRewind;
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner

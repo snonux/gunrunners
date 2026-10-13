@@ -180,6 +180,8 @@ void World::setupEntities()
       continue;
     if (setupWritersEntity(e))
       continue;
+    if (setupGalleryEntity(e))
+      continue;
     if (setupWarehouseEntity(e))
       continue;
     if (setupTowerEntity(e))
@@ -255,6 +257,7 @@ void World::setupEntities()
       setupWarehouseEnemy(en, e);
       setupWardrobeEnemy(en, e);
       setupWritersEnemy(en, e);
+      setupGalleryEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:

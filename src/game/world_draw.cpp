@@ -244,6 +244,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWardrobeBack(r, camX, camY, frame, alpha);
   if (mWriters.on)
     drawWritersBack(r, camX, camY, frame, alpha);
+  if (mGallery.on)
+    drawGalleryBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -1045,6 +1047,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWardrobeFront(r, camX, camY, frame, alpha);
   if (mWriters.on)
     drawWritersFront(r, camX, camY, frame, alpha);
+  if (mGallery.on)
+    drawGalleryFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1923,6 +1927,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawWardrobeHud(r, frame);
   if (mWriters.on)
     drawWritersHud(r, frame);
+  if (mGallery.on)
+    drawGalleryHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

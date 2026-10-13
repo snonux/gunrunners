@@ -225,6 +225,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 39: up into monitors; jumping cables; Rewind's crushers.
+  if (world.gallery().on)
+  {
+    Input in;
+    if (gallery(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 38: words to strike, Typos, the typewriter; the Breakout bonus.
   if (world.writers().on)
   {

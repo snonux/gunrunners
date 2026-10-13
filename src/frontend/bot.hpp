@@ -97,6 +97,9 @@ public:
   // Writers' Room (bot_writers.cpp): strike the words in the way, shoot
   // Typos, type the bridge; Breakout's paddle.
   bool writers(const World& world, Input& in);
+  // Level 39 (bot_gallery.cpp): monitors, panning cameras, cables; Rewind's crushers.
+  bool gallery(const World& world, Input& in);
+  bool mGalleryUp = false;
   Input breakout(const World& world);
   bool mPenPrev = false, mTypePrevJump = false;
   int mStrikeWait = 0;

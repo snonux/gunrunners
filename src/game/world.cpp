@@ -194,6 +194,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkWarehouse();
   linkWardrobe();
   linkWriters();
+  linkGallery();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -367,6 +368,13 @@ void World::updateFrame(const PlayerInput& input)
       updateBonusRules(input);
       if (mState != WorldState::Playing)
         break;
+      // Level 39's Rewind: the tape winds back, then the world is as it was.
+      if (mGallery.rewinding > 0)
+      {
+        if (--mGallery.rewinding == 0)
+          finishRewind();
+        break;
+      }
       // Stop Motion: the world only moves on frames the runner moves.
       mReactor.moving = !mReactor.stopMotion || runnerMoving(input);
       if (mReactor.moving)
@@ -405,6 +413,8 @@ void World::updateFrame(const PlayerInput& input)
         updatePlayer(wardrobeInput(input)); // Level 37: booths, the mirror, tumbles, the Totem
       else if (mWriters.breakout)
         updatePlayer(writersInput(input)); // Level 38's Breakout: the runner is the paddle
+      else if (mGallery.on)
+        updatePlayer(galleryInput(input)); // Level 39: up into a monitor; tripped over a cable
       else
         updatePlayer(input);
       if (mManor.split.on)
@@ -518,6 +528,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateWardrobe(input);
   if (mWriters.on)
     updateWriters(input);
+  if (mGallery.on)
+    updateGallery();
   updateHatches();
   updateProps(input);
 }
@@ -1071,6 +1083,15 @@ void World::updateEnemies()
       case EnemyKind::SketchGuard:
         updateSketchGuard(e, def);
         break;
+      case EnemyKind::FloorManager:
+        updateFloorManager(e, def);
+        break;
+      case EnemyKind::CableWrangler:
+        updateCableWrangler(e, def);
+        break;
+      case EnemyKind::BoomOp:
+        updateBoomOp(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1215,6 +1236,9 @@ void World::updateProjectiles()
       return true;
     // Level 38: the Red Pen strikes words; shots type keys, tink off a Writer's Block.
     if (mWriters.on && shotAtWriters(pr, b))
+      return true;
+    // Level 39: the Echo Mic's repeats; shots fly through monitors.
+    if (mGallery.on && shotAtGallery(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1590,6 +1614,9 @@ void World::updateProjectiles()
     const bool hook = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GrappleGun); // Level 34: out to its range
     // Level 35: shots come round the tower at you from off screen.
     const bool round = mTower.wrap && pr.kind == ShotKind::Enemy;
+    // Level 39: a shot out of a monitor flies on in the room it shows (a second).
+    if (pr.alive && pr.hopCool < 0 && pr.hopCool++ < -1)
+      continue;
     if (pr.alive && !isOnScreen(pr.box(), round ? 64 : rod ? kRodFlight
           : hook                              ? kHookRange
           : harpoon                           ? kLineReach

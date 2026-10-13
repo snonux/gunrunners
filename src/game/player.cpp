@@ -1081,6 +1081,9 @@ void World::killPlayer()
   auto& p = mPlayer;
   if (p.state == PlayerState::Dying)
     return;
+  // Level 39's Rewind bonus: no death, the last three seconds again.
+  if (mGallery.on && galleryRewindDeath())
+    return;
   if (p.vehicle >= 0)
   {
     mVehicles[std::size_t(p.vehicle)].occupied = false;
@@ -1239,6 +1242,8 @@ void World::respawnPlayer()
     resetWardrobe();
   if (mWriters.on)
     resetWriters();
+  if (mGallery.on)
+    resetGallery();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

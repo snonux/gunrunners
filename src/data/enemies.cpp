@@ -298,6 +298,9 @@ const EnemyDef kEnemies[] = {
   {"deadline", "DEADLINE", K::Deadline, L::Styled, 4, 5, 6, 700, 1, 15, 12, 0, kEnemyHarmless, 0},
   {"writersblock", "WRITER'S BLOCK", K::WritersBlock, L::Styled, 4, 4, 99, 1000, 1, 45, 15, 0, kEnemyHarmless, 0},
   {"sketch_guard", "SKETCH GUARD", K::SketchGuard, L::Styled, 3, 5, 4, 500, 0, 30, 12, 30, 0, 0},
+  {"floormgr", "FLOOR MANAGER", K::FloorManager, L::Styled, 3, 5, 6, 800, 2, 45, 22, 24, 0, 0},
+  {"wrangler", "CABLE WRANGLER", K::CableWrangler, L::Styled, 4, 5, 4, 500, 2, 30, 10, 0, 0, 0},
+  {"boomop", "BOOM OP", K::BoomOp, L::Styled, 4, 5, 5, 600, 0, 45, 10, 0, 0, 0},
   {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 

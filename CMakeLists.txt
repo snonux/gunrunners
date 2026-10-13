@@ -155,6 +155,8 @@ add_library(gunrunners_core STATIC
   src/game/world_wardrobe_draw.cpp
   src/game/world_writers.cpp
   src/game/world_writers_draw.cpp
+  src/game/world_gallery.cpp
+  src/game/world_gallery_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -191,6 +193,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_warehouse.cpp
   src/frontend/bot_wardrobe.cpp
   src/frontend/bot_writers.cpp
+  src/frontend/bot_gallery.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -420,3 +423,8 @@ target_link_libraries(writers_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME writers COMMAND writers_test ${CMAKE_SOURCE_DIR}/levels/38_writers_room.txt
   ${CMAKE_SOURCE_DIR}/levels/38_bonus_breakout.txt)
 add_test(NAME savegame_writers_room COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/38_writers_room.txt 300)
+add_executable(gallery_test tests/gallery_test.cpp)
+target_link_libraries(gallery_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME gallery COMMAND gallery_test ${CMAKE_SOURCE_DIR}/levels/39_gallery.txt
+  ${CMAKE_SOURCE_DIR}/levels/39_bonus_rewind.txt)
+add_test(NAME savegame_gallery COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/39_gallery.txt 300)

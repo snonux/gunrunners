@@ -164,6 +164,9 @@ enum class EnemyKind
   Deadline,     // Level 38: a clock on legs, faster every lap of its minute hand
   WritersBlock, // Level 38: slides into your way and sits; only striking its word kills it
   SketchGuard,  // Level 38: a pencil sentry with a pencil rifle
+  FloorManager, // Level 39: counts 3-2-1, then his whole room fires
+  CableWrangler, // Level 39: drags a cable that trips the runner
+  BoomOp,       // Level 39: sweeps a boom mic over its head
 };
 
 enum EnemyFlag : unsigned

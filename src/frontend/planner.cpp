@@ -640,6 +640,24 @@ int writersStep(const World& w)
   return -1;
 }
 
+int galleryStep(const World& w)
+{
+  const auto& s = w.gallery();
+  for (int i = s.routeAt; i < int(s.route.size()); ++i)
+    if (!w.galleryStepDone(i))
+      return i;
+  return -1;
+}
+
+Planner::Goal Planner::galleryGoal(const World& w) const
+{
+  const int i = galleryStep(w);
+  if (i < 0)
+    return {};
+  const auto& st = w.gallery().route[std::size_t(i)];
+  return {18, st.x - 2, st.y - 4, 4, 5, -1};
+}
+
 Planner::Goal Planner::writersGoal(const World& w) const
 {
   const auto& s = w.writers();
@@ -735,6 +753,13 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   if (w.writers().on && !w.writers().breakout)
   {
     const Goal h = writersGoal(w);
+    if (h.kind != 0)
+      return h;
+  }
+  // Level 39: the route from monitor to monitor; Bot::gallery steps in.
+  if (w.gallery().on && !w.gallery().route.empty())
+  {
+    const Goal h = galleryGoal(w);
     if (h.kind != 0)
       return h;
   }
