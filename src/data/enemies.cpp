@@ -260,6 +260,13 @@ const EnemyDef kEnemies[] = {
   {"firewall", "FIREWALL", K::Firewall, L::Styled, 4, 6, 6, 900, 2, 0, 8, 0, kEnemyHarmless | kEnemyNoTally, 0},
   {"lava_daemon", "LAVA DAEMON", K::LavaDaemon, L::Styled, 3, 4, 3, 600, 1, 40, 12, 0, 0, 0},
   {"fan_bot", "FAN BOT", K::FanBot, L::Styled, 4, 6, 6, 500, 1, 45, 15, 0, kEnemyHarmless | kEnemyRobot, 0},
+  // Level 34. Sky Pirate: the blade goes up (10 frames) before a cutlass
+  // swing; the arm levels with a glint (12) before a pistol shot. Peck
+  // Parrot: a squawk and a head bob (8) before its dive. Balloon Mine:
+  // flashes red for 8 frames, then bursts.
+  {"sky_pirate", "SKY PIRATE", K::SkyPirate, L::Styled, 3, 5, 5, 800, 2, 40, 10, 0, 0, 0},
+  {"peck_parrot", "PECK PARROT", K::PeckParrot, L::Styled, 3, 3, 2, 400, 1, 45, 8, 0, 0, 0},
+  {"balloon_mine", "BALLOON MINE", K::BalloonMine, L::Styled, 4, 4, 1, 300, 4, 0, 8, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

@@ -19,7 +19,8 @@ bool World::canSave() const
     !mGlide.on && !mTop.on && (!mCity.on || cityCanSave()) && ((!mNoir.on && !mFilm.on) || noirCanSave()) &&
     (!(mToon.on || mInk.on) || toonCanSave()) && (!mSignal.on || signalCanSave()) &&
     (!mTrench.on || trenchCanSave()) && (!mStorm.on || stormCanSave()) &&
-    (!mDish.on || dishCanSave()) && (!mMagma.on || magmaCanSave());
+    (!mDish.on || dishCanSave()) && (!mMagma.on || magmaCanSave()) &&
+    (!mFleet.on || fleetCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -398,6 +399,8 @@ SaveGame World::snapshot() const
     s.dish = dishSave();
   if (mMagma.on)
     s.magma = magmaSave();
+  if (mFleet.on)
+    s.fleet = fleetSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -492,6 +495,7 @@ bool World::restore(const SaveGame& s)
       (!s.signal.empty() && !validSignalSave(s.signal)) || (!s.trench.empty() && !validTrenchSave(s.trench)) ||
       (!s.storm.empty() && !validStormSave(s.storm)) ||
       (!s.dish.empty() && !validDishSave(s.dish)) || (!s.magma.empty() && !validMagmaSave(s.magma)) ||
+      (!s.fleet.empty() && !validFleetSave(s.fleet)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -959,6 +963,8 @@ bool World::restore(const SaveGame& s)
     loadDish(s.dish);
   if (!s.magma.empty())
     loadMagma(s.magma);
+  if (!s.fleet.empty())
+    loadFleet(s.fleet);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

@@ -148,6 +148,9 @@ enum class EnemyKind
   Firewall,   // a wall of flame sweeping its floor; it dips at each port (only Heat Sink fireballs hurt it)
   LavaDaemon, // leaps between perches on its floor and lobs fireballs
   FanBot,     // on the shaft wall: blows gusts across; its blades turn shots from the front
+  SkyPirate,  // Level 34: jets in on a trigger, lands on your ship: cutlass and pistol
+  PeckParrot, // Level 34: sits on a balloon and sinks the ship; shooed, it dives
+  BalloonMine, // Level 34: rises from the clouds; close by or shot, it bursts
 };
 
 enum EnemyFlag : unsigned

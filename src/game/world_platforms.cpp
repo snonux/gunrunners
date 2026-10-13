@@ -180,6 +180,8 @@ void World::updatePlatforms()
   for (std::size_t i = 0; i < mPlatforms.size(); ++i)
   {
     auto& a = mPlatforms[i];
+    if (a.fleet)
+      continue; // Level 34: ships move in updateFleetShips
     if (a.mode == PlatformMode::Path)
     {
       if (a.path.size() < 2 || a.frozen)
@@ -313,6 +315,8 @@ void World::updatePlatforms()
   }
   if (mDish.on)
     updateDishRides(); // Level 32: the dishes' rims and feed arms (world_dish.cpp)
+  if (mFleet.on)
+    updateFleetShips(); // Level 34 (world_fleet.cpp)
   updateLavaPlatforms();
   syncPlatformCollision();
 }
@@ -510,6 +514,10 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
       continue; // a hull plate drifting off (world_hull_draw.cpp)
     if (pl.id == "seedhead")
       continue; // Level 25's dandelion seed head (world_garden_draw.cpp)
+    if (pl.fleet)
+      continue; // Level 34's ships (world_fleet_draw.cpp)
+    if (mDish.on && pl.dead)
+      continue; // Level 32's rims and feed arms (world_dish_draw.cpp)
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;
     const float y = (float(pl.prevY) + (float(pl.y) - float(pl.prevY)) * alpha) * kCellPx - camY;
     const float w = float(pl.w) * kCellPx;

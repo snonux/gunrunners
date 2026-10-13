@@ -364,6 +364,11 @@ void World::updateSwing(int mvX, int mvY, const Button& jump)
     return;
   }
   Vine& v = mVines[std::size_t(p.vine)];
+  if (v.ring)
+  {
+    updateRingSwing(mvX, mvY, jump); // Level 34's Grapple Gun line (world_fleet.cpp)
+    return;
+  }
   setVisual(PlayerVisual::Hanging);
   if (jump.triggered)
   {
@@ -1224,6 +1229,8 @@ void World::drawJungleBack(Renderer& r, float camX, float camY, int frame, float
   // Vines: from the anchor down, swaying (drawn at the in-between time).
   for (const auto& v : mVines)
   {
+    if (v.ring)
+      continue; // a Grapple Gun line (world_fleet_draw.cpp)
     const float axp = float(v.ax) * kCellPx - camX, ayp = float(v.ay) * kCellPx - camY;
     const float reach = float(v.len) * kCellPx;
     if (axp + reach < -64.0f || axp - reach > viewW + 64.0f || ayp > viewH + 64.0f || ayp + reach < -64.0f)

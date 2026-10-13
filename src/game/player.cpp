@@ -178,6 +178,14 @@ void World::updatePlayer(const PlayerInput& raw)
     return;
   }
   mUpHeld = in.up;
+  mFleet.up = in.up;
+  mFleet.mvX = mvX;
+  if (mFleet.cannonball)
+  {
+    // Human Cannonball: the cannon, then the flight (world_fleet.cpp).
+    updateCannonball(mvX, mvY, in);
+    return;
+  }
   if (p.silk >= 0)
   {
     // Level 47: sliding down a Silk Line (world_silk.cpp).
@@ -1165,6 +1173,8 @@ void World::respawnPlayer()
     resetWest();
   if (mMagma.on)
     resetMagma();
+  if (mFleet.on)
+    resetFleet();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

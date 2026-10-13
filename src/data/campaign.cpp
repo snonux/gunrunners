@@ -46,7 +46,7 @@ const std::array<CampaignLevel, kAllLevels> kLevels{{
   {31, "storm_relay", "STORM RELAY", "bungee"},
   {32, "dish_array", "DISH ARRAY", "heatstroke"},
   {33, "magma_mainframe", "MAGMA MAINFRAME", "overclock"},
-  {34, "zeppelin_relay", "ZEPPELIN RELAY", ""},
+  {34, "zeppelin_relay", "ZEPPELIN RELAY", "human_cannonball"},
   {35, "the_transmitter", "THE TRANSMITTER", "copycat"},
   {36, "prop_warehouse", "PROP WAREHOUSE", "throw"},
   {37, "wardrobe", "WARDROBE", "totem"},

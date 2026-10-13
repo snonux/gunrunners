@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 41> kVariants{{
+const std::array<Variant, 42> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -620,6 +620,21 @@ const std::array<Variant, 41> kVariants{{
     rgb(60, 30, 26), rgb(90, 44, 34),
     rgb(110, 110, 120), rgb(180, 180, 190), rgb(40, 40, 46), rgb(255, 60, 40),
     rgb(255, 236, 220), "magma"}},
+  // Level 34: a fleet of airships at sunset over a sea of clouds, peach to
+  // lavender sky, brass and varnished wood.
+  {"sunset_airships",
+   {ThemeId::NeonOverdrive,
+    "ZEPPELIN RELAY",
+    "SHIP TO SHIP ACROSS THE FLEET TO THE SIGNAL SHIP",
+    rgb(120, 110, 190), rgb(240, 160, 170), rgb(255, 200, 150),
+    rgb(120, 82, 56), rgb(170, 122, 82), rgb(70, 46, 32),
+    rgb(220, 180, 90), rgb(255, 230, 150),
+    rgb(150, 104, 66), rgb(96, 64, 42),
+    rgb(255, 120, 60), rgb(255, 200, 120),
+    rgb(255, 210, 120), rgb(140, 200, 255),
+    rgb(200, 170, 210), rgb(250, 230, 235),
+    rgb(90, 80, 100), rgb(170, 150, 170), rgb(40, 34, 50), rgb(255, 80, 60),
+    rgb(255, 246, 236), "fleet"}},
 }};
 
 } // namespace

@@ -27,6 +27,7 @@
 #include "game/storm.hpp"
 #include "game/dish.hpp"
 #include "game/magma.hpp"
+#include "game/fleet.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -335,6 +336,8 @@ struct Item
   int heldBy = -1; // carried off by this enemy (a Looter)
   int side = -1;       // level 23: the side it is on (-1 both)
   bool parked = false; // level 23: taken away while its side is gone
+  int ship = -1;        // Level 34: rides this ship, at rest at restX, restY
+  int restX = 0, restY = 0;
   CellBox box() const { return boxAt(x, y, 2, 2); }
 };
 
@@ -475,6 +478,7 @@ struct Platform
   int speedNum = 1, speedDen = 1;
   int powered = -1; // a lift: only moves while this breaker is on
   bool dead = false; // Level 31: a dead lift until lightning powers it (world_storm.cpp)
+  bool fleet = false; // Level 34: a ship's deck, moved by world_fleet.cpp
   bool once = false;   // mode=once: hidden until a script starts it, gone at the end
   int latch = -1;      // a hook: held by this latch until it is shot, then runs once you stand on it
   std::string latchId;
@@ -860,6 +864,7 @@ struct Vine
   int period = 26;
   int pump = 0;        // frames of this half-swing the runner pushed along it
   int halves = 0;      // half-swings held without letting go (the yell egg)
+  bool ring = false;   // Level 34: a Grapple Gun line to a ring (world_fleet.cpp)
   bool yelled = false;
   int cool = 0;        // frames before the runner can grab it again
   float angle() const; // degrees, + to the right
@@ -1834,6 +1839,8 @@ public:
   const StormState& storm() const { return mStorm; }
   const DishState& dish() const { return mDish; }
   const MagmaState& magma() const { return mMagma; }
+  const FleetState& fleet() const { return mFleet; }
+  bool grappleOut() const;
   int lavaGap() const; // blocks between the runner and the rising lava
   bool underwater() const;  // in the water, not in an air pocket
   bool lineUnder() const;   // standing on the harpoon line
@@ -2703,6 +2710,39 @@ private:
   void drawMagmaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaHud(Renderer& r, int frame) const;
+  // Level 34, Zeppelin Relay (world_fleet.cpp, world_fleet_draw.cpp), and
+  // its Human Cannonball bonus.
+  bool setupFleetEntity(const EntityDef& e);
+  void setupFleetEnemy(Enemy& en, const EntityDef& e);
+  void linkFleet();
+  void shipStep(Ship& sh, int dx, int dy);
+  void placeShip(Ship& sh, bool carry);
+  void updateFleetShips();
+  int shipUnder() const;
+  void updateFleet(const PlayerInput& input);
+  bool fleetYanked(const Enemy& e) const;
+  void resetFleet();
+  void updateGrapple(const Button& fire);
+  void hookRing(int i);
+  void setRingLine(int len);
+  void updateRingSwing(int mvX, int mvY, const Button& jump);
+  void releaseRing(bool launch);
+  bool shotAtFleet(Projectile& pr, const CellBox& hit);
+  int shotAtFleetEnemy(Projectile& pr, Enemy& e);
+  void updateSkyPirate(Enemy& e, const EnemyDef& def);
+  void updatePeckParrot(Enemy& e, const EnemyDef& def);
+  void burstMine(Enemy& e);
+  void explodeVisual(Vec2 at);
+  void updateBalloonMine(Enemy& e, const EnemyDef& def);
+  void reloadCannon();
+  void updateCannonball(int mvX, int mvY, const PlayerInput& in);
+  bool fleetCanSave() const;
+  std::vector<int> fleetSave() const;
+  bool validFleetSave(const std::vector<int>& s) const;
+  void loadFleet(const std::vector<int>& s);
+  void drawFleetBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFleetFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFleetHud(Renderer& r, int frame) const;
   // Level 30, Fiber Trench (world_trench.cpp, world_trench_draw.cpp), and
   // its Bubble Up bonus.
   bool setupTrenchEntity(const EntityDef& e);
@@ -3202,6 +3242,7 @@ private:
   StormState mStorm;
   DishState mDish;
   MagmaState mMagma;
+  FleetState mFleet;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.

@@ -73,6 +73,15 @@ public:
   // nook for the bonus.
   bool magma(const World& world, Input& in);
   std::deque<Input> mMagmaQueue;
+  // Zeppelin Relay (bot_fleet.cpp): the grapple chain, the bomb bay for the
+  // bonus; Human Cannonball: each shot's angle and steer tried in copies.
+  bool fleet(const World& world, Input& in);
+  Input cannonball(const World& world);
+  bool fleetQueue(Input& in);
+  std::deque<Input> mFleetQueue;
+  Input mFleetPrev;
+  bool mFleetLast = false;
+  int mFleetRingX = -1; // the furthest chain ring hooked since the last deck
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);

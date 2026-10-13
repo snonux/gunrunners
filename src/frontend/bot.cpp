@@ -114,6 +114,8 @@ Input Bot::play(const World& world)
     return bubbleUp(world);
   if (world.storm().bungee)
     return bungee(world);
+  if (world.fleet().cannonball)
+    return cannonball(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -216,6 +218,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (storm(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 34: the grapple chain, and the bomb bay for the bonus.
+  if (world.fleet().on)
+  {
+    Input in;
+    if (fleet(world, in))
     {
       mPlanner.reset();
       return in;

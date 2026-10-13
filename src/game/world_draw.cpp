@@ -218,6 +218,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawDishBack(r, camX, camY, frame, alpha);
   if (mMagma.on)
     drawMagmaBack(r, camX, camY, frame, alpha);
+  if (mFleet.on)
+    drawFleetBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -447,6 +449,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 32 (world_dish_draw.cpp)
     if (e.kind == EnemyKind::Firewall || e.kind == EnemyKind::LavaDaemon || e.kind == EnemyKind::FanBot)
       continue; // Level 33 (world_magma_draw.cpp)
+    if (e.kind == EnemyKind::SkyPirate || e.kind == EnemyKind::PeckParrot || e.kind == EnemyKind::BalloonMine)
+      continue; // Level 34 (world_fleet_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -937,6 +941,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawDishFront(r, camX, camY, frame, alpha);
   if (mMagma.on)
     drawMagmaFront(r, camX, camY, frame, alpha);
+  if (mFleet.on)
+    drawFleetFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1774,6 +1780,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawDishHud(r, frame);
   if (mMagma.on)
     drawMagmaHud(r, frame);
+  if (mFleet.on)
+    drawFleetHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

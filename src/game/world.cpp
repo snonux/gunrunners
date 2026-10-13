@@ -189,6 +189,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkStorm();
   linkDish();
   linkMagma();
+  linkFleet();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -495,6 +496,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateDish(input);
   if (mMagma.on)
     updateMagma(input);
+  if (mFleet.on)
+    updateFleet(input);
   updateHatches();
   updateProps(input);
 }
@@ -1000,6 +1003,15 @@ void World::updateEnemies()
       case EnemyKind::FanBot:
         updateFanBot(e, def);
         break;
+      case EnemyKind::SkyPirate:
+        updateSkyPirate(e, def);
+        break;
+      case EnemyKind::PeckParrot:
+        updatePeckParrot(e, def);
+        break;
+      case EnemyKind::BalloonMine:
+        updateBalloonMine(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1130,6 +1142,9 @@ void World::updateProjectiles()
       return true;
     // Level 33: a Heat Sink fireball goes off; the racks and the RATINGS server.
     if (mMagma.on && shotAtMagma(pr, b))
+      return true;
+    // Level 34: the Grapple Gun's hook catches a ring.
+    if (mFleet.on && shotAtFleet(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1360,6 +1375,9 @@ void World::updateProjectiles()
       if (mStorm.on && pr.kind != ShotKind::Enemy)
         shotAtStormEnemy(pr, e); // Level 31: a spark down a Kite Drone's tether
       // Level 33: a Firewall soaks shots; a Fan Bot's blades turn them.
+      // Level 34: the hook yanks light enemies; a Balloon Mine goes off.
+      if (mFleet.on && pr.kind != ShotKind::Enemy && shotAtFleetEnemy(pr, e) == 1)
+        return true;
       if (mMagma.on && pr.kind != ShotKind::Enemy)
       {
         const int r = shotAtMagmaEnemy(pr, e);
@@ -1499,7 +1517,9 @@ void World::updateProjectiles()
     // Harpoons and Tesla rods fly on past the edge of the view to stick.
     const bool harpoon = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine);
     const bool rod = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::TeslaRod);
+    const bool hook = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GrappleGun); // Level 34: out to its range
     if (pr.alive && !isOnScreen(pr.box(), rod ? kRodFlight
+          : hook                              ? kHookRange
           : harpoon                           ? kLineReach
           : pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12
                                                                            : 2))

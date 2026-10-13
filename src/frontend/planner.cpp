@@ -522,6 +522,21 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   if (w.magma().serverX >= 0 && !w.magma().serverShot && mTakeBonus && !mSkipBonus &&
       std::abs(w.player().y - w.magma().serverY) <= 30)
     return {18, w.magma().serverX + 8, w.magma().serverY - 4, 3, 5, -1};
+  // Level 34: for the bonus, the drop off D's bow for the bomb bay's ring;
+  // then the near end of the grapple chain (Bot::fleet does the swinging).
+  if (w.fleet().on)
+  {
+    const auto& f = w.fleet();
+    const auto& p = w.player();
+    if (f.dropX >= 0 && !f.hatchOpen && mTakeBonus && !mSkipBonus && p.x <= f.dropX + 30)
+      return {18, f.dropX, f.dropY - 4, 4, 5, -1};
+    bool inBay = false; // in the bomb bay, the entrance not yet taken: that is next
+    if (f.hatchOpen && mTakeBonus && !mSkipBonus && p.x <= f.dropX + 30)
+      for (const auto& pr : w.props())
+        inBay = inBay || (pr.kind == PropKind::BonusDoor && !pr.used && !pr.dormant);
+    if (!inBay && f.chainX0 >= 0 && p.x < f.chainX1 && p.x <= f.chainX0 + 8)
+      return {18, f.chainX0 - 2, f.chainY - 4, 4, 5, -1};
+  }
   // Level 23: the bonus detour through the crypt; then the next mirror to
   // step through, or lever to throw, on the manor's route.
   bool inCrypt = false;
@@ -2362,6 +2377,7 @@ void Planner::plan(const World& world)
     for (const auto& b : world.city().buildings)
       powered = int(unsigned(powered) * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u)));
     powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
+    powered = powered * 2 + world.fleet().hatchOpen; // Level 34: the bomb bay's hatch
     // Level 31: machines powered (the generator's hatch, the lift).
     for (const auto& m : world.storm().machines)
       powered = powered * 2 + m.powered;
