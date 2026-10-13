@@ -168,6 +168,9 @@ void World::linkMagma()
     mBonusFramesLeft *= 3; // the timer counts real seconds
     for (auto& w : s.walls)
       w.harmless = true;
+    // The music runs fast too (sound only: the frontend plays this track).
+    if (!mLevel->music.empty() && mMusicOverride.empty())
+      mMusicOverride = mLevel->music + "+fast";
   }
   // The Fan Bots' gusts: across the shaft from the blades to the far wall.
   for (auto& f : s.fans)
@@ -243,7 +246,7 @@ void World::touchLava()
   auto& s = mMagma;
   const Vec2 at{(float(p.x) + 1.5f) * kCellSize, float(p.y) * kCellSize};
   burst(at, rgb(255, 200, 80), rgb(255, 70, 20), 16, 1.8f);
-  playSound(Sfx::Sizzle);
+  playSound(Sfx::LavaPop);
   ++s.pops;
   if (p.mercy == 0 && !mGod)
   {
@@ -260,6 +263,12 @@ void World::touchLava()
   int x = p.x, y = p.y;
   if (!findLavaPop(x, y))
     return;
+  // Drawing only: the pop's arc (world_magma_draw.cpp).
+  s.popFrame = mStats.frames;
+  s.popFromX = p.x;
+  s.popFromY = p.y;
+  s.popToX = x;
+  s.popToY = y;
   p.x = p.prevX = x;
   p.y = p.prevY = y;
   p.state = PlayerState::OnGround;
@@ -290,7 +299,7 @@ void World::updateMagma(const PlayerInput& input)
       pu.fired = true;
       pu.steam = 30;
       s.pause = std::max(s.pause, kPurgeFrames);
-      playSound(Sfx::Hiss);
+      playSound(Sfx::SteamBurst);
       showMessage("COOLANT PURGE - THE LAVA HOLDS");
     }
   }
@@ -301,14 +310,20 @@ void World::updateMagma(const PlayerInput& input)
   if (s.rising && mState == WorldState::Playing)
   {
     if (s.delay > 0)
+    {
       --s.delay;
+      if (s.delay == 0 && !mSimulation)
+        playSound(Sfx::LavaRumble); // it starts to rise
+    }
     else if (s.reboot > 0)
     {
     }
     else if (s.pause > 0)
     {
       if (--s.pause == kSirenFrames)
-        playSound(Sfx::Siren);
+        playSound(Sfx::PurgeSiren);
+      else if (s.pause == 0 && !mSimulation)
+        playSound(Sfx::LavaRumble); // rising again
     }
     else
     {
@@ -342,7 +357,7 @@ void World::updateMagma(const PlayerInput& input)
     {
       p.hp -= 1;
       mStats.tookDamage = true;
-      playSound(Sfx::Sizzle);
+      playSound(Sfx::GutterSizzle);
       burst({(float(p.x) + 1.5f) * kCellSize, float(p.y) * kCellSize}, rgb(255, 200, 80), rgb(255, 70, 20), 8, 1.2f);
       if (p.hp <= 0)
       {
@@ -361,7 +376,7 @@ void World::updateMagma(const PlayerInput& input)
       continue;
     r.t = (r.t + 1) % (r.on + r.off);
     if (r.t == r.on + r.off - kRackSpin && isOnScreen(r.box(), 4))
-      playSound(Sfx::Whine);
+      playSound(Sfx::RackGlitch);
     if (r.blowing() && alive && p.virus == 0 && p.mercy == 0 && r.dust.intersects(p.hitBox()))
       infect();
   }
@@ -433,7 +448,7 @@ void World::updateHeatSink(const Button& fire)
   if (fire.pressed)
   {
     if (!s.sucking)
-      playSound(Sfx::Inhale);
+      playSound(Sfx::SinkSuck);
     s.sucking = true;
     ++s.sinkT;
     // Fireballs and enemy shots in the cone come in.
@@ -452,7 +467,7 @@ void World::updateHeatSink(const Button& fire)
       if (p.ammo < kSinkMax)
       {
         ++p.ammo;
-        playSound(Sfx::Gulp);
+        playSound(Sfx::SinkGulp);
       }
     }
     return;
@@ -476,7 +491,7 @@ void World::updateHeatSink(const Button& fire)
   pr.x = pr.prevX = p.facing > 0 ? p.x + Player::kWidth : p.x - 2;
   pr.y = pr.prevY = row - 1;
   mProjectiles.push_back(pr);
-  playSound(Sfx::FlameShot);
+  playSound(Sfx::SinkThrow);
   p.shotCooldown = def.cooldown;
   p.ammo = 0;
   p.weapon = Weapon::Normal;
@@ -497,7 +512,7 @@ bool World::shotAtMagma(Projectile& pr, const CellBox& hit)
     s.serverShot = true;
     addScore(s.serverScore, cellCenter(s.serverBox()));
     burst(cellCenter(s.serverBox()), rgb(255, 230, 120), rgb(120, 200, 255), 20, 2.0f);
-    playSound(Sfx::Tally);
+    playSound(Sfx::RatingsDing);
     showMessage("RATINGS (DO NOT TOUCH) - SOMETHING OPENS");
     for (auto& d : mProps)
       if (d.kind == PropKind::BonusDoor)
@@ -550,7 +565,7 @@ bool World::shotAtMagma(Projectile& pr, const CellBox& hit)
   {
     s.rebooted = true;
     s.reboot = kRebootFrames;
-    playSound(Sfx::Beep);
+    playSound(Sfx::RebootChime);
     showMessage("REBOOTING... UPTIME 0 DAYS");
     return true;
   }
@@ -603,7 +618,11 @@ void World::updateFirewall(Enemy& e, const EnemyDef& def)
   if (!w)
     return;
   if (w->pause > 0)
+  {
     --w->pause;
+    if (w->pause == 0 && !mSimulation && isOnScreen(e.box(), 2))
+      playSound(Sfx::FirewallRoar); // the flames back up
+  }
   else if (e.timer % 2 == 0)
   {
     e.x += e.dir;
@@ -619,6 +638,8 @@ void World::updateFirewall(Enemy& e, const EnemyDef& def)
       {
         w->pause = kWallFlicker + kWallDip;
         w->lastPort = port;
+        if (!mSimulation && isOnScreen(e.box(), 2))
+          playSound(Sfx::FirewallSputter);
       }
   }
   const bool dipped = w->pause > 0 && w->pause <= kWallDip;
@@ -704,7 +725,7 @@ void World::updateLavaDaemon(Enemy& e, const EnemyDef& def)
       pr.y = pr.prevY = int(sy);
       mProjectiles.push_back(pr);
       if (!mSimulation)
-        playSound(Sfx::Spit);
+        playSound(Sfx::DaemonSpit);
       e.cool = def.cooldown;
     }
     return;
@@ -713,6 +734,8 @@ void World::updateLavaDaemon(Enemy& e, const EnemyDef& def)
   {
     e.dir = dx < 0 ? -1 : 1;
     e.tell = def.tell;
+    if (!mSimulation)
+      playSound(Sfx::DaemonWindup);
     return;
   }
   if (e.timer % kDaemonLeap == kDaemonLeap - 1 && d->bx != d->ax)
@@ -721,7 +744,7 @@ void World::updateLavaDaemon(Enemy& e, const EnemyDef& def)
     d->toX = e.x == d->ax ? d->bx : d->ax;
     d->leapT = 1;
     if (!mSimulation && isOnScreen(b, 0))
-      playSound(Sfx::Hop);
+      playSound(Sfx::DaemonHop);
   }
 }
 
@@ -732,7 +755,9 @@ void World::updateFanBot(Enemy& e, const EnemyDef& def)
   e.dive = t < kFanOn ? 1 : 0; // blowing
   e.tell = t >= kFanPeriod - kFanSpin ? kFanPeriod - t : 0;
   if (t == kFanPeriod - kFanSpin && !mSimulation && isOnScreen(e.box(), 2))
-    playSound(Sfx::Whine);
+    playSound(Sfx::FanWhine);
+  if (t == 0 && !mSimulation && isOnScreen(e.box(), 2))
+    playSound(Sfx::FanGust);
 }
 
 // --- Saves ---------------------------------------------------------------------------------

@@ -115,6 +115,10 @@ struct MagmaState
   int pause = 0;                  // frames left of a purge (or the reboot)
   int sub = 0;                    // frames toward the next cell
   int pops = 0;
+  // Drawing only: the last pop's 20-frame arc out of the lava.
+  int popFrame = -1000;           // mStats.frames when it happened
+  int popFromX = 0, popFromY = 0; // cells: where the runner touched the lava
+  int popToX = 0, popToY = 0;     // cells: where the pop set the runner down
   std::vector<Purge> purges;
   CellBox gutter{0, 0, 0, 0};
   int gutterT = 0;

@@ -7,6 +7,7 @@
 #include "game/trench_draw.hpp"
 #include "game/storm_draw.hpp"
 #include "game/dish_draw.hpp"
+#include "game/magma_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -118,6 +119,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawStormSet(r, *this, mArt, camX, camY, frame); // Level 31: the lightning, the sea, the caves' and the tower's walls
   if (mDish.on)
     drawDishSet(r, *this, mArt, camX, camY, frame, alpha); // Level 32: the satellite, the dishes, the cabin, the bunker, the tower
+  if (mMagma.on)
+    drawMagmaSet(r, *this, mArt, camX, camY, frame, alpha); // Level 33: the back aisles, the stations, the crater, the airship
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -317,6 +320,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawJammerIcon(r, mArt, x, y, 1.0f, frame); // Level 32 (world_dish_draw.cpp)
         continue;
       }
+      if (mMagma.on && mLevelProto == int(ProtoId::HeatSink))
+      {
+        drawSinkIcon(r, mArt, x, y, 1.0f, frame); // Level 33 (world_magma_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -384,6 +392,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         // Dish Array's duck wears sunglasses.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_sunglasses", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mMagma.on && mLevel->themeKey == "volcano_datacenter")
+      {
+        // Magma Mainframe's duck wears a heat suit's hood.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_heat_suit", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mStorm.on && mLevel->themeKey == "storm_cliffs")
@@ -957,6 +972,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // a harpoon and its line (world_trench_draw.cpp)
     if (mStorm.on && drawStormShot(r, mArt, pr, cx, cy, frame))
       continue; // a Tesla rod (world_storm_draw.cpp)
+    if (mMagma.on && drawMagmaShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // a Heat Sink fireball or a Lava Daemon's (world_magma_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1628,6 +1645,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawTeslaIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 31: a copper rod (world_storm_draw.cpp)
   else if (proto && mDish.on && p.proto == int(ProtoId::SignalJammer))
     drawJammerIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 32: a handheld jammer (world_dish_draw.cpp)
+  else if (proto && mMagma.on && p.proto == int(ProtoId::HeatSink))
+    drawSinkIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 33: a heat sink (world_magma_draw.cpp)
   else if (proto)
   {
     DrawOpts io;

@@ -1,16 +1,24 @@
 cutscene brief_33
 music theme_driving_hihat
 
+# clip volcano_dc: the volcano at night with a data centre in it, rows of
+#   blue server lights in its flank blinking (a 6-frame loop), ash drifting,
+#   a lava glow rising from the bottom edge; 12 frames
 shot volcano_dc delay=100 repeat=1
   cue 0 fade=in:400
   cue 0 sound=lava_rumble
 
+# clip volcano_dc; 12 frames
 shot volcano_dc delay=100 repeat=3
 
+# clip volcano_dc; 12 frames
 shot volcano_dc delay=100 repeat=1
   cue 5 say=S "The heat's rising."
   cue 5 hold=2000
 
+# clip runners_heat: the three runners on a steel catwalk in the data
+#   centre, the air shimmering with heat (a 4-frame loop), a steam vent
+#   bursting from frame 4; 8 frames
 shot runners_heat delay=110 repeat=1
   cue 4 sound=steam_burst
   cue 4 say=S "So are you."

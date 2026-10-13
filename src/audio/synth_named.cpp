@@ -232,6 +232,11 @@ std::vector<float> makeNamedSfx(const std::string& id)
   // Level 32's briefing: a big dish groaning round.
   if (id == "dish_groan")
     return makeSfx(Sfx::DishGroan);
+  // Level 33's briefing: the lava welling up, a coolant vent bursting.
+  if (id == "lava_rumble")
+    return makeSfx(Sfx::LavaRumble);
+  if (id == "steam_burst")
+    return makeSfx(Sfx::SteamBurst);
   // Level 23's briefing: the storm over the manor.
   if (id == "thunder")
     return makeSfx(Sfx::Thunder);

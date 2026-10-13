@@ -10873,6 +10873,262 @@ void dishCloseup(ClipKit& k, int frame, int ticks, float ox, float oy)
   }
 }
 
+// --- Level 33: Magma Mainframe (brief_33) ------------------------------------
+
+// The night over the volcano: deep blue-black, a red underglow at the
+// horizon, stars, a thin moon. Full screen.
+const Texture& volcanoSky(ClipKit& k)
+{
+  return cached(k, "volcano_sky", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(6, 8, 24), rgb(28, 20, 48), rgb(110, 36, 30));
+    for (int i = 0; i < 180; ++i)
+    {
+      const double x = double(hash2(i, 3311) % 1280u), y = double(hash2(i, 3312) % 460u);
+      cairo_arc(cr, x, y, (i % 7) ? 0.9 : 1.6, 0, 2 * kPi);
+      cairo_set_source_rgba(cr, 0.92, 0.94, 1.0, 0.35 + double(hash2(i, 3313) % 60u) / 100.0);
+      cairo_fill(cr);
+    }
+    cairo_arc(cr, 1060, 110, 30, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 1.0, 0.95, 0.86, 0.9);
+    cairo_fill(cr);
+    cairo_arc(cr, 1072, 102, 28, 0, 2 * kPi);
+    cairo_set_source_rgb(cr, 0.03, 0.04, 0.1);
+    cairo_fill(cr);
+  });
+}
+
+// The volcano: a broad cone of black basalt, ridged, its crater rim
+// glowing; terraces cut into its flank with dark windows (the server
+// lights in them are drawn live), a plume of ash leaning off the crater.
+// 1280 x 520, its foot at the bottom.
+const Texture& volcanoCone(ClipKit& k)
+{
+  return cached(k, "volcano_cone", int(W), 520, 0, 0, [](cairo_t* cr) {
+    // The plume.
+    for (int i = 0; i < 22; ++i)
+    {
+      const double u = double(i) / 22.0;
+      const double x = 640 + u * 420 + std::sin(u * 7.0) * 30, y = 80 - u * 70, r = 50 + u * 110;
+      cairo_pattern_t* g = cairo_pattern_create_radial(x, y, 0, x, y, r);
+      cairo_pattern_add_color_stop_rgba(g, 0.0, 0.2, 0.15, 0.17, 0.5 - u * 0.25);
+      cairo_pattern_add_color_stop_rgba(g, 1.0, 0.2, 0.15, 0.17, 0.0);
+      cairo_arc(cr, x, y, r, 0, 2 * kPi);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    // The cone.
+    cairo_move_to(cr, -40, 520);
+    cairo_curve_to(cr, 260, 470, 470, 300, 540, 120);
+    cairo_line_to(cr, 740, 120);
+    cairo_curve_to(cr, 810, 300, 1020, 470, 1320, 520);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 120, 0, 520);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.2, 0.14, 0.15);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.07, 0.05, 0.07);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_source_rgb(cr, 0.02, 0.01, 0.02);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // Ridges down its flanks.
+    for (int i = 0; i < 9; ++i)
+    {
+      const double x0 = 560 + i * 20.0, x1 = 100 + i * 135.0;
+      cairo_move_to(cr, x0, 128);
+      cairo_curve_to(cr, x0 + (x1 - x0) * 0.3, 260, x1 - (x1 - x0) * 0.2, 400, x1, 520);
+      cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.4);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+    // The crater's glowing rim.
+    cairo_save(cr);
+    cairo_translate(cr, 640, 122);
+    cairo_scale(cr, 104, 14);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_set_source_rgb(cr, 1.0, 0.55, 0.18);
+    cairo_fill(cr);
+    cairo_save(cr);
+    cairo_translate(cr, 640, 118);
+    cairo_scale(cr, 90, 9);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    cairo_set_source_rgb(cr, 1.0, 0.86, 0.5);
+    cairo_fill(cr);
+    // Lava runs down from the rim.
+    for (const double x : {600.0, 690.0})
+    {
+      cairo_move_to(cr, x, 126);
+      cairo_curve_to(cr, x - 10, 180, x + 20, 220, x + (x < 640 ? -30 : 40), 290);
+      cairo_set_source_rgba(cr, 1.0, 0.45, 0.1, 0.85);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+    // The terraces with their windows.
+    for (int row = 0; row < 3; ++row)
+    {
+      const double y = 260 + row * 80.0, half = 180 + row * 120.0;
+      cairo_rectangle(cr, 640 - half, y, half * 2, 34);
+      cairo_set_source_rgb(cr, 0.03, 0.03, 0.06);
+      cairo_fill(cr);
+      cairo_rectangle(cr, 640 - half - 6, y + 34, half * 2 + 12, 5);
+      cairo_set_source_rgb(cr, 0.55, 0.3, 0.2);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// volcano_dc: the volcano at night with a data centre in it: a night sky
+// with ash drifting, the cone with rows of blue server lights in its flank
+// (blinking in a 6-frame loop), and a lava glow rising 2 px a frame from
+// the bottom edge.
+void volcanoDc(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(volcanoSky(k), ox * 0.1f, oy * 0.1f);
+  const float cx = ox * 0.4f, cy = 200.0f + oy * 0.4f;
+  k.r.draw(volcanoCone(k), cx, cy);
+  // The crater's glow, breathing.
+  drawGlow(k.r, k.art, 640.0f + cx, 122.0f + cy, 150.0f + 20.0f * std::sin(float(ticks) * 0.2f), rgb(255, 120, 40), 0.7f);
+  // The server lights in the terraces: rows of blue dots, a 6-frame
+  // blink running along them, now and then an amber one.
+  for (int row = 0; row < 3; ++row)
+  {
+    const float y = 260.0f + float(row) * 80.0f + cy, half = 180.0f + float(row) * 120.0f;
+    for (int i = 0; float(i) * 12.0f < half * 2.0f - 16.0f; ++i)
+      for (int j = 0; j < 3; ++j)
+      {
+        const unsigned h = hash2(i * 3 + j, row * 101 + 7);
+        const bool on = (int(h % 6u) + frame) % 6 < 4;
+        if (!on)
+          continue;
+        const bool amber = h % 23u == 0u;
+        const float x = 640.0f - half + 10.0f + float(i) * 12.0f + cx;
+        k.r.fillRect(x, y + 6.0f + float(j) * 9.0f, 4.0f, 3.0f, amber ? rgb(255, 180, 60) : rgb(90, 180, 255));
+      }
+    drawGlow(k.r, k.art, 640.0f + cx, y + 17.0f, half * 0.8f, rgb(60, 140, 255), 0.18f);
+  }
+  // Ash drifting down across everything.
+  for (int i = 0; i < 70; ++i)
+  {
+    const float u = float(hash2(i, 3321) % 1000u) / 1000.0f;
+    const float x = std::fmod(float(hash2(i, 3322) % 1400u) + float(ticks) * (0.6f + u), 1400.0f) - 60.0f;
+    const float y = std::fmod(float(hash2(i, 3323) % 760u) + float(ticks) * (0.4f + u * 0.5f), 760.0f) - 20.0f;
+    k.r.fillRect(x + ox * 0.8f, y + oy * 0.8f, 2.0f + u * 2.0f, 2.0f + u * 2.0f, rgba(170, 160, 160, 80 + int(u * 90)));
+  }
+  // The lava glow rising from the bottom edge.
+  const float rise = 90.0f + float(frame) * 2.0f;
+  for (int s = 0; s < 12; ++s)
+  {
+    const float y = H - rise + float(s) * rise / 12.0f;
+    k.r.fillRect(0, y + oy, W, rise / 12.0f + 1.0f, rgba(255, 90 + s * 6, 20, 10 + s * 14), Blend::Add);
+  }
+  for (int i = 0; i < 20; ++i)
+  {
+    const float x = float(i) * 70.0f + std::sin(float(ticks) * 0.1f + float(i)) * 20.0f;
+    drawGlow(k.r, k.art, x + ox, H + 20.0f + oy, 120.0f, rgb(255, 120, 30), 0.35f);
+  }
+}
+
+// The data centre's inside for runners_heat: a dark hall, rows of racks
+// with their blue lights (drawn live), the orange glow of the magma from
+// below. Full screen.
+const Texture& heatHall(ClipKit& k)
+{
+  return cached(k, "heat_hall", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(10, 8, 12), rgb(30, 14, 14), rgb(140, 50, 18));
+    // Racks along the back wall.
+    for (int i = 0; i < 14; ++i)
+    {
+      const double x = 20 + i * 92.0;
+      cairo_rectangle(cr, x, 200, 80, 300);
+      cairo_set_source_rgb(cr, 0.06, 0.06, 0.09);
+      cairo_fill(cr);
+      for (int u = 0; u < 16; ++u)
+      {
+        cairo_rectangle(cr, x + 4, 206 + u * 18, 72, 14);
+        cairo_set_source_rgb(cr, 0.11, 0.11, 0.15);
+        cairo_fill(cr);
+      }
+    }
+    // The ceiling's cable trays.
+    for (int k2 = 0; k2 < 3; ++k2)
+    {
+      cairo_move_to(cr, 0, 150 + k2 * 10);
+      cairo_line_to(cr, W, 150 + k2 * 10);
+      cairo_set_source_rgba(cr, 0.02, 0.02, 0.04, 0.9);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// runners_heat: the three runners on a steel catwalk in the data centre, the
+// air shimmering with heat (a 4-frame loop), a steam vent bursting on
+// frame 4.
+void runnersHeat(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(heatHall(k), ox * 0.3f, oy * 0.3f);
+  // The racks' lights.
+  for (int i = 0; i < 14; ++i)
+    for (int u = 0; u < 16; ++u)
+    {
+      const unsigned h = hash2(i * 17 + u, 3331);
+      if ((h + unsigned(ticks / 5)) % 4u == 0u)
+        continue;
+      const float x = 20.0f + float(i) * 92.0f + 60.0f + float(h % 3u) * 5.0f + ox * 0.3f, y = 210.0f + float(u) * 18.0f + oy * 0.3f;
+      k.r.fillRect(x, y, 4.0f, 3.0f, h % 19u == 0u ? rgb(255, 180, 60) : rgb(90, 180, 255));
+    }
+  // The glow from below.
+  for (int s = 0; s < 8; ++s)
+    k.r.fillRect(0, 560.0f + float(s) * 20.0f + oy, W, 20.0f, rgba(255, 100, 30, 12 + s * 10), Blend::Add);
+  // The catwalk: grating deck, a rail, posts.
+  const float deck = 600.0f + oy;
+  k.r.fillRect(0, deck, W, 14.0f, rgb(120, 126, 140));
+  k.r.fillRect(0, deck, W, 3.0f, rgb(230, 234, 242));
+  for (int x = 0; x < int(W); x += 12)
+    k.r.drawLine(float(x) + ox, deck + 4.0f, float(x) + 8.0f + ox, deck + 13.0f, 1.5f, rgb(40, 42, 52));
+  k.r.fillRect(0, deck + 14.0f, W, 6.0f, rgb(40, 42, 52));
+  for (int x = 40; x < int(W); x += 160)
+    k.r.fillRect(float(x) + ox, deck - 70.0f, 6.0f, 70.0f, rgb(90, 94, 106));
+  k.r.fillRect(0, deck - 72.0f, W, 6.0f, rgb(240, 190, 40));
+  k.r.fillRect(0, deck - 36.0f, W, 3.0f, rgb(150, 156, 170));
+  // The runners: Rocco wiping his brow, Dash and Nova squinting into the heat.
+  k.r.draw(runner(k, 1, frame % 4 < 2 ? 0 : 8, 2.6f), 360 + ox, deck + oy * 0.0f);
+  k.r.draw(runner(k, 0, 3, 2.6f), 620 + ox, deck);
+  k.r.draw(runner(k, 2, frame % 4 < 2 ? 8 : 0, 2.6f, true), 860 + ox, deck);
+  // The steam vent on the right: a pipe end, bursting on frame 4.
+  const float vx = 1140.0f + ox, vy = deck - 230.0f;
+  k.r.fillRect(vx - 6.0f, vy - 200.0f, 26.0f, 200.0f, rgb(110, 150, 180));
+  k.r.fillRect(vx - 14.0f, vy - 6.0f, 42.0f, 14.0f, rgb(70, 90, 110));
+  if (frame >= 4)
+  {
+    const float age = float(frame - 4) + float(ticks % 6) / 6.0f;
+    for (int i = 0; i < 16; ++i)
+    {
+      const float side = float(int(hash2(i, 3341) % 200u) - 100) / 100.0f;
+      const float d = age * (30.0f + float(hash2(i, 3342) % 40u));
+      const float px = vx + 7.0f + side * d * 0.9f, py = vy + 20.0f + d * 0.8f - age * age * 3.0f;
+      drawGlow(k.r, k.art, px, py, 40.0f + age * 16.0f, rgb(220, 232, 245), std::max(0.0f, 0.5f - age * 0.08f));
+    }
+    if (frame == 4)
+      drawGlow(k.r, k.art, vx + 7.0f, vy + 30.0f, 140.0f, rgb(240, 248, 255), 0.6f);
+  }
+  // The heat haze: wavering bands over everything.
+  const int phase = frame % 4;
+  for (int b = 0; b < 10; ++b)
+  {
+    const float y = 120.0f + float(b) * 56.0f + float(phase) * 6.0f;
+    for (int x = 0; x < int(W); x += 40)
+    {
+      const float y0 = y + std::sin(float(x) * 0.015f + float(phase) * 1.57f + float(b)) * 6.0f;
+      const float y1 = y + std::sin(float(x + 40) * 0.015f + float(phase) * 1.57f + float(b)) * 6.0f;
+      k.r.drawLine(float(x), y0 + oy, float(x + 40), y1 + oy, 4.0f, rgba(255, 200, 150, 18), Blend::Add);
+    }
+  }
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -10964,6 +11220,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return desertDishes(k, frame, ticks, ox, oy);
   if (clip == "dish_closeup")
     return dishCloseup(k, frame, ticks, ox, oy);
+  // Level 33.
+  if (clip == "volcano_dc")
+    return volcanoDc(k, frame, ticks, ox, oy);
+  if (clip == "runners_heat") // before starts(clip, "runners") below
+    return runnersHeat(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

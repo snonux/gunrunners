@@ -3042,6 +3042,296 @@ std::vector<float> makeSfx(Sfx id)
         return v * 0.45 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.1);
       });
     }
+    case Sfx::LavaRumble:
+    {
+      // Level 33: the lava rising: a deep rumble swelling up from below, a
+      // sub tone wavering under it, fat bubbles glugging up and bursting.
+      Noise n(907), m(911);
+      OnePole lp;
+      Svf bp;
+      Osc sub, glug;
+      double bubbleF = 90.0;
+      double bubbleT = -1.0;
+      return render(1.8, [&](double t, double total) {
+        const double u = t / total;
+        const double rum = lp.lowpass(n.next(), 120.0) * 3.0 * (0.7 + 0.3 * std::sin(t * 2.0 * kPi * 2.3));
+        const double s = sub.step(38.0 + 4.0 * std::sin(t * 2.0 * kPi * 0.7), Wave::Sine) * 0.35;
+        // A bubble every ~0.27 s: a falling glug and the pop of its skin.
+        if (std::fmod(t, 0.27) < 1.0 / kRate)
+        {
+          bubbleT = t;
+          bubbleF = 70.0 + 60.0 * (double(m.next()) + 1.0);
+        }
+        double bub = 0.0;
+        if (bubbleT >= 0.0)
+        {
+          const double bt = t - bubbleT;
+          bub = glug.step(sweep(bubbleF, bubbleF * 0.55, bt / 0.12), Wave::Sine) * decay(bt, 0.05) * 0.5 +
+            bp.band(n.next(), 900.0, 2.0) * decay(bt, 0.01) * 0.4;
+        }
+        return (rum * 0.42 + s + bub * 0.55) * 0.55 * std::min(1.0, u / 0.25) * std::min(1.0, (total - t) / 0.5);
+      });
+    }
+    case Sfx::SteamBurst:
+    {
+      // A coolant purge venting: a blast of steam bursting from the nozzle,
+      // a hissing roar that tails off, a valve's clank at the start.
+      Noise n(919), m(929);
+      Svf bp, bp2;
+      OnePole hp;
+      Osc clank;
+      return render(1.5, [&](double t, double total) {
+        const double u = t / total;
+        const double blast = bp.band(n.next(), sweep(1800.0, 5200.0, std::min(1.0, t / 0.15)), 0.7) * attack(t, 0.02) * decay(t, 0.5);
+        const double hiss = hp.highpass(m.next(), 5000.0) * (0.6 + 0.4 * std::sin(t * 2.0 * kPi * 11.0)) * (1.0 - u);
+        const double roar = bp2.band(n.next(), 500.0, 0.8) * decay(t, 0.3) * 0.6;
+        const double k = clank.step(sweep(420.0, 260.0, t / 0.05), Wave::Square, 0.3) * decay(t, 0.025) * 0.25;
+        return (blast * 0.6 + hiss * 0.45 + roar + k) * 0.57 * std::min(1.0, (total - t) / 0.3);
+      });
+    }
+    case Sfx::PurgeSiren:
+    {
+      // The purge running out: a klaxon whooping up twice, a rasp on it.
+      Osc a, b;
+      return render(1.4, [&](double t, double total) {
+        const double ph = std::fmod(t, 0.7) / 0.7;
+        const double f = sweep(300.0, 900.0, ph * 1.2);
+        const double v = a.step(f, Wave::Square, 0.45) * 0.5 + b.step(f * 1.01, Wave::Saw) * 0.3;
+        const double gate = ph < 0.85 ? 1.0 : 0.0;
+        return v * 0.49 * gate * attack(std::fmod(t, 0.7), 0.01) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::LavaPop:
+    {
+      // Popped out of the lava: a searing sizzle, then a fat bubble's pop
+      // and a little rising whistle as you fly up and out.
+      Noise n(937);
+      OnePole hp;
+      Svf bp;
+      Osc pop, w;
+      return render(0.7, [&](double t, double total) {
+        const double sizzle = hp.highpass(n.next(), 3800.0) * (n.next() > 0.3f ? 1.0 : 0.3) * decay(t, 0.18) * 0.7;
+        const double u = t - 0.06;
+        const double p = u > 0.0 ? (pop.step(sweep(160.0, 520.0, u / 0.05), Wave::Sine) * decay(u, 0.04) * 0.9 +
+                                      bp.band(n.next(), 1400.0, 2.0) * decay(u, 0.012) * 0.6)
+                                 : 0.0;
+        const double v = u > 0.05 ? w.step(sweep(600.0, 1500.0, (u - 0.05) / 0.4), Wave::Sine) * 0.18 * decay(u - 0.05, 0.25) : 0.0;
+        return (sizzle + p + v) * 0.31 * attack(t, 0.003) * std::min(1.0, (total - t) / 0.08);
+      });
+    }
+    case Sfx::GutterSizzle:
+    {
+      // Wading in the magma gutter: a short searing sizzle.
+      Noise n(941), m(947);
+      OnePole hp;
+      Svf bp;
+      return render(0.32, [&](double t, double total) {
+        const double s = hp.highpass(n.next(), 3000.0) * (m.next() > 0.0f ? 1.0 : 0.35);
+        const double body = bp.band(n.next(), 700.0, 1.0) * 0.5;
+        return (s * 0.8 + body) * 0.5 * attack(t, 0.005) * decay(t, 0.12) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::SinkSuck:
+    {
+      // The Heat Sink held: a vacuum's whoosh pulling in, its motor
+      // whirring up under it.
+      Noise n(953);
+      Svf bp;
+      Osc mo;
+      return render(0.75, [&](double t, double total) {
+        const double u = t / total;
+        const double air = bp.band(n.next(), sweep(2600.0, 600.0, u), 1.4) * (0.4 + 0.6 * u);
+        const double motor = mo.step(sweep(120.0, 360.0, std::min(1.0, u * 1.5)), Wave::Saw) * 0.12;
+        return (air * 0.7 + motor) * 0.9 * attack(t, 0.04) * std::min(1.0, (total - t) / 0.12);
+      });
+    }
+    case Sfx::SinkGulp:
+    {
+      // A shot swallowed: a deep glug, then a bright ping (one more stored).
+      Osc a, b;
+      Noise n(967);
+      Svf bp;
+      return render(0.36, [&](double t, double total) {
+        const double glug = a.step(sweep(240.0, 80.0, std::min(1.0, t / 0.12)), Wave::Sine) * decay(t, 0.06) * 0.7 +
+          bp.band(n.next(), 600.0, 2.0) * decay(t, 0.02) * 0.4;
+        const double u = t - 0.1;
+        const double ping = u > 0.0 ? b.step(1760.0, Wave::Triangle) * decay(u, 0.08) * 0.35 : 0.0;
+        return (glug + ping) * 0.55 * attack(t, 0.003) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::SinkThrow:
+    {
+      // The Heat Sink's fireball thrown: a whump of air and a rolling roar
+      // of flame going away.
+      Noise n(971), m(977);
+      Svf bp;
+      OnePole lp;
+      Osc thump;
+      return render(0.75, [&](double t, double total) {
+        const double whump = thump.step(sweep(140.0, 45.0, t / 0.15), Wave::Sine) * decay(t, 0.08);
+        const double roar = bp.band(n.next(), 500.0 + 250.0 * std::sin(t * 2.0 * kPi * 7.0), 0.9) * decay(t, 0.3);
+        const double crackle = (m.next() > 0.85f ? 1.0 : 0.0) * lp.lowpass(n.next(), 3000.0) * decay(t, 0.25);
+        return (whump * 0.75 + roar * 0.8 + crackle * 0.5) * 0.48 * attack(t, 0.004) * std::min(1.0, (total - t) / 0.15);
+      });
+    }
+    case Sfx::FirewallSputter:
+    {
+      // A Firewall about to dip: its flames sputtering, a glitchy buzz
+      // chopping in and out like a failing signal.
+      Noise n(983), m(991);
+      Svf bp;
+      Osc buzz;
+      return render(0.55, [&](double t, double total) {
+        const double chop = std::fmod(t, 0.06) < 0.035 ? 1.0 : 0.15;
+        const double flame = bp.band(n.next(), 900.0 + 400.0 * std::sin(t * 2.0 * kPi * 13.0), 1.0) * chop;
+        const double b = buzz.step(sweep(220.0, 110.0, t / total), Wave::Square, 0.3) * (m.next() > 0.0f ? 0.2 : 0.05);
+        return (flame * 0.75 + b) * 0.6 * attack(t, 0.01) * std::min(1.0, (total - t) / 0.06);
+      });
+    }
+    case Sfx::FirewallRoar:
+    {
+      // A Firewall flaring back up: a roaring whoosh rising.
+      Noise n(997), m(1009);
+      Svf bp;
+      OnePole lp;
+      return render(0.7, [&](double t, double total) {
+        const double u = t / total;
+        const double whoosh = bp.band(n.next(), sweep(250.0, 1400.0, std::min(1.0, u * 2.0)), 0.8) * std::sin(std::min(1.0, u * 1.4) * kPi * 0.5);
+        const double body = lp.lowpass(m.next(), 300.0) * 2.0;
+        return (whoosh * 0.7 + body * 0.35) * 0.81 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.25);
+      });
+    }
+    case Sfx::DaemonWindup:
+    {
+      // A Lava Daemon winding up: a crackling charge rising, the fireball
+      // in its fist roaring louder.
+      Noise n(1013), m(1019);
+      Svf bp;
+      Osc a;
+      return render(0.8, [&](double t, double total) {
+        const double u = t / total;
+        const double crackle = (m.next() > 0.8f - 0.25f * float(u) ? 1.0 : 0.0) * bp.band(n.next(), 2400.0, 2.0) * 1.4;
+        const double rise = a.step(sweep(120.0, 480.0, u), Wave::Saw) * 0.12 * u;
+        const double roar = bp.band(n.next(), sweep(300.0, 900.0, u), 1.0) * 0.4 * u;
+        return (crackle * 0.4 + rise + roar) * 0.48 * attack(t, 0.03) * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::DaemonSpit:
+    {
+      // A Lava Daemon's fireball lobbed: a fwoomp and a hiss trailing off.
+      Noise n(1021);
+      Svf bp;
+      OnePole hp;
+      Osc o;
+      return render(0.45, [&](double t, double total) {
+        const double f = o.step(sweep(260.0, 90.0, t / 0.12), Wave::Sine) * decay(t, 0.06) * 0.8;
+        const double flame = bp.band(n.next(), sweep(600.0, 1600.0, t / total), 1.0) * decay(t, 0.12) * 0.7;
+        const double hiss = hp.highpass(n.next(), 4500.0) * decay(t, 0.2) * 0.3;
+        return (f + flame + hiss) * 0.42 * attack(t, 0.004) * std::min(1.0, (total - t) / 0.06);
+      });
+    }
+    case Sfx::DaemonHop:
+    {
+      // A Lava Daemon leaping: a rocky scrape and a little sizzle.
+      Noise n(1031), m(1033);
+      Svf bp;
+      OnePole hp;
+      return render(0.3, [&](double t, double total) {
+        const double scrape = bp.band(n.next(), 1100.0, 1.6) * (m.next() > -0.2f ? 1.0 : 0.2) * decay(t, 0.05);
+        const double sizzle = hp.highpass(n.next(), 4000.0) * decay(t, 0.1) * 0.4;
+        return (scrape + sizzle) * 0.55 * attack(t, 0.002) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::FanWhine:
+    {
+      // A Fan Bot spinning up: a turbine whine climbing, the blades'
+      // chop speeding up under it.
+      Osc a, b;
+      Noise n(1039);
+      Svf bp;
+      return render(1.0, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(180.0, 1400.0, u * u * (3.0 - 2.0 * u));
+        const double whine = a.step(f, Wave::Sine) * 0.5 + b.step(f * 1.5, Wave::Triangle) * 0.2;
+        const double chopRate = sweep(6.0, 60.0, u);
+        const double chop = bp.band(n.next(), 500.0, 1.0) * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * chopRate * (1.0 + u)));
+        return (whine * 0.3 * (0.3 + 0.7 * u) + chop * 0.35) * 1.6 * attack(t, 0.05) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::FanGust:
+    {
+      // A Fan Bot's gust: a rush of wind swelling and buffeting.
+      Noise n(1049), m(1051);
+      Svf bp, bp2;
+      return render(1.6, [&](double t, double total) {
+        const double u = t / total;
+        const double buffet = 0.7 + 0.3 * std::sin(t * 2.0 * kPi * 5.0) * std::sin(t * 2.0 * kPi * 1.3);
+        const double wind = bp.band(n.next(), 700.0 + 500.0 * std::sin(u * kPi), 0.6) * buffet;
+        const double whistle = bp2.band(m.next(), 2200.0 + 300.0 * std::sin(t * 3.0), 8.0) * 0.6;
+        return (wind * 0.8 + whistle * 0.3) * 0.75 * std::min(1.0, t / 0.15) * std::min(1.0, (total - t) / 0.6);
+      });
+    }
+    case Sfx::RackGlitch:
+    {
+      // The corrupted rack spinning up: digital chatter (bit-crushed
+      // bleeps at random pitches) over a sick, warbling fan whine.
+      Osc a, b;
+      Noise pick(1061), n(1063);
+      double f = 800.0;
+      int left = 0;
+      return render(1.0, [&](double t, double total) {
+        if (left-- <= 0)
+        {
+          f = 300.0 + 1700.0 * (double(pick.next()) + 1.0) * 0.5;
+          left = int(0.03 * kRate);
+        }
+        const double chatter = std::round(a.step(f, Wave::Square, 0.5) * 3.0) / 3.0 * (std::fmod(t, 0.03) < 0.02 ? 0.15 : 0.0);
+        const double u = t / total;
+        const double whine = b.step(sweep(200.0, 900.0, u) * (1.0 + 0.06 * std::sin(t * 2.0 * kPi * 7.0)), Wave::Saw) * 0.12;
+        const double fizz = n.next() * 0.05 * u;
+        return (chatter + whine + fizz) * 1.26 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::RebootChime:
+    {
+      // The DO NOT REBOOT rack shot: fans and drives whirring down to
+      // silence, a click, then a warm startup chime.
+      Osc down;
+      Noise n(1069);
+      Svf bp;
+      std::vector<float> b = render(2.2, [&](double t, double total) {
+        (void)total;
+        if (t > 0.9)
+          return 0.0;
+        const double u = t / 0.9;
+        const double whir = down.step(sweep(900.0, 60.0, u), Wave::Saw) * 0.16 * (1.0 - u);
+        const double air = bp.band(n.next(), sweep(1800.0, 200.0, u), 1.0) * 0.3 * (1.0 - u);
+        return (whir + air) * attack(t, 0.01);
+      });
+      addTone(b, 1.05, 0.03, 2400.0, Wave::Square, 0.12, 0.01);
+      for (const auto& note : {std::array<double, 2>{60, 0}, {64, 0.12}, {67, 0.24}, {72, 0.36}})
+      {
+        addTone(b, 1.25 + note[1], 0.9 - note[1], midiFreq(note[0]), Wave::Triangle, 0.11, 0.35);
+        addTone(b, 1.25 + note[1], 0.9 - note[1], midiFreq(note[0] + 12), Wave::Sine, 0.04, 0.25);
+      }
+      for (auto& x : b)
+        x *= 1.3f;
+      return b;
+    }
+    case Sfx::RatingsDing:
+    {
+      // The RATINGS server shot: a quick rising arpeggio (the ratings going
+      // through the roof) and a till's bright ding.
+      std::vector<float> b(std::size_t(samples(1.1)));
+      static constexpr std::array<double, 6> kUp{67, 71, 74, 79, 83, 86};
+      for (std::size_t i = 0; i < kUp.size(); ++i)
+        addTone(b, 0.05 * double(i), 0.18, midiFreq(kUp[i]), Wave::Square, 0.07, 0.07);
+      addTone(b, 0.34, 0.75, midiFreq(96), Wave::Sine, 0.22, 0.3);
+      addTone(b, 0.34, 0.75, midiFreq(103), Wave::Sine, 0.09, 0.2);
+      for (auto& x : b)
+        x *= 1.25f;
+      return b;
+    }
     case Sfx::Count:
       break;
   }
@@ -3375,6 +3665,27 @@ namespace gr::synth
 
 MusicTrack makeNamedMusic(const std::string& id)
 {
+  // "track+fast": the track 1.5 times as fast and a fifth higher (Level 33's
+  // Overclock bonus), resampled.
+  if (const auto plus = id.rfind("+fast"); plus != std::string::npos && plus + 5 == id.size() && plus > 0)
+  {
+    MusicTrack t = makeNamedMusic(id.substr(0, plus));
+    auto speed = [](std::vector<float>& v) {
+      if (v.size() < 2)
+        return;
+      std::vector<float> out((v.size() * 2) / 3);
+      for (std::size_t i = 0; i < out.size(); ++i)
+      {
+        const std::size_t at = (i * 3) / 2;
+        const float f = (i % 2) ? 0.5f : 0.0f;
+        out[i] = at + 1 < v.size() ? v[at] + (v[at + 1] - v[at]) * f : v[at];
+      }
+      v = std::move(out);
+    };
+    speed(t.left);
+    speed(t.right);
+    return t;
+  }
   if (id.empty() || id == "theme_synthwave")
     return makeMusic(Music::Level);
   if (id == "theme_diner" || id == "menu")
