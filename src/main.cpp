@@ -55,6 +55,12 @@ struct CliOptions
   std::vector<std::pair<long, SDL_FPoint>> taps, drags;
 };
 
+std::string environment(const char* name)
+{
+  const char* value = std::getenv(name);
+  return value ? value : "";
+}
+
 // "120:640x300,200:100x0" -> (tick, x, y) pairs, for --tap and --drag.
 bool parsePoints(const std::string& spec, std::vector<std::pair<long, SDL_FPoint>>& out)
 {
@@ -142,6 +148,12 @@ void printUsage()
     "  --save-dir PATH      where the 5 savegame slots live\n"
     "                       (default: $XDG_DATA_HOME/gunrunners/saves or\n"
     "                       ~/.local/share/gunrunners/saves)\n"
+    "  --s3-endpoint URL    also store savegame slots in an S3-compatible bucket\n"
+    "  --s3-bucket NAME     bucket used with --s3-endpoint\n"
+    "  --s3-region NAME     signing region (default: us-east-1)\n"
+    "  --s3-prefix PATH     optional object-key prefix\n"
+    "  --s3-access-key KEY  S3 access key (or AWS_ACCESS_KEY_ID)\n"
+    "  --s3-secret-key KEY  S3 secret key (or AWS_SECRET_ACCESS_KEY)\n"
     "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
     "                       (left right up down jump fire confirm pause back swap\n"
     "                       quicksave quickload use; touch: aimleft aimright upjump)\n"
@@ -322,6 +334,18 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.touch = true;
     else if (a == "--save-dir")
       o.game.saveDir = next();
+    else if (a == "--s3-endpoint")
+      o.game.s3.endpoint = next();
+    else if (a == "--s3-bucket")
+      o.game.s3.bucket = next();
+    else if (a == "--s3-region")
+      o.game.s3.region = next();
+    else if (a == "--s3-prefix")
+      o.game.s3.prefix = next();
+    else if (a == "--s3-access-key")
+      o.game.s3.accessKey = next();
+    else if (a == "--s3-secret-key")
+      o.game.s3.secretKey = next();
     else if (a == "--press")
     {
       if (!parsePresses(next(), o.presses))
@@ -352,6 +376,28 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
   }
   if (o.game.dataDir.empty())
     o.game.dataDir = defaultDataDir();
+  if (o.game.s3.endpoint.empty())
+    o.game.s3.endpoint = environment("GUNRUNNERS_S3_ENDPOINT");
+  if (o.game.s3.bucket.empty())
+    o.game.s3.bucket = environment("GUNRUNNERS_S3_BUCKET");
+  if (o.game.s3.prefix.empty())
+    o.game.s3.prefix = environment("GUNRUNNERS_S3_PREFIX");
+  if (o.game.s3.accessKey.empty())
+    o.game.s3.accessKey = environment("AWS_ACCESS_KEY_ID");
+  if (o.game.s3.secretKey.empty())
+    o.game.s3.secretKey = environment("AWS_SECRET_ACCESS_KEY");
+  if (const std::string region = environment("AWS_REGION");
+      !region.empty() && o.game.s3.region == "us-east-1")
+    o.game.s3.region = region;
+  if (o.game.s3.enabled())
+  {
+    std::string error;
+    if (!o.game.s3.valid(&error))
+    {
+      std::fprintf(stderr, "invalid S3 configuration: %s\n", error.c_str());
+      std::exit(2);
+    }
+  }
   return true;
 }
 
@@ -689,6 +735,7 @@ int main(int argc, char** argv)
     return 1;
   }
   o.game.saveDir = androidSaveDir();
+  o.game.s3.caBundle = o.game.dataDir + "/cacert.pem";
   o.touch = true;
   o.fullscreen = true;
   loadGameFont((o.game.dataDir + "/fonts/DejaVuSans-Bold.ttf").c_str());

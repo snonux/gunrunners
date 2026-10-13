@@ -7,11 +7,11 @@ where the code lives. For the game itself, see the [README](../README.md).
 ## Building
 
 Developed and tested on Linux. Needs a C++17 compiler, CMake 3.16+, SDL2 and
-Cairo:
+Cairo. libcurl enables the optional S3 save backend:
 
 ```sh
-sudo apt install build-essential cmake libsdl2-dev libcairo2-dev   # Debian/Ubuntu
-sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel              # Fedora
+sudo apt install build-essential cmake libsdl2-dev libcairo2-dev libcurl4-openssl-dev
+sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel libcurl-devel
 ```
 
 ```sh
@@ -60,11 +60,54 @@ Savegames live in `$XDG_DATA_HOME/gunrunners/saves` (usually
 `profile.txt` in the same directory. Campaign saves remember their level.
 A save written in a level where cheats were used carries a `cheats` line.
 
+The five slots and quick save can also be backed by any S3-compatible service.
+The local files remain as an offline cache. Sync runs in the background; a
+dirty marker ensures that progress made offline is uploaded instead of being
+replaced by an older cloud object, and downloaded files are validated before
+they replace the cache. Supply the endpoint, bucket and
+credentials (a prefix is useful when several players share a bucket):
+
+```sh
+export GUNRUNNERS_S3_ENDPOINT=https://s3.example.net
+export GUNRUNNERS_S3_BUCKET=gunrunners
+export GUNRUNNERS_S3_PREFIX=alice
+export AWS_ACCESS_KEY_ID=GK...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_REGION=garage
+./build/gunrunners
+```
+
+The equivalent command-line options are listed by `gunrunners --help`.
+Credentials in environment variables are preferable because command-line
+arguments may be visible to other local users. S3 sync covers savegame files;
+the profile, control bindings and custom runners remain local.
+
+On Linux or Android, CLOUD SAVES on the title screen accepts the whole setup in
+one clipboard paste. Copy this six-line block from a password manager or
+message, replace the values, then choose PASTE CONFIG FROM CLIPBOARD:
+
+```text
+endpoint=https://s3.example.net
+bucket=gunrunners
+region=garage
+prefix=alice
+access_key=GK...
+secret_key=...
+```
+
+The secret can contain punctuation (including `=`) and is written to the app's
+private `cloud.txt`, never displayed in the UI. The clipboard is cleared after
+a successful import. An empty prefix line is valid.
+
 ## Tests
 
 `ctest --test-dir build` runs the savegame round-trip test (play, save, load
 into a fresh world, save again, compare) on the training stage and on every
 campaign level.
+
+`tests/garage/test.sh` starts Garage in Docker, creates an isolated
+`gunrunners-test` bucket and key, and verifies upload, download, missing-object
+and bad-credential behavior. It removes the container and volumes afterward.
 
 ## Levels and cutscenes
 

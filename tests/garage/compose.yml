@@ -1,0 +1,15 @@
+services:
+  garage:
+    image: dxflrs/garage:v2.1.0
+    command: /garage server
+    ports:
+      - "3900:3900"
+      - "3903:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+
+volumes:
+  garage-meta:
+  garage-data:

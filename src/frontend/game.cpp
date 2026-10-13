@@ -46,6 +46,13 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   , mCursor(options.autoplay ? 0 : options.character)
 {
   mCampaign = options.levelPath.empty();
+  if (!mOptions.s3.enabled())
+  {
+    S3Config persisted = loadS3Config(saveDir());
+    persisted.caBundle = mOptions.s3.caBundle;
+    mOptions.s3 = std::move(persisted);
+  }
+  beginCloudRefresh();
   loadCustomRunners(saveDir());
   mCursor = std::clamp(mCursor, 0, characterCount() - 1);
   mSelectScroll = float(mCursor);
@@ -176,6 +183,7 @@ bool Game::tick(const Input& input)
   ++mModeTicks;
   if (mNoticeTicks > 0)
     --mNoticeTicks;
+  pollCloud();
   Input in = raw;
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
 
@@ -205,6 +213,9 @@ bool Game::tick(const Input& input)
       break;
     case Mode::List:
       tickList(in);
+      break;
+    case Mode::Cloud:
+      tickCloud(in);
       break;
     case Mode::Continued:
       if (mModeTicks > 60 && (edge(&Input::confirm) || edge(&Input::jump) || edge(&Input::pause) ||
@@ -456,6 +467,9 @@ void Game::render()
       break;
     case Mode::List:
       renderList();
+      break;
+    case Mode::Cloud:
+      renderCloud();
       break;
     case Mode::Continued:
       renderContinued();

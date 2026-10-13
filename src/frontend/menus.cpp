@@ -5,7 +5,11 @@
 #include "frontend/game.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
+#include <exception>
+#include <filesystem>
+#include <future>
 
 namespace gr
 {
@@ -101,6 +105,149 @@ void Game::refreshSlots()
     mSlots[std::size_t(i)] = readSave(slotPath(dir, i));
 }
 
+void Game::beginCloudRefresh()
+{
+  if (!mOptions.s3.enabled())
+    return;
+  if (mCloudRefresh.valid())
+  {
+    mCloudRefreshPending = true;
+    return;
+  }
+  const S3Config config = mOptions.s3;
+  const std::string dir = saveDir();
+  const auto generation = mCloudGeneration;
+  const auto commitMutex = mCloudCommitMutex;
+  const std::uint64_t expected = generation->load();
+  mCloudRefreshGeneration = expected;
+  mCloudRefreshPending = false;
+  mCloudRefresh = std::async(std::launch::async, [config, dir, generation, commitMutex, expected]() {
+    const S3Active active{[generation, expected]() {
+      return generation->load() == expected;
+    }, commitMutex};
+    std::vector<std::future<std::string>> slots;
+    slots.reserve(kSaveSlots + 1);
+    for (int i = 0; i < kSaveSlots + 1; ++i)
+    {
+      slots.push_back(std::async(std::launch::async, [config, dir, i, active]() {
+        try
+        {
+          const std::string path = i == kSaveSlots ? quickSavePath(dir) : slotPath(dir, i);
+          const std::string name = std::filesystem::path(path).filename().string();
+          std::string error;
+          if (syncS3File(config, config.object(name), path, &error, active) == S3SyncResult::Error)
+            return name + ": " + error;
+          return std::string{};
+        }
+        catch (const std::exception& e)
+        {
+          return std::string("cloud sync exception: ") + e.what();
+        }
+      }));
+    }
+    std::string failures;
+    for (auto& slot : slots)
+    {
+      const std::string error = slot.get();
+      if (!error.empty())
+      {
+        if (!failures.empty())
+          failures += "; ";
+        failures += error;
+      }
+    }
+    return failures;
+  });
+}
+
+void Game::queueCloudUpload(const std::string& path)
+{
+  // One upload at a time preserves write order. A dirty marker left by a
+  // later save is picked up when the current request finishes.
+  if (mCloudRefresh.valid() || !mCloudUploads.empty())
+    return;
+  const S3Config config = mOptions.s3;
+  const auto generation = mCloudGeneration;
+  const auto commitMutex = mCloudCommitMutex;
+  const std::uint64_t expected = generation->load();
+  CloudUpload upload;
+  upload.generation = expected;
+  upload.result = std::async(std::launch::async, [config, path, generation, commitMutex, expected]() {
+    try
+    {
+      const std::string name = std::filesystem::path(path).filename().string();
+      std::string error;
+      const S3Active active{[generation, expected]() {
+        return generation->load() == expected;
+      }, commitMutex};
+      if (syncS3File(config, config.object(name), path, &error, active) == S3SyncResult::Error)
+        return name + ": " + error;
+      return std::string{};
+    }
+    catch (const std::exception& e)
+    {
+      return std::string("cloud upload exception: ") + e.what();
+    }
+  });
+  mCloudUploads.push_back(std::move(upload));
+}
+
+void Game::pollCloud()
+{
+  using namespace std::chrono_literals;
+  bool continueUploads = false;
+  if (mCloudRefresh.valid() && mCloudRefresh.wait_for(0s) == std::future_status::ready)
+  {
+    const std::string error = mCloudRefresh.get();
+    const bool current = mCloudRefreshGeneration == mCloudGeneration->load();
+    if (current && !error.empty())
+    {
+      std::fprintf(stderr, "cloud save refresh failed: %s\n", error.c_str());
+      notice("CLOUD UNAVAILABLE - USING LOCAL SAVES");
+    }
+    else if (current && mMenu == Menu::Slots)
+    {
+      refreshSlots();
+      continueUploads = true;
+    }
+    else if (current)
+      continueUploads = true;
+    if (mCloudRefreshPending && mOptions.s3.enabled())
+      beginCloudRefresh();
+  }
+  for (auto it = mCloudUploads.begin(); it != mCloudUploads.end();)
+  {
+    if (it->result.wait_for(0s) != std::future_status::ready)
+    {
+      ++it;
+      continue;
+    }
+    const std::string error = it->result.get();
+    const bool current = it->generation == mCloudGeneration->load();
+    if (current && !error.empty())
+    {
+      std::fprintf(stderr, "cloud save upload failed: %s\n", error.c_str());
+      notice("CLOUD SAVE FAILED - SAVED LOCALLY");
+    }
+    else if (current)
+      continueUploads = true;
+    it = mCloudUploads.erase(it);
+  }
+  if (!continueUploads || !mOptions.s3.enabled() || mCloudRefresh.valid() ||
+      !mCloudUploads.empty())
+    return;
+  const std::string dir = saveDir();
+  for (int i = 0; i < kSaveSlots + 1; ++i)
+  {
+    const std::string path = i == kSaveSlots ? quickSavePath(dir) : slotPath(dir, i);
+    if (std::filesystem::exists(path + ".cloud-dirty"))
+    {
+      queueCloudUpload(path);
+      break;
+    }
+  }
+}
+
 void Game::openMenu(Menu m)
 {
   mMenu = m;
@@ -191,13 +338,17 @@ bool Game::saveTo(const std::string& path)
     s.levelNumber = mLevelNumber;
   }
   std::string error;
-  if (!writeSave(s, path, &error))
+  const bool saved = mOptions.s3.enabled() ? writeS3Save(s, path, &error) :
+    writeSave(s, path, &error);
+  if (!saved)
   {
     sound(Sfx::Hurt);
     notice("SAVE FAILED: " + error);
     std::fprintf(stderr, "save failed: %s\n", error.c_str());
     return false;
   }
+  if (mOptions.s3.enabled())
+    queueCloudUpload(path);
   sound(Sfx::Checkpoint);
   return true;
 }
@@ -220,7 +371,8 @@ bool Game::quickLoad()
   if (!save)
   {
     sound(Sfx::Hurt);
-    notice("NO QUICK SAVE YET - F5 OR THE PAUSE MENU MAKES ONE");
+    notice(mCloudRefresh.valid() ? "CLOUD SAVES ARE STILL SYNCING" :
+      "NO QUICK SAVE YET - F5 OR THE PAUSE MENU MAKES ONE");
     return false;
   }
   return loadSave(*save, "QUICK SAVE LOADED");
