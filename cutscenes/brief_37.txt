@@ -7,6 +7,7 @@ music theme_jazz_bass
 # a booth in someone else's coat (frames 6, 10, 14), each grinning on the
 # frame after. Foreground: Maxine inset on her headset (4-frame talk loop).
 # 18 frames at 110 ms = 2 s, plus 8.8 s of holds.
+# clip brief37_booths; 18 frames
 shot brief37_booths delay=110 repeat=1
   cue 0 fade=in:500
   cue 2 say=MAXINE "Need a change?"

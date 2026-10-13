@@ -9,7 +9,9 @@
 #include "assets/art_fleet34.hpp"
 #include "assets/art_dish.hpp"
 #include "assets/art_magma33.hpp"
+#include "assets/art_warehouse36.hpp"
 #include "assets/art_tower35.hpp"
+#include "assets/art_wardrobe37.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -1869,8 +1871,12 @@ Texture bakeLadder(const Renderer& r, const Theme& t)
     return bakeDishLadder(r, t); // galvanized steel
   if (isMagmaMainframe(t))
     return bakeMainframeLadder(r, t); // steel, yellow rails
+  if (isPropWarehouse(t))
+    return bakeWarehouseLadder(r, t); // fixed steel, yellow rails
   if (isTransmitter(t))
     return bakeTowerLadder(r, t); // galvanized, a safety cage
+  if (isWardrobe(t))
+    return bakeWardrobeLadder(r, t); // a wooden library ladder
   // One block of ladder; the rails straddle the left cell column, so the
   // texture is drawn 16 px left of its block.
   VectorImage img(64, 64);
@@ -2119,8 +2125,12 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeDishSolid(r, t, variant);
   if (isMagmaMainframe(t))
     return bakeMainframeSolid(r, t, variant);
+  if (isPropWarehouse(t))
+    return bakeWarehouseSolid(r, t, variant);
   if (isTransmitter(t))
     return bakeTowerSolid(r, t, variant);
+  if (isWardrobe(t))
+    return bakeWardrobeSolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2569,8 +2579,12 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeDishSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isMagmaMainframe(t))
     return bakeMainframeSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isPropWarehouse(t))
+    return bakeWarehouseSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isTransmitter(t))
     return bakeTowerSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isWardrobe(t))
+    return bakeWardrobeSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2710,8 +2724,12 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
     return bakeDishPlatform(r, t); // white steel catwalk
   if (isMagmaMainframe(t))
     return bakeMainframePlatform(r, t); // steel grating
+  if (isPropWarehouse(t))
+    return bakeWarehousePlatform(r, t); // a pallet-rack shelf
   if (isTransmitter(t))
     return bakeTowerPlatform(r, t); // grating on a white girder
+  if (isWardrobe(t))
+    return bakeWardrobePlatform(r, t); // a gilt mirror frame's top
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -2768,6 +2786,8 @@ Texture bakeSpikes(const Renderer& r, const Theme& t)
     return bakePlainsSpikes(r, t); // thorn grass
   if (isFiberTrench(t))
     return bakeTrenchSpikes(r, t); // fire coral
+  if (isWardrobe(t))
+    return bakeWardrobeSpikes(r, t); // needles in a pincushion
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   if (t.id == ThemeId::NeonOverdrive)
@@ -7330,8 +7350,12 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeDishSky(r, t);
   if (isMagmaMainframe(t))
     return bakeMainframeSky(r, t); // before isMagma: Level 12 shares the look
+  if (isPropWarehouse(t))
+    return bakeWarehouseSky(r, t);
   if (isTransmitter(t))
     return bakeTowerSky(r, t);
+  if (isWardrobe(t))
+    return bakeWardrobeSky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7513,8 +7537,12 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeDishFar(r, t, kLayerW);
   if (isMagmaMainframe(t))
     return bakeMainframeFar(r, t, kLayerW);
+  if (isPropWarehouse(t))
+    return bakeWarehouseFar(r, t, kLayerW);
   if (isTransmitter(t))
     return bakeTowerFar(r, t, kLayerW);
+  if (isWardrobe(t))
+    return bakeWardrobeFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7679,8 +7707,12 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeDishNear(r, t, kLayerW);
   if (isMagmaMainframe(t))
     return bakeMainframeNear(r, t, kLayerW);
+  if (isPropWarehouse(t))
+    return bakeWarehouseNear(r, t, kLayerW);
   if (isTransmitter(t))
     return bakeTowerNear(r, t, kLayerW);
+  if (isWardrobe(t))
+    return bakeWardrobeNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))
@@ -7954,8 +7986,12 @@ Texture bakeExitBase(const Renderer& r, const Theme& t)
     return bakeDishExitBase(r, t); // the uplink antenna
   if (isMagmaMainframe(t))
     return bakeMainframeExitBase(r, t); // the airship's boarding ramp
+  if (isPropWarehouse(t))
+    return bakeWarehouseExitBase(r, t); // the dressing-room door
   if (isTransmitter(t))
     return bakeTowerExitBase(r, t); // the beam's horn
+  if (isWardrobe(t))
+    return bakeWardrobeExitBase(r, t); // the stage door
   // 96 wide, 144 tall; anchor so (0,0) is the top-left of the 64x128 exit area.
   VectorImage img(96, 144);
   cairo_t* cr = img.cr();

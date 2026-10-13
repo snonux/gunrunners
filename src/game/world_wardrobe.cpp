@@ -301,7 +301,7 @@ PlayerInput World::wardrobeInput(const PlayerInput& raw)
       s.boothTo = b.runner;
       b.curtain = kBoothCurtain + 6;
       p.mercy = std::max(p.mercy, kBoothCurtain + 2);
-      playSound(Sfx::Swoosh);
+      playSound(Sfx::CurtainSwish);
       return PlayerInput{};
     }
     for (const auto& d : s.doors)
@@ -311,20 +311,20 @@ PlayerInput World::wardrobeInput(const PlayerInput& raw)
       if (vaultDoorBlocked(d))
       {
         showMessage("SOMETHING HEAVY IS IN FRONT OF THE DOOR");
-        playSound(Sfx::Thud);
+        playSound(Sfx::DoorBlocked);
         return PlayerInput{};
       }
       p.x = p.prevX = d.toX;
       p.y = p.prevY = d.toY;
       mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
-      playSound(Sfx::Creak);
+      playSound(Sfx::VaultDoor);
       return PlayerInput{};
     }
   }
   if (in.down && s.mirrorX >= 0 && !s.mustache && std::abs(p.x + 1 - (s.mirrorX + 2)) <= 2 && std::abs(p.y - s.mirrorY) <= 1)
   {
     s.sit = kSitFrames;
-    playSound(Sfx::Creak);
+    playSound(Sfx::MirrorSit);
     return PlayerInput{};
   }
   return in;
@@ -372,7 +372,7 @@ void World::pressPlate(HeavyPlate& pl)
 {
   auto& s = mWardrobe;
   pl.down = true;
-  playSound(Sfx::Click);
+  playSound(Sfx::PlateClunk);
   for (auto& sh : s.shutters)
     if (sh.id == pl.target && !sh.open)
     {
@@ -381,14 +381,14 @@ void World::pressPlate(HeavyPlate& pl)
       for (int ty = sh.y0; ty <= sh.y1; ++ty)
         for (int tx = sh.x0; tx <= sh.x1; ++tx)
           mMap.setBlock(tx, ty, Tile::Empty);
-      playSound(Sfx::Shutter);
+      playSound(Sfx::ShutterRoll);
       showMessage(s.totem ? "THE GATE GOES UP" : "THE SHUTTER ROLLS UP");
     }
   if (CutTable* t = wardrobeTable(pl.target); t && !t->lower)
   {
     t->lower = true;
     t->t = 0;
-    playSound(Sfx::Rattle);
+    playSound(Sfx::TableLower);
     showMessage("THE CUTTING TABLE COMES DOWN");
   }
 }
@@ -439,7 +439,7 @@ void World::updateTables()
       mMap.setBlock(tx, t.row, Tile::Platform);
     if (t.down())
     {
-      playSound(Sfx::Clunk);
+      playSound(Sfx::TableLand);
       mCamera.shake(4, 0.8f);
     }
   }
@@ -467,7 +467,7 @@ void World::updateRacks()
     {
       startLaunch(rackLaunch());
       s.racks[std::size_t(under)].bounce = 8;
-      playSound(Sfx::Boing);
+      playSound(Sfx::SpringBoing);
     }
     s.onRack = under;
     s.tumbled = false;
@@ -484,7 +484,7 @@ void World::updateRacks()
         startFalling();
       s.tumble = kTumble;
       s.tumbled = true;
-      playSound(Sfx::Crash);
+      playSound(Sfx::SpikeTumble);
     }
   }
 }
@@ -531,7 +531,7 @@ void World::updatePushRacks()
     }
     r.x += d;
     r.slide = 4;
-    playSound(Sfx::Creak);
+    playSound(Sfx::PushRackScrape);
   }
 }
 
@@ -556,7 +556,7 @@ void World::fireDecoy(const Button& fire)
   d.look = mCharacterIndex;
   s.decoys.push_back(d);
   p.shotCooldown = protoDef(p.proto).cooldown;
-  playSound(Sfx::Throw);
+  playSound(Sfx::DecoyLaunch);
   if (p.turbo == 0 && --p.ammo <= 0)
   {
     p.ammo = 0;
@@ -614,14 +614,14 @@ void World::updateDecoys()
           damageEnemy(e, protoDef(int(ProtoId::DecoyLauncher)).damage);
       }
       burst(c, rgb(240, 200, 170), rgb(255, 255, 255), 10, 1.4f, false);
-      playSound(Sfx::Thud);
+      playSound(Sfx::DecoyLand);
     }
   }
   s.decoys.erase(std::remove_if(s.decoys.begin(), s.decoys.end(), [&](const Decoy& d) {
     if (d.life > 0 && d.hp > 0)
       return false;
     burst(cellCenter(d.box()), rgb(240, 200, 170), rgb(120, 90, 80), 12, 1.6f, false);
-    playSound(Sfx::Puff);
+    playSound(Sfx::DecoyPop);
     return true;
   }), s.decoys.end());
 }
@@ -688,7 +688,7 @@ void World::updateMannequin(Enemy& e, const EnemyDef& def)
     if (m->twitch == 0)
     {
       m->twitch = kMannequinTwitch;
-      playSound(Sfx::Creak);
+      playSound(Sfx::MannequinCreak);
     }
     else if (--m->twitch == 0)
       m->frozen = false;
@@ -703,7 +703,7 @@ void World::updateMannequin(Enemy& e, const EnemyDef& def)
   {
     --s.decoys[std::size_t(lure)].hp;
     e.cool = def.cooldown;
-    playSound(Sfx::Thud);
+    playSound(Sfx::DecoyBonk);
   }
   if (m->frozen || e.timer % std::max(1, def.stepEvery) != 0)
     return;
@@ -771,7 +771,7 @@ void World::updatePowderPuffer(Enemy& e, const EnemyDef& def)
       f->cloudX = e.dir > 0 ? e.x + e.w : e.x - kPuffW;
       f->cloudY = f->homeY - kPuffH - 1;
       f->hit = false;
-      playSound(Sfx::Puff);
+      playSound(Sfx::PufferPuff);
     }
     return;
   }
@@ -789,7 +789,7 @@ void World::updatePowderPuffer(Enemy& e, const EnemyDef& def)
     return;
   e.dir = tx < mid ? -1 : 1;
   e.tell = def.tell;
-  playSound(Sfx::Creak);
+  playSound(Sfx::PufferSqueeze);
 }
 
 void World::updateRackRunner(Enemy& e, const EnemyDef& def)
@@ -812,7 +812,7 @@ void World::updateRackRunner(Enemy& e, const EnemyDef& def)
     int x = p.x;
     mMap.moveHorizontally(x, p.y, Player::kWidth, p.height(), dir * kRackKnock);
     p.x = x;
-    playSound(Sfx::Rattle);
+    playSound(Sfx::RackRam);
   }
   if (r->stopped > 0)
   {
@@ -832,7 +832,7 @@ void World::updateRackRunner(Enemy& e, const EnemyDef& def)
           d.hp -= 2;
           r->stopped = d.life;
           r->roll = 0;
-          playSound(Sfx::Thud);
+          playSound(Sfx::DecoyBonk);
           return;
         }
       const bool wall = dir > 0 ? mMap.touchingRightWall(e.box()) : mMap.touchingLeftWall(e.box());
@@ -851,7 +851,10 @@ void World::updateRackRunner(Enemy& e, const EnemyDef& def)
   if (e.tell > 0)
   {
     if (--e.tell == 0)
+    {
       r->roll = e.dir * (r->x1 - r->x0);
+      playSound(Sfx::RackRoll);
+    }
     return;
   }
   if (e.cool > 0)
@@ -864,7 +867,7 @@ void World::updateRackRunner(Enemy& e, const EnemyDef& def)
     return;
   e.dir = dir;
   e.tell = def.tell;
-  playSound(Sfx::Rattle);
+  playSound(Sfx::RackRattle);
 }
 
 // --- Every frame -----------------------------------------------------------------------------
@@ -900,11 +903,13 @@ void World::updateWardrobe(const PlayerInput& input)
         if (s.boothTo != mCharacterIndex)
           becomeRunner(s.boothTo);
         showMessage(std::string(runnerWord(s.boothTo)) + " STEPS OUT");
+        playSound(Sfx::BoothSwap);
       }
       if (s.suitTouched && !s.suit)
       {
         s.suit = true;
         showMessage("GORGAZILLA STEPS OUT - THEY'RE RUNNING!");
+        playSound(Sfx::SuitRoar);
       }
       burst(c, mArt.runnerColor(mCharacter), rgb(255, 255, 255), 16, 1.8f);
       s.booth = -1;
@@ -914,7 +919,7 @@ void World::updateWardrobe(const PlayerInput& input)
   {
     s.mustache = true;
     showMessage("LOOKING SHARP");
-    playSound(Sfx::Bell);
+    playSound(Sfx::Mustache);
   }
   if (s.tumble > 0)
     --s.tumble;
@@ -935,7 +940,7 @@ void World::updateWardrobe(const PlayerInput& input)
   {
     s.suitTouched = true;
     showMessage("A GORGAZILLA SUIT - TRY IT ON IN A BOOTH");
-    playSound(Sfx::Click);
+    playSound(Sfx::SuitTouch);
   }
   if (s.puffed > 0)
     --s.puffed;
@@ -1152,7 +1157,7 @@ PlayerInput World::totemInput(PlayerInput in)
     startLaunch(kTotemThrowUp);
     s.throwT = kTotemThrowFwd;
     s.throwDir = p.facing;
-    playSound(Sfx::Throw);
+    playSound(Sfx::TotemThrow);
     in.jump = Button{};
     in.left = in.right = false;
     return in;
@@ -1238,7 +1243,7 @@ void World::updateTotem()
     }
     b[std::size_t(all[0])].active = true;
     becomeRunner(b[std::size_t(all[0])].runner);
-    playSound(Sfx::Boing);
+    playSound(Sfx::TotemStack);
     showMessage(all.size() == 3 ? "TOTEM!" : "STACKED");
     break;
   }

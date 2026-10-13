@@ -9,7 +9,9 @@
 #include "game/fleet_draw.hpp"
 #include "game/dish_draw.hpp"
 #include "game/magma_draw.hpp"
+#include "game/warehouse_draw.hpp"
 #include "game/tower_draw.hpp"
+#include "game/wardrobe_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -125,8 +127,12 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawDishSet(r, *this, mArt, camX, camY, frame, alpha); // Level 32: the satellite, the dishes, the cabin, the bunker, the tower
   if (mMagma.on)
     drawMagmaSet(r, *this, mArt, camX, camY, frame, alpha); // Level 33: the back aisles, the stations, the crater, the airship
+  if (mWarehouse.on)
+    drawWarehouseSet(r, *this, mArt, camX, camY, frame, alpha); // Level 36: the dock, the racks, the curtains, the crane yard, the lifts
   if (mTower.on)
     drawTowerSet(r, *this, mArt, camX, camY, frame, alpha); // Level 35: the cloud sea, the lattice, the dishes, the spire
+  if (mWardrobe.on)
+    drawWardrobeSet(r, *this, mArt, camX, camY, frame, alpha); // Level 37: the fitting room, the racks, the makeup hall, the sewing room, the vault
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -343,9 +349,19 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawSinkIcon(r, mArt, x, y, 1.0f, frame); // Level 33 (world_magma_draw.cpp)
         continue;
       }
+      if (mWarehouse.on && mLevelProto == int(ProtoId::MagnetGun))
+      {
+        drawMagnetIcon(r, mArt, x, y, 1.0f, frame); // Level 36 (world_warehouse_draw.cpp)
+        continue;
+      }
       if (mTower.on && mLevelProto == int(ProtoId::SatelliteSwarm))
       {
         drawSwarmIcon(r, mArt, x, y, 1.0f, frame); // Level 35 (world_tower_draw.cpp)
+        continue;
+      }
+      if (mWardrobe.on && mLevelProto == int(ProtoId::DecoyLauncher))
+      {
+        drawDecoyIcon(r, mArt, x, y, 1.0f, frame); // Level 37 (world_wardrobe_draw.cpp)
         continue;
       }
       DrawOpts po;
@@ -424,11 +440,26 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_heat_suit", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mWarehouse.on && mLevel->themeKey == "prop_warehouse")
+      {
+        // The Prop Warehouse's duck wears a hard hat and a hi-vis vest.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_hard_hat_vest", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
       if (mTower.on && mLevel->themeKey == "broadcast_mast")
       {
         // The Transmitter's duck wears a hard hat.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_hard_hat", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mWardrobe.on && mLevel->themeKey == "wardrobe")
+      {
+        // The Wardrobe's duck wears a feather boa and a top hat.
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_boa_top_hat", 0, 0, 2, 2).get(1), x + 32, y + 64);
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_boa_top_hat", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mStorm.on && mLevel->themeKey == "storm_cliffs")
@@ -1025,6 +1056,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // a Tesla rod (world_storm_draw.cpp)
     if (mMagma.on && drawMagmaShot(r, *this, mArt, pr, cx, cy, frame))
       continue; // a Heat Sink fireball or a Lava Daemon's (world_magma_draw.cpp)
+    if (mWarehouse.on && drawWarehouseShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // the Magnet Gun's push pulse or a Stagehand's tape roll (world_warehouse_draw.cpp)
     if (mTower.on && drawTowerShot(r, *this, mArt, pr, cx, cy, frame))
       continue; // a swarm pellet, a Relay Drone's ring or the Titan's lattice shot (world_tower_draw.cpp)
     if (pr.thrown == 4)
@@ -1349,6 +1382,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         case Tile::Platform:
           if ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty))
             break; // an inked line (world_toon_draw.cpp)
+          if (mWardrobe.on && wardrobeDrawsBlock(tx, ty))
+            break; // a cutting table (world_wardrobe_draw.cpp)
           r.draw(platformTex, x, y);
           break;
         case Tile::Grate:
@@ -1626,6 +1661,8 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     o.tint = rgb(150, 255, 120);
     drawGlow(r, mArt, x + ux * 80.0f, y + uy * 80.0f, 90, rgb(110, 255, 60), 0.25f + 0.1f * pulse);
   }
+  if (mWardrobe.on && drawWardrobeRunner(r, *this, mArt, tex, x, y, o, frame))
+    return; // in the suit, at the mirror, as a cartoon (world_wardrobe_draw.cpp)
   r.draw(tex, x, y, o);
   if (flashWhite)
   {
@@ -1709,8 +1746,12 @@ void World::drawHud(Renderer& r, int frame) const
     drawJammerIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 32: a handheld jammer (world_dish_draw.cpp)
   else if (proto && mMagma.on && p.proto == int(ProtoId::HeatSink))
     drawSinkIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 33: a heat sink (world_magma_draw.cpp)
+  else if (proto && mWarehouse.on && p.proto == int(ProtoId::MagnetGun))
+    drawMagnetIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 36: a horseshoe magnet on a grip (world_warehouse_draw.cpp)
   else if (proto && mTower.on && p.proto == int(ProtoId::SatelliteSwarm))
     drawSwarmIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 35: a handheld uplink (world_tower_draw.cpp)
+  else if (proto && mWardrobe.on && p.proto == int(ProtoId::DecoyLauncher))
+    drawDecoyIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 37: a decoy launcher (world_wardrobe_draw.cpp)
   else if (proto)
   {
     DrawOpts io;

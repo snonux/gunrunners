@@ -7,6 +7,7 @@ music theme_lonely_piano
 # three runners crouched behind a crate (Nova's eyes blink on frame 10).
 # Foreground: a corner inset of Maxine in a headset, mouth on a 4-frame
 # talk loop. 24 frames at 120 ms = 2.9 s, plus 9 s of holds.
+# clip brief36_dock; 24 frames
 shot brief36_dock delay=120 repeat=1
   cue 0 fade=in:600
   cue 0 sound=dock_hum

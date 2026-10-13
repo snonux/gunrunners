@@ -12162,6 +12162,497 @@ void runnersHeat(ClipKit& k, int frame, int ticks, float ox, float oy)
 }
 
 
+// --- Level 36: Prop Warehouse (brief_36) -----------------------------------
+
+// The night over the studio lot: deep blue going to a sodium glow at the
+// horizon, stars, a thin moon, the soundstages' long roofs low across the
+// bottom and the MAXTV water tower standing over them on the right. Full
+// screen, static.
+const Texture& lotNight36(ClipKit& k)
+{
+  return cached(k, "w36_lot_night", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(6, 8, 24), rgb(20, 24, 58), rgb(70, 54, 70));
+    for (int i = 0; i < 110; ++i)
+    {
+      cairo_arc(cr, double(hash2(i, 3601) % 1280u), double(hash2(i, 3602) % 360u), (i % 7) ? 0.9 : 1.6, 0, 2 * kPi);
+      cairo_set_source_rgba(cr, 0.92, 0.94, 1.0, 0.25 + double(hash2(i, 3603) % 60u) / 100.0);
+      cairo_fill(cr);
+    }
+    // A thin moon, low on the right.
+    radialGlow(cr, 1232, 330, 60, rgb(200, 210, 255), 0.25);
+    cairo_arc(cr, 1232, 330, 20, 0, 2 * kPi);
+    setRgbaC(cr, rgb(236, 236, 220), 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, 1240, 325, 18, 0, 2 * kPi);
+    setRgbaC(cr, rgb(16, 20, 50), 1.0);
+    cairo_fill(cr);
+    // The soundstages: long barrel roofs, a stage number on each, a few
+    // lamps over their doors.
+    for (int s = 0; s < 6; ++s)
+    {
+      const double x = -60 + s * 240.0 + double(hash2(s, 3604) % 40u), w = 220, top = 470 + double(hash2(s, 3605) % 30u);
+      cairo_move_to(cr, x, H);
+      cairo_line_to(cr, x, top + 20);
+      cairo_curve_to(cr, x + 40, top - 6, x + w - 40, top - 6, x + w, top + 20);
+      cairo_line_to(cr, x + w, H);
+      cairo_close_path(cr);
+      setRgbaC(cr, s % 2 ? rgb(28, 28, 48) : rgb(34, 32, 54), 1.0);
+      cairo_fill(cr);
+      selectGameFont(cr);
+      cairo_set_font_size(cr, 26);
+      radialGlow(cr, x + 30, top + 110, 22, rgb(255, 200, 120), 0.5);
+      cairo_arc(cr, x + 30, top + 110, 3, 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 226, 170), 1.0);
+      cairo_fill(cr);
+    }
+    // The water tower: four legs and their bracing, the tank and its cone
+    // roof, MAXTV across the tank.
+    const double tx = 1140, tankY = 372;
+    cairo_set_line_width(cr, 5);
+    setRgbaC(cr, rgb(40, 42, 66), 1.0);
+    for (const double lx : {-54.0, -18.0, 18.0, 54.0})
+    {
+      cairo_move_to(cr, tx + lx * 0.8, tankY + 90);
+      cairo_line_to(cr, tx + lx * 1.15, 560);
+    }
+    cairo_stroke(cr);
+    cairo_set_line_width(cr, 2.5);
+    for (int b = 0; b < 2; ++b)
+    {
+      const double y0 = tankY + 100 + b * 50.0, y1 = y0 + 50;
+      cairo_move_to(cr, tx - 46 - b * 3.0, y0);
+      cairo_line_to(cr, tx + 50 + b * 3.0, y1);
+      cairo_move_to(cr, tx + 46 + b * 3.0, y0);
+      cairo_line_to(cr, tx - 50 - b * 3.0, y1);
+    }
+    cairo_stroke(cr);
+    cairo_rectangle(cr, tx - 70, tankY, 140, 92);
+    cairo_pattern_t* g = cairo_pattern_create_linear(tx - 70, 0, tx + 70, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.22, 0.24, 0.36);
+    cairo_pattern_add_color_stop_rgb(g, 0.6, 0.36, 0.38, 0.52);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.18, 0.2, 0.3);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_move_to(cr, tx - 78, tankY + 2);
+    cairo_line_to(cr, tx, tankY - 46);
+    cairo_line_to(cr, tx + 78, tankY + 2);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(44, 46, 70), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, tx - 76, tankY + 88, 152, 6);
+    cairo_fill(cr);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 34);
+    cairo_text_extents_t e;
+    cairo_text_extents(cr, "MAXTV", &e);
+    cairo_move_to(cr, tx - e.width / 2 - e.x_bearing, tankY + 60);
+    setRgbaC(cr, rgb(214, 70, 190), 1.0);
+    cairo_show_text(cr, "MAXTV");
+  });
+}
+
+// The loading dock, 1500 x 720: the warehouse's corrugated wall with its
+// parapet, the roll-up door half open on the lit store inside (pallet
+// racks, crates, a stuffed bear on a shelf), DOCK 1 stencilled over it, the
+// dock's concrete lip with its hazard edge and rubber bumpers, and the
+// apron's painted bays. The wall ends at x 1080; the lot shows past it.
+const Texture& loadingDock36(ClipKit& k)
+{
+  return cached(k, "w36_dock", 1500, int(H), 0, 0, [](cairo_t* cr) {
+    const double wallR = 1080, top = 76, doorL = 380, doorR = 880, doorT = 200, lip = 470;
+    // The wall.
+    cairo_rectangle(cr, 0, top, wallR, lip - top);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, top, 0, lip);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.16, 0.18, 0.26);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.22, 0.24, 0.32);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (double x = 8; x < wallR; x += 22)
+    {
+      cairo_rectangle(cr, x, top + 14, 6, lip - top - 14);
+      setRgbaC(cr, rgb(12, 14, 22), 0.35);
+      cairo_fill(cr);
+      cairo_rectangle(cr, x + 6, top + 14, 3, lip - top - 14);
+      setRgbaC(cr, rgb(120, 130, 160), 0.12);
+      cairo_fill(cr);
+    }
+    // The parapet and its flashing.
+    cairo_rectangle(cr, -10, top - 14, wallR + 20, 28);
+    setRgbaC(cr, rgb(30, 32, 44), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, -10, top - 14, wallR + 20, 4);
+    setRgbaC(cr, rgb(90, 96, 120), 1.0);
+    cairo_fill(cr);
+    // A downpipe at the corner.
+    cairo_rectangle(cr, wallR - 30, top, 14, lip - top);
+    setRgbaC(cr, rgb(50, 54, 70), 1.0);
+    cairo_fill(cr);
+    // The store inside, lit warm: the back wall, pallet racks with crates
+    // and props, the floor.
+    cairo_rectangle(cr, doorL, doorT, doorR - doorL, lip - doorT);
+    g = cairo_pattern_create_linear(0, doorT, 0, lip);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.32, 0.24, 0.16);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.66, 0.5, 0.3);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (int r = 0; r < 3; ++r)
+    {
+      const double rx = doorL + 30 + r * 160.0;
+      for (const double ux : {rx, rx + 130})
+      {
+        cairo_rectangle(cr, ux, doorT, 8, lip - doorT);
+        setRgbaC(cr, rgb(60, 80, 140), 1.0);
+        cairo_fill(cr);
+      }
+      for (int b = 0; b < 3; ++b)
+      {
+        const double by = doorT + 110 + b * 76.0;
+        cairo_rectangle(cr, rx, by, 138, 7);
+        setRgbaC(cr, rgb(230, 120, 40), 1.0);
+        cairo_fill(cr);
+        // Crates and boxes on the beam.
+        for (int c = 0; c < 3 && !(r == 1 && b == 1); ++c)
+        {
+          const std::uint32_t hsh = hash2(r * 9 + b * 3 + c, 3610);
+          const double cw = 26 + double(hsh % 18u), ch = 20 + double((hsh >> 5) % 30u);
+          const double cx = rx + 12 + c * 42.0;
+          cairo_rectangle(cr, cx, by - ch, cw, ch);
+          const Color col = hsh % 3 == 0 ? rgb(150, 110, 60) : hsh % 3 == 1 ? rgb(170, 140, 90) : rgb(110, 116, 128);
+          setRgbaC(cr, col, 1.0);
+          cairo_fill(cr);
+          cairo_rectangle(cr, cx, by - ch, cw, 3);
+          setRgbaC(cr, rgb(255, 230, 180), 0.35);
+          cairo_fill(cr);
+        }
+      }
+    }
+    // A stuffed bear on the middle rack, a palm in a pot by the door.
+    const double bx = doorL + 255, bear = doorT + 186;
+    cairo_arc(cr, bx, bear - 40, 14, 0, 2 * kPi);
+    cairo_arc(cr, bx, bear - 18, 18, 0, 2 * kPi);
+    setRgbaC(cr, rgb(120, 76, 40), 1.0);
+    cairo_fill(cr);
+    for (const double ex : {-11.0, 11.0})
+    {
+      cairo_arc(cr, bx + ex, bear - 52, 5, 0, 2 * kPi);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, doorR - 70, lip - 30, 30, 30);
+    setRgbaC(cr, rgb(120, 60, 40), 1.0);
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 5);
+    setRgbaC(cr, rgb(40, 120, 60), 1.0);
+    for (int l = 0; l < 5; ++l)
+    {
+      cairo_move_to(cr, doorR - 55, lip - 30);
+      cairo_curve_to(cr, doorR - 55, lip - 80, doorR - 90 + l * 18.0, lip - 110, doorR - 100 + l * 22.0, lip - 70 - (l % 2) * 14.0);
+      cairo_stroke(cr);
+    }
+    // The light in the doorway, brightest at the floor.
+    radialGlow(cr, (doorL + doorR) / 2, lip - 30, 260, rgb(255, 210, 140), 0.35);
+    // The roll-up door, half up: slats from the drum box down to y 400.
+    const double doorBottom = 330;
+    cairo_rectangle(cr, doorL - 16, doorT - 34, doorR - doorL + 32, 34);
+    setRgbaC(cr, rgb(70, 74, 92), 1.0);
+    cairo_fill(cr);
+    for (double y = doorT; y < doorBottom; y += 14)
+    {
+      cairo_rectangle(cr, doorL, y, doorR - doorL, 13);
+      setRgbaC(cr, rgb(120, 126, 140), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, doorL, y + 10, doorR - doorL, 3);
+      setRgbaC(cr, rgb(60, 64, 78), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, doorL, doorBottom - 8, doorR - doorL, 10);
+    setRgbaC(cr, rgb(40, 40, 50), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, (doorL + doorR) / 2 - 20, doorBottom - 6, 40, 6);
+    setRgbaC(cr, rgb(230, 200, 60), 1.0);
+    cairo_fill(cr);
+    // The door's guide rails.
+    for (const double x : {doorL - 14, doorR + 2})
+    {
+      cairo_rectangle(cr, x, doorT - 4, 12, lip - doorT + 4);
+      setRgbaC(cr, rgb(200, 170, 40), 1.0);
+      cairo_fill(cr);
+      for (double y = doorT; y < lip; y += 28)
+      {
+        cairo_move_to(cr, x, y);
+        cairo_line_to(cr, x + 12, y + 14);
+        setRgbaC(cr, rgb(30, 30, 30), 1.0);
+        cairo_set_line_width(cr, 5);
+        cairo_stroke(cr);
+      }
+    }
+    // DOCK 1, stencilled beside the door.
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 48);
+    cairo_move_to(cr, 120, doorT + 60);
+    setRgbaC(cr, rgb(230, 200, 60), 0.9);
+    cairo_show_text(cr, "DOCK 1");
+    // The store's sign over the door.
+    const double sx = (doorL + doorR) / 2 - 165;
+    cairo_rectangle(cr, sx, top + 22, 330, 52);
+    setRgbaC(cr, rgb(20, 20, 30), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, sx, top + 22, 330, 52);
+    setRgbaC(cr, rgb(214, 70, 190), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_set_font_size(cr, 26);
+    cairo_move_to(cr, sx + 18, top + 58);
+    setRgbaC(cr, rgb(240, 236, 250), 1.0);
+    cairo_show_text(cr, "MAXTV PROP STORE");
+    // A NO ENTRY plate by the door.
+    cairo_rectangle(cr, doorR + 40, 300, 120, 56);
+    setRgbaC(cr, rgb(200, 40, 40), 1.0);
+    cairo_fill(cr);
+    cairo_set_font_size(cr, 18);
+    cairo_move_to(cr, doorR + 54, 324);
+    setRgbaC(cr, rgb(255, 255, 255), 1.0);
+    cairo_show_text(cr, "STAFF ONLY");
+    cairo_move_to(cr, doorR + 60, 346);
+    cairo_show_text(cr, "NO ENTRY");
+    // The dock's lip: concrete, a hazard edge, rubber bumpers.
+    cairo_rectangle(cr, 0, lip, wallR + 20, 90);
+    g = cairo_pattern_create_linear(0, lip, 0, lip + 90);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.42, 0.42, 0.46);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.24, 0.24, 0.28);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (double x = 0; x < wallR + 20; x += 40)
+    {
+      cairo_move_to(cr, x, lip);
+      cairo_line_to(cr, x + 20, lip);
+      cairo_line_to(cr, x + 10, lip + 12);
+      cairo_line_to(cr, x - 10, lip + 12);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(230, 190, 40), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, lip + 12, wallR + 20, 3);
+    setRgbaC(cr, rgb(20, 20, 24), 1.0);
+    cairo_fill(cr);
+    for (const double x : {doorL - 60, doorR + 20, 120.0, 980.0})
+    {
+      roundedRect(cr, x, lip + 22, 40, 56, 6);
+      setRgbaC(cr, rgb(20, 20, 24), 1.0);
+      cairo_fill(cr);
+    }
+    // The apron: asphalt, the bays' painted lines.
+    cairo_rectangle(cr, 0, lip + 90, 1500, H - lip - 90);
+    setRgbaC(cr, rgb(28, 28, 34), 1.0);
+    cairo_fill(cr);
+    for (double x = 100; x < 1500; x += 320)
+    {
+      cairo_move_to(cr, x, lip + 90);
+      cairo_line_to(cr, x - 60, H);
+      setRgbaC(cr, rgb(200, 180, 60), 0.7);
+      cairo_set_line_width(cr, 6);
+      cairo_stroke(cr);
+    }
+    // The light from the doorway pooled on the apron.
+    cairo_move_to(cr, doorL, lip);
+    cairo_line_to(cr, doorR, lip);
+    cairo_line_to(cr, doorR + 120, H);
+    cairo_line_to(cr, doorL - 120, H);
+    cairo_close_path(cr);
+    g = cairo_pattern_create_linear(0, lip, 0, H);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1.0, 0.8, 0.5, 0.22);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 1.0, 0.8, 0.5, 0.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The work light's bracket, sticking out over the door's right side.
+    cairo_rectangle(cr, 960, 156, 52, 8);
+    setRgbaC(cr, rgb(40, 42, 54), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 1002, 146, 10, 28);
+    cairo_fill(cr);
+  });
+}
+
+// The work light: a caged bulb on its cable, 60 x 130, hanging from its top
+// centre.
+const Texture& workLight36(ClipKit& k)
+{
+  return cached(k, "w36_work_light", 60, 130, 30, 0, [](cairo_t* cr) {
+    cairo_move_to(cr, 30, 0);
+    cairo_line_to(cr, 30, 92);
+    setRgbaC(cr, rgb(20, 20, 24), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 22, 88, 16, 12);
+    setRgbaC(cr, rgb(60, 60, 70), 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, 30, 110, 12, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 240, 200), 1.0);
+    cairo_fill(cr);
+    // The cage.
+    setRgbaC(cr, rgb(40, 40, 46), 1.0);
+    cairo_set_line_width(cr, 2);
+    for (const double dx : {-10.0, 0.0, 10.0})
+    {
+      cairo_move_to(cr, 30 + dx * 0.6, 98);
+      cairo_curve_to(cr, 30 + dx * 1.6, 104, 30 + dx * 1.6, 120, 30 + dx * 0.4, 126);
+      cairo_stroke(cr);
+    }
+    cairo_move_to(cr, 16, 112);
+    cairo_line_to(cr, 44, 112);
+    cairo_stroke(cr);
+  });
+}
+
+// Its beam, 460 x 520, fanning down from its top centre.
+const Texture& workBeam36(ClipKit& k)
+{
+  return cached(k, "w36_work_beam", 460, 520, 230, 0, [](cairo_t* cr) {
+    cairo_move_to(cr, 222, 0);
+    cairo_line_to(cr, 238, 0);
+    cairo_line_to(cr, 460, 520);
+    cairo_line_to(cr, 0, 520);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 520);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1.0, 0.92, 0.7, 0.32);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 1.0, 0.92, 0.7, 0.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// The crate the runners hide behind: 520 x 210, its top-left the anchor;
+// slatted pine, a dark band, PROPS - FRAGILE and THIS WAY UP stencilled.
+const Texture& hideCrate36(ClipKit& k)
+{
+  return cached(k, "w36_hide_crate", 520, 210, 0, 0, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 0, 520, 210);
+    setRgbaC(cr, rgb(176, 130, 76), 1.0);
+    cairo_fill(cr);
+    for (int i = 0; i < 6; ++i)
+    {
+      cairo_rectangle(cr, 0, i * 35.0 + 33, 520, 2);
+      setRgbaC(cr, rgb(110, 76, 40), 1.0);
+      cairo_fill(cr);
+    }
+    // The frame: edges and a cross brace.
+    setRgbaC(cr, rgb(130, 90, 48), 1.0);
+    cairo_set_line_width(cr, 18);
+    cairo_rectangle(cr, 9, 9, 502, 192);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 18, 192);
+    cairo_line_to(cr, 502, 18);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke(cr);
+    for (const double x : {18.0, 502.0})
+      for (const double y : {18.0, 192.0})
+      {
+        cairo_arc(cr, x, y, 3, 0, 2 * kPi);
+        setRgbaC(cr, rgb(60, 60, 64), 1.0);
+        cairo_fill(cr);
+      }
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 30);
+    cairo_move_to(cr, 120, 96);
+    setRgbaC(cr, rgb(40, 24, 16), 0.8);
+    cairo_show_text(cr, "PROPS - FRAGILE");
+    cairo_set_font_size(cr, 18);
+    cairo_move_to(cr, 300, 160);
+    cairo_show_text(cr, "THIS WAY UP");
+    cairo_move_to(cr, 270, 154);
+    cairo_line_to(cr, 280, 136);
+    cairo_line_to(cr, 290, 154);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The light from the doorway on its top edge.
+    cairo_rectangle(cr, 0, 0, 520, 6);
+    setRgbaC(cr, rgb(255, 220, 160), 0.5);
+    cairo_fill(cr);
+  });
+}
+
+// brief36_dock: the loading dock at night, panning left a pixel a frame,
+// the work light swinging over it; the three runners crouched behind a
+// crate on the apron (Nova blinks on frame 10); from frame 4 Maxine in the
+// corner, on her headset, talking.
+void brief36Dock(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(lotNight36(k), ox * 0.1f, oy * 0.1f);
+  const float pan = -40.0f - float(frame) + ox * 0.6f;
+  k.r.draw(loadingDock36(k), pan, oy * 0.6f);
+  // The work light, swinging on a 6-frame loop.
+  static constexpr std::array<float, 6> kSwing = {0.0f, 9.0f, 13.0f, 9.0f, 0.0f, -9.0f};
+  const float swing = kSwing[std::size_t(frame % 6)];
+  const float lx = pan + 966.0f, ly = 164.0f + oy * 0.6f;
+  DrawOpts beam;
+  beam.angle = -swing;
+  beam.blend = Blend::Add;
+  beam.alpha = 0.9f;
+  k.r.draw(workBeam36(k), lx, ly + 100.0f, beam);
+  DrawOpts lamp;
+  lamp.angle = -swing;
+  k.r.draw(workLight36(k), lx, ly, lamp);
+  const float rad = swing * float(kPi) / 180.0f;
+  drawGlow(k.r, k.art, lx + std::sin(rad) * 110.0f, ly + std::cos(rad) * 110.0f, 60.0f, rgb(255, 230, 170), 0.7f);
+  // The runners, crouched behind the crate, heads just over it; Nova
+  // blinks on frame 10.
+  const float s = 2.3f, feet = 506.0f + oy;
+  k.r.draw(runner(k, 0, 4, s), 200.0f + ox, feet);
+  k.r.draw(runner(k, 1, 4, s), 330.0f + ox, feet);
+  k.r.draw(runner(k, 2, 4, s, true), 470.0f + ox, feet);
+  if (frame == 10)
+  {
+    // Her one eye that shows (she's in three-quarter view), shut: a lid of
+    // skin over it and the line of its lashes.
+    const Texture& lid = cached(k, "w36_nova_lid", 20, 20, 10, 10, [](cairo_t* cr) {
+      cairo_arc(cr, 10, 10, 8, 0, 2 * kPi);
+      setRgbaC(cr, rgb(235, 188, 163), 1.0);
+      cairo_fill(cr);
+      cairo_arc(cr, 10, 7, 7, 0.2 * kPi, 0.8 * kPi);
+      setRgbaC(cr, rgb(22, 18, 39), 1.0);
+      cairo_set_line_width(cr, 2.2);
+      cairo_stroke(cr);
+    });
+    k.r.draw(lid, 449.0f + ox, feet - 151.5f);
+  }
+  k.r.draw(hideCrate36(k), 80.0f + ox, 404.0f + oy);
+  // The night's chill over everything but the light.
+  k.r.fillRect(0, 0, W, H, rgba(10, 16, 50, 40));
+  // Maxine's inset, from the headset's click on frame 4: a frame of static,
+  // then her, talking.
+  if (frame < 4)
+    return;
+  const float ix = 1012.0f, iy = 60.0f, sc = 0.48f, iw = 520.0f * sc, ih = 400.0f * sc;
+  k.r.fillRect(ix - 8.0f, iy - 8.0f, iw + 16.0f, ih + 40.0f, rgb(20, 20, 28));
+  k.r.fillRect(ix - 8.0f, iy - 8.0f, iw + 16.0f, 3.0f, rgb(90, 96, 120));
+  if (frame == 4)
+  {
+    for (int i = 0; i < 70; ++i)
+    {
+      const std::uint32_t h = hash2(i, ticks);
+      const int v = 60 + int(h % 180u);
+      k.r.fillRect(ix + float(h % 220u), iy + float((h >> 8) % 180u), 4.0f + float((h >> 16) % 30u), 3.0f, rgb(v, v, v));
+    }
+  }
+  else
+  {
+    DrawOpts pic;
+    pic.scale = sc;
+    k.r.draw(maxinePicture(k), ix, iy, pic);
+    static constexpr std::array<int, 4> kTalk = {1, 2, 0, 3};
+    k.r.draw(maxineMouth(k, kTalk[std::size_t(frame % 4)]), ix + 262.0f * sc, iy + 228.0f * sc, pic);
+    for (const float e : {-1.0f, 1.0f})
+      k.r.fillRect(ix + (260.0f + e * 32.0f - 18.0f) * sc, iy + 159.0f * sc, 36.0f * sc, 6.0f * sc, rgb(214, 160, 132));
+  }
+  k.r.fillRect(ix + 4.0f, iy + ih + 10.0f, 10.0f, 10.0f, (ticks / 20) % 2 ? rgb(230, 40, 40) : rgb(90, 20, 20));
+  k.r.drawText("MAXINE - HEADSET", ix + 22.0f, iy + ih + 4.0f, TextStyle{16.0f, rgb(220, 220, 236)});
+}
+
 // --- Level 35: The Transmitter (brief_35) ------------------------------------
 
 // The dawn over the cloud sea, two ways: still blue going pink at the
@@ -12677,6 +13168,393 @@ void cargoShadow(ClipKit& k, int frame, int ticks, float ox, float oy, bool gull
   k.r.draw(cargoBelly(k), -std::fmod(std::fmod(slide - ox, kBellyPeriod) + kBellyPeriod, kBellyPeriod), -20.0f + oy * 0.5f);
 }
 
+// --- Level 37: Wardrobe (brief_37) --------------------------------------------
+
+// The costume department's back wall: crimson velvet drapes in deep folds
+// under a swagged pelmet with a gold fringe, warm pools of light where the
+// booths stand, the stage boards along the bottom. Full screen, static.
+const Texture& drapes37(ClipKit& k)
+{
+  return cached(k, "w37_drapes", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(40, 4, 12), rgb(96, 12, 28), rgb(54, 6, 16));
+    // The folds: each a soft cylinder of velvet, lit from the middle.
+    for (int f = 0; f < 22; ++f)
+    {
+      const double x = -20 + f * 62.0, w = 70;
+      cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + w, 0);
+      const double lit = 0.75 + double(hash2(f, 3701) % 25u) / 100.0;
+      cairo_pattern_add_color_stop_rgba(g, 0.0, 0.18, 0.01, 0.05, 0.9);
+      cairo_pattern_add_color_stop_rgba(g, 0.45, 0.62 * lit, 0.07 * lit, 0.14 * lit, 0.9);
+      cairo_pattern_add_color_stop_rgba(g, 0.6, 0.72 * lit, 0.12 * lit, 0.18 * lit, 0.9);
+      cairo_pattern_add_color_stop_rgba(g, 1.0, 0.18, 0.01, 0.05, 0.9);
+      cairo_move_to(cr, x, 90);
+      cairo_curve_to(cr, x + 6, 260, x - 6, 420, x + 2, 540);
+      cairo_line_to(cr, x + w + 2, 540);
+      cairo_curve_to(cr, x + w - 6, 420, x + w + 6, 260, x + w, 90);
+      cairo_close_path(cr);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    // Warm pools of light on the drapes behind the booths.
+    for (const double cx : {200.0, 490.0, 780.0})
+      radialGlow(cr, cx, 280, 260, rgb(255, 170, 110), 0.22);
+    // The pelmet: three deep swags with a gold fringe.
+    cairo_rectangle(cr, 0, 0, W, 40);
+    setRgbaC(cr, rgb(70, 6, 18), 1.0);
+    cairo_fill(cr);
+    for (int s = 0; s < 6; ++s)
+    {
+      const double x0 = -40 + s * 240.0, x1 = x0 + 280;
+      cairo_move_to(cr, x0, 30);
+      cairo_curve_to(cr, x0 + 60, 130, x1 - 60, 130, x1, 30);
+      cairo_close_path(cr);
+      cairo_pattern_t* g = cairo_pattern_create_linear(0, 30, 0, 110);
+      cairo_pattern_add_color_stop_rgb(g, 0.0, 0.42, 0.04, 0.1);
+      cairo_pattern_add_color_stop_rgb(g, 1.0, 0.74, 0.12, 0.2);
+      cairo_set_source(cr, g);
+      cairo_fill_preserve(cr);
+      cairo_pattern_destroy(g);
+      setRgbaC(cr, rgb(40, 2, 10), 0.8);
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+      for (int t = 0; t <= 24; ++t)
+      {
+        const double u = t / 24.0, mx = 1 - u;
+        const double px = mx * mx * mx * x0 + 3 * mx * mx * u * (x0 + 60) + 3 * mx * u * u * (x1 - 60) + u * u * u * x1;
+        const double py = mx * mx * mx * 30 + 3 * mx * mx * u * 130 + 3 * mx * u * u * 130 + u * u * u * 30;
+        cairo_move_to(cr, px, py);
+        cairo_line_to(cr, px, py + 12);
+        setRgbaC(cr, rgb(232, 184, 86), 1.0);
+        cairo_set_line_width(cr, 2.4);
+        cairo_stroke(cr);
+      }
+    }
+    cairo_rectangle(cr, 0, 36, W, 6);
+    setRgbaC(cr, rgb(214, 170, 80), 1.0);
+    cairo_fill(cr);
+    // The stage boards, and the apron's edge.
+    cairo_rectangle(cr, 0, 520, W, 200);
+    setRgbaC(cr, rgb(92, 50, 30), 1.0);
+    cairo_fill(cr);
+    for (int b = 0; b < 10; ++b)
+    {
+      const double y = 524 + b * 20.0;
+      cairo_rectangle(cr, 0, y, W, 2);
+      setRgbaC(cr, rgb(54, 26, 14), 0.8);
+      cairo_fill(cr);
+      for (int j = 0; j < 8; ++j)
+      {
+        const double x = double((hash2(b, j + 3702) % 1280u));
+        cairo_rectangle(cr, x, y, 2, 20);
+        cairo_fill(cr);
+      }
+    }
+    cairo_pattern_t* sh = cairo_pattern_create_linear(0, 520, 0, 580);
+    cairo_pattern_add_color_stop_rgba(sh, 0.0, 0.0, 0.0, 0.0, 0.55);
+    cairo_pattern_add_color_stop_rgba(sh, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_rectangle(cr, 0, 520, W, 60);
+    cairo_set_source(cr, sh);
+    cairo_fill(cr);
+    cairo_pattern_destroy(sh);
+  });
+}
+
+// A changing booth, 260 x 480, its anchor at the middle of its base: a
+// mahogany cabinet with turned posts, a gilt pediment over a dark crimson
+// inside, an empty hanger on its back wall. The curtain and the name plate
+// go on top.
+const Texture& booth37(ClipKit& k)
+{
+  return cached(k, "w37_booth", 260, 480, 130.0f, 476.0f, [](cairo_t* cr) {
+    // The inside.
+    cairo_rectangle(cr, 30, 90, 200, 372);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 90, 0, 462);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.16, 0.02, 0.05);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.34, 0.05, 0.1);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // A brass hook on the back wall, an empty hanger on it.
+    cairo_arc(cr, 130, 112, 6, 0, 2 * kPi);
+    setRgbaC(cr, rgb(214, 170, 80), 1.0);
+    cairo_fill(cr);
+    cairo_move_to(cr, 130, 112);
+    cairo_line_to(cr, 130, 128);
+    cairo_move_to(cr, 96, 150);
+    cairo_line_to(cr, 130, 128);
+    cairo_line_to(cr, 164, 150);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(150, 100, 60), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The posts.
+    for (const double x : {12.0, 222.0})
+    {
+      cairo_rectangle(cr, x, 70, 26, 400);
+      cairo_pattern_t* p = cairo_pattern_create_linear(x, 0, x + 26, 0);
+      cairo_pattern_add_color_stop_rgb(p, 0.0, 0.24, 0.1, 0.06);
+      cairo_pattern_add_color_stop_rgb(p, 0.45, 0.62, 0.34, 0.2);
+      cairo_pattern_add_color_stop_rgb(p, 1.0, 0.2, 0.08, 0.05);
+      cairo_set_source(cr, p);
+      cairo_fill(cr);
+      cairo_pattern_destroy(p);
+      for (const double y : {120.0, 290.0, 440.0})
+      {
+        cairo_rectangle(cr, x - 2, y, 30, 8);
+        setRgbaC(cr, rgb(214, 170, 80), 1.0);
+        cairo_fill(cr);
+      }
+    }
+    // The pediment.
+    cairo_move_to(cr, 0, 92);
+    cairo_line_to(cr, 0, 52);
+    cairo_line_to(cr, 260, 52);
+    cairo_line_to(cr, 260, 92);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(110, 54, 34), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 52, 260, 6);
+    cairo_rectangle(cr, 0, 86, 260, 6);
+    setRgbaC(cr, rgb(232, 190, 96), 1.0);
+    cairo_fill(cr);
+    for (int b = 0; b < 9; ++b)
+    {
+      cairo_arc(cr, 22 + b * 27.0, 72, 5, 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 236, 170), 1.0);
+      cairo_fill(cr);
+    }
+    // The plinth.
+    cairo_rectangle(cr, 4, 458, 252, 18);
+    setRgbaC(cr, rgb(84, 40, 24), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 4, 458, 252, 4);
+    setRgbaC(cr, rgb(214, 170, 80), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// The booth's curtain on its rod, 200 x 372 from its top-left: shut and
+// swaying (`sway` -2..2, the hem swinging), or `open`: gathered to the
+// left in a tie-back.
+const Texture& curtain37(ClipKit& k, int sway, bool open)
+{
+  const std::string key = "w37_curtain_" + std::to_string(sway) + (open ? "o" : "");
+  return cached(k, key, 200, 372, 0.0f, 0.0f, [sway, open](cairo_t* cr) {
+    const double w = open ? 56 : 200, s = sway * 6.0;
+    const int pleats = open ? 4 : 8;
+    for (int p = 0; p < pleats; ++p)
+    {
+      const double x0 = w * p / pleats, x1 = w * (p + 1) / pleats;
+      const double b0 = open ? 0 : s * (0.3 + 0.7 * p / pleats), b1 = open ? 0 : s * (0.3 + 0.7 * (p + 1) / pleats);
+      const double pinch = open ? 0.5 : 0.0; // gathered at the tie-back
+      cairo_move_to(cr, x0, 0);
+      cairo_line_to(cr, x1, 0);
+      cairo_curve_to(cr, x1 - (x1 - x0) * pinch, 180, x1 + b1, 300, x1 + b1, 368);
+      cairo_line_to(cr, x0 + b0, 368);
+      cairo_curve_to(cr, x0 + b0, 300, x0 + (x1 - x0) * pinch, 180, x0, 0);
+      cairo_close_path(cr);
+      cairo_pattern_t* g = cairo_pattern_create_linear(x0, 0, x1, 0);
+      cairo_pattern_add_color_stop_rgb(g, 0.0, 0.38, 0.03, 0.09);
+      cairo_pattern_add_color_stop_rgb(g, 0.5, 0.86, 0.2, 0.26);
+      cairo_pattern_add_color_stop_rgb(g, 1.0, 0.4, 0.03, 0.1);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    // The hem's gold braid, the rings on the rod.
+    if (!open)
+    {
+      cairo_move_to(cr, s * 0.3, 362);
+      cairo_line_to(cr, 200 + s, 362);
+      setRgbaC(cr, rgb(232, 190, 96), 1.0);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+    else
+    {
+      cairo_move_to(cr, 6, 190);
+      cairo_curve_to(cr, 20, 200, 40, 200, 54, 188);
+      setRgbaC(cr, rgb(232, 190, 96), 1.0);
+      cairo_set_line_width(cr, 6);
+      cairo_stroke(cr);
+    }
+    for (int r = 0; r <= (open ? 3 : 8); ++r)
+    {
+      cairo_arc(cr, 4 + r * (open ? 16.0 : 24.0), 4, 4, 0, 2 * kPi);
+      setRgbaC(cr, rgb(232, 190, 96), 1.0);
+      cairo_set_line_width(cr, 2);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// Someone else's coat, over a runner standing at scale 2.3, its anchor at
+// the runner's feet: Nova's long purple coat with pink lapels (on Dash),
+// Dash's red jacket a size too small (on Rocco), Rocco's olive field coat
+// a size too big (on Nova).
+const Texture& coat37(ClipKit& k, int whose, bool mirror)
+{
+  const std::string key = "w37_coat_" + std::to_string(whose) + (mirror ? "m" : "");
+  return cached(k, key, 200, 260, 100.0f, 256.0f, [whose, mirror](cairo_t* cr) {
+    if (mirror)
+    {
+      cairo_translate(cr, 200, 0);
+      cairo_scale(cr, -1, 1);
+    }
+    Color body = rgb(120, 60, 170), lo = rgb(70, 30, 110), trim = rgb(255, 120, 190);
+    double hem = 214, flare = 22, top = 96;
+    if (whose == 0)
+    {
+      body = rgb(214, 46, 40);
+      lo = rgb(130, 20, 24);
+      trim = rgb(250, 250, 250);
+      hem = 172;
+      flare = 2;
+      top = 100;
+    }
+    else if (whose == 1)
+    {
+      body = rgb(104, 118, 62);
+      lo = rgb(60, 70, 34);
+      trim = rgb(150, 160, 96);
+      hem = 236;
+      flare = 30;
+      top = 92;
+    }
+    // The body of the coat, shoulders to hem.
+    cairo_move_to(cr, 76, top);
+    cairo_curve_to(cr, 92, top - 8, 112, top - 8, 128, top);
+    cairo_line_to(cr, 134 + flare * 0.3, top + 40);
+    cairo_line_to(cr, 128 + flare, hem);
+    cairo_line_to(cr, 72 - flare, hem);
+    cairo_line_to(cr, 68 - flare * 0.3, top + 40);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(60, 0, 140, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, redOf(lo) / 255.0, greenOf(lo) / 255.0, blueOf(lo) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 0.55, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, redOf(lo) / 255.0, greenOf(lo) / 255.0, blueOf(lo) / 255.0);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3.5);
+    cairo_stroke(cr);
+    // The lapels and the buttons.
+    cairo_move_to(cr, 92, top - 4);
+    cairo_line_to(cr, 102, top + 46);
+    cairo_line_to(cr, 112, top - 4);
+    setRgbaC(cr, trim, 1.0);
+    cairo_set_line_width(cr, 7);
+    cairo_stroke(cr);
+    for (int b = 0; b < 3; ++b)
+    {
+      cairo_arc(cr, 104, top + 60 + b * 24.0, 3.5, 0, 2 * kPi);
+      setRgbaC(cr, whose == 1 ? rgb(60, 50, 30) : rgb(255, 224, 120), 1.0);
+      cairo_fill(cr);
+    }
+    // A sleeve hanging empty (too big) or a split seam (too small).
+    if (whose == 1)
+    {
+      cairo_move_to(cr, 70, top + 20);
+      cairo_curve_to(cr, 56, top + 70, 52, top + 120, 56, top + 150);
+      cairo_line_to(cr, 74, top + 150);
+      cairo_curve_to(cr, 72, top + 110, 76, top + 70, 84, top + 30);
+      cairo_close_path(cr);
+      setRgbaC(cr, body, 1.0);
+      cairo_fill_preserve(cr);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+    else if (whose == 0)
+    {
+      cairo_move_to(cr, 128, top + 30);
+      cairo_line_to(cr, 122, top + 40);
+      cairo_line_to(cr, 130, top + 48);
+      cairo_line_to(cr, 124, top + 58);
+      setRgbaC(cr, rgb(255, 236, 200), 1.0);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+  });
+}
+
+// brief37_booths: three changing booths in a row in the costume department,
+// their curtains swaying, the camera panning right a pixel a frame; Dash,
+// Rocco and Nova each step out (frames 6, 10 and 14) in someone else's coat
+// and grin on the frame after. Maxine on her headset in an inset.
+void brief37Booths(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(drapes37(k), ox * 0.1f, oy * 0.1f);
+  static constexpr std::array<int, 4> kSway = {0, 1, 0, -1};
+  static constexpr std::array<const char*, 3> kName = {"DASH", "ROCCO", "NOVA"};
+  static constexpr std::array<Color, 3> kTone = {rgb(60, 150, 255), rgb(255, 130, 40), rgb(170, 90, 255)};
+  static constexpr std::array<int, 3> kOut = {6, 10, 14};
+  static constexpr std::array<int, 3> kCoat = {2, 0, 1}; // whose coat each one wears
+  // The booths a little smaller than life, so the three and the inset fit
+  // over the caption; the runners in proportion.
+  constexpr float kB = 0.86f, kR = 2.0f;
+  const float pan = -float(frame) + ox * 0.6f, floor = 520.0f + oy * 0.6f;
+  DrawOpts bo;
+  bo.scale = kB;
+  for (int b = 0; b < 3; ++b)
+  {
+    const float bx = 200.0f + float(b) * 290.0f + pan;
+    k.r.draw(booth37(k), bx, floor, bo);
+    const bool open = frame >= kOut[std::size_t(b)];
+    const int sway = open ? 0 : kSway[std::size_t((frame + b) % 4)];
+    k.r.draw(curtain37(k, sway, open), bx - 100.0f * kB, floor - 382.0f * kB, bo);
+    // The name plate on the pediment.
+    k.r.fillRect(bx - 56.0f, floor - 402.0f, 112.0f, 32.0f, rgb(40, 20, 14));
+    k.r.fillRect(bx - 52.0f, floor - 398.0f, 104.0f, 24.0f, kTone[std::size_t(b)]);
+    k.r.drawText(kName[std::size_t(b)], bx, floor - 397.0f, TextStyle{19.0f, rgb(255, 255, 255), rgb(20, 10, 30)}, Align::Center);
+    if (!open)
+      continue;
+    // Out they step, then the grin.
+    const int since = frame - kOut[std::size_t(b)];
+    const bool mirror = b == 2;
+    const float rx = bx + (since == 0 ? -14.0f : 0.0f) * (mirror ? -1.0f : 1.0f), feet = floor + 12.0f;
+    const float hop = since == 1 ? -10.0f : 0.0f;
+    DrawOpts co;
+    co.scale = kR / 2.3f;
+    k.r.draw(runner(k, b, since == 0 ? 12 : 0, kR, mirror), rx, feet + hop);
+    k.r.draw(coat37(k, kCoat[std::size_t(b)], mirror), rx, feet + hop, co);
+    if (since == 1)
+    {
+      const float sx = rx + (mirror ? -26.0f : 26.0f), sy = feet - 170.0f + hop;
+      const float tw = std::sin(float(std::min(ticks % 60, 20)) / 20.0f * 3.14159f) * 0.6f + 0.4f;
+      k.r.drawLine(sx - 20.0f * tw, sy, sx + 20.0f * tw, sy, 4.0f, rgb(255, 250, 220), Blend::Add);
+      k.r.drawLine(sx, sy - 20.0f * tw, sx, sy + 20.0f * tw, 4.0f, rgb(255, 250, 220), Blend::Add);
+      drawGlow(k.r, k.art, sx, sy, 30.0f * tw + 4.0f, rgb(255, 240, 200), 0.6f);
+    }
+  }
+  // Maxine's inset, from the first frame: a frame of static, then her,
+  // talking on a 4-frame loop.
+  const float ix = 1012.0f, iy = 60.0f, sc = 0.48f, iw = 520.0f * sc, ih = 400.0f * sc;
+  k.r.fillRect(ix - 8.0f, iy - 8.0f, iw + 16.0f, ih + 40.0f, rgb(20, 20, 28));
+  k.r.fillRect(ix - 8.0f, iy - 8.0f, iw + 16.0f, 3.0f, rgb(90, 96, 120));
+  if (frame == 0)
+  {
+    for (int i = 0; i < 70; ++i)
+    {
+      const std::uint32_t h = hash2(i, ticks + 3703);
+      const int v = 60 + int(h % 180u);
+      k.r.fillRect(ix + float(h % 220u), iy + float((h >> 8) % 180u), 4.0f + float((h >> 16) % 30u), 3.0f, rgb(v, v, v));
+    }
+  }
+  else
+  {
+    DrawOpts pic;
+    pic.scale = sc;
+    k.r.draw(maxinePicture(k), ix, iy, pic);
+    static constexpr std::array<int, 4> kTalk = {1, 2, 0, 3};
+    k.r.draw(maxineMouth(k, kTalk[std::size_t(frame % 4)]), ix + 262.0f * sc, iy + 228.0f * sc, pic);
+  }
+  k.r.fillRect(ix + 4.0f, iy + ih + 10.0f, 10.0f, 10.0f, (ticks / 20) % 2 ? rgb(230, 40, 40) : rgb(90, 20, 20));
+  k.r.drawText("MAXINE - HEADSET", ix + 22.0f, iy + ih + 4.0f, TextStyle{16.0f, rgb(220, 220, 236)});
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -12778,11 +13656,17 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return volcanoDc(k, frame, ticks, ox, oy);
   if (clip == "runners_heat") // before starts(clip, "runners") below
     return runnersHeat(k, frame, ticks, ox, oy);
+  // Level 36.
+  if (clip == "brief36_dock")
+    return brief36Dock(k, frame, ticks, ox, oy);
   // Level 35.
   if (clip == "mast_clouds")
     return mastClouds(k, frames, t, ticks, ox, oy);
   if (starts(clip, "cargo_shadow")) // "cargo_shadow:rocco_gull=1": a seagull on Rocco's head
     return cargoShadow(k, frame, ticks, ox, oy, clip.find("rocco_gull=1") != std::string::npos);
+  // Level 37.
+  if (clip == "brief37_booths")
+    return brief37Booths(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

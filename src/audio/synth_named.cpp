@@ -240,11 +240,68 @@ std::vector<float> makeNamedSfx(const std::string& id)
     return makeSfx(Sfx::LavaRumble);
   if (id == "steam_burst")
     return makeSfx(Sfx::SteamBurst);
+  // Level 37's briefing: a changing booth's curtain.
+  if (id == "curtain_swish")
+    return makeSfx(Sfx::CurtainSwish);
   // Level 35's briefing: the wind round the mast, the cargo airship.
   if (id == "wind")
     return makeSfx(Sfx::MastWind);
   if (id == "engine_drone")
     return makeSfx(Sfx::AirshipDrone);
+  // Level 36's briefing: the loading dock at night, Maxine's headset, the
+  // roll-up door.
+  if (id == "dock_hum")
+  {
+    // The dock's work lights: a mains hum with its buzz on top, crickets
+    // out on the lot, and a car going past somewhere far off.
+    Osc h1, h2, h3, cr;
+    Noise n(seed), m(seed + 5u);
+    Svf road, buzz;
+    return render(3.2, [&](double t, double total) {
+      const double hum = h1.step(60.0, Wave::Sine) * 0.5 + h2.step(120.0, Wave::Sine) * 0.3 + h3.step(180.0, Wave::Sine) * 0.12;
+      const double bz = buzz.band(float(h3.step(120.0, Wave::Saw)), 2400.0, 3.0) * 0.05;
+      const double chirp = std::fmod(t, 0.9) < 0.18 && std::fmod(t * 30.0, 1.0) < 0.5 ? cr.step(4300.0, Wave::Sine) * 0.06 : 0.0;
+      const double car = road.low(n.next(), 300.0, 0.7) * 0.25 * std::exp(-std::pow((t - 1.9) / 0.6, 2.0));
+      const double air = m.next() * 0.015;
+      return (hum * 0.32 + bz + chirp + car + air) * std::min(1.0, t / 0.4) * std::min(1.0, (total - t) / 0.5);
+    });
+  }
+  if (id == "headset_click")
+  {
+    // The talk button: a sharp plastic click, a burst of squelch, then a
+    // little static under it.
+    Noise n(seed), m(seed + 9u);
+    Svf bp, hiss;
+    Osc o;
+    return render(0.55, [&](double t, double total) {
+      const double click = bp.band(n.next(), 3200.0, 2.5) * decay(t, 0.006) * 2.2 + o.step(1900.0, Wave::Square, 0.5) * decay(t, 0.012) * 0.3;
+      const double sq = t > 0.03 && t < 0.2 ? hiss.band(m.next(), 1800.0, 0.8) * 0.5 * (0.6 + 0.4 * std::sin(t * 260.0)) : 0.0;
+      const double tail = t >= 0.2 ? hiss.band(m.next(), 2400.0, 0.9) * 0.12 : 0.0;
+      return (click + sq + tail) * 0.172 * std::min(1.0, (total - t) / 0.08);
+    });
+  }
+  if (id == "roll_door")
+  {
+    // The roll-up door going up: its motor whining, the steel slats
+    // clattering over the drum, and the clank at the top.
+    Osc motor, drum;
+    Noise n(seed), m(seed + 13u);
+    Svf slat, rumble;
+    double age = 1.0;
+    return render(2.2, [&](double t, double total) {
+      const double run = std::min(1.0, t / 0.25) * (t < 1.75 ? 1.0 : 0.0);
+      const double f = 95.0 + 25.0 * std::min(1.0, t / 0.6);
+      const double whine = (motor.step(f, Wave::Saw) * 0.25 + drum.step(f * 0.5, Wave::Sine) * 0.4) * run;
+      if (run > 0.0 && std::fmod(t, 0.075) < 1.0 / kRate)
+        age = 0.0;
+      const double tick = age < 0.03 ? slat.band(n.next(), 1400.0 + 400.0 * std::sin(t * 7.0), 3.0) * (1.0 - age / 0.03) * 1.6 : 0.0;
+      age += 1.0 / kRate;
+      const double rattle = rumble.low(m.next(), 250.0, 0.9) * 0.35 * run;
+      const double u = t - 1.78;
+      const double clank = u > 0.0 ? (rumble.band(m.next(), 700.0, 4.0) * 2.0 + drum.step(140.0, Wave::Sine)) * decay(u, 0.12) * 0.6 : 0.0;
+      return (whine + tick + rattle + clank) * 0.224 * std::min(1.0, (total - t) / 0.15);
+    });
+  }
   // Level 23's briefing: the storm over the manor.
   if (id == "thunder")
     return makeSfx(Sfx::Thunder);

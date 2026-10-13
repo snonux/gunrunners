@@ -245,7 +245,7 @@ void World::crateHitsEnemies(MetalCrate& c, int damage)
       continue;
     c.hit.push_back(int(i));
     damageEnemy(e, damage);
-    playSound(Sfx::Crunch);
+    playSound(Sfx::CrateCrunch);
   }
 }
 
@@ -273,7 +273,7 @@ void World::updateMetalCrates()
           c.x = c.homeX;
           c.y = c.homeY;
           restCrate(c);
-          playSound(Sfx::Clunk);
+          playSound(Sfx::CrateBack);
         }
         break;
       case CrateState::Slide:
@@ -305,7 +305,7 @@ void World::updateMetalCrates()
         {
           c.slide = dir; // whole blocks: on the way it was going
           restCrate(c);
-          playSound(Sfx::Clunk);
+          playSound(Sfx::CrateBump);
         }
         break;
       }
@@ -356,7 +356,7 @@ void World::updateMetalCrates()
           bool foam = false;
           for (const auto& f : s.foam)
             foam = foam || f.intersects(c.box());
-          playSound(Sfx::Crash);
+          playSound(foam ? Sfx::FoamFlump : Sfx::CrateLand);
           burst(cellCenter({c.x, c.y + kCrateSize - 1, kCrateSize, 1}), rgb(200, 190, 170), rgb(120, 110, 100), 8, 1.0f, false);
           if (foam)
           {
@@ -380,7 +380,7 @@ void World::throwLever(CraneLever& l)
   l.on = !l.on;
   l.flash = 10;
   ++l.throws;
-  playSound(Sfx::Click);
+  playSound(Sfx::LeverThrow);
   const int li = int(&l - s.levers.data());
   for (auto& c : s.cranes)
   {
@@ -398,7 +398,7 @@ void World::throwLever(CraneLever& l)
         c.t = kCraneBell;
         // Toward the rail end farther away.
         c.dir = (c.x - c.x0) > (c.x1 - c.x) ? -1 : 1;
-        playSound(Sfx::Bell);
+        playSound(Sfx::CraneBell);
         break;
       case CranePhase::Lower:
       case CranePhase::Lift:
@@ -497,7 +497,7 @@ void World::releaseCraneLoad(Crane& c)
   if (c.load != -1)
   {
     ++c.cranesMoved;
-    playSound(Sfx::Clunk);
+    playSound(Sfx::MagnetRelease);
   }
   c.load = -1;
   c.phase = CranePhase::Idle;
@@ -556,7 +556,7 @@ void World::updateCranes()
                 f.charge = 0;
                 f.carrying = false;
               }
-          playSound(load != -1 ? Sfx::Clunk : Sfx::Tink);
+          playSound(load != -1 ? Sfx::MagnetClamp : Sfx::MagnetTap);
           c.phase = CranePhase::Lift;
         }
         break;
@@ -614,7 +614,7 @@ void World::updateRideCrane(Crane& c)
       {
         c.phase = CranePhase::RideBell;
         c.t = 0;
-        playSound(Sfx::Bell);
+        playSound(Sfx::CraneBell);
       }
       break;
     case CranePhase::RideBell:
@@ -630,7 +630,7 @@ void World::updateRideCrane(Crane& c)
         c.phase = CranePhase::RideHold;
         c.t = 0;
         ++c.cranesMoved;
-        playSound(Sfx::Clunk);
+        playSound(Sfx::CraneStop);
       }
       break;
     case CranePhase::RideHold:
@@ -638,7 +638,7 @@ void World::updateRideCrane(Crane& c)
       {
         c.phase = CranePhase::RideBack;
         c.t = 0;
-        playSound(Sfx::Bell);
+        playSound(Sfx::CraneBell);
       }
       break;
     case CranePhase::RideBack:
@@ -746,7 +746,7 @@ void World::updateMagnetGun(const Button& fire)
     if (s.fireHeld >= kPullAfter)
     {
       if (!s.pulling)
-        playSound(Sfx::Whine);
+        playSound(Sfx::MagnetWhine);
       s.pulling = true;
       magnetPull();
       if (++s.ammoTick % kPullAmmoEvery == 0 && p.turbo == 0)
@@ -770,7 +770,7 @@ void World::updateMagnetGun(const Button& fire)
       pr.x = pr.prevX = p.facing > 0 ? p.x + Player::kWidth : p.x - 2;
       pr.y = pr.prevY = p.stance == Stance::Crouched ? p.y - 1 : p.y - 2;
       mProjectiles.push_back(pr);
-      playSound(Sfx::Thrust);
+      playSound(Sfx::MagnetPulse);
       s.pulse = 6;
       p.shotCooldown = def.cooldown;
       if (p.turbo == 0)
@@ -803,12 +803,12 @@ bool World::shotAtWarehouse(Projectile& pr, const CellBox& hit)
       if (pr.kind != ShotKind::Enemy)
       {
         f.hp -= std::max(1, pr.damage);
-        playSound(Sfx::Thud);
+        playSound(Sfx::FlatHit);
         if (f.hp <= 0)
         {
           f.alive = false;
           burst(cellCenter(f.box()), rgb(40, 40, 46), rgb(200, 200, 200), 12, 1.4f, false);
-          playSound(Sfx::BoxBreak);
+          playSound(Sfx::FlatBreak);
         }
       }
       return true;
@@ -827,7 +827,7 @@ bool World::shotAtWarehouse(Projectile& pr, const CellBox& hit)
         c.slide = pr.dx * kPushSlide;
         c.hit.clear();
         pr.alive = false;
-        playSound(Sfx::Clunk);
+        playSound(Sfx::CrateScrape);
         return true;
       }
     for (auto& f : s.forklifts)
@@ -859,10 +859,10 @@ bool World::shotAtWarehouse(Projectile& pr, const CellBox& hit)
     {
       s.tdShow = kOldTitle;
       showMessage("TURBODUDES - THE ORIGINAL TITLE SCREEN");
-      playSound(Sfx::LettersComplete);
+      playSound(Sfx::OldTitle);
     }
     else
-      playSound(Sfx::Thud);
+      playSound(Sfx::FlatHit);
     return true;
   }
   return false;
@@ -918,7 +918,7 @@ void World::dropFromForks(Forklift& f)
   if (!mMap.onSolidGround(p.box()))
     startFallingDelayed();
   p.mercy = std::max(p.mercy, 30);
-  playSound(Sfx::Thud);
+  playSound(Sfx::ForkDrop);
 }
 
 void World::updateForklift(Enemy& e, const EnemyDef& def)
@@ -950,7 +950,7 @@ void World::updateForklift(Enemy& e, const EnemyDef& def)
       if (&o != &e && o.alive && o.box().intersects(e.box()))
         damageEnemy(o, 8);
     damageEnemy(e, 4);
-    playSound(Sfx::Crash);
+    playSound(Sfx::CrateLand);
     if (!e.alive)
       return;
   }
@@ -996,7 +996,7 @@ void World::updateForklift(Enemy& e, const EnemyDef& def)
     if (--e.tell == 0)
     {
       f->charge = kForkSight + 8;
-      playSound(Sfx::Rev);
+      playSound(Sfx::ForkCharge);
     }
     return;
   }
@@ -1031,7 +1031,7 @@ void World::updateForklift(Enemy& e, const EnemyDef& def)
           f->carried = 0;
           f->charge = 0;
           s.grabbedBy = f->enemy;
-          playSound(Sfx::Clunk);
+          playSound(Sfx::ForkLift);
         }
         return;
       }
@@ -1044,7 +1044,7 @@ void World::updateForklift(Enemy& e, const EnemyDef& def)
   if (live && sameFloor && e.cool == 0 && std::abs(dx) <= kForkSight && sgn(dx) == e.dir && s.grabbedBy < 0)
   {
     e.tell = kForkTell;
-    playSound(Sfx::Rev);
+    playSound(Sfx::ForkRev);
     return;
   }
   if (live && sameFloor && std::abs(dx) <= kForkSight && e.cool == 0)
@@ -1056,7 +1056,11 @@ void World::updateForklift(Enemy& e, const EnemyDef& def)
   if (e.timer % std::max(1, def.stepEvery) != 0)
     return;
   if (!canGo(e.dir) || (e.dir > 0 && e.x >= f->x1) || (e.dir < 0 && e.x <= f->x0))
+  {
     e.dir = -e.dir;
+    if (std::abs(dx) <= 32 && std::abs(pb.bottom() - b.bottom()) <= 16)
+      playSound(Sfx::ForkBeep); // the reversing beeper, when someone's near enough to hear it
+  }
   else
     e.x += e.dir;
 }
@@ -1100,7 +1104,7 @@ void World::updateStagehand(Enemy& e, const EnemyDef& def)
     if (std::abs(spot - (b.x + 1)) <= 2 || std::abs(dx) <= kStageGap)
     {
       fl->down = true;
-      playSound(Sfx::Thud);
+      playSound(Sfx::FlatDown);
       return;
     }
     if (e.timer % std::max(1, def.stepEvery) == 0)
@@ -1113,7 +1117,7 @@ void World::updateStagehand(Enemy& e, const EnemyDef& def)
       else
       {
         fl->down = true; // the edge of its floor: here will do
-        playSound(Sfx::Thud);
+        playSound(Sfx::FlatDown);
       }
     }
     return;
@@ -1138,7 +1142,7 @@ void World::updateStagehand(Enemy& e, const EnemyDef& def)
       pr.y = pr.prevY = b.y + 1;
       pr.range = 60;
       mProjectiles.push_back(pr);
-      playSound(Sfx::EnemyShot);
+      playSound(Sfx::TapeThrow);
       e.cool = def.cooldown;
       h->lean = 8;
     }
@@ -1181,7 +1185,7 @@ void World::updateMimic(Enemy& e, const EnemyDef& def)
     if (--e.tell == 0)
     {
       m->lunge = e.dir * kMimicReach;
-      playSound(Sfx::Snap);
+      playSound(Sfx::MimicSnap);
     }
     return;
   }
@@ -1190,6 +1194,7 @@ void World::updateMimic(Enemy& e, const EnemyDef& def)
   {
     e.dir = pb.x + 1 < b.x + b.w / 2 ? -1 : 1;
     e.tell = def.tell;
+    playSound(Sfx::MimicCreak);
     return;
   }
   // Back home, slowly.
@@ -1344,7 +1349,7 @@ void World::throwAllFire(const Button& fire)
           s.loose.erase(s.loose.begin() + std::ptrdiff_t(i));
           s.carry = 0;
           s.liftT = kLiftFrames;
-          playSound(Sfx::Clunk);
+          playSound(Sfx::LiftOverhead);
           return;
         }
     const CellBox reach = p.facing > 0 ? CellBox{p.x + Player::kWidth, p.y - 4, 3, 5} : CellBox{p.x - 3, p.y - 4, 3, 5};
@@ -1354,7 +1359,7 @@ void World::throwAllFire(const Button& fire)
         e.alive = false;
         s.carry = 1;
         s.liftT = kLiftFrames;
-        playSound(Sfx::Clunk);
+        playSound(Sfx::LiftOverhead);
         return;
       }
     return;
@@ -1409,7 +1414,7 @@ void World::throwAllFire(const Button& fire)
   t.flying = true;
   s.thrown.push_back(t);
   s.carry = -1;
-  playSound(Sfx::Whoosh);
+  playSound(Sfx::ThrowToss);
 }
 
 void World::updateThrowAll()
@@ -1437,7 +1442,7 @@ void World::updateThrowAll()
       --ty;
     mMap.setBlock(tx, ty, Tile::Solid);
     s.loose.emplace_back(tx, ty);
-    playSound(Sfx::Crash);
+    playSound(Sfx::ThrowLand);
     burst(cellCenter({tx * kCellsPerTile, ty * kCellsPerTile, 2, 2}), rgb(200, 170, 120), rgb(120, 90, 60), 6, 0.8f, false);
   }
   s.thrown.erase(std::remove_if(s.thrown.begin(), s.thrown.end(), [](const Thrown& t) { return !t.flying; }), s.thrown.end());
