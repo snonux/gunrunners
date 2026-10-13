@@ -37,12 +37,13 @@ namespace gr
 // without letting go), a quick swipe down switches runner.
 //
 // The thumbs scheme (the default) drops the Jump and Fire buttons. The left
-// thumb walks and turns with the stick, down crouches, up (or a flick up)
-// jumps. The right thumb shoots: a touch anywhere on the right half fires,
-// aimed the way the last flick on the right half went (up, down, left or
-// right). Switch runner, Use (vehicles), Map and Pause sit in a row along
-// the top, away from both thumbs. The buttons scheme keeps Jump and Fire
-// buttons and the swipes above.
+// thumb walks and turns with the stick in the bottom left, down crouches,
+// up (or a flick up) jumps. Anywhere else, a touch shoots at the spot it
+// lands on, snapped to the shots a runner has (up, left, right, or
+// crouched to one side); a flick while it is down re-aims. Switch runner,
+// Use (vehicles), Map and Pause sit in a row along the top, away from both
+// thumbs. The buttons scheme keeps Jump and Fire buttons and the swipes
+// above, and a touch on an empty spot of the right half shoots at it too.
 class TouchControls
 {
 public:
@@ -71,8 +72,8 @@ public:
   // The thumbs scheme (see above) or the Jump and Fire buttons.
   void setThumbs(bool on) { mThumbs = on; }
   bool thumbs() const { return mThumbs; }
-  // Where the right thumb aims: 0 the way the runner faces (until the first
-  // flick), else up, down, left or right.
+  // Where the shooting thumb aims: ahead (the way the runner faces), up,
+  // down (crouched), left, right, or crouched to the left or right.
   enum Aim
   {
     kAimAhead,
@@ -80,8 +81,21 @@ public:
     kAimDown,
     kAimLeft,
     kAimRight,
+    kAimDownLeft,
+    kAimDownRight,
   };
   int aim() const { return mAim; }
+  // Where the runner is on the screen (logical units), so a touch can be
+  // aimed at the spot it lands on; known false when there is no runner to
+  // aim from (then a touch shoots ahead). Call once per frame.
+  void setRunner(float x, float y, bool known)
+  {
+    mRunnerX = x;
+    mRunnerY = y;
+    mRunnerKnown = known;
+  }
+  // The aim from the runner to a spot on the screen.
+  int aimAt(float x, float y) const;
   // The time now (SDL ticks, ms): a touch on the right waits a moment for a
   // flick before it fires. Call once per tick before read().
   void advance(Uint32 now);
@@ -173,6 +187,8 @@ private:
   void editPress(Finger& f);
   void editMove(const Finger& f);
   Circle stickHome() const;
+  bool inStickZone(float x, float y) const;
+  bool onFireMark(float x, float y) const;
   Circle padToggle() const;
   bool menuPadShown() const;
   Circle button(int b) const;
@@ -198,6 +214,8 @@ private:
   bool mThumbs = true;
   bool mThumbsUsed = false; // till the first touch in a level, a hint shows how it goes
   int mAim = kAimAhead;
+  float mRunnerX = 0.0f, mRunnerY = 0.0f;
+  bool mRunnerKnown = false;
   bool mMenuPadChanged = false;
   std::vector<SDL_FPoint> mTaps;
   SDL_FPoint mDrag{0.0f, 0.0f};

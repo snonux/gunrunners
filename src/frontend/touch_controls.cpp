@@ -62,6 +62,9 @@ constexpr float kTapSlop = 18.0f;
 // fires; a flick is this far (at medium size) within kSwipeMs.
 constexpr Uint32 kAimWindowMs = 50;
 constexpr float kAimFlick = 60.0f;
+// Thumbs: the stick takes touches this many of its radii from its home;
+// further out a touch shoots.
+constexpr float kStickZone = 1.8f;
 // Thumbs: Switch runner and Use join Map and Pause along the top.
 constexpr float kSwapTopFromRight = 244.0f;
 constexpr float kUseFromRight = 338.0f;
@@ -457,6 +460,7 @@ void TouchControls::aimFlick(Finger& f)
   if (std::max(std::fabs(dx), std::fabs(dy)) < kAimFlick * mScale)
     return;
   mAim = std::fabs(dy) >= std::fabs(dx) ? (dy < 0.0f ? kAimUp : kAimDown) : (dx < 0.0f ? kAimLeft : kAimRight);
+  f.swiped = true;
   // Fire now, or (already firing) let go for a tick so this shot goes the
   // new way.
   if (f.firing)
@@ -472,10 +476,41 @@ Input TouchControls::aimed() const
   Input in;
   in.fire = true;
   in.up = mAim == kAimUp;
-  in.down = mAim == kAimDown;
-  in.aimLeft = mAim == kAimLeft;
-  in.aimRight = mAim == kAimRight;
+  in.down = mAim == kAimDown || mAim == kAimDownLeft || mAim == kAimDownRight;
+  in.aimLeft = mAim == kAimLeft || mAim == kAimDownLeft;
+  in.aimRight = mAim == kAimRight || mAim == kAimDownRight;
   return in;
+}
+
+int TouchControls::aimAt(float x, float y) const
+{
+  if (!mRunnerKnown)
+    return kAimAhead;
+  // A runner shoots up, left or right, or low from a crouch: whatever is
+  // within 45 degrees of straight up gets the shot up, whatever is further
+  // below than beside gets a crouched shot, the rest a shot to that side.
+  const float dx = x - mRunnerX, dy = y - mRunnerY;
+  if (dy < 0.0f && -dy >= std::fabs(dx))
+    return kAimUp;
+  const bool low = dy > 0.0f && dy > std::fabs(dx);
+  if (std::fabs(dx) < 1.0f)
+    return low ? kAimDown : kAimAhead;
+  if (dx < 0.0f)
+    return low ? kAimDownLeft : kAimLeft;
+  return low ? kAimDownRight : kAimRight;
+}
+
+bool TouchControls::onFireMark(float x, float y) const
+{
+  const ButtonSpec& spec = kSpecs[kCorner];
+  const float mx = mRight - spec.fromRight * mScale, my = mBottom - spec.fromBottom * mScale;
+  return std::hypot(x - mx, y - my) < spec.r * mScale;
+}
+
+bool TouchControls::inStickZone(float x, float y) const
+{
+  const Circle home = stickHome();
+  return std::hypot(x - home.x, y - home.y) < home.r * kStickZone;
 }
 
 std::vector<SDL_FPoint> TouchControls::takeTaps()
@@ -582,6 +617,10 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
     mTapped = mTapped | held();
     return;
   }
+  // Thumbs: the stick has its zone in the bottom left; the rest of the
+  // left half shoots too.
+  if (f.stick && mThumbs && mLayout == Layout::Play && !inStickZone(x, y))
+    f.stick = false;
   // A button moved onto the left half still takes a touch right on it.
   if (f.stick)
     for (int b = 0; b < kButtonCount; ++b)
@@ -604,11 +643,15 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
   else
   {
     f.button = buttonFor(x, y);
-    // Thumbs: anywhere else on the right half shoots.
-    if (f.button < 0 && mThumbs && mLayout == Layout::Play)
+    // Anywhere else shoots at the spot (in the buttons scheme, an empty
+    // spot on the right half; a swipe from it still jumps or switches).
+    if (f.button < 0 && mLayout == Layout::Play)
     {
       f.shooter = true;
       f.downAt = mNow;
+      // The fire mark is the right thumb's home: a touch there shoots the
+      // way the runner faces.
+      mAim = mThumbs && onFireMark(x, y) ? int(kAimAhead) : aimAt(x, y);
     }
   }
   mFingers.push_back(f);
@@ -653,9 +696,16 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
       if (mThumbs)
         mTapped = mTapped | held();
     }
-    else if (f.shooter)
+    else if (f.shooter && mThumbs)
     {
       aimFlick(f);
+    }
+    else if (f.shooter)
+    {
+      // Buttons scheme: a swipe before the shot is a swipe, not a shot.
+      swipe(f);
+      if (f.swiped && !f.firing)
+        f.shooter = false;
     }
     else if (!f.stick)
     {
@@ -937,24 +987,49 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     o.scale = scale * (firing ? 0.92f : 1.0f);
     o.cull = false;
     renderer.draw(mPlayIcons[kFire], sx + mx, sy + my, o);
-    if (mAim != kAimAhead)
-    {
-      static const float kDir[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
-      const float* d = kDir[mAim - 1];
-      const float off = (spec.r + 22.0f) * mScale;
-      DrawOpts a;
-      a.alpha = 0.9f;
-      a.scale = scale;
-      a.cull = false;
-      renderer.draw(mAimArrows[std::size_t(mAim - 1)], sx + mx + d[0] * off, sy + my + d[1] * off, a);
-    }
     if (!mThumbsUsed)
     {
       const TextStyle hint{22.0f, rgb(255, 255, 255), rgb(16, 12, 26), true};
       const Circle home = stickHome();
       renderer.drawText("MOVE  -  UP JUMPS", sx + home.x, sy + home.y - home.r - 44.0f, hint, Align::Center, 0.75f);
-      renderer.drawText("TOUCH: FIRE  -  FLICK: AIM", sx + std::min(mx - 60.0f, float(kScreenW) - 180.0f),
+      renderer.drawText("TAP: SHOOT THERE", sx + std::min(mx - 60.0f, float(kScreenW) - 180.0f),
         sy + my - spec.r * mScale - 74.0f, hint, Align::Center, 0.75f);
+    }
+  }
+
+  // While a touch shoots: a mark under the finger, and arrows by the runner
+  // for the way the shot goes.
+  if (mLayout == Layout::Play && !mEditing)
+  {
+    bool shooting = false;
+    for (const auto& f : mFingers)
+    {
+      if (!f.shooter)
+        continue;
+      shooting = true;
+      DrawOpts o;
+      o.alpha = 0.6f;
+      o.scale = scale * 0.8f;
+      o.cull = false;
+      o.blend = Blend::Add;
+      renderer.draw(mNub, sx + f.x, sy + f.y, o);
+    }
+    if (shooting && mRunnerKnown && mAim != kAimAhead)
+    {
+      static const float kDir[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+      const bool down = mAim == kAimDown || mAim == kAimDownLeft || mAim == kAimDownRight;
+      const int side = mAim == kAimLeft || mAim == kAimDownLeft ? 2 : mAim == kAimRight || mAim == kAimDownRight ? 3 : -1;
+      for (int arrow : {mAim == kAimUp ? 0 : -1, down ? 1 : -1, side})
+      {
+        if (arrow < 0)
+          continue;
+        const float* d = kDir[arrow];
+        DrawOpts a;
+        a.alpha = 0.85f;
+        a.scale = scale;
+        a.cull = false;
+        renderer.draw(mAimArrows[std::size_t(arrow)], sx + mRunnerX + d[0] * 76.0f, sy + mRunnerY + d[1] * 92.0f, a);
+      }
     }
   }
 

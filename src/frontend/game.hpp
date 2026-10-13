@@ -115,6 +115,9 @@ public:
   // shoots and aims) or the Jump and Fire buttons. CONTROLS switches it;
   // thumbs by default.
   bool touchThumbs() const;
+  // Where the runner is on the screen (the middle of its body), for a touch
+  // that shoots at the spot it lands on; false outside a level.
+  bool runnerOnScreen(float& x, float& y) const;
 
 private:
   enum class Mode

@@ -116,6 +116,19 @@ Input Game::takeTapInput()
   return in;
 }
 
+bool Game::runnerOnScreen(float& x, float& y) const
+{
+  if (!inLevel() || !mWorld)
+    return false;
+  const auto& p = mWorld->player();
+  const auto& cam = mWorld->camera();
+  const float cell = float(kCellSize) * kPixelScale;
+  // The player's position is its bottom-left cell.
+  x = (float(p.x) + float(Player::kWidth) * 0.5f) * cell - cam.renderX() * kPixelScale;
+  y = (float(p.y) + 1.0f - float(p.height()) * 0.5f) * cell - cam.renderY() * kPixelScale;
+  return x > -cell && x < float(kScreenW) + cell && y > -cell && y < float(kScreenH) + cell;
+}
+
 bool Game::menuPad() const
 {
   auto it = mProfile.controls.find("touch.menupad");

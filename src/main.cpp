@@ -53,6 +53,9 @@ struct CliOptions
   std::vector<std::pair<long, Input>> presses;
   // Headless: scripted taps (tick -> x, y) and drags (tick -> dx, dy).
   std::vector<std::pair<long, SDL_FPoint>> taps, drags;
+  // Headless (with --touch): a finger on the on-screen controls at a tick,
+  // held for 20 ticks, e.g. 300:900x200.
+  std::vector<std::pair<long, SDL_FPoint>> fingers;
 };
 
 std::string environment(const char* name)
@@ -159,6 +162,8 @@ void printUsage()
     "                       quicksave quickload use; touch: aimleft aimright upjump)\n"
     "  --tap LIST           headless: taps on the 1280x720 screen, e.g. 120:640x300\n"
     "  --drag LIST          headless: finger drags by dx x dy, e.g. 200:0x-120\n"
+    "  --finger LIST        headless + --touch: a finger on the touch controls,\n"
+    "                       held 20 ticks, e.g. 300:900x200 (shoots at the spot)\n"
     "\n"
     "Keys: arrows/WASD move, X/Ctrl jump, Z/Space fire, Enter confirm,\n"
     "      C switch runner, E get in or out of a vehicle, Esc/P pause menu\n"
@@ -181,6 +186,9 @@ void syncTouch(TouchControls& touch, Game& game)
   else
     touch.setLayout(game.touchLayout());
   touch.setThumbs(game.touchThumbs());
+  float rx = 0.0f, ry = 0.0f;
+  const bool known = game.runnerOnScreen(rx, ry);
+  touch.setRunner(rx, ry, known);
   if (touch.takeMenuPadChange())
     game.setMenuPad(touch.menuPad());
   else
@@ -354,9 +362,9 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
         std::exit(2);
       }
     }
-    else if (a == "--tap" || a == "--drag")
+    else if (a == "--tap" || a == "--drag" || a == "--finger")
     {
-      if (!parsePoints(next(), a == "--tap" ? o.taps : o.drags))
+      if (!parsePoints(next(), a == "--tap" ? o.taps : a == "--drag" ? o.drags : o.fingers))
       {
         std::fprintf(stderr, "bad %s list\n", a.c_str());
         std::exit(2);
@@ -514,6 +522,21 @@ int runHeadless(const CliOptions& o)
       for (const auto& [at, d] : o.drags)
         if (frames == at)
           game.dragBy(d.x, d.y);
+      if (touch && !o.fingers.empty())
+      {
+        const Uint32 ms = Uint32(frames * 1000 / 60);
+        syncTouch(*touch, game);
+        for (std::size_t i = 0; i < o.fingers.size(); ++i)
+        {
+          const auto& [at, p] = o.fingers[i];
+          if (frames == at)
+            touch->touch(SDL_FingerID(i + 1), p.x, p.y, ms);
+          else if (frames == at + 20)
+            touch->release(SDL_FingerID(i + 1));
+        }
+        touch->advance(ms);
+        scripted = scripted | touch->read();
+      }
       if (!game.tick(scripted))
         break;
       ++frames;

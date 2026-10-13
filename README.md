@@ -165,19 +165,22 @@ After that, `./build/gunrunners` starts the game.
 
 ## Touch controls (Android)
 
-In a level your left thumb moves and your right thumb shoots. The left half
-of the screen is a stick: put your thumb down anywhere there and slide it
+In a level your left thumb moves and your right thumb shoots. The bottom
+left of the screen is a stick: put your thumb down there and slide it
 to walk or turn, down to crouch, up (or a quick flick up) to jump, up and
-over for a running jump. On a ladder, up climbs. Touch anywhere on the right
-half to fire; a quick flick there aims (up, down, left or right) and fires
-that way, and the aim stays for the next shots until you flick again (a
-flick down shoots crouched, or straight down where the game can, from a
-hang bar or the jetpack). Switch runner, Use (get in or out of a vehicle),
+over for a running jump. On a ladder, up climbs. Tap anywhere else to
+shoot at that spot: tap an enemy above your runner and the runner shoots
+up at it, tap one beside it and the runner turns and shoots that way, tap
+low beside it and the runner crouches and shoots low. Shots go where the
+weapons can: up, left, right, or crouched to the side (straight down only
+from a hang bar or the jetpack). The fire mark in the bottom right corner
+shoots the way the runner faces; hold a finger down to keep firing, and a
+quick flick while it is down re-aims (up, down, left or right). Switch runner, Use (get in or out of a vehicle),
 the Map and Pause sit in a row along the top, out of both thumbs' way. If
 you'd rather have the classic buttons, TOUCH in CONTROLS (THUMB ZONES or
 CLASSIC BUTTONS) switches to Fire (the big corner
 button) and Jump left of it, with swipes on the right half (up jumps, down
-switches runner); a touch near a button presses the nearest one, a thumb
+switches runner) and a tap on an empty spot there shooting at it; a touch near a button presses the nearest one, a thumb
 that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb
 in, and down + Jump to climb out. Menus take your finger directly: tap
 an item to pick it, drag to scroll a list, tap a card on runner select to

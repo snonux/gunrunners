@@ -373,7 +373,7 @@ void thumbs(Renderer& r)
   t.touch(5, 1000.0f, 300.0f, 5000);
   t.advance(5060);
   in = t.read();
-  check(in.fire && in.aimLeft, "thumbs: the aim stays for the next touch");
+  check(in.fire && !in.aimLeft && !in.up, "thumbs: each touch aims afresh (ahead, with no runner to aim from)");
   t.release(5);
   t.touch(6, 1000.0f, 300.0f, 6000);
   t.slide(6, 1000.0f, 380.0f, 6040);
@@ -427,13 +427,100 @@ void thumbs(Renderer& r)
   t.configure(Layout::Play, 1);
   t.touch(15, 640.0f + 20.0f, 300.0f, 10000);
   t.advance(10200);
-  check(!t.read().fire, "buttons: an empty spot does not fire");
+  check(t.read().fire, "buttons: an empty spot on the right shoots at it");
   t.release(15);
+  t.read();
   t.touch(16, 300.0f, 400.0f, 10300);
   t.slide(16, 300.0f, 320.0f, 10310);
   in = t.read();
   check(in.up && !in.jump, "buttons: the stick up does not jump");
   t.release(16);
+}
+
+// Tap to aim: a touch shoots at the spot it lands on, snapped to the shots
+// a runner has.
+void tapToAim(Renderer& r)
+{
+  TouchControls t(r, true);
+  t.configure(Layout::Play, 1);
+  t.setRunner(640.0f, 400.0f, true);
+  struct Case
+  {
+    float x, y;
+    int aim;
+    const char* what;
+  };
+  const Case cases[] = {
+    {640.0f, 150.0f, TouchControls::kAimUp, "aim: an enemy straight above gets a shot up"},
+    {800.0f, 220.0f, TouchControls::kAimUp, "aim: ...and one up and a little to the side"},
+    {1000.0f, 330.0f, TouchControls::kAimRight, "aim: one to the right and a bit up gets a shot right"},
+    {300.0f, 330.0f, TouchControls::kAimLeft, "aim: the left half outside the stick shoots left"},
+    {800.0f, 660.0f, TouchControls::kAimDownRight, "aim: low to the right gets a crouched shot right"},
+    {560.0f, 690.0f, TouchControls::kAimDownLeft, "aim: low to the left gets a crouched shot left"},
+  };
+  Uint32 ms = 0;
+  for (const auto& c : cases)
+  {
+    t.touch(1, c.x, c.y, ms);
+    t.advance(ms + 60);
+    const Input in = t.read();
+    check(in.fire && t.aim() == c.aim, c.what);
+    t.release(1);
+    t.read();
+    ms += 1000;
+  }
+  t.touch(2, 640.0f, 150.0f, ms);
+  t.advance(ms + 60);
+  Input in = t.read();
+  check(in.fire && in.up && !in.jump, "aim: a shot up holds up, not jump");
+  t.release(2);
+  t.read();
+  t.touch(3, 1000.0f, 330.0f, ms + 1000);
+  t.advance(ms + 1060);
+  in = t.read();
+  check(in.fire && in.aimRight && !in.right, "aim: a shot right turns the runner, it does not walk");
+  t.release(3);
+  t.read();
+  t.touch(4, 175.0f, 600.0f, ms + 2000);
+  t.slide(4, 255.0f, 600.0f, ms + 2010);
+  t.advance(ms + 2100);
+  in = t.read();
+  check(in.right && !in.fire, "aim: the stick in the bottom left still steers");
+  t.release(4);
+
+  // No runner (a cutscene-like moment, or off screen): straight ahead.
+  t.setRunner(0.0f, 0.0f, false);
+  t.touch(5, 640.0f, 150.0f, ms + 3000);
+  t.advance(ms + 3060);
+  check(t.read().fire && t.aim() == TouchControls::kAimAhead, "aim: without a runner on screen, ahead");
+  t.release(5);
+  t.read();
+
+  // The fire mark in the corner shoots the way the runner faces.
+  t.setRunner(640.0f, 400.0f, true);
+  t.touch(6, 1160.0f, 580.0f, ms + 4000);
+  t.advance(ms + 4060);
+  check(t.read().fire && t.aim() == TouchControls::kAimAhead, "aim: the fire mark shoots ahead");
+  t.release(6);
+  t.read();
+
+  // The buttons scheme aims taps on empty spots the same way; a swipe from
+  // one is still a swipe, not a shot.
+  t.setThumbs(false);
+  t.setRunner(640.0f, 400.0f, true);
+  t.touch(6, 800.0f, 150.0f, ms + 4000);
+  t.advance(ms + 4060);
+  in = t.read();
+  check(in.fire && in.up, "aim (buttons): a tap above shoots up");
+  t.release(6);
+  t.read();
+  t.touch(7, 800.0f, 300.0f, ms + 5000);
+  t.slide(7, 800.0f, 400.0f, ms + 5030);
+  t.advance(ms + 5100);
+  in = t.read();
+  check(in.swap && !in.fire, "aim (buttons): a quick swipe down still switches runner, no shot");
+  t.release(7);
+  check(!t.read().fire, "aim (buttons): ...not even on the lift");
 }
 
 void visibility(Renderer& r)
@@ -468,6 +555,7 @@ int main()
     letterbox(r);
     swipes(r);
     thumbs(r);
+    tapToAim(r);
     visibility(r);
     // Drawing both layouts at every size must not trip anything.
     TouchControls t(r, true);

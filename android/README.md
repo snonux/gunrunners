@@ -63,12 +63,19 @@ app's private storage and the keys are not drawn back to the screen.
 - **Thumbs (the default scheme), in a level:** no Jump or Fire button.
   The left-half stick walks and turns, down crouches, up jumps (the Input
   carries `upJump`, and `Game::tickPlay` drops that jump on a ladder unless
-  the stick is diagonal, so up climbs there). A touch on the right half
-  fires: it waits 50 ms for a flick (60 units within 220 ms), which sets
-  the aim (up, down, left, right) and fires; with no flick it fires the
-  current aim. A flick while firing lets go of fire for one tick so the
-  next shot goes the new way. The aim stays until the next flick and shows
-  as an arrow by the fire mark in the corner. Up aims are `up` held while
+  the stick is diagonal, so up climbs there). The stick only takes touches
+  within 1.8 radii of its home in the bottom left. Every other touch that
+  is not on a button shoots at its spot (tap-to-aim): `main.cpp` passes the
+  runner's place on screen (`Game::runnerOnScreen`) to
+  `TouchControls::setRunner`, and `aimAt` snaps the line from the runner
+  to the finger: within 45 degrees of straight up is up, further below
+  than beside is a crouched shot to that side, the rest left or right
+  (straight ahead with no runner on screen, and on the fire mark in the
+  corner). The touch waits 50 ms for a flick (60 units within 220 ms),
+  which re-aims (up, down, left, right), then fires; a tap shorter than
+  a tick still shoots when it lifts. A flick while firing lets go of fire
+  for one tick so the next shot goes the new way. While a finger shoots, a
+  nub sits under it and arrows by the runner show the way. Up aims are `up` held while
   firing, down is `down` (a crouched shot on the ground, straight down from
   a hang bar or the jetpack, which is all the engine shoots downwards);
   left and right set `aimLeft` / `aimRight`, and `Game::tickPlay` presses
@@ -80,7 +87,8 @@ app's private storage and the keys are not drawn back to the screen.
 - **Swipes, on the right half in a level (buttons scheme):** a quick swipe up (80 units in
   under 220 ms) jumps and holds jump until the finger lifts, so a thumb on
   Fire can jump without letting go; a quick swipe down switches runner.
-  Slower moves are not swipes.
+  Slower moves are not swipes. A touch on an empty spot there that is not
+  a swipe shoots at it, aimed as in the thumbs scheme.
 - **Quick save and load:** QUICK SAVE and QUICK LOAD in the pause menu
   use their own slot (`quick.sav`), apart from the five save slots. A
   keyboard or gamepad can trigger them directly (F5 and F9 by default,
