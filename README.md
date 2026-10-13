@@ -13,7 +13,7 @@ The campaign is 42 levels in six episodes: every level has its own twist,
 its own prototype weapon, its own soundtrack, a bonus level behind a
 flickering TV, secrets and a briefing cutscene. On top of that comes
 Episode 7, **Deep Space**: seven levels on the alien hive planet Vurr,
-playable any time from DEEP SPACE on the title screen. Six vehicles (tank,
+playable any time from WORLD SELECT on the title screen. Six vehicles (tank,
 helicopter, hoverbike, submarine, space ship and mech) turn up along the
 way, and two EXTRAS levels are built around them.
 
@@ -117,7 +117,7 @@ back at its parking spot after a while.
 
 A hoverbike waits on Rooftop Run, a helicopter in Chopper Down, a mech on
 Canopy Road and a tank in the Idol Mines, and you fly the ship through all
-of Starfall. EXTRAS on the title screen has two levels made for them:
+of Starfall. The EXTRAS card in WORLD SELECT has two levels made for them:
 **Motor Pool** (tank, hoverbike, helicopter, mech and ship in turn, through
 the Gunrunners' depot) and **Deep Dive** (the submarine, under the
 harbour's reef walls). On Vurr you can also ride a Bounder.
@@ -237,10 +237,16 @@ game remembers your choice.
 
 A new game plays the opening movie, then each level's briefing, the level,
 the tally and, after an episode's last level, its ending. Any button skips
-a cutscene. The title screen also has DEEP SPACE (Episode 7 from Level 43,
-with its own progress), LEVEL SELECT (any level you have reached), EXTRAS
-(the vehicle levels), RERUNS (cutscenes you have seen) and the TRAINING
-STAGE, a free-play level for trying the controls.
+a cutscene. The title screen also has WORLD SELECT, RERUNS (cutscenes you
+have seen) and the TRAINING STAGE, a free-play level for trying the controls.
+
+- **World select.** One card per episode, plus DEEP SPACE and EXTRAS; pick
+  one with the arrows, the d-pad or a tap, then a level from its list (it
+  opens on the furthest level you reached there). Episode 1, DEEP SPACE
+  (Episode 7, with its own progress) and the EXTRAS (the vehicle levels)
+  are open from the start; a later episode opens once the campaign reaches
+  its first level, and inside an episode every level you have reached can
+  be replayed.
 
 - **Prototypes and the Arsenal.** Each level hides its own prototype weapon
   in a green box. Reach the exit with it and it joins your Arsenal, with

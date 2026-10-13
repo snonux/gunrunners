@@ -78,6 +78,8 @@ public:
   // For the on-screen gamepad: a level is being played (its layout) rather
   // than a menu, cutscene or tally, and the TOUCH PAD size setting.
   bool inLevel() const;
+  // WORLD SELECT is on screen.
+  bool worldSelect() const { return mMode == Mode::Worlds && mMenu == Menu::None; }
   int touchSize() const { return mProfile.touchSize; }
   // The app is going to the background (Android may close it there): the
   // pause menu opens over a running level and the profile is saved.
@@ -123,7 +125,8 @@ private:
     Play,
     Bonus, // the tally
     Arsenal,
-    List,      // level select, bonus channel, reruns
+    List,      // an episode's levels, bonus channel, reruns, extras
+    Worlds,    // WORLD SELECT: the episodes, DEEP SPACE and EXTRAS
     Cloud,     // copy/paste S3 configuration
     Continued, // the campaign ran out of built levels
     Editor,    // the runner editor, from runner select
@@ -194,6 +197,15 @@ private:
   void tickArsenal(const Input& in);
   void renderArsenal();
   void openList(ListKind kind);
+  // WORLD SELECT (worlds.cpp): one card per episode, DEEP SPACE and EXTRAS;
+  // a card opens its levels in the list screen.
+  void openWorlds();
+  void tickWorlds(const Input& in);
+  void renderWorlds();
+  // An episode's levels that can be played now (built and reached), in order.
+  std::vector<int> worldLevels(int episode) const;
+  // Why a WORLD SELECT card is shut, empty when it is open.
+  std::string worldLock(int card) const;
   void tickList(const Input& in);
   void renderList();
   void renderContinued();
@@ -290,6 +302,9 @@ private:
   ListKind mListKind = ListKind::Levels;
   std::vector<std::pair<std::string, std::string>> mListItems; // id, label
   int mListCursor = 0;
+  int mListEpisode = 1;       // whose levels ListKind::Levels shows
+  int mWorldCursor = 0;       // WORLD SELECT's card
+  bool mSelectFromList = false; // runner select backs out to the level list
 
   GameOptions mOptions;
   Renderer& mRenderer;

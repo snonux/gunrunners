@@ -13,9 +13,9 @@ ship in space".
 
 ## How it fits the game
 
-- **Its own episode, playable any time.** The title menu gets a DEEP SPACE
-  entry that starts Episode 7 at level 43 (its levels show up in LEVEL
-  SELECT once reached). The main campaign still ends at level 42, so the
+- **Its own episode, playable any time.** WORLD SELECT on the title menu
+  has a DEEP SPACE card, open from the start, that lists Episode 7's levels
+  from 43 up to the furthest one reached. The main campaign still ends at level 42, so the
   space episode never gets in the way of the 42-level story.
 - **Story (told straight, no show reveal):** after a job, the exit teleporter
   locks onto a stray signal and the runners rematerialise in the cockpit of

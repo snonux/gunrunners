@@ -214,6 +214,9 @@ bool Game::tick(const Input& input)
     case Mode::List:
       tickList(in);
       break;
+    case Mode::Worlds:
+      tickWorlds(in);
+      break;
     case Mode::Cloud:
       tickCloud(in);
       break;
@@ -467,6 +470,9 @@ void Game::render()
       break;
     case Mode::List:
       renderList();
+      break;
+    case Mode::Worlds:
+      renderWorlds();
       break;
     case Mode::Cloud:
       renderCloud();

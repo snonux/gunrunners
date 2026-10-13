@@ -101,7 +101,9 @@ bool Game::tickSelect(Input& in, const Input& raw)
   }
   if (campaign())
   {
-    if (edge(&Input::back) || edge(&Input::pause))
+    if ((edge(&Input::back) || edge(&Input::pause)) && mSelectFromList)
+      openList(ListKind::Levels); // back to the episode's levels
+    else if (edge(&Input::back) || edge(&Input::pause))
       goTitle();
   }
   else if (edge(&Input::pause) && !in.confirm)

@@ -6,9 +6,9 @@ namespace gr
 {
 
 // The 42-level campaign in six episodes (docs/LEVELS.md), plus Episode 7,
-// DEEP SPACE (levels 43-49), a side episode on its own title menu entry. A
-// level is playable once its file exists in levels/; a run stops at the
-// first level that has not been built yet.
+// DEEP SPACE (levels 43-49), a side episode open from the start in WORLD
+// SELECT (frontend/worlds.cpp). A level is playable once its file exists in
+// levels/; a run stops at the first level that has not been built yet.
 struct CampaignLevel
 {
   int number;
@@ -40,7 +40,7 @@ std::string levelFile(const std::string& dataDir, int number);
 std::string bonusFile(const std::string& dataDir, int number); // empty if none
 std::string cutsceneFile(const std::string& dataDir, const std::string& name);
 // Levels outside the 42-level numbering (levels/extra_SLUG.txt), played
-// from EXTRAS on the title screen.
+// from the EXTRAS card in WORLD SELECT.
 struct ExtraLevel
 {
   const char* slug;

@@ -1,5 +1,5 @@
 // Direct touch in the menus, through the whole game: taps on the title
-// screen, runner select, the runner editor's name keyboard, the CONTROLS
+// screen, WORLD SELECT, runner select, the runner editor's name keyboard, the CONTROLS
 // menu, the pause menu and the savegame slots, a drag down the pause menu,
 // and the map. Positions are the 1280x720 picture's, as the screens draw
 // themselves for a fresh profile.
@@ -71,8 +71,31 @@ int main()
     Game g(o, renderer, nullptr);
     run(g, 30);
 
+    // WORLD SELECT: a locked episode stays shut, DEEP SPACE lists its first
+    // level, BACK goes up a screen at a time.
+    tap(g, 640.0f, titleItem(1));
+    run(g, 20);
+    check(g.worldSelect(), "world select: opens from the title screen");
+    tap(g, 490.0f, 240.0f); // Episode 2, locked on a fresh profile
+    check(g.worldSelect(), "world select: a locked episode does not open");
+    tap(g, 790.0f, 500.0f); // DEEP SPACE
+    run(g, 20);
+    check(!g.worldSelect(), "world select: DEEP SPACE opens its levels");
+    tap(g, 640.0f, 140.0f); // Level 43
+    run(g, 20);
+    run(g, 2, pressed(&Input::back));
+    run(g, 2);
+    check(!g.worldSelect(), "runner select backs out to the episode's levels");
+    run(g, 2, pressed(&Input::back));
+    run(g, 2);
+    check(g.worldSelect(), "list: BACK goes back to world select");
+    run(g, 20);
+    run(g, 2, pressed(&Input::back));
+    run(g, 20);
+    check(!g.worldSelect(), "world select: BACK goes to the title screen");
+
     // CONTROLS: one tap picks a cell, a second listens, any tap gives up.
-    tap(g, 640.0f, titleItem(6));
+    tap(g, 640.0f, titleItem(5));
     tap(g, 770.0f, 205.0f);
     check(!g.listening(), "controls: a first tap on a cell only picks it");
     tap(g, 770.0f, 205.0f);

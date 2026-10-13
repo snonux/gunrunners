@@ -113,6 +113,7 @@ void Game::goTitle()
   mMainWorld.reset();
   mCutscene.reset();
   mBonusOnly = false;
+  mSelectFromList = false;
   mLevelNumber = 0;
   mTitleCursor = 0;
   setMode(Mode::Title);
@@ -126,19 +127,14 @@ std::vector<std::string> Game::titleItems() const
   const int reached = std::clamp(mProfile.reached, 1, kCampaignLevels);
   if (reached > 1 && !levelFile(dataDir(), reached).empty())
     items.emplace_back("CONTINUE");
-  // Episode 7 is a side episode: open from the start, with its own progress.
-  if (firstSpaceLevel(dataDir()) > 0)
-    items.emplace_back("DEEP SPACE");
+  // Every episode's levels, DEEP SPACE and the EXTRAS, on one screen.
+  items.emplace_back("WORLD SELECT");
   items.emplace_back("LOAD GAME");
-  if (reached > 1 || mProfile.spaceReached > 0)
-    items.emplace_back("LEVEL SELECT");
   items.emplace_back("ARSENAL");
   if (!mProfile.stars.empty())
     items.emplace_back("BONUS CHANNEL");
   if (!mProfile.cutscenes.empty())
     items.emplace_back("RERUNS");
-  if (!extraFile(dataDir(), 0).empty())
-    items.emplace_back("EXTRAS");
   if (std::ifstream(dataDir() + "/levels/level1.txt"))
     items.emplace_back("TRAINING STAGE");
   if (mOptions.window)
@@ -180,24 +176,14 @@ void Game::tickTitle(const Input& raw)
       mCursor = 0;
     setMode(Mode::Select);
   }
-  else if (item == "DEEP SPACE")
+  else if (item == "WORLD SELECT")
   {
-    // Carry on from the furthest space level started, if it has been built.
-    const int furthest = std::clamp(mProfile.spaceReached, kSpaceFirst, kAllLevels);
-    mPendingLevel = !levelFile(dataDir(), furthest).empty() ? furthest : firstSpaceLevel(dataDir());
-    mPendingNewGame = false;
-    if (mOptions.autoplay)
-      mCursor = 0;
-    setMode(Mode::Select);
+    openWorlds();
   }
   else if (item == "LOAD GAME")
   {
     mSlotsForSave = false;
     openMenu(Menu::Slots);
-  }
-  else if (item == "LEVEL SELECT")
-  {
-    openList(ListKind::Levels);
   }
   else if (item == "ARSENAL")
   {
@@ -210,10 +196,6 @@ void Game::tickTitle(const Input& raw)
   else if (item == "RERUNS")
   {
     openList(ListKind::Reruns);
-  }
-  else if (item == "EXTRAS")
-  {
-    openList(ListKind::Extras);
   }
   else if (item.rfind("FULLSCREEN", 0) == 0)
   {
@@ -251,7 +233,7 @@ void Game::renderTitle()
 
   const auto items = titleItems();
   // All unlocked items plus settings still fit above the status line.
-  const bool crowded = items.size() > 10;
+  const bool crowded = items.size() > 9;
   const float top = crowded ? 218.0f : 236.0f;
   const float step = items.size() > 12 ? 31.0f : (items.size() > 11 ? 34.5f : (crowded ? 38.0f : 44.0f));
   for (std::size_t i = 0; i < items.size(); ++i)
@@ -803,7 +785,7 @@ void Game::renderArsenal()
   r.drawText(mOptions.touch ? "TAP a prototype   BACK to leave" : "ARROWS browse   ESC / B back", 640, 676, {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
 }
 
-// --- Lists: level select, Bonus Channel, Reruns ----------------------------
+// --- Lists: an episode's levels, Bonus Channel, Reruns, Extras -------------
 
 void Game::openList(ListKind kind)
 {
@@ -813,14 +795,12 @@ void Game::openList(ListKind kind)
   switch (kind)
   {
     case ListKind::Levels:
-      for (int n = 1; n <= kAllLevels; ++n)
-        if (n <= (spaceLevel(n) ? mProfile.spaceReached : std::min(mProfile.reached, kCampaignLevels)) &&
-            !levelFile(dataDir(), n).empty())
-        {
-          std::snprintf(id, sizeof(id), "%d", n);
-          std::snprintf(label, sizeof(label), "%02d  %s%s", n, campaignLevel(n).title, mProfile.stars.count(n) ? "  *" : "");
-          mListItems.emplace_back(id, label);
-        }
+      for (int n : worldLevels(mListEpisode))
+      {
+        std::snprintf(id, sizeof(id), "%d", n);
+        std::snprintf(label, sizeof(label), "%02d  %s%s", n, campaignLevel(n).title, mProfile.stars.count(n) ? "  *" : "");
+        mListItems.emplace_back(id, label);
+      }
       break;
     case ListKind::BonusChannel:
       for (int n : mProfile.stars)
@@ -865,7 +845,11 @@ void Game::tickList(const Input& in)
     if (n == 0 && mModeTicks < 30)
       return;
     sound(Sfx::MenuSelect);
-    goTitle();
+    // An episode's levels and the EXTRAS were opened from WORLD SELECT.
+    if (mListKind == ListKind::Levels || mListKind == ListKind::Extras)
+      openWorlds();
+    else
+      goTitle();
     return;
   }
   if (edge(&Input::up) || edge(&Input::down))
@@ -882,6 +866,7 @@ void Game::tickList(const Input& in)
     case ListKind::Levels:
       mPendingLevel = std::atoi(id.c_str());
       mPendingNewGame = false;
+      mSelectFromList = true;
       setMode(Mode::Select);
       break;
     case ListKind::BonusChannel:
@@ -935,11 +920,17 @@ void Game::renderList()
   const auto& t = theme();
   drawBackdrop(r, *mArt, float(mFrame) * 0.8f, 0.0f, 0.0f);
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(4, 2, 12, 180));
-  const char* title = mListKind == ListKind::Levels ? "LEVEL SELECT"
+  char episodeTitle[96];
+  const auto& ep = episode(mListEpisode);
+  if (ep.number == kEpisodes)
+    std::snprintf(episodeTitle, sizeof(episodeTitle), "%s", ep.name);
+  else
+    std::snprintf(episodeTitle, sizeof(episodeTitle), "EPISODE %d  -  %s", ep.number, ep.name);
+  const char* title = mListKind == ListKind::Levels ? episodeTitle
     : mListKind == ListKind::BonusChannel           ? "THE BONUS CHANNEL"
     : mListKind == ListKind::Extras                 ? "EXTRAS"
                                                      : "RERUNS";
-  r.drawText(title, 640, 30, {56.0f, t.accentA, kInk, true}, Align::Center);
+  r.drawText(title, 640, 30, {mListKind == ListKind::Levels ? 46.0f : 56.0f, t.accentA, kInk, true}, Align::Center);
   if (mListItems.empty())
   {
     r.drawText("NOTHING HERE YET", 640, 320, {28.0f, t.hudText, kInk}, Align::Center);

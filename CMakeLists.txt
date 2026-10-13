@@ -183,6 +183,7 @@ add_library(gunrunners_core STATIC
   src/frontend/cutscene.cpp
   src/frontend/clips.cpp
   src/frontend/flow.cpp
+  src/frontend/worlds.cpp
   src/data/campaign.cpp
   src/game/profile.cpp
 )
