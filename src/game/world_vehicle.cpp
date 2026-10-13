@@ -41,8 +41,11 @@ constexpr std::array<int, 10> kBounderArc{3, 3, 3, 2, 2, 2, 1, 1, 1, 0}; // 18 c
 
 // Speeds in sixteenths of a cell a frame.
 constexpr int kHeliSpeed = 24, kHeliAccel = 4;
-constexpr int kBikeSpeed = 32, kBikeAccel = 4;
-constexpr int kShipSpeed = 40, kShipThrust = 3;
+constexpr int kBikeSpeed = 32, kBikeAccel = 4, kBikeBrake = 5; // brake: letting go on the ground
+// The ship stays under the camera's 2 cells a frame so it never runs off
+// the view, and brakes hard enough that a tap goes a short way.
+constexpr int kShipSpeed = 20, kShipThrust = 3, kShipCounter = 6, kShipBrake = 3;
+constexpr int kShipDent = 18; // a wall hit faster than this dents the hull
 
 int approach(int v, int target, int step)
 {
@@ -59,7 +62,7 @@ const char* vehicleTip(VehicleKind k)
     case VehicleKind::Heli: return "DOWN + FIRE DROPS A BOMB - WATCH THE FUEL";
     case VehicleKind::Bike: return "JUMP CLEARS GAPS AT SPEED";
     case VehicleKind::Sub: return "FIRE LAUNCHES TORPEDOES";
-    case VehicleKind::Ship: return "NO GRAVITY - IT KEEPS DRIFTING";
+    case VehicleKind::Ship: return "NO GRAVITY - LET GO AND IT COASTS TO A STOP";
     case VehicleKind::Mech: return "HOLD JUMP FOR THE JETS - LAND HARD TO STOMP";
     case VehicleKind::Bounder: return "HOLD JUMP FOR A BIG HOP - THORNS DON'T BOTHER IT";
     default: return "";
@@ -591,7 +594,10 @@ void World::driveBike(Vehicle& v, int mvX, int mvY, const PlayerInput& input)
     v.facing = mvX;
   const int target = mvX * kBikeSpeed;
   const bool reversing = mvX != 0 && v.vx != 0 && (mvX > 0) != (v.vx > 0);
-  v.vx = approach(v.vx, target, mvX == 0 ? 3 : (reversing ? 6 : (grounded ? kBikeAccel : 2)));
+  // Letting go on the ground pulls up in under half a second; in the air it
+  // coasts, so a jump still carries as far.
+  const int coast = grounded ? kBikeBrake : 3;
+  v.vx = approach(v.vx, target, mvX == 0 ? coast : (reversing ? 6 : (grounded ? kBikeAccel : 2)));
   if (std::abs(v.vx) >= 8)
     ++v.step;
   v.ax += v.vx;
@@ -682,16 +688,23 @@ void World::driveShip(Vehicle& v, int mvX, int mvY, const PlayerInput& input)
 {
   if (mvX != 0)
     v.facing = mvX;
-  // Thrust adds to the drift; letting go only slows it a little.
-  v.vx = mvX != 0 ? std::clamp(v.vx + mvX * kShipThrust, -kShipSpeed, kShipSpeed) : approach(v.vx, 0, 1);
-  v.vy = mvY != 0 ? std::clamp(v.vy + mvY * kShipThrust, -kShipSpeed, kShipSpeed) : approach(v.vy, 0, 1);
+  // Thrust builds speed up gently; thrusting the other way bites twice as
+  // hard, and letting go coasts it to a stop within half a second.
+  auto thrust = [](int vel, int mv) {
+    if (mv == 0)
+      return approach(vel, 0, kShipBrake);
+    const int push = vel * mv < 0 ? kShipCounter : kShipThrust;
+    return std::clamp(vel + mv * push, -kShipSpeed, kShipSpeed);
+  };
+  v.vx = thrust(v.vx, mvX);
+  v.vy = thrust(v.vy, mvY);
   if (mvX != 0 || mvY != 0)
     ++v.step;
   v.ax += v.vx;
   v.ay += v.vy;
   auto bump = [&](int& vel, int& acc) {
     // Bounces back off walls; hard knocks dent the hull.
-    if (std::abs(vel) > 28)
+    if (std::abs(vel) > kShipDent)
       damageVehicle(v, 1);
     vel = -vel / 2;
     acc = 0;

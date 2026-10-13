@@ -273,7 +273,7 @@ int main(int argc, char** argv)
       boardSaveLeave(kit, level, w, "bike");
     }
 
-    // --- Space ship: drifts on after the thrust stops. ---
+    // --- Space ship: coasts a little after the thrust stops, then stops. ---
     {
       const auto level = load(room("@ vehicle kind=spaceship x=3 y=11\n"));
       World w(level, 0, theme, art);
@@ -293,8 +293,19 @@ int main(int argc, char** argv)
       {
         run(w, {false, true}, 12);
         const int vx = w.riding()->vx, xa = w.riding()->x;
-        run(w, {}, 8);
-        check(vx > 20 && w.riding()->vx > 0 && w.riding()->x > xa + 6, "ship: keeps drifting after letting go");
+        // Slower than the camera scrolls (2 cells a frame), so it stays in view.
+        check(vx >= 16 && vx < 32, "ship: top speed stays under the camera's (" + std::to_string(vx) + ")");
+        run(w, {}, 3);
+        check(w.riding()->vx > 0 && w.riding()->x > xa + 1, "ship: coasts on after letting go");
+        run(w, {}, 6);
+        check(w.riding()->vx == 0, "ship: coasts to a stop");
+        // Thrusting the other way brakes harder than letting go.
+        run(w, {false, true}, 12);
+        Keys back;
+        back.left = true;
+        run(w, back, 3);
+        check(w.riding()->vx <= 2, "ship: counter-thrust stops it in three frames");
+        run(w, {}, 10);
         const int y = w.riding()->y;
         run(w, {}, 15);
         check(w.riding()->y == y, "ship: no gravity");
