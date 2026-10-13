@@ -74,6 +74,13 @@ void Camera::clampToWorld(int worldW, int worldH)
   mY = clampTo(mY, 0, std::max(0, worldH - int(std::ceil(mViewH))));
 }
 
+void Camera::shiftX(int cells)
+{
+  mX += cells;
+  mPrevX += cells;
+  mSmoothX += float(cells * kCellSize);
+}
+
 void Camera::shake(int ticks, float strength)
 {
   if (ticks >= mShakeTicks)

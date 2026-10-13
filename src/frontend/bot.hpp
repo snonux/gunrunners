@@ -82,6 +82,13 @@ public:
   Input mFleetPrev;
   bool mFleetLast = false;
   int mFleetRingX = -1; // the furthest chain ring hooked since the last deck
+  // The Transmitter (bot_tower.cpp): the crawl space's doors, the
+  // Halcyon Titan (moves tried in copies, like Gorgazilla), Copycat.
+  bool tower(const World& world, Input& in);
+  Input fightTitan(const World& world);
+  Input copycat(const World& world);
+  int mTowerTurns = -1;
+  Input mTowerPrev;
   Input fightLizard(const World& world);
   Input fightBuddy(const World& world); // bot_toon.cpp
   Input inkwell(const World& world);

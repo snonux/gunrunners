@@ -473,6 +473,56 @@ Planner::Goal Planner::cryptGoal(const World& w, bool& inCrypt)
   return {};
 }
 
+Planner::Goal Planner::towerGoal(const World& w) const
+{
+  const auto& t = w.tower();
+  const auto& p = w.player();
+  const TowerDoor* crawl = nullptr;
+  const TowerDoor* back = nullptr;
+  for (const auto& d : t.doors)
+    (d.id == "crawl" ? crawl : back) = &d;
+  const Prop* bonus = nullptr;
+  for (const auto& pr : w.props())
+    if (pr.kind == PropKind::BonusDoor && !pr.used && !pr.dormant)
+      bonus = &pr;
+  const bool want = bonus && mTakeBonus && !mSkipBonus;
+  if (back && std::abs(p.y - back->y) <= 4 && std::abs(w.towerDx(back->x, p.x)) < 60)
+  {
+    // In the crawl space: the entrance, then the door back out.
+    if (want)
+      return {3, bonus->x, bonus->y, bonus->w, bonus->h};
+    return {18, back->x, back->y - 4, 2, 5, -1};
+  }
+  if (want && crawl && std::abs(p.y - crawl->y) <= 30)
+  {
+    if (std::getenv("GR_TOWER_DEBUG"))
+      std::fprintf(stderr, "tower goal f%d: crawl door %d,%d\n", w.stats().frames, crawl->x, crawl->y);
+    return {18, crawl->x, crawl->y - 4, 2, 5, -1};
+  }
+  // The Satellite Swarm's boxes beside the way.
+  if (!mSkipProto)
+    for (const auto& b : w.boxes())
+      if (b.alive && b.content == ItemKind::Proto && std::abs(w.towerDx(p.x, b.x)) <= 24 && std::abs(b.y - p.y) <= 8 &&
+          (p.weapon != Weapon::Proto || p.ammo < protoDef(std::max(0, protoIndex(w.level().weapon))).maxAmmo))
+        return {2, b.x, b.y};
+  const int n = int(t.route.size());
+  if (n == 0)
+    return {};
+  int next = t.routeAt + 1;
+  if (next >= n)
+  {
+    if (t.titan.on && t.titan.phase != TitanPhase::Done && p.y > t.titan.deckY + 1)
+      next = n - 1; // fallen off the deck mid-fight: back up
+    else
+      return {};
+  }
+  const auto& wp = t.route[std::size_t(next)];
+  if (std::getenv("GR_TOWER_DEBUG"))
+    std::fprintf(stderr, "tower goal f%d: route %d/%d at %d,%d (runner %d,%d rot %d)\n", w.stats().frames, next, n, wp.x,
+      wp.y, p.x, p.y, t.rot);
+  return {18, wp.x - 1, wp.y - 4, 4, 5, -1};
+}
+
 Planner::Goal Planner::chooseGoal(const World& w) const
 {
   Goal g;
@@ -480,6 +530,17 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   g.kind = 0;
   g.x = lv.exitTx * kCellsPerTile;
   g.y = (lv.exitTy + 1) * kCellsPerTile - 1;
+  // Level 35: up the turning tower by its route. The planner knows no wrap,
+  // but the world keeps the runner in the middle of the map and the next
+  // spot on the route is always less than half a lap away. The crawl
+  // space's doors for the bonus (Bot::tower presses up at them); the
+  // Halcyon Titan is Bot::fightTitan's.
+  if (w.tower().wrap)
+  {
+    const Goal t = towerGoal(w);
+    if (t.kind != 0)
+      return t;
+  }
   // The prototype is what the level is built around: grab the nearest one.
   if (!mSkipProto && !w.stats().protoFound)
   {
@@ -2378,6 +2439,7 @@ void Planner::plan(const World& world)
       powered = int(unsigned(powered) * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u)));
     powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
     powered = powered * 2 + world.fleet().hatchOpen; // Level 34: the bomb bay's hatch
+    powered = int(unsigned(powered) * 131u + unsigned(world.tower().rot)); // Level 35: how far the tower has turned
     // Level 31: machines powered (the generator's hatch, the lift).
     for (const auto& m : world.storm().machines)
       powered = powered * 2 + m.powered;

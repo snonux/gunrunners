@@ -151,6 +151,9 @@ enum class EnemyKind
   SkyPirate,  // Level 34: jets in on a trigger, lands on your ship: cutlass and pistol
   PeckParrot, // Level 34: sits on a balloon and sinks the ship; shooed, it dives
   BalloonMine, // Level 34: rises from the clouds; close by or shot, it bursts
+  MastClimber, // Level 35: climbs ladders after you, swings a wrench
+  RelayDrone,  // Level 35: circles the mast, fires at you on its front half
+  FeedbackNode, // Level 35: bolted to the mast, glows, then pushes you along
 };
 
 enum EnemyFlag : unsigned

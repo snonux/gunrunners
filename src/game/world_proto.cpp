@@ -301,6 +301,8 @@ void World::fireProto(int ox, int oy, int dx, int dy)
   }
   if (ProtoId(p.proto) == ProtoId::RecoilCannon)
     recoilKick(dx, dy); // and the shot goes on below
+  if (ProtoId(p.proto) == ProtoId::SatelliteSwarm)
+    swarmVolley(dx, dy); // Level 35: the drones fire with you, and your shot goes on below
   if (ProtoId(p.proto) == ProtoId::SignalJammer)
   {
     // Not a projectile: a cone of noise (world_dish.cpp).

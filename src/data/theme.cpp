@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 42> kVariants{{
+const std::array<Variant, 43> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -635,6 +635,21 @@ const std::array<Variant, 42> kVariants{{
     rgb(200, 170, 210), rgb(250, 230, 235),
     rgb(90, 80, 100), rgb(170, 150, 170), rgb(40, 34, 50), rgb(255, 80, 60),
     rgb(255, 246, 236), "fleet"}},
+  // Level 35: a red and white lattice mast above a dawn cloud sea, steel
+  // walkways, warning lights.
+  {"broadcast_mast",
+   {ThemeId::NeonOverdrive,
+    "THE TRANSMITTER",
+    "CLIMB THE TURNING MAST TO THE SIGNAL",
+    rgb(60, 90, 160), rgb(230, 170, 140), rgb(255, 214, 150),
+    rgb(170, 50, 46), rgb(230, 90, 80), rgb(96, 26, 26),
+    rgb(240, 240, 236), rgb(255, 255, 255),
+    rgb(150, 156, 166), rgb(84, 90, 102),
+    rgb(255, 60, 40), rgb(255, 170, 120),
+    rgb(255, 220, 90), rgb(120, 220, 255),
+    rgb(210, 200, 220), rgb(250, 240, 236),
+    rgb(240, 170, 40), rgb(255, 220, 120), rgb(70, 60, 50), rgb(120, 220, 255),
+    rgb(255, 250, 240), "tower"}},
 }};
 
 } // namespace

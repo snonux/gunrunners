@@ -20,7 +20,7 @@ bool World::canSave() const
     (!(mToon.on || mInk.on) || toonCanSave()) && (!mSignal.on || signalCanSave()) &&
     (!mTrench.on || trenchCanSave()) && (!mStorm.on || stormCanSave()) &&
     (!mDish.on || dishCanSave()) && (!mMagma.on || magmaCanSave()) &&
-    (!mFleet.on || fleetCanSave());
+    (!mFleet.on || fleetCanSave()) && (!mTower.on || towerCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -401,6 +401,8 @@ SaveGame World::snapshot() const
     s.magma = magmaSave();
   if (mFleet.on)
     s.fleet = fleetSave();
+  if (mTower.on)
+    s.tower = towerSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -495,7 +497,7 @@ bool World::restore(const SaveGame& s)
       (!s.signal.empty() && !validSignalSave(s.signal)) || (!s.trench.empty() && !validTrenchSave(s.trench)) ||
       (!s.storm.empty() && !validStormSave(s.storm)) ||
       (!s.dish.empty() && !validDishSave(s.dish)) || (!s.magma.empty() && !validMagmaSave(s.magma)) ||
-      (!s.fleet.empty() && !validFleetSave(s.fleet)) ||
+      (!s.fleet.empty() && !validFleetSave(s.fleet)) || (!s.tower.empty() && !validTowerSave(s.tower)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -507,6 +509,9 @@ bool World::restore(const SaveGame& s)
     if (s.enemies[i].def < 0 || s.enemies[i].def >= enemyDefCount())
       return false;
 
+  // Level 35: the tower turned as it was when saved, before anything is put back on it.
+  if (!s.tower.empty() && mTower.wrap)
+    turnTower(s.tower[0] - mTower.rot);
   mCharacterIndex = resolveSavedRunner(s.character, s.runner);
   mCharacter = characterByIndex(mCharacterIndex);
   auto& p = mPlayer;
@@ -965,6 +970,8 @@ bool World::restore(const SaveGame& s)
     loadMagma(s.magma);
   if (!s.fleet.empty())
     loadFleet(s.fleet);
+  if (!s.tower.empty())
+    loadTower(s.tower);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

@@ -5,6 +5,7 @@
 
 #include "game/collision.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace gr
@@ -27,6 +28,8 @@ Tile CollisionMap::block(int tx, int ty) const
     tx = ((tx % mW) + mW) % mW;
     ty = ((ty % mH) + mH) % mH;
   }
+  else if (mWrapX && mW > 0)
+    tx = ((tx % mW) + mW) % mW;
   if (tx < 0 || tx >= mW)
     return Tile::Solid;
   if (ty < 0 || ty >= mH)
@@ -36,6 +39,8 @@ Tile CollisionMap::block(int tx, int ty) const
 
 void CollisionMap::setBlock(int tx, int ty, Tile t)
 {
+  if (mWrapX && mW > 0)
+    tx = ((tx % mW) + mW) % mW;
   if (tx >= 0 && ty >= 0 && tx < mW && ty < mH)
     mTiles[std::size_t(ty * mW + tx)] = t;
 }
@@ -59,6 +64,19 @@ bool CollisionMap::floatTop(int cx, int cy) const
   return false;
 }
 
+void CollisionMap::rotateX(int blocks)
+{
+  if (mW <= 0 || ((blocks % mW) + mW) % mW == 0)
+    return;
+  std::vector<Tile> row(static_cast<std::size_t>(mW));
+  for (int y = 0; y < mH; ++y)
+  {
+    for (int x = 0; x < mW; ++x)
+      row[std::size_t((((x + blocks) % mW) + mW) % mW)] = mTiles[std::size_t(y * mW + x)];
+    std::copy(row.begin(), row.end(), mTiles.begin() + std::ptrdiff_t(y * mW));
+  }
+}
+
 Tile CollisionMap::tileAt(int cx, int cy) const
 {
   return block(floorDiv(cx, kCellsPerTile), floorDiv(cy, kCellsPerTile));
@@ -68,7 +86,7 @@ bool CollisionMap::solid(int cx, int cy) const
 {
   // The map is closed on the left, right and top; falling out of the
   // bottom is deadly.
-  if (!mWrap && (cx < 0 || cx >= width() || cy < 0))
+  if (!mWrap && (cy < 0 || (!mWrapX && (cx < 0 || cx >= width()))))
     return true;
   switch (tileAt(cx, cy))
   {

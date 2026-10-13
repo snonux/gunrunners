@@ -116,6 +116,8 @@ Input Bot::play(const World& world)
     return bungee(world);
   if (world.fleet().cannonball)
     return cannonball(world);
+  if (world.tower().copycat)
+    return copycat(world);
   if (world.cryo().zeroFriction)
     return hockey(world);
   if (world.grav().gun)
@@ -223,6 +225,22 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 35: the crawl space's doors; a turn of the tower moves the map
+  // under the plan, so plan again.
+  if (world.tower().wrap)
+  {
+    if (world.tower().turns != mTowerTurns)
+    {
+      mTowerTurns = world.tower().turns;
+      mPlanner.reset();
+    }
+    Input in;
+    if (tower(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 34: the grapple chain, and the bomb bay for the bonus.
   if (world.fleet().on)
   {
@@ -293,6 +311,12 @@ Input Bot::play(const World& world)
   {
     mFighting = true;
     return fightBuddy(world);
+  }
+  // Level 35: the Halcyon Titan, from the top deck.
+  if (world.titanFight() && world.player().y <= world.tower().titan.deckY + 1)
+  {
+    mFighting = true;
+    return fightTitan(world);
   }
   // Level 29: the Test Card, once its arena is shut.
   if (world.cardFight())

@@ -17,12 +17,12 @@ playable any time from WORLD SELECT on the title screen. Six vehicles (tank,
 helicopter, hoverbike, submarine, space ship and mech) turn up along the
 way, and two EXTRAS levels are built around them.
 
-**Playable now: 41 levels.** Episodes 1 to 4 (Levels 1-28), every level
-with its bonus level and every episode with its ending, Levels 29-34 of
+**Playable now: 42 levels.** Episodes 1 to 4 (Levels 1-28), every level
+with its bonus level and every episode with its ending, Levels 29-35 of
 Episode 5 (Dead Air, Fiber Trench, Storm Relay, Dish Array, Magma
-Mainframe, Zeppelin Relay) with their bonus levels, all of Episode 7
-(Levels 43-49) with its ending, and both EXTRAS. The rest of Episodes 5 and
-6 (Levels 35-42) is being built now.
+Mainframe, Zeppelin Relay, The Transmitter) with their bonus levels, all of
+Episode 7 (Levels 43-49) with its ending, and both EXTRAS. Episode 5's
+ending and Episode 6 (Levels 36-42) are being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

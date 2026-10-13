@@ -190,6 +190,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkDish();
   linkMagma();
   linkFleet();
+  linkTower();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -418,6 +419,8 @@ void World::updateFrame(const PlayerInput& input)
         updateItems();
       }
       mCamera.update(cameraTarget(), mManualScroll, mMap.width(), mMap.height());
+      if (mTower.wrap)
+        towerFrameEnd(); // Level 35: turn the tower round the runner
       markExplored();
       break;
     case WorldState::Exiting:
@@ -498,6 +501,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateMagma(input);
   if (mFleet.on)
     updateFleet(input);
+  if (mTower.on)
+    updateTower(input);
   updateHatches();
   updateProps(input);
 }
@@ -1012,6 +1017,15 @@ void World::updateEnemies()
       case EnemyKind::BalloonMine:
         updateBalloonMine(e, def);
         break;
+      case EnemyKind::MastClimber:
+        updateMastClimber(e, def);
+        break;
+      case EnemyKind::RelayDrone:
+        updateRelayDrone(e, def);
+        break;
+      case EnemyKind::FeedbackNode:
+        updateFeedbackNode(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1145,6 +1159,11 @@ void World::updateProjectiles()
       return true;
     // Level 34: the Grapple Gun's hook catches a ring.
     if (mFleet.on && shotAtFleet(pr, b))
+      return true;
+    // Level 35: the Halcyon Titan; the Satellite Swarm's drones soak up shots.
+    if (mTower.on && shotAtTower(pr, b))
+      return true;
+    if (mTower.on && swarmBlocks(pr))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1518,7 +1537,9 @@ void World::updateProjectiles()
     const bool harpoon = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine);
     const bool rod = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::TeslaRod);
     const bool hook = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::GrappleGun); // Level 34: out to its range
-    if (pr.alive && !isOnScreen(pr.box(), rod ? kRodFlight
+    // Level 35: shots come round the tower at you from off screen.
+    const bool round = mTower.wrap && pr.kind == ShotKind::Enemy;
+    if (pr.alive && !isOnScreen(pr.box(), round ? 64 : rod ? kRodFlight
           : hook                              ? kHookRange
           : harpoon                           ? kLineReach
           : pr.lob || pr.target != kNoTarget || comesBack || upAtCrystals ? 12

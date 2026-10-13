@@ -79,6 +79,11 @@ public:
   // Level 29's Wraparound: the edges join up, left to right and top to bottom.
   void setWrap(bool wrap) { mWrap = wrap; }
   bool wraps() const { return mWrap; }
+  // Level 35's turning tower: only the left and right edges join, and the
+  // world turns the map round the runner (rotateX, in blocks).
+  void setWrapX(bool wrap) { mWrapX = wrap; }
+  bool wrapsX() const { return mWrapX; }
+  void rotateX(int blocks);
   void disableForceFields() { mForceFieldsOn = false; }
 
   bool onSolidGround(const CellBox& b) const;
@@ -110,6 +115,7 @@ private:
   std::vector<CellBox> mFloats;
   bool mForceFieldsOn = true;
   bool mWrap = false;
+  bool mWrapX = false;
 };
 
 } // namespace gr

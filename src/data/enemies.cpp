@@ -267,6 +267,14 @@ const EnemyDef kEnemies[] = {
   {"sky_pirate", "SKY PIRATE", K::SkyPirate, L::Styled, 3, 5, 5, 800, 2, 40, 10, 0, 0, 0},
   {"peck_parrot", "PECK PARROT", K::PeckParrot, L::Styled, 3, 3, 2, 400, 1, 45, 8, 0, 0, 0},
   {"balloon_mine", "BALLOON MINE", K::BalloonMine, L::Styled, 4, 4, 1, 300, 4, 0, 8, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  // Level 35. Mast Climber: the wrench goes up (10 frames) before the swing.
+  // Relay Drone: a muzzle flash (10) before each shot. Feedback Node: glows
+  // white with a rising hum (22) before its ring pushes. The Copycat
+  // bonus's dummies copy the runner and only bump.
+  {"mast_climber", "MAST CLIMBER", K::MastClimber, L::Styled, 3, 5, 5, 500, 2, 30, 10, 0, 0, 0},
+  {"relay_drone", "RELAY DRONE", K::RelayDrone, L::Styled, 4, 3, 3, 400, 1, 40, 10, 0, kEnemyHarmless | kEnemyRobot, 0},
+  {"feedback_node", "FEEDBACK NODE", K::FeedbackNode, L::Styled, 4, 4, 8, 900, 0, 45, 22, 0, kEnemyHarmless | kEnemyRobot, 0},
+  {"copycat_dummy", "COPYCAT DUMMY", K::MastClimber, L::Styled, 3, 5, 99, 0, 1, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

@@ -176,6 +176,8 @@ void World::setupEntities()
       setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupTowerEntity(e))
+      continue;
     if (setupFleetEntity(e))
       continue;
     if (setupMagmaEntity(e))
@@ -243,6 +245,7 @@ void World::setupEntities()
       setupDishEnemy(en, e);
       setupMagmaEnemy(en, e);
       setupFleetEnemy(en, e);
+      setupTowerEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -755,7 +758,7 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
   }
   // goal=collect:N ends the bonus level as soon as N gems are in.
   const auto& goal = mLevel->goal;
-  if ((goal.rfind("collect:", 0) == 0 && (mOrbit.on ? mOrbit.partsTaken : mStats.gems) >= std::atoi(goal.c_str() + 8)) ||
+  if ((goal.rfind("collect:", 0) == 0 && (mOrbit.on ? mOrbit.partsTaken : mTower.copycat ? mTower.caught : mStats.gems) >= std::atoi(goal.c_str() + 8)) ||
       (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)) ||
       (goal.rfind("goals:", 0) == 0 && mCryo.goalTarget > 0 && mCryo.scored >= mCryo.goalTarget))
   {

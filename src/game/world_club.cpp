@@ -676,6 +676,8 @@ std::vector<std::string> World::musicVariants() const
     }
   if (mCab.w > 0)
     out.push_back("elevator_" + mLevel->music);
+  if (mTower.on && !mTower.copycat)
+    out.emplace_back("theme_waltz"); // Level 35's dizzy egg
   return out;
 }
 

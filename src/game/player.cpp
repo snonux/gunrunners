@@ -1215,6 +1215,15 @@ void World::respawnPlayer()
     resetMagma();
   if (mFleet.on)
     resetFleet();
+  if (mTower.on)
+  {
+    resetTower();
+    if (mTower.wrap)
+    {
+      mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
+      towerFrameEnd(); // the runner back in the middle of the tower
+    }
+  }
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

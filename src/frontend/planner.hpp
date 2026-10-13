@@ -57,6 +57,7 @@ private:
   };
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;
+  Goal towerGoal(const World& world) const; // Level 35's route up the turning tower
   // Level 23's bonus detour: through the broken mirror into the crypt, the
   // bonus door, back out through the crypt's mirror. Returns kind 18 (the
   // mirror to stand at) or kind 0; inCrypt: in the crypt with the door

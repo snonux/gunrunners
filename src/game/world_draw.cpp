@@ -129,7 +129,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       drawDecoration(r, mArt, mTheme, float(d.first) * kTilePx - camX, float(d.second) * kTilePx - camY, d.first * 31 + d.second, frame);
 
   if ((!mBoss.on || mBoss.exitT >= 0) && (!mGolem.on || mGolem.phase == GolemPhase::Done) &&
-    (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Done) && (!mZero.boss.on || mZero.boss.exitOpen))
+    (!mSpace.mother.on || mSpace.mother.phase == MotherPhase::Done) && (!mZero.boss.on || mZero.boss.exitOpen) &&
+    (!mTower.titan.on || mTower.titan.phase == TitanPhase::Done))
   {
     // After Black Halo the exit drops out of the crane cab.
     float drop = 0.0f;
@@ -223,6 +224,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawMagmaBack(r, camX, camY, frame, alpha);
   if (mFleet.on)
     drawFleetBack(r, camX, camY, frame, alpha);
+  if (mTower.on)
+    drawTowerBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -466,6 +469,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 33 (world_magma_draw.cpp)
     if (e.kind == EnemyKind::SkyPirate || e.kind == EnemyKind::PeckParrot || e.kind == EnemyKind::BalloonMine)
       continue; // Level 34 (world_fleet_draw.cpp)
+    if (e.kind == EnemyKind::MastClimber || e.kind == EnemyKind::RelayDrone || e.kind == EnemyKind::FeedbackNode)
+      continue; // Level 35 (world_tower_draw.cpp)
     if (e.kind == EnemyKind::Echo)
       continue; // a hologram of the runner (drawZeroFront) // (asleep in its coupling, or riding a train not here yet)
     if (e.tell > 0 && (e.kind == EnemyKind::Flyer || e.kind == EnemyKind::Viper))
@@ -958,6 +963,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawMagmaFront(r, camX, camY, frame, alpha);
   if (mFleet.on)
     drawFleetFront(r, camX, camY, frame, alpha);
+  if (mTower.on)
+    drawTowerFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1281,7 +1288,9 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
           while (depth < 3 && (mMap.block(tx, ty - depth - 1) == Tile::Solid) && !(mCity.on && cityDrawsBlock(tx, ty - depth - 1)))
             ++depth;
           static constexpr int kShade[4] = {255, 210, 175, 145};
-          const auto h = (hash2(tx, ty) >> 8) % 10u;
+          // (Level 35's turning tower: by the block's own x, not where it has turned to.)
+          const int hx = mTower.wrap ? (((tx - mTower.rot / kCellsPerTile) % mLevel->width) + mLevel->width) % mLevel->width : tx;
+          const auto h = (hash2(hx, ty) >> 8) % 10u;
           DrawOpts o;
           o.tint = rgb(kShade[depth], kShade[depth], kShade[depth]);
           r.draw(mArt.solid[h < 7u ? 0u : (h < 9u ? 1u : 2u)], x, y, o);
@@ -1801,6 +1810,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawMagmaHud(r, frame);
   if (mFleet.on)
     drawFleetHud(r, frame);
+  if (mTower.on)
+    drawTowerHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

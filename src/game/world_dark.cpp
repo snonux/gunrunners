@@ -219,6 +219,8 @@ bool World::exitPowered() const
     return false; // the iris opens once Buddy Boom is in the ink
   if (mWest.noon.on && mWest.noon.phase != DuelPhase::Done)
     return false; // High Noon: the way out opens after the twentieth duel
+  if (mTower.titan.on && mTower.titan.phase != TitanPhase::Done)
+    return false; // the beam shows once the Halcyon Titan has fallen
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();
 }
 

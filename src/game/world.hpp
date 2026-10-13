@@ -28,6 +28,7 @@
 #include "game/dish.hpp"
 #include "game/magma.hpp"
 #include "game/fleet.hpp"
+#include "game/tower.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1840,6 +1841,10 @@ public:
   const DishState& dish() const { return mDish; }
   const MagmaState& magma() const { return mMagma; }
   const FleetState& fleet() const { return mFleet; }
+  const TowerState& tower() const { return mTower; }
+  bool titanFight() const; // Level 35: the Halcyon Titan is on the deck
+  int titanHp() const;
+  int towerDx(int from, int to) const; // cells, the short way round a wrapx level
   bool grappleOut() const;
   int lavaGap() const; // blocks between the runner and the rising lava
   bool underwater() const;  // in the water, not in an air pocket
@@ -2711,6 +2716,37 @@ private:
   void drawMagmaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaHud(Renderer& r, int frame) const;
+  // Level 35, The Transmitter (world_tower.cpp, world_tower_draw.cpp),
+  // and its Copycat bonus.
+  bool setupTowerEntity(const EntityDef& e);
+  void setupTowerEnemy(Enemy& en, const EntityDef& e);
+  void linkTower();
+  void updateTower(const PlayerInput& input);
+  void towerFrameEnd();
+  void turnTower(int cells);
+  void wrapActors();
+  void resetTower();
+  void updateSwarm();
+  void swarmVolley(int dx, int dy);
+  bool swarmBlocks(Projectile& pr);
+  void updateMastClimber(Enemy& e, const EnemyDef& def);
+  void updateRelayDrone(Enemy& e, const EnemyDef& def);
+  void updateFeedbackNode(Enemy& e, const EnemyDef& def);
+  void updateTitan();
+  void titanDemo();
+  void titanOrbit();
+  void titanOverheat();
+  void titanHurtsRunner(int damage);
+  void titanDrop(ItemKind kind);
+  bool shotAtTower(Projectile& pr, const CellBox& hit);
+  void updateCopycat(const PlayerInput& input);
+  bool towerCanSave() const;
+  std::vector<int> towerSave() const;
+  bool validTowerSave(const std::vector<int>& s) const;
+  void loadTower(const std::vector<int>& s);
+  void drawTowerBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTowerFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawTowerHud(Renderer& r, int frame) const;
   // Level 34, Zeppelin Relay (world_fleet.cpp, world_fleet_draw.cpp), and
   // its Human Cannonball bonus.
   bool setupFleetEntity(const EntityDef& e);
@@ -3244,6 +3280,8 @@ private:
   DishState mDish;
   MagmaState mMagma;
   FleetState mFleet;
+  TowerState mTower;
+  bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner
   // Set up in setupManor*, linked in linkManor.
