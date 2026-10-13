@@ -607,6 +607,27 @@ Planner::Goal Planner::warehouseGoal(const World& w) const
   return {18, st.x - 1, st.y - 4, 4, 5, -1};
 }
 
+// Level 37: the first step on the wardrobe route that is not done yet.
+int wardrobeStep(const World& w)
+{
+  const auto& s = w.wardrobe();
+  for (int i = s.routeAt; i < int(s.route.size()); ++i)
+    if (!w.wardrobeStepDone(i))
+      return i;
+  return -1;
+}
+
+Planner::Goal Planner::wardrobeGoal(const World& w) const
+{
+  const auto& s = w.wardrobe();
+  const int i = wardrobeStep(w);
+  if (i < 0)
+    return {};
+  const auto& st = s.route[std::size_t(i)];
+  // A booth: inside it; a plate: on it (both 2 blocks wide).
+  return {18, st.x, st.y - 4, 4, 5, -1};
+}
+
 Planner::Goal Planner::chooseGoal(const World& w) const
 {
   Goal g;
@@ -647,6 +668,13 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         consider(b.x, b.y);
     if (bestD >= 0)
       return best;
+  }
+  // Level 37: the next booth or heavy plate; Bot::wardrobe steps in.
+  if (w.wardrobe().on && !w.wardrobe().totem)
+  {
+    const Goal h = wardrobeGoal(w);
+    if (h.kind != 0)
+      return h;
   }
   // Level 36: the route's next job (a lever, a crane to wait for, a crate to
   // push into place); Bot::warehouse does it once the runner is there.
@@ -1395,6 +1423,12 @@ void Planner::buildField(const World& w, const Goal& goal)
       if (pad.y >= 0 && pad.y < H)
         padLift[std::size_t(pad.y * W + x)] = lift;
   }
+  // Level 37: spring racks throw the runner up as they arrive.
+  if (w.wardrobe().on)
+    for (const auto& k : w.wardrobe().racks)
+      for (int x = std::max(0, k.x); x < std::min(W, k.x + k.w); ++x)
+        if (k.y + 1 >= 0 && k.y + 1 < H)
+          padLift[std::size_t((k.y + 1) * W + x)] = std::max(jumpH, w.rackLaunch());
 
   // Per player position (bottom-left cell): valid, height above ground,
   // ladder and pipe.
@@ -2535,6 +2569,17 @@ void Planner::plan(const World& world)
     // Level 36: where the metal crates rest (they are solid map blocks).
     for (const auto& c : world.warehouse().crates)
       powered = int(unsigned(powered) * 131u + unsigned(c.stamped ? c.x * 997 + c.y : 7));
+    // Level 37: who the runner is, shutters, cutting tables, the push rack.
+    {
+      const auto& wr = world.wardrobe();
+      powered = int(unsigned(powered) * 131u + unsigned(world.characterIndex() * 7 + (world.player().turbo > 0)));
+      for (const auto& sh : wr.shutters)
+        powered = powered * 2 + sh.open;
+      for (const auto& t : wr.tables)
+        powered = int(unsigned(powered) * 131u + unsigned(t.row));
+      for (const auto& k : wr.pushRacks)
+        powered = int(unsigned(powered) * 131u + unsigned(k.x));
+    }
     // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
     for (const auto& [lx, ly] : world.warehouse().loose)
       powered = int(unsigned(powered) * 131u + unsigned(lx * 97 + ly));

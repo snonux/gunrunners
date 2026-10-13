@@ -157,6 +157,9 @@ enum class EnemyKind
   Forklift,     // Level 36: patrols, then charges; lifts the runner on its forks and carries them off
   Stagehand,    // Level 36: carries a flat, sets it down in front of you, shoots from behind it
   Mimic,        // Level 36: a prop box that bites (or infects) when you come close
+  Mannequin,    // Level 37: creeps up only while you look away
+  PowderPuffer, // Level 37: hovers, puffs a powder cloud in front of it
+  RackRunner,   // Level 37: a costume rack on casters, rolls its aisle end to end
 };
 
 enum EnemyFlag : unsigned

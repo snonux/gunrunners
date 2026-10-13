@@ -192,6 +192,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkFleet();
   linkTower();
   linkWarehouse();
+  linkWardrobe();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -399,6 +400,8 @@ void World::updateFrame(const PlayerInput& input)
         ; // riding the ladder over (updateFilm moves the runner)
       else if (filmHolds())
         updatePlayer(PlayerInput{}); // a pratfall, a banana peel
+      else if (mWardrobe.on)
+        updatePlayer(wardrobeInput(input)); // Level 37: booths, the mirror, tumbles, the Totem
       else
         updatePlayer(input);
       if (mManor.split.on)
@@ -508,6 +511,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateTower(input);
   if (mWarehouse.on)
     updateWarehouse(input);
+  if (mWardrobe.on)
+    updateWardrobe(input);
   updateHatches();
   updateProps(input);
 }
@@ -1039,6 +1044,15 @@ void World::updateEnemies()
         break;
       case EnemyKind::Mimic:
         updateMimic(e, def);
+        break;
+      case EnemyKind::Mannequin:
+        updateMannequin(e, def);
+        break;
+      case EnemyKind::PowderPuffer:
+        updatePowderPuffer(e, def);
+        break;
+      case EnemyKind::RackRunner:
+        updateRackRunner(e, def);
         break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);

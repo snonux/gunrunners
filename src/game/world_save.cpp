@@ -21,7 +21,7 @@ bool World::canSave() const
     (!mTrench.on || trenchCanSave()) && (!mStorm.on || stormCanSave()) &&
     (!mDish.on || dishCanSave()) && (!mMagma.on || magmaCanSave()) &&
     (!mFleet.on || fleetCanSave()) && (!mTower.on || towerCanSave()) &&
-    (!mWarehouse.on || warehouseCanSave());
+    (!mWarehouse.on || warehouseCanSave()) && (!mWardrobe.on || wardrobeCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -406,6 +406,8 @@ SaveGame World::snapshot() const
     s.tower = towerSave();
   if (mWarehouse.on)
     s.warehouse = warehouseSave();
+  if (mWardrobe.on)
+    s.wardrobe = wardrobeSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -449,6 +451,11 @@ bool World::switchCharacter(int index)
 {
   if (!canSave() || index < 0 || index >= characterCount() || index == mCharacterIndex)
     return false;
+  if (mWardrobe.on)
+  {
+    showMessage("CHANGE IN A BOOTH"); // Level 37: runners swap in the changing booths
+    return false;
+  }
   auto& p = mPlayer;
   const auto& next = characterByIndex(index);
   // Same fraction of hearts, rounded up so a switch never kills you.
@@ -502,6 +509,7 @@ bool World::restore(const SaveGame& s)
       (!s.dish.empty() && !validDishSave(s.dish)) || (!s.magma.empty() && !validMagmaSave(s.magma)) ||
       (!s.fleet.empty() && !validFleetSave(s.fleet)) || (!s.tower.empty() && !validTowerSave(s.tower)) ||
       (!s.warehouse.empty() && !validWarehouseSave(s.warehouse)) ||
+      (!s.wardrobe.empty() && !validWardrobeSave(s.wardrobe)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -978,6 +986,8 @@ bool World::restore(const SaveGame& s)
     loadTower(s.tower);
   if (!s.warehouse.empty())
     loadWarehouse(s.warehouse);
+  if (!s.wardrobe.empty())
+    loadWardrobe(s.wardrobe);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

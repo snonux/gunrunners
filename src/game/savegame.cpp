@@ -143,6 +143,7 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("fleet", s.fleet);
   list("tower", s.tower);
   list("warehouse", s.warehouse);
+  list("wardrobe", s.wardrobe);
   list("explored", s.explored);
   list("vehicles", s.vehicles);
   o << "end\n";
@@ -268,7 +269,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.allLitAt;
     else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
              key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "explored" || key == "vehicles")
+             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "wardrobe" || key == "explored" || key == "vehicles")
     {
       auto& v = key == "floods" ? s.floods
               : key == "valves" ? s.valves
@@ -302,6 +303,7 @@ std::optional<SaveGame> readSave(const std::string& path)
               : key == "fleet"  ? s.fleet
               : key == "tower"  ? s.tower
               : key == "warehouse" ? s.warehouse
+              : key == "wardrobe" ? s.wardrobe
               : key == "explored" ? s.explored
               : key == "vehicles" ? s.vehicles
                                 : s.bubbled;

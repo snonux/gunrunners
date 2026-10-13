@@ -380,6 +380,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       {
         // Level 28: off a ledge holding the way, the runner runs on air.
       }
+      else if (mWardrobe.toon && !mMap.onSolidGround(p.box()) && wardrobeAirRun(mvX))
+      {
+        // Level 37: the OUT OF ORDER booth's cartoon, a few frames on air.
+      }
       else if (!mMap.onSolidGround(p.box()) && !(!mFluids.empty() && buoyed()))
       {
         startFalling();
@@ -1231,6 +1235,8 @@ void World::respawnPlayer()
   }
   if (mWarehouse.on)
     resetWarehouse();
+  if (mWardrobe.on)
+    resetWardrobe();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

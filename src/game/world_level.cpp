@@ -176,6 +176,8 @@ void World::setupEntities()
       setupManorLayer(e, int(mLayers.size()) - 1);
       continue;
     }
+    if (setupWardrobeEntity(e))
+      continue;
     if (setupWarehouseEntity(e))
       continue;
     if (setupTowerEntity(e))
@@ -249,6 +251,7 @@ void World::setupEntities()
       setupFleetEnemy(en, e);
       setupTowerEnemy(en, e);
       setupWarehouseEnemy(en, e);
+      setupWardrobeEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:

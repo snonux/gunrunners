@@ -89,6 +89,12 @@ void World::updateProtoShooting(const Button& fire)
     updateGrapple(fire);
     return;
   }
+  // Level 37: a tap lobs a mannequin dressed as the runner (world_wardrobe.cpp).
+  if (ProtoId(p.proto) == ProtoId::DecoyLauncher)
+  {
+    fireDecoy(fire);
+    return;
+  }
   // Level 36: hold to pull metal in, tap to push it away (world_warehouse.cpp).
   if (ProtoId(p.proto) == ProtoId::MagnetGun)
   {

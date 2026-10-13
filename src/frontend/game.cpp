@@ -376,6 +376,9 @@ void Game::tickPlay(const Input& raw)
         frameInput.down ? "D" : "", frameInput.jump.pressed ? "J" : "", frameInput.fire.pressed ? "F" : "");
       if (const auto& tw = mWorld->tower(); tw.wrap)
         std::fprintf(stderr, "  tower rot %d route %d\n", tw.rot, tw.routeAt); // Level 35
+      if (const auto& wr = mWorld->wardrobe(); wr.on) // Level 37
+        std::fprintf(stderr, "  runner %d route %d booth %d rack %d tumble %d\n", mWorld->characterIndex(), wr.routeAt,
+          wr.boothT, wr.onRack, wr.tumble);
       if (const auto& wh = mWorld->warehouse(); wh.on) // Level 36
       {
         std::fprintf(stderr, "  route %d carry %d", wh.routeAt, wh.carry);

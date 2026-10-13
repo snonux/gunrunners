@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 44> kVariants{{
+const std::array<Variant, 45> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -665,6 +665,21 @@ const std::array<Variant, 44> kVariants{{
     rgb(60, 54, 50), rgb(110, 100, 90),
     rgb(160, 120, 80), rgb(210, 170, 120), rgb(40, 34, 30), rgb(255, 80, 60),
     rgb(255, 246, 230), "warehouse"}},
+  // Level 37: the costume department, crimson velvet, brass rails, warm
+  // bulb light on cream walls.
+  {"wardrobe",
+   {ThemeId::StationZero,
+    "WARDROBE",
+    "THROUGH THE COSTUME DEPARTMENT TO THE STAGE DOOR",
+    rgb(40, 14, 22), rgb(70, 24, 36), rgb(120, 40, 52),
+    rgb(150, 110, 90), rgb(210, 180, 150), rgb(60, 30, 30),
+    rgb(230, 190, 90), rgb(255, 230, 150),
+    rgb(170, 130, 110), rgb(100, 70, 60),
+    rgb(255, 120, 150), rgb(255, 210, 220),
+    rgb(230, 190, 90), rgb(255, 170, 200),
+    rgb(90, 50, 50), rgb(150, 100, 90),
+    rgb(180, 120, 90), rgb(230, 180, 140), rgb(50, 30, 30), rgb(255, 80, 120),
+    rgb(255, 246, 236), "wardrobe"}},
 }};
 
 } // namespace

@@ -225,6 +225,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 37: booths and plates; the Totem bonus.
+  if (world.wardrobe().on)
+  {
+    Input in;
+    if (wardrobe(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 36: levers, cranes, crates; the Throw Everything bonus's stacks.
   if (world.warehouse().on)
   {

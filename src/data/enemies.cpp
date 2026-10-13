@@ -283,6 +283,13 @@ const EnemyDef kEnemies[] = {
   {"forklift", "FORKLIFT BOT", K::Forklift, L::Styled, 6, 4, 8, 800, 2, 45, 15, 0, kEnemyHarmless | kEnemyRobot, 0},
   {"stagehand", "STAGEHAND", K::Stagehand, L::Styled, 3, 5, 4, 500, 2, 30, 12, 0, kEnemyHarmless, 0},
   {"mimic", "PROP MIMIC", K::Mimic, L::Styled, 4, 4, 3, 700, 0, 30, 10, 0, 0, 0},
+  // Level 37. Mannequin: creaks and twitches (8) before it moves off; it
+  // only moves while nobody faces it. Powder Puffer: bellows squeeze (12),
+  // then a cloud; harmless to touch. Rack Runner: hangers rattle (15)
+  // before each roll; its own contact (world_wardrobe.cpp).
+  {"mannequin", "MANNEQUIN", K::Mannequin, L::Styled, 3, 5, 4, 500, 2, 15, 8, 0, kEnemyHarmless, 0},
+  {"powder_puffer", "POWDER PUFFER", K::PowderPuffer, L::Styled, 4, 4, 3, 400, 0, 45, 12, 0, kEnemyHarmless, 0},
+  {"rackrunner", "RACK RUNNER", K::RackRunner, L::Styled, 6, 6, 6, 600, 1, 30, 15, 0, kEnemyHarmless, 0},
   {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 

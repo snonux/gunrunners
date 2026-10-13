@@ -89,6 +89,11 @@ public:
   // Throw Everything's stacks.
   bool warehouse(const World& world, Input& in);
   Input mWarePrev;
+  // Wardrobe (bot_wardrobe.cpp): up in each booth on the route, wait for a
+  // cutting table; the Totem's throws, switches and restacks.
+  bool wardrobe(const World& world, Input& in);
+  Input totem(const World& world);
+  bool mRobePrevUp = false, mRobePrevJump = false;
   bool mWarePrevFire = false;
   Input fightTitan(const World& world);
   Input copycat(const World& world);

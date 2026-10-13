@@ -147,6 +147,8 @@ add_library(gunrunners_core STATIC
   src/game/world_tower_draw.cpp
   src/game/world_warehouse.cpp
   src/game/world_warehouse_draw.cpp
+  src/game/world_wardrobe.cpp
+  src/game/world_wardrobe_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -181,6 +183,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_fleet.cpp
   src/frontend/bot_tower.cpp
   src/frontend/bot_warehouse.cpp
+  src/frontend/bot_wardrobe.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -400,3 +403,8 @@ target_link_libraries(warehouse_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME warehouse COMMAND warehouse_test ${CMAKE_SOURCE_DIR}/levels/36_prop_warehouse.txt
   ${CMAKE_SOURCE_DIR}/levels/36_bonus_throw.txt)
 add_test(NAME savegame_prop_warehouse COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/36_prop_warehouse.txt 300)
+add_executable(wardrobe_test tests/wardrobe_test.cpp)
+target_link_libraries(wardrobe_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME wardrobe COMMAND wardrobe_test ${CMAKE_SOURCE_DIR}/levels/37_wardrobe.txt
+  ${CMAKE_SOURCE_DIR}/levels/37_bonus_totem.txt)
+add_test(NAME savegame_wardrobe COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/37_wardrobe.txt 300)

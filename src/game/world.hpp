@@ -30,6 +30,7 @@
 #include "game/fleet.hpp"
 #include "game/tower.hpp"
 #include "game/warehouse.hpp"
+#include "game/wardrobe.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1846,6 +1847,13 @@ public:
   const TowerState& tower() const { return mTower; }
   const WarehouseState& warehouse() const { return mWarehouse; }
   bool warehouseStepDone(int i) const; // Level 36: the bot's route step i is done
+  const WardrobeState& wardrobe() const { return mWardrobe; }
+  bool wardrobeStepDone(int i) const; // Level 37: the bot's route step i is done
+  int rackLaunch() const;             // Level 37: cells a spring rack throws the runner now
+  int wardrobeWeight() const;         // Level 37: 2 for Rocco (or Turbo); the Totem's stack adds up
+  int totemPlayer() const;            // Totem: the body the player is, -1 if none
+  int totemAbove(int i) const;        // Totem: the body standing on body i, -1 if none
+  int totemBase(int i) const;
   bool titanFight() const; // Level 35: the Halcyon Titan is on the deck
   int titanHp() const;
   int towerDx(int from, int to) const; // cells, the short way round a wrapx level
@@ -2720,6 +2728,44 @@ private:
   void drawMagmaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaHud(Renderer& r, int frame) const;
+  // Level 37, Wardrobe (world_wardrobe.cpp, world_wardrobe_draw.cpp), and
+  // its Totem bonus.
+  bool setupWardrobeEntity(const EntityDef& e);
+  void setupWardrobeEnemy(Enemy& en, const EntityDef& e);
+  void linkWardrobe();
+  void becomeRunner(int index);
+  bool wardrobeHeavy() const;
+  PlayerInput wardrobeInput(const PlayerInput& raw);
+  bool wardrobeAirRun(int mvX);
+  bool vaultDoorBlocked(const VaultDoor& d) const;
+  CutTable* wardrobeTable(const std::string& id);
+  void pressPlate(HeavyPlate& pl);
+  void updateHeavyPlates();
+  void updateTables();
+  void updateRacks();
+  void updatePushRacks();
+  void fireDecoy(const Button& fire);
+  void updateDecoys();
+  int decoyNear(int x, int y) const;
+  void updateMannequin(Enemy& e, const EnemyDef& def);
+  void updatePowderPuffer(Enemy& e, const EnemyDef& def);
+  void updateRackRunner(Enemy& e, const EnemyDef& def);
+  void updateWardrobe(const PlayerInput& input);
+  void resetWardrobe();
+  void resetTotem();
+  bool totemStackFits(int base, int x, int y) const;
+  void totemFollow(int base);
+  void totemControl(int i);
+  PlayerInput totemInput(PlayerInput in);
+  void updateTotem();
+  bool wardrobeCanSave() const;
+  std::vector<int> wardrobeSave() const;
+  bool validWardrobeSave(const std::vector<int>& s) const;
+  void loadWardrobe(const std::vector<int>& s);
+  bool wardrobeDrawsBlock(int tx, int ty) const;
+  void drawWardrobeBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWardrobeFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWardrobeHud(Renderer& r, int frame) const;
   // Level 36, Prop Warehouse (world_warehouse.cpp, world_warehouse_draw.cpp),
   // and its Throw Everything bonus.
   bool setupWarehouseEntity(const EntityDef& e);
@@ -3324,6 +3370,7 @@ private:
   FleetState mFleet;
   TowerState mTower;
   WarehouseState mWarehouse;
+  WardrobeState mWardrobe;
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner

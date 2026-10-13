@@ -1,6 +1,6 @@
 Gunrunners is a jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt) or build your own in the runner editor, switch between them mid-level, and blast your way to the exit.
 
-* A campaign of 42 levels in six episodes, each level with its own twist, its own prototype weapon and its own soundtrack, plus Episode 7, Deep Space: seven levels on the alien hive planet Vurr. Playable now: Episodes 1 to 4 (Levels 1-28), Levels 29-35 of Episode 5 (Dead Air, Fiber Trench, Storm Relay, Dish Array, Magma Mainframe, Zeppelin Relay, The Transmitter), Level 36 of Episode 6 (Prop Warehouse) and all of Deep Space (Levels 43-49); the rest of Episode 6 follows in updates.
+* A campaign of 42 levels in six episodes, each level with its own twist, its own prototype weapon and its own soundtrack, plus Episode 7, Deep Space: seven levels on the alien hive planet Vurr. Playable now: Episodes 1 to 5 (Levels 1-35), Levels 36 and 37 of Episode 6 (Prop Warehouse, Wardrobe) and all of Deep Space (Levels 43-49); the rest of Episode 6 follows in updates.
 * Six vehicles to drive: tank, helicopter, hoverbike, submarine, space ship and mech, with two EXTRAS levels built around them.
 * Bonus levels behind flickering TVs, with crazy rules and a timer.
 * Secrets: a rubber duck in every level, candid cameras, hidden gem caches.
