@@ -112,6 +112,8 @@ bool CollisionMap::solidTop(int cx, int cy) const
     return true;
   if (!mFloats.empty() && floatTop(cx, cy))
     return true;
+  if (!mSlopes.empty() && slope(cx, cy))
+    return true;
   return tileAt(cx, cy) == Tile::Platform && (cy & 1) == 0;
 }
 
@@ -207,7 +209,11 @@ MoveResult CollisionMap::moveHorizontallyWithStairStepping(int& x, int& bottomY,
   for (int i = 0; i < std::abs(amount); ++i)
   {
     if (moveHorizontally(x, bottomY, w, h, step) == MoveResult::Completed)
+    {
+      if (!mSlopes.empty())
+        followSlope(x, bottomY, w, h);
       continue;
+    }
     // Walk up steps that are a single cell high.
     CellBox stepped = boxAt(x, bottomY - 1, w, h);
     const bool blocked = step < 0 ? touchingLeftWall(stepped) : touchingRightWall(stepped);
@@ -217,6 +223,27 @@ MoveResult CollisionMap::moveHorizontallyWithStairStepping(int& x, int& bottomY,
     bottomY -= 1;
   }
   return MoveResult::Completed;
+}
+
+// Level 38: up a string the cell it rises under the feet; down one the
+// cell it falls, when nothing else holds the walker up.
+void CollisionMap::followSlope(int x, int& bottomY, int w, int h) const
+{
+  for (int cx = x; cx < x + w; ++cx)
+    if (slope(cx, bottomY))
+    {
+      if (!touchingCeiling(boxAt(x, bottomY, w, h)))
+        --bottomY;
+      return;
+    }
+  if (onSolidGround(boxAt(x, bottomY, w, h)))
+    return;
+  for (int cx = x; cx < x + w; ++cx)
+    if (slope(cx, bottomY + 2))
+    {
+      ++bottomY;
+      return;
+    }
 }
 
 MoveResult CollisionMap::moveVertically(int x, int& bottomY, int w, int h, int amount) const

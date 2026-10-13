@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 45> kVariants{{
+const std::array<Variant, 46> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -680,6 +680,21 @@ const std::array<Variant, 45> kVariants{{
     rgb(90, 50, 50), rgb(150, 100, 90),
     rgb(180, 120, 90), rgb(230, 180, 140), rgb(50, 30, 30), rgb(255, 80, 120),
     rgb(255, 246, 236), "wardrobe"}},
+  // Level 38: the writers' room, pencil grey and paper white, corkboard
+  // brown, red ink.
+  {"writers_room",
+   {ThemeId::StationZero,
+    "WRITERS' ROOM",
+    "UP THROUGH THE SCRIPT TO THE FINAL DRAFT",
+    rgb(46, 44, 50), rgb(70, 66, 72), rgb(120, 112, 104),
+    rgb(170, 130, 90), rgb(236, 228, 205), rgb(60, 50, 44),
+    rgb(220, 30, 40), rgb(255, 150, 150),
+    rgb(190, 180, 160), rgb(120, 110, 100),
+    rgb(120, 200, 255), rgb(220, 240, 255),
+    rgb(220, 30, 40), rgb(255, 230, 120),
+    rgb(90, 80, 70), rgb(150, 140, 125),
+    rgb(200, 180, 140), rgb(240, 232, 210), rgb(50, 44, 40), rgb(220, 30, 40),
+    rgb(250, 246, 236), "writers_room"}},
 }};
 
 } // namespace

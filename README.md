@@ -17,11 +17,12 @@ playable any time from WORLD SELECT on the title screen. Six vehicles (tank,
 helicopter, hoverbike, submarine, space ship and mech) turn up along the
 way, and two EXTRAS levels are built around them.
 
-**Playable now: 44 levels.** Episodes 1 to 5 (Levels 1-35), every level
-with its bonus level and every episode with its ending, Levels 36 and 37 of
-Episode 6 (Prop Warehouse, with its Throw Everything bonus, and Wardrobe,
-with its Totem bonus), all of Episode 7 (Levels 43-49) with its ending, and
-both EXTRAS. The rest of Episode 6 (Levels 38-42) is being built now.
+**Playable now: 45 levels.** Episodes 1 to 5 (Levels 1-35), every level
+with its bonus level and every episode with its ending, Levels 36 to 38 of
+Episode 6 (Prop Warehouse, with its Throw Everything bonus, Wardrobe, with
+its Totem bonus, and Writers' Room, with its Breakout bonus), all of
+Episode 7 (Levels 43-49) with its ending, and both EXTRAS. The rest of
+Episode 6 (Levels 39-42) is being built now.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

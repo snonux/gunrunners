@@ -31,6 +31,7 @@
 #include "game/tower.hpp"
 #include "game/warehouse.hpp"
 #include "game/wardrobe.hpp"
+#include "game/writers.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1848,6 +1849,9 @@ public:
   const WarehouseState& warehouse() const { return mWarehouse; }
   bool warehouseStepDone(int i) const; // Level 36: the bot's route step i is done
   const WardrobeState& wardrobe() const { return mWardrobe; }
+  const WritersState& writers() const { return mWriters; }
+  bool writersStepDone(int i) const; // Level 38: the bot's route step i is done
+  int writersFloor(int cy) const;    // Level 38: 0 the script floor, 1 the corkboard, 2 the desks
   bool wardrobeStepDone(int i) const; // Level 37: the bot's route step i is done
   int rackLaunch() const;             // Level 37: cells a spring rack throws the runner now
   int wardrobeWeight() const;         // Level 37: 2 for Rocco (or Turbo); the Totem's stack adds up
@@ -2728,6 +2732,43 @@ private:
   void drawMagmaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaHud(Renderer& r, int frame) const;
+  // Level 38, Writers' Room (world_writers.cpp, world_writers_draw.cpp), and
+  // its Breakout bonus.
+  bool setupWritersEntity(const EntityDef& e);
+  void setupWritersEnemy(Enemy& en, const EntityDef& e);
+  void linkWriters();
+  void syncWriterWords();
+  bool writersTargetOnRunner(const Word& w) const;
+  void setWordTarget(Word& w, bool on);
+  void strikeWord(Word& w);
+  void finishWord(Word& w);
+  void updateWords();
+  bool shotAtWriters(Projectile& pr, const CellBox& b);
+  bool writersBlocksDamage(const Enemy& e) const;
+  void typeKey(TypeKey& k);
+  void updateTypeKeys();
+  void updateCrushers();
+  void updateInkwells();
+  bool typoGround(int x, int y) const;
+  void updateTypo(Enemy& e, const EnemyDef& def);
+  void updateDeadline(Enemy& e, const EnemyDef& def);
+  bool stampBlock(WritersBlock& b, bool on);
+  void updateWritersBlock(Enemy& e, const EnemyDef& def);
+  void updateSketchGuard(Enemy& e, const EnemyDef& def);
+  PlayerInput writersInput(const PlayerInput& raw);
+  void updateWriters(const PlayerInput& input);
+  void updateWritersEgg();
+  void resetWriters();
+  PlayerInput breakoutInput(const PlayerInput& raw);
+  void updateBreakout();
+  bool writersCanSave() const;
+  std::vector<int> writersSave() const;
+  bool validWritersSave(const std::vector<int>& s) const;
+  void loadWriters(const std::vector<int>& s);
+  bool writersDrawsBlock(int tx, int ty) const;
+  void drawWritersBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWritersFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWritersHud(Renderer& r, int frame) const;
   // Level 37, Wardrobe (world_wardrobe.cpp, world_wardrobe_draw.cpp), and
   // its Totem bonus.
   bool setupWardrobeEntity(const EntityDef& e);
@@ -3371,6 +3412,7 @@ private:
   TowerState mTower;
   WarehouseState mWarehouse;
   WardrobeState mWardrobe;
+  WritersState mWriters;
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner

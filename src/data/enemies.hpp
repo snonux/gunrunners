@@ -160,6 +160,10 @@ enum class EnemyKind
   Mannequin,    // Level 37: creeps up only while you look away
   PowderPuffer, // Level 37: hovers, puffs a powder cloud in front of it
   RackRunner,   // Level 37: a costume rack on casters, rolls its aisle end to end
+  Typo,         // Level 38: crawls out of an inkwell, rewrites struck words
+  Deadline,     // Level 38: a clock on legs, faster every lap of its minute hand
+  WritersBlock, // Level 38: slides into your way and sits; only striking its word kills it
+  SketchGuard,  // Level 38: a pencil sentry with a pencil rifle
 };
 
 enum EnemyFlag : unsigned

@@ -242,6 +242,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWarehouseBack(r, camX, camY, frame, alpha);
   if (mWardrobe.on)
     drawWardrobeBack(r, camX, camY, frame, alpha);
+  if (mWriters.on)
+    drawWritersBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -538,6 +540,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 36 (world_warehouse_draw.cpp)
     if (e.kind == EnemyKind::Mannequin || e.kind == EnemyKind::PowderPuffer || e.kind == EnemyKind::RackRunner)
       continue; // Level 37 (world_wardrobe_draw.cpp)
+    if (e.kind == EnemyKind::Typo || e.kind == EnemyKind::Deadline || e.kind == EnemyKind::WritersBlock ||
+        e.kind == EnemyKind::SketchGuard)
+      continue; // Level 38 (world_writers_draw.cpp)
     if (e.kind == EnemyKind::MastClimber || e.kind == EnemyKind::RelayDrone || e.kind == EnemyKind::FeedbackNode)
       continue; // Level 35 (world_tower_draw.cpp)
     if (e.kind == EnemyKind::Echo)
@@ -1038,6 +1043,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWarehouseFront(r, camX, camY, frame, alpha);
   if (mWardrobe.on)
     drawWardrobeFront(r, camX, camY, frame, alpha);
+  if (mWriters.on)
+    drawWritersFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1362,6 +1369,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
             break; // a metal crate (world_warehouse_draw.cpp)
           if (mWardrobe.on && wardrobeDrawsBlock(tx, ty))
             break; // a shutter, the push rack (world_wardrobe_draw.cpp)
+          if (mWriters.on && writersDrawsBlock(tx, ty))
+            break; // a key, a word's wall, a Writer's Block (world_writers_draw.cpp)
           if (mCity.on && cityDrawsBlock(tx, ty))
             break; // a model building (world_city_draw.cpp)
           if ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty))
@@ -1437,7 +1446,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
       if (mMap.block(tx, ty) == Tile::Solid && (mMap.block(tx, ty - 1) != Tile::Solid || (mCity.on && cityDrawsBlock(tx, ty - 1)) ||
                                                   ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty - 1))) &&
           !(mCity.on && cityDrawsBlock(tx, ty)) && !(mWarehouse.on && warehouseDrawsBlock(tx, ty)) &&
-          !(mWardrobe.on && wardrobeDrawsBlock(tx, ty)) &&
+          !(mWardrobe.on && wardrobeDrawsBlock(tx, ty)) && !(mWriters.on && writersDrawsBlock(tx, ty)) &&
           !((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty)) &&
           mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)] && !mZero.wireframe)
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
@@ -1912,6 +1921,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawWarehouseHud(r, frame);
   if (mWardrobe.on)
     drawWardrobeHud(r, frame);
+  if (mWriters.on)
+    drawWritersHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

@@ -290,6 +290,14 @@ const EnemyDef kEnemies[] = {
   {"mannequin", "MANNEQUIN", K::Mannequin, L::Styled, 3, 5, 4, 500, 2, 15, 8, 0, kEnemyHarmless, 0},
   {"powder_puffer", "POWDER PUFFER", K::PowderPuffer, L::Styled, 4, 4, 3, 400, 0, 45, 12, 0, kEnemyHarmless, 0},
   {"rackrunner", "RACK RUNNER", K::RackRunner, L::Styled, 6, 6, 6, 600, 1, 30, 15, 0, kEnemyHarmless, 0},
+  // Level 38. Typo: crawls to struck words (world_writers.cpp), infects on
+  // contact. Deadline: speeds up each lap, the bell rings first (12).
+  // Writer's Block: scrapes (15) before each slide; bullets don't hurt it.
+  // Sketch guard: raises its pencil rifle (12), fires every 30 frames.
+  {"typo", "TYPO", K::Typo, L::Styled, 2, 2, 1, 200, 2, 30, 8, 0, kEnemyCarrier | kEnemyNoTally, 0},
+  {"deadline", "DEADLINE", K::Deadline, L::Styled, 4, 5, 6, 700, 1, 15, 12, 0, kEnemyHarmless, 0},
+  {"writersblock", "WRITER'S BLOCK", K::WritersBlock, L::Styled, 4, 4, 99, 1000, 1, 45, 15, 0, kEnemyHarmless, 0},
+  {"sketch_guard", "SKETCH GUARD", K::SketchGuard, L::Styled, 3, 5, 4, 500, 0, 30, 12, 30, 0, 0},
   {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 

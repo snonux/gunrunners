@@ -68,6 +68,15 @@ public:
   void addFloat(const CellBox& b) { mFloats.push_back(b); }
   bool floatTop(int cx, int cy) const;
 
+  // Level 38's red strings: one-way slopes, the top row of each cell column
+  // (-1: none). Walking along one follows it a cell up or down.
+  void setSlopes(std::vector<int> tops) { mSlopes = std::move(tops); }
+  bool slope(int cx, int cy) const
+  {
+    return cx >= 0 && cx < int(mSlopes.size()) && mSlopes[std::size_t(cx)] == cy;
+  }
+  bool hasSlopes() const { return !mSlopes.empty(); }
+
   bool solid(int cx, int cy) const;    // blocks from every side
   bool solidTop(int cx, int cy) const; // can be stood on
   bool ladder(int cx, int cy) const;
@@ -108,11 +117,13 @@ public:
 
 private:
   Tile tileAt(int cx, int cy) const;
+  void followSlope(int x, int& bottomY, int w, int h) const;
 
   int mW = 0, mH = 0;
   std::vector<Tile> mTiles;
   std::vector<CellBox> mPlatforms;
   std::vector<CellBox> mFloats;
+  std::vector<int> mSlopes;
   bool mForceFieldsOn = true;
   bool mWrap = false;
   bool mWrapX = false;

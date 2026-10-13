@@ -59,6 +59,7 @@ private:
   Goal chooseGoal(const World& world) const;
   Goal towerGoal(const World& world) const; // Level 35's route up the turning tower
   Goal warehouseGoal(const World& world) const; // Level 36's route: levers, cranes, crates
+  Goal writersGoal(const World& world) const;   // Level 38's route: spots, the keyboard
   Goal wardrobeGoal(const World& world) const;  // Level 37's route: booths, heavy plates
   // Level 23's bonus detour: through the broken mirror into the crypt, the
   // bonus door, back out through the crypt's mirror. Returns kind 18 (the
@@ -118,6 +119,8 @@ private:
 int warehouseStep(const World& w);
 // Throw Everything: a loose block the bot may lift (not on a stack it builds).
 bool warehouseLiftable(const World& w, int bx, int by);
+// Level 38: the first step on the writers' route not done yet, -1 if none.
+int writersStep(const World& w);
 // Level 37: the first step on the wardrobe route not done yet, -1 if none.
 int wardrobeStep(const World& w);
 

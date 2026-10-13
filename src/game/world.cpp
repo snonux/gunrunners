@@ -193,6 +193,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkTower();
   linkWarehouse();
   linkWardrobe();
+  linkWriters();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -402,6 +403,8 @@ void World::updateFrame(const PlayerInput& input)
         updatePlayer(PlayerInput{}); // a pratfall, a banana peel
       else if (mWardrobe.on)
         updatePlayer(wardrobeInput(input)); // Level 37: booths, the mirror, tumbles, the Totem
+      else if (mWriters.breakout)
+        updatePlayer(writersInput(input)); // Level 38's Breakout: the runner is the paddle
       else
         updatePlayer(input);
       if (mManor.split.on)
@@ -513,6 +516,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateWarehouse(input);
   if (mWardrobe.on)
     updateWardrobe(input);
+  if (mWriters.on)
+    updateWriters(input);
   updateHatches();
   updateProps(input);
 }
@@ -1054,6 +1059,18 @@ void World::updateEnemies()
       case EnemyKind::RackRunner:
         updateRackRunner(e, def);
         break;
+      case EnemyKind::Typo:
+        updateTypo(e, def);
+        break;
+      case EnemyKind::Deadline:
+        updateDeadline(e, def);
+        break;
+      case EnemyKind::WritersBlock:
+        updateWritersBlock(e, def);
+        break;
+      case EnemyKind::SketchGuard:
+        updateSketchGuard(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1195,6 +1212,9 @@ void World::updateProjectiles()
       return true;
     // Level 36: flats stop shots; the Magnet Gun's push shoves crates.
     if (mWarehouse.on && shotAtWarehouse(pr, b))
+      return true;
+    // Level 38: the Red Pen strikes words; shots type keys, tink off a Writer's Block.
+    if (mWriters.on && shotAtWriters(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
@@ -1616,6 +1636,13 @@ void World::damageEnemy(Enemy& e, int damage)
   if (mMagma.on && magmaBlocksDamage(e))
   {
     e.flash = 2;
+    return;
+  }
+  // Level 38: a Writer's Block only dies of its word struck out.
+  if (mWriters.on && writersBlocksDamage(e))
+  {
+    e.flash = 2;
+    playSound(Sfx::Tink);
     return;
   }
   // High Noon (rules=onehit): every hit kills.

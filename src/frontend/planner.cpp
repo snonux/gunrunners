@@ -161,6 +161,19 @@ int macroFrames(int m, const World& w)
   // Level 30: crouched, the Harpoon Line plants a harpoon (Bot::trench does that).
   // Other shots only at an enemy close by: harpoons in the walls string stray lines.
   if (m < kMacroCountBase && kMacros[m].fire && w.player().weapon == Weapon::Proto &&
+      w.player().proto == int(ProtoId::RedPen))
+  {
+    // Level 38: the Red Pen only at an enemy close by; Bot::writers strikes
+    // the words (a stray shot could strike a FLOOR out from under you).
+    const auto& p = w.player();
+    bool near = false;
+    for (const auto& e : w.enemies())
+      near = near || (e.alive && !e.hidden && e.kind != EnemyKind::WritersBlock && std::abs(e.x - p.x) < 24 &&
+                       std::abs(e.y - p.y) < 10);
+    if (!near)
+      return 0;
+  }
+  if (m < kMacroCountBase && kMacros[m].fire && w.player().weapon == Weapon::Proto &&
       w.player().proto == int(ProtoId::HarpoonLine))
   {
     if (kMacros[m].down)
@@ -617,6 +630,54 @@ int wardrobeStep(const World& w)
   return -1;
 }
 
+// Level 38: the first step on the writers' route that is not done yet.
+int writersStep(const World& w)
+{
+  const auto& s = w.writers();
+  for (int i = s.routeAt; i < int(s.route.size()); ++i)
+    if (!w.writersStepDone(i))
+      return i;
+  return -1;
+}
+
+Planner::Goal Planner::writersGoal(const World& w) const
+{
+  const auto& s = w.writers();
+  const int i = writersStep(w);
+  if (i < 0)
+    return {};
+  const auto& st = s.route[std::size_t(i)];
+  // Low on Red Pen: a pen box (or what fell out of one) on this floor first.
+  const auto& p = w.player();
+  if (p.weapon != Weapon::Proto || p.ammo < 6)
+  {
+    const int floor = w.writersFloor(p.y);
+    Goal best;
+    int bestD = 60;
+    for (const auto& b : w.boxes())
+    {
+      const int d = std::abs(b.x - p.x) + std::abs(b.y - p.y);
+      if (b.alive && b.content == ItemKind::Proto && d < bestD && w.writersFloor(b.y) == floor)
+      {
+        bestD = d;
+        best = {2, b.x, b.y};
+      }
+    }
+    for (const auto& it : w.items())
+    {
+      const int d = std::abs(it.x - p.x) + std::abs(it.y - p.y);
+      if (!it.taken && it.kind == ItemKind::Proto && d < bestD && w.writersFloor(it.y) == floor)
+      {
+        bestD = d;
+        best = {2, it.x, it.y};
+      }
+    }
+    if (best.kind == 2)
+      return best;
+  }
+  return {18, st.x - 2, st.y - 4, 4, 5, -1};
+}
+
 Planner::Goal Planner::wardrobeGoal(const World& w) const
 {
   const auto& s = w.wardrobe();
@@ -668,6 +729,14 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         consider(b.x, b.y);
     if (bestD >= 0)
       return best;
+  }
+  // Level 38: the next spot on the writers' route, or the keyboard; Bot::writers
+  // strikes the words in the way and types the bridge.
+  if (w.writers().on && !w.writers().breakout)
+  {
+    const Goal h = writersGoal(w);
+    if (h.kind != 0)
+      return h;
   }
   // Level 37: the next booth or heavy plate; Bot::wardrobe steps in.
   if (w.wardrobe().on && !w.wardrobe().totem)
@@ -1667,7 +1736,8 @@ void Planner::buildField(const World& w, const Goal& goal)
         if (s == 0 && !ladder[i] && y + 1 < H)
           for (int xx = x; xx <= x + 2 && !oneWay; ++xx)
             oneWay = isTop(xx, y + 1) && !isBlocked(xx, y + 1) && map.solidTop(xx, y + 1) &&
-              !map.ladder(xx & ~1, y + 1) && map.block(xx / kCellsPerTile, (y + 1) / kCellsPerTile) == Tile::Platform;
+              !map.ladder(xx & ~1, y + 1) &&
+              (map.block(xx / kCellsPerTile, (y + 1) / kCellsPerTile) == Tile::Platform || map.slope(xx, y + 1));
         if (!oneWay && !lifted)
           add(x, y + 1, a, 1);
       }
@@ -2579,6 +2649,16 @@ void Planner::plan(const World& world)
         powered = int(unsigned(powered) * 131u + unsigned(t.row));
       for (const auto& k : wr.pushRacks)
         powered = int(unsigned(powered) * 131u + unsigned(k.x));
+    }
+    // Level 38: words struck (walls and doors gone), the bridge, Writer's Blocks sitting.
+    {
+      const auto& ws = world.writers();
+      for (const auto& wd : ws.words)
+        if (wd.target == WordTarget::Rect)
+          powered = powered * 2 + (wd.gone() ? 1 : 0);
+      powered = int(unsigned(powered) * 131u + unsigned(ws.bridge.typed));
+      for (const auto& b : ws.blocks)
+        powered = int(unsigned(powered) * 131u + unsigned(b.stampX * 97 + b.stampY + 1));
     }
     // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
     for (const auto& [lx, ly] : world.warehouse().loose)

@@ -225,6 +225,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 38: words to strike, Typos, the typewriter; the Breakout bonus.
+  if (world.writers().on)
+  {
+    Input in;
+    if (writers(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 37: booths and plates; the Totem bonus.
   if (world.wardrobe().on)
   {

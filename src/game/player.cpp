@@ -1237,6 +1237,8 @@ void World::respawnPlayer()
     resetWarehouse();
   if (mWardrobe.on)
     resetWardrobe();
+  if (mWriters.on)
+    resetWriters();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

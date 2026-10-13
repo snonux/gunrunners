@@ -94,6 +94,12 @@ public:
   bool wardrobe(const World& world, Input& in);
   Input totem(const World& world);
   bool mRobePrevUp = false, mRobePrevJump = false;
+  // Writers' Room (bot_writers.cpp): strike the words in the way, shoot
+  // Typos, type the bridge; Breakout's paddle.
+  bool writers(const World& world, Input& in);
+  Input breakout(const World& world);
+  bool mPenPrev = false, mTypePrevJump = false;
+  int mStrikeWait = 0;
   bool mWarePrevFire = false;
   Input fightTitan(const World& world);
   Input copycat(const World& world);
