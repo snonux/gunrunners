@@ -229,6 +229,9 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return (slap * 1.1 + b * 0.9) * 0.6 * attack(t, 0.001);
     });
   }
+  // Level 34's briefing: the fleet's engines at sunset.
+  if (id == "propellers")
+    return makeSfx(Sfx::EngineDrone);
   // Level 32's briefing: a big dish groaning round.
   if (id == "dish_groan")
     return makeSfx(Sfx::DishGroan);

@@ -28,6 +28,7 @@ add_library(gunrunners_core STATIC
   src/assets/art_signal.cpp
   src/assets/art_trench.cpp
   src/assets/art_storm.cpp
+  src/assets/art_fleet34.cpp
   src/assets/art_dish.cpp
   src/assets/art_magma33.cpp
   src/assets/art_garden.cpp
@@ -50,6 +51,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_signal.cpp
   src/assets/enemy_art_trench.cpp
   src/assets/enemy_art_storm.cpp
+  src/assets/enemy_art_fleet34.cpp
   src/assets/enemy_art_dish.cpp
   src/assets/enemy_art_magma33.cpp
   src/assets/enemy_art_garden.cpp

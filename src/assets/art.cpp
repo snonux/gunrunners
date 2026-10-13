@@ -6,6 +6,7 @@
 #include "assets/art_signal.hpp"
 #include "assets/art_trench.hpp"
 #include "assets/art_storm.hpp"
+#include "assets/art_fleet34.hpp"
 #include "assets/art_dish.hpp"
 #include "assets/art_magma33.hpp"
 #include "assets/art_garden.hpp"
@@ -1861,6 +1862,8 @@ Texture bakeLadder(const Renderer& r, const Theme& t)
     return bakeSignalLadder(r, t); // a white rack
   if (isStormCliffs(t))
     return bakeStormLadder(r, t); // rusted iron
+  if (isZeppelinFleet(t))
+    return bakeFleetLadder(r, t); // rope ladders
   if (isDishArray(t))
     return bakeDishLadder(r, t); // galvanized steel
   if (isMagmaMainframe(t))
@@ -2107,6 +2110,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeTrenchSolid(r, t, variant);
   if (isStormCliffs(t))
     return bakeStormSolid(r, t, variant);
+  if (isZeppelinFleet(t))
+    return bakeFleetSolid(r, t, variant);
   if (isDishArray(t))
     return bakeDishSolid(r, t, variant);
   if (isMagmaMainframe(t))
@@ -2553,6 +2558,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeTrenchSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isStormCliffs(t))
     return bakeStormSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isZeppelinFleet(t))
+    return bakeFleetSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isDishArray(t))
     return bakeDishSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isMagmaMainframe(t))
@@ -2690,6 +2697,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
     return bakeSignalPlatform(r, t);
   if (isStormCliffs(t))
     return bakeStormPlatform(r, t); // rusted steel grating
+  if (isZeppelinFleet(t))
+    return bakeFleetPlatform(r, t); // teak deck planks
   if (isDishArray(t))
     return bakeDishPlatform(r, t); // white steel catwalk
   if (isMagmaMainframe(t))
@@ -7306,6 +7315,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeTrenchSky(r, t);
   if (isStormCliffs(t))
     return bakeStormSky(r, t);
+  if (isZeppelinFleet(t))
+    return bakeFleetSky(r, t);
   if (isDishArray(t))
     return bakeDishSky(r, t);
   if (isMagmaMainframe(t))
@@ -7485,6 +7496,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeTrenchFar(r, t, kLayerW);
   if (isStormCliffs(t))
     return bakeStormFar(r, t, kLayerW);
+  if (isZeppelinFleet(t))
+    return bakeFleetFar(r, t, kLayerW);
   if (isDishArray(t))
     return bakeDishFar(r, t, kLayerW);
   if (isMagmaMainframe(t))
@@ -7647,6 +7660,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeTrenchNear(r, t, kLayerW);
   if (isStormCliffs(t))
     return bakeStormNear(r, t, kLayerW);
+  if (isZeppelinFleet(t))
+    return bakeFleetNear(r, t, kLayerW);
   if (isDishArray(t))
     return bakeDishNear(r, t, kLayerW);
   if (isMagmaMainframe(t))
@@ -7918,6 +7933,8 @@ Texture bakeExitBase(const Renderer& r, const Theme& t)
     return bakeTrenchExitBase(r, t); // the cable station's relay
   if (isStormCliffs(t))
     return bakeStormExitBase(r, t); // the relay dish
+  if (isZeppelinFleet(t))
+    return bakeFleetExitBase(r, t); // the signal ship's radio shack
   if (isDishArray(t))
     return bakeDishExitBase(r, t); // the uplink antenna
   if (isMagmaMainframe(t))

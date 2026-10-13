@@ -10873,6 +10873,333 @@ void dishCloseup(ClipKit& k, int frame, int ticks, float ox, float oy)
   }
 }
 
+// --- Level 34: Zeppelin Relay (brief_34) -------------------------------------
+
+void fleetRgba(cairo_t* cr, Color c, double a)
+{
+  cairo_set_source_rgba(cr, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a);
+}
+
+void fleetSoft(cairo_t* cr, double x, double y, double rx, double ry, Color c, double a)
+{
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_scale(cr, std::max(0.1, rx), std::max(0.1, ry));
+  cairo_pattern_t* g = cairo_pattern_create_radial(0, 0, 0, 0, 0, 1);
+  cairo_pattern_add_color_stop_rgba(g, 0.0, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a);
+  cairo_pattern_add_color_stop_rgba(g, 0.6, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, a * 0.4);
+  cairo_pattern_add_color_stop_rgba(g, 1.0, redOf(c) / 255.0, greenOf(c) / 255.0, blueOf(c) / 255.0, 0.0);
+  cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+  cairo_set_source(cr, g);
+  cairo_fill(cr);
+  cairo_pattern_destroy(g);
+  cairo_restore(cr);
+}
+
+// The sunset over the cloud sea: lavender overhead to rose, peach and gold,
+// the sun huge and low with bars of cloud across it, the first stars.
+// Full screen.
+const Texture& sunsetSky(ClipKit& k)
+{
+  return cached(k, "fleet_sky", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, H);
+    for (const auto& s : {std::pair<double, Color>{0.0, rgb(60, 52, 120)}, {0.3, rgb(120, 104, 186)}, {0.6, rgb(240, 160, 170)},
+           {0.85, rgb(255, 200, 150)}, {1.0, rgb(255, 230, 180)}})
+      cairo_pattern_add_color_stop_rgb(g, s.first, redOf(s.second) / 255.0, greenOf(s.second) / 255.0, blueOf(s.second) / 255.0);
+    cairo_rectangle(cr, 0, 0, W, H);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    for (int i = 0; i < 70; ++i)
+    {
+      const double x = double(hash2(i, 3401) % 1280u), y = double(hash2(i, 3402) % 200u);
+      cairo_arc(cr, x, y, (i % 8) ? 0.9 : 1.6, 0, 2 * kPi);
+      fleetRgba(cr, rgb(255, 250, 240), (1.0 - y / 200.0) * 0.8);
+      cairo_fill(cr);
+    }
+    fleetSoft(cr, 820, 500, 800, 420, rgb(255, 170, 110), 0.4);
+    fleetSoft(cr, 820, 500, 300, 220, rgb(255, 214, 150), 0.6);
+    cairo_arc(cr, 820, 500, 92, 0, 2 * kPi);
+    fleetRgba(cr, rgb(255, 236, 190), 1.0);
+    cairo_fill(cr);
+    for (int i = 0; i < 10; ++i)
+    {
+      const double y = 150.0 + double(hash2(i, 3403) % 380u), w = 160.0 + double(hash2(i, 3404) % 300u);
+      const double x = double(hash2(i, 3405) % 1400u) - 60.0;
+      fleetSoft(cr, x, y + 6, w, 14, rgb(170, 120, 170), 0.5);
+      fleetSoft(cr, x, y, w * 0.9, 10, rgb(255, 196, 180), 0.6);
+    }
+    for (const double y : {470.0, 530.0})
+      fleetSoft(cr, 840, y, 300, 7, rgb(200, 110, 130), 0.6);
+  });
+}
+
+// A strip of the cloud sea, 2560 x 320, tiling: cumulus heaps, their tops
+// lit gold, lavender in their shadows. `layer` 0 is the far one.
+const Texture& cloudSea(ClipKit& k, int layer)
+{
+  return cached(k, "fleet_clouds" + std::to_string(layer), 2560, 320, 0, 0, [layer](cairo_t* cr) {
+    const Color lit = layer == 0 ? rgb(246, 186, 186) : rgb(255, 222, 210);
+    const Color shade = layer == 0 ? rgb(160, 130, 180) : rgb(200, 166, 206);
+    for (int pass = 0; pass < 2; ++pass)
+      for (int i = 0; i < 40; ++i)
+      {
+        const double x = i * 64.0 + double(hash2(i, 3411 + layer) % 40u);
+        const double r = (layer == 0 ? 50.0 : 80.0) + double(hash2(i, 3412 + layer) % 50u);
+        const double y = 140.0 + double(hash2(i, 3413 + layer) % 60u);
+        for (const double off : {0.0, 2560.0, -2560.0})
+        {
+          cairo_arc(cr, x + off, y + (pass == 0 ? r * 0.3 : 0.0), r, 0, 2 * kPi);
+          if (pass == 0)
+            fleetRgba(cr, shade, 1.0);
+          else
+          {
+            cairo_pattern_t* g = cairo_pattern_create_linear(0, y - r, 0, y + r);
+            cairo_pattern_add_color_stop_rgb(g, 0.0, 1.0, 0.96, 0.9);
+            cairo_pattern_add_color_stop_rgb(g, 0.35, redOf(lit) / 255.0, greenOf(lit) / 255.0, blueOf(lit) / 255.0);
+            cairo_pattern_add_color_stop_rgb(g, 1.0, redOf(shade) / 255.0, greenOf(shade) / 255.0, blueOf(shade) / 255.0);
+            cairo_set_source(cr, g);
+            cairo_fill(cr);
+            cairo_pattern_destroy(g);
+            continue;
+          }
+          cairo_fill(cr);
+        }
+      }
+    cairo_rectangle(cr, 0, 210, 2560, 110);
+    fleetRgba(cr, shade, 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// An airship, 640 x 300, its middle at (320, 120), facing right: a cigar
+// balloon with fins and a painted band, a gondola slung under it on its
+// rigging with lit windows. `pal` picks its colours.
+const Texture& clipAirship(ClipKit& k, int pal)
+{
+  return cached(k, "fleet_ship" + std::to_string(pal), 640, 300, 320, 120, [pal](cairo_t* cr) {
+    static constexpr std::array<Color, 4> kBody{rgb(240, 228, 206), rgb(132, 196, 206), rgb(228, 182, 84), rgb(236, 146, 124)};
+    static constexpr std::array<Color, 4> kBand{rgb(196, 56, 56), rgb(250, 240, 220), rgb(130, 40, 50), rgb(52, 62, 112)};
+    const Color body = kBody[std::size_t(pal % 4)], band = kBand[std::size_t(pal % 4)];
+    const double cx = 320, cy = 120, rx = 250, ry = 80;
+    auto half = [&](double u) {
+      const double d = std::fabs(2.0 * u - 1.0), p = u > 0.5 ? 2.6 : 1.7;
+      return ry * std::pow(std::max(0.0, 1.0 - std::pow(std::min(1.0, d), p)), 1.0 / p);
+    };
+    auto xu = [&](double u) { return cx - rx + u * rx * 2.0; };
+    // Rigging down to the gondola.
+    for (int i = 0; i < 6; ++i)
+    {
+      cairo_move_to(cr, cx - 120 + i * 48.0, cy + 60);
+      cairo_line_to(cr, cx - 80 + i * 32.0, cy + 120);
+    }
+    fleetRgba(cr, rgb(70, 46, 46), 0.9);
+    cairo_set_line_width(cr, 1.6);
+    cairo_stroke(cr);
+    // The gondola.
+    cairo_move_to(cr, cx - 90, cy + 118);
+    cairo_line_to(cr, cx + 90, cy + 118);
+    cairo_curve_to(cr, cx + 96, cy + 150, cx + 70, cy + 168, cx + 40, cy + 170);
+    cairo_line_to(cr, cx - 60, cy + 170);
+    cairo_curve_to(cr, cx - 86, cy + 166, cx - 92, cy + 140, cx - 90, cy + 118);
+    cairo_close_path(cr);
+    fleetRgba(cr, rgb(120, 62, 38), 1.0);
+    cairo_fill_preserve(cr);
+    fleetRgba(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 2.4);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, cx - 90, cy + 124, 180, 4);
+    fleetRgba(cr, rgb(220, 178, 88), 1.0);
+    cairo_fill(cr);
+    for (int i = 0; i < 5; ++i)
+    {
+      cairo_arc(cr, cx - 60 + i * 30.0, cy + 144, 6, 0, 2 * kPi);
+      fleetRgba(cr, rgb(255, 214, 140), 1.0);
+      cairo_fill(cr);
+    }
+    // The fins.
+    for (const double s : {-1.0, 1.0})
+    {
+      cairo_move_to(cr, xu(0.2), cy + s * half(0.2) * 0.9);
+      cairo_line_to(cr, xu(0.04), cy + s * ry * 1.05);
+      cairo_line_to(cr, xu(-0.04), cy + s * ry * 1.0);
+      cairo_line_to(cr, xu(0.0), cy + s * 4);
+      cairo_close_path(cr);
+      fleetRgba(cr, band, 1.0);
+      cairo_fill_preserve(cr);
+      fleetRgba(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 2.0);
+      cairo_stroke(cr);
+    }
+    // The body, lit warm along its back.
+    auto outline = [&] {
+      cairo_move_to(cr, xu(0), cy);
+      for (int i = 1; i <= 80; ++i)
+        cairo_line_to(cr, xu(i / 80.0), cy - half(i / 80.0));
+      for (int i = 79; i >= 0; --i)
+        cairo_line_to(cr, xu(i / 80.0), cy + half(i / 80.0));
+      cairo_close_path(cr);
+    };
+    outline();
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, cy - ry, 0, cy + ry);
+    const Color top = lerpColor(body, rgb(255, 232, 200), 0.45f), bottom = lerpColor(body, rgb(70, 50, 90), 0.55f);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, redOf(top) / 255.0, greenOf(top) / 255.0, blueOf(top) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 0.4, redOf(body) / 255.0, greenOf(body) / 255.0, blueOf(body) / 255.0);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, redOf(bottom) / 255.0, greenOf(bottom) / 255.0, blueOf(bottom) / 255.0);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_save(cr);
+    outline();
+    cairo_clip(cr);
+    cairo_rectangle(cr, 0, cy + 12, 640, 22);
+    fleetRgba(cr, band, 0.9);
+    cairo_fill(cr);
+    for (double x = xu(0) + 40; x < xu(1); x += 46)
+    {
+      cairo_move_to(cr, x, cy - ry);
+      cairo_line_to(cr, x + 4, cy + ry);
+    }
+    fleetRgba(cr, rgb(60, 40, 50), 0.15);
+    cairo_set_line_width(cr, 1.0);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+    outline();
+    fleetRgba(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 2.6);
+    cairo_stroke(cr);
+    cairo_move_to(cr, xu(0.1), cy - half(0.1) + 3);
+    for (int i = 9; i <= 76; ++i)
+      cairo_line_to(cr, xu(i / 80.0), cy - half(i / 80.0) + 3);
+    fleetRgba(cr, rgb(255, 210, 160), 0.85);
+    cairo_set_line_width(cr, 3.0);
+    cairo_stroke(cr);
+    // The engine pod at the stern.
+    cairo_rectangle(cr, cx - 120, cy + 146, 40, 16);
+    fleetRgba(cr, rgb(220, 178, 88), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// An airship at (x, y), `scale`, its propeller turning, its windows lit.
+void drawClipShip(ClipKit& k, int pal, float x, float y, float scale, int ticks, float alpha = 1.0f)
+{
+  DrawOpts o;
+  o.scale = scale;
+  o.alpha = alpha;
+  k.r.draw(clipAirship(k, pal), x, y, o);
+  const float px = x - 130.0f * scale, py = y + 154.0f * scale;
+  const float a = float(ticks) * 0.7f;
+  const float rad = 26.0f * scale;
+  k.r.fillRect(px - 2.0f, py - rad, 4.0f, rad * 2.0f, rgba(230, 220, 210, int(50.0f * alpha)));
+  k.r.drawLine(px, py - std::cos(a) * rad, px, py + std::cos(a) * rad, std::max(2.0f, 5.0f * scale), rgba(90, 60, 40, int(230.0f * alpha)));
+  drawGlow(k.r, k.art, x, y + 144.0f * scale, 90.0f * scale, rgb(255, 210, 130), 0.25f * alpha);
+}
+
+// fleet_sunset: the fleet at sunset over the cloud sea: the sun low and
+// huge, airships at three depths drifting right at their own speeds, their
+// propellers turning, the cloud sea rolling under them, a parrot flapping
+// across (a 4-frame wing beat).
+void fleetSunset(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(sunsetSky(k), ox * 0.1f, oy * 0.1f);
+  const float tt = float(ticks);
+  // Far: small, dusky, slow, low over the horizon, spread out.
+  for (int i = 0; i < 4; ++i)
+  {
+    const float x = std::fmod(float(i) * 375.0f + 60.0f + tt * 0.15f, 1500.0f) - 110.0f;
+    drawClipShip(k, i, x + ox * 0.2f, 335.0f + float(i % 2) * 22.0f + oy * 0.2f, 0.2f, ticks, 0.75f);
+  }
+  panLayer(k, cloudSea(k, 0), -tt * 0.3f - ox * 0.3f, 400.0f + oy * 0.3f);
+  // Middle.
+  drawClipShip(k, 2, 180.0f + tt * 0.5f + ox * 0.5f, 330.0f + std::sin(tt * 0.03f) * 6.0f + oy * 0.5f, 0.55f, ticks);
+  drawClipShip(k, 3, 900.0f + tt * 0.35f + ox * 0.5f, 270.0f + std::sin(tt * 0.025f + 1.0f) * 6.0f + oy * 0.5f, 0.45f, ticks);
+  panLayer(k, cloudSea(k, 1), -tt * 0.8f - ox * 0.8f, 470.0f + oy * 0.8f);
+  // Near: the big one, sliding in from the left.
+  drawClipShip(k, 0, -140.0f + tt * 1.1f + ox, 420.0f + std::sin(tt * 0.02f) * 8.0f + oy, 1.2f, ticks);
+  // A parrot flapping across.
+  const int beat = frame % 4;
+  const float bx = 1300.0f - std::fmod(tt * 3.0f, 1500.0f), by = 210.0f + std::sin(tt * 0.06f) * 20.0f;
+  k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "peck_parrot", 3, beat < 2 ? 0 : 1, 3, 3).get(-1), bx + ox, by + oy);
+}
+
+// The deck for nova_smile: varnished teak planks at a brass rail, the
+// sunset beyond, a lantern. Full screen.
+const Texture& smileDeck(ClipKit& k)
+{
+  return cached(k, "fleet_deck", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    // The deck planks, in perspective.
+    for (int i = 0; i < 9; ++i)
+    {
+      const double y0 = 560 + i * 18.0, y1 = y0 + 18.0;
+      cairo_rectangle(cr, 0, y0, W, 18);
+      fleetRgba(cr, i % 2 ? rgb(196, 140, 84) : rgb(206, 150, 92), 1.0);
+      cairo_fill(cr);
+      cairo_move_to(cr, 0, y1);
+      cairo_line_to(cr, W, y1);
+      fleetRgba(cr, rgb(90, 50, 30), 1.0);
+      cairo_set_line_width(cr, 1.4);
+      cairo_stroke(cr);
+    }
+    // The rail: posts and a brass top rail.
+    for (int i = 0; i < 12; ++i)
+    {
+      cairo_rectangle(cr, 40 + i * 110.0, 430, 10, 132);
+      fleetRgba(cr, rgb(200, 160, 80), 1.0);
+      cairo_fill_preserve(cr);
+      fleetRgba(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 1.6);
+      cairo_stroke(cr);
+    }
+    cairo_rectangle(cr, 0, 420, W, 14);
+    fleetRgba(cr, rgb(240, 200, 110), 1.0);
+    cairo_fill_preserve(cr);
+    fleetRgba(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 2.0);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 0, 492);
+    cairo_line_to(cr, W, 492);
+    fleetRgba(cr, rgb(206, 176, 124), 1.0);
+    cairo_set_line_width(cr, 4.0);
+    cairo_stroke(cr);
+  });
+}
+
+// nova_smile: Nova at the rail of an airship at sunset, a zeppelin gliding
+// over behind her; she looks up at it (frames 0-1), then turns back with a
+// grin and a twinkle (from frame 2), the wind in her hair.
+void novaSmile(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  const float tt = float(ticks);
+  k.r.draw(sunsetSky(k), ox * 0.1f, oy * 0.1f - 60.0f);
+  panLayer(k, cloudSea(k, 0), -tt * 0.2f, 330.0f + oy * 0.2f);
+  drawClipShip(k, 1, 300.0f + tt * 0.6f + ox * 0.3f, 170.0f + std::sin(tt * 0.03f) * 5.0f + oy * 0.3f, 0.8f, ticks);
+  panLayer(k, cloudSea(k, 1), -tt * 0.5f, 420.0f + oy * 0.4f);
+  k.r.draw(smileDeck(k), ox * 0.6f, oy * 0.6f);
+  // Nova, close.
+  const bool up = frame < 2;
+  k.r.draw(runner(k, 2, up ? 3 : 0, 4.6f, true), 820.0f + ox, 840.0f + oy); // her face clear of the caption
+  if (!up)
+  {
+    // The twinkle of her grin.
+    const float k2 = std::sin(float(std::min(ticks % 60, 20)) / 20.0f * 3.14159f);
+    const float sx = 760.0f + ox, sy = 340.0f + oy;
+    k.r.drawLine(sx - 22.0f * k2, sy, sx + 22.0f * k2, sy, 4.0f, rgb(255, 250, 220), Blend::Add);
+    k.r.drawLine(sx, sy - 22.0f * k2, sx, sy + 22.0f * k2, 4.0f, rgb(255, 250, 220), Blend::Add);
+    drawGlow(k.r, k.art, sx, sy, 30.0f * k2 + 4.0f, rgb(255, 240, 200), 0.6f);
+  }
+  // The wind: streaks across, warm light from the sun on the right.
+  for (int i = 0; i < 8; ++i)
+  {
+    const float y = 120.0f + float(hash2(i, 3431) % 500u);
+    const float x = std::fmod(float(hash2(i, 3432) % 1400u) - tt * (6.0f + float(i % 3) * 2.0f), 1500.0f);
+    const float xx = x < 0.0f ? x + 1500.0f : x;
+    k.r.drawLine(xx - 100.0f, y, xx + 60.0f, y, 2.0f, rgba(255, 240, 230, 60), Blend::Add);
+  }
+  for (int s = 0; s < 8; ++s)
+    k.r.fillRect(W - 320.0f + float(s) * 40.0f, 0, 40.0f, H, rgba(255, 170, 100, 4 + s * 4), Blend::Add);
+}
+
 // --- Level 33: Magma Mainframe (brief_33) ------------------------------------
 
 // The night over the volcano: deep blue-black, a red underglow at the
@@ -11220,6 +11547,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return desertDishes(k, frame, ticks, ox, oy);
   if (clip == "dish_closeup")
     return dishCloseup(k, frame, ticks, ox, oy);
+  // Level 34.
+  if (clip == "fleet_sunset")
+    return fleetSunset(k, frame, ticks, ox, oy);
+  if (clip == "nova_smile") // before starts(clip, "nova_") below
+    return novaSmile(k, frame, ticks, ox, oy);
   // Level 33.
   if (clip == "volcano_dc")
     return volcanoDc(k, frame, ticks, ox, oy);

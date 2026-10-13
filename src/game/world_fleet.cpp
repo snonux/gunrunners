@@ -358,7 +358,7 @@ void World::updateFleetShips()
         sh.sinkT = 0;
         sh.sink += sgn(want - sh.sink);
         if (perched && isOnScreen(mPlatforms[std::size_t(sh.platform)].box(), 4))
-          playSound(Sfx::Creak);
+          playSound(Sfx::BalloonHiss);
       }
     }
     else
@@ -369,6 +369,14 @@ void World::updateFleetShips()
       ++sh.looterT;
     placeShip(sh, true);
   }
+  // Now and then the engines of a ship in view (sound only).
+  if (s.t % 240 == 0)
+    for (const auto& sh : s.ships)
+      if (sh.platform >= 0 && isOnScreen(mPlatforms[std::size_t(sh.platform)].box(), 0))
+      {
+        playSound(Sfx::EngineDrone);
+        break;
+      }
 }
 
 int World::shipUnder() const
@@ -432,7 +440,7 @@ void World::updateFleet(const PlayerInput& input)
       if (sh.platform >= 0 && sh.deckW() <= kDipDeck && !sh.looter)
       {
         sh.dip = kDipFrames;
-        playSound(Sfx::Thud);
+        playSound(Sfx::DeckDip);
       }
     }
     s.airTop = -1;
@@ -444,7 +452,7 @@ void World::updateFleet(const PlayerInput& input)
     s.hatchOpen = true;
     mMap.setBlock(s.hatchTx, s.hatchTy, Tile::Ladder);
     showMessage("THE BOMB BAY - SECRET FOUND");
-    playSound(Sfx::Clunk);
+    playSound(Sfx::BayHatch);
   }
   // The Looter goes down once boarded.
   if (under >= 0)
@@ -454,7 +462,7 @@ void World::updateFleet(const PlayerInput& input)
     {
       sh.looterT = 0;
       showMessage("THE LOOTER IS GOING DOWN!");
-      playSound(Sfx::Creak);
+      playSound(Sfx::LooterSink);
     }
   }
   // Easter egg: stand still by a hull's name for a moment.
@@ -500,7 +508,7 @@ void World::updateFleet(const PlayerInput& input)
         pi.tx = p.x + dx;
         break;
       }
-    playSound(Sfx::Thrust);
+    playSound(Sfx::PirateJet);
     showMessage("SKY PIRATE!");
   }
   // Balloon Mines rise out of the clouds.
@@ -647,7 +655,7 @@ void World::updateGrapple(const Button& fire)
   p.recoil = 1;
   p.muzzleTicks = 6;
   p.muzzleStance = p.stance;
-  playSound(Sfx::Zip);
+  playSound(Sfx::GrappleFire);
   if (--p.ammo == 0)
   {
     p.weapon = Weapon::Normal;
@@ -711,7 +719,7 @@ void World::hookRing(int i)
   p.fromLadder = false;
   mLaunch = 0;
   setVisual(PlayerVisual::Hanging);
-  playSound(Sfx::AttachClimbable);
+  playSound(Sfx::RopeCreak);
   placeOnVine();
 }
 
@@ -823,7 +831,7 @@ bool World::shotAtFleet(Projectile& pr, const CellBox& hit)
       mPlayer.vine = -1;
     }
     hookRing(int(i));
-    playSound(Sfx::HarpoonStick);
+    playSound(Sfx::GrappleLatch);
     return true;
   }
   return false;
@@ -849,7 +857,7 @@ int World::shotAtFleetEnemy(Projectile& pr, Enemy& e)
     for (auto& pa : mFleet.parrots)
       if (&mEnemies[std::size_t(pa.enemy)] == &e && pa.state != 4)
         pa.state = 3; // shaken off its perch
-    playSound(Sfx::LineTaut);
+    playSound(Sfx::GrappleYank);
   }
   return 1;
 }
@@ -910,7 +918,7 @@ void World::updateSkyPirate(Enemy& e, const EnemyDef& def)
                                         : CellBox{b.x - kCutlassReach, b.y, kCutlassReach, b.h};
         if (alive && blade.intersects(pb))
           hurtPlayer(1);
-        playSound(Sfx::Swoosh);
+        playSound(Sfx::CutlassSlash);
       }
       else
       {
@@ -926,7 +934,7 @@ void World::updateSkyPirate(Enemy& e, const EnemyDef& def)
         pr.y = pr.prevY = b.y + 1;
         pr.range = kPistolRange + 10;
         mProjectiles.push_back(pr);
-        playSound(Sfx::EnemyShot);
+        playSound(Sfx::FlintShot);
       }
       e.cool = def.cooldown;
       pi->attack = 0;
@@ -941,6 +949,7 @@ void World::updateSkyPirate(Enemy& e, const EnemyDef& def)
       e.dir = dx < 0 ? -1 : 1;
       pi->attack = 1;
       e.tell = def.tell;
+      playSound(Sfx::CutlassDraw);
       return;
     }
     if (std::abs(dx) <= kPistolRange)
@@ -948,6 +957,7 @@ void World::updateSkyPirate(Enemy& e, const EnemyDef& def)
       e.dir = dx < 0 ? -1 : 1;
       pi->attack = 2;
       e.tell = 12;
+      playSound(Sfx::FlintCock);
       return;
     }
   }
@@ -980,7 +990,10 @@ void World::updatePeckParrot(Enemy& e, const EnemyDef& def)
   const int homeX = pa->perchX + ox, homeY = pa->perchY + oy;
   // Shot but not down: shooed off its perch.
   if (e.hp < pa->hpSeen && (pa->state == 0 || pa->state == 4))
+  {
     pa->state = 1, pa->t = def.tell;
+    playSound(Sfx::ParrotSquawk);
+  }
   pa->hpSeen = e.hp;
   if (fleetYanked(e))
     return;
@@ -1013,7 +1026,7 @@ void World::updatePeckParrot(Enemy& e, const EnemyDef& def)
         pa->vx = 2.0f * dx / d;
         pa->vy = 2.0f * dy / d;
         e.dir = dx < 0.0f ? -1 : 1;
-        playSound(Sfx::Screech);
+        playSound(Sfx::ParrotDive);
       }
       break;
     case 2: // the dive
@@ -1049,7 +1062,7 @@ void World::updatePeckParrot(Enemy& e, const EnemyDef& def)
         pa->hopT = 0;
         e.x = std::clamp(e.x + 4 * e.dir, pa->railX0, pa->railX1);
         if (isOnScreen(e.box(), 0))
-          playSound(Sfx::Hop);
+          playSound(Sfx::ParrotHop);
       }
       e.dive = pa->hopT < 6 ? 1 : 0; // mid-hop
       break;
@@ -1077,6 +1090,7 @@ void World::burstMine(Enemy& e)
     hurtPlayer(1);
   damageEnemy(e, e.hp);
   e.alive = false;
+  playSound(Sfx::MinePop);
   explodeVisual(cellCenter(e.box()));
 }
 
@@ -1118,7 +1132,7 @@ void World::updateBalloonMine(Enemy& e, const EnemyDef& def)
   if (p.state != PlayerState::Dying && near.intersects(p.hitBox()))
   {
     m->fuse = kMineFuse;
-    playSound(Sfx::Fuse);
+    playSound(Sfx::MineFuse);
   }
 }
 
@@ -1167,7 +1181,7 @@ void World::updateCannonball(int mvX, int mvY, const PlayerInput& in)
       p.hidden = false;
       p.state = PlayerState::Jumping;
       setVisual(PlayerVisual::Jumping);
-      playSound(Sfx::Cannon);
+      playSound(Sfx::CannonBoom);
       burst({(float(p.x) + 1.5f) * kCellSize, (float(p.y) - 2.0f) * kCellSize}, rgb(255, 230, 160), rgb(160, 150, 140), 14,
         2.0f, false);
     }
@@ -1198,6 +1212,7 @@ void World::updateCannonball(int mvX, int mvY, const PlayerInput& in)
         mStats.score += n.score;
         ++s.hits;
         showMessage(n.score >= 5000 ? "BULLSEYE!" : "IN THE NET!");
+        playSound(Sfx::NetBoing);
         playSound(Sfx::Applause);
         landed = true;
         break;

@@ -3042,6 +3042,357 @@ std::vector<float> makeSfx(Sfx id)
         return v * 0.45 * attack(t, 0.02) * std::min(1.0, (total - t) / 0.1);
       });
     }
+    case Sfx::EngineDrone:
+    {
+      // Level 34: the fleet's engines: a low chugging drone, two propellers
+      // beating slightly out of step through it, swelling in and out.
+      Osc a, b, c;
+      Noise n(3401);
+      OnePole lp;
+      return render(2.4, [&](double t, double total) {
+        const double chug = 0.6 + 0.4 * std::sin(t * 2.0 * kPi * 7.0);
+        const double tone = (a.step(55.0, Wave::Saw) * 0.5 + b.step(82.5, Wave::Triangle) * 0.4) * chug;
+        const double beat = (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 13.0)) * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 11.3));
+        const double prop = lp.lowpass(n.next(), 400.0) * 2.2 * beat;
+        const double hum = c.step(110.0, Wave::Sine) * 0.15;
+        const double env = std::min(1.0, t / 0.6) * std::min(1.0, (total - t) / 0.8);
+        return (tone * 0.5 + prop * 0.6 + hum) * 0.5 * env;
+      });
+    }
+    case Sfx::GrappleFire:
+    {
+      // The Grapple Gun: a pneumatic thunk, then the line whizzing off its
+      // drum, a ratchet ticking under it.
+      Osc o, tick;
+      Noise n(3403);
+      Svf bp;
+      std::vector<float> v = render(0.45, [&](double t, double) {
+        const double thunk = o.step(sweep(180.0, 60.0, t / 0.06), Wave::Sine) * decay(t, 0.03) +
+          bp.band(n.next(), sweep(3000.0, 800.0, t / 0.05), 1.2) * decay(t, 0.02) * 0.8;
+        const double whiz = bp.band(n.next(), sweep(1400.0, 3800.0, t / 0.4), 4.0) * 0.8 * std::min(1.0, t / 0.05) * decay(t, 0.25);
+        const double ratchet = std::fmod(t, 0.022) < 0.003 ? tick.step(2200.0, Wave::Square, 0.3) * 0.25 * decay(t, 0.2) : 0.0;
+        return (thunk * 0.8 + whiz * 0.5 + ratchet) * 0.6 * attack(t, 0.001);
+      });
+      for (float& x : v)
+        x *= 0.53f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::GrappleLatch:
+    {
+      // The hook catching a ring: a brass clank, the ring's bright chime
+      // ringing on.
+      std::vector<float> b = render(0.7, [](double, double) { return 0.0; });
+      Noise n(3405);
+      Svf bp;
+      for (std::size_t i = 0; i < std::size_t(samples(0.05)) && i < b.size(); ++i)
+      {
+        const double t = double(i) / kRate;
+        b[i] += float(bp.band(n.next(), 2400.0, 3.0) * decay(t, 0.012) * 0.9);
+      }
+      addTone(b, 0.0, 0.7, 1318.5, Wave::Sine, 0.22, 0.25);
+      addTone(b, 0.0, 0.7, 1975.5, Wave::Sine, 0.12, 0.18);
+      addTone(b, 0.0, 0.3, 3135.0, Wave::Sine, 0.06, 0.08);
+      addTone(b, 0.01, 0.12, 420.0, Wave::Square, 0.08, 0.03);
+      for (float& x : b)
+        x *= 0.4f; // to a peak near 0.4
+      return b;
+    }
+    case Sfx::RopeCreak:
+    {
+      // A line taking the weight: a hemp creak, a short rasp rising.
+      Osc o;
+      Svf bp;
+      std::vector<float> v = render(0.35, [&](double t, double total) {
+        const double f = 140.0 + 60.0 * t / total + 20.0 * std::sin(t * 2.0 * kPi * 31.0);
+        const double rasp = bp.band(float(o.step(f, Wave::Saw)), f * 3.0, 5.0);
+        return rasp * 0.6 * std::min(1.0, t / 0.03) * std::min(1.0, (total - t) / 0.1);
+      });
+      for (float& x : v)
+        x *= 0.3f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::GrappleYank:
+    {
+      // A light enemy yanked in: the line cracking taut, the reel whirring.
+      Osc o, reel;
+      Noise n(3407);
+      Svf bp;
+      std::vector<float> v = render(0.5, [&](double t, double total) {
+        const double crack = bp.band(n.next(), 2600.0, 1.5) * decay(t, 0.008) * 1.4 + o.step(sweep(500.0, 220.0, t / 0.04), Wave::Triangle) * decay(t, 0.03) * 0.5;
+        const double whirr = reel.step(sweep(300.0, 700.0, t / total) * (1.0 + 0.1 * std::sin(t * 2.0 * kPi * 40.0)), Wave::Square, 0.3) *
+          0.12 * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.1);
+        return (crack + whirr) * 0.6;
+      });
+      for (float& x : v)
+        x *= 0.45f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::PirateJet:
+    {
+      // A Sky Pirate jetting in: a jet pack's roar, sputtering, its pitch
+      // dropping as he lands.
+      Noise n(3409);
+      Svf bp;
+      OnePole lp;
+      Osc o;
+      std::vector<float> v = render(1.1, [&](double t, double total) {
+        const double u = t / total;
+        const double roar = bp.band(n.next(), sweep(1600.0, 500.0, u), 0.7) * 0.7 + lp.lowpass(n.next(), 300.0) * 1.2;
+        const double sputter = 0.65 + 0.35 * (std::sin(t * 2.0 * kPi * 23.0) > -0.3 ? 1.0 : 0.0);
+        const double whine = o.step(sweep(900.0, 400.0, u), Wave::Triangle) * 0.12;
+        return (roar * sputter + whine) * 0.55 * std::min(1.0, t / 0.08) * std::min(1.0, (total - t) / 0.3);
+      });
+      for (float& x : v)
+        x *= 1.25f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::CutlassDraw:
+    {
+      // The cutlass raised: a steel shing, a ring after it.
+      Noise n(3411);
+      Svf bp;
+      std::vector<float> b = render(0.5, [&](double t, double) {
+        return bp.band(n.next(), sweep(3000.0, 7000.0, t / 0.2), 6.0) * 0.9 * std::min(1.0, t / 0.03) * decay(t, 0.09);
+      });
+      addTone(b, 0.12, 0.38, 2793.0, Wave::Sine, 0.1, 0.12);
+      addTone(b, 0.12, 0.38, 4186.0, Wave::Sine, 0.05, 0.08);
+      for (float& x : b)
+        x *= 0.37f; // to a peak near 0.4
+      return b;
+    }
+    case Sfx::CutlassSlash:
+    {
+      // The cutlass swung: a heavy swish, a short ring of steel.
+      Noise n(3413);
+      Svf bp;
+      std::vector<float> b = render(0.4, [&](double t, double total) {
+        const double f = sweep(500.0, 2400.0, t / 0.12);
+        return bp.band(n.next(), f, 1.8) * 1.2 * std::sin(std::min(1.0, t / 0.18) * kPi) * std::min(1.0, (total - t) / 0.05);
+      });
+      addTone(b, 0.14, 0.26, 2349.0, Wave::Sine, 0.08, 0.06);
+      for (float& x : b)
+        x *= 0.35f; // to a peak near 0.4
+      return b;
+    }
+    case Sfx::FlintCock:
+    {
+      // The flintlock's hammer coming back: two hard clicks.
+      std::vector<float> b(std::size_t(samples(0.25)));
+      Noise n(3415);
+      Svf bp;
+      for (const double at : {0.0, 0.09})
+        for (int i = 0; i < samples(0.03); ++i)
+        {
+          const std::size_t k = std::size_t(samples(at) + i);
+          if (k < b.size())
+            b[k] += float(bp.band(n.next(), at > 0.0 ? 3200.0 : 2200.0, 4.0) * decay(double(i) / kRate, 0.004) * 1.6);
+        }
+      addTone(b, 0.09, 0.05, 1800.0, Wave::Square, 0.05, 0.01);
+      for (float& x : b)
+        x *= 0.18f; // to a peak near 0.4
+      return b;
+    }
+    case Sfx::FlintShot:
+    {
+      // The flintlock fired: the pan's fizz, a crack and a puff of smoke.
+      Noise n(3417);
+      OnePole hp, lp;
+      Osc o;
+      std::vector<float> v = render(0.6, [&](double t, double) {
+        const double pan = t < 0.04 ? hp.highpass(n.next(), 5000.0) * 0.4 : 0.0;
+        const double u = t - 0.04;
+        if (u < 0.0)
+          return pan;
+        const double crack = lp.lowpass(n.next(), sweep(8000.0, 600.0, u / 0.2)) * decay(u, 0.05) * 1.6;
+        const double boom = o.step(sweep(160.0, 50.0, u / 0.15), Wave::Sine) * decay(u, 0.08) * 0.8;
+        return (pan + crack + boom) * 0.6;
+      });
+      for (float& x : v)
+        x *= 0.36f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::ParrotSquawk:
+    {
+      // A Peck Parrot shooed off: two harsh rising squawks, buzzy and nasal.
+      Osc a, b;
+      Svf bp;
+      std::vector<float> v = render(0.55, [&](double t, double) {
+        const double ph = std::fmod(t, 0.26);
+        if (ph > 0.2 || t > 0.5)
+          return 0.0;
+        const double f = sweep(700.0, 1400.0, ph / 0.12) * (1.0 + 0.04 * std::sin(t * 2.0 * kPi * 60.0));
+        const double v = a.step(f, Wave::Saw) * 0.6 + b.step(f * 1.5, Wave::Square, 0.3) * 0.3;
+        return bp.band(float(v), 2200.0, 1.5) * 0.9 * attack(ph, 0.01) * std::min(1.0, (0.2 - ph) / 0.04);
+      });
+      for (float& x : v)
+        x *= 0.42f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::ParrotDive:
+    {
+      // A Peck Parrot diving: a falling whistle of air, a shriek at the end.
+      Osc o, s;
+      Noise n(3419);
+      Svf bp;
+      std::vector<float> v = render(0.7, [&](double t, double total) {
+        const double air = bp.band(n.next(), sweep(2600.0, 900.0, t / total), 3.0) * 0.6;
+        const double whistle = o.step(sweep(1800.0, 900.0, t / 0.5), Wave::Sine) * 0.2;
+        const double u = t - 0.45;
+        const double shriek = u > 0.0 ? s.step(sweep(1500.0, 2200.0, u / 0.1), Wave::Saw) * 0.12 * decay(u, 0.08) : 0.0;
+        return (air + whistle + shriek) * 0.75 * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.05);
+      });
+      for (float& x : v)
+        x *= 0.52f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::ParrotHop:
+    {
+      // The carrier hopping: a flap of wings, a chirp.
+      Noise n(3421);
+      OnePole lp;
+      Osc o;
+      std::vector<float> v = render(0.25, [&](double t, double) {
+        const double flap = lp.lowpass(n.next(), 1200.0) * (decay(t, 0.02) + (t > 0.06 ? decay(t - 0.06, 0.02) : 0.0)) * 1.8;
+        const double u = t - 0.1;
+        const double chirp = u > 0.0 && u < 0.08 ? o.step(sweep(2000.0, 3000.0, u / 0.08), Wave::Sine) * 0.3 * std::sin(u / 0.08 * kPi) : 0.0;
+        return (flap + chirp) * 0.7;
+      });
+      for (float& x : v)
+        x *= 0.62f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::BalloonHiss:
+    {
+      // A parrot pecking its balloon down: two quick taps on taut canvas,
+      // air hissing out under them.
+      Noise n(3423), m(3427);
+      OnePole hp;
+      Svf bp;
+      std::vector<float> v = render(0.6, [&](double t, double total) {
+        double tap = 0.0;
+        for (const double at : {0.0, 0.11})
+          if (t >= at)
+            tap += bp.band(n.next(), 900.0, 3.0) * decay(t - at, 0.01) * 1.2;
+        const double hiss = hp.highpass(m.next(), 4000.0) * 0.35 * std::min(1.0, t / 0.1) * std::min(1.0, (total - t) / 0.3);
+        return (tap + hiss) * 0.6;
+      });
+      for (float& x : v)
+        x *= 0.8f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::MineFuse:
+    {
+      // A Balloon Mine lit: quick ticking beeps over a fizzing fuse.
+      Osc o;
+      Noise n(3429);
+      OnePole hp;
+      return render(0.4, [&](double t, double total) {
+        const double beep = std::fmod(t, 0.067) < 0.03 ? o.step(1760.0, Wave::Square, 0.5) * 0.25 : 0.0;
+        const double fizz = hp.highpass(n.next(), 3000.0) * 0.3;
+        return (beep + fizz) * 0.7 * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::MinePop:
+    {
+      // A Balloon Mine bursting: the balloon's sharp bang, then shrapnel
+      // rattling and pinging away.
+      Noise n(3431);
+      OnePole lp;
+      Svf bp;
+      std::vector<float> b = render(0.8, [&](double t, double) {
+        const double bang = lp.lowpass(n.next(), sweep(9000.0, 400.0, t / 0.1)) * decay(t, 0.03) * 1.8;
+        const double rattle = (std::fmod(t * 37.0 + std::sin(t * 9.0), 1.0) < 0.15 ? 1.0 : 0.0) * bp.band(n.next(), 3500.0, 4.0) *
+          decay(t, 0.25) * 0.7;
+        return (bang + rattle) * 0.6;
+      });
+      for (int k = 0; k < 4; ++k)
+        addTone(b, 0.08 + 0.07 * k, 0.2, 2600.0 + 600.0 * double(k % 3), Wave::Sine, 0.06, 0.04);
+      for (float& x : b)
+        x *= 0.27f; // to a peak near 0.4
+      return b;
+    }
+    case Sfx::CannonBoom:
+    {
+      // Human Cannonball: a circus cannon's deep boom, a puff, and a slide
+      // whistle going up with the flight.
+      Noise n(3433);
+      OnePole lp;
+      Osc o, w;
+      std::vector<float> v = render(1.3, [&](double t, double) {
+        const double boom = o.step(sweep(110.0, 32.0, t / 0.5), Wave::Sine) * decay(t, 0.3) * 1.2 +
+          lp.lowpass(n.next(), sweep(3000.0, 200.0, t / 0.3)) * decay(t, 0.12) * 1.5;
+        const double u = t - 0.15;
+        const double slide = u > 0.0 && u < 0.9 ? w.step(sweep(500.0, 1500.0, u / 0.9), Wave::Sine) * 0.18 * std::min(1.0, u / 0.05) *
+          std::min(1.0, (0.9 - u) / 0.15) : 0.0;
+        return (boom + slide) * 0.55 * attack(t, 0.001);
+      });
+      for (float& x : v)
+        x *= 0.41f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::NetBoing:
+    {
+      // Landing in a net: a springy boing, wobbling down.
+      Osc o;
+      std::vector<float> v = render(0.6, [&](double t, double) {
+        const double f = 180.0 * (1.0 + 0.35 * std::sin(t * 2.0 * kPi * 9.0) * decay(t, 0.2)) * sweep(1.6, 1.0, t / 0.08);
+        return o.step(f, Wave::Triangle) * 0.6 * decay(t, 0.22) * attack(t, 0.004);
+      });
+      for (float& x : v)
+        x *= 0.66f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::LooterSink:
+    {
+      // The Looter going down: a groaning hull, its engine coughing out.
+      Osc g, e;
+      Svf bp;
+      Noise n(3435);
+      std::vector<float> v = render(2.0, [&](double t, double total) {
+        const double f = 70.0 + 30.0 * std::sin(t * 2.3) - 15.0 * t;
+        const double groan = bp.band(float(g.step(f, Wave::Saw)), f * 3.0, 4.0) * 0.6;
+        const double cough = std::fmod(t, 0.31) < 0.09 && t < 1.3 ? (e.step(45.0, Wave::Square, 0.4) * 0.3 + n.next() * 0.2) *
+          (1.0 - t / 1.3) : 0.0;
+        return (groan + cough) * 0.7 * std::min(1.0, t / 0.2) * std::min(1.0, (total - t) / 0.4);
+      });
+      for (float& x : v)
+        x *= 0.42f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::BayHatch:
+    {
+      // The bomb bay's hatch opening: a wooden creak, then a heavy clunk.
+      Osc o, k;
+      Svf bp;
+      Noise n(3437);
+      std::vector<float> v = render(0.8, [&](double t, double) {
+        const double creak = t < 0.45 ? bp.band(float(o.step(120.0 + 160.0 * t, Wave::Saw)), 500.0 + 600.0 * t, 5.0) * 0.6 *
+          std::sin(t / 0.45 * kPi) : 0.0;
+        const double u = t - 0.45;
+        const double clunk = u > 0.0 ? (k.step(sweep(140.0, 70.0, u / 0.1), Wave::Sine) * 0.9 + bp.band(n.next(), 900.0, 2.0) * 0.6) *
+          decay(u, 0.06) : 0.0;
+        return (creak + clunk) * 0.7;
+      });
+      for (float& x : v)
+        x *= 0.5f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::DeckDip:
+    {
+      // A small deck dipping under Rocco: a wooden thump, the rigging creaking.
+      Osc o, c;
+      Svf bp;
+      Noise n(3439);
+      std::vector<float> v = render(0.7, [&](double t, double) {
+        const double thump = o.step(sweep(120.0, 50.0, t / 0.1), Wave::Sine) * decay(t, 0.08) * 1.2 + bp.band(n.next(), 700.0, 1.5) * decay(t, 0.03);
+        const double u = t - 0.12;
+        const double creak = u > 0.0 ? bp.band(float(c.step(160.0 + 40.0 * std::sin(u * 20.0), Wave::Saw)), 700.0, 5.0) * 0.4 * decay(u, 0.2) : 0.0;
+        return (thump + creak) * 0.6;
+      });
+      for (float& x : v)
+        x *= 0.47f; // to a peak near 0.4
+      return v;
+    }
     case Sfx::LavaRumble:
     {
       // Level 33: the lava rising: a deep rumble swelling up from below, a

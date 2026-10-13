@@ -6,6 +6,7 @@
 #include "game/toon_draw.hpp"
 #include "game/trench_draw.hpp"
 #include "game/storm_draw.hpp"
+#include "game/fleet_draw.hpp"
 #include "game/dish_draw.hpp"
 #include "game/magma_draw.hpp"
 #include "game/zero_draw.hpp"
@@ -117,6 +118,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawTrenchSet(r, *this, mArt, camX, camY, frame); // Level 30: the deep water, the hold, the station, the cable
   if (mStorm.on)
     drawStormSet(r, *this, mArt, camX, camY, frame); // Level 31: the lightning, the sea, the caves' and the tower's walls
+  if (mFleet.on)
+    drawFleetSet(r, *this, mArt, camX, camY, frame, alpha); // Level 34: the ships, their balloons and hulls, the bomb bay
   if (mDish.on)
     drawDishSet(r, *this, mArt, camX, camY, frame, alpha); // Level 32: the satellite, the dishes, the cabin, the bunker, the tower
   if (mMagma.on)
@@ -320,6 +323,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawTeslaIcon(r, mArt, x, y, 1.0f, frame); // Level 31 (world_storm_draw.cpp)
         continue;
       }
+      if (mFleet.on && mLevelProto == int(ProtoId::GrappleGun))
+      {
+        drawGrappleIcon(r, mArt, x, y, 1.0f, frame); // Level 34 (world_fleet_draw.cpp)
+        continue;
+      }
       if (mDish.on && mLevelProto == int(ProtoId::SignalJammer))
       {
         drawJammerIcon(r, mArt, x, y, 1.0f, frame); // Level 32 (world_dish_draw.cpp)
@@ -411,6 +419,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         // Storm Relay's duck wears a sou'wester.
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_sou_wester", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mFleet.on && mLevel->themeKey == "sunset_airships")
+      {
+        // Zeppelin Relay's duck wears a flying cap and goggles.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_aviator", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mKitchen.on && mLevel->themeKey == "tv_kitchen")
@@ -983,6 +998,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // a Tri-Tone shot in its tint (world_signal_draw.cpp)
     if (mTrench.on && drawTrenchShot(r, mArt, pr, cx, cy, frame))
       continue; // a harpoon and its line (world_trench_draw.cpp)
+    if (mFleet.on && drawFleetShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // the Grapple Gun's hook or a Sky Pirate's ball (world_fleet_draw.cpp)
     if (mStorm.on && drawStormShot(r, mArt, pr, cx, cy, frame))
       continue; // a Tesla rod (world_storm_draw.cpp)
     if (mMagma.on && drawMagmaShot(r, *this, mArt, pr, cx, cy, frame))
@@ -1660,6 +1677,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawHarpoonIcon(r, mArt, x + 18, top + 20); // Level 30: a speargun (world_trench_draw.cpp)
   else if (proto && mStorm.on && p.proto == int(ProtoId::TeslaRod))
     drawTeslaIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 31: a copper rod (world_storm_draw.cpp)
+  else if (proto && mFleet.on && p.proto == int(ProtoId::GrappleGun))
+    drawGrappleIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 34: a line gun (world_fleet_draw.cpp)
   else if (proto && mDish.on && p.proto == int(ProtoId::SignalJammer))
     drawJammerIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 32: a handheld jammer (world_dish_draw.cpp)
   else if (proto && mMagma.on && p.proto == int(ProtoId::HeatSink))

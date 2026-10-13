@@ -1,12 +1,20 @@
 cutscene brief_34
 music theme_waltz
 
+# clip fleet_sunset: the fleet at sunset over the cloud sea, the sun low
+#   and huge, airships at three depths drifting at their own speeds with
+#   their propellers turning, the clouds rolling under them, a parrot
+#   flapping across (a 4-frame wing beat); 12 frames
 shot fleet_sunset delay=100 repeat=1
   cue 0 fade=in:600
   cue 0 sound=propellers
 
+# clip fleet_sunset; 12 frames
 shot fleet_sunset delay=100 repeat=3
 
+# clip nova_smile: Nova at an airship's rail at sunset, a zeppelin gliding
+#   over behind her; she looks up at it (frames 0-1), then turns back with
+#   a grin and a twinkle (from frame 2), the wind streaming past; 8 frames
 shot nova_smile delay=120 repeat=1
   cue 2 say=NOVA "Finally, something with wings."
   cue 2 hold=2500

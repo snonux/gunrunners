@@ -23,6 +23,7 @@
 #include "assets/enemy_art_signal.hpp"
 #include "assets/enemy_art_trench.hpp"
 #include "assets/enemy_art_storm.hpp"
+#include "assets/enemy_art_fleet34.hpp"
 #include "assets/enemy_art_dish.hpp"
 #include "assets/enemy_art_magma33.hpp"
 #include "assets/enemy_art_garden.hpp"
@@ -2662,6 +2663,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
            !drawSignalArt(c.cr, t, key, w, h, variant, frame) &&
            !drawTrenchArt(c.cr, t, key, w, h, variant, frame) &&
            !drawStormArt(c.cr, t, key, w, h, variant, frame) &&
+           !drawFleet34Art(c.cr, t, key, w, h, variant, frame) &&
            !drawDishArt(c.cr, t, key, w, h, variant, frame) &&
            !drawMagma33Art(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
