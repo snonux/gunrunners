@@ -275,6 +275,15 @@ const EnemyDef kEnemies[] = {
   {"relay_drone", "RELAY DRONE", K::RelayDrone, L::Styled, 4, 3, 3, 400, 1, 40, 10, 0, kEnemyHarmless | kEnemyRobot, 0},
   {"feedback_node", "FEEDBACK NODE", K::FeedbackNode, L::Styled, 4, 4, 8, 900, 0, 45, 22, 0, kEnemyHarmless | kEnemyRobot, 0},
   {"copycat_dummy", "COPYCAT DUMMY", K::MastClimber, L::Styled, 3, 5, 99, 0, 1, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
+  // Level 36. Forklift Bot: forks lower and the engine revs (15) before a
+  // charge; it does its own contact damage (world_warehouse.cpp). Stagehand:
+  // white gloves flash as it leans out (12). Prop Mimic: the lid opens on
+  // its teeth (10) before it lunges. The Throw Everything bonus's dummies
+  // only walk.
+  {"forklift", "FORKLIFT BOT", K::Forklift, L::Styled, 6, 4, 8, 800, 2, 45, 15, 0, kEnemyHarmless | kEnemyRobot, 0},
+  {"stagehand", "STAGEHAND", K::Stagehand, L::Styled, 3, 5, 4, 500, 2, 30, 12, 0, kEnemyHarmless, 0},
+  {"mimic", "PROP MIMIC", K::Mimic, L::Styled, 4, 4, 3, 700, 0, 30, 10, 0, 0, 0},
+  {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 
 constexpr int kEnemyCount = int(sizeof(kEnemies) / sizeof(kEnemies[0]));

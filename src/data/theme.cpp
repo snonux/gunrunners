@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 43> kVariants{{
+const std::array<Variant, 44> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -650,6 +650,21 @@ const std::array<Variant, 43> kVariants{{
     rgb(210, 200, 220), rgb(250, 240, 236),
     rgb(240, 170, 40), rgb(255, 220, 120), rgb(70, 60, 50), rgb(120, 220, 255),
     rgb(255, 250, 240), "tower"}},
+  // Level 36: MaxTV's prop store at night, bare work lights over dark
+  // shelving, yellow crane steel, black curtains.
+  {"prop_warehouse",
+   {ThemeId::StationZero,
+    "PROP WAREHOUSE",
+    "THROUGH THE PROP STORE TO THE DRESSING ROOMS",
+    rgb(14, 14, 20), rgb(34, 32, 40), rgb(70, 62, 60),
+    rgb(92, 84, 76), rgb(140, 128, 112), rgb(40, 36, 34),
+    rgb(240, 196, 40), rgb(255, 230, 120),
+    rgb(120, 110, 100), rgb(70, 64, 58),
+    rgb(255, 120, 40), rgb(255, 200, 120),
+    rgb(240, 196, 40), rgb(120, 200, 255),
+    rgb(60, 54, 50), rgb(110, 100, 90),
+    rgb(160, 120, 80), rgb(210, 170, 120), rgb(40, 34, 30), rgb(255, 80, 60),
+    rgb(255, 246, 230), "warehouse"}},
 }};
 
 } // namespace

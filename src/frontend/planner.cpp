@@ -523,6 +523,90 @@ Planner::Goal Planner::towerGoal(const World& w) const
   return {18, wp.x - 1, wp.y - 4, 4, 5, -1};
 }
 
+// Level 36: the first step on the warehouse route that is not done yet.
+int warehouseStep(const World& w)
+{
+  const auto& s = w.warehouse();
+  for (int i = s.routeAt; i < int(s.route.size()); ++i)
+    if (!w.warehouseStepDone(i))
+      return i;
+  return -1;
+}
+
+// Throw Everything: a loose block the bot may lift (not one of the stacks
+// it is building).
+bool warehouseLiftable(const World& w, int bx, int by)
+{
+  const auto& s = w.warehouse();
+  if (w.map().block(bx, by) != Tile::Solid)
+    return false;
+  for (const auto& st : s.route)
+    if (st.act == "stack" && std::atoi(st.arg.c_str()) == bx)
+      return false;
+  for (const auto& [lx, ly] : s.loose)
+    if (lx == bx && ly == by)
+      return true;
+  return false;
+}
+
+Planner::Goal Planner::warehouseGoal(const World& w) const
+{
+  const auto& s = w.warehouse();
+  const int i = warehouseStep(w);
+  if (i < 0)
+    return {};
+  const auto& st = s.route[std::size_t(i)];
+  if (st.act == "stack")
+  {
+    // Carrying: to the throw spot (the throw lands six blocks on). Else
+    // beside the nearest loose block on the step's floor, close enough to
+    // lift it: the runner's feet row or one of the two rows above.
+    if (s.carry >= 0 || s.liftT > 0)
+      return {18, st.x, st.y - 4, 2, 5, -1};
+    const auto& p = w.player();
+    const auto& m = w.map();
+    const int floor = st.y / kCellsPerTile;
+    auto standable = [&](int x) {
+      for (int cy = st.y - 4; cy <= st.y; ++cy)
+        for (int cx = x; cx < x + 3; ++cx)
+          if (m.solid(cx, cy))
+            return false;
+      return m.solidTop(x, st.y + 1) || m.solidTop(x + 1, st.y + 1) || m.solidTop(x + 2, st.y + 1);
+    };
+    Goal best;
+    int bestD = -1;
+    for (const auto& [bx, by] : s.loose)
+    {
+      if (by < floor - 2 || by > floor || !warehouseLiftable(w, bx, by))
+        continue;
+      for (int x : {bx * kCellsPerTile + 2, bx * kCellsPerTile - 3}) // right of it, left of it
+      {
+        if (!standable(x))
+          continue;
+        const int d = std::abs(x - st.x); // nearest the throw spot: a goal that holds still
+        if (bestD < 0 || d < bestD)
+        {
+          bestD = d;
+          best = {18, x + 1, st.y - 4, 1, 5, -1};
+        }
+      }
+    }
+    if (std::getenv("GR_WARE_DEBUG"))
+      std::fprintf(stderr, "ware goal f%d: step %d lift goal %d,%d (runner %d,%d)\n", w.stats().frames, i, best.x, best.y,
+        p.x, p.y);
+    return best;
+  }
+  if (st.act == "push")
+    for (const auto& c : s.crates)
+      if (c.id == st.arg)
+      {
+        // Behind the crate on its floor, a few cells back.
+        const int y = c.y + kCrateSize - 1;
+        return {18, c.x - 9, y - 4, 3, 5, -1};
+      }
+  return {18, st.x - 1, st.y - 4, 4, 5, -1};
+}
+
 Planner::Goal Planner::chooseGoal(const World& w) const
 {
   Goal g;
@@ -563,6 +647,14 @@ Planner::Goal Planner::chooseGoal(const World& w) const
         consider(b.x, b.y);
     if (bestD >= 0)
       return best;
+  }
+  // Level 36: the route's next job (a lever, a crane to wait for, a crate to
+  // push into place); Bot::warehouse does it once the runner is there.
+  if (w.warehouse().on)
+  {
+    const Goal h = warehouseGoal(w);
+    if (h.kind != 0)
+      return h;
   }
   // Level 27: for the bonus, stand under the painting (Bot::noir shoots it open).
   if (w.noir().paintX >= 0 && !w.noir().paintOpen && mTakeBonus && !mSkipBonus)
@@ -2440,6 +2532,12 @@ void Planner::plan(const World& world)
     powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
     powered = powered * 2 + world.fleet().hatchOpen; // Level 34: the bomb bay's hatch
     powered = int(unsigned(powered) * 131u + unsigned(world.tower().rot)); // Level 35: how far the tower has turned
+    // Level 36: where the metal crates rest (they are solid map blocks).
+    for (const auto& c : world.warehouse().crates)
+      powered = int(unsigned(powered) * 131u + unsigned(c.stamped ? c.x * 997 + c.y : 7));
+    // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
+    for (const auto& [lx, ly] : world.warehouse().loose)
+      powered = int(unsigned(powered) * 131u + unsigned(lx * 97 + ly));
     // Level 31: machines powered (the generator's hatch, the lift).
     for (const auto& m : world.storm().machines)
       powered = powered * 2 + m.powered;

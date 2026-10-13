@@ -226,6 +226,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFleetBack(r, camX, camY, frame, alpha);
   if (mTower.on)
     drawTowerBack(r, camX, camY, frame, alpha);
+  if (mWarehouse.on)
+    drawWarehouseBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -469,6 +471,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 33 (world_magma_draw.cpp)
     if (e.kind == EnemyKind::SkyPirate || e.kind == EnemyKind::PeckParrot || e.kind == EnemyKind::BalloonMine)
       continue; // Level 34 (world_fleet_draw.cpp)
+    if (e.kind == EnemyKind::Forklift || e.kind == EnemyKind::Stagehand || e.kind == EnemyKind::Mimic)
+      continue; // Level 36 (world_warehouse_draw.cpp)
     if (e.kind == EnemyKind::MastClimber || e.kind == EnemyKind::RelayDrone || e.kind == EnemyKind::FeedbackNode)
       continue; // Level 35 (world_tower_draw.cpp)
     if (e.kind == EnemyKind::Echo)
@@ -965,6 +969,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFleetFront(r, camX, camY, frame, alpha);
   if (mTower.on)
     drawTowerFront(r, camX, camY, frame, alpha);
+  if (mWarehouse.on)
+    drawWarehouseFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1279,6 +1285,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
         {
           if (mZero.wireframe)
             break; // the Wireframe bonus draws its own (world_zero_draw.cpp)
+          if (mWarehouse.on && warehouseDrawsBlock(tx, ty))
+            break; // a metal crate (world_warehouse_draw.cpp)
           if (mCity.on && cityDrawsBlock(tx, ty))
             break; // a model building (world_city_draw.cpp)
           if ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty))
@@ -1351,7 +1359,7 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
     for (int tx = tx0; tx <= tx1; ++tx)
       if (mMap.block(tx, ty) == Tile::Solid && (mMap.block(tx, ty - 1) != Tile::Solid || (mCity.on && cityDrawsBlock(tx, ty - 1)) ||
                                                   ((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty - 1))) &&
-          !(mCity.on && cityDrawsBlock(tx, ty)) &&
+          !(mCity.on && cityDrawsBlock(tx, ty)) && !(mWarehouse.on && warehouseDrawsBlock(tx, ty)) &&
           !((mToon.on || mInk.on) && toonDrawsBlock(*this, tx, ty)) &&
           mMap.block(tx, ty - 1) != Tile::Spikes && !mLayerMask[std::size_t(ty * mLevel->width + tx)] && !mZero.wireframe)
         r.draw(mArt.solidTop, float(tx) * kTilePx - camX, float(ty) * kTilePx - camY);
@@ -1812,6 +1820,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawFleetHud(r, frame);
   if (mTower.on)
     drawTowerHud(r, frame);
+  if (mWarehouse.on)
+    drawWarehouseHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

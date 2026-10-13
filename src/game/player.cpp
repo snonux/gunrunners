@@ -819,6 +819,11 @@ void World::updateShooting(const Button& fire)
   auto& p = mPlayer;
   if (mInk.on)
     return; // the Inkwell: fire draws (world_toon.cpp)
+  if (mWarehouse.throwAll)
+  {
+    throwAllFire(fire); // Throw Everything: fire lifts and throws (world_warehouse.cpp)
+    return;
+  }
   if (p.weapon == Weapon::Proto)
   {
     updateProtoShooting(fire);
@@ -1224,6 +1229,8 @@ void World::respawnPlayer()
       towerFrameEnd(); // the runner back in the middle of the tower
     }
   }
+  if (mWarehouse.on)
+    resetWarehouse();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

@@ -182,6 +182,8 @@ void World::updatePlatforms()
     auto& a = mPlatforms[i];
     if (a.fleet)
       continue; // Level 34: ships move in updateFleetShips
+    if (a.crane)
+      continue; // Level 36: a crane's crate (world_warehouse.cpp)
     if (a.mode == PlatformMode::Path)
     {
       if (a.path.size() < 2 || a.frozen)
@@ -516,6 +518,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
       continue; // Level 25's dandelion seed head (world_garden_draw.cpp)
     if (pl.fleet)
       continue; // Level 34's ships (world_fleet_draw.cpp)
+    if (pl.crane)
+      continue; // Level 36's crane crates (world_warehouse_draw.cpp)
     if (mDish.on && pl.dead)
       continue; // Level 32's rims and feed arms (world_dish_draw.cpp)
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;

@@ -154,6 +154,9 @@ enum class EnemyKind
   MastClimber, // Level 35: climbs ladders after you, swings a wrench
   RelayDrone,  // Level 35: circles the mast, fires at you on its front half
   FeedbackNode, // Level 35: bolted to the mast, glows, then pushes you along
+  Forklift,     // Level 36: patrols, then charges; lifts the runner on its forks and carries them off
+  Stagehand,    // Level 36: carries a flat, sets it down in front of you, shoots from behind it
+  Mimic,        // Level 36: a prop box that bites (or infects) when you come close
 };
 
 enum EnemyFlag : unsigned

@@ -58,6 +58,7 @@ private:
   void plan(const World& world);
   Goal chooseGoal(const World& world) const;
   Goal towerGoal(const World& world) const; // Level 35's route up the turning tower
+  Goal warehouseGoal(const World& world) const; // Level 36's route: levers, cranes, crates
   // Level 23's bonus detour: through the broken mirror into the crypt, the
   // bonus door, back out through the crypt's mirror. Returns kind 18 (the
   // mirror to stand at) or kind 0; inCrypt: in the crypt with the door
@@ -111,5 +112,10 @@ private:
   std::uint64_t mLampKey = 0;
   int mLampWanted = -1;
 };
+
+// Level 36: the first step on the warehouse route not done yet, -1 if none.
+int warehouseStep(const World& w);
+// Throw Everything: a loose block the bot may lift (not on a stack it builds).
+bool warehouseLiftable(const World& w, int bx, int by);
 
 } // namespace gr

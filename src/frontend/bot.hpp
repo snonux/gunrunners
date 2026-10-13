@@ -85,6 +85,11 @@ public:
   // The Transmitter (bot_tower.cpp): the crawl space's doors, the
   // Halcyon Titan (moves tried in copies, like Gorgazilla), Copycat.
   bool tower(const World& world, Input& in);
+  // Prop Warehouse (bot_warehouse.cpp): levers, cranes, crates to push;
+  // Throw Everything's stacks.
+  bool warehouse(const World& world, Input& in);
+  Input mWarePrev;
+  bool mWarePrevFire = false;
   Input fightTitan(const World& world);
   Input copycat(const World& world);
   int mTowerTurns = -1;

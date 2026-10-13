@@ -191,6 +191,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkMagma();
   linkFleet();
   linkTower();
+  linkWarehouse();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -390,6 +391,8 @@ void World::updateFrame(const PlayerInput& input)
         updateGravPlayer(input);
       else if (mManor.flip > 0)
         updatePlayer(PlayerInput{}); // stepping through a mirror: no control
+      else if (mWarehouse.grabbedBy >= 0)
+        ; // on a Forklift Bot's forks (updateForklift moves the runner)
       else if (mKitchen.hand > 0)
         ; // in the chef's hand (updateKitchen moves the runner)
       else if (mFilm.on && mFilm.gagState == 1)
@@ -503,6 +506,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateFleet(input);
   if (mTower.on)
     updateTower(input);
+  if (mWarehouse.on)
+    updateWarehouse(input);
   updateHatches();
   updateProps(input);
 }
@@ -1026,6 +1031,15 @@ void World::updateEnemies()
       case EnemyKind::FeedbackNode:
         updateFeedbackNode(e, def);
         break;
+      case EnemyKind::Forklift:
+        updateForklift(e, def);
+        break;
+      case EnemyKind::Stagehand:
+        updateStagehand(e, def);
+        break;
+      case EnemyKind::Mimic:
+        updateMimic(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1164,6 +1178,9 @@ void World::updateProjectiles()
     if (mTower.on && shotAtTower(pr, b))
       return true;
     if (mTower.on && swarmBlocks(pr))
+      return true;
+    // Level 36: flats stop shots; the Magnet Gun's push shoves crates.
+    if (mWarehouse.on && shotAtWarehouse(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))

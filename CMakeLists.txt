@@ -141,6 +141,8 @@ add_library(gunrunners_core STATIC
   src/game/world_fleet_draw.cpp
   src/game/world_tower.cpp
   src/game/world_tower_draw.cpp
+  src/game/world_warehouse.cpp
+  src/game/world_warehouse_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -174,6 +176,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_magma.cpp
   src/frontend/bot_fleet.cpp
   src/frontend/bot_tower.cpp
+  src/frontend/bot_warehouse.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -388,3 +391,8 @@ add_executable(tower_test tests/tower_test.cpp)
 target_link_libraries(tower_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME tower COMMAND tower_test ${CMAKE_SOURCE_DIR}/levels/35_bonus_copycat.txt)
 add_test(NAME savegame_the_transmitter COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/35_the_transmitter.txt 300)
+add_executable(warehouse_test tests/warehouse_test.cpp)
+target_link_libraries(warehouse_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME warehouse COMMAND warehouse_test ${CMAKE_SOURCE_DIR}/levels/36_prop_warehouse.txt
+  ${CMAKE_SOURCE_DIR}/levels/36_bonus_throw.txt)
+add_test(NAME savegame_prop_warehouse COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/36_prop_warehouse.txt 300)

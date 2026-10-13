@@ -89,6 +89,12 @@ void World::updateProtoShooting(const Button& fire)
     updateGrapple(fire);
     return;
   }
+  // Level 36: hold to pull metal in, tap to push it away (world_warehouse.cpp).
+  if (ProtoId(p.proto) == ProtoId::MagnetGun)
+  {
+    updateMagnetGun(fire);
+    return;
+  }
   // Level 33: hold to suck fireballs in, release to throw them back (world_magma.cpp).
   if (ProtoId(p.proto) == ProtoId::HeatSink)
   {

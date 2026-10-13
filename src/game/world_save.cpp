@@ -20,7 +20,8 @@ bool World::canSave() const
     (!(mToon.on || mInk.on) || toonCanSave()) && (!mSignal.on || signalCanSave()) &&
     (!mTrench.on || trenchCanSave()) && (!mStorm.on || stormCanSave()) &&
     (!mDish.on || dishCanSave()) && (!mMagma.on || magmaCanSave()) &&
-    (!mFleet.on || fleetCanSave()) && (!mTower.on || towerCanSave());
+    (!mFleet.on || fleetCanSave()) && (!mTower.on || towerCanSave()) &&
+    (!mWarehouse.on || warehouseCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -403,6 +404,8 @@ SaveGame World::snapshot() const
     s.fleet = fleetSave();
   if (mTower.on)
     s.tower = towerSave();
+  if (mWarehouse.on)
+    s.warehouse = warehouseSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -498,6 +501,7 @@ bool World::restore(const SaveGame& s)
       (!s.storm.empty() && !validStormSave(s.storm)) ||
       (!s.dish.empty() && !validDishSave(s.dish)) || (!s.magma.empty() && !validMagmaSave(s.magma)) ||
       (!s.fleet.empty() && !validFleetSave(s.fleet)) || (!s.tower.empty() && !validTowerSave(s.tower)) ||
+      (!s.warehouse.empty() && !validWarehouseSave(s.warehouse)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -972,6 +976,8 @@ bool World::restore(const SaveGame& s)
     loadFleet(s.fleet);
   if (!s.tower.empty())
     loadTower(s.tower);
+  if (!s.warehouse.empty())
+    loadWarehouse(s.warehouse);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

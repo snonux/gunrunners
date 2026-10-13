@@ -29,6 +29,7 @@
 #include "game/magma.hpp"
 #include "game/fleet.hpp"
 #include "game/tower.hpp"
+#include "game/warehouse.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -480,6 +481,7 @@ struct Platform
   int powered = -1; // a lift: only moves while this breaker is on
   bool dead = false; // Level 31: a dead lift until lightning powers it (world_storm.cpp)
   bool fleet = false; // Level 34: a ship's deck, moved by world_fleet.cpp
+  bool crane = false; // Level 36: a crane's crate in the crane yard, moved by world_warehouse.cpp
   bool once = false;   // mode=once: hidden until a script starts it, gone at the end
   int latch = -1;      // a hook: held by this latch until it is shot, then runs once you stand on it
   std::string latchId;
@@ -1842,6 +1844,8 @@ public:
   const MagmaState& magma() const { return mMagma; }
   const FleetState& fleet() const { return mFleet; }
   const TowerState& tower() const { return mTower; }
+  const WarehouseState& warehouse() const { return mWarehouse; }
+  bool warehouseStepDone(int i) const; // Level 36: the bot's route step i is done
   bool titanFight() const; // Level 35: the Halcyon Titan is on the deck
   int titanHp() const;
   int towerDx(int from, int to) const; // cells, the short way round a wrapx level
@@ -2716,6 +2720,44 @@ private:
   void drawMagmaBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawMagmaHud(Renderer& r, int frame) const;
+  // Level 36, Prop Warehouse (world_warehouse.cpp, world_warehouse_draw.cpp),
+  // and its Throw Everything bonus.
+  bool setupWarehouseEntity(const EntityDef& e);
+  void setupWarehouseEnemy(Enemy& en, const EntityDef& e);
+  void linkWarehouse();
+  void stampCrate(MetalCrate& c);
+  void unstampCrate(MetalCrate& c);
+  bool crateBlocked(const CellBox& b) const;
+  bool crateSupported(const MetalCrate& c) const;
+  void restCrate(MetalCrate& c);
+  void crateHitsEnemies(MetalCrate& c, int damage);
+  void updateMetalCrates();
+  void throwLever(CraneLever& l);
+  int craneTarget(const Crane& c, int& load) const;
+  void placeCraneLoad(Crane& c);
+  void releaseCraneLoad(Crane& c);
+  void updateCranes();
+  void updateRideCrane(Crane& c);
+  void magnetPull();
+  void updateMagnetGun(const Button& fire);
+  bool shotAtWarehouse(Projectile& pr, const CellBox& hit);
+  void turboShove(const PlayerInput& input);
+  void dropFromForks(Forklift& f);
+  void updateForklift(Enemy& e, const EnemyDef& def);
+  void updateStagehand(Enemy& e, const EnemyDef& def);
+  void updateMimic(Enemy& e, const EnemyDef& def);
+  void updateWarehouse(const PlayerInput& input);
+  void resetWarehouse();
+  void throwAllFire(const Button& fire);
+  void updateThrowAll();
+  bool warehouseCanSave() const;
+  std::vector<int> warehouseSave() const;
+  bool validWarehouseSave(const std::vector<int>& s) const;
+  void loadWarehouse(const std::vector<int>& s);
+  bool warehouseDrawsBlock(int tx, int ty) const;
+  void drawWarehouseBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWarehouseFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawWarehouseHud(Renderer& r, int frame) const;
   // Level 35, The Transmitter (world_tower.cpp, world_tower_draw.cpp),
   // and its Copycat bonus.
   bool setupTowerEntity(const EntityDef& e);
@@ -3281,6 +3323,7 @@ private:
   MagmaState mMagma;
   FleetState mFleet;
   TowerState mTower;
+  WarehouseState mWarehouse;
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner
