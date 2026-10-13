@@ -31,6 +31,7 @@ add_library(gunrunners_core STATIC
   src/assets/art_fleet34.cpp
   src/assets/art_dish.cpp
   src/assets/art_magma33.cpp
+  src/assets/art_tower35.cpp
   src/assets/art_garden.cpp
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
@@ -54,6 +55,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_fleet34.cpp
   src/assets/enemy_art_dish.cpp
   src/assets/enemy_art_magma33.cpp
+  src/assets/enemy_art_tower35.cpp
   src/assets/enemy_art_garden.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp

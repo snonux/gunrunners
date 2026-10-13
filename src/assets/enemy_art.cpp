@@ -26,6 +26,7 @@
 #include "assets/enemy_art_fleet34.hpp"
 #include "assets/enemy_art_dish.hpp"
 #include "assets/enemy_art_magma33.hpp"
+#include "assets/enemy_art_tower35.hpp"
 #include "assets/enemy_art_garden.hpp"
 #include "assets/enemy_art_hull.hpp"
 #include "assets/enemy_art_station.hpp"
@@ -2666,6 +2667,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
            !drawFleet34Art(c.cr, t, key, w, h, variant, frame) &&
            !drawDishArt(c.cr, t, key, w, h, variant, frame) &&
            !drawMagma33Art(c.cr, t, key, w, h, variant, frame) &&
+           !drawTower35Art(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;

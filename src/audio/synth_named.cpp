@@ -240,6 +240,11 @@ std::vector<float> makeNamedSfx(const std::string& id)
     return makeSfx(Sfx::LavaRumble);
   if (id == "steam_burst")
     return makeSfx(Sfx::SteamBurst);
+  // Level 35's briefing: the wind round the mast, the cargo airship.
+  if (id == "wind")
+    return makeSfx(Sfx::MastWind);
+  if (id == "engine_drone")
+    return makeSfx(Sfx::AirshipDrone);
   // Level 23's briefing: the storm over the manor.
   if (id == "thunder")
     return makeSfx(Sfx::Thunder);
@@ -247,6 +252,25 @@ std::vector<float> makeNamedSfx(const std::string& id)
     return makeSfx(Sfx::LightClunk);
   if (id == "crowd_cheer")
     return makeSfx(Sfx::Applause);
+  // The end of Episode 5: the Titan going over, the runners riding the
+  // signal (big_explosion is the boom family's).
+  if (id == "metal_groan")
+    return makeSfx(Sfx::TitanTopple);
+  if (id == "beam_whoosh")
+  {
+    // A rising rush of air with a shimmering carrier tone climbing in it,
+    // the beam taking the runners and streaking away.
+    Noise n(seed);
+    Svf bp;
+    Osc a, b;
+    return render(2.4, [&](double t, double total) {
+      const double u = t / total;
+      const double rush = bp.band(n.next(), sweep(300.0, 3200.0, std::min(1.0, u * 1.4)), 0.8) * std::sin(std::min(1.0, u * 1.1) * kPi);
+      const double f = sweep(220.0, 1760.0, std::min(1.0, u * 1.3));
+      const double tone = (a.step(f, Wave::Sine) + b.step(f * 1.505, Wave::Triangle) * 0.4) * 0.25 * std::sin(u * kPi);
+      return (rush * 0.7 + tone) * 0.58 * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.4);
+    });
+  }
   // Level 24's briefing: Lance taps his spoon on the pot (a bright, short
   // ding of a steel spoon on a stockpot's rim, with a little wobble).
   if (id == "spoon_ding")

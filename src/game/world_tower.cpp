@@ -359,6 +359,8 @@ void World::updateTower(const PlayerInput& input)
   }
   if (s.dizzy > 0)
     --s.dizzy;
+  if (s.wrap && alive && p.y < 100 && mStats.frames % 90 == 0)
+    playSound(Sfx::MastWind); // the wind round the mast, now and then
   // A door: up takes you through to its twin.
   if (alive && upNow && p.state == PlayerState::OnGround)
     for (const auto& d : s.doors)
@@ -368,7 +370,7 @@ void World::updateTower(const PlayerInput& input)
         p.x = p.prevX = to.x;
         p.y = p.prevY = to.y;
         p.state = PlayerState::OnGround;
-        playSound(Sfx::Teleport);
+        playSound(Sfx::HatchClank);
         towerFrameEnd();
         mCamera.centerOn(cameraTarget(), mMap.width(), mMap.height());
         break;
@@ -384,7 +386,7 @@ void World::updateTower(const PlayerInput& input)
       e.hidden = false;
       e.active = true;
       w.enemy = -1;
-      playSound(Sfx::ArmorClank);
+      playSound(Sfx::ClimberSetOff);
     }
   }
   // The bot's way up: the furthest waypoint stood on.
@@ -429,7 +431,7 @@ void World::updateTower(const PlayerInput& input)
     s.brochureTaken = true;
     addScore(s.brochureScore, cellCenter(boxAt(s.brochureX, s.brochureY, 2, 2)));
     showMessage("THE HALCYON TITAN SALES BROCHURE - SECRET FOUND");
-    playSound(Sfx::Chime);
+    playSound(Sfx::BrochureJingle);
   }
   // Under the alien's flag on the top: its anthem.
   if (s.flagX >= 0 && !s.anthem)
@@ -441,7 +443,7 @@ void World::updateTower(const PlayerInput& input)
       {
         s.anthem = true;
         showMessage("AN ALIEN ANTHEM, FOUR NOTES LONG");
-        playSound(Sfx::FlagUp);
+        playSound(Sfx::AlienAnthem);
       }
     }
     else
@@ -504,10 +506,12 @@ void World::swarmVolley(int dx, int dy)
   auto& s = mTower;
   if (!s.on)
     return;
+  bool volley = false; // (only for its sound)
   for (const auto& d : s.swarm)
   {
     if (d.offline > 0)
       continue;
+    volley = true;
     Projectile pr;
     pr.kind = ShotKind::Proto;
     pr.proto = int(ProtoId::SatelliteSwarm);
@@ -521,6 +525,8 @@ void World::swarmVolley(int dx, int dy)
     pr.y = pr.prevY = int(std::floor(d.y));
     mProjectiles.push_back(pr); // (a drone inside the lattice fires into it)
   }
+  if (volley)
+    playSound(Sfx::SwarmVolley);
 }
 
 bool World::swarmBlocks(Projectile& pr)
@@ -539,7 +545,7 @@ bool World::swarmBlocks(Projectile& pr)
       continue;
     d.offline = kDroneOffline;
     pr.alive = false;
-    playSound(Sfx::Deflect);
+    playSound(Sfx::SwarmBlock);
     burst(c, rgb(160, 255, 255), rgb(255, 255, 255), 10, 1.4f);
     return true;
   }
@@ -581,7 +587,7 @@ void World::updateMastClimber(Enemy& e, const EnemyDef& def)
                                       : CellBox{b.x - kClimberReach, b.y, kClimberReach, b.h};
       if (alive && reach.intersects(pb))
         hurtPlayer(1);
-      playSound(Sfx::Swoosh);
+      playSound(Sfx::WrenchSwing);
       e.cool = def.cooldown;
     }
     return;
@@ -632,6 +638,7 @@ void World::updateMastClimber(Enemy& e, const EnemyDef& def)
   {
     e.dir = dx < 0 ? -1 : 1;
     e.tell = def.tell;
+    playSound(Sfx::WrenchRaise);
     return;
   }
   if (!alive || e.timer % std::max(1, def.stepEvery) != 0)
@@ -707,13 +714,18 @@ void World::updateRelayDrone(Enemy& e, const EnemyDef& def)
       pr.y = pr.prevY = b.y + 2;
       pr.range = 60;
       mProjectiles.push_back(pr);
-      playSound(Sfx::EnemyShot);
+      playSound(Sfx::DroneShot);
       e.cool = def.cooldown;
     }
     return;
   }
+  if (alive && e.timer % 30 == 0 && std::abs(dx) <= 24 && std::abs(dy) <= 16)
+    playSound(Sfx::RotorWhine); // the rotors, coming round the curve
   if (alive && e.cool == 0 && std::abs(dx) <= kRelayRange && std::abs(dy) <= kRelayRange)
+  {
     e.tell = kRelayTell;
+    playSound(Sfx::DroneCharge);
+  }
 }
 
 void World::updateFeedbackNode(Enemy& e, const EnemyDef& def)
@@ -741,7 +753,7 @@ void World::updateFeedbackNode(Enemy& e, const EnemyDef& def)
       {
         n->state = 1;
         n->t = 0;
-        playSound(Sfx::CoreHum);
+        playSound(Sfx::NodeHum);
       }
       break;
     case 1: // glowing white, the hum rising
@@ -756,7 +768,7 @@ void World::updateFeedbackNode(Enemy& e, const EnemyDef& def)
           s.pushT = mCharacterIndex == 1 ? kNodePush / 2 : kNodePush; // Rocco is heavy
           s.pushDir = dx < 0 ? -1 : 1;
         }
-        playSound(Sfx::CorePulse);
+        playSound(Sfx::NodePulse);
       }
       break;
     case 2: // the ring goes out
@@ -819,7 +831,7 @@ void World::updateTitan()
         t.x = t.prevX = t.landX;
         t.y = t.prevY = t.deckY - 40;
         t.facing = towerDx(t.x + kTitanW / 2, p.x + 1) < 0 ? -1 : 1;
-        playSound(Sfx::Rumble);
+        playSound(Sfx::AirshipDrone);
         showMessage("BROUGHT TO YOU BY HALCYON ARMS!");
       }
       return;
@@ -833,7 +845,7 @@ void World::updateTitan()
         t.t = 0;
         t.move = TitanMove::None;
         mCamera.shake(12, 3.0f);
-        playSound(Sfx::Stomp);
+        playSound(Sfx::TitanStomp);
       }
       return;
     case TitanPhase::Demo:
@@ -853,7 +865,7 @@ void World::updateTitan()
         t.y += 1 + t.fallT / 4;
         t.x += t.facing;
         if (t.fallT == 1)
-          playSound(Sfx::Whistle);
+          playSound(Sfx::TitanTopple);
       }
       if (t.fallT > 50)
       {
@@ -899,7 +911,7 @@ void World::titanDemo()
       t.moveT = 0;
       t.banner = 30;
       t.bannerText = t.move == TitanMove::Laser ? "LASER SWEEP!" : t.move == TitanMove::Missiles ? "MISSILE VOLLEY!" : "FLAMETHROWER!";
-      playSound(Sfx::Siren);
+      playSound(Sfx::HypeSting);
     }
     return;
   }
@@ -909,7 +921,7 @@ void World::titanDemo()
   {
     case TitanMove::Laser:
       if (t.moveT == kLaserTell)
-        playSound(Sfx::LaserShot);
+        playSound(Sfx::TitanLaser);
       if (t.moveT > kLaserTell && t.moveT <= kLaserTell + kLaserFrames)
       {
         // At standing head height: crouch under it.
@@ -926,7 +938,7 @@ void World::titanDemo()
         const int offs[4] = {0, -7, 7, 14 * (dx < 0 ? -1 : 1)};
         for (int i = 0; i < 4; ++i)
           t.cross[std::size_t(i)] = wrapIn(pc + offs[i], mMap.width());
-        playSound(Sfx::Beep);
+        playSound(Sfx::MissileLock);
       }
       if (t.moveT == kMissileTell)
       {
@@ -938,13 +950,13 @@ void World::titanDemo()
         }
         if (alive && hit)
           titanHurtsRunner(1);
-        playSound(Sfx::Explosion);
+        playSound(Sfx::MissileRain);
         t.move = TitanMove::None;
       }
       break;
     case TitanMove::Flame:
       if (t.moveT == kFlameTell)
-        playSound(Sfx::FlameShot);
+        playSound(Sfx::TitanFlame);
       if (t.moveT > kFlameTell && t.moveT <= kFlameTell + kFlameFrames)
       {
         if (alive && front > 0 && front <= kTitanW / 2 + kFlameReach && p.y > t.deckY - kTitanH &&
@@ -963,6 +975,7 @@ void World::titanDemo()
     // The power core opens after each attack.
     t.core = kTitanCore;
     t.t = 0;
+    playSound(Sfx::CoreOpen);
   }
 }
 
@@ -995,7 +1008,7 @@ void World::titanOrbit()
     pr.y = pr.prevY = t.deckY;
     pr.range = W;
     mProjectiles.push_back(pr);
-    playSound(Sfx::EnemyShot);
+    playSound(Sfx::LatticeShot);
   }
 }
 
@@ -1014,7 +1027,7 @@ void World::titanOverheat()
     t.stompT = 0;
     t.wave = 0;
     mCamera.shake(10, 2.5f);
-    playSound(Sfx::Stomp);
+    playSound(Sfx::TitanStomp);
   }
   if (t.wave >= 0)
   {
@@ -1038,7 +1051,7 @@ void World::titanOverheat()
           t.open = i;
           t.openT = 0;
           t.nextMove = (i + 1) % 4;
-          playSound(Sfx::ValveShut);
+          playSound(Sfx::VentHiss);
           break;
         }
       }
@@ -1225,7 +1238,7 @@ void World::updateCopycat(const PlayerInput& input)
         if (!mSimulation && std::getenv("GR_TOWER_DEBUG"))
           std::fprintf(stderr, "copycat f%d: dummy %d caught at %d,%d\n", mStats.frames, int(i), e.x, e.y);
         addScore(1000, cellCenter(e.box()));
-        playSound(Sfx::Gem);
+        playSound(Sfx::DummyDrop);
         showMessage("CAUGHT ONE");
         break;
       }
@@ -1242,7 +1255,7 @@ void World::updateCopycat(const PlayerInput& input)
         int x = p.x;
         mMap.moveHorizontally(x, p.y, Player::kWidth, p.height(), dir * 2 * kCellsPerTile);
         p.x = x;
-        playSound(Sfx::Bonk);
+        playSound(Sfx::DummyBump);
         break;
       }
 }

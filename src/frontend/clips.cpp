@@ -4958,6 +4958,711 @@ void dashFreeze(ClipKit& k, int frame, int ticks, float ox, float oy)
   scanlines(k, 50);
 }
 
+// --- The end of Episode 5 (end_e5) -------------------------------------------
+
+// The dawn over the cloud sea from the top of the Transmitter: blue at the
+// top going gold to the horizon at y 470. Full screen.
+const Texture& e5Sky(ClipKit& k)
+{
+  return cached(k, "e5_sky", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(56, 86, 160), rgb(236, 170, 120), rgb(255, 210, 130));
+    for (int i = 0; i < 8; ++i)
+    {
+      const double y = 70 + i * 40.0, x = double(hash2(i, 3551) % 1100u) - 80, w = 240 + double(hash2(i, 3552) % 320u);
+      cairo_save(cr);
+      cairo_translate(cr, x + w / 2, y);
+      cairo_scale(cr, w / 2, 5);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      cairo_set_source_rgba(cr, 1.0, 0.9, 0.8, 0.3);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// Cloud tops, lit gold from the right, 1600 x 300 and seamless across, the
+// tops near its top edge. `far` paints them smaller and paler.
+const Texture& e5Clouds(ClipKit& k, bool far)
+{
+  return cached(k, far ? "e5_clouds_far" : "e5_clouds", 1600, 300, 0, 0, [far](cairo_t* cr) {
+    const double s = far ? 0.55 : 1.0;
+    cairo_rectangle(cr, 0, 60 * s, 1600, 300);
+    cairo_set_source_rgb(cr, far ? 0.88 : 0.74, far ? 0.78 : 0.68, far ? 0.82 : 0.8);
+    cairo_fill(cr);
+    // 32 puffs a row, 50 px apart: the band repeats every 1600 px.
+    for (int row = 0; row < 3; ++row)
+      for (int i = 0; i < 32; ++i)
+        for (const double wrap : {-1600.0, 0.0, 1600.0})
+        {
+          const double x = wrap + i * 50.0 + double(hash2(i, 3560 + row + (far ? 9 : 0)) % 40u) + row * 21.0;
+          const double r = (40 + double(hash2(i, 3570 + row) % 34u) + row * 10.0) * s;
+          const double y = (50 + row * 50.0) * s + r * 0.5;
+          cairo_pattern_t* p = cairo_pattern_create_radial(x + r * 0.4, y - r * 0.4, r * 0.1, x, y, r);
+          const double shade = (far ? 1.0 : 0.98) - row * 0.07;
+          cairo_pattern_add_color_stop_rgb(p, 0.0, 1.0 * shade, 0.95 * shade, 0.86 * shade);
+          cairo_pattern_add_color_stop_rgb(p, 1.0, 0.72 * shade, 0.66 * shade, 0.82 * shade);
+          cairo_arc(cr, x, y, r, 0, 2 * kPi);
+          cairo_set_source(cr, p);
+          cairo_fill(cr);
+          cairo_pattern_destroy(p);
+        }
+  });
+}
+
+// The clouds' band across the screen, scrolled left by `offset` px, its top
+// at y.
+void e5Clouds(ClipKit& k, bool far, float offset, float y)
+{
+  for (float x = -std::fmod(std::fmod(offset, 1600.0f) + 1600.0f, 1600.0f); x < W; x += 1600.0f)
+    k.r.draw(e5Clouds(k, far), x, y);
+}
+
+// The MaxTV studios far off on the horizon: a cluster of towers, the studio
+// block with its own broadcast mast and the big MAX TV sign on its roof
+// (the sign's glow is drawn live). 420 x 200, anchored at its foot's middle.
+const Texture& maxtvStudios(ClipKit& k)
+{
+  return cached(k, "e5_maxtv", 420, 200, 210, 200, [](cairo_t* cr) {
+    const Color body = rgb(96, 70, 110);
+    setRgbaC(cr, darken(body, 0.15f), 1.0);
+    for (int i = 0; i < 9; ++i)
+    {
+      const double x = 10 + i * 44.0, h = 40 + double(hash2(i, 3580) % 70u);
+      cairo_rectangle(cr, x, 200 - h, 36, h);
+    }
+    cairo_fill(cr);
+    // The studio block and its mast.
+    cairo_rectangle(cr, 150, 80, 120, 120);
+    setRgbaC(cr, body, 1.0);
+    cairo_fill(cr);
+    cairo_move_to(cr, 210, 80);
+    cairo_line_to(cr, 210, 4);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 196, 80);
+    cairo_line_to(cr, 210, 20);
+    cairo_line_to(cr, 224, 80);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    // The sign's frame and letters.
+    cairo_rectangle(cr, 158, 46, 104, 30);
+    setRgbaC(cr, rgb(40, 20, 50), 1.0);
+    cairo_fill(cr);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, 22);
+    cairo_move_to(cr, 166, 70);
+    setRgbaC(cr, rgb(255, 90, 210), 1.0);
+    cairo_show_text(cr, "MAX TV");
+    // Windows catching the dawn.
+    for (int i = 0; i < 40; ++i)
+    {
+      cairo_rectangle(cr, 158 + (i % 8) * 13.0, 96 + (i / 8) * 18.0, 6, 8);
+      setRgbaC(cr, rgb(255, 214, 140), (hash2(i, 3581) % 3u) ? 0.75 : 0.2);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// The studios on the horizon with their sign glowing, at (x, y) (the
+// foot's middle), `s` the scale.
+void drawMaxtvStudios(ClipKit& k, float x, float y, float s, int ticks)
+{
+  DrawOpts o;
+  o.scale = s;
+  k.r.draw(maxtvStudios(k), x, y, o);
+  drawGlow(k.r, k.art, x, y - 139.0f * s, 90.0f * s, rgb(255, 80, 200), 0.45f + 0.15f * std::sin(float(ticks) * 0.2f));
+  drawGlow(k.r, k.art, x, y - 196.0f * s, 14.0f * s, rgb(255, 50, 40), (ticks / 20) % 2 ? 0.9f : 0.3f);
+}
+
+// The Transmitter's red-and-white lattice as a column filling [x0, x1]
+// from the top of the screen down to `bottom`, the deck girder on top at
+// `top`.
+void e5Lattice(ClipKit& k, float x0, float x1, float top, float bottom)
+{
+  k.r.fillRect(x0, top, x1 - x0, bottom - top, rgba(40, 24, 44, 200));
+  const float step = 90.0f;
+  int i = 0;
+  for (float y = top; y < bottom; y += step, ++i)
+  {
+    const Color a = i % 2 ? rgb(214, 52, 46) : rgb(240, 238, 244);
+    k.r.drawLine(x0, y, x1, y + step, 7.0f, a);
+    k.r.drawLine(x1, y, x0, y + step, 7.0f, a);
+    k.r.fillRect(x0, y, x1 - x0, 8.0f, i % 2 ? rgb(240, 238, 244) : rgb(214, 52, 46));
+  }
+  k.r.fillRect(x0 - 6.0f, top, 14.0f, bottom - top, rgb(214, 52, 46));
+  k.r.fillRect(x1 - 8.0f, top, 14.0f, bottom - top, rgb(240, 238, 244));
+  k.r.fillRect(x1 - 4.0f, top, 4.0f, bottom - top, rgb(255, 220, 160));
+}
+
+// titan_falls: the Halcyon Titan teeters at the deck's edge (frames 0-3),
+// topples off the mast end over end trailing smoke (4-12) and drops into
+// the clouds, which light up from below with the blast (13). The runners
+// watch from the deck.
+void titanFalls(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(e5Sky(k), ox * 0.1f, oy * 0.1f);
+  drawGlow(k.r, k.art, 1080.0f, 480.0f, 360.0f, rgb(255, 210, 130), 0.5f);
+  e5Clouds(k, true, float(ticks) * 0.1f - ox * 0.2f, 440.0f + oy * 0.2f);
+  const float deck = 350.0f + oy;
+  // The mast on the left, the deck running out to its edge.
+  e5Lattice(k, -20.0f + ox, 300.0f + ox, deck + 18.0f, H);
+  k.r.fillRect(-20.0f + ox, deck, 400.0f, 20.0f, rgb(120, 124, 138));
+  k.r.fillRect(-20.0f + ox, deck, 400.0f, 3.0f, rgb(240, 236, 230));
+  k.r.fillRect(360.0f + ox, deck - 70.0f, 7.0f, 70.0f, rgb(230, 228, 236)); // the bent rail post
+  k.r.drawLine(363.0f + ox, deck - 70.0f, 400.0f + ox, deck - 40.0f, 6.0f, rgb(250, 200, 40));
+  // The runners, watching it go.
+  k.r.draw(runner(k, 0, 0, 1.4f), 70.0f + ox, deck + 1.0f);
+  k.r.draw(runner(k, 1, 3, 1.4f), 150.0f + ox, deck + 1.0f);
+  k.r.draw(runner(k, 2, 8, 1.4f), 225.0f + ox, deck + 1.0f);
+  // The Titan.
+  const Sprite& titan = styledEnemySprite(k.art, k.r, k.theme, "halcyon_titan", 0, 0, 10, 12);
+  DrawOpts to;
+  to.cull = false;
+  to.scale = 0.72f;
+  float tx = 385.0f, ty = deck;
+  if (frame <= 3)
+  {
+    // Teetering on its heels at the edge.
+    to.angle = 8.0f + 7.0f * std::sin(float(ticks) * 0.35f);
+  }
+  else
+  {
+    const float f = float(frame - 4) + float(ticks % 7) / 7.0f * 0.0f;
+    to.angle = 20.0f + f * f * 2.6f;
+    tx += f * 34.0f + f * f * 2.0f;
+    ty += f * f * 9.0f;
+    // Smoke from its burst vents, left behind as it drops.
+    for (int i = 0; i < 10; ++i)
+    {
+      const float g = std::max(0.0f, f - float(i) * 0.6f);
+      const float sx = 385.0f + g * 34.0f + g * g * 2.0f - 20.0f, sy = deck + g * g * 9.0f - 180.0f;
+      drawGlow(k.r, k.art, sx + ox, sy, 50.0f + float(i) * 8.0f, rgb(90, 84, 96), 0.45f - float(i) * 0.03f);
+    }
+  }
+  k.r.draw(titan.get(-1), tx + ox, ty, to);
+  if (frame >= 4)
+    drawGlow(k.r, k.art, tx + ox - 30.0f, ty - 180.0f, 60.0f, rgb(255, 140, 60), 0.6f);
+  // The near clouds swallow it.
+  e5Clouds(k, false, 100.0f + float(ticks) * 0.25f - ox * 0.5f, 590.0f + oy * 0.5f);
+  if (frame == 13)
+  {
+    // The blast under the clouds.
+    const float bx = 385.0f + 9.0f * 34.0f + 81.0f * 2.0f + ox;
+    drawGlow(k.r, k.art, bx, 700.0f, 520.0f, rgb(255, 150, 60), 0.85f);
+    drawGlow(k.r, k.art, bx, 680.0f, 200.0f, rgb(255, 250, 220), 0.9f);
+    for (int i = 0; i < 24; ++i)
+    {
+      const float a = 3.4f + float(hash2(i, 3590) % 280u) / 100.0f;
+      const float d = 60.0f + float(ticks % 30) * 6.0f + float(hash2(i, 3591) % 80u);
+      k.r.fillRect(bx + std::cos(a) * d, 640.0f + std::sin(a) * d * 0.6f, 6.0f, 6.0f, rgb(255, 200, 120));
+    }
+    k.r.fillRect(0, 0, W, H, rgba(255, 200, 140, 50), Blend::Add);
+  }
+}
+
+// The big dish's face for dish_swing: white, a shallow bowl lit from the
+// right, its panel seams, the feed struts' feet on the rim. 300 x 300,
+// centred; squashed across to turn it.
+const Texture& e5DishFace(ClipKit& k)
+{
+  return cached(k, "e5_dish_face", 300, 300, 150, 150, [](cairo_t* cr) {
+    cairo_arc(cr, 150, 150, 144, 0, 2 * kPi);
+    cairo_pattern_t* g = cairo_pattern_create_radial(190, 120, 10, 150, 150, 144);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 1.0, 0.98, 0.94);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.7, 0.7, 0.78);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    for (int i = 0; i < 12; ++i)
+    {
+      const double a = i * kPi / 6.0;
+      cairo_move_to(cr, 150 + std::cos(a) * 30, 150 + std::sin(a) * 30);
+      cairo_line_to(cr, 150 + std::cos(a) * 140, 150 + std::sin(a) * 140);
+    }
+    cairo_arc(cr, 150, 150, 90, 0, 2 * kPi);
+    setRgbaC(cr, rgb(150, 150, 166), 0.6);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_arc(cr, 150, 150, 26, 0, 2 * kPi);
+    setRgbaC(cr, rgb(200, 200, 212), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// Its back: grey, a ring of ribs, the mount in the middle. 300 x 300.
+const Texture& e5DishBack(ClipKit& k)
+{
+  return cached(k, "e5_dish_back", 300, 300, 150, 150, [](cairo_t* cr) {
+    cairo_arc(cr, 150, 150, 144, 0, 2 * kPi);
+    setRgbaC(cr, rgb(140, 142, 156), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    for (int i = 0; i < 8; ++i)
+    {
+      const double a = i * kPi / 4.0;
+      cairo_move_to(cr, 150 + std::cos(a) * 40, 150 + std::sin(a) * 40);
+      cairo_line_to(cr, 150 + std::cos(a) * 138, 150 + std::sin(a) * 138);
+    }
+    setRgbaC(cr, rgb(96, 98, 112), 1.0);
+    cairo_set_line_width(cr, 8);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 110, 110, 80, 80);
+    setRgbaC(cr, rgb(80, 82, 96), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// dish_swing: the Transmitter's big dish turning on its spire from the
+// empty sky behind (its grey back to us, frames 0-3) round through facing
+// us to point at the MaxTV studios on the horizon at dawn (slow to start,
+// slow to stop, by frame 11), a small overshoot as it locks (12-15), the
+// signal reaching out to the studios.
+void dishSwing(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(e5Sky(k), ox * 0.1f, oy * 0.1f);
+  const float hx = 1010.0f + ox * 0.2f, hy = 470.0f + oy * 0.2f;
+  drawGlow(k.r, k.art, hx + 40.0f, hy - 10.0f, 420.0f, rgb(255, 200, 120), 0.55f);
+  drawGlow(k.r, k.art, hx + 40.0f, hy, 70.0f, rgb(255, 250, 220), 0.8f);
+  drawMaxtvStudios(k, hx, hy + 6.0f, 0.75f, ticks);
+  e5Clouds(k, true, float(ticks) * 0.08f - ox * 0.2f, hy - 6.0f + oy * 0.2f);
+  // Its heading: 0 points right along the horizon, 90 straight at us, 180
+  // left. It turns from 215 (away, up the sky) to 14.
+  static constexpr float kSettle[4] = {8.0f, 18.0f, 12.0f, 14.0f};
+  float yaw;
+  if (frame < 12)
+  {
+    const float u = float(frame) / 11.0f;
+    yaw = 215.0f - u * u * (3.0f - 2.0f * u) * 207.0f;
+  }
+  else
+    yaw = kSettle[std::clamp(frame - 12, 0, 3)];
+  const float a = yaw * 0.0174533f, ca = std::cos(a), sa = std::sin(a);
+  // The spire and the yoke.
+  const float px = 400.0f + ox, py = 360.0f + oy;
+  e5Lattice(k, px - 60.0f, px + 60.0f, py + 150.0f, H);
+  k.r.fillRect(px - 80.0f, py + 140.0f, 160.0f, 16.0f, rgb(120, 124, 138));
+  k.r.fillRect(px - 14.0f, py + 20.0f, 28.0f, 124.0f, rgb(150, 152, 166));
+  // The dish: its rim's centre a little forward of the pivot, squashed by
+  // how side-on it is; the feed horn out in front on its struts.
+  const float R = 150.0f, rim = 50.0f, horn = 210.0f;
+  const float cx = px + ca * rim, cy = py;
+  const float w = std::max(6.0f, 2.0f * R * std::abs(sa));
+  const float fx = px + ca * horn, fy = py;
+  const bool face = sa > 0.0f;
+  auto struts = [&]() {
+    k.r.drawLine(cx, cy - R + 8.0f, fx, fy, 5.0f, rgb(90, 92, 106));
+    k.r.drawLine(cx, cy + R - 8.0f, fx, fy, 5.0f, rgb(90, 92, 106));
+    k.r.fillRect(fx - 12.0f, fy - 12.0f, 24.0f, 24.0f, rgb(214, 52, 46));
+  };
+  // The counterweight, behind the dish.
+  const float bx = px - ca * 90.0f;
+  k.r.drawLine(px, py, bx, py, 16.0f, rgb(110, 112, 126));
+  k.r.fillRect(bx - 24.0f, py - 36.0f, 48.0f, 72.0f, rgb(80, 82, 96));
+  if (!face)
+    struts();
+  stretchTex(k, face ? e5DishFace(k) : e5DishBack(k), cx - w * 0.5f, cy - R, w, 2.0f * R, rgb(255, 255, 255), 1.0f);
+  // The rim's edge, as a band when it is side on.
+  if (std::abs(sa) < 0.35f)
+    k.r.fillRect(cx - 4.0f, cy - R, 8.0f, 2.0f * R, rgb(210, 210, 220));
+  if (face)
+    struts();
+  // Sparks from the slewing ring while it turns.
+  if (frame >= 2 && frame <= 11)
+    for (int i = 0; i < 6; ++i)
+    {
+      const float sp = float(hash2(i + ticks / 3, 3601) % 314u) / 100.0f + 3.14f;
+      const float r = 20.0f + float(hash2(i + ticks / 3, 3602) % 50u);
+      k.r.fillRect(px + std::cos(sp) * r, py + 140.0f + std::sin(sp) * r * 0.4f, 4.0f, 4.0f, rgb(255, 220, 120));
+    }
+  // The signal, once it is aimed.
+  if (frame >= 12)
+  {
+    const float k0 = std::min(1.0f, float(frame - 11) / 3.0f);
+    const float tx = hx, ty = hy - 104.0f;
+    const float ex = fx + (tx - fx) * k0, ey = fy + (ty - fy) * k0;
+    k.r.drawLine(fx, fy, ex, ey, 26.0f, rgba(140, 240, 255, 50), Blend::Add);
+    k.r.drawLine(fx, fy, ex, ey, 8.0f, rgba(220, 255, 255, 140), Blend::Add);
+    for (int i = 0; i < 6; ++i)
+    {
+      const float s = std::fmod(float(ticks) * 0.02f + float(i) / 6.0f, 1.0f) * k0;
+      drawGlow(k.r, k.art, fx + (tx - fx) * s, fy + (ty - fy) * s, 22.0f, rgb(160, 250, 255), 0.6f);
+    }
+    if (frame == 12)
+      drawGlow(k.r, k.art, fx, fy, 160.0f, rgb(220, 255, 255), 0.8f);
+  }
+  drawGlow(k.r, k.art, px, py + 14.0f, 26.0f, rgb(255, 60, 40), (ticks / 18) % 2 ? 0.8f : 0.2f);
+  // The near clouds' tops drifting by below.
+  e5Clouds(k, false, float(ticks) * 0.2f - ox * 0.6f, 640.0f + oy * 0.6f);
+}
+
+// --- Maxine ---
+// Maxine Vale, the director, on a monitor: a tired woman in her forties, a
+// messy bun of dark hair with a grey streak and a pencil stuck through it,
+// bags under her eyes, a grey cardigan over a black top and a studio
+// lanyard, a headset with a boom mic. Her picture is 520 x 400 (the screen
+// it fills), without a mouth or eyelids (drawn over it).
+const Texture& maxinePicture(ClipKit& k)
+{
+  return cached(k, "maxine_picture", 520, 400, 0, 0, [](cairo_t* cr) {
+    // Her booth: a dim gallery, a rack of monitors behind her.
+    gradient(cr, 520, 400, rgb(20, 26, 44), rgb(28, 32, 54), rgb(14, 16, 28));
+    for (int i = 0; i < 6; ++i)
+    {
+      cairo_rectangle(cr, 10 + i * 86.0, 30, 70, 52);
+      setRgbaC(cr, rgb(40, 60, 90), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, 16 + i * 86.0, 36, 58, 40);
+      setRgbaC(cr, i % 3 == 1 ? rgb(90, 200, 230) : rgb(70, 110, 160), 0.6);
+      cairo_fill(cr);
+    }
+    const double cx = 260;
+    // The cardigan and shoulders.
+    cairo_move_to(cr, cx - 220, 400);
+    cairo_curve_to(cr, cx - 210, 320, cx - 150, 290, cx - 60, 280);
+    cairo_line_to(cr, cx + 60, 280);
+    cairo_curve_to(cr, cx + 150, 290, cx + 210, 320, cx + 220, 400);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(120, 118, 124), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The black top in the V of the cardigan.
+    cairo_move_to(cr, cx - 58, 282);
+    cairo_line_to(cr, cx, 400);
+    cairo_line_to(cr, cx + 58, 282);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(24, 22, 30), 1.0);
+    cairo_fill(cr);
+    // Her lanyard.
+    cairo_move_to(cr, cx - 40, 284);
+    cairo_line_to(cr, cx - 8, 380);
+    cairo_move_to(cr, cx + 40, 284);
+    cairo_line_to(cr, cx + 8, 380);
+    setRgbaC(cr, rgb(230, 70, 190), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, cx - 20, 372, 40, 28);
+    setRgbaC(cr, rgb(240, 240, 244), 1.0);
+    cairo_fill(cr);
+    // Neck.
+    cairo_rectangle(cr, cx - 26, 230, 52, 56);
+    setRgbaC(cr, rgb(214, 162, 132), 1.0);
+    cairo_fill(cr);
+    // The hair at the back, and the bun.
+    cairo_arc(cr, cx + 10, 66, 40, 0, 2 * kPi);
+    setRgbaC(cr, rgb(58, 40, 34), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    cairo_move_to(cr, cx - 30, 30);
+    cairo_line_to(cr, cx + 64, 96);
+    setRgbaC(cr, rgb(250, 200, 40), 1.0);
+    cairo_set_line_width(cr, 7);
+    cairo_stroke(cr);
+    cairo_save(cr);
+    cairo_translate(cr, cx, 160);
+    cairo_scale(cr, 94, 110);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(58, 40, 34), 1.0);
+    cairo_fill(cr);
+    // The face.
+    cairo_save(cr);
+    cairo_translate(cr, cx, 172);
+    cairo_scale(cr, 76, 92);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(226, 176, 146), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The fringe, swept over, a grey streak in it; loose strands.
+    cairo_move_to(cr, cx - 80, 160);
+    cairo_curve_to(cr, cx - 86, 80, cx + 20, 60, cx + 82, 130);
+    cairo_curve_to(cr, cx + 40, 106, cx - 20, 104, cx - 52, 128);
+    cairo_curve_to(cr, cx - 62, 140, cx - 70, 150, cx - 80, 160);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(66, 46, 38), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_move_to(cr, cx - 40, 86);
+    cairo_curve_to(cr, cx - 10, 84, cx + 30, 96, cx + 60, 118);
+    setRgbaC(cr, rgb(200, 200, 206), 1.0);
+    cairo_set_line_width(cr, 7);
+    cairo_stroke(cr);
+    for (const double s : {-1.0, 1.0})
+    {
+      cairo_move_to(cr, cx + s * 72, 150);
+      cairo_curve_to(cr, cx + s * 90, 190, cx + s * 78, 220, cx + s * 88, 246);
+      setRgbaC(cr, rgb(66, 46, 38), 1.0);
+      cairo_set_line_width(cr, 4);
+      cairo_stroke(cr);
+    }
+    // Eyebrows, raised in the middle (tired, patient).
+    for (const double s : {-1.0, 1.0})
+    {
+      cairo_move_to(cr, cx + s * 52, 150);
+      cairo_curve_to(cr, cx + s * 40, 140, cx + s * 22, 138, cx + s * 12, 142);
+      setRgbaC(cr, rgb(60, 40, 32), 1.0);
+      cairo_set_line_width(cr, 5);
+      cairo_stroke(cr);
+    }
+    // The eyes: whites, brown irises, and the bags under them.
+    for (const double s : {-1.0, 1.0})
+    {
+      const double ex = cx + s * 32;
+      cairo_save(cr);
+      cairo_translate(cr, ex, 170);
+      cairo_scale(cr, 17, 10);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      setRgbaC(cr, rgb(246, 240, 236), 1.0);
+      cairo_fill(cr);
+      cairo_arc(cr, ex + 2, 171, 7, 0, 2 * kPi);
+      setRgbaC(cr, rgb(110, 76, 50), 1.0);
+      cairo_fill(cr);
+      cairo_arc(cr, ex + 2, 171, 3.5, 0, 2 * kPi);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_fill(cr);
+      cairo_arc(cr, ex + 4, 168, 1.8, 0, 2 * kPi);
+      setRgbaC(cr, rgb(255, 255, 255), 1.0);
+      cairo_fill(cr);
+      cairo_move_to(cr, ex - 16, 184);
+      cairo_curve_to(cr, ex - 8, 192, ex + 8, 192, ex + 16, 184);
+      setRgbaC(cr, rgb(160, 110, 110), 0.8);
+      cairo_set_line_width(cr, 3);
+      cairo_stroke(cr);
+    }
+    // The nose.
+    cairo_move_to(cr, cx + 2, 176);
+    cairo_curve_to(cr, cx + 8, 196, cx + 12, 206, cx + 2, 212);
+    setRgbaC(cr, rgb(170, 110, 90), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The headset: the band over her head, the ear cup, the boom mic.
+    cairo_arc(cr, cx, 172, 96, kPi * 1.08, kPi * 1.92);
+    setRgbaC(cr, rgb(30, 30, 36), 1.0);
+    cairo_set_line_width(cr, 9);
+    cairo_stroke(cr);
+    cairo_save(cr);
+    cairo_translate(cr, cx - 84, 180);
+    cairo_scale(cr, 18, 30);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(40, 40, 48), 1.0);
+    cairo_fill(cr);
+    cairo_move_to(cr, cx - 84, 196);
+    cairo_curve_to(cr, cx - 80, 240, cx - 50, 250, cx - 26, 244);
+    setRgbaC(cr, rgb(30, 30, 36), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    cairo_arc(cr, cx - 22, 243, 8, 0, 2 * kPi);
+    setRgbaC(cr, rgb(50, 50, 60), 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, cx - 84, 172, 4, 0, 2 * kPi);
+    setRgbaC(cr, rgb(255, 60, 40), 1.0);
+    cairo_fill(cr);
+    // A cold coffee in a MaxTV mug at the bottom corner.
+    cairo_rectangle(cr, 410, 320, 60, 80);
+    setRgbaC(cr, rgb(240, 240, 244), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_arc(cr, 478, 352, 14, -kPi / 2, kPi / 2);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 418, 340, 44, 14);
+    setRgbaC(cr, rgb(230, 70, 190), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// Maxine's mouth: 0 shut (a tired line), 1 half open, 2 open, 3 an "oo".
+const Texture& maxineMouth(ClipKit& k, int m)
+{
+  return cached(k, "maxine_mouth" + std::to_string(m), 80, 50, 40, 25, [m](cairo_t* cr) {
+    if (m == 0)
+    {
+      cairo_move_to(cr, 18, 24);
+      cairo_curve_to(cr, 30, 22, 50, 22, 62, 27);
+      setRgbaC(cr, rgb(130, 60, 60), 1.0);
+      cairo_set_line_width(cr, 4);
+      cairo_stroke(cr);
+      return;
+    }
+    const double hw = m == 3 ? 9 : 19, hh = m == 1 ? 6 : m == 2 ? 11 : 9;
+    cairo_save(cr);
+    cairo_translate(cr, 40, 25);
+    cairo_scale(cr, hw, hh);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(70, 24, 30), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(150, 70, 70), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    if (m == 2)
+    {
+      cairo_rectangle(cr, 40 - hw * 0.6, 25 - hh + 2, hw * 1.2, 5);
+      setRgbaC(cr, rgb(250, 246, 240), 1.0);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// Maxine on her own, her picture's top-left at (x, y), `mouth` 0-3, `lids`
+// 0 (open, if heavy) .. 1 (shut).
+void drawMaxine(ClipKit& k, float x, float y, int mouth, float lids)
+{
+  k.r.draw(maxinePicture(k), x, y);
+  k.r.draw(maxineMouth(k, mouth), x + 262.0f, y + 228.0f);
+  // Her heavy eyelids.
+  const float drop = 6.0f + lids * 14.0f;
+  for (const float s : {-1.0f, 1.0f})
+    k.r.fillRect(x + 260.0f + s * 32.0f - 18.0f, y + 159.0f, 36.0f, drop, rgb(214, 160, 132));
+  for (const float s : {-1.0f, 1.0f})
+    k.r.drawLine(x + 260.0f + s * 32.0f - 17.0f, y + 159.0f + drop, x + 260.0f + s * 32.0f + 17.0f, y + 159.0f + drop, 3.0f,
+      rgb(60, 36, 30));
+}
+
+// maxine: a monitor in a dark gallery. Static fills its screen (frame 0)
+// and resolves, tearing and rolling, into Maxine (frames 1-7); from frame
+// 8 she talks, a 4-frame loop (8-11) for as long as the shot runs.
+// Episode 6's briefings can use it as it is.
+void maxineClip(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  // The gallery around the monitor.
+  k.r.fillRect(0, 0, W, H, rgb(10, 10, 18));
+  for (int i = 0; i < 4; ++i)
+  {
+    const float x = i < 2 ? 30.0f + float(i) * 70.0f : W - 230.0f + float(i - 2) * 70.0f;
+    k.r.fillRect(x + ox * 0.5f, 120.0f + oy * 0.5f, 120.0f, 90.0f, rgb(26, 28, 40));
+    staticNoise(k, ticks / 3 + i * 7, 0.18f, x + 8.0f + ox * 0.5f, 128.0f + oy * 0.5f, 104.0f, 74.0f);
+  }
+  const float sx = 380.0f + ox, sy = 120.0f + oy, sw = 520.0f, sh = 400.0f;
+  drawGlow(k.r, k.art, 640.0f + ox, 320.0f + oy, 520.0f, rgb(80, 120, 200), 0.3f);
+  // The bezel.
+  k.r.fillRect(sx - 44.0f, sy - 40.0f, sw + 88.0f, sh + 110.0f, rgb(70, 68, 78));
+  k.r.fillRect(sx - 36.0f, sy - 32.0f, sw + 72.0f, sh + 64.0f, rgb(46, 44, 54));
+  k.r.fillRect(sx - 6.0f, sy - 6.0f, sw + 12.0f, sh + 12.0f, rgb(8, 8, 12));
+  // The picture.
+  const int f = std::max(0, frame);
+  const float clear = f >= 8 ? 1.0f : float(f) / 7.0f;
+  clipTo(k, sx, sy, sw, sh);
+  if (f >= 1)
+  {
+    int mouth = 0;
+    if (f >= 8)
+    {
+      // The loop steps on with the frames, and keeps going while a line
+      // holds the shot on one.
+      static constexpr int kTalk[4] = {1, 2, 0, 2};
+      const int step = (f - 8 + ticks / 7) % 4;
+      mouth = kTalk[step];
+      if ((ticks / 50) % 3 == 1 && step == 3)
+        mouth = 3;
+    }
+    const float lids = f == 5 || (f >= 8 && (ticks % 150) < 8) ? 1.0f : 0.15f;
+    // Torn into bands that slide back into line as it clears.
+    const int bands = 10;
+    for (int b = 0; b < bands; ++b)
+    {
+      const float by = sy + float(b) * sh / float(bands);
+      const float shift = (1.0f - clear) * (float(int(hash2(b + f * 17, 3611) % 160u)) - 80.0f);
+      clipTo(k, sx, by, sw, sh / float(bands) + 1.0f);
+      drawMaxine(k, sx + shift, sy, mouth, lids);
+    }
+    clipTo(k, sx, sy, sw, sh);
+  }
+  if (clear < 1.0f)
+    staticNoise(k, ticks, 1.0f - clear * 0.85f, sx, sy, sw, sh);
+  // The tube's look: a blue cast, scanlines, a rolling bar.
+  k.r.fillRect(sx, sy, sw, sh, rgba(60, 120, 200, 30), Blend::Add);
+  scanlines(k, 60, sy, sy + sh, sx, sw);
+  const float bar = sy + std::fmod(float(ticks) * 2.0f, sh + 60.0f) - 30.0f;
+  k.r.fillRect(sx, bar, sw, 24.0f, rgba(255, 255, 255, 14));
+  unclip(k);
+  // The glass's glare, the brand plate and the power lamp.
+  k.r.fillRect(sx + 20.0f, sy + 14.0f, 120.0f, 10.0f, rgba(255, 255, 255, 24));
+  k.r.drawText("MAXTV GALLERY 1", sx + 10.0f, sy + sh + 28.0f, {18.0f, rgb(170, 168, 180), 0, false});
+  drawGlow(k.r, k.art, sx + sw - 6.0f, sy + sh + 36.0f, 12.0f, f >= 8 ? rgb(90, 255, 120) : rgb(255, 180, 60), 0.9f);
+  // The desk's edge in front, knobs and faders.
+  k.r.fillRect(0, 640.0f + oy, W, 80.0f, rgb(24, 22, 30));
+  k.r.fillRect(0, 640.0f + oy, W, 4.0f, rgb(70, 68, 82));
+  for (int i = 0; i < 24; ++i)
+  {
+    const float x = 40.0f + float(i) * 52.0f + ox;
+    k.r.fillRect(x, 660.0f + oy, 6.0f, 40.0f, rgb(10, 10, 14));
+    k.r.fillRect(x - 6.0f, 664.0f + float(hash2(i, 3612) % 30u) + oy, 18.0f, 8.0f, rgb(200, 200, 210));
+    if ((hash2(i, 3613) + unsigned(ticks / 12)) % 5u == 0u)
+      drawGlow(k.r, k.art, x + 3.0f, 652.0f + oy, 8.0f, rgb(255, 80, 60), 0.8f);
+  }
+}
+
+// ride_beam: the runners riding the signal beam toward the studio on the
+// horizon, lying along it with speed lines streaming past, pulses running
+// up the beam (a 12-frame loop), the clouds rushing by below.
+void rideBeam(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(e5Sky(k), ox * 0.1f, oy * 0.1f);
+  const float hx = 1110.0f, hy = 420.0f;
+  drawGlow(k.r, k.art, hx, hy, 360.0f, rgb(255, 200, 120), 0.5f);
+  drawMaxtvStudios(k, hx + ox * 0.2f, hy + 10.0f + oy * 0.2f, 0.6f, ticks);
+  e5Clouds(k, true, float(ticks) * 2.0f - ox * 0.3f, hy + 4.0f + oy * 0.3f);
+  e5Clouds(k, false, float(ticks) * 7.0f - ox * 0.6f, 560.0f + oy * 0.6f);
+  // The beam, from behind the camera to the studio.
+  const float x0 = -120.0f + ox, y0 = 700.0f + oy, x1 = hx - 6.0f + ox * 0.2f, y1 = hy - 80.0f + oy * 0.2f;
+  for (int i = 0; i < 4; ++i)
+    k.r.drawLine(x0, y0, x1, y1, 150.0f - float(i) * 36.0f, rgba(120, 230, 255, 26 + i * 16), Blend::Add);
+  k.r.drawLine(x0, y0, x1, y1, 10.0f, rgba(240, 255, 255, 200), Blend::Add);
+  const float dx = x1 - x0, dy = y1 - y0;
+  const float len = std::sqrt(dx * dx + dy * dy);
+  const float ux = dx / len, uy = dy / len;
+  // Pulses running up it, a 12-frame loop.
+  for (int i = 0; i < 4; ++i)
+  {
+    const float s = std::fmod(float(frame) / 12.0f + float(i) * 0.25f, 1.0f);
+    const float w = 1.0f - s * 0.8f;
+    drawGlow(k.r, k.art, x0 + dx * s, y0 + dy * s, 90.0f * w, rgb(200, 255, 255), 0.5f);
+  }
+  // Speed lines streaming back past the runners.
+  for (int i = 0; i < 26; ++i)
+  {
+    const float off = (float(int(hash2(i, 3621) % 200u)) - 100.0f) * 1.2f;
+    const float s = std::fmod(float(hash2(i, 3622) % 1000u) / 1000.0f - float(ticks) * 0.03f + 10.0f, 1.0f);
+    const float px = x0 + dx * s - uy * off, py = y0 + dy * s + ux * off;
+    k.r.drawLine(px, py, px + ux * 90.0f, py + uy * 90.0f, 2.0f, rgba(255, 255, 255, 120), Blend::Add);
+  }
+  // The runners, lying into the rush, each bobbing on the beam.
+  const float ang = std::atan2(dy, dx) * 57.2958f;
+  static constexpr int kWho[3] = {2, 1, 0};
+  static constexpr float kAt[3] = {0.3f, 0.42f, 0.54f};
+  for (int i = 0; i < 3; ++i)
+  {
+    const float s = kAt[i];
+    const float bob = std::sin(float(ticks) * 0.12f + float(i) * 2.0f) * 8.0f;
+    DrawOpts o;
+    o.angle = ang;
+    o.cull = false;
+    const float rx = x0 + dx * s - uy * bob, ry = y0 + dy * s + ux * bob + 30.0f;
+    drawGlow(k.r, k.art, rx, ry - 70.0f, 90.0f, rgb(160, 250, 255), 0.35f);
+    k.r.draw(runner(k, kWho[i], i == 1 ? 2 : 1, 1.6f), rx, ry, o);
+  }
+  // A glow wash as they go.
+  k.r.fillRect(0, 0, W, H, rgba(80, 200, 255, 14 + (frame % 4 == 0 ? 10 : 0)), Blend::Add);
+}
+
 // Shot: the stage floor under the crew drops open (frames 0-5), they fall
 // into black (6-9), and a channel number comes up: CH 7 (10-13).
 void trapdoorClip(ClipKit& k, int frame, int ticks, float ox, float oy)
@@ -11456,6 +12161,522 @@ void runnersHeat(ClipKit& k, int frame, int ticks, float ox, float oy)
   }
 }
 
+
+// --- Level 35: The Transmitter (brief_35) ------------------------------------
+
+// The dawn over the cloud sea, two ways: still blue going pink at the
+// horizon, and gone gold; mast_clouds fades from one to the other. Full
+// screen, the horizon at y 520.
+const Texture& mastSky(ClipKit& k, bool gold)
+{
+  return cached(k, gold ? "t35_sky_gold" : "t35_sky_dawn", int(W), int(H), 0, 0, [gold](cairo_t* cr) {
+    if (gold)
+      gradient(cr, W, H, rgb(70, 110, 170), rgb(240, 180, 110), rgb(255, 214, 120));
+    else
+      gradient(cr, W, H, rgb(18, 22, 60), rgb(110, 70, 120), rgb(240, 140, 120));
+    for (int i = 0; i < 90 && !gold; ++i)
+    {
+      cairo_arc(cr, double(hash2(i, 3501) % 1280u), double(hash2(i, 3502) % 300u), (i % 6) ? 0.9 : 1.5, 0, 2 * kPi);
+      cairo_set_source_rgba(cr, 1.0, 0.96, 0.9, 0.25 + double(hash2(i, 3503) % 50u) / 100.0);
+      cairo_fill(cr);
+    }
+    // Long streaks of cirrus.
+    for (int i = 0; i < 9; ++i)
+    {
+      const double y = 90 + i * 34.0, x = double(hash2(i, 3504) % 1000u) - 100, w = 260 + double(hash2(i, 3505) % 300u);
+      cairo_save(cr);
+      cairo_translate(cr, x + w / 2, y);
+      cairo_scale(cr, w / 2, 6);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      if (gold)
+        cairo_set_source_rgba(cr, 1.0, 0.93, 0.8, 0.35);
+      else
+        cairo_set_source_rgba(cr, 0.95, 0.6, 0.65, 0.25);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// A texture repeated across the screen every `period` px, scrolled left by
+// `offset` px, its top at y.
+void tileX35(ClipKit& k, const Texture& tex, float period, float offset, float y, const DrawOpts& o = {})
+{
+  for (float x = -std::fmod(std::fmod(offset, period) + period, period); x < W; x += period)
+    k.r.draw(tex, x, y, o);
+}
+
+// The cloud sea: rolling tops of cloud, lit from the low sun on the right,
+// shadowed blue-violet underneath. 1600 x 320 and seamless across, its top
+// edge the cloud tops.
+const Texture& cloudSea(ClipKit& k)
+{
+  return cached(k, "t35_cloud_sea", 1600, 320, 0, 0, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 70, 1600, 250);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 70, 0, 320);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.86, 0.78, 0.86);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.5, 0.48, 0.66);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // 25 puffs a row, 64 px apart: the band repeats every 1600 px.
+    for (int row = 0; row < 4; ++row)
+      for (int i = 0; i < 25; ++i)
+        for (const double wrap : {-1600.0, 0.0, 1600.0})
+        {
+          const double x = wrap + i * 64.0 + double(hash2(i, 3510 + row) % 40u) - 20.0 + row * 23.0;
+          const double y = 60 + row * 52.0 + double(hash2(i, 3520 + row) % 20u);
+          const double r = 44 + double(hash2(i, 3530 + row) % 36u) + row * 8.0;
+          cairo_arc(cr, x, y + r * 0.6, r, 0, 2 * kPi);
+          cairo_pattern_t* p = cairo_pattern_create_radial(x + r * 0.35, y, r * 0.1, x, y + r * 0.6, r);
+          const double shade = 1.0 - row * 0.08;
+          cairo_pattern_add_color_stop_rgb(p, 0.0, 1.0 * shade, 0.97 * shade, 0.93 * shade);
+          cairo_pattern_add_color_stop_rgb(p, 1.0, 0.66 * shade, 0.62 * shade, 0.78 * shade);
+          cairo_set_source(cr, p);
+          cairo_fill(cr);
+          cairo_pattern_destroy(p);
+        }
+  });
+}
+
+// One storey of a red-and-white lattice leg pair from (cx - w0/2, y0) up
+// to (cx - w1/2, y1): the two legs, an X of bracing and a girder on top.
+void latticeStorey(cairo_t* cr, double cx, double y0, double w0, double y1, double w1, bool red)
+{
+  const double l0 = cx - w0 / 2, r0 = cx + w0 / 2, l1 = cx - w1 / 2, r1 = cx + w1 / 2;
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+  // The bracing behind, thinner.
+  cairo_move_to(cr, l0, y0);
+  cairo_line_to(cr, r1, y1);
+  cairo_move_to(cr, r0, y0);
+  cairo_line_to(cr, l1, y1);
+  setRgbaC(cr, rgb(70, 60, 80), 1.0);
+  cairo_set_line_width(cr, 7);
+  cairo_stroke_preserve(cr);
+  setRgbaC(cr, red ? rgb(200, 50, 46) : rgb(232, 230, 236), 1.0);
+  cairo_set_line_width(cr, 4);
+  cairo_stroke(cr);
+  // The girder.
+  cairo_move_to(cr, l1, y1);
+  cairo_line_to(cr, r1, y1);
+  setRgbaC(cr, rgb(70, 60, 80), 1.0);
+  cairo_set_line_width(cr, 9);
+  cairo_stroke_preserve(cr);
+  setRgbaC(cr, red ? rgb(220, 60, 52) : rgb(246, 244, 248), 1.0);
+  cairo_set_line_width(cr, 5);
+  cairo_stroke(cr);
+  // The legs.
+  for (const double s : {-1.0, 1.0})
+  {
+    cairo_move_to(cr, cx + s * w0 / 2, y0);
+    cairo_line_to(cr, cx + s * w1 / 2, y1);
+    setRgbaC(cr, rgb(60, 40, 60), 1.0);
+    cairo_set_line_width(cr, 14);
+    cairo_stroke_preserve(cr);
+    setRgbaC(cr, red ? rgb(214, 48, 44) : rgb(244, 242, 246), 1.0);
+    cairo_set_line_width(cr, 9);
+    cairo_stroke_preserve(cr);
+    // The low sun lights the right-hand edges.
+    setRgbaC(cr, rgb(255, 220, 160), s > 0 ? 0.7 : 0.15);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  }
+}
+
+// A drum dish seen side on (a shallow cone of white with a grey back),
+// facing right, centred on (x, y), `r` its radius.
+void drumDish(cairo_t* cr, double x, double y, double r, bool facingRight)
+{
+  const double s = facingRight ? 1.0 : -1.0;
+  cairo_save(cr);
+  cairo_translate(cr, x, y);
+  cairo_scale(cr, 0.42 * s, 1.0);
+  cairo_arc(cr, 0, 0, r, 0, 2 * kPi);
+  cairo_restore(cr);
+  setRgbaC(cr, rgb(232, 232, 238), 1.0);
+  cairo_fill_preserve(cr);
+  setRgbaC(cr, rgb(70, 66, 84), 1.0);
+  cairo_set_line_width(cr, 3);
+  cairo_stroke(cr);
+  cairo_rectangle(cr, x - s * r * 0.62 - 6, y - r * 0.5, 12, r);
+  setRgbaC(cr, rgb(150, 150, 164), 1.0);
+  cairo_fill(cr);
+}
+
+// The mast for mast_clouds: a tall tapering red-and-white lattice, drum
+// dishes and panel antennas on its platforms, the spire with its big dish
+// and a beacon on top. 520 x 1500, anchored at its foot's middle.
+constexpr float kMastTexH = 1500.0f;
+const Texture& mastTall(ClipKit& k)
+{
+  return cached(k, "t35_mast_tall", 520, int(kMastTexH), 260, kMastTexH, [](cairo_t* cr) {
+    const double cx = 260;
+    double y = kMastTexH, w = 300;
+    int i = 0;
+    while (y > 360)
+    {
+      const double h = 96 - i * 2.0, w1 = std::max(110.0, w - 16.0);
+      latticeStorey(cr, cx, y, w, y - h, w1, i % 2 == 0);
+      // A platform every few storeys, with its dishes and panels.
+      if (i % 3 == 2)
+      {
+        cairo_rectangle(cr, cx - w1 / 2 - 34, y - h - 4, w1 + 68, 9);
+        setRgbaC(cr, rgb(90, 92, 108), 1.0);
+        cairo_fill(cr);
+        drumDish(cr, cx + w1 / 2 + 24, y - h - 30, 26, true);
+        drumDish(cr, cx - w1 / 2 - 24, y - h - 30, 22, false);
+        cairo_rectangle(cr, cx - 10, y - h - 60, 20, 56);
+        setRgbaC(cr, rgb(214, 214, 222), 1.0);
+        cairo_fill(cr);
+      }
+      y -= h;
+      w = w1;
+      ++i;
+    }
+    // The top deck and the spire.
+    cairo_rectangle(cr, cx - 120, y - 8, 240, 12);
+    setRgbaC(cr, rgb(70, 72, 90), 1.0);
+    cairo_fill(cr);
+    for (int s = 0; s < 4; ++s)
+    {
+      const double sy = y - 8 - s * 60.0;
+      latticeStorey(cr, cx, sy, 54 - s * 10.0, sy - 60, 44 - s * 10.0, s % 2 == 1);
+    }
+    cairo_move_to(cr, cx, y - 248);
+    cairo_line_to(cr, cx, y - 252 - 40);
+    setRgbaC(cr, rgb(230, 230, 236), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    // The big dish on the spire, aimed off to the left for now.
+    cairo_save(cr);
+    cairo_translate(cr, cx - 30, y - 120);
+    cairo_rotate(cr, -0.5);
+    cairo_scale(cr, 0.34, 1.0);
+    cairo_arc(cr, 0, 0, 70, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(240, 240, 246), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, rgb(70, 66, 84), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+  });
+}
+
+// Where mast_clouds' warning lights sit on mastTall, from its foot.
+constexpr std::array<std::array<float, 2>, 8> kMastLights{{
+  {-92, -660}, {92, -660}, {-80, -830}, {80, -830}, {-62, -1030}, {62, -1030}, {-118, -1158}, {118, -1158},
+}};
+
+// mast_clouds: the mast rising out of the cloud sea at dawn, the sky going
+// gold over the clip, its red warning lights blinking (an 8-frame loop),
+// the camera panning up it 3 px a frame.
+void mastClouds(ClipKit& k, int frames, float t, int ticks, float ox, float oy)
+{
+  const float u = std::clamp(t, 0.0f, 1.0f);
+  const float pan = u * float(std::max(1, frames)) * 3.0f;
+  k.r.draw(mastSky(k, false), ox * 0.1f, oy * 0.1f + pan * 0.15f);
+  DrawOpts gold;
+  gold.alpha = u;
+  k.r.draw(mastSky(k, true), ox * 0.1f, oy * 0.1f + pan * 0.15f, gold);
+  // The sun coming up behind the clouds on the right.
+  const float sunY = 560.0f - u * 60.0f + pan * 0.3f;
+  drawGlow(k.r, k.art, 1010.0f + ox * 0.1f, sunY, 420.0f, rgb(255, 200, 120), 0.35f + 0.35f * u);
+  drawGlow(k.r, k.art, 1010.0f + ox * 0.1f, sunY, 90.0f, rgb(255, 250, 220), 0.6f + 0.3f * u);
+  // Far wisps drifting left.
+  for (int i = 0; i < 6; ++i)
+  {
+    const float x = std::fmod(float(hash2(i, 3540) % 1500u) - float(ticks) * (0.3f + 0.1f * float(i % 3)) + 3000.0f, 1500.0f) - 110.0f;
+    const float y = 200.0f + float(hash2(i, 3541) % 260u) + pan * 0.4f;
+    for (int j = 0; j < 4; ++j)
+      drawGlow(k.r, k.art, x + float(j) * 40.0f + ox * 0.3f, y + float(j % 2) * 6.0f, 50.0f, rgb(255, 236, 230), 0.12f);
+  }
+  // The cloud sea behind the mast.
+  tileX35(k, cloudSea(k), 1600.0f, 120.0f + float(ticks) * 0.2f - ox * 0.5f, 470.0f + pan * 0.8f + oy * 0.5f);
+  // The mast.
+  const float mx = 560.0f + ox * 0.8f, my = 720.0f + 520.0f + pan + oy * 0.8f;
+  k.r.draw(mastTall(k), mx, my);
+  // Its sunlit side warms with the dawn.
+  for (const auto& l : kMastLights)
+  {
+    const bool on = (ticks / 7 + int(l[1] / -100.0f)) % 8 < 4; // the 8-frame loop, still blinking through a hold
+    const float lx = mx + l[0], ly = my + l[1];
+    k.r.fillRect(lx - 4.0f, ly - 4.0f, 8.0f, 8.0f, on ? rgb(255, 60, 50) : rgb(110, 30, 30));
+    if (on)
+    {
+      drawGlow(k.r, k.art, lx, ly, 46.0f, rgb(255, 40, 30), 0.85f);
+      drawGlow(k.r, k.art, lx, ly, 12.0f, rgb(255, 220, 200), 0.9f);
+    }
+  }
+  // The top beacon, a steady slow pulse.
+  drawGlow(k.r, k.art, mx, my - 1444.0f, 70.0f, rgb(255, 60, 40), 0.5f + 0.4f * std::sin(float(ticks) * 0.08f));
+  // The near clouds over the mast's foot.
+  DrawOpts near;
+  near.alpha = 0.95f;
+  tileX35(k, cloudSea(k), 1600.0f, 700.0f - float(ticks) * 0.5f - ox, 540.0f + pan + oy, near);
+  k.r.fillRect(0, 840.0f + pan + oy, W, 200.0f, rgb(150, 140, 180));
+  // A gold wash as the sun clears the horizon.
+  k.r.fillRect(0, 0, W, H, rgba(255, 170, 80, int(30.0f * u)), Blend::Add);
+}
+
+// The top deck's guard rail and grating, across the screen at `deck`.
+void mastDeck(ClipKit& k, float deck, float ox)
+{
+  k.r.fillRect(0, deck, W, 20.0f, rgb(120, 124, 138));
+  k.r.fillRect(0, deck, W, 3.0f, rgb(240, 236, 230));
+  for (int x = 0; x < int(W) + 12; x += 12)
+    k.r.drawLine(float(x) + std::fmod(ox, 12.0f), deck + 5.0f, float(x) + 8.0f + std::fmod(ox, 12.0f), deck + 18.0f, 1.5f,
+      rgb(50, 52, 64));
+  k.r.fillRect(0, deck + 20.0f, W, H - deck - 20.0f, rgb(52, 40, 58));
+  // The lattice under the deck.
+  for (int i = 0; i < 9; ++i)
+  {
+    const float x = float(i) * 160.0f + ox;
+    k.r.drawLine(x, deck + 20.0f, x + 160.0f, H, 8.0f, i % 2 ? rgb(200, 52, 46) : rgb(232, 230, 236));
+    k.r.drawLine(x + 160.0f, deck + 20.0f, x, H, 8.0f, i % 2 ? rgb(232, 230, 236) : rgb(200, 52, 46));
+  }
+  // The guard rail.
+  for (int x = 30; x < int(W); x += 150)
+    k.r.fillRect(float(x) + ox, deck - 86.0f, 7.0f, 86.0f, rgb(230, 228, 236));
+  k.r.fillRect(0, deck - 90.0f, W, 7.0f, rgb(250, 200, 40));
+  k.r.fillRect(0, deck - 46.0f, W, 4.0f, rgb(200, 200, 212));
+  k.r.fillRect(0, deck - 14.0f, W, 10.0f, rgb(214, 52, 46));
+  for (int x = 0; x < int(W); x += 40)
+    k.r.fillRect(float(x) + std::fmod(ox, 40.0f), deck - 14.0f, 20.0f, 10.0f, rgb(244, 242, 246));
+}
+
+// A herring gull sitting tight (on Rocco's head), facing left, 120 x 90,
+// anchored at its feet.
+const Texture& sittingGull(ClipKit& k, bool blink)
+{
+  return cached(k, blink ? "t35_gull_blink" : "t35_gull", 120, 90, 64, 86, [blink](cairo_t* cr) {
+    // The tail.
+    cairo_move_to(cr, 92, 52);
+    cairo_line_to(cr, 118, 44);
+    cairo_line_to(cr, 112, 62);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(40, 40, 48), 1.0);
+    cairo_fill(cr);
+    // The body.
+    cairo_save(cr);
+    cairo_translate(cr, 66, 60);
+    cairo_scale(cr, 40, 24);
+    cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(250, 250, 252), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The folded wing.
+    cairo_move_to(cr, 44, 50);
+    cairo_curve_to(cr, 70, 38, 100, 44, 112, 54);
+    cairo_curve_to(cr, 96, 70, 64, 72, 44, 60);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(150, 160, 176), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    for (int i = 0; i < 3; ++i)
+    {
+      cairo_move_to(cr, 96 + i * 5.0, 52 + i * 2.0);
+      cairo_line_to(cr, 112, 56);
+    }
+    setRgbaC(cr, rgb(30, 30, 36), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The head.
+    cairo_arc(cr, 36, 34, 18, 0, 2 * kPi);
+    setRgbaC(cr, rgb(252, 252, 254), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    // The yellow beak with its red spot.
+    cairo_move_to(cr, 20, 32);
+    cairo_line_to(cr, 2, 36);
+    cairo_line_to(cr, 20, 40);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(250, 200, 40), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_arc(cr, 9, 37, 2, 0, 2 * kPi);
+    setRgbaC(cr, rgb(220, 40, 30), 1.0);
+    cairo_fill(cr);
+    // The eye: a beady, unimpressed one.
+    if (blink)
+    {
+      cairo_move_to(cr, 27, 29);
+      cairo_line_to(cr, 37, 29);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+    else
+    {
+      cairo_arc(cr, 32, 29, 4, 0, 2 * kPi);
+      setRgbaC(cr, rgb(250, 230, 120), 1.0);
+      cairo_fill(cr);
+      cairo_arc(cr, 32, 29, 2, 0, 2 * kPi);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_fill(cr);
+      cairo_move_to(cr, 26, 24);
+      cairo_line_to(cr, 38, 26);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+    // The pink feet.
+    for (const double x : {54.0, 74.0})
+    {
+      cairo_move_to(cr, x, 80);
+      cairo_line_to(cr, x, 86);
+      cairo_move_to(cr, x - 7, 86);
+      cairo_line_to(cr, x + 7, 86);
+    }
+    setRgbaC(cr, rgb(240, 150, 140), 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+  });
+}
+
+// The cargo airship's belly as cargo_shadow sees it from right under: a
+// dark-grey hull filling the top of the screen, its ribs, the Halcyon Arms
+// stripe, running lights and open cargo bays with their cradle cables
+// hanging. 1680 x 240, anchored top-left; it repeats every 400 px, so it
+// can slide by forever.
+constexpr float kBellyPeriod = 400.0f;
+const Texture& cargoBelly(ClipKit& k)
+{
+  return cached(k, "t35_cargo_belly", int(W + kBellyPeriod), 240, 0, 0, [](cairo_t* cr) {
+    const double w = W + kBellyPeriod;
+    cairo_rectangle(cr, 0, 0, w, 150);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 150);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.1, 0.1, 0.14);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.3, 0.3, 0.36);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The keel's edge.
+    cairo_rectangle(cr, 0, 146, w, 10);
+    setRgbaC(cr, rgb(20, 20, 26), 1.0);
+    cairo_fill(cr);
+    // Ribs.
+    for (double x = 0; x <= w; x += 100)
+    {
+      cairo_rectangle(cr, x - 3, 0, 6, 146);
+      setRgbaC(cr, rgb(16, 16, 22), 0.7);
+      cairo_fill(cr);
+    }
+    // The Halcyon stripe.
+    cairo_rectangle(cr, 0, 104, w, 14);
+    setRgbaC(cr, rgb(40, 110, 220), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 104, w, 3);
+    setRgbaC(cr, rgb(150, 200, 255), 1.0);
+    cairo_fill(cr);
+    for (double x = 0; x < w; x += kBellyPeriod)
+    {
+      // The cargo bay, open, a cradle's cables hanging out of it.
+      cairo_rectangle(cr, x + 140, 124, 150, 32);
+      setRgbaC(cr, rgb(6, 6, 10), 1.0);
+      cairo_fill(cr);
+      for (int i = 0; i < 2; ++i)
+      {
+        cairo_move_to(cr, x + 170 + i * 90.0, 150);
+        cairo_curve_to(cr, x + 172 + i * 90.0, 190, x + 168 + i * 90.0, 210, x + 174 + i * 90.0, 236);
+        cairo_arc(cr, x + 174 + i * 90.0, 232, 5, 0, 2 * kPi);
+      }
+      setRgbaC(cr, rgb(40, 40, 46), 1.0);
+      cairo_set_line_width(cr, 4);
+      cairo_stroke(cr);
+      // The running lights along the keel, red and white.
+      for (int i = 0; i < 2; ++i)
+      {
+        cairo_arc(cr, x + 50 + i * 200.0, 152, 7, 0, 2 * kPi);
+        setRgbaC(cr, i ? rgb(240, 240, 250) : rgb(255, 70, 50), 1.0);
+        cairo_fill(cr);
+      }
+      // Rivets.
+      for (int i = 0; i < 8; ++i)
+      {
+        cairo_arc(cr, x + 25 + i * 50.0, 70, 2.5, 0, 2 * kPi);
+        setRgbaC(cr, rgb(90, 92, 104), 1.0);
+        cairo_fill(cr);
+      }
+    }
+  });
+}
+
+// cargo_shadow: the top of the mast, the three runners on the deck looking
+// up, the belly of a huge cargo airship sliding over them right to left
+// and its shadow over everything but the far horizon, shafts of sun
+// slipping between its bays and sliding along with it. It loops (shot
+// after shot is the same endless ship). `gull`: a seagull sits on Rocco's
+// head.
+void cargoShadow(ClipKit& k, int frame, int ticks, float ox, float oy, bool gull)
+{
+  k.r.draw(mastSky(k, true), ox * 0.1f, oy * 0.1f);
+  tileX35(k, cloudSea(k), 1600.0f, 200.0f + float(ticks) * 0.2f - ox * 0.3f, 400.0f + oy * 0.3f);
+  // The spire behind, with the big dish.
+  const float sx = 960.0f + ox * 0.7f, deck = 560.0f + oy;
+  for (int s = 0; s < 5; ++s)
+  {
+    const float y0 = deck - 90.0f - float(s) * 70.0f;
+    k.r.drawLine(sx - 40.0f + float(s) * 6.0f, y0, sx - 34.0f + float(s + 1) * 6.0f, y0 - 70.0f, 7.0f, rgb(230, 228, 236));
+    k.r.drawLine(sx + 40.0f - float(s) * 6.0f, y0, sx + 34.0f - float(s + 1) * 6.0f, y0 - 70.0f, 7.0f, rgb(230, 228, 236));
+    k.r.drawLine(sx - 40.0f + float(s) * 6.0f, y0, sx + 34.0f - float(s + 1) * 6.0f, y0 - 70.0f, 4.0f, s % 2 ? rgb(214, 52, 46) : rgb(200, 200, 210));
+    k.r.fillRect(sx - 42.0f + float(s) * 6.0f, y0 - 4.0f, 84.0f - float(s) * 12.0f, 6.0f, rgb(214, 52, 46));
+  }
+  const Texture& dish = cached(k, "t35_cs_dish", 220, 220, 110, 110, [](cairo_t* cr) {
+    cairo_save(cr);
+    cairo_translate(cr, 110, 110);
+    cairo_scale(cr, 0.4, 1.0);
+    cairo_arc(cr, 0, 0, 100, 0, 2 * kPi);
+    cairo_restore(cr);
+    setRgbaC(cr, rgb(244, 244, 248), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 110, 110);
+    cairo_line_to(cr, 196, 110);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+    cairo_arc(cr, 200, 110, 8, 0, 2 * kPi);
+    setRgbaC(cr, rgb(120, 120, 136), 1.0);
+    cairo_fill(cr);
+  });
+  DrawOpts dop;
+  dop.angle = -24.0f;
+  k.r.draw(dish, sx - 10.0f, deck - 420.0f, dop);
+  mastDeck(k, deck, ox);
+  // The runners looking up.
+  const float s = 2.5f;
+  k.r.draw(runner(k, 0, 3, s), 400.0f + ox, deck + 2.0f);
+  k.r.draw(runner(k, 1, 3, s), 620.0f + ox, deck + 2.0f);
+  k.r.draw(runner(k, 2, 3, s, true), 830.0f + ox, deck + 2.0f);
+  if (gull)
+  {
+    // Rocco's passenger, glaring at the airship.
+    const bool blink = (ticks / 7) % 9 == 0;
+    k.r.draw(sittingGull(k, blink), 606.0f + ox, deck - 236.0f + (frame % 4 == 1 ? -3.0f : 0.0f));
+  }
+  // The shadow, and the sun still on the horizon beyond it.
+  k.r.fillRect(0, 0, W, H, rgba(24, 14, 52, 120));
+  drawGlow(k.r, k.art, 1100.0f + ox * 0.1f, 470.0f, 300.0f, rgb(255, 200, 120), 0.45f);
+  drawGlow(k.r, k.art, sx + 4.0f, deck - 440.0f, 40.0f, rgb(255, 50, 40), (ticks / 20) % 2 ? 0.9f : 0.3f);
+  // The belly sliding over, 3 px a tick, and the sun slipping between its
+  // bays onto the deck.
+  const float slide = float(ticks) * 3.0f;
+  for (float x = -std::fmod(slide, kBellyPeriod) + 215.0f; x < W + 200.0f; x += kBellyPeriod)
+    for (int b = 0; b < 4; ++b)
+      k.r.drawLine(x + ox - 60.0f + float(b) * 10.0f, 150.0f, x + ox + 60.0f + float(b) * 10.0f, deck + 20.0f, 24.0f - float(b) * 5.0f,
+        rgba(255, 200, 130, 10 + b * 4), Blend::Add);
+  k.r.draw(cargoBelly(k), -std::fmod(std::fmod(slide - ox, kBellyPeriod) + kBellyPeriod, kBellyPeriod), -20.0f + oy * 0.5f);
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -11557,6 +12778,11 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return volcanoDc(k, frame, ticks, ox, oy);
   if (clip == "runners_heat") // before starts(clip, "runners") below
     return runnersHeat(k, frame, ticks, ox, oy);
+  // Level 35.
+  if (clip == "mast_clouds")
+    return mastClouds(k, frames, t, ticks, ox, oy);
+  if (starts(clip, "cargo_shadow")) // "cargo_shadow:rocco_gull=1": a seagull on Rocco's head
+    return cargoShadow(k, frame, ticks, ox, oy, clip.find("rocco_gull=1") != std::string::npos);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")
@@ -11674,6 +12900,15 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
     return lanceClose(k, frame, ticks, ox, oy);
   if (clip == "dash_freeze")
     return dashFreeze(k, frame, ticks, ox, oy);
+  // The end of Episode 5.
+  if (clip == "titan_falls")
+    return titanFalls(k, frame, ticks, ox, oy);
+  if (clip == "dish_swing")
+    return dishSwing(k, frame, ticks, ox, oy);
+  if (clip == "maxine")
+    return maxineClip(k, frame, ticks, ox, oy);
+  if (clip == "ride_beam")
+    return rideBeam(k, frame, ticks, ox, oy);
   if (clip == "trapdoor")
     return trapdoorClip(k, frame, ticks, ox, oy);
   if (starts(clip, "max_holo") || starts(clip, "brief"))

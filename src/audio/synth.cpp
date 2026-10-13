@@ -3683,6 +3683,426 @@ std::vector<float> makeSfx(Sfx id)
         x *= 1.25f;
       return b;
     }
+    case Sfx::MastWind:
+    {
+      // Level 35: the wind round the mast: gusts swelling and dying away,
+      // a whistle singing in the lattice on the strongest of them.
+      Noise n(35001), m(35003);
+      Svf bp, wh;
+      OnePole lp;
+      return render(3.2, [&](double t, double total) {
+        const double u = t / total;
+        const double gust = 0.45 + 0.55 * std::pow(std::sin(u * kPi), 1.5) * (0.75 + 0.25 * std::sin(t * 2.0 * kPi * 0.9));
+        const double air = bp.band(n.next(), 380.0 + 520.0 * gust, 0.7) * gust;
+        const double rumble = lp.lowpass(m.next(), 160.0) * 2.2 * gust;
+        const double whistle = wh.band(n.next(), 1500.0 + 500.0 * gust + 80.0 * std::sin(t * 6.0), 12.0) * std::max(0.0, gust - 0.6) * 2.0;
+        return (air * 0.8 + rumble * 0.5 + whistle * 0.6) * 0.221 * std::min(1.0, t / 0.6) * std::min(1.0, (total - t) / 0.8);
+      });
+    }
+    case Sfx::HatchClank:
+    {
+      // Through a hatch: the latch thrown, the steel door's creak, a clank
+      // as it shuts behind you.
+      Osc latch, creak, clank, ring;
+      Noise n(35011);
+      Svf bp;
+      return render(0.8, [&](double t, double total) {
+        const double l = latch.step(1100.0, Wave::Square, 0.3) * decay(t, 0.012) * 0.5 + bp.band(n.next(), 2600.0, 2.0) * decay(t, 0.01);
+        const double c = t > 0.08 && t < 0.5 ? creak.step(160.0 + 60.0 * std::sin(t * 30.0), Wave::Saw) * 0.12 * std::sin((t - 0.08) / 0.42 * kPi) : 0.0;
+        const double u = t - 0.5;
+        const double k = u > 0.0 ? (clank.step(sweep(300.0, 140.0, u / 0.08), Wave::Square, 0.35) * decay(u, 0.03) * 0.6 +
+                                     ring.step(830.0, Wave::Sine) * decay(u, 0.12) * 0.3)
+                                 : 0.0;
+        return (l + c + k) * 0.448 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::ClimberSetOff:
+    {
+      // A Mast Climber setting off up a ladder: boots ringing on steel
+      // rungs, four quick steps.
+      std::vector<float> b(std::size_t(samples(0.9)));
+      Noise n(35021);
+      for (int k = 0; k < 4; ++k)
+      {
+        const double at = 0.05 + k * 0.19;
+        addTone(b, at, 0.25, 520.0 + (k % 2) * 90.0, Wave::Triangle, 0.35, 0.05);
+        addTone(b, at, 0.25, 1310.0 + (k % 2) * 140.0, Wave::Sine, 0.18, 0.08);
+        for (int i = 0; i < samples(0.03); ++i)
+          b[std::size_t(samples(at) + i)] += float(n.next() * decay(double(i) / kRate, 0.006) * 0.5);
+      }
+      for (auto& x : b)
+        x *= float(0.584);
+      return b;
+    }
+    case Sfx::WrenchRaise:
+    {
+      // A Mast Climber's wrench going up: a ratchet clicking, then a bright
+      // steel shing as it catches the light.
+      Noise n(35031);
+      Svf bp;
+      Osc s1, s2;
+      return render(0.6, [&](double t, double total) {
+        const double tick = std::fmod(t, 0.045);
+        const double ratchet = t < 0.3 ? bp.band(n.next(), 3200.0, 3.0) * decay(tick, 0.004) * 1.4 : 0.0;
+        const double u = t - 0.28;
+        const double shing = u > 0.0 ? (s1.step(3520.0, Wave::Sine) * 0.5 + s2.step(5280.0 * (1.0 + 0.003 * std::sin(u * 40.0)), Wave::Sine) * 0.3) * decay(u, 0.12) : 0.0;
+        return (ratchet + shing) * 0.205 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::WrenchSwing:
+    {
+      // The wrench swung: a heavy swish and a dull clang at the end.
+      Noise n(35041);
+      Svf bp;
+      Osc c1, c2;
+      return render(0.5, [&](double t, double total) {
+        const double sw = bp.band(n.next(), sweep(400.0, 1800.0, std::min(1.0, t / 0.16)), 1.2) * std::sin(std::min(1.0, t / 0.18) * kPi);
+        const double u = t - 0.15;
+        const double clang = u > 0.0 ? (c1.step(310.0, Wave::Triangle) * 0.6 + c2.step(797.0, Wave::Sine) * 0.4) * decay(u, 0.09) : 0.0;
+        return (sw * 0.9 + clang) * 0.412 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::RotorWhine:
+    {
+      // A Relay Drone coming round the mast: its rotors' whine rising out of
+      // the wind, the blades' chop under it.
+      Osc a, b;
+      Noise n(35051);
+      Svf bp;
+      return render(2.0, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(420.0, 760.0, u);
+        const double whine = a.step(f, Wave::Saw) * 0.25 + b.step(f * 2.01, Wave::Sine) * 0.2;
+        const double chop = bp.band(n.next(), 700.0, 1.0) * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * (38.0 + 14.0 * u)));
+        return (whine + chop * 0.5) * 0.749 * (0.15 + 0.85 * u * u) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::DroneCharge:
+    {
+      // A Relay Drone's muzzle charging: two quick beeps over a rising
+      // whine.
+      Osc w;
+      std::vector<float> b = render(0.65, [&](double t, double total) {
+        return w.step(sweep(600.0, 2400.0, t / total), Wave::Sine) * 0.18 * (t / total) * std::min(1.0, (total - t) / 0.03);
+      });
+      addTone(b, 0.0, 0.08, 1760.0, Wave::Square, 0.18, 0.1);
+      addTone(b, 0.16, 0.08, 1760.0, Wave::Square, 0.18, 0.1);
+      for (auto& x : b)
+        x *= float(1.852);
+      return b;
+    }
+    case Sfx::DroneShot:
+    {
+      // A Relay Drone's shot: a buzzy zap dropping in pitch.
+      Osc a, b;
+      Noise n(35061);
+      OnePole hp;
+      return render(0.3, [&](double t, double total) {
+        const double f = sweep(1800.0, 300.0, t / 0.22);
+        const double zap = a.step(f, Wave::Square, 0.3) * 0.5 + b.step(f * 1.5, Wave::Saw) * 0.3;
+        const double fizz = hp.highpass(n.next(), 4000.0) * decay(t, 0.05) * 0.5;
+        return (zap * decay(t, 0.09) + fizz) * 0.356 * attack(t) * std::min(1.0, (total - t) / 0.04);
+      });
+    }
+    case Sfx::NodeHum:
+    {
+      // A Feedback Node charging: a mains hum swelling, a howl of feedback
+      // creeping up through it.
+      Osc h1, h2, howl;
+      return render(1.5, [&](double t, double total) {
+        const double u = t / total;
+        const double hum = h1.step(110.0, Wave::Saw) * 0.25 + h2.step(220.0, Wave::Sine) * 0.2;
+        const double fb = howl.step(sweep(900.0, 2200.0, u) * (1.0 + 0.01 * std::sin(t * 2.0 * kPi * 6.0)), Wave::Sine) * u * u * 0.4;
+        return (hum * (0.4 + 0.6 * u) + fb) * 0.538 * std::min(1.0, t / 0.1) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::NodePulse:
+    {
+      // A Feedback Node's ring going out: a feedback shriek cut short, a
+      // whump of air pushing out.
+      Osc s, o;
+      Noise n(35071);
+      Svf bp;
+      return render(0.9, [&](double t, double total) {
+        const double shriek = s.step(2600.0 + 300.0 * std::sin(t * 90.0), Wave::Square, 0.4) * decay(t, 0.07) * 0.35;
+        const double whump = o.step(sweep(110.0, 40.0, t / 0.4), Wave::Sine) * decay(t, 0.18);
+        const double air = bp.band(n.next(), sweep(2000.0, 300.0, t / 0.6), 0.7) * decay(t, 0.25);
+        return (shriek + whump * 0.9 + air * 0.8) * 0.296 * attack(t) * std::min(1.0, (total - t) / 0.1);
+      });
+    }
+    case Sfx::SwarmVolley:
+    {
+      // The Satellite Swarm firing: three quick rising chirps, one per drone.
+      std::vector<float> b(std::size_t(samples(0.3)));
+      for (int k = 0; k < 3; ++k)
+      {
+        Osc o;
+        const int s0 = samples(0.04 * k);
+        for (int i = 0; i < samples(0.12) && s0 + i < int(b.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          b[std::size_t(s0 + i)] += float(o.step(sweep(1400.0 + 300.0 * k, 3200.0 + 400.0 * k, t / 0.08), Wave::Triangle) *
+            decay(t, 0.035) * attack(t, 0.002) * 0.6);
+        }
+      }
+      for (auto& x : b)
+        x *= float(0.48);
+      return b;
+    }
+    case Sfx::SwarmBlock:
+    {
+      // A swarm drone soaking up a shot: a crackling zap, then its power
+      // winding down.
+      Noise n(35081);
+      Svf bp;
+      Osc d;
+      return render(0.7, [&](double t, double total) {
+        const double zap = bp.band(n.next(), 3000.0, 1.5) * decay(t, 0.04) * 1.2;
+        const double down = d.step(sweep(1200.0, 120.0, t / total), Wave::Square, 0.3) * 0.25 * (1.0 - t / total);
+        return (zap + down) * 0.329 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::AirshipDrone:
+    {
+      // The cargo airship: big engines droning, slightly out of tune with
+      // each other, propellers beating through it.
+      Osc e1, e2, e3;
+      Noise n(35091);
+      OnePole lp;
+      return render(3.0, [&](double t, double total) {
+        const double beat = 0.6 + 0.4 * std::sin(t * 2.0 * kPi * 7.5);
+        const double eng = e1.step(55.0, Wave::Saw) * 0.35 + e2.step(56.3, Wave::Saw) * 0.3 + e3.step(82.5, Wave::Square, 0.4) * 0.12;
+        const double prop = lp.lowpass(n.next(), 400.0) * 2.0 * beat;
+        return (eng * 0.6 * beat + prop * 0.4) * 0.701 * std::min(1.0, t / 0.8) *
+          std::min(1.0, (total - t) / 0.8);
+      });
+    }
+    case Sfx::HypeSting:
+    {
+      // A Halcyon holo banner: a bright, cheesy corporate fanfare sting and
+      // a shimmer of hologram.
+      std::vector<float> b(std::size_t(samples(1.0)));
+      static constexpr std::array<std::array<double, 2>, 4> kNotes{{{72, 0.0}, {76, 0.09}, {79, 0.18}, {84, 0.3}}};
+      for (const auto& nt : kNotes)
+      {
+        addTone(b, nt[1], 0.65 - nt[1], midiFreq(nt[0]), Wave::Square, 0.09, 0.3);
+        addTone(b, nt[1], 0.65 - nt[1], midiFreq(nt[0] + 12), Wave::Sine, 0.08, 0.25);
+      }
+      Osc sh;
+      for (int i = samples(0.3); i < int(b.size()); ++i)
+      {
+        const double t = double(i) / kRate - 0.3;
+        b[std::size_t(i)] += float(sh.step(3000.0 + 800.0 * std::sin(t * 50.0), Wave::Sine) * 0.06 * decay(t, 0.25));
+      }
+      for (auto& x : b)
+        x *= float(0.939);
+      return b;
+    }
+    case Sfx::TitanStomp:
+    {
+      // The Titan's stomp: a huge metal boom, the deck ringing, the
+      // shockwave rushing off along it.
+      Osc o, r1, r2;
+      Noise n(35101), m(35103);
+      OnePole lp;
+      Svf bp;
+      return render(1.4, [&](double t, double total) {
+        const double boom = o.step(sweep(90.0, 30.0, t / 0.5), Wave::Sine) * decay(t, 0.25);
+        const double hit = lp.lowpass(n.next(), sweep(5000.0, 300.0, t / 0.2)) * decay(t, 0.06) * 1.5;
+        const double ring = (r1.step(180.0, Wave::Triangle) * 0.5 + r2.step(463.0, Wave::Sine) * 0.3) * decay(t, 0.35) * 0.4;
+        const double rush = bp.band(m.next(), sweep(300.0, 2400.0, t / total), 0.8) * std::sin(std::min(1.0, t / total) * kPi) * 0.6;
+        return (boom + hit + ring + rush) * 0.222 * attack(t, 0.002) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::TitanLaser:
+    {
+      // Its laser sweep: a searing beam, a high whine with a growl in it,
+      // crackling.
+      Osc a, b, c;
+      Noise n(35111);
+      OnePole hp;
+      return render(0.9, [&](double t, double total) {
+        const double beam = a.step(1400.0 + 40.0 * std::sin(t * 70.0), Wave::Saw) * 0.25 + b.step(70.0, Wave::Square, 0.5) * 0.2 +
+          c.step(2800.0, Wave::Sine) * 0.15;
+        const double crack = hp.highpass(n.next(), 5000.0) * (n.next() > 0.6f ? 1.0 : 0.2) * 0.4;
+        return (beam + crack) * 0.495 * attack(t, 0.01) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::TitanFlame:
+    {
+      // Its flamethrower: a gas whoosh lighting into a roar, crackling.
+      Noise n(35121), m(35123);
+      Svf bp;
+      OnePole lp;
+      return render(3.0, [&](double t, double total) {
+        const double whoosh = t < 0.3 ? bp.band(n.next(), sweep(300.0, 1600.0, t / 0.3), 0.8) * (1.0 - t / 0.3) : 0.0;
+        const double roar = lp.lowpass(n.next(), 700.0 + 300.0 * std::sin(t * 2.0 * kPi * 3.0)) * 2.0;
+        const double crackle = (m.next() > 0.9f ? 1.0 : 0.0) * 0.6;
+        return (whoosh + roar * std::min(1.0, t / 0.2) + crackle) * 0.261 * std::min(1.0, (total - t) / 0.4);
+      });
+    }
+    case Sfx::MissileLock:
+    {
+      // Crosshairs locking on: beeps quickening into a steady tone.
+      std::vector<float> b(std::size_t(samples(1.4)));
+      double at = 0.0, gap = 0.22;
+      while (at < 1.05)
+      {
+        addTone(b, at, 0.06, 2093.0, Wave::Square, 0.15, 0.2);
+        at += gap;
+        gap = std::max(0.07, gap * 0.78);
+      }
+      addTone(b, 1.05, 0.33, 2093.0, Wave::Square, 0.15, 1.0);
+      for (auto& x : b)
+        x *= float(2.685);
+      return b;
+    }
+    case Sfx::MissileRain:
+    {
+      // The missiles coming down: whistles falling, then booms.
+      std::vector<float> b(std::size_t(samples(1.6)));
+      for (int k = 0; k < 4; ++k)
+      {
+        Osc w;
+        const double s0 = 0.03 * k;
+        for (int i = 0; i < samples(0.3); ++i)
+        {
+          const double t = double(i) / kRate;
+          b[std::size_t(samples(s0) + i)] += float(w.step(sweep(2200.0 - k * 150.0, 700.0, t / 0.3), Wave::Sine) * 0.12 * attack(t, 0.05));
+        }
+      }
+      Noise n(35131);
+      OnePole lp;
+      Osc o;
+      for (int i = samples(0.33); i < int(b.size()); ++i)
+      {
+        const double t = double(i) / kRate - 0.33;
+        b[std::size_t(i)] += float((lp.lowpass(n.next(), sweep(4000.0, 200.0, t / 0.6)) * 1.4 + o.step(sweep(80.0, 30.0, t / 0.6), Wave::Sine) * 0.7) *
+          decay(t, 0.3) * attack(t, 0.002));
+      }
+      for (auto& x : b)
+        x *= float(0.29);
+      return b;
+    }
+    case Sfx::CoreOpen:
+    {
+      // Its power core opening: a pneumatic hiss as the shutter slides, a
+      // humming rise behind it.
+      Noise n(35141);
+      OnePole hp;
+      Osc h;
+      return render(0.8, [&](double t, double total) {
+        const double hiss = hp.highpass(n.next(), 3500.0) * decay(t, 0.15) * 0.8;
+        const double hum = h.step(sweep(150.0, 300.0, std::min(1.0, t / 0.4)), Wave::Triangle) * 0.35 * std::min(1.0, t / 0.2);
+        return (hiss + hum) * 0.544 * attack(t) * std::min(1.0, (total - t) / 0.2);
+      });
+    }
+    case Sfx::LatticeShot:
+    {
+      // A lattice shot coming round the mast: a ringing metallic zing, the
+      // girders singing as it passes.
+      Osc a, b;
+      Noise n(35151);
+      Svf bp;
+      return render(0.7, [&](double t, double total) {
+        const double z = a.step(sweep(3000.0, 900.0, t / total), Wave::Saw) * 0.2 * decay(t, 0.3);
+        const double sing = b.step(1245.0 * (1.0 + 0.02 * std::sin(t * 2.0 * kPi * 12.0)), Wave::Sine) * 0.4 * decay(t, 0.25);
+        const double rattle = bp.band(n.next(), 2000.0, 3.0) * (std::fmod(t, 0.05) < 0.01 ? 1.0 : 0.1) * 0.6;
+        return (z + sing + rattle) * 0.379 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::VentHiss:
+    {
+      // A vent panel about to open: a hiss rising, a latch's clunk.
+      Noise n(35161);
+      Svf bp;
+      Osc k;
+      return render(1.0, [&](double t, double total) {
+        const double u = t / total;
+        const double hiss = bp.band(n.next(), sweep(2500.0, 6000.0, u), 0.9) * std::min(1.0, u * 1.6);
+        const double v = t - 0.85;
+        const double clunk = v > 0.0 ? k.step(140.0, Wave::Square, 0.4) * decay(v, 0.03) * 0.5 : 0.0;
+        return (hiss * 0.8 + clunk) * 0.314 * std::min(1.0, (total - t) / 0.03);
+      });
+    }
+    case Sfx::TitanTopple:
+    {
+      // The Titan toppling: a long groan of bending metal, then the
+      // whistle of something huge falling away.
+      Osc g1, g2, w;
+      Noise n(35171);
+      Svf bp;
+      return render(3.2, [&](double t, double total) {
+        const double groan = t < 1.8 ? bp.band(float(g1.step(70.0 + 25.0 * std::sin(t * 3.0), Wave::Saw) + n.next() * 0.2),
+                                         180.0 + 120.0 * std::sin(t * 1.7), 4.0) * 0.8 +
+                                         g2.step(52.0 + 10.0 * std::sin(t * 2.3), Wave::Saw) * 0.15
+                                     : 0.0;
+        const double u = t - 1.4;
+        const double fall = u > 0.0 ? w.step(sweep(1300.0, 260.0, u / 1.8), Wave::Sine) * 0.35 * std::min(1.0, u / 0.2) : 0.0;
+        return (groan * std::min(1.0, std::max(0.0, (1.8 - t) / 0.3)) + fall) * 0.293 * std::min(1.0, t / 0.2) *
+          std::min(1.0, (total - t) / 0.3);
+      });
+    }
+    case Sfx::BrochureJingle:
+    {
+      // The sales brochure found: a cheesy ad jingle, a page flipping.
+      std::vector<float> b(std::size_t(samples(1.3)));
+      static constexpr std::array<std::array<double, 2>, 6> kNotes{{{67, 0.0}, {72, 0.12}, {76, 0.24}, {74, 0.36}, {79, 0.5}, {84, 0.68}}};
+      for (const auto& nt : kNotes)
+      {
+        addTone(b, nt[1], 0.5, midiFreq(nt[0]), Wave::Triangle, 0.22, 0.2);
+        addTone(b, nt[1], 0.5, midiFreq(nt[0] + 12), Wave::Sine, 0.08, 0.15);
+      }
+      Noise n(35181);
+      OnePole hp;
+      for (int i = 0; i < samples(0.1); ++i)
+        b[std::size_t(i)] += float(hp.highpass(n.next(), 2500.0) * 0.3 * std::sin(double(i) / samples(0.1) * kPi));
+      for (auto& x : b)
+        x *= float(0.911);
+      return b;
+    }
+    case Sfx::AlienAnthem:
+    {
+      // The alien's anthem: four warbling theremin notes, the last held.
+      std::vector<float> b(std::size_t(samples(2.4)));
+      static constexpr std::array<std::array<double, 3>, 4> kNotes{{{69, 0.0, 0.4}, {74, 0.42, 0.4}, {71, 0.84, 0.4}, {78, 1.26, 1.1}}};
+      for (const auto& nt : kNotes)
+      {
+        Osc o;
+        const int s0 = samples(nt[1]);
+        for (int i = 0; i < samples(nt[2]) && s0 + i < int(b.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          const double f = midiFreq(nt[0]) * (1.0 + 0.012 * std::sin(t * 2.0 * kPi * 6.0));
+          b[std::size_t(s0 + i)] += float(o.step(f, Wave::Sine) * 0.4 * std::min(1.0, t / 0.05) * std::min(1.0, (nt[2] - t) / 0.08));
+        }
+      }
+      for (auto& x : b)
+        x *= float(1.0);
+      return b;
+    }
+    case Sfx::DummyBump:
+    {
+      // Copycat: a dummy bumping the runner: a rubbery boing.
+      Osc o;
+      return render(0.4, [&](double t, double total) {
+        const double f = 180.0 * (1.0 + 0.5 * std::sin(t * 2.0 * kPi * 14.0) * decay(t, 0.12));
+        return o.step(f, Wave::Triangle) * decay(t, 0.12) * 0.356 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
+    case Sfx::DummyDrop:
+    {
+      // A dummy dropping into a pit: a slide whistle down and a thud.
+      Osc w, o;
+      Noise n(35191);
+      OnePole lp;
+      return render(0.8, [&](double t, double total) {
+        const double wh = t < 0.5 ? w.step(sweep(1600.0, 300.0, t / 0.5), Wave::Sine) * 0.4 : 0.0;
+        const double u = t - 0.5;
+        const double thud = u > 0.0 ? (o.step(sweep(120.0, 50.0, u / 0.1), Wave::Sine) + lp.lowpass(n.next(), 800.0) * 1.5) * decay(u, 0.06) : 0.0;
+        return (wh + thud) * 0.277 * attack(t) * std::min(1.0, (total - t) / 0.05);
+      });
+    }
     case Sfx::Count:
       break;
   }

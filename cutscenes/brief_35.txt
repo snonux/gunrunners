@@ -1,15 +1,23 @@
 cutscene brief_35
 music theme_heroic_build
 
+# clip mast_clouds: the lattice mast rising out of a cloud sea at dawn, the
+#   sky going gold over the clip, red warning lights blinking (an 8-frame
+#   loop), the camera panning up the mast 3 px a frame; 24 frames
 shot mast_clouds delay=110 repeat=1
   cue 0 fade=in:500
   cue 0 sound=wind
   cue 16 say=S "At the top, the signal points home."
   cue 16 hold=2000
 
+# clip cargo_shadow: the top of the mast, the runners on the deck looking
+#   up, the shadow of a huge cargo airship sliding over them, its belly
+#   passing overhead (as cargo_shadow:rocco_gull=1, a seagull sits on
+#   Rocco's head); 12 frames
 shot cargo_shadow delay=120 repeat=1
   cue 0 sound=engine_drone
 
+# clip cargo_shadow; 12 frames
 shot cargo_shadow delay=120 repeat=1
   cue 4 say=S "They'll send something big."
   cue 4 hold=2000

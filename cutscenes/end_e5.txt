@@ -15,13 +15,14 @@ shot dish_swing delay=110 repeat=1
   cue 15 hold=2000
 
 # Clip maxine: static on a monitor resolves into a tired woman in a
-# headset (frames 0-7), then she talks (8-11 loop).
+# headset (frames 0-7), then she talks (8-11 loop). 12 frames.
 shot maxine delay=110 repeat=1
   cue 8 say=MAXINE "Maxine Vale. Director. I was MAX."
   cue 8 hold=2500
 shot dash_freeze delay=100 repeat=1
   cue 0 say=DASH "Why should we trust you?"
   cue 0 hold=2000
+# clip maxine; 12 frames
 shot maxine delay=110 repeat=1
   cue 8 say=MAXINE "Because I'm the one who hid the cameras where you'd find them."
   cue 8 hold=3000
