@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
 # Makes the media of the web page (docs/index.html, served on
 # https://gunrunners.snonux.foo): the six runner portraits, short gameplay
-# clips with sound, and a screenshot of every level that has none in
-# docs/media yet. Everything is drawn or played by the game itself, headless
-# and deterministic, so a rerun gives the same files.
+# clips with sound, and the screenshots the page shows that docs/media does
+# not have. Everything is drawn or played by the game itself, headless and
+# deterministic, and the PNGs carry no timestamps, so a rerun gives the same
+# files.
 #
 # Usage: tools/site-media.sh [portraits|clips|shots|all]   (default: all)
 # Writes docs/site/runners/*.png, docs/site/video/*.mp4 (+ .jpg posters) and
-# docs/site/shots/levelNN.jpg. Needs ffmpeg and ImageMagick (magick).
+# docs/site/shots/levelNN.jpg. Needs cmake, ffmpeg and ImageMagick (magick).
+# Like record.sh and covers.sh it (re)configures build/ as a Release build.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BIN="$ROOT/build/gunrunners"
 SITE="$ROOT/docs/site"
 WHAT=${1:-all}
+
+case $WHAT in
+  portraits | clips | shots | all) ;;
+  *) echo "usage: $0 [portraits|clips|shots|all]" >&2; exit 2 ;;
+esac
+for tool in cmake ffmpeg magick; do
+  command -v "$tool" > /dev/null || { echo "$0: needs $tool" >&2; exit 1; }
+done
+
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -22,13 +33,19 @@ build() {
   cmake --build "$ROOT/build" --target gunrunners gunrunners_cover -j"$(nproc)" > /dev/null
 }
 
-# The runners in their idle pose, trimmed to the art plus a small margin.
+# The runners in their idle pose, trimmed to the art plus a small margin,
+# and Rocco's head and shoulders on a square as the page's icon. No date or
+# time chunks, so an unchanged portrait stays byte for byte the same.
 portraits() {
   mkdir -p "$SITE/runners"
   "$ROOT/build/gunrunners_cover" --portraits "$TMP"
   for png in "$TMP"/runner_*.png; do
-    magick "$png" -trim +repage -bordercolor none -border 8 "$SITE/runners/$(basename "$png")"
+    magick "$png" -trim +repage -bordercolor none -border 8 \
+      -define png:exclude-chunks=date,time "$SITE/runners/$(basename "$png")"
   done
+  magick "$SITE/runners/runner_rocco.png" -gravity north -crop 100%x62%+0+0 +repage \
+    -background none -gravity center -extent "%[fx:max(w,h)]x%[fx:max(w,h)]" -resize 64x64 \
+    -define png:exclude-chunks=date,time "$SITE/icon.png"
 }
 
 # clip NAME LEVEL CHARACTER FROM SECONDS: the bot plays a campaign level
@@ -61,16 +78,18 @@ clips() {
   clip starfall 43 5 3 16
 }
 
-# One frame of the bot's run for Canopy Road and each level of Episodes 4
-# to 6 (docs/media has the others), TICK frames in. The bot heads for the
-# bonus level early in some levels, so those take their frame before it
-# gets there (or after it is back).
+# One frame of the bot's run for each level the page shows that docs/media
+# has no picture of, TICK frames in. The frames are picked by hand: before
+# (or after) the bot's trip to the bonus level, and for Toon Town
+# Throwdown and The Transmitter in the middle of the boss fight.
+SHOT_LEVELS="8 22 23 26 27 28 31 34 35 38 39 42"
 shot_tick() {
   case $1 in
-    24) echo 200 ;;
-    27 | 28 | 41) echo 400 ;;
+    27) echo 400 ;;
     26) echo 700 ;;
-    8 | 30 | 34) echo 1000 ;;
+    8 | 34) echo 1000 ;;
+    28) echo 3600 ;; # Buddy Boom: "PIE TIME!"
+    35) echo 6400 ;; # the Halcyon Titan, overheating
     *) echo 1500 ;;
   esac
 }
@@ -78,7 +97,7 @@ shot_tick() {
 shots() {
   mkdir -p "$SITE/shots"
   local n tick
-  for n in 8 $(seq 22 42); do
+  for n in $SHOT_LEVELS; do
     tick=$(shot_tick "$n")
     "$BIN" --headless --autoplay --skip-menu --no-cutscenes --start "$n" --character $((n % 6)) \
       --no-audio --frames $((tick + 1)) --screenshots "$tick" --screenshot-prefix "$TMP/shot${n}_" > /dev/null
@@ -92,6 +111,5 @@ case $WHAT in
   clips) clips ;;
   shots) shots ;;
   all) portraits; clips; shots ;;
-  *) echo "usage: $0 [portraits|clips|shots|all]" >&2; exit 1 ;;
 esac
 echo "wrote the page media to $SITE"

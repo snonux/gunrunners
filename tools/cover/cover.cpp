@@ -17,7 +17,6 @@
 #include <cairo.h>
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -763,23 +762,29 @@ void icon(const std::string& dir)
 }
 
 // The six built-in runners for the web page (docs/index.html), one
-// transparent PNG each (runner_<name>.png, lower case), in pose `pose` (see
-// art.hpp; 0 is idle). The canvas leaves room for the gun and the hair;
-// tools/site-media.sh trims the empty margin.
-void portraits(const std::string& dir, int pose)
+// transparent PNG each (runner_<id>.png: runner_dash.png, ...), in pose
+// `pose` (see art.hpp; 0 is idle). The canvas leaves room for the gun and
+// the hair; tools/site-media.sh trims the empty margin. False if a file
+// could not be written.
+bool portraits(const std::string& dir, int pose)
 {
   constexpr int kW = 420, kH = 440;
+  bool ok = true;
   for (int i = 0; i < 6; ++i)
   {
     cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, kW, kH);
     cairo_t* cr = cairo_create(surf);
     rosterRunner(cr, i, pose, 170, 420, 2.6, false);
-    std::string name = gr::characterByIndex(i).name;
-    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return char(std::tolower(c)); });
-    cairo_surface_write_to_png(surf, (dir + "/runner_" + name + ".png").c_str());
+    const std::string path = dir + "/runner_" + gr::characterByIndex(i).id + ".png";
+    if (cairo_surface_write_to_png(surf, path.c_str()) != CAIRO_STATUS_SUCCESS)
+    {
+      std::fprintf(stderr, "cannot write %s\n", path.c_str());
+      ok = false;
+    }
     cairo_destroy(cr);
     cairo_surface_destroy(surf);
   }
+  return ok;
 }
 
 } // namespace
@@ -794,7 +799,8 @@ int main(int argc, char** argv)
   }
   if ((argc == 3 || argc == 4) && std::string(argv[1]) == "--portraits")
   {
-    portraits(argv[2], argc == 4 ? std::atoi(argv[3]) : 0);
+    if (!portraits(argv[2], argc == 4 ? std::atoi(argv[3]) : 0))
+      return 1;
     std::printf("wrote the six runner portraits to %s\n", argv[2]);
     return 0;
   }

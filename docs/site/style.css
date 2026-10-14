@@ -1,5 +1,11 @@
 /* Gunrunners web page (docs/index.html). The colours follow the box art:
    deep purple night, hot magenta, cyan neon and a sunset orange. */
+
+/* Exo 2 and Inter (SIL OFL 1.1, see fonts/OFL-*.txt), self-hosted so the
+   page makes no third-party requests: variable fonts, latin subset. */
+@font-face { font-family: "Exo 2"; font-style: normal; font-weight: 500 900; font-display: swap; src: url(fonts/exo2.woff2) format("woff2"); }
+@font-face { font-family: "Exo 2"; font-style: italic; font-weight: 700 900; font-display: swap; src: url(fonts/exo2-italic.woff2) format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 600; font-display: swap; src: url(fonts/inter.woff2) format("woff2"); }
 :root {
   --bg: #140a26;
   --bg-2: #1d1036;
@@ -76,6 +82,7 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   border: 1.5px solid var(--cyan); color: var(--text); background: transparent;
   font: 700 16px var(--display); letter-spacing: 0.03em; text-decoration: none; cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  max-width: 100%; overflow-wrap: anywhere; text-align: center;
 }
 .btn:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(47, 216, 255, 0.35); color: var(--text); }
 .btn-hot { border-color: transparent; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)); color: #1a0820; }
@@ -102,9 +109,9 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
 
 /* ---------- the 3D box ----------
-   A tall clamshell game box: 21 x 30 cm faces (the cover art is 1000 x 1400,
-   so 5:7) on a 5 cm deep shell. --w drives every face; --rx/--ry are set
-   by site.js while the box is turned. */
+   A tall cardboard big box of the early-90s cartridge kind: 21 x 30 cm faces
+   (the cover art is 1000 x 1400, so 5:7), 5 cm deep. --w drives every face;
+   --rx/--ry are set by site.js while the box is turned. */
 .box-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .box-stage {
   --w: min(340px, 64vw);
@@ -126,6 +133,7 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   transform: rotateX(var(--rx)) rotateY(var(--ry));
 }
 .box.animate { transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .box.animate { transition-duration: 0.01s; } }
 .face { position: absolute; inset: 0; backface-visibility: hidden; overflow: hidden; }
 .face img { width: 100%; height: 100%; object-fit: cover; filter: saturate(0.9) contrast(1.03) brightness(0.97); }
 .front { transform: translateZ(calc(var(--d) / 2)); border-radius: 4px; }
@@ -158,10 +166,10 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 /* Years of window light bleach one side of a shelf box. */
 .sunfade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 240, 210, 0.16), rgba(255, 240, 210, 0.04) 60%, transparent); mix-blend-mode: screen; pointer-events: none; }
 
-/* Shelf wear: an SVG laid over each face (index.html), sharing the filters
-   in svg.defs. Edges and corners rub through to the pale board underneath. */
+/* Shelf wear: an SVG laid over each face, the lids too (index.html), sharing
+   the filters in svg.defs. Edges and corners rub through to the pale board
+   underneath; a bent corner, scratches and an old price sticker. */
 .wear { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.wear .grain { fill: #fff; opacity: 0.05; filter: url(#scuff); }
 /* Two broken strokes along the edge: wear comes in patches, not as a frame. */
 .wear .edge { fill: none; stroke: #f1e8d4; stroke-width: 7; opacity: 0.6; stroke-dasharray: 70 40 160 22 34 90 240 16 96 50 18 120; }
 .wear .edge-b { stroke-width: 3; opacity: 0.4; stroke-dasharray: 20 60 110 30 8 140 60 24; stroke-dashoffset: 300; }
@@ -179,7 +187,7 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 .wear .sticker-small { font: 700 15px var(--body); fill: #c8102e; letter-spacing: 0.08em; }
 .wear .sticker-price { font: 800 30px var(--display); fill: #1b1b1b; }
 
-/* A plastic sleeve's gloss that slides as the box turns (site.js sets --sheen). */
+/* The printed board's gloss, sliding as the box turns (site.js sets --sheen). */
 .sheen {
   position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
   background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.16) 45%, transparent 58%);
@@ -193,6 +201,7 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   filter: blur(6px); pointer-events: none;
 }
 .box-controls { display: flex; align-items: center; gap: 12px; }
+.box-controls[hidden] { display: none; } /* shown by site.js: without it they would do nothing */
 .hint, .box-links { color: var(--muted); font-size: 14px; margin: 0; }
 
 /* ---------- videos ---------- */
@@ -219,20 +228,21 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 
 /* ---------- runners ---------- */
 /* Six runners: one row on a desktop, two even rows of three, or two columns on a phone. */
-.runner-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
-@media (max-width: 1100px) { .runner-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 620px) { .runner-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .runner { padding: 14px 10px 12px; } .runner img { height: 130px; } .runner dl { font-size: 13px; } }
+/* minmax(0, 1fr): equal columns, however wide a portrait is. */
+.runner-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1100px) { .runner-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .runner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .runner { padding: 14px 10px 12px; } .runner img { height: 130px; } .runner dl { font-size: 13px; } }
 .runner {
   background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, var(--panel)), var(--panel) 55%);
   border: 1px solid var(--line); border-top: 3px solid var(--c);
   border-radius: var(--radius); padding: 18px 16px 16px; text-align: center;
 }
-.runner img { height: 170px; width: auto; margin: 0 auto 10px; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c) 45%, transparent)); }
+.runner img { height: 170px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c) 45%, transparent)); }
 .runner h3 { font-size: 24px; font-style: italic; color: var(--c); margin: 0; }
 .role { margin: 0 0 10px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
-.runner dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; text-align: left; font-size: 14px; margin: 0 0 10px; }
+.runner dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; text-align: left; font-size: 14px; margin: 0 0 10px; }
 .runner dt { color: var(--muted); }
-.runner dd { margin: 0; font-weight: 600; }
+.runner dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .runner p:last-child { font-size: 14px; color: #d4c9f5; text-align: left; margin: 0; }
 .aside { margin-top: 26px; color: var(--muted); max-width: 70ch; }
 .aside b { color: var(--text); }
@@ -275,9 +285,9 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 .shot-grid a { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
 .shot-grid img { border-radius: 0; aspect-ratio: 16 / 9; object-fit: cover; width: 100%; transition: transform 0.25s ease; }
 .shot-grid a:hover img { transform: scale(1.04); }
-.lightbox { border: none; padding: 0; background: transparent; max-width: min(96vw, 1400px); }
+.lightbox { border: none; padding: 0; background: transparent; max-width: min(96vw, 1400px); max-height: 94vh; overflow: visible; }
 .lightbox::backdrop { background: rgba(5, 2, 12, 0.88); }
-.lightbox img { width: 100%; border-radius: 10px; }
+.lightbox img { width: 100%; max-height: 94vh; object-fit: contain; border-radius: 10px; }
 .lightbox button { position: absolute; top: 8px; right: 8px; }
 
 /* ---------- get ---------- */

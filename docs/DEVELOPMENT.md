@@ -201,12 +201,16 @@ deterministic, so the same command always produces the same clip. Without
 <https://gunrunners.snonux.foo> is `docs/index.html`, served by GitHub Pages
 from `main:/docs` (`docs/CNAME` names the domain, `docs/.nojekyll` serves
 the files as they are). Its own styles, script and media live in
-`docs/site/`; it reuses the README's pictures in `docs/media/`. The game
-box on it is the two covers on a 3D box in CSS, with the shelf wear drawn
-as SVG over each face. `tools/site-media.sh` makes the rest from the game
-itself: the runner portraits (`gunrunners_cover --portraits`), the gameplay
-clips (the bot playing, recorded headless like `record.sh`) and the
-screenshots of the levels `docs/media` has none of.
+`docs/site/` (the fonts, Exo 2 and Inter under the SIL OFL, are
+self-hosted there too); it reuses the README's pictures in `docs/media/`.
+The game box on it is the two covers on a 3D box in CSS, with the shelf
+wear drawn as SVG over each face. `tools/site-media.sh` makes the rest from
+the game itself: the runner portraits and the page icon
+(`gunrunners_cover --portraits`), the gameplay clips (the bot playing,
+recorded headless like `record.sh`) and the screenshots the page shows that
+`docs/media` has none of. `tests/site/links.sh` (ctest `site_links`) checks
+that every file and anchor the page points at exists and that `docs/CNAME`
+matches its domain.
 
 ## Relationship to RigelEngine
 
