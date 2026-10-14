@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gunrunners: a neon jump-n-shoot</title>
+<meta name="description" content="Gunrunners is a free jump-n-shoot platformer in the spirit of Duke Nukem II: six runners, 49 levels, six vehicles and one very suspicious TV network. For Linux and Android.">
+<meta property="og:title" content="Gunrunners">
+<meta property="og:description" content="Six couriers. Forty-two jobs. Don't ask what's in the box. A free neon jump-n-shoot for Linux and Android.">
+<meta property="og:image" content="https://gunrunners.snonux.foo/media/cover_front.jpg">
+<meta property="og:url" content="https://gunrunners.snonux.foo/">
+<meta name="theme-color" content="#140a26">
+<link rel="icon" href="site/runners/runner_rocco.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,500;0,700;0,800;1,800;1,900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site/style.css">
+</head>
+<body>
+
+<!-- Shared SVG filters for the box's shelf wear (site/style.css, .wear). -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <!-- Ragged, chewed-up edges: the turbulence pushes a clean shape around. -->
+    <filter id="fray" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="fray-fine" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- Corners rub through to the pale board first; rub marks are soft. -->
+    <radialGradient id="corner-wear">
+      <stop offset="0" stop-color="#efe5cf" stop-opacity="0.85"/>
+      <stop offset="0.45" stop-color="#efe5cf" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#efe5cf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rub">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Mottled scuffs: noise used as the alpha of a pale fill. -->
+    <filter id="scuff" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 0.97  0 0 0 0 0.9  0 0 0 -2.2 1.3"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+</svg>
+
+<header class="top">
+  <a class="brand" href="#top"><span class="gr">GR</span> Gunrunners</a>
+  <nav>
+    <a href="#box">The box</a>
+    <a href="#videos">Gameplay</a>
+    <a href="#story">Story</a>
+    <a href="#runners">Runners</a>
+    <a href="#villains">Villains</a>
+    <a href="#episodes">Episodes</a>
+    <a class="nav-cta" href="#get">Get it</a>
+  </nav>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="hero-text">
+    <p class="kicker">A jump-n-shoot for Linux and Android</p>
+    <h1 class="logo">GUNRUNNERS</h1>
+    <p class="lede">Six couriers. Forty-two jobs. A client called MAX who pays by the
+      job and says <em>don't ask what's in the box.</em> Run, jump and blast
+      your way across neon rooftops, a lost temple, a frozen space station and
+      an alien hive planet, in a platformer that plays like Duke Nukem II.</p>
+    <ul class="facts">
+      <li><b>49</b> levels</li>
+      <li><b>42</b> bonus levels</li>
+      <li><b>6</b> runners + your own</li>
+      <li><b>6</b> vehicles</li>
+      <li><b>0</b> samples: every note made in code</li>
+    </ul>
+    <div class="ctas">
+      <a class="btn btn-hot" href="#get">Get the game</a>
+      <a class="btn" href="https://github.com/snonux/gunrunners">Source on GitHub</a>
+    </div>
+  </div>
+
+  <div class="box-wrap" id="box">
+    <div class="box-stage" role="group" aria-roledescription="3D model" aria-label="The Gunrunners game box. Drag it, or use the arrow keys, to turn it.">
+      <div class="box">
+        <div class="face front">
+          <img src="media/cover_front.jpg" alt="Front of the Gunrunners box: the six runners in front of a neon city, a tank, a space ship and a ringed planet." width="1000" height="1400">
+          <svg class="wear" viewBox="0 0 1000 1400" preserveAspectRatio="none" aria-hidden="true">
+            <rect class="grain" width="1000" height="1400"/>
+            <!-- edges whitened in patches where the box rubbed against its neighbours -->
+            <rect class="edge" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
+            <rect class="edge edge-b" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
+            <circle class="corner" cx="0" cy="0" r="46"/>
+            <circle class="corner" cx="1000" cy="0" r="38"/>
+            <circle class="corner" cx="0" cy="1400" r="54"/>
+            <circle class="corner" cx="1000" cy="1400" r="42"/>
+            <!-- corner dings -->
+            <path class="ding" d="M1000 0H936Q956 14 968 26T1000 70Z" filter="url(#fray)"/>
+            <path class="ding" d="M0 1400V1312Q16 1336 34 1352T96 1400Z" filter="url(#fray)"/>
+            <path class="ding" d="M0 0H40Q22 10 14 22T0 44Z" filter="url(#fray-fine)"/>
+            <!-- a bent corner: one crease catches the light, one the shade -->
+            <path class="crease-hi" d="M868 1400Q912 1352 1000 1318"/>
+            <path class="crease-lo" d="M872 1400Q915 1356 1000 1323"/>
+            <!-- shelf scratches -->
+            <path class="scratch" d="M150 520Q330 470 520 505"/>
+            <path class="scratch" d="M610 880Q700 860 812 892"/>
+            <path class="scratch" d="M260 1100Q290 1060 352 1046"/>
+            <path class="scratch thin" d="M700 210Q780 190 905 228"/>
+            <path class="scratch thin" d="M90 760Q120 740 210 744"/>
+            <!-- where a price sticker was peeled off -->
+            <rect class="residue" x="36" y="1226" width="176" height="62" rx="8" filter="url(#fray-fine)"/>
+            <path class="residue-paper" d="M44 1236h34l-8 14 12 6-30 8Z" filter="url(#fray-fine)"/>
+            <ellipse class="rub" cx="520" cy="1180" rx="260" ry="90"/>
+          </svg>
+          <div class="sheen"></div>
+        </div>
+
+        <div class="face back">
+          <img src="media/cover_back.jpg" alt="Back of the Gunrunners box: the story blurb, four screenshots, the feature list and the six runners." width="1000" height="1400">
+          <svg class="wear" viewBox="0 0 1000 1400" preserveAspectRatio="none" aria-hidden="true">
+            <rect class="grain" width="1000" height="1400"/>
+            <rect class="edge" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
+            <rect class="edge edge-b" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
+            <circle class="corner" cx="0" cy="0" r="46"/>
+            <circle class="corner" cx="1000" cy="0" r="38"/>
+            <circle class="corner" cx="0" cy="1400" r="54"/>
+            <circle class="corner" cx="1000" cy="1400" r="42"/>
+            <path class="ding" d="M0 0H70Q40 14 26 30T0 82Z" filter="url(#fray)"/>
+            <path class="ding" d="M1000 1400V1340Q982 1360 966 1372T930 1400Z" filter="url(#fray)"/>
+            <path class="scratch" d="M120 640Q300 610 470 650"/>
+            <path class="scratch thin" d="M560 1060Q700 1030 880 1070"/>
+            <path class="scratch thin" d="M80 980Q140 960 220 990"/>
+            <ellipse class="rub" cx="300" cy="820" rx="280" ry="110"/>
+            <!-- a half-peeled used-game price sticker -->
+            <g class="sticker" transform="rotate(-6 905 1352)">
+              <path class="sticker-paper" d="M812 1318h176v66H850l-18-14 6-12-26-10Z" filter="url(#fray-fine)"/>
+              <text x="842" y="1343" class="sticker-small">PRE-OWNED</text>
+              <text x="842" y="1374" class="sticker-price">$24.99</text>
+              <path class="sticker-curl" d="M812 1318l-12 26 26 10-6 12 18 14Z"/>
+            </g>
+          </svg>
+          <div class="sheen"></div>
+        </div>
+
+        <div class="face spine spine-l" aria-hidden="true">
+          <div class="spine-stripe"></div>
+          <span class="spine-badge">GR</span>
+          <span class="spine-title">GUNRUNNERS</span>
+          <span class="spine-sub">ACTION · 1 PLAYER</span>
+          <span class="spine-no">042</span>
+          <div class="spine-stripe bottom"></div>
+          <svg class="wear" viewBox="0 0 220 1400" preserveAspectRatio="none">
+            <rect class="grain" width="220" height="1400"/>
+            <rect class="edge" x="2" y="2" width="216" height="1396" filter="url(#fray-fine)"/>
+            <path class="crease-hi" d="M10 300Q110 296 210 306"/>
+            <path class="crease-hi" d="M10 1010Q110 1016 210 1004"/>
+            <path class="scratch thin" d="M40 640L90 900"/>
+          </svg>
+          <div class="sunfade"></div>
+        </div>
+
+        <div class="face spine spine-r" aria-hidden="true">
+          <div class="spine-stripe"></div>
+          <span class="spine-badge">GR</span>
+          <span class="spine-title">GUNRUNNERS</span>
+          <span class="spine-sub">49 LEVELS · 6 RUNNERS</span>
+          <span class="spine-no">042</span>
+          <div class="spine-stripe bottom"></div>
+          <svg class="wear" viewBox="0 0 220 1400" preserveAspectRatio="none">
+            <rect class="grain" width="220" height="1400"/>
+            <rect class="edge" x="2" y="2" width="216" height="1396" filter="url(#fray-fine)"/>
+            <path class="crease-hi" d="M10 760Q110 770 210 756"/>
+          </svg>
+        </div>
+
+        <div class="face lid top-lid" aria-hidden="true"></div>
+        <div class="face lid bottom-lid" aria-hidden="true"></div>
+      </div>
+      <div class="box-shadow"></div>
+    </div>
+    <div class="box-controls">
+      <button type="button" class="btn btn-small" id="flip">Turn the box over</button>
+      <span class="hint">or drag it around</span>
+    </div>
+    <p class="box-links">Full size: <a href="media/cover_front.jpg">front</a> · <a href="media/cover_back.jpg">back</a></p>
+  </div>
+</section>
+
+<section class="videos" id="videos">
+  <h2>Gameplay</h2>
+  <p class="section-lede">Recorded straight out of the game, sound and all. The bot
+    plays (it plans its moves by simulating the level), the art is
+    all vectors and every sound is synthesized live.</p>
+  <div class="video-grid">
+    <figure class="video">
+      <video src="site/video/rooftop_run.mp4" poster="site/video/rooftop_run.jpg" muted loop playsinline preload="none" controls></video>
+      <figcaption><b>Rooftop Run</b> · neon signs that are only solid on the beat</figcaption>
+    </figure>
+    <figure class="video">
+      <video src="site/video/maglev_express.mp4" poster="site/video/maglev_express.jpg" muted loop playsinline preload="none" controls></video>
+      <figcaption><b>Maglev Express</b> · a fight along a running train</figcaption>
+    </figure>
+    <figure class="video">
+      <video src="site/video/idol_mines.mp4" poster="site/video/idol_mines.jpg" muted loop playsinline preload="none" controls></video>
+      <figcaption><b>Idol Mines</b> · mine carts that keep their speed</figcaption>
+    </figure>
+    <figure class="video">
+      <video src="site/video/gravity_lab.mp4" poster="site/video/gravity_lab.jpg" muted loop playsinline preload="none" controls></video>
+      <figcaption><b>Gravity Lab</b> · gravity switches flip the room</figcaption>
+    </figure>
+    <figure class="video">
+      <video src="site/video/kaiju_tonight.mp4" poster="site/video/kaiju_tonight.jpg" muted loop playsinline preload="none" controls></video>
+      <figcaption><b>Kaiju Tonight</b> · a monster movie with model tanks</figcaption>
+    </figure>
+    <figure class="video">
+      <video src="site/video/starfall.mp4" poster="site/video/starfall.jpg" muted loop playsinline preload="none" controls></video>
+      <figcaption><b>Starfall</b> · fly the courier ship through an asteroid field</figcaption>
+    </figure>
+  </div>
+  <p class="note">Clips start muted: hit the speaker icon to hear the soundtrack.</p>
+</section>
+
+<section class="story" id="story">
+  <h2>The story</h2>
+  <div class="story-grid">
+    <div class="story-text">
+      <p>It's a 1987 that never ended. In a diner in Neon City, three phones
+        chime at once. A scrambled hologram rises out of the table:</p>
+      <blockquote><span class="who">MAX</span> “Three couriers. Forty-two jobs.
+        Paid by the job. Don't ask what's in the box.”</blockquote>
+      <p>So the runners run. A package on a rooftop where the signs keep time.
+        A gunship called Black Halo. A jungle temple, a golem made of gold, a
+        research station in orbit whose AI has locked the crew out. Every job
+        ends with a prototype weapon in a green box, and every prototype goes
+        back to MAX.</p>
+      <p>But a gunship shouldn't carry a camera lens. Temple gold shouldn't
+        weigh nothing. And nobody should hear a laugh track in the jungle.</p>
+      <p class="tease">Somebody is watching. And the ratings are through the roof.</p>
+
+      <details class="spoiler">
+        <summary>Show the rest (spoilers for Episodes 3 to 7)</summary>
+        <p>At the end of Station Zero a wall falls over and the runners are
+          standing in a TV studio, in front of a cheering audience. The host,
+          <b>Lance Marquee</b>, thanks them for “season one of GUNRUNNERS” on
+          behalf of the sponsor, <b>Halcyon Arms</b>: buyers in forty
+          countries watched every prototype at work.</p>
+        <blockquote><span class="who">DASH</span> “We've been running their guns.”</blockquote>
+        <p>Season Two drops them through a trapdoor into the network itself:
+          a Western, a haunted manor, a cooking show, a kaiju movie, film noir
+          and a cartoon. Then a faint voice in the static teaches them to tune
+          the signal and climb the transmitter mast. The voice is
+          <b>Maxine Vale</b>, the show's director, who was MAX all along and
+          hid the candid cameras where they would be found. The finale is
+          live, and this time the runners pick what goes out on air.</p>
+        <p>And Episode 7? A misdialled teleport beam dumps them on Vurr, a
+          living alien planet, where a relic called the Star Seed has to be
+          taken back before the Hive Mother gets it.</p>
+      </details>
+    </div>
+    <figure class="story-shot">
+      <img src="media/cutscene.jpg" alt="A briefing cutscene: MAX's hologram over the diner table." loading="lazy">
+      <figcaption>Every level opens with a briefing from MAX.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="runners" id="runners">
+  <h2>The runners</h2>
+  <p class="section-lede">Pick one, or swap mid-level with a single button: weapon,
+    ammo and items carry over. They differ in health, jump height and what
+    they start with.</p>
+  <div class="runner-grid">
+    <article class="runner" style="--c:#ff5a4f">
+      <img src="site/runners/runner_dash.png" alt="Dash: spiky blond hair, cyan shades, red jacket." loading="lazy">
+      <h3>Dash</h3><p class="role">The all-rounder</p>
+      <dl><dt>Hearts</dt><dd>9</dd><dt>Jump</dt><dd>7 cells</dd><dt>Starts with</dt><dd>Blaster</dd></dl>
+      <p>Duke's own jump and a cool head. Does the talking when somebody has to.</p>
+    </article>
+    <article class="runner" style="--c:#7bd35a">
+      <img src="site/runners/runner_rocco.png" alt="Rocco: bearded, red bandana, green shirt, rocket launcher." loading="lazy">
+      <h3>Rocco</h3><p class="role">The heavy</p>
+      <dl><dt>Hearts</dt><dd>12</dd><dt>Jump</dt><dd>6 cells</dd><dt>Starts with</dt><dd>12 rockets</dd></dl>
+      <p>Ex-cop, lowest jump, most hearts. Asks the awkward questions.</p>
+    </article>
+    <article class="runner" style="--c:#ff4fd2">
+      <img src="site/runners/runner_nova.png" alt="Nova: pink ponytail, purple racing suit." loading="lazy">
+      <h3>Nova</h3><p class="role">The acrobat</p>
+      <dl><dt>Hearts</dt><dd>7</dd><dt>Jump</dt><dd>9 cells</dd><dt>Starts with</dt><dd>16 laser shots</dd></dl>
+      <p>A courier in a racing suit with the highest jump. Flies anything.</p>
+    </article>
+    <article class="runner" style="--c:#ffa23a">
+      <img src="site/runners/runner_jade.png" alt="Jade: goggles, orange vest, flamethrower." loading="lazy">
+      <h3>Jade</h3><p class="role">The pyro</p>
+      <dl><dt>Hearts</dt><dd>10</dd><dt>Jump</dt><dd>7 cells</dd><dt>Starts with</dt><dd>48 flamethrower shots</dd></dl>
+      <p>Down + fire on the flamethrower is a jetpack. Jade knows.</p>
+    </article>
+    <article class="runner" style="--c:#38e0c0">
+      <img src="site/runners/runner_skye.png" alt="Skye: white braid, teal jacket." loading="lazy">
+      <h3>Skye</h3><p class="role">The scout</p>
+      <dl><dt>Hearts</dt><dd>8</dd><dt>Jump</dt><dd>8 cells</dd><dt>Starts with</dt><dd>47 s of rapid fire</dd></dl>
+      <p>Fast hands and a high jump. Makes the first minute count.</p>
+    </article>
+    <article class="runner" style="--c:#6aa8ff">
+      <img src="site/runners/runner_bolt.png" alt="Bolt: a robot with an antenna and a green visor." loading="lazy">
+      <h3>Bolt</h3><p class="role">The machine</p>
+      <dl><dt>Hearts</dt><dd>11</dd><dt>Jump</dt><dd>6 cells</dd><dt>Starts with</dt><dd>a full laser</dd></dl>
+      <p>A robot. Heavy, hard to dent and fully charged.</p>
+    </article>
+  </div>
+  <p class="aside">Not enough? <b>NEW RUNNER</b> on the select screen builds your own:
+    human or robot, hair, face, outfit, colours, a starting gun and ten
+    points to spread over health, jump and power.</p>
+</section>
+
+<section class="villains" id="villains">
+  <h2>Villains, bosses and other trouble</h2>
+  <p class="section-lede">Almost every level brings its own residents. Some of the
+    over 150 kinds of enemy, and the ones that run the show:</p>
+
+  <div class="boss-grid">
+    <article class="boss">
+      <img src="media/level07.jpg" alt="Chopper Down: the Black Halo gunship over the harbour." loading="lazy">
+      <div><h3>Black Halo</h3><p class="where">Level 7 · Chopper Down</p>
+      <p>A gunship with a searchlight and a rope full of troopers. Lock-On
+        Rockets help. It also carries a camera lens, for some reason.</p></div>
+    </article>
+    <article class="boss">
+      <img src="media/level14.jpg" alt="The Idol Awakens: the golden Idol Golem." loading="lazy">
+      <div><h3>Kaan-Tolok, the Idol Golem</h3><p class="where">Level 14 · The Idol Awakens</p>
+      <p>The temple's golden guardian. Every coin you pocket fills a greed
+        meter; gems offered at the altars bring it back down.</p></div>
+    </article>
+    <article class="boss">
+      <img src="media/level21.jpg" alt="ZERO: the station AI's red eye." loading="lazy">
+      <div><h3>ZERO</h3><p class="where">Level 21 · ZERO</p>
+      <p>The station's AI rewires the level around you while you work out
+        why it keeps saying “please be quick.”</p></div>
+    </article>
+    <article class="boss">
+      <img src="site/shots/level28.jpg" alt="Toon Town Throwdown, in rubber-hose cartoon style." loading="lazy">
+      <div><h3>Buddy Boom</h3><p class="where">Level 28 · Toon Town Throwdown</p>
+      <p>A rubber-hose cartoon star with a mallet, a pie and a giant pencil
+        that draws new floors (and erases yours).</p></div>
+    </article>
+    <article class="boss">
+      <img src="site/shots/level35.jpg" alt="The Transmitter: a lattice mast above the clouds." loading="lazy">
+      <div><h3>The Halcyon Titan</h3><p class="where">Level 35 · The Transmitter</p>
+      <p>Halcyon Arms' biggest demo model, sent up the transmitter mast to
+        keep the signal from pointing home.</p></div>
+    </article>
+    <article class="boss">
+      <img src="media/level49.jpg" alt="The Hive Mother on her throne of eggs." loading="lazy">
+      <div><h3>The Hive Mother</h3><p class="where">Level 49 · Deep Space</p>
+      <p>The queen of Vurr on a throne of eggs, with Spore Nurses to heal
+        her. Shoot her crown when it glows. Then run.</p></div>
+    </article>
+  </div>
+
+  <div class="cast">
+    <div class="cast-card"><h3>MAX</h3><p>The anonymous client: a scrambled hologram, a
+      fat fee per job and a strict no-questions policy.</p></div>
+    <div class="cast-card"><h3>Halcyon Arms</h3><p>Makers of every prototype in the game.
+      Slogan: <i>Peace through firepower.</i></p></div>
+    <div class="cast-card"><h3>Lance Marquee</h3><p>All teeth and cue cards. Turns up
+      later, and he has a hover podium.</p></div>
+  </div>
+
+  <h3 class="sub">A few of the residents</h3>
+  <ul class="enemy-list">
+    <li><b>Bouncer</b> <span>Club Laserdisc</span> patrols his post; shots from the front only stagger him</li>
+    <li><b>Stalker</b> <span>Blackout</span> chases in the dark and freezes in any light</li>
+    <li><b>Gator</b> <span>Sludge Line</span> swims under the sludge, lunges up out of it</li>
+    <li><b>Decoupler</b> <span>Maglev Express</span> climbs out of a coupling and unhooks it</li>
+    <li><b>Cutter</b> <span>Canopy Road</span> runs to the rope bridge's far anchor and chops it down</li>
+    <li><b>Monk</b> <span>Sun Mirrors</span> sends shots and sunbeams back off a mirror shield</li>
+    <li><b>Crab</b> <span>Lava Heart</span> armoured on top and in front; flips when hit from behind</li>
+    <li><b>Mutant</b> <span>Cryo Labs</span> staggers out of a Sleeper Pod and lunges to grab</li>
+    <li><b>Test Subject</b> <span>Gravity Lab</span> crouches and copies your jumps</li>
+    <li><b>Echo</b> <span>ZERO</span> a hologram replaying your own moves from a while ago</li>
+    <li><b>Duelist</b> <span>Dry Gulch</span> the bell rings twice, then he draws</li>
+    <li><b>Portrait Ghost</b> <span>Fright Night Manor</span> leaves its frame and chases through walls</li>
+    <li><b>Meatball</b> <span>Too Many Cooks</span> rolls along belts and grows in the sauce</li>
+    <li><b>Piano Bird</b> <span>Toon Town</span> drops a piano where you are about to be</li>
+    <li><b>Writer's Block</b> <span>Writers' Room</span> slides into your way; only striking its word kills it</li>
+    <li><b>Mannequin</b> <span>Wardrobe</span> creeps up only while you look away</li>
+    <li><b>Prism Bat</b> <span>Crystal Drift</span> a shot through it splits in three</li>
+    <li><b>Sky Gulper</b> <span>Bounder Plains</span> swallows a runner on foot and spits them back</li>
+  </ul>
+</section>
+
+<section class="episodes" id="episodes">
+  <h2>Seven episodes</h2>
+  <p class="section-lede">Every level has its own twist, its own prototype weapon,
+    its own soundtrack, secrets, a briefing and a bonus level behind a
+    flickering TV. “WE'LL BE RIGHT BACK!”</p>
+  <div class="episode-grid">
+    <article class="episode">
+      <img src="media/level01.jpg" alt="Rooftop Run at sunset." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 1</p><h3>Neon Overdrive</h3><p class="ep-tag">A 1987 that never ended</p>
+      <details><summary>7 levels</summary><ol start="1"><li>Rooftop Run</li><li>Glass Canyon</li><li>Club Laserdisc</li><li>Blackout</li><li>Sludge Line</li><li>Maglev Express</li><li>Chopper Down</li></ol></details></div>
+    </article>
+    <article class="episode">
+      <img src="site/shots/level08.jpg" alt="Canopy Road in the jungle." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 2</p><h3>Lost Temple</h3><p class="ep-tag">Gold, traps and a golem</p>
+      <details><summary>7 levels</summary><ol start="8"><li>Canopy Road</li><li>Hall of Traps</li><li>Sun Mirrors</li><li>Idol Mines</li><li>Lava Heart</li><li>Boulder Run</li><li>The Idol Awakens</li></ol></details></div>
+    </article>
+    <article class="episode">
+      <img src="media/level19.jpg" alt="Gravity Lab aboard Station Zero." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 3</p><h3>Station Zero</h3><p class="ep-tag">A frozen base in orbit</p>
+      <details><summary>7 levels</summary><ol start="15"><li>Hangar Bay</li><li>Cryo Labs</li><li>Hydroponics</li><li>Hull Walk</li><li>Gravity Lab</li><li>Reactor Core</li><li>ZERO</li></ol></details></div>
+    </article>
+    <article class="episode">
+      <img src="site/shots/level22.jpg" alt="Dry Gulch, a Western town." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 4</p><h3>Channel Surfing</h3><p class="ep-tag">Every channel is a level</p>
+      <details><summary>7 levels</summary><ol start="22"><li>Dry Gulch</li><li>Fright Night Manor</li><li>Too Many Cooks</li><li>Tiny Kingdom</li><li>Kaiju Tonight</li><li>The Long Rain</li><li>Toon Town Throwdown</li></ol></details></div>
+    </article>
+    <article class="episode">
+      <img src="site/shots/level31.jpg" alt="Storm Relay." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 5</p><h3>Signal Hunt</h3><p class="ep-tag">Find the transmitter</p>
+      <details><summary>7 levels</summary><ol start="29"><li>Dead Air</li><li>Fiber Trench</li><li>Storm Relay</li><li>Dish Array</li><li>Magma Mainframe</li><li>Zeppelin Relay</li><li>The Transmitter</li></ol></details></div>
+    </article>
+    <article class="episode">
+      <img src="site/shots/level39.jpg" alt="The Gallery, a TV control room." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 6</p><h3>Live Finale</h3><p class="ep-tag">The show must go on</p>
+      <details><summary>7 levels</summary><ol start="36"><li>Prop Warehouse</li><li>Wardrobe</li><li>Writers' Room</li><li>The Gallery</li><li>The Fly Tower</li><li>Sweeps Week</li><li>The Live Finale</li></ol></details></div>
+    </article>
+    <article class="episode">
+      <img src="media/level44.jpg" alt="Crash Garden on the alien planet Vurr." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Episode 7</p><h3>Deep Space</h3><p class="ep-tag">A misdialled beam to an alien world</p>
+      <details><summary>7 levels</summary><ol start="43"><li>Starfall</li><li>Crash Garden</li><li>Hive Gullets</li><li>Crystal Drift</li><li>Silk Canyon</li><li>Bounder Plains</li><li>The Hive Mother</li></ol></details>
+      <p class="ep-note">Playable any time from WORLD SELECT.</p></div>
+    </article>
+    <article class="episode">
+      <img src="media/motor_pool.jpg" alt="Motor Pool: tank, hoverbike and helicopter in the depot." loading="lazy">
+      <div class="ep-body"><p class="ep-no">Extras</p><h3>Motor Pool &amp; Deep Dive</h3><p class="ep-tag">Two levels built around the vehicles</p>
+      <p class="ep-note">Tank, helicopter, hoverbike, submarine, space ship and mech. Hits go to the armour, not your hearts.</p></div>
+    </article>
+  </div>
+</section>
+
+<section class="features">
+  <h2>Plays like Duke Nukem II, then some</h2>
+  <div class="feature-grid">
+    <div><h3>Frame-accurate movement</h3><p>The jump arc, ladders, hang bars and the flamethrower jetpack are ported from Duke Nukem II via RigelEngine.</p></div>
+    <div><h3>Bonus levels</h3><p>Find the TV static and press up: a short level with crazy rules, then back where you were. Beat it for a Bonus Star.</p></div>
+    <div><h3>The Arsenal</h3><p>Each level hides a prototype weapon. Reach the exit with it and it joins your collection, with your best kill count.</p></div>
+    <div><h3>Secrets</h3><p>A rubber duck in every level, candid cameras, hidden gem caches, the letters G-U-N and the number 42 somewhere.</p></div>
+    <div><h3>A soundtrack per level</h3><p>Synthwave, house, dub, marimba, slide guitar, a waltz, noir trumpet, big band, arena rock. All synthesized: no samples.</p></div>
+    <div><h3>Play anywhere</h3><p>Keyboard, any gamepad, or touch on Android. Five save slots plus quick save, optionally synced to an S3 bucket.</p></div>
+  </div>
+</section>
+
+<section class="gallery" id="gallery">
+  <h2>Screenshots</h2>
+  <div class="shot-grid">
+    <a href="media/title.jpg"><img src="media/title.jpg" alt="The title screen." loading="lazy"></a>
+    <a href="media/level03.jpg"><img src="media/level03.jpg" alt="Club Laserdisc." loading="lazy"></a>
+    <a href="media/level04.jpg"><img src="media/level04.jpg" alt="Blackout." loading="lazy"></a>
+    <a href="media/level06.jpg"><img src="media/level06.jpg" alt="Maglev Express." loading="lazy"></a>
+    <a href="site/shots/level23.jpg"><img src="site/shots/level23.jpg" alt="Fright Night Manor." loading="lazy"></a>
+    <a href="site/shots/level26.jpg"><img src="site/shots/level26.jpg" alt="Kaiju Tonight." loading="lazy"></a>
+    <a href="site/shots/level27.jpg"><img src="site/shots/level27.jpg" alt="The Long Rain." loading="lazy"></a>
+    <a href="site/shots/level34.jpg"><img src="site/shots/level34.jpg" alt="Zeppelin Relay." loading="lazy"></a>
+    <a href="site/shots/level38.jpg"><img src="site/shots/level38.jpg" alt="Writers' Room." loading="lazy"></a>
+    <a href="site/shots/level42.jpg"><img src="site/shots/level42.jpg" alt="The Live Finale." loading="lazy"></a>
+    <a href="media/level43.jpg"><img src="media/level43.jpg" alt="Starfall." loading="lazy"></a>
+    <a href="media/deep_dive.jpg"><img src="media/deep_dive.jpg" alt="Deep Dive, in the submarine." loading="lazy"></a>
+  </div>
+</section>
+
+<section class="get" id="get">
+  <h2>Get the game</h2>
+  <p class="section-lede">Free software under the GNU GPL, version 2 or later. No ads and
+    no accounts.</p>
+  <div class="get-grid">
+    <article class="get-card">
+      <h3>Android</h3>
+      <p>Install with <a href="https://f-droid.org">F-Droid</a> from Paul's
+        repository: open <a href="https://github.com/snonux/fdroid">snonux/fdroid</a>
+        for the one-tap link and QR code, or add
+        <code>https://snonux.github.io/fdroid/repo</code> under
+        <i>Settings → Repositories</i> and search for Gunrunners.</p>
+      <p>On-screen thumb controls, or any Bluetooth or USB gamepad.</p>
+    </article>
+    <article class="get-card">
+      <h3>Linux</h3>
+      <p>Grab <code>gunrunners-vX.Y.Z-linux-x86_64.tar.gz</code> from the
+        <a href="https://github.com/snonux/gunrunners/releases/latest">latest release</a>
+        when it carries one, unpack it anywhere and start <code>gunrunners</code>.
+        It needs SDL2 and Cairo. Or build it, on any architecture:</p>
+<pre><code>git clone https://github.com/snonux/gunrunners
+cd gunrunners
+sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel   # Fedora
+sudo apt install build-essential cmake libsdl2-dev libcairo2-dev   # Debian/Ubuntu
+./build.sh -r</code></pre>
+    </article>
+    <article class="get-card">
+      <h3>The source</h3>
+      <p>Everything is on GitHub: the C++ engine, all 49 levels as text
+        files, the cutscene scripts, the synthesizer and the tools that drew
+        this page's box art and recorded its clips.</p>
+      <p><a class="btn btn-hot" href="https://github.com/snonux/gunrunners">github.com/snonux/gunrunners</a></p>
+    </article>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p><span class="gr">GR</span> Gunrunners · free software under the GPL v2 or later ·
+    <a href="https://github.com/snonux/gunrunners">GitHub</a></p>
+  <p class="small">Movement ported from <a href="https://github.com/lethal-guitar/RigelEngine">RigelEngine</a>,
+    the modern reimplementation of Duke Nukem II. Not affiliated with any
+    TV network, real or fictional.</p>
+</footer>
+
+<script src="site/site.js"></script>
+</body>
+</html>

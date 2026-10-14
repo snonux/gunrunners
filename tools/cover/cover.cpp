@@ -4,6 +4,9 @@
 //
 // Usage: gunrunners_cover OUTDIR SHOT1.png SHOT2.png SHOT3.png SHOT4.png
 // Writes OUTDIR/cover_front.png and OUTDIR/cover_back.png (1000x1400).
+// gunrunners_cover --icon OUTDIR draws the app icon, and
+// gunrunners_cover --portraits OUTDIR [POSE] the six runners for the web page
+// (tools/site-media.sh).
 
 #include "assets/art.hpp"
 #include "assets/enemy_art_alien.hpp"
@@ -14,9 +17,11 @@
 #include <cairo.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <string>
 #include <vector>
@@ -757,6 +762,26 @@ void icon(const std::string& dir)
   cairo_surface_destroy(surf);
 }
 
+// The six built-in runners for the web page (docs/index.html), one
+// transparent PNG each (runner_<name>.png, lower case), in pose `pose` (see
+// art.hpp; 0 is idle). The canvas leaves room for the gun and the hair;
+// tools/site-media.sh trims the empty margin.
+void portraits(const std::string& dir, int pose)
+{
+  constexpr int kW = 420, kH = 440;
+  for (int i = 0; i < 6; ++i)
+  {
+    cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, kW, kH);
+    cairo_t* cr = cairo_create(surf);
+    rosterRunner(cr, i, pose, 170, 420, 2.6, false);
+    std::string name = gr::characterByIndex(i).name;
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    cairo_surface_write_to_png(surf, (dir + "/runner_" + name + ".png").c_str());
+    cairo_destroy(cr);
+    cairo_surface_destroy(surf);
+  }
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -767,9 +792,16 @@ int main(int argc, char** argv)
     std::printf("wrote %s/icon.png and the adaptive icon layers\n", argv[2]);
     return 0;
   }
+  if ((argc == 3 || argc == 4) && std::string(argv[1]) == "--portraits")
+  {
+    portraits(argv[2], argc == 4 ? std::atoi(argv[3]) : 0);
+    std::printf("wrote the six runner portraits to %s\n", argv[2]);
+    return 0;
+  }
   if (argc < 2)
   {
-    std::fprintf(stderr, "usage: %s OUTDIR [SHOT.png ...]   or   %s --icon OUTDIR\n", argv[0], argv[0]);
+    std::fprintf(stderr, "usage: %s OUTDIR [SHOT.png ...]   or   %s --icon OUTDIR   or   %s --portraits OUTDIR [POSE]\n",
+      argv[0], argv[0], argv[0]);
     return 1;
   }
   const std::string dir = argv[1];

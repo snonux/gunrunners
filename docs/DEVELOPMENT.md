@@ -196,6 +196,18 @@ stone key, the exit), so it copes with beat-timed platforms and other twists. Ru
 deterministic, so the same command always produces the same clip. Without
 `--level`, `record.sh` records the campaign from the title screen.
 
+## The web page
+
+<https://gunrunners.snonux.foo> is `docs/index.html`, served by GitHub Pages
+from `main:/docs` (`docs/CNAME` names the domain, `docs/.nojekyll` serves
+the files as they are). Its own styles, script and media live in
+`docs/site/`; it reuses the README's pictures in `docs/media/`. The game
+box on it is the two covers on a 3D box in CSS, with the shelf wear drawn
+as SVG over each face. `tools/site-media.sh` makes the rest from the game
+itself: the runner portraits (`gunrunners_cover --portraits`), the gameplay
+clips (the bot playing, recorded headless like `record.sh`) and the
+screenshots of the levels `docs/media` has none of.
+
 ## Relationship to RigelEngine
 
 [RigelEngine](https://github.com/lethal-guitar/RigelEngine) is a modern
@@ -249,7 +261,9 @@ tools/         record.sh, mklevel.py (levels/level1.txt), levels/*.py
                (one generator per campaign level), covers.sh and cover/
                (the box art, drawn with the game's own runners), icons.sh
                (the Android app icon), linux-package.sh (the Linux
-               release tarball)
+               release tarball), site-media.sh (the web page's media)
+docs/          design notes, the README's pictures (media/) and the web
+               page (index.html, site/)
 fonts/         DejaVu Sans Bold, for builds without fontconfig (Android)
 android/       the Android project (Gradle, SDL2's activity, deps script)
 fastlane/      store text, icon and screenshots for F-Droid

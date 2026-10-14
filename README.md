@@ -5,6 +5,9 @@
   <img src="docs/media/cover_back.jpg" width="420" alt="Gunrunners box art, back">
 </p>
 
+**Website: <https://gunrunners.snonux.foo>** (gameplay videos, the story,
+the runners and their enemies).
+
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
 runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
 own in the runner editor, and blast your way to the exit.
