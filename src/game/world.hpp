@@ -2023,6 +2023,10 @@ private:
   void landOnGround(bool needRecoveryFrame);
   void switchOrientation();
   void switchOrientationWithPositionChange();
+  // Crawlspaces: down and the way you face moves a crouched runner (half
+  // speed) under a ceiling too low to stand under; false out in the open.
+  bool crawlStep(int mvX);
+  bool lowCeiling(int x) const;
   void setVisual(PlayerVisual v) { mPlayer.visual = v; }
   void hurtPlayer(int amount);
   void startTurbo();
@@ -2419,7 +2423,8 @@ private:
   void updateGrav(const PlayerInput& input);
   void turnRunner(Grav g);
   void flipZone(int zone);
-  void hitGravSwitch(int sw);
+  // A Grav Grenade hits as hard as two quick shots (it opens a closet too).
+  void hitGravSwitch(int sw, bool grenade = false);
   bool shotAtGrav(Projectile& pr, const CellBox& b);
   void throwVortex(int ox, int oy, int dx, int dy);
   void updateVortices();

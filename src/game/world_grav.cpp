@@ -500,7 +500,7 @@ void World::updateGravPlayer(const PlayerInput& input)
 
 // --- Switches, chambers, gates ---------------------------------------------------------------
 
-void World::hitGravSwitch(int si)
+void World::hitGravSwitch(int si, bool grenade)
 {
   auto& g = mGrav;
   if (si < 0 || std::size_t(si) >= g.switches.size())
@@ -509,10 +509,10 @@ void World::hitGravSwitch(int si)
   if (s.flash < kSwitchRest)
     return;
   const int now = clock();
-  const bool quick = now - s.lastHit <= kQuick;
+  const bool quick = grenade || now - s.lastHit <= kQuick;
   s.lastHit = now;
   s.flash = 0;
-  // The closet: two quick hits open its door.
+  // The closet: two quick hits (or a grenade) open its door.
   if (quick)
     for (auto& t : g.gates)
       if (!t.open && t.sw == si)
@@ -614,7 +614,7 @@ void World::updateVortices()
         for (std::size_t i = 0; i < g.switches.size() && !stop; ++i)
           if (switchBox(g.switches[i]).intersects(at))
           {
-            hitGravSwitch(int(i));
+            hitGravSwitch(int(i), true);
             stop = true;
           }
         for (const auto& e : mEnemies)

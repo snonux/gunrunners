@@ -152,6 +152,33 @@ int main(int argc, char** argv)
       check(w.grav().zones[0].dir == Grav::Up, "a shot throws a switch");
     }
     {
+      // Two quick shots at a switch open a hidden door (Level 19's closet):
+      // the second shot is already on its way when the first turns the
+      // chamber over.
+      const auto level = std::make_shared<const Level>(Level::parse(
+        room(4, {}, std::string(kZone) + "@ switch S1 16 20 kind=panel\n@ testgate TG 34 19 h=3 hits=S1\n")));
+      World w(level, 0, theme, art);
+      idle(w, 4);
+      Keys prev, shoot;
+      shoot.fire = true;
+      for (int f = 0; f < 50; ++f)
+        step(w, (f == 0 || f == 11) ? shoot : Keys{}, prev);
+      check(w.map().block(34, 20) == Tile::Empty, "two quick shots at a switch open a hidden door");
+    }
+    {
+      // So does one Grav Grenade (a runner holding them has no pistol).
+      const auto level = std::make_shared<const Level>(Level::parse(
+        room(14, {}, std::string(kZone) + "@ switch S1 16 20 kind=panel\n@ testgate TG 34 19 h=3 hits=S1\n")));
+      World w(level, 0, theme, art);
+      w.cheat(Cheat::Ammo);
+      idle(w, 4);
+      Keys prev, shoot;
+      shoot.fire = true;
+      step(w, shoot, prev);
+      idle(w, 40);
+      check(w.map().block(34, 20) == Tile::Empty, "a grenade at the switch opens it too");
+    }
+    {
       // Two flips within 15 frames make the runner dizzy (a low chamber: the
       // runner stays on its switch).
       std::vector<std::pair<int, std::string>> roof;

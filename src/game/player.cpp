@@ -124,6 +124,13 @@ void World::updatePlayer(const PlayerInput& raw)
     in.left = in.right = false;
   if (in.up && in.down)
     in.up = in.down = false;
+  // In a crawlspace a crouched runner stays down until there is room to
+  // stand.
+  if (p.state == PlayerState::OnGround && p.visual == PlayerVisual::Crouching && lowCeiling(p.x))
+  {
+    in.down = true;
+    in.up = false;
+  }
   const int mvX = in.left ? -1 : (in.right ? 1 : 0);
   const int mvY = in.up ? -1 : (in.down ? 1 : 0);
 
@@ -290,6 +297,25 @@ void World::updatePlayer(const PlayerInput& raw)
   }
 }
 
+bool World::lowCeiling(int x) const
+{
+  const auto& p = mPlayer;
+  return p.grav == Grav::Down && mMap.overlapsSolid(boxAt(x, p.y, Player::kWidth, 5)) &&
+    !mMap.overlapsSolid(boxAt(x, p.y, Player::kWidth, 4));
+}
+
+bool World::crawlStep(int mvX)
+{
+  auto& p = mPlayer;
+  if (!lowCeiling(p.x) && !lowCeiling(p.x + mvX))
+    return false; // out in the open, down only crouches
+  if (p.oddFrame)
+    return true; // half speed
+  if (mMap.moveHorizontally(p.x, p.y, Player::kWidth, 4, mvX) == MoveResult::Completed)
+    ++p.walkFrame;
+  return true;
+}
+
 void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, const Button& fireButton)
 {
   auto& p = mPlayer;
@@ -339,6 +365,8 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
         setVisual(mvY < 0 ? PlayerVisual::LookingUp : PlayerVisual::Crouching);
         if (mvX != 0 && mvX != p.facing)
           switchOrientationWithPositionChange();
+        else if (mvX != 0 && mvY > 0)
+          crawlStep(mvX);
       }
       else
       {

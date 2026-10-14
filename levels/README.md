@@ -408,7 +408,9 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 
 Game logic works in 8 px *cells* like Duke Nukem II, so every block is 2x2
 cells. The player is 3 cells wide and 5 tall (4 when crouching, 6 when
-hanging), and jumps 6 to 9 cells high depending on the runner.
+hanging), and jumps 6 to 9 cells high depending on the runner. A gap 4 cells
+(2 blocks) high is a crawlspace: down and a direction crawls through it at
+half speed, and the runner stays crouched until it is out.
 
 ## Map blocks
 
@@ -457,3 +459,29 @@ and pop out what they hold, Duke style.
 The left, right and top map edges are walls. Dying, or falling off the
 bottom, puts you back at the last checkpoint with full health; there are no
 lives, as in Duke Nukem II.
+
+## Checking every level can be played
+
+Every level must be fully navigable as designed: the exit, the bonus
+entrance, every item, letter, `$` cache and box reachable (the post-credits
+scene needs every `$` and letter of the campaign). After adding or changing
+a level, and before any release, run the navigation check on all of them:
+
+```
+build/navcheck --map /tmp/navmaps levels/*.txt
+```
+
+`navcheck` plays the level with the real game logic: a breadth-first search
+over every place the runner comes to rest (standing, on a ladder, hanging,
+swimming, in a vehicle), trying short moves from each (steps, jumps with and
+without steering, ladders and doors, waits for lifts, shots at walls and
+switches, USE), seeded from everywhere the bot stops on its way through. It
+runs Rocco (the lowest jump) and Nova (the highest) by default
+(`--character 0,5` picks others; runners can be swapped mid-level, so a
+place counts if any of them gets there) and prints what nobody reached, by
+block. `--map DIR` writes a picture per level (`.ppm`): walls grey, ladders and
+one-way blue, where the runner went green, missed things red. Anything it
+lists is a level bug (or a move the search doesn't know: then prove it with
+a test, as `grav_test` does for Level 19's closet). `ctest -R
+'ladders|reflections'` checks the ladder rules on every level.
+

@@ -251,6 +251,10 @@ if(TARGET SDL2::SDL2main)
   target_link_libraries(gunrunners PRIVATE SDL2::SDL2main)
 endif()
 
+# Walks every level for places the runner can't get to (tools/navcheck).
+add_executable(navcheck tools/navcheck/navcheck.cpp)
+target_link_libraries(navcheck PRIVATE gunrunners_core SDL2::SDL2)
+
 # Box art for the README (tools/covers.sh); not part of the default build.
 add_executable(gunrunners_cover EXCLUDE_FROM_ALL tools/cover/cover.cpp)
 target_link_libraries(gunrunners_cover PRIVATE gunrunners_core)
@@ -463,3 +467,8 @@ target_link_libraries(finale_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME finale COMMAND finale_test ${CMAKE_SOURCE_DIR}/levels/42_live_finale.txt
   ${CMAKE_SOURCE_DIR}/levels/42_bonus_bloopers.txt)
 add_test(NAME savegame_live_finale COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/42_live_finale.txt 300)
+
+# Crawlspaces: a crouched runner crawls under a ceiling 4 cells high.
+add_executable(crawl_test tests/crawl_test.cpp)
+target_link_libraries(crawl_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME crawl COMMAND crawl_test)
