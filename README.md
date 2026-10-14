@@ -145,12 +145,12 @@ while you use the pad. Building the APK yourself is described in
 carries `gunrunners-vX.Y.Z-linux-x86_64.tar.gz`, download it, unpack it
 anywhere and start `gunrunners` in it. The releases so far (up to v0.4.0)
 ship only the Android APK, so until a tarball is there, build from source
-as shown below. The tarball needs SDL2 and Cairo, which most desktops
+as shown below. The tarball needs SDL2, Cairo and libcurl, which most desktops
 already have:
 
 ```sh
-sudo apt install libsdl2-2.0-0 libcairo2 fonts-dejavu-core   # Debian/Ubuntu
-sudo dnf install SDL2 cairo dejavu-sans-fonts                 # Fedora
+sudo apt install libsdl2-2.0-0 libcairo2 libcurl4 fonts-dejavu-core   # Debian/Ubuntu
+sudo dnf install SDL2 cairo libcurl dejavu-sans-fonts                  # Fedora
 tar xzf gunrunners-v*-linux-x86_64.tar.gz
 gunrunners-v*-linux-x86_64/gunrunners
 ```
@@ -159,8 +159,8 @@ gunrunners-v*-linux-x86_64/gunrunners
 libraries, then build and start it:
 
 ```sh
-sudo apt install build-essential cmake libsdl2-dev libcairo2-dev   # Debian/Ubuntu
-sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel              # Fedora
+sudo apt install build-essential cmake libsdl2-dev libcairo2-dev libcurl4-openssl-dev   # Debian/Ubuntu
+sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel libcurl-devel                    # Fedora
 ./build.sh -r
 ```
 
