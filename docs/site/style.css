@@ -65,7 +65,9 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .top nav { display: flex; gap: 4px 18px; flex-wrap: wrap; justify-content: flex-end; }
 .top nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 17px; }
 .top nav a:hover { color: var(--text); }
-.top nav .nav-cta { color: var(--hot); }
+.top nav .nav-cta { color: var(--hot); white-space: nowrap; }
+/* Text for screen readers only. */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .top nav { margin-left: auto; }
 /* The sound effects switch: a speaker with waves when on, crossed out when off. */
 .sound-toggle {
@@ -83,7 +85,11 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .sound-toggle[aria-pressed="false"] .cross { display: inline; }
 .sound-toggle:hover { box-shadow: 0 0 16px rgba(47, 216, 255, 0.45); }
 .sound-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-@media (max-width: 420px) { .sound-label { display: none; } .sound-toggle { padding: 5px 8px; } } /* icon only on narrow phones */
+/* Icon only on narrow phones; the label stays there for screen readers. */
+@media (max-width: 420px) {
+  .sound-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .sound-toggle { padding: 5px 8px; }
+}
 /* Below 960px the section links no longer fit on one line (with a classic
    scrollbar): keep only "Get it" and the sound switch. */
 @media (max-width: 960px) { .top nav a:not(.nav-cta) { display: none; } }
@@ -379,7 +385,7 @@ main > section:not(.hero)::after {
 .gallery { --scene: url(../media/level44.jpg); }
 .get { --scene: url(../media/level02.jpg); }
 /* Bright pictures get an extra veil, so the headings keep their contrast. */
-.get, .gallery { --veil: linear-gradient(rgba(20, 10, 38, 0.45), rgba(20, 10, 38, 0.45)); }
+.get, .gallery, .features { --veil: linear-gradient(rgba(20, 10, 38, 0.45), rgba(20, 10, 38, 0.45)); }
 /* The hero's picture covers it, anchored at the bottom, and starts a
    third of the hero's height above the page: when it is scaled to the
    box's height (phones, most desktops) that takes the top fifth, the HUD
@@ -399,8 +405,10 @@ main > section:not(.hero)::after {
 .hero-floor {
   position: absolute; z-index: -1; bottom: 0; left: calc(50% - 50vw); width: 100vw; height: 42%;
   perspective: 320px; overflow: hidden; pointer-events: none;
-  -webkit-mask-image: linear-gradient(to top, #000 35%, transparent);
-  mask-image: linear-gradient(to top, #000 35%, transparent);
+  /* Clear well before the plane's far edge (about halfway up), which moves
+     with the rolling transform. */
+  -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 50%);
+  mask-image: linear-gradient(to top, #000 20%, transparent 50%);
 }
 .hero-floor::before {
   content: ""; position: absolute; left: -50%; right: -50%; top: -60%; bottom: 0;
@@ -474,7 +482,7 @@ body::after {
 
 @media (prefers-reduced-motion: reduce) {
   .logo, .hero-floor::before, .filmstrip-track, .runner:hover img { animation: none; }
-  .episode:hover, .boss:hover { transform: none; }
+  .episode:hover, .boss:hover, .btn:hover, .shot-grid a:hover img { transform: none; }
 }
 
 /* The story's who's who and its episode-by-episode walkthrough. */
@@ -495,8 +503,10 @@ body::after {
 
 /* The TV show twist explained as short questions and answers. */
 .show-explained { margin: 14px 0 22px; padding: 14px 16px; border-radius: 12px; background: rgba(47, 216, 255, 0.07); border: 1px solid rgba(47, 216, 255, 0.35); }
-.show-explained h4 { margin: 0 0 10px; font: 800 italic 21px var(--display); color: var(--gold); }
+.show-explained h3 { margin: 0 0 10px; font: 800 italic 21px var(--display); color: var(--gold); }
 .show-explained dl { margin: 0; }
 .show-explained dt { font-weight: 600; color: var(--cyan); margin-top: 10px; }
 .show-explained dt:first-child { margin-top: 0; }
 .show-explained dd { margin: 2px 0 0; }
+
+.steps-title { margin: 6px 0 10px; font: 800 italic 21px var(--display); color: var(--gold); }

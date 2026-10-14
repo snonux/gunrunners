@@ -24,6 +24,7 @@
       turning: false,
       turnTimer: 0,
       swayStart: performance.now(),
+      nodFrom: 0, // tilt left over from before a pause, fading out (startSway)
       written: {}, // what is in the DOM, so unchanged values aren't rewritten
     };
 
@@ -54,6 +55,7 @@
       window.clearTimeout(s.turnTimer);
       box.classList.add("animate");
       s.turning = true;
+      s.nodFrom = 0; // the turn ends exactly at the rest
       s.rx = s.rest.rx;
       s.ry = s.rest.ry;
       b.apply();
@@ -98,6 +100,7 @@
       s.dragging = false;
       stage.classList.remove("dragging");
       s.rest = { rx: s.rx, ry: s.ry };
+      s.nodFrom = 0; // the rest already holds the tilt
       s.swayStart = performance.now();
     }
     stage.addEventListener("pointerup", endDrag);
@@ -144,7 +147,8 @@
     function sway(now) {
       frame = 0;
       if (!visible || reduceMotion()) return;
-      if (now - last > 250) { // a pause: carry on from here
+      if (now - last > 250) { // a pause: carry on from here, tilt and all
+        s.nodFrom = s.rx - s.rest.rx;
         s.rest = { rx: s.rest.rx, ry: s.ry };
         s.swayStart = now;
       }
@@ -152,7 +156,10 @@
       if (!s.dragging && !s.turning) {
         var t = (now - s.swayStart) / 1000;
         s.ry = s.rest.ry + turned(t);
-        s.rx = s.rest.rx + Math.sin(t * 0.5) * 4 * Math.min(1, t / 2);
+        // The nod fades in over 2 s, and the tilt the box had when it
+        // paused (nodFrom) fades out, so it never jumps.
+        var ease = Math.min(1, t / 2);
+        s.rx = s.rest.rx + (s.nodFrom || 0) * (1 - ease) + Math.sin(t * 0.5) * 4 * ease;
         b.apply();
       }
       frame = window.requestAnimationFrame(sway);
@@ -163,7 +170,9 @@
       visible = entries[entries.length - 1].isIntersecting;
       resume();
     }).observe(stage);
-    reducedMotion.addEventListener("change", resume);
+    // Old Safari (13 and before) only has addListener on media queries.
+    if (reducedMotion.addEventListener) reducedMotion.addEventListener("change", resume);
+    else if (reducedMotion.addListener) reducedMotion.addListener(resume);
   }
 
   function setupBox() {
@@ -274,7 +283,8 @@
       sweep.Q.value = 1.5;
       sweep.frequency.setValueAtTime(v.f0, start);
       sweep.frequency.exponentialRampToValueAtTime(v.f1, end);
-      src.connect(sweep).connect(gain);
+      src.connect(sweep); // two calls: old WebKit's connect() returns nothing to chain on
+      sweep.connect(gain);
     } else {
       src = ctx.createOscillator();
       src.type = v.type;
@@ -291,10 +301,16 @@
     var ctx = null, noise = null, on = true;
     try { on = window.localStorage.getItem(SOUND_KEY) !== "off"; } catch (e) { /* storage blocked: default on */ }
 
+    // Called on every click, tap and key press (the only moments a browser
+    // lets audio start). No audio device is opened while the sound is off;
+    // a context the browser suspended or interrupted (iOS) is resumed.
+    // Returns a promise that settles once the audio runs (or right away).
     function unlock() {
+      if (!on) return Promise.resolve();
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!ctx && AC) ctx = new AC();
-      if (ctx && ctx.state === "suspended") ctx.resume();
+      if (ctx && ctx.state !== "running") return Promise.resolve(ctx.resume()).catch(function () {});
+      return Promise.resolve();
     }
     function noiseBuffer() {
       if (noise) return noise;
@@ -303,20 +319,29 @@
       for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       return noise;
     }
+    // True if the sound actually played.
     function play(name) {
-      if (!on || !ctx || ctx.state !== "running") return;
+      if (!on || !ctx || ctx.state !== "running") return false;
       SFX[name].forEach(function (v) { playVoice(ctx, v.noise ? noiseBuffer() : null, v, ctx.currentTime); });
+      return true;
     }
+    // Switched on from a click, so the audio may start right away (the
+    // promise settles once it runs); switched off, the audio device is let go.
     function setOn(value) {
       on = value;
       try { window.localStorage.setItem(SOUND_KEY, on ? "on" : "off"); } catch (e) { /* not remembered */ }
+      if (on) return unlock();
+      if (ctx && ctx.state === "running") ctx.suspend();
+      return Promise.resolve();
     }
     return { unlock: unlock, play: play, isOn: function () { return on; }, setOn: setOn };
   }
 
   // Which sound goes with which part of the page: on mouse-over (not touch:
-  // a tap would also be a click) and on click. One sound per element at most
-  // every 250 ms, so sweeping across the page doesn't turn into noise.
+  // a tap would also be a click) and on click or press. One hover sound and
+  // one click sound per element at most every 250 ms (counted from a sound
+  // that actually played), so sweeping across the page doesn't turn into
+  // noise and a quick click after a hover still gets its own sound.
   var HOVER_SOUNDS = [
     [".box-stage", "whoosh"], [".runner", "boing"], [".boss", "zap"], [".logo", "glitch"],
     [".filmstrip", "tick"], [".episode, .video, .get-card, .cast-card, .shot-grid a", "blip"],
@@ -325,40 +350,39 @@
   var CLICK_SOUNDS = [["#flip", "whoosh"], [".btn:not(#flip)", "coin"]];
 
   function bindSounds(sfx) {
-    var last = new WeakMap();
-    function sound(el, name) {
+    var hovered = new WeakMap(), clicked = new WeakMap();
+    function sound(times, el, name) {
       var now = performance.now();
-      if (now - (last.get(el) || 0) < 250) return;
-      last.set(el, now);
-      sfx.play(name);
+      if (now - (times.get(el) || 0) < 250) return;
+      if (sfx.play(name)) times.set(el, now);
     }
     HOVER_SOUNDS.forEach(function (pair) {
       document.querySelectorAll(pair[0]).forEach(function (el) {
-        el.addEventListener("pointerenter", function (e) { if (e.pointerType !== "touch") sound(el, pair[1]); });
+        el.addEventListener("pointerenter", function (e) { if (e.pointerType !== "touch") sound(hovered, el, pair[1]); });
       });
     });
     CLICK_SOUNDS.forEach(function (pair) {
       document.querySelectorAll(pair[0]).forEach(function (el) {
-        el.addEventListener("click", function () { sound(el, pair[1]); });
+        el.addEventListener("click", function () { sound(clicked, el, pair[1]); });
       });
     });
     var stage = document.querySelector(".box-stage");
-    if (stage) stage.addEventListener("pointerdown", function () { sfx.play("whoosh"); });
+    if (stage) stage.addEventListener("pointerdown", function () { sound(clicked, stage, "whoosh"); });
   }
 
   function setupSound() {
     var button = document.querySelector(".sound-toggle");
     var sfx = createSfx();
-    ["pointerdown", "keydown"].forEach(function (type) {
+    // pointerup and click too: iOS starts audio only on the end of a touch.
+    ["pointerdown", "pointerup", "click", "keydown"].forEach(function (type) {
       document.addEventListener(type, sfx.unlock, { capture: true, passive: true });
     });
     if (button) {
       button.hidden = false;
       button.setAttribute("aria-pressed", String(sfx.isOn()));
       button.addEventListener("click", function () {
-        sfx.setOn(!sfx.isOn());
+        sfx.setOn(!sfx.isOn()).then(function () { sfx.play("coin"); }); // heard only when switched on
         button.setAttribute("aria-pressed", String(sfx.isOn()));
-        sfx.play("coin"); // the switch says so when it turns the sound on
       });
     }
     bindSounds(sfx);

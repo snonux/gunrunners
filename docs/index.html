@@ -53,13 +53,13 @@
     <a class="nav-cta" href="#get">Get it</a>
   </nav>
   <!-- Sound effects on/off (site.js shows it; without JavaScript there are none). -->
-  <button type="button" class="sound-toggle" aria-pressed="true" aria-label="Sound effects" title="Sound effects (they start after your first click)" hidden>
+  <button type="button" class="sound-toggle" aria-pressed="true" title="Sound effects (they start after your first click)" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path class="spk" d="M3 9h4l5-4v14l-5-4H3z"/>
       <path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
       <path class="cross" d="M16 9l6 6M22 9l-6 6"/>
     </svg>
-    <span class="sound-label">SFX</span>
+    <span class="sound-label">SFX<span class="sr-only"> (sound effects)</span></span>
   </button>
 </header>
 
@@ -225,7 +225,7 @@
       <figcaption><b>Starfall</b> · fly the courier ship through an asteroid field</figcaption>
     </figure>
   </div>
-  <p class="note">Clips start muted: hit the speaker icon to hear the soundtrack.</p>
+  <p class="note">Clips start muted: hit the speaker icon in a clip's own controls to hear its soundtrack.</p>
 </section>
 
 <section class="story" id="story">
@@ -233,16 +233,14 @@
   <div class="story-grid">
     <div class="story-text">
       <p>Neon City, in a 1987 that never ended. Six couriers, Dash, Rocco,
-        Nova, Jade, Skye and the robot Bolt, get the same call at the same
-        moment. A client who calls himself <b>MAX</b>, and only ever shows up
+        Nova, Jade, Skye and the robot Bolt, get a call. A client who calls himself <b>MAX</b>, and only ever shows up
         as a scrambled hologram, has work for them:</p>
       <blockquote><span class="who">MAX</span> “Forty-two jobs. Paid by the job.
         Don't ask what's in the box.”</blockquote>
       <p>Every job is the same deal. Somewhere dangerous (a rooftop where the
         neon signs blink to the beat, a speeding maglev, a jungle temple, a
         frozen space station) a stolen prototype weapon sits in a green box.
-        Get in, grab it, reach the exit. The prototype goes back to MAX, the
-        money comes to you, and nobody asks questions.</p>
+        Get in, grab it, reach the exit, get paid, and don't ask questions.</p>
       <p>The runners don't ask, but the clues pile up: a gunship that carries
         a camera lens, temple gold that weighs nothing, a laugh track in the
         middle of the jungle, and a space station AI that keeps apologising
@@ -260,7 +258,7 @@
       <details class="spoiler">
         <summary>The whole story, episode by episode (spoilers!)</summary>
         <div class="show-explained">
-          <h4>The twist in plain words: it's all a TV show</h4>
+          <h3>The twist in plain words: it's all a TV show</h3>
           <dl>
             <dt>What is going on?</dt>
             <dd>The runners are the unknowing stars of a reality show called
@@ -298,6 +296,7 @@
               viewers what was really in the box.</dd>
           </dl>
         </div>
+        <h3 class="steps-title">Episode by episode</h3>
         <ol class="story-steps">
           <li><h4>Episode 1 · Neon Overdrive</h4>
             <p>MAX sends the runners after one package through Neon City: up a
@@ -319,9 +318,9 @@
               asks them to be quick when they reach it. Beaten, ZERO says thank
               you: it hated that script. A wall tips over and the station is a
               TV set. A studio audience cheers, and host <b>Lance Marquee</b>
-              wraps “Season One of GUNRUNNERS”. The monitors replay every candid
-              camera the runners walked past, and Rocco's lens fits the studio
-              cameras.</p>
+              wraps “Season One of GUNRUNNERS”. The monitors replay the candid camera
+              shots of the runners (one for every camera you found), and the
+              lens from the gunship fits the studio cameras.</p>
             <p>The truth: the jobs were a reality show on <b>MaxTV</b>, and the
               prototypes they fetched were <b>Halcyon Arms</b>' weapons,
               demonstrated live to buyers in forty countries.</p>
@@ -358,8 +357,9 @@
               out live on an independent broadcast.</p>
             <blockquote><span class="who">DASH</span> “Forty-two jobs. Here's what was in the box.”</blockquote>
             <p>They walk out into Neon City, where someone has painted RUN over
-              the Halcyon logo. Find every $ cache and every G-U-N for a
-              scene after the credits.</p></li>
+              the Halcyon logo. Clear every level from 1 to 42 with all its
+              hidden caches and the letters G-U-N found, and a scene follows
+              the credits.</p></li>
           <li><h4>Episode 7 · Deep Space (a side story)</h4>
             <p>Not part of the TV plot, playable any time. After a job the exit
               teleporter locks onto a stray signal, and the runners come out in
