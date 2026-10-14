@@ -7,6 +7,7 @@ music theme_medley
 # in silhouette in the wings; Dash steps forward on frame 12. Foreground:
 # a camera's tally light turning red on frame 8.
 # 16 frames at 110 ms = 1.8 s, plus 8.5 s of holds.
+# clip brief42_onair; 16 frames
 shot brief42_onair delay=110 repeat=1
   cue 0 fade=in:600
   cue 0 sound=crowd_hush

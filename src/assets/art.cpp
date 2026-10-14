@@ -16,6 +16,7 @@
 #include "assets/art_gallery39.hpp"
 #include "assets/art_flytower40.hpp"
 #include "assets/art_sweeps41.hpp"
+#include "assets/art_finale42.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -1887,6 +1888,8 @@ Texture bakeLadder(const Renderer& r, const Theme& t)
     return bakeFlyTowerLadder(r, t); // black steel, glow tape
   if (isSweeps(t))
     return bakeSweepsLadder(r, t); // brass, rubber treads
+  if (isFinale(t))
+    return bakeFinaleLadder(r, t); // chrome, lit rungs
   // One block of ladder; the rails straddle the left cell column, so the
   // texture is drawn 16 px left of its block.
   VectorImage img(64, 64);
@@ -2149,6 +2152,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeFlyTowerSolid(r, t, variant);
   if (isSweeps(t))
     return bakeSweepsSolid(r, t, variant);
+  if (isFinale(t))
+    return bakeFinaleSolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2611,6 +2616,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeFlyTowerSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isSweeps(t))
     return bakeSweepsSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isFinale(t))
+    return bakeFinaleSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2764,6 +2771,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
     return bakeFlyTowerPlatform(r, t); // a catwalk
   if (isSweeps(t))
     return bakeSweepsPlatform(r, t); // a box seat's balcony front
+  if (isFinale(t))
+    return bakeFinalePlatform(r, t); // a chrome truss deck
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -2830,6 +2839,8 @@ Texture bakeSpikes(const Renderer& r, const Theme& t)
     return bakeFlyTowerSpikes(r, t); // stage-brace spikes in a tray
   if (isSweeps(t))
     return bakeSweepsSpikes(r, t); // hot stage lights
+  if (isFinale(t))
+    return bakeFinaleSpikes(r, t); // pyro gerbs
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   if (t.id == ThemeId::NeonOverdrive)
@@ -7406,6 +7417,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeFlyTowerSky(r, t);
   if (isSweeps(t))
     return bakeSweepsSky(r, t);
+  if (isFinale(t))
+    return bakeFinaleSky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7601,6 +7614,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeFlyTowerFar(r, t, kLayerW);
   if (isSweeps(t))
     return bakeSweepsFar(r, t, kLayerW);
+  if (isFinale(t))
+    return bakeFinaleFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7779,6 +7794,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeFlyTowerNear(r, t, kLayerW);
   if (isSweeps(t))
     return bakeSweepsNear(r, t, kLayerW);
+  if (isFinale(t))
+    return bakeFinaleNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))
@@ -8066,6 +8083,8 @@ Texture bakeExitBase(const Renderer& r, const Theme& t)
     return bakeFlyTowerExitBase(r, t); // the hatch to the lighting bridge
   if (isSweeps(t))
     return bakeSweepsExitBase(r, t); // the stage door
+  if (isFinale(t))
+    return bakeFinaleExitBase(r, t); // the master switch
   // 96 wide, 144 tall; anchor so (0,0) is the top-left of the 64x128 exit area.
   VectorImage img(96, 144);
   cairo_t* cr = img.cr();

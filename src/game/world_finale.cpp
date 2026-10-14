@@ -382,7 +382,7 @@ void World::updateFinaleFrames(const PlayerInput& input)
       if (f.boss.openTrap >= 0)
         setFinaleLayer(f.traps[std::size_t(f.boss.openTrap)], true);
       f.boss.openTrap = -1;
-      playSound(Sfx::ForceFieldOff);
+      playSound(Sfx::SwitchThrow);
       showMessage("THE ON AIR SIGN DIES - THAT'S A WRAP!");
     }
     return;
@@ -434,7 +434,7 @@ void World::updateFinaleFrames(const PlayerInput& input)
       w.state = FnWagonState::Running;
       w.t = 0;
       setWagonTrick(w, true);
-      playSound(Sfx::Applause);
+      playSound(Sfx::WagonLock);
       showMessage(std::string("PREVIOUSLY ON GUNRUNNERS: ") + wagonName(w.kind));
     }
 }
@@ -542,7 +542,7 @@ void World::updateWagons()
           w.state = FnWagonState::Rolling;
           w.t = 0;
           rolling = true;
-          playSound(Sfx::Clunk);
+          playSound(Sfx::WagonRoll);
           showMessage(std::string("THE TURNTABLE TURNS: ") + wagonName(w.kind));
         }
         break;
@@ -642,7 +642,7 @@ void World::updateFinalePortals(const PlayerInput& input)
     {
       f.wipe = kFnWipe;
       f.wipeTo = po.to;
-      playSound(Sfx::Teleport);
+      playSound(Sfx::StaticWipe);
       return;
     }
   }
@@ -741,7 +741,7 @@ void World::updateFinale(const PlayerInput& input)
       p.proto = int(ProtoId::Encore);
       p.ammo = kFnPool;
     }
-    playSound(Sfx::Health);
+    playSound(Sfx::RefillSparkle);
     showMessage("BACKSTAGE: FULL HEARTS, FULL POOL");
   }
   if (f.boss.on)
@@ -779,7 +779,7 @@ void World::updateFinaleActors()
       if (cue)
       {
         a.roll = 0;
-        playSound(Sfx::Whoosh);
+        playSound(Sfx::AdDrop);
       }
     }
     if (a.roll >= 0 && a.roll < kFnAdRoll)
@@ -826,7 +826,7 @@ void World::updateCensorBar(Enemy& e, const EnemyDef& def)
     a->barX = e.x + e.w / 2 - kFnBarW / 2;
     a->barY = e.y + 1;
     e.tell = def.tell;
-    playSound(Sfx::Whoosh);
+    playSound(Sfx::CensorBleep);
   }
   if (e.tell > 0)
     --e.tell;
@@ -847,7 +847,7 @@ void World::updateAdBreak(Enemy& e, const EnemyDef& def)
     {
       a->spawn = 2;
       e.cool = def.cooldown;
-      playSound(Sfx::Bell);
+      playSound(Sfx::SamplePop);
     }
     return;
   }
@@ -860,7 +860,7 @@ void World::updateAdBreak(Enemy& e, const EnemyDef& def)
   if (samples + 2 > kFnAdSamples)
     return;
   e.tell = def.tell;
-  playSound(Sfx::RatingsDing);
+  playSound(Sfx::AdJingle);
 }
 
 void World::updateSampleBot(Enemy& e, const EnemyDef& def)
@@ -929,7 +929,7 @@ void World::updateStuntDouble(Enemy& e, const EnemyDef& def)
       spawnProjectile(ShotKind::Enemy, fx, e.y - kDoubleShotRow, e.dir, 0);
       mProjectiles.back().speed = 2;
       e.cool = def.cooldown;
-      playSound(Sfx::EnemyShot);
+      playSound(Sfx::StuntShot);
     }
     return;
   }
@@ -979,7 +979,7 @@ bool World::updateEncore(const Button& fire)
       f.spin = kFnWheelSpin;
       f.holdT = 0;
       p.charge = 0;
-      playSound(Sfx::Click);
+      playSound(Sfx::EncoreSpin);
       const int id = f.wheel[std::size_t(f.sel)];
       showMessage(id < 0 ? "THE ENCORE: THE BLASTER" : std::string("THE ENCORE: ") + protoDef(id).name);
     }
@@ -1134,7 +1134,7 @@ void World::updateReel()
   f.reelT = 0;
   f.waitT = 0;
   f.card = kFnReelCard;
-  playSound(Sfx::VhsRewind);
+  playSound(Sfx::BlooperHonk);
   showMessage(std::string("BLOOPER! ") + reelName(next));
 }
 

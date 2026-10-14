@@ -632,6 +632,114 @@ std::vector<float> makeNamedSfx(const std::string& id)
   if (has(id, "core_pulse"))
     return makeSfx(Sfx::CorePulse);
   // Clicks and mechanisms.
+  // Level 42's briefing: the crowd settling before the show, the ON AIR
+  // sign's transformer coming up, the house going up when Dash steps out.
+  if (id == "crowd_hush")
+  {
+    // A full house murmuring, a floor manager's long "shhh" and the room
+    // settling to an expectant hiss.
+    Noise n(seed), m(seed * 3u), s(seed + 5u);
+    Svf bp1, bp2, sh;
+    Osc lfo;
+    return render(2.6, [&](double t, double total) {
+      const double settle = 1.0 - 0.8 * std::min(1.0, std::max(0.0, t - 0.6) / 1.2);
+      const double babble = (bp1.band(n.next(), 650.0 + 220.0 * lfo.step(2.7, Wave::Sine), 1.4) + bp2.band(m.next(), 1150.0, 2.2) * 0.5) * settle;
+      const double u = t - 0.45;
+      const double shh = u > 0.0 && u < 1.1 ? sh.band(s.next(), 4200.0, 1.6) * std::sin(kPi * u / 1.1) * 0.7 : 0.0;
+      return (babble * 0.45 + shh) * 0.6 * std::min(1.0, t / 0.4) * std::min(1.0, (total - t) / 0.5);
+    });
+  }
+  if (id == "onair_hum")
+  {
+    // The ON AIR box lighting: a relay's clack, a 50 Hz transformer hum
+    // swelling under the red glass, and the neon's high buzz.
+    Noise n(seed);
+    Svf clk;
+    Osc a, b, c, buzz;
+    return render(2.0, [&](double t, double total) {
+      const double clack = t < 0.04 ? clk.band(n.next(), 2400.0, 3.0) * decay(t, 0.008) * 2.0 : 0.0;
+      const double sw = std::min(1.0, t / 0.18);
+      const double hum = (a.step(50.0, Wave::Sine) * 0.5 + b.step(100.0, Wave::Saw) * 0.22 + c.step(150.0, Wave::Sine) * 0.14) * sw;
+      const double z = buzz.step(2400.0, Wave::Square, 0.5) * 0.02 * sw * (0.7 + 0.3 * std::sin(t * 2.0 * kPi * 7.0));
+      return (clack + hum + z) * 0.4 * std::min(1.0, (total - t) / 0.6);
+    });
+  }
+  if (id == "crowd_roar")
+  {
+    // A stadium on its feet: a wide wash of cheering, whistles darting over
+    // it and a stamping beat underneath.
+    Noise n(seed), m(seed * 3u), w(seed + 9u);
+    Svf bp1, bp2, lo;
+    Osc wh1, wh2, lfo;
+    return render(3.2, [&](double t, double total) {
+      const double env = std::min(1.0, t / 0.12) * std::min(1.0, (total - t) / 0.8);
+      const double wash = bp1.band(n.next(), 900.0 + 300.0 * lfo.step(1.3, Wave::Sine), 0.9) + bp2.band(m.next(), 2100.0, 1.6) * 0.7;
+      const double w1 = std::fmod(t, 0.9) < 0.45 ? wh1.step(sweep(1800.0, 2900.0, std::fmod(t, 0.9) / 0.45), Wave::Sine) * 0.07 : 0.0;
+      const double w2 = std::fmod(t + 0.3, 1.3) < 0.35 ? wh2.step(sweep(3100.0, 2200.0, std::fmod(t + 0.3, 1.3) / 0.35), Wave::Sine) * 0.06 : 0.0;
+      const double ph = std::fmod(t, 0.42);
+      const double stamp = lo.low(w.next(), 160.0, 0.9) * decay(ph, 0.05) * 1.4;
+      return (wash * 0.42 + w1 + w2 + stamp) * env;
+    });
+  }
+  // The finale: the master switch thrown, the ON AIR sign dying, the
+  // network's feed falling to snow, an empty studio.
+  if (id == "switch_big")
+  {
+    // A heavy knife switch: the handle's iron creak, the blades leaving the
+    // jaws in a snap of arc, and the clunk of the handle hitting its stop.
+    Noise n(seed), m(seed + 3u);
+    Svf crk, arc, body;
+    Osc thud;
+    return render(1.3, [&](double t, double total) {
+      const double creak = t < 0.3 ? crk.band(n.next(), 520.0 + 180.0 * std::sin(t * 40.0), 6.0) * std::sin(kPi * t / 0.3) * 0.5 : 0.0;
+      const double u = t - 0.3;
+      const double spark = u > 0.0 ? arc.band(m.next(), 5200.0, 0.8) * decay(u, 0.06) * (m.next() > 0.3f ? 1.2 : 0.4) : 0.0;
+      const double v = t - 0.36;
+      const double clunk = v > 0.0 ? (thud.step(sweep(110.0, 55.0, std::min(1.0, v / 0.2)), Wave::Sine) * 1.1 + body.band(n.next(), 380.0, 3.0) * 0.8) * decay(v, 0.16) : 0.0;
+      return (creak + spark + clunk) * 0.42 * std::min(1.0, (total - t) / 0.2);
+    });
+  }
+  if (id == "neon_fizz")
+  {
+    // A neon tube dying: its buzz stuttering, a couple of crackles and a
+    // falling whine as the gas goes out.
+    Noise n(seed);
+    Svf cr;
+    Osc buzz, whine;
+    return render(1.4, [&](double t, double total) {
+      const double flick = std::sin(t * 2.0 * kPi * 9.0) > -0.2 + 1.2 * std::min(1.0, t / 0.9) ? 1.0 : 0.0;
+      const double b = buzz.step(120.0, Wave::Saw) * 0.35 * flick * (1.0 - std::min(1.0, t / 1.0));
+      const double c = cr.band(n.next(), 3400.0, 1.2) * (n.next() > 0.82f ? 1.0 : 0.08) * decay(t, 0.5);
+      const double wh = whine.step(sweep(9000.0, 2000.0, std::min(1.0, t / 1.1)), Wave::Sine) * 0.05 * decay(t, 0.6);
+      return (b + c * 0.6 + wh) * 0.7 * std::min(1.0, (total - t) / 0.2);
+    });
+  }
+  if (id == "static_burst")
+  {
+    // Every monitor dropping to snow at once: a thump on the line, a
+    // blast of bright static and the dead channel's hiss settling.
+    Noise n(seed);
+    OnePole hp, lp;
+    Osc thump;
+    return render(1.8, [&](double t, double total) {
+      const double k = thump.step(sweep(90.0, 40.0, std::min(1.0, t / 0.1)), Wave::Sine) * decay(t, 0.08);
+      const double st = hp.highpass(lp.lowpass(n.next(), 9000.0), 350.0) * (0.35 + 0.65 * decay(t, 0.25));
+      return (k * 0.7 + st * 0.6) * 0.6 * std::min(1.0, t / 0.005) * std::min(1.0, (total - t) / 0.4);
+    });
+  }
+  if (id == "room_tone")
+  {
+    // An empty room: a low air-handling rumble, a fluorescent's faint hum
+    // and nothing else. Loops.
+    Noise n(seed);
+    OnePole lp;
+    Osc hum;
+    return render(4.0, [&](double t, double total) {
+      const double air = lp.lowpass(n.next(), 220.0) * 0.6;
+      const double h = hum.step(120.0, Wave::Sine) * 0.02;
+      return (air + h) * 0.5 * std::min(1.0, t / 0.5) * std::min(1.0, (total - t) / 0.5);
+    });
+  }
   if (has(id, "click") || has(id, "clunk") || has(id, "clamp") || has(id, "switch") || has(id, "plate") ||
       has(id, "arrow") || has(id, "trapdoor") || has(id, "door") || has(id, "slam") || has(id, "bump"))
     return click(has(id, "slam") ? 120.0 : 500.0 + double(seed % 400u), has(id, "slam") ? 0.5 : 0.25, 0.5, seed);

@@ -10,15 +10,19 @@ shot master_switch delay=100 repeat=1
 
 # Clip monitors_snow: every studio monitor goes to snow (frames 0-5), then
 # a hand-drawn card "GUNRUNNERS. INDEPENDENT BROADCAST." (6-9).
+# clip monitors_snow; 10 frames
 shot monitors_snow delay=110 repeat=1
   cue 0 sound=static_burst
   cue 9 hold=2000
 
 # Clip gallery: Maxine at the mixing board, pushing faders up.
+# clip gallery; 8 frames
 shot gallery delay=100 repeat=1
   cue 0 say=MAXINE "You're live. Say something."
   cue 0 hold=2000
 
+# Clip dash_camera: Dash to camera through the viewfinder.
+# clip dash_camera; 8 frames
 shot dash_camera delay=100 repeat=1
   cue 0 say=DASH "Forty-two jobs. Here's what was in the box."
   cue 0 hold=3000
@@ -33,6 +37,7 @@ credits run_highlights
 
 # Clip lance_alone: Lance in the empty wings practising his smile at a
 # dead camera. 6-frame loop.
+# clip lance_alone; 6 frames
 shot lance_alone delay=140 repeat=3
   cue 0 sound=room_tone
 

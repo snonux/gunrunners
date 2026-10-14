@@ -153,7 +153,7 @@ void World::updateFinaleBoss(const PlayerInput& /*input*/)
       if (b.phase == FnPhase::OffAir)
       {
         b.commercial = kFnCommercial; // the card, then the race again
-        playSound(Sfx::Klaxon);
+        playSound(Sfx::CommercialSting);
         showMessage("CUT TO COMMERCIAL!");
         return;
       }
@@ -162,7 +162,7 @@ void World::updateFinaleBoss(const PlayerInput& /*input*/)
         // Through the trapdoor: the Blooper Reel.
         f.bonusDone = true;
         mBonusRequested = true;
-        playSound(Sfx::Teleport);
+        playSound(Sfx::BlooperHonk);
         showMessage("BLOOPER REEL!");
       }
       b.trapSkip = kFnTrapSkip;
@@ -244,7 +244,7 @@ void World::updateLance()
     if (b.y < b.pathY + kFnSinkRows * kCellsPerTile)
       ++b.y;
     if (--b.cue == 0)
-      playSound(Sfx::Whoosh);
+      playSound(Sfx::PodiumHover);
   }
   else if (b.y > b.pathY)
     --b.y;
@@ -278,7 +278,7 @@ void World::updateLance()
     b.move = FnEngineMove::Barrage;
     if (!b.drops.empty())
       finaleDrop(ItemKind::Health, b.drops[0].first, b.drops[0].second);
-    playSound(Sfx::TitanStomp);
+    playSound(Sfx::EngineBoot);
     showMessage("THE ENCORE ENGINE!");
     return;
   }
@@ -292,7 +292,7 @@ void World::updateLance()
   if (b.wheel >= 0)
   {
     if (b.wheel % 3 == 0 && b.wheel < kFnWheelFrames - kFnWheelHold)
-      playSound(Sfx::Click);
+      playSound(Sfx::WheelTick);
     if (++b.wheel >= kFnWheelFrames)
     {
       b.wheel = -1;
@@ -370,7 +370,7 @@ void World::startLanceAttack()
     case FnAttack::None:
       break;
   }
-  playSound(Sfx::Drum);
+  playSound(Sfx::GameShowDing);
 }
 
 void World::updateLanceAttack()
@@ -390,7 +390,7 @@ void World::updateLanceAttack()
         for (int g : b.gold)
           if (hb.intersects({g, b.arenaY0, kGoldW, tall}))
             finaleHurts(1);
-        playSound(Sfx::Thud);
+        playSound(Sfx::GoldClank);
       }
       done = b.attackT >= kFnGoldTell + 10;
       break;
@@ -399,7 +399,7 @@ void World::updateLanceAttack()
       {
         b.openTrap = b.trap;
         setFinaleLayer(f.traps[std::size_t(b.trap)], false);
-        playSound(Sfx::Clunk);
+        playSound(Sfx::TrapdoorDrop);
       }
       if (b.attackT >= kFnTrapTell + kFnTrapOpen)
       {
@@ -413,7 +413,7 @@ void World::updateLanceAttack()
       if (b.attackT == kFnLaughTell)
       {
         b.waveL = b.waveR = b.waveX;
-        playSound(Sfx::Applause);
+        playSound(Sfx::LaughTrack);
       }
       if (b.waveR >= 0) // waveL may run below 0 in an arena at the map's left edge
       {
@@ -434,7 +434,7 @@ void World::updateLanceAttack()
       {
         if (hb.intersects({b.lampX - kLampW / 2, b.arenaY0, kLampW, tall}))
           finaleHurts(1);
-        playSound(Sfx::Thud);
+        playSound(Sfx::LampCrash);
       }
       if (b.attackT >= kFnLampTell + 6)
       {
@@ -512,7 +512,7 @@ void World::updateEncoreEngine()
       for (int k = 0; k < 3; ++k)
         b.arcs[std::size_t(k)] =
           std::clamp(p.x + 1 - kStrikeW / 2 + (k - 1) * kStrikeApart, b.arenaX0, b.arenaX1 - kStrikeW + 1);
-    playSound(Sfx::Warn);
+    playSound(Sfx::EngineTell);
   }
   const int tell = moveTell(b.move);
   if (++b.moveT <= tell)
@@ -527,7 +527,7 @@ void World::updateEncoreEngine()
       {
         spawnProjectile(ShotKind::Enemy, b.ex - 2, b.ey - 4, -1, 0); // a crouch ducks under it
         ++b.shots;
-        playSound(Sfx::EnemyShot);
+        playSound(Sfx::BeatShot);
       }
       done = at >= 32;
       break;
@@ -567,7 +567,7 @@ void World::updateEncoreEngine()
         for (int a : b.arcs)
           if (hb.intersects({a, b.arenaY0, kStrikeW, b.floorY - b.arenaY0 + 1}))
             finaleHurts(1);
-        playSound(Sfx::Zap);
+        playSound(Sfx::ArcStrike);
       }
       done = at >= 8;
       break;
@@ -621,7 +621,7 @@ void World::updateOffAir()
   if (b.runX >= b.deskX - kFnPodiumW / 2)
   {
     b.commercial = kFnCommercial;
-    playSound(Sfx::Klaxon);
+    playSound(Sfx::CommercialSting);
     showMessage("LANCE CUTS TO COMMERCIAL!");
     return;
   }
@@ -638,7 +638,7 @@ void World::updateOffAir()
     if (want >= 0)
     {
       setFinaleLayer(f.traps[std::size_t(want)], false);
-      playSound(Sfx::Clunk);
+      playSound(Sfx::TrapdoorDrop);
     }
   }
   // A light drop every 60 frames.
@@ -654,7 +654,7 @@ void World::updateOffAir()
     {
       if (p.hitBox().intersects({b.lampX - kLampW / 2, b.arenaY0, kLampW, b.floorY - b.arenaY0 + 1}))
         finaleHurts(1);
-      playSound(Sfx::Thud);
+      playSound(Sfx::LampCrash);
     }
     if (b.attackT >= kFnLampTell + 6)
       b.lampX = -1;
@@ -727,7 +727,7 @@ bool World::shotAtBoss(Projectile& pr, const CellBox& sb)
       {
         b.coverHp = 0;
         setFinaleLayer(f.cover, false);
-        playSound(Sfx::BoxBreak);
+        playSound(Sfx::GlassShatter);
         showMessage("THE GLASS BREAKS - HIT THE SWITCH!");
       }
       else

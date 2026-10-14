@@ -5117,6 +5117,374 @@ std::vector<float> makeSfx(Sfx id)
       });
       return scaledToPeak(std::move(v), 0.4f);
     }
+    case Sfx::SwitchThrow:
+    {
+      // Level 42: the master switch thrown: a heavy knife switch clacking
+      // home, a deep thump as the power drops, the hum winding down and a
+      // neon fizz dying out.
+      Noise n(42001), m(42003);
+      Svf clack, fizz;
+      Osc hum, thump;
+      auto v = render(1.6, [&](double t, double total) {
+        const double c = clack.band(n.next(), 1800.0, 2.0) * decay(t, 0.03) * 1.6;
+        const double th = thump.step(sweep(90.0, 40.0, t / 0.3), Wave::Sine) * decay(t, 0.18) * 0.9;
+        const double h = hum.step(sweep(120.0, 30.0, t / total), Wave::Saw) * 0.18 * decay(t, 0.5);
+        const double fz = t > 0.15 ? fizz.band(m.next(), 5000.0 + 1500.0 * std::sin(t * 90.0), 1.5) * 0.35 * decay(t - 0.15, 0.4) *
+            (0.5 + 0.5 * std::sin(t * 140.0)) : 0.0;
+        return (c + th + h + fz) * std::min(1.0, (total - t) / 0.2);
+      });
+      return scaledToPeak(std::move(v), 0.42f);
+    }
+    case Sfx::WagonRoll:
+    {
+      // The turntable turning a set wagon in: caster wheels rumbling over
+      // the boards, a motor whine rising and falling, air moving past.
+      Noise n(42011), m(42013);
+      Svf rum, air;
+      Osc motor;
+      auto v = render(1.0, [&](double t, double total) {
+        const double env = std::sin(kPi * t / total);
+        const double r = rum.low(n.next(), 160.0, 1.2) * (0.8 + 0.2 * std::sin(t * 60.0)) * 1.4;
+        const double mo = motor.step(180.0 + 120.0 * env, Wave::Square, 0.3) * 0.08;
+        const double a = air.band(m.next(), 900.0 + 1200.0 * env, 0.8) * 0.35;
+        return (r + mo + a) * env;
+      });
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::WagonLock:
+    {
+      // A wagon locking into its slot: a latch clank, then a bright show
+      // sting (a rising brass triad and a cymbal).
+      std::vector<float> v(std::size_t(samples(0.9)), 0.0f);
+      Noise n(42021), m(42023);
+      Svf latch, cym;
+      for (std::size_t i = 0; i < std::size_t(samples(0.12)); ++i)
+      {
+        const double t = double(i) / kRate;
+        v[i] += float(latch.band(n.next(), 2400.0, 3.0) * decay(t, 0.02) * 1.2);
+      }
+      const double notes[3] = {67, 71, 74};
+      for (int k = 0; k < 3; ++k)
+      {
+        addTone(v, 0.08 + k * 0.06, 0.6 - k * 0.06, midiFreq(notes[k]), Wave::Saw, 0.12, 0.25);
+        addTone(v, 0.08 + k * 0.06, 0.6 - k * 0.06, midiFreq(notes[k] + 12), Wave::Square, 0.04, 0.2);
+      }
+      for (std::size_t i = std::size_t(samples(0.2)), k = 0; i < v.size(); ++i, ++k)
+        v[i] += float(cym.band(m.next(), 7000.0, 1.0) * 0.2 * decay(double(k) / kRate, 0.25));
+      return scaledToPeak(std::move(v), 0.38f);
+    }
+    case Sfx::StaticWipe:
+    {
+      // Into a studio monitor: a burst of TV snow, the CRT's whine on top.
+      Noise n(42031);
+      Osc whine;
+      OnePole hp;
+      auto v = render(0.4, [&](double t, double total) {
+        const double snow = hp.highpass(n.next(), 900.0) * 0.8;
+        const double w = whine.step(15700.0 * 0.5, Wave::Sine) * 0.06;
+        return (snow + w) * attack(t, 0.01) * std::min(1.0, (total - t) / 0.12);
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::RefillSparkle:
+    {
+      // The backstage refill: the make-up mirror's bulbs ticking on round
+      // the frame, a rising chime.
+      std::vector<float> v(std::size_t(samples(1.0)), 0.0f);
+      Noise n(42041);
+      Svf tick;
+      for (int k = 0; k < 8; ++k)
+      {
+        const std::size_t s0 = std::size_t(samples(k * 0.04));
+        for (std::size_t i = s0; i < s0 + std::size_t(samples(0.02)) && i < v.size(); ++i)
+          v[i] += float(tick.band(n.next(), 3000.0, 3.0) * 0.5 * decay(double(i - s0) / kRate, 0.004));
+      }
+      const double notes[5] = {72, 76, 79, 84, 88};
+      for (int k = 0; k < 5; ++k)
+        addTone(v, 0.3 + k * 0.07, 0.6, midiFreq(notes[k]), Wave::Sine, 0.2, 0.25);
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::AdDrop:
+    {
+      // An Ad Break dropping in from the flies: a cable whirring down, then
+      // a heavy thunk on the stage and a wobble of the billboard.
+      Noise n(42051);
+      Svf whir;
+      Osc thunk, wob;
+      auto v = render(0.9, [&](double t, double total) {
+        const double drop = t < 0.5 ? whir.band(n.next(), sweep(2400.0, 600.0, t / 0.5), 3.0) * 0.6 : 0.0;
+        const double tt = t - 0.5;
+        const double hit = tt > 0.0 ? thunk.step(sweep(110.0, 50.0, tt / 0.2), Wave::Sine) * decay(tt, 0.12) * 1.2 +
+            wob.step(70.0, Wave::Triangle) * decay(tt, 0.25) * 0.3 * std::sin(tt * 30.0) : 0.0;
+        return (drop + hit) * std::min(1.0, (total - t) / 0.1);
+      });
+      return scaledToPeak(std::move(v), 0.4f);
+    }
+    case Sfx::CensorBleep:
+    {
+      // A Censor Bar's bar unrolling: the broadcast bleep, a 1 kHz tone.
+      Osc o;
+      auto v = render(0.45, [&](double t, double total) {
+        return o.step(1000.0, Wave::Sine) * attack(t, 0.005) * std::min(1.0, (total - t) / 0.01);
+      });
+      return scaledToPeak(std::move(v), 0.22f);
+    }
+    case Sfx::SamplePop:
+    {
+      // The free samples out of the hatch: a flap, two cork pops.
+      std::vector<float> v(std::size_t(samples(0.45)), 0.0f);
+      Noise n(42061);
+      Svf flap;
+      for (std::size_t i = 0; i < std::size_t(samples(0.06)); ++i)
+        v[i] += float(flap.band(n.next(), 900.0, 2.0) * decay(double(i) / kRate, 0.015));
+      for (int k = 0; k < 2; ++k)
+      {
+        Osc pop;
+        const std::size_t s0 = std::size_t(samples(0.12 + k * 0.14));
+        for (std::size_t i = s0; i < v.size(); ++i)
+        {
+          const double t = double(i - s0) / kRate;
+          v[i] += float(pop.step(sweep(900.0, 300.0, t / 0.05), Wave::Sine) * decay(t, 0.03));
+        }
+      }
+      return scaledToPeak(std::move(v), 0.32f);
+    }
+    case Sfx::AdJingle:
+    {
+      // The Halcyon Arms jingle: a bright, too-cheerful four notes on a
+      // bell-and-square blend.
+      std::vector<float> v(std::size_t(samples(0.9)), 0.0f);
+      const double notes[4] = {76, 79, 84, 83};
+      for (int k = 0; k < 4; ++k)
+      {
+        const double len = k == 3 ? 0.4 : 0.13;
+        addTone(v, k * 0.14, len, midiFreq(notes[k]), Wave::Square, 0.08, 0.12);
+        addTone(v, k * 0.14, len, midiFreq(notes[k] + 12), Wave::Sine, 0.12, 0.2);
+      }
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::StuntShot:
+    {
+      // A Stunt Double's shot: a snappy stage-gun crack with a slap back.
+      Noise n(42071);
+      Svf crack;
+      Osc body;
+      auto v = render(0.3, [&](double t, double) {
+        const double c = crack.band(n.next(), 2200.0, 1.0) * decay(t, 0.02) * 1.4;
+        const double b = body.step(sweep(400.0, 120.0, t / 0.08), Wave::Triangle) * decay(t, 0.05) * 0.6;
+        const double slap = t > 0.09 ? n.next() * decay(t - 0.09, 0.02) * 0.3 : 0.0;
+        return c + b + slap;
+      });
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::EncoreSpin:
+    {
+      // The Encore's wheel flicked on: a revolver cylinder ratcheting round
+      // six chambers and clicking home.
+      std::vector<float> v(std::size_t(samples(0.32)), 0.0f);
+      Noise n(42081);
+      Svf click;
+      for (int k = 0; k < 7; ++k)
+      {
+        const std::size_t s0 = std::size_t(samples(k * 0.035 + (k == 6 ? 0.04 : 0.0)));
+        const double f = k == 6 ? 1600.0 : 3200.0 + k * 150.0;
+        for (std::size_t i = s0; i < s0 + std::size_t(samples(0.03)) && i < v.size(); ++i)
+          v[i] += float(click.band(n.next(), f, 4.0) * (k == 6 ? 1.4 : 0.8) * decay(double(i - s0) / kRate, k == 6 ? 0.01 : 0.004));
+      }
+      return scaledToPeak(std::move(v), 0.26f);
+    }
+    case Sfx::BlooperHonk:
+    {
+      // BLOOPER!: a clown horn's two honks, the tape warbling under them.
+      Osc a, b, lfo, tape;
+      auto v = render(0.8, [&](double t, double total) {
+        const double honk = (t < 0.18 || (t > 0.24 && t < 0.44)) ? 1.0 : 0.0;
+        const double f = t < 0.2 ? 330.0 : 262.0;
+        const double h = (a.step(f, Wave::Square, 0.35) * 0.5 + b.step(f * 1.5, Wave::Saw) * 0.25) * honk;
+        const double w = tape.step(220.0 * (1.0 + 0.08 * lfo.step(6.0, Wave::Sine)), Wave::Triangle) * 0.25;
+        return (h + w) * std::min(1.0, (total - t) / 0.15);
+      });
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::CommercialSting:
+    {
+      // CUT TO COMMERCIAL: the network's three-note chime, then the tape
+      // grinding to a stop.
+      std::vector<float> v(std::size_t(samples(1.1)), 0.0f);
+      const double notes[3] = {79, 72, 76};
+      for (int k = 0; k < 3; ++k)
+        addTone(v, k * 0.18, 0.5, midiFreq(notes[k]), Wave::Sine, 0.25, 0.25);
+      Osc tape;
+      for (std::size_t i = std::size_t(samples(0.6)), k = 0; i < v.size(); ++i, ++k)
+      {
+        const double t = double(k) / kRate;
+        v[i] += float(tape.step(sweep(300.0, 30.0, t / 0.45), Wave::Saw) * 0.18 * std::min(1.0, (0.5 - t) / 0.1));
+      }
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::PodiumHover:
+    {
+      // Lance's podium rising: its hover jets swelling with a whoosh.
+      Noise n(42091);
+      Svf jet;
+      Osc tone;
+      auto v = render(0.7, [&](double t, double total) {
+        const double env = attack(t, 0.15) * std::min(1.0, (total - t) / 0.3);
+        return (jet.band(n.next(), sweep(500.0, 1400.0, t / total), 1.2) * 0.7 + tone.step(sweep(120.0, 220.0, t / total), Wave::Triangle) * 0.2) *
+          env;
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::EngineBoot:
+    {
+      // The Encore Engine powering up: a power-on thump, servos stuttering
+      // through a self-test, a hum rising to full.
+      Noise n(42101);
+      Svf servo;
+      Osc thump, hum, hum2;
+      auto v = render(1.6, [&](double t, double total) {
+        const double th = thump.step(sweep(80.0, 35.0, t / 0.4), Wave::Sine) * decay(t, 0.25) * 1.2;
+        const double sv = t > 0.3 && t < 1.0 && std::fmod(t, 0.14) < 0.08 ? servo.band(n.next(), 1200.0 + 600.0 * std::sin(t * 9.0), 4.0) * 0.4 : 0.0;
+        const double h = (hum.step(sweep(40.0, 110.0, t / total), Wave::Saw) * 0.25 + hum2.step(sweep(80.0, 220.0, t / total), Wave::Square, 0.3) * 0.1) *
+          attack(t, 0.6);
+        return (th + sv + h) * std::min(1.0, (total - t) / 0.3);
+      });
+      return scaledToPeak(std::move(v), 0.42f);
+    }
+    case Sfx::WheelTick:
+    {
+      // The prize wheel's pointer flicking over a peg.
+      Noise n(42111);
+      Svf peg;
+      Osc o;
+      auto v = render(0.05, [&](double t, double) {
+        return peg.band(n.next(), 2600.0, 4.0) * decay(t, 0.006) * 1.2 + o.step(1300.0, Wave::Triangle) * decay(t, 0.01) * 0.3;
+      });
+      return scaledToPeak(std::move(v), 0.2f);
+    }
+    case Sfx::GameShowDing:
+    {
+      // The wheel stops on an attack: a game-show bell, two tones ringing.
+      std::vector<float> v(std::size_t(samples(0.9)), 0.0f);
+      addTone(v, 0.0, 0.8, midiFreq(88), Wave::Sine, 0.3, 0.3);
+      addTone(v, 0.0, 0.8, midiFreq(88) * 2.76, Wave::Sine, 0.08, 0.12);
+      addTone(v, 0.12, 0.7, midiFreq(84), Wave::Sine, 0.25, 0.3);
+      return scaledToPeak(std::move(v), 0.32f);
+    }
+    case Sfx::GoldClank:
+    {
+      // The rain of gold landing: heavy ingots clanking down in a heap.
+      std::vector<float> v(std::size_t(samples(0.6)), 0.0f);
+      for (int k = 0; k < 4; ++k)
+      {
+        const double at = k * 0.06;
+        addTone(v, at, 0.4, 820.0 + k * 130.0, Wave::Sine, 0.25, 0.08);
+        addTone(v, at, 0.4, (820.0 + k * 130.0) * 2.4, Wave::Sine, 0.1, 0.05);
+        addTone(v, at, 0.2, 90.0, Wave::Sine, 0.4, 0.06);
+      }
+      return scaledToPeak(std::move(v), 0.4f);
+    }
+    case Sfx::TrapdoorDrop:
+    {
+      // A trapdoor dropping open: a bolt shooting back, the hatch swinging
+      // down on its hinges with a clang.
+      Noise n(42121);
+      Svf bolt, clang;
+      Osc ring;
+      auto v = render(0.6, [&](double t, double total) {
+        const double b = bolt.band(n.next(), 2000.0, 2.5) * decay(t, 0.02) * 1.2;
+        const double ct = t - 0.12;
+        const double c = ct > 0.0 ? (clang.band(n.next(), 600.0, 3.0) * decay(ct, 0.05) + ring.step(310.0, Wave::Triangle) * decay(ct, 0.2) * 0.5) : 0.0;
+        return (b + c) * std::min(1.0, (total - t) / 0.1);
+      });
+      return scaledToPeak(std::move(v), 0.4f);
+    }
+    case Sfx::LaughTrack:
+    {
+      // The laugh-track shockwave: a canned audience laugh (pulses of
+      // voiced noise), a low whoomph rolling out under it.
+      Noise n(42131), m(42133);
+      Svf vowel, vowel2;
+      Osc whoomph;
+      auto v = render(1.3, [&](double t, double total) {
+        const double ha = 0.5 + 0.5 * std::sin(t * 2.0 * kPi * 6.0);
+        const double laugh = (vowel.band(n.next(), 700.0, 3.0) + vowel2.band(m.next(), 1150.0, 3.0) * 0.6) * ha * ha * 0.8;
+        const double w = whoomph.step(sweep(70.0, 40.0, t / total), Wave::Sine) * decay(t, 0.4) * 0.8;
+        return (laugh * attack(t, 0.05) * std::min(1.0, (total - t) / 0.4) + w);
+      });
+      return scaledToPeak(std::move(v), 0.38f);
+    }
+    case Sfx::LampCrash:
+    {
+      // A studio lamp crashing down: a metal crash and the lens shattering.
+      Noise n(42141), m(42143);
+      Svf metal, glass;
+      Osc thud;
+      auto v = render(0.9, [&](double t, double total) {
+        const double c = metal.band(n.next(), 1100.0, 2.0) * decay(t, 0.12) * 1.0 + thud.step(sweep(100.0, 45.0, t / 0.2), Wave::Sine) * decay(t, 0.1);
+        const double g = glass.band(m.next(), 6000.0, 1.5) * decay(t, 0.25) * (m.next() > 0.3f ? 1.0 : 0.2) * 0.8;
+        return (c + g) * std::min(1.0, (total - t) / 0.1);
+      });
+      return scaledToPeak(std::move(v), 0.42f);
+    }
+    case Sfx::EngineTell:
+    {
+      // The Encore Engine winding up a move: a servo whine climbing and a
+      // hydraulic hiss.
+      Noise n(42151);
+      Svf hiss;
+      Osc servo;
+      auto v = render(0.45, [&](double t, double total) {
+        const double s = servo.step(sweep(300.0, 900.0, t / total), Wave::Saw) * 0.25;
+        const double h = hiss.band(n.next(), 4000.0, 0.8) * 0.3 * decay(t, 0.2);
+        return (s + h) * attack(t, 0.02) * std::min(1.0, (total - t) / 0.08);
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::BeatShot:
+    {
+      // Beat Barrage: a punchy kick with a synth blip, on the beat.
+      Osc kickO, blip;
+      auto v = render(0.25, [&](double t, double) {
+        const double k = kickO.step(sweep(160.0, 45.0, t / 0.1), Wave::Sine) * decay(t, 0.08);
+        const double b = blip.step(880.0, Wave::Square, 0.25) * decay(t, 0.04) * 0.3;
+        return k + b;
+      });
+      return scaledToPeak(std::move(v), 0.38f);
+    }
+    case Sfx::ArcStrike:
+    {
+      // Arc Storm striking: a lightning crack and a sizzling crackle.
+      Noise n(42161), m(42163);
+      Svf crack;
+      OnePole hp;
+      auto v = render(0.8, [&](double t, double total) {
+        const double c = crack.band(n.next(), 2500.0, 0.7) * decay(t, 0.03) * 1.6;
+        const double crackle = hp.highpass(m.next(), 3000.0) * (m.next() > 0.7f ? 1.0 : 0.0) * decay(t, 0.3) * 0.8;
+        return (c + crackle) * std::min(1.0, (total - t) / 0.1);
+      });
+      return scaledToPeak(std::move(v), 0.4f);
+    }
+    case Sfx::GlassShatter:
+    {
+      // The master switch's glass case breaking: a shatter, then shards
+      // tinkling down.
+      std::vector<float> v(std::size_t(samples(1.0)), 0.0f);
+      Noise n(42171);
+      Svf sh;
+      for (std::size_t i = 0; i < std::size_t(samples(0.3)); ++i)
+      {
+        const double t = double(i) / kRate;
+        v[i] += float(sh.band(n.next(), 5000.0, 0.8) * decay(t, 0.08) * 1.4);
+      }
+      for (int k = 0; k < 9; ++k)
+      {
+        const double a = std::fmod(double(k) * 0.6180339887 + 0.13, 1.0);
+        const double b = std::fmod(double(k) * 0.4142135624 + 0.71, 1.0);
+        addTone(v, 0.08 + 0.6 * a, 0.2, 2500.0 + 3500.0 * b, Wave::Sine, 0.12, 0.04);
+      }
+      return scaledToPeak(std::move(v), 0.4f);
+    }
     case Sfx::LavaRumble:
     {
       // Level 33: the lava rising: a deep rumble swelling up from below, a

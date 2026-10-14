@@ -16,6 +16,7 @@
 #include "game/gallery_draw.hpp"
 #include "game/flytower_draw.hpp"
 #include "game/sweeps_draw.hpp"
+#include "game/finale_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -145,6 +146,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFlyTowerSet(r, *this, mArt, camX, camY, frame, alpha); // Level 40: the stage house, the battens, the catwalks, the wings
   if (mSweeps.on)
     drawSweepsSet(r, *this, mArt, camX, camY, frame, alpha); // Level 41: the back rows, the understage
+  if (mFinale.on)
+    drawFinaleSet(r, *this, mArt, camX, camY, frame, alpha); // Level 42: the wagons' flats, backstage, the arena's wall
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -406,6 +409,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawApplauseCannonIcon(r, mArt, x, y, 1.0f, frame); // Level 41 (world_sweeps_draw.cpp)
         continue;
       }
+      if (mFinale.on && mLevelProto == int(ProtoId::Encore))
+      {
+        drawEncoreIcon(r, mArt, x, y, 1.0f, frame, rgb(255, 215, 90)); // Level 42 (world_finale_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -528,6 +536,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_headset", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mFinale.on && !mFinale.reel && mLevel->themeKey == "main_stage")
+      {
+        // The Live Finale's duck is hosting: a sequined jacket, a chrome grin.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_host", 1, (frame / 8) % 2, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
       if (mSweeps.on && mLevel->themeKey == "sweeps_week")
       {
         // Sweeps Week's duck is dressed for the show: a sequined bow tie.
@@ -620,6 +635,9 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 40 (world_flytower_draw.cpp)
     if (e.kind == EnemyKind::WarmupComic || e.kind == EnemyKind::AudiencePlant || e.kind == EnemyKind::CueDrone)
       continue; // Level 41 (world_sweeps_draw.cpp)
+    if (e.kind == EnemyKind::CensorBar || e.kind == EnemyKind::AdBreak || e.kind == EnemyKind::SampleBot ||
+        e.kind == EnemyKind::StuntDouble)
+      continue; // Level 42 (world_finale_draw.cpp)
     if (e.kind == EnemyKind::MastClimber || e.kind == EnemyKind::RelayDrone || e.kind == EnemyKind::FeedbackNode)
       continue; // Level 35 (world_tower_draw.cpp)
     if (e.kind == EnemyKind::Echo)
@@ -1160,6 +1178,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // a Rigger's dart (world_flytower_draw.cpp)
     if (mSweeps.on && drawSweepsShot(r, *this, mArt, pr, cx, cy, frame))
       continue; // a tomato, an Applause Cannon burst, a paintball (world_sweeps_draw.cpp)
+    if (mFinale.on && drawFinaleShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // a Stunt Double's bolt, the Encore Engine's beat (world_finale_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1877,6 +1897,12 @@ void World::drawHud(Renderer& r, int frame) const
     drawPyroRigIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 40: the Pyro Rig (world_flytower_draw.cpp)
   else if (proto && mSweeps.on && p.proto == int(ProtoId::ApplauseCannon))
     drawApplauseCannonIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 41: the Applause Cannon (world_sweeps_draw.cpp)
+  else if (proto && mFinale.on && p.proto == int(ProtoId::Encore))
+  {
+    // Level 42: the Encore (world_finale_draw.cpp), its live chamber in the selected prototype's colour.
+    const int id = mFinale.wheel[std::size_t(std::clamp(mFinale.sel, 0, int(mFinale.wheel.size()) - 1))];
+    drawEncoreIcon(r, mArt, x + 18, top + 20, 0.62f, frame, id < 0 ? rgb(220, 220, 230) : protoDef(id).color);
+  }
   else if (proto)
   {
     DrawOpts io;
