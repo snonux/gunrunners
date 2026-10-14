@@ -125,8 +125,9 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   height: calc(var(--h) + 80px);
   display: grid; place-items: center;
   position: relative;
-  cursor: grab; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-drag: none;
+  touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-drag: none;
 }
+.box-stage.turnable { cursor: grab; } /* site.js adds it: without JavaScript the box can't be turned */
 .box-stage.dragging { cursor: grabbing; }
 .box {
   position: relative; width: var(--w); height: var(--h);

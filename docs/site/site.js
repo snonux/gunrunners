@@ -167,6 +167,7 @@
     setupDrag(stage, b);
     setupControls(stage, flip, b);
     if (controls) controls.hidden = false;
+    stage.classList.add("turnable");
     stage.setAttribute("aria-label", "The Gunrunners game box. Drag it, or use the arrow keys, to turn it.");
     b.apply();
     startSway(stage, b);
