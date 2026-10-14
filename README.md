@@ -143,7 +143,7 @@ while you use the pad. Building the APK yourself is described in
 
 **Linux (x86_64):** when a [release](https://github.com/snonux/gunrunners/releases/latest)
 carries `gunrunners-vX.Y.Z-linux-x86_64.tar.gz`, download it, unpack it
-anywhere and start `gunrunners` in it. The releases so far (up to v0.4.0)
+anywhere and start `gunrunners` in it. The releases so far (up to v0.5.0)
 ship only the Android APK, so until a tarball is there, build from source
 as shown below. The tarball needs SDL2, Cairo and libcurl, which most desktops
 already have:
