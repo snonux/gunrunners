@@ -85,7 +85,8 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   max-width: 100%; overflow-wrap: break-word; text-align: center; /* long labels break at their <wbr>s */
 }
 .btn:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(47, 216, 255, 0.35); color: var(--text); }
-.btn-hot { border-color: transparent; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)); color: #1a0820; }
+/* border-box: the gradient also fills the transparent border instead of repeating its ends under it. */
+.btn-hot { border-color: transparent; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)) border-box; color: #1a0820; }
 .btn-hot:hover { box-shadow: 0 0 26px rgba(255, 63, 174, 0.5); color: #1a0820; }
 .btn-small { padding: 8px 16px; font-size: 14px; }
 .btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
@@ -239,6 +240,9 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 }
 .runner img { height: 170px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c) 45%, transparent)); }
 .runner h3 { font-size: 24px; font-style: italic; color: var(--c); margin: 0; }
+/* Keeps a hyphenated word together; the self-hosted fonts' latin subset
+   has no non-breaking hyphen (U+2011), which would come from a system font. */
+.nowrap { white-space: nowrap; }
 .role { margin: 0 0 10px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 /* Each stat's label sits above its value: the cards are too narrow for a
    label column without breaking words like "flamethrower". */
