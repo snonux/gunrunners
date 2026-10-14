@@ -57,6 +57,7 @@
 <main id="top">
 
 <section class="hero">
+  <div class="hero-floor" aria-hidden="true"></div>
   <div class="hero-text">
     <p class="kicker">A jump-n-shoot for Linux and Android</p>
     <h1 class="logo">GUNRUNNERS</h1>
@@ -179,8 +180,14 @@
   </div>
 </section>
 
+<!-- A strip of film running across the page: the set twice, so sliding it
+     by half loops seamlessly (style.css, .filmstrip). Decorative. -->
+<div class="filmstrip" aria-hidden="true">
+  <div class="filmstrip-track"><img src="media/level01.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level03.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level22.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level07.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level14.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level26.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level19.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level21.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level27.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level34.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level43.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level38.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level49.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/deep_dive.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level01.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level03.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level22.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level07.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level14.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level26.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level19.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level21.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level27.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level34.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level43.jpg" alt="" loading="lazy" width="213" height="120"><img src="site/shots/level38.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/level49.jpg" alt="" loading="lazy" width="213" height="120"><img src="media/deep_dive.jpg" alt="" loading="lazy" width="213" height="120"></div>
+</div>
+
 <section class="videos" id="videos">
-  <h2>Gameplay</h2>
+  <h2 data-echo="GAMEPLAY">Gameplay</h2>
   <p class="section-lede">Recorded straight out of the game, sound and all: the art
     is all vectors and every sound is synthesized live.</p>
   <div class="video-grid">
@@ -213,7 +220,7 @@
 </section>
 
 <section class="story" id="story">
-  <h2>The story</h2>
+  <h2 data-echo="STORY">The story</h2>
   <div class="story-grid">
     <div class="story-text">
       <p>It's a 1987 that never ended. Six couriers, six phones chiming in a
@@ -257,7 +264,7 @@
 </section>
 
 <section class="runners" id="runners">
-  <h2>The runners</h2>
+  <h2 data-echo="RUNNERS">The runners</h2>
   <p class="section-lede">Pick one, or swap mid-level with a single button: weapon,
     ammo and items carry over. They differ in health, jump height and what
     they start with.</p>
@@ -305,7 +312,7 @@
 </section>
 
 <section class="villains" id="villains">
-  <h2>Villains, bosses and other trouble</h2>
+  <h2 data-echo="VILLAINS">Villains, bosses and other trouble</h2>
   <p class="section-lede">Almost every level brings its own residents. Some of the
     over 150 kinds of enemy, and the ones that run the show:</p>
 
@@ -382,7 +389,7 @@
 </section>
 
 <section class="episodes" id="episodes">
-  <h2>Seven episodes</h2>
+  <h2 data-echo="EPISODES">Seven episodes</h2>
   <p class="section-lede">Every campaign level (1 to 42) has its own twist, its own
     prototype weapon, its own soundtrack, secrets, a briefing and a bonus
     level behind a flickering TV. “WE'LL BE RIGHT BACK!” Deep Space has
@@ -433,7 +440,7 @@
 </section>
 
 <section class="features">
-  <h2>Plays like Duke Nukem II, then some</h2>
+  <h2 data-echo="FEATURES">Plays like Duke Nukem II, then some</h2>
   <div class="feature-grid">
     <div><h3>Frame-accurate movement</h3><p>The jump arc, ladders, hang bars and the flamethrower jetpack are ported from Duke Nukem II via RigelEngine.</p></div>
     <div><h3>Bonus levels</h3><p>Find the TV static and press up: a short level with crazy rules, then back where you were. Beat it for a Bonus Star.</p></div>
@@ -445,7 +452,7 @@
 </section>
 
 <section class="gallery" id="gallery">
-  <h2>Screenshots</h2>
+  <h2 data-echo="SCREENSHOTS">Screenshots</h2>
   <div class="shot-grid">
     <a href="media/title.jpg"><img src="media/title.jpg" alt="The title screen." loading="lazy"></a>
     <a href="media/level03.jpg"><img src="media/level03.jpg" alt="Club Laserdisc." loading="lazy"></a>
@@ -463,7 +470,7 @@
 </section>
 
 <section class="get" id="get">
-  <h2>Get the game</h2>
+  <h2 data-echo="GET IT">Get the game</h2>
   <p class="section-lede">Free software under the GNU GPL, version 2 or later. No ads and
     no accounts.</p>
   <div class="get-grid">

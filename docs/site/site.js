@@ -15,8 +15,8 @@
   // with the keys); the idle sway only wobbles a few degrees around it.
   function createBox(stage, flip) {
     var state = {
-      rest: { rx: -6, ry: -24 }, // the three-quarter view of the front
-      rx: -6, ry: -24,
+      rest: { rx: -10, ry: -24 }, // the three-quarter view of the front, from a little above
+      rx: -10, ry: -24,
       dragging: false,
       turning: false,
       turnTimer: 0,
@@ -110,15 +110,16 @@
     stage.addEventListener("pointercancel", endDrag);
   }
 
-  // The button flips the box half a turn, always the same way round; the
-  // arrow keys turn it in steps from where it rests (not from the swayed
-  // angle, so repeated presses don't drift). Arrows with a modifier are left
-  // to the browser (Alt+Left is "back").
+  // The button flips the box half a turn on from wherever the spin has got
+  // to; the arrow keys turn it a step from there (left/right) or tilt its
+  // resting nod (up/down). Then the spin carries on from the new angle.
+  // Arrows with a modifier are left to the browser (Alt+Left is "back").
   function setupControls(stage, flip, b) {
     var s = b.state;
     if (flip) {
+      // From wherever the spin has got to, half a turn on.
       flip.addEventListener("click", function () {
-        s.rest.ry += 180;
+        s.rest = { rx: s.rest.rx, ry: s.ry + 180 };
         b.turnToRest();
       });
     }
@@ -128,23 +129,29 @@
       var step = { ArrowLeft: [0, -15], ArrowRight: [0, 15], ArrowUp: [5, 0], ArrowDown: [-5, 0] }[e.key];
       if (!step) return;
       e.preventDefault();
-      s.rest = { rx: Math.max(-35, Math.min(35, s.rest.rx + step[0])), ry: s.rest.ry + step[1] };
+      s.rest = { rx: Math.max(-35, Math.min(35, s.rest.rx + step[0])), ry: s.ry + step[1] };
       b.turnToRest();
     });
   }
 
-  // The idle sway: a slow few degrees around the resting angle, only while
-  // the box is on screen (it repaints the box and its SVG filters).
+  // The idle spin: the box keeps turning all the way round (SPIN degrees a
+  // second about its upright axis) while nodding up and down a little,
+  // starting from wherever it was left (dragged, flipped or turned with the
+  // keys) and easing in over the first two seconds. It runs only while the
+  // box is on screen (it repaints the box and its SVG filters).
+  var SPIN = 24;
   function startSway(stage, b) {
     var s = b.state, visible = false, frame = 0;
+    // Degrees turned t seconds after the spin (re)started: the speed ramps
+    // up linearly over 2 s, then stays at SPIN.
+    function turned(t) { return t < 2 ? SPIN * t * t / 4 : SPIN * (t - 1); }
     function sway(now) {
       frame = 0;
       if (!visible) return;
       if (!s.dragging && !s.turning) {
         var t = (now - s.swayStart) / 1000;
-        var amount = Math.min(1, t / 2); // ease in after a turn
-        s.ry = s.rest.ry + Math.sin(t * 0.6) * 6 * amount;
-        s.rx = s.rest.rx + Math.sin(t * 0.43) * 2 * amount;
+        s.ry = s.rest.ry + turned(t);
+        s.rx = s.rest.rx + Math.sin(t * 0.5) * 4 * Math.min(1, t / 2);
         b.apply();
       }
       frame = window.requestAnimationFrame(sway);

@@ -25,7 +25,9 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+/* clip, not hidden: the full-bleed backgrounds, the tilted film strip and
+   the big echo words reach past the sides, and clip keeps the sticky header. */
+html { scroll-behavior: smooth; scroll-padding-top: 72px; overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
@@ -35,8 +37,8 @@ body {
     radial-gradient(900px 500px at 0% 20%, rgba(47, 216, 255, 0.10), transparent 60%),
     var(--bg);
   color: var(--text);
-  font: 400 17px/1.6 var(--body);
-  overflow-x: hidden;
+  font: 400 19px/1.6 var(--body);
+  overflow-x: clip;
 }
 
 a { color: var(--cyan); text-underline-offset: 3px; }
@@ -58,10 +60,10 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   border-bottom: 1px solid transparent;
   border-image: linear-gradient(90deg, var(--cyan), var(--hot), var(--sun)) 1;
 }
-.brand { font: 800 italic 20px var(--display); color: var(--text); text-decoration: none; letter-spacing: 0.02em; white-space: nowrap; }
+.brand { font: 800 italic 22px var(--display); color: var(--text); text-decoration: none; letter-spacing: 0.02em; white-space: nowrap; }
 .gr { color: var(--sun); font-family: var(--display); font-weight: 800; font-style: normal; }
 .top nav { display: flex; gap: 4px 18px; flex-wrap: wrap; justify-content: flex-end; }
-.top nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 15px; }
+.top nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 17px; }
 .top nav a:hover { color: var(--text); }
 .top nav .nav-cta { color: var(--hot); }
 @media (max-width: 760px) { .top nav a:not(.nav-cta) { display: none; } }
@@ -74,13 +76,13 @@ h2 {
   background: linear-gradient(180deg, #fff3a6 0%, var(--sun) 45%, var(--hot) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
-.section-lede { color: var(--muted); max-width: 70ch; margin: 0 0 32px; font-size: 18px; }
+h3 { font: 700 22px/1.25 var(--display); margin: 0 0 6px; }
+.section-lede { color: var(--muted); max-width: 70ch; margin: 0 0 32px; font-size: 20px; }
 
 .btn {
   display: inline-block; padding: 12px 22px; border-radius: 999px;
   border: 1.5px solid var(--cyan); color: var(--text); background: transparent;
-  font: 700 16px var(--display); letter-spacing: 0.03em; text-decoration: none; cursor: pointer;
+  font: 700 18px var(--display); letter-spacing: 0.03em; text-decoration: none; cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   max-width: 100%; overflow-wrap: break-word; text-align: center; /* long labels break at their <wbr>s */
 }
@@ -88,13 +90,13 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 /* border-box: the gradient also fills the transparent border instead of repeating its ends under it. */
 .btn-hot { border-color: transparent; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)) border-box; color: #1a0820; }
 .btn-hot:hover { box-shadow: 0 0 26px rgba(255, 63, 174, 0.5); color: #1a0820; }
-.btn-small { padding: 8px 16px; font-size: 14px; }
+.btn-small { padding: 8px 16px; font-size: 16px; }
 .btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* ---------- hero ---------- */
 .hero { display: grid; grid-template-columns: 1fr minmax(300px, 520px); gap: clamp(24px, 5vw, 64px); align-items: center; min-height: calc(100vh - 60px); }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; min-height: 0; } }
-.kicker { color: var(--cyan); font: 700 14px var(--display); letter-spacing: 0.22em; text-transform: uppercase; margin: 0; }
+.kicker { color: var(--cyan); font: 700 16px var(--display); letter-spacing: 0.22em; text-transform: uppercase; margin: 0; }
 .logo {
   font: 900 italic clamp(40px, 6.6vw, 88px)/1 var(--display);
   margin: 10px 0 18px; letter-spacing: -0.01em;
@@ -102,10 +104,10 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 22px rgba(255, 63, 174, 0.35));
 }
-.lede { font-size: 19px; max-width: 58ch; color: #ddd3ff; }
+.lede { font-size: 21px; max-width: 58ch; color: #ddd3ff; }
 .lede em { color: var(--gold); font-style: normal; font-weight: 600; }
 .facts { list-style: none; padding: 0; margin: 22px 0 28px; display: flex; flex-wrap: wrap; gap: 10px; }
-.facts li { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 15px; color: var(--muted); }
+.facts li { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 17px; color: var(--muted); }
 .facts b { color: var(--text); font-family: var(--display); }
 .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
 
@@ -118,9 +120,9 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   --w: min(340px, 64vw);
   --h: calc(var(--w) * 1.4);
   --d: calc(var(--w) * 0.24);
-  --rx: -6deg;
+  --rx: -10deg;
   --ry: -24deg;
-  perspective: 1600px;
+  perspective: 900px; /* close up: the box's depth shows strongly as it spins */
   width: calc(var(--w) + var(--d));
   height: calc(var(--h) + 80px);
   display: grid; place-items: center;
@@ -204,29 +206,29 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 }
 .box-controls { display: flex; align-items: center; gap: 12px; }
 .box-controls[hidden] { display: none; } /* shown by site.js: without it they would do nothing */
-.hint, .box-links { color: var(--muted); font-size: 14px; margin: 0; }
+.hint, .box-links { color: var(--muted); font-size: 16px; margin: 0; }
 
 /* ---------- videos ---------- */
 .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 22px; }
 .video { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .video video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; }
-.video figcaption { padding: 10px 14px 12px; color: var(--muted); font-size: 15px; }
+.video figcaption { padding: 10px 14px 12px; color: var(--muted); font-size: 17px; }
 .video figcaption b { color: var(--text); }
-.note { color: var(--muted); font-size: 14px; margin-top: 16px; }
+.note { color: var(--muted); font-size: 16px; margin-top: 16px; }
 
 /* ---------- story ---------- */
 .story-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(24px, 4vw, 48px); align-items: start; }
 @media (max-width: 860px) { .story-grid { grid-template-columns: 1fr; } }
 .story-text p { max-width: 64ch; }
-blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--hot); background: rgba(255, 63, 174, 0.07); border-radius: 0 10px 10px 0; font-size: 18px; }
-.who { display: block; font: 800 13px var(--display); letter-spacing: 0.2em; color: var(--hot); margin-bottom: 2px; }
-.tease { font: 800 italic 22px/1.3 var(--display); color: var(--gold); }
+blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--hot); background: rgba(255, 63, 174, 0.07); border-radius: 0 10px 10px 0; font-size: 20px; }
+.who { display: block; font: 800 15px var(--display); letter-spacing: 0.2em; color: var(--hot); margin-bottom: 2px; }
+.tease { font: 800 italic 25px/1.3 var(--display); color: var(--gold); }
 .spoiler { margin-top: 22px; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); padding: 12px 18px; }
 .spoiler summary { cursor: pointer; color: var(--cyan); font-weight: 600; }
 .story-shot { margin: 0; }
 .story-shot img, .boss img, .episode img, .shot-grid img { border-radius: 10px; }
 .story-shot img { border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
-.story-shot figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+.story-shot figcaption { color: var(--muted); font-size: 16px; margin-top: 8px; }
 
 /* ---------- runners ---------- */
 /* Six runners: one row on a desktop, two even rows of three, or two columns on a phone. */
@@ -240,17 +242,17 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
   border-radius: var(--radius); padding: 18px 16px 16px; text-align: center;
 }
 .runner img { height: 170px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c) 45%, transparent)); }
-.runner h3 { font-size: 24px; font-style: italic; color: var(--c); margin: 0; }
+.runner h3 { font-size: 27px; font-style: italic; color: var(--c); margin: 0; }
 /* Keeps a hyphenated word together; the self-hosted fonts' latin subset
    has no non-breaking hyphen (U+2011), which would come from a system font. */
 .nowrap { white-space: nowrap; }
-.role { margin: 0 0 10px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.role { margin: 0 0 10px; color: var(--muted); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
 /* Each stat's label sits above its value: the cards are too narrow for a
    label column without breaking words like "flamethrower". */
-.runner dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; text-align: left; font-size: 14px; margin: 0 0 10px; }
-.runner dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.runner dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; text-align: left; font-size: 16px; margin: 0 0 10px; }
+.runner dt { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
 .runner dd { margin: 0 0 4px; font-weight: 600; overflow-wrap: break-word; }
-.runner p:last-child { font-size: 14px; color: #d4c9f5; text-align: left; margin: 0; }
+.runner p:last-child { font-size: 16px; color: #d4c9f5; text-align: left; margin: 0; }
 .aside { margin-top: 26px; color: var(--muted); max-width: 70ch; }
 .aside b { color: var(--text); }
 
@@ -259,33 +261,33 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 .boss { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .boss img { border-radius: 0; aspect-ratio: 16 / 9; object-fit: cover; width: 100%; }
 .boss > div { padding: 14px 16px 16px; }
-.boss p { margin: 0; font-size: 15px; color: #d4c9f5; }
-.boss .where { color: var(--hot); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+.boss p { margin: 0; font-size: 17px; color: #d4c9f5; }
+.boss .where { color: var(--hot); font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
 .cast { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 16px; margin: 26px 0 8px; }
 .cast-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; background: rgba(47, 216, 255, 0.05); }
 .cast-card h3 { color: var(--cyan); }
-.cast-card p { margin: 0; font-size: 15px; color: #d4c9f5; }
-.sub { margin-top: 34px; font-size: 22px; }
+.cast-card p { margin: 0; font-size: 17px; color: #d4c9f5; }
+.sub { margin-top: 34px; font-size: 25px; }
 .enemy-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 8px 22px; }
-.enemy-list li { font-size: 15px; color: #d4c9f5; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.enemy-list li { font-size: 17px; color: #d4c9f5; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .enemy-list b { color: var(--text); font-family: var(--display); }
-.enemy-list span { display: inline-block; font-size: 12px; color: var(--sun); border: 1px solid rgba(255, 176, 46, 0.4); border-radius: 999px; padding: 0 8px; margin: 0 6px; }
+.enemy-list span { display: inline-block; font-size: 13px; color: var(--sun); border: 1px solid rgba(255, 176, 46, 0.4); border-radius: 999px; padding: 0 8px; margin: 0 6px; }
 
 /* ---------- episodes ---------- */
 .episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 20px; }
 .episode { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .episode img { border-radius: 0; aspect-ratio: 16 / 9; object-fit: cover; width: 100%; }
 .ep-body { padding: 12px 16px 16px; }
-.ep-no { margin: 0; color: var(--cyan); font: 700 13px var(--display); letter-spacing: 0.2em; text-transform: uppercase; }
-.ep-tag { margin: 0 0 8px; color: var(--muted); font-size: 15px; }
-.episode summary { cursor: pointer; color: var(--sun); font-size: 14px; font-weight: 600; }
-.episode ol { margin: 8px 0 0; padding-left: 30px; font-size: 14px; color: #d4c9f5; }
-.ep-note { font-size: 14px; color: #d4c9f5; margin: 8px 0 0; }
+.ep-no { margin: 0; color: var(--cyan); font: 700 15px var(--display); letter-spacing: 0.2em; text-transform: uppercase; }
+.ep-tag { margin: 0 0 8px; color: var(--muted); font-size: 17px; }
+.episode summary { cursor: pointer; color: var(--sun); font-size: 16px; font-weight: 600; }
+.episode ol { margin: 8px 0 0; padding-left: 30px; font-size: 16px; color: #d4c9f5; }
+.ep-note { font-size: 16px; color: #d4c9f5; margin: 8px 0 0; }
 
 /* ---------- features ---------- */
 .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
 .feature-grid > div { border-left: 3px solid var(--hot); padding: 4px 0 4px 16px; }
-.feature-grid p { margin: 0; color: #d4c9f5; font-size: 15px; }
+.feature-grid p { margin: 0; color: #d4c9f5; font-size: 17px; }
 
 /* ---------- gallery ---------- */
 .shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
@@ -300,11 +302,147 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 /* ---------- get ---------- */
 .get-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px; }
 .get-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; min-width: 0; }
-.get-card h3 { font-size: 24px; color: var(--cyan); }
+.get-card h3 { font-size: 27px; color: var(--cyan); }
 .get-card p { color: #d4c9f5; }
 .get-card p code { overflow-wrap: anywhere; }
 
 /* ---------- footer ---------- */
 footer { text-align: center; padding: 40px 16px 56px; color: var(--muted); border-top: 1px solid var(--line); }
 footer p { margin: 4px 0; }
-footer .small { font-size: 13px; }
+footer .small { font-size: 15px; }
+
+/* ==========================================================================
+   Loud mode: every section stands in front of a darkened screenshot from
+   the game, with a slanted neon edge on top; the hero gets a moving
+   synthwave floor and a glitching logo, a film strip of screenshots runs
+   across the page, and faint CRT scanlines lie over everything. All motion
+   stops under prefers-reduced-motion (at the end of this file).
+   ========================================================================== */
+:root { --slant: 3vw; --slant-angle: -1.72deg; /* atan(3 / 100): the edge's slope */ }
+
+main > section { position: relative; isolation: isolate; }
+
+/* The screenshot behind a section, full-bleed (sections themselves are
+   capped at 1240px): at full width along the section's top, its HUD and
+   the game's banner line under it (the top 18% of a shot) pushed up out of
+   sight, fading into the page further down. A light blur
+   turns any game text left in it into texture, so it never competes with
+   the page's own. */
+main > section::before {
+  content: ""; position: absolute; z-index: -2; top: 0; bottom: 0;
+  left: calc(50% - 50vw); width: 100vw;
+  background:
+    linear-gradient(180deg, rgba(20, 10, 38, 0.5), rgba(20, 10, 38, 0.72) 22%, rgba(20, 10, 38, 0.9) 48%, var(--bg) 70%),
+    var(--scene, none) center -10vw / 100% auto no-repeat var(--bg);
+  filter: blur(2px) saturate(1.35);
+  clip-path: polygon(0 var(--slant), 100% 0, 100% 100%, 0 100%);
+}
+/* The neon edge along the slant: a line rotated about its middle, which
+   sits half a slant down. */
+main > section:not(.hero)::after {
+  content: ""; position: absolute; z-index: -1; top: calc(var(--slant) / 2 - 1px);
+  left: calc(50% - 50vw); width: 100vw; height: 3px;
+  transform: rotate(var(--slant-angle));
+  background: linear-gradient(90deg, var(--cyan), var(--hot), var(--sun));
+  box-shadow: 0 0 14px rgba(255, 63, 174, 0.8), 0 0 40px rgba(47, 216, 255, 0.35);
+}
+.hero { --scene: url(../media/level01.jpg); }
+.videos { --scene: url(../media/level03.jpg); }
+.story { --scene: url(../media/level04.jpg); }
+.runners { --scene: url(../media/level06.jpg); }
+.villains { --scene: url(../media/level21.jpg); }
+.episodes { --scene: url(../media/level43.jpg); }
+.features { --scene: url(../media/level19.jpg); }
+.gallery { --scene: url(../media/level44.jpg); }
+.get { --scene: url(../media/title.jpg); }
+/* The hero's picture covers it, anchored at the bottom, and starts a
+   quarter of the hero's height above the page: when it is scaled to the
+   box's height (phones, most desktops) that takes the top fifth, the HUD
+   and the banner line, off the top. */
+.hero::before {
+  top: -25%;
+  clip-path: none;
+  background:
+    radial-gradient(60% 50% at 70% 40%, rgba(255, 63, 174, 0.25), transparent 70%),
+    linear-gradient(180deg, rgba(20, 10, 38, 0.62), rgba(20, 10, 38, 0.74) 60%, var(--bg)),
+    var(--scene) center bottom / cover no-repeat;
+}
+
+/* The synthwave floor under the hero: a magenta grid in perspective,
+   rolling towards the viewer. */
+.hero-floor {
+  position: absolute; z-index: -1; bottom: 0; left: calc(50% - 50vw); width: 100vw; height: 42%;
+  perspective: 320px; overflow: hidden; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to top, #000 35%, transparent);
+  mask-image: linear-gradient(to top, #000 35%, transparent);
+}
+.hero-floor::before {
+  content: ""; position: absolute; left: -50%; right: -50%; top: -60%; bottom: 0;
+  background-image:
+    linear-gradient(rgba(255, 63, 174, 0.75) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(47, 216, 255, 0.6) 2px, transparent 2px);
+  background-size: 64px 64px;
+  transform: rotateX(72deg); transform-origin: 50% 100%;
+  animation: floor-roll 1.1s linear infinite;
+}
+@keyframes floor-roll { to { background-position: 0 64px, 0 0; } }
+
+/* Every few seconds the logo's signal breaks up, like a bad VHS tape. */
+.logo { animation: glitch 6s infinite; }
+@keyframes glitch {
+  0%, 90%, 100% { transform: none; filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 22px rgba(255, 63, 174, 0.35)); }
+  91% { transform: translate(-4px, 1px) skewX(-10deg); filter: drop-shadow(-5px 0 0 var(--cyan)) drop-shadow(5px 0 0 var(--hot)); }
+  93% { transform: translate(5px, -2px) skewX(8deg); filter: drop-shadow(6px 0 0 var(--cyan)) drop-shadow(-6px 0 0 var(--hot)); }
+  95% { transform: translate(-2px, 0) skewX(-3deg); filter: drop-shadow(-3px 2px 0 var(--sun)) drop-shadow(3px -2px 0 var(--cyan)); }
+  97% { transform: none; filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 30px rgba(255, 63, 174, 0.7)); }
+}
+
+/* A big outlined word behind each section heading. */
+h2[data-echo] { position: relative; }
+h2[data-echo]::before {
+  content: attr(data-echo); position: absolute; z-index: -1; left: -0.04em; top: -0.62em;
+  font: 900 italic clamp(64px, 11vw, 150px)/1 var(--display); letter-spacing: 0.02em;
+  color: transparent; -webkit-text-stroke: 1.5px rgba(47, 216, 255, 0.28);
+  white-space: nowrap; pointer-events: none;
+}
+
+/* The film strip: screenshots sliding by between black sprocket rows. */
+.filmstrip {
+  position: relative; overflow: hidden; margin: clamp(-24px, -2vw, -10px) 0;
+  padding: 22px 0; background: #07030f; transform: rotate(-1.5deg) scale(1.04);
+  box-shadow: 0 0 40px rgba(255, 63, 174, 0.35); z-index: 1;
+}
+.filmstrip::before, .filmstrip::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 12px;
+  background: radial-gradient(circle at 50% 50%, #2a1648 3px, transparent 3.5px) 0 0 / 22px 12px repeat-x;
+}
+.filmstrip::before { top: 5px; }
+.filmstrip::after { bottom: 5px; }
+.filmstrip-track { display: flex; width: max-content; animation: strip 70s linear infinite; }
+.filmstrip img { height: 120px; width: auto; margin-right: 14px; border-radius: 6px; filter: saturate(1.2); }
+@keyframes strip { to { transform: translateX(-50%); } } /* the set is in the track twice */
+
+/* Faint CRT scanlines over the whole page. */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 100; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.13) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+
+/* Cards come alive under the pointer: runners hop, episodes and bosses lean in. */
+@media (hover: hover) {
+  .runner:hover img { animation: hop 0.6s cubic-bezier(0.3, 0.7, 0.4, 1); }
+  .episode, .boss, .video, .get-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+  .episode:hover, .boss:hover, .get-card:hover {
+    transform: translateY(-6px) rotate(-0.6deg);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 26px rgba(255, 63, 174, 0.35);
+  }
+}
+@keyframes hop { 0%, 100% { transform: none; } 40% { transform: translateY(-22px) rotate(-4deg); } 70% { transform: translateY(0) scaleY(0.92); } }
+
+/* Panels sit on the pictures: a little glass so the text stays readable. */
+.video, .runner, .boss, .episode, .get-card, .cast-card, .spoiler { backdrop-filter: blur(6px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .logo, .hero-floor::before, .filmstrip-track, .runner:hover img { animation: none; }
+}
