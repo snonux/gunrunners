@@ -247,6 +247,16 @@ Input Bot::play(const World& world)
       return in;
     }
   }
+  // Level 41: the Virus's V, Plants standing up; MIRROR MODE.
+  if (world.sweeps().on)
+  {
+    Input in;
+    if (sweeps(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
   // Level 38: words to strike, Typos, the typewriter; the Breakout bonus.
   if (world.writers().on)
   {

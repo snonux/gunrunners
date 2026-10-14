@@ -147,6 +147,7 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("writers", s.writers);
   list("gallery", s.gallery);
   list("flytower", s.flytower);
+  list("sweeps", s.sweeps);
   list("explored", s.explored);
   list("vehicles", s.vehicles);
   o << "end\n";
@@ -272,7 +273,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.allLitAt;
     else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
              key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "wardrobe" || key == "writers" || key == "gallery" || key == "flytower" || key == "explored" || key == "vehicles")
+             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "wardrobe" || key == "writers" || key == "gallery" || key == "flytower" || key == "sweeps" || key == "explored" || key == "vehicles")
     {
       auto& v = key == "floods" ? s.floods
               : key == "valves" ? s.valves
@@ -310,6 +311,7 @@ std::optional<SaveGame> readSave(const std::string& path)
               : key == "writers" ? s.writers
               : key == "gallery" ? s.gallery
               : key == "flytower" ? s.flytower
+              : key == "sweeps" ? s.sweeps
               : key == "explored" ? s.explored
               : key == "vehicles" ? s.vehicles
                                 : s.bubbled;

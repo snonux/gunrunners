@@ -501,6 +501,11 @@ void World::fireProto(int ox, int oy, int dx, int dy)
       // A rod flies on until it sticks in something (world_storm.cpp).
       pr.range = kRodFlight;
       break;
+    case ProtoId::ApplauseCannon:
+      // Level 41: the meter is the damage, x1 to x4 (world_sweeps.cpp).
+      damage = std::clamp(mSweeps.meter, 1, kSwMeterMax);
+      pr.strong = mSweeps.meter >= 3;
+      break;
     default:
       break;
   }

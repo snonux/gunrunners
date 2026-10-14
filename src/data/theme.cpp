@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 48> kVariants{{
+const std::array<Variant, 49> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -723,6 +723,20 @@ const std::array<Variant, 48> kVariants{{
     rgb(30, 26, 40), rgb(54, 48, 66),
     rgb(60, 60, 70), rgb(120, 120, 135), rgb(24, 24, 30), rgb(255, 60, 40),
     rgb(255, 240, 220), "fly_tower"}},
+  // Level 41: sweeps week, a studio audience in gold sequins, stage red and spotlight white.
+  {"sweeps_week",
+   {ThemeId::NeonOverdrive,
+    "SWEEPS WEEK",
+    "THE AUDIENCE VOTES ON EVERY SEGMENT",
+    rgb(30, 10, 24), rgb(70, 20, 40), rgb(140, 50, 50),
+    rgb(90, 40, 50), rgb(150, 80, 80), rgb(50, 20, 30),
+    rgb(255, 200, 60), rgb(255, 240, 160),
+    rgb(170, 120, 60), rgb(110, 70, 30),
+    rgb(255, 90, 60), rgb(255, 210, 160),
+    rgb(255, 200, 60), rgb(255, 80, 160),
+    rgb(60, 24, 40), rgb(90, 36, 56),
+    rgb(200, 180, 170), rgb(250, 235, 220), rgb(100, 80, 80), rgb(255, 60, 120),
+    rgb(255, 245, 220), "sweeps_week"}},
 }};
 
 } // namespace

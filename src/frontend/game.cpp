@@ -159,6 +159,11 @@ void Game::prepareWorld(World& world) const
   if (!pad.empty())
     label += " / " + padName(pad[0]);
   world.setUseLabel(label);
+  // Level 41: QUACK MODE is on the ballot once every duck of levels 1-40 is found.
+  bool quack = true;
+  for (int n = 1; n <= 40; ++n)
+    quack = quack && mProfile.ducks.count(n) != 0;
+  world.setSweepsQuack(quack);
 }
 
 void Game::startLevel()

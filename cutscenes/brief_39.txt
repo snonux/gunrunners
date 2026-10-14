@@ -7,6 +7,7 @@ music theme_synth_pulse
 # monitor 8 two security guards grab her by the arms (frames 8-15).
 # Foreground: the backs of the three runners' heads.
 # 16 frames at 110 ms = 1.8 s, plus 10 s of holds.
+# clip brief39_wall; 16 frames
 shot brief39_wall delay=110 repeat=1
   cue 0 fade=in:500
   cue 0 sound=radio_chatter

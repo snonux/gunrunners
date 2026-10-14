@@ -206,7 +206,7 @@ PlayerInput World::galleryInput(const PlayerInput& raw)
       {
         s.hop = kGlHop;
         s.hopTo = int(i);
-        playSound(Sfx::EchoIn);
+        playSound(Sfx::MonitorHop);
         return PlayerInput{};
       }
   // Up held from the last hop doesn't hop back.
@@ -300,7 +300,7 @@ void World::galleryPatrol(Enemy& e, const EnemyDef& def)
       if (e.kind == EnemyKind::CableWrangler && !a->dropped)
       {
         a->whip = kGlWhip;
-        playSound(Sfx::Whoosh);
+        playSound(Sfx::CableWhip);
       }
     return;
   }
@@ -347,7 +347,7 @@ void World::updateCableWrangler(Enemy& e, const EnemyDef& def)
       hurtPlayer(1);
       mGallery.trip = kGlTrip;
       e.cool = def.cooldown;
-      playSound(Sfx::Thud);
+      playSound(Sfx::TripFall);
     }
   }
   if (alive(p) && e.cool == 0 && p.mercy == 0 && e.box().intersects(p.hitBox()))
@@ -380,7 +380,7 @@ void World::updateBoomOp(Enemy& e, const EnemyDef& def)
   if (a->pass == 0 && e.cool == 0 && alive(p) && std::abs(dx) < 24 && std::abs(p.y - e.y) < 8)
   {
     a->pass = 1;
-    playSound(Sfx::Whoosh);
+    playSound(Sfx::BoomWhoosh);
   }
   if (a->pass > 0)
   {
@@ -432,7 +432,7 @@ void World::updateFloorManager(Enemy& e, const EnemyDef& def)
     e.tell = total - a->count + 1;
     const int point = total * 7 / 22;
     if (a->count > point && (a->count - point) % std::max(1, (total - point) / 3) == 1)
-      playSound(Sfx::Beep);
+      playSound(Sfx::FloorBeep);
     if (a->count >= total)
     {
       // "One": every awake enemy in his room fires at the runner.
@@ -446,7 +446,7 @@ void World::updateFloorManager(Enemy& e, const EnemyDef& def)
         const int d = sgn((p.x + 1) - (o.x + o.w / 2));
         spawnProjectile(ShotKind::Enemy, d > 0 ? o.x + o.w : o.x - 2, o.y - 3, d != 0 ? d : 1, 0);
       }
-      playSound(Sfx::EnemyShot);
+      playSound(Sfx::CountOne);
     }
     return;
   }
@@ -485,7 +485,7 @@ void World::updateGallery()
     pr.proto = int(ProtoId::EchoMic);
     pr.damage = ec.damage;
     pr.echo = true;
-    playSound(Sfx::EchoIn);
+    playSound(Sfx::EchoRepeat);
     s.echoes.erase(s.echoes.begin() + std::ptrdiff_t(i));
   }
   // The route.
@@ -503,13 +503,13 @@ void World::updateGallery()
     {
       c.face = up - 1;
       if (c.t == slam - c.tell)
-        playSound(Sfx::Creak);
+        playSound(Sfx::PressHiss);
     }
     else if (c.t < slam + 3)
     {
       c.face = std::min(down, c.face + (down - up + 2) / 3 + 1);
       if (c.face == down)
-        playSound(Sfx::Stomp);
+        playSound(Sfx::PressSlam);
     }
     else if (c.t < slam + 6)
       c.face = down;
@@ -533,7 +533,7 @@ bool World::galleryRewindDeath()
     return false;
   s.rewinding = kGlRewindPlay;
   ++s.rewinds;
-  playSound(Sfx::Rewind);
+  playSound(Sfx::VhsRewind);
   return true;
 }
 

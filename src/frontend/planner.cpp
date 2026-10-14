@@ -676,6 +676,43 @@ Planner::Goal Planner::flyTowerGoal(const World& w) const
   return {18, st.x - 2, st.y - 4, 4, 5, -1};
 }
 
+// Level 41: for the bonus, the letter G in the hollow under the stands (the
+// bonus door wakes once it is taken). In Paintball the nearest unpainted
+// block top (kind 12, like Golden Touch's marked blocks).
+Planner::Goal Planner::sweepsGoal(const World& w) const
+{
+  const auto& s = w.sweeps();
+  const auto& p = w.player();
+  if (s.paint)
+  {
+    const int bw = w.level().width;
+    int best = -1, bestKey = 0;
+    for (int ty = 1; ty < w.level().height; ++ty)
+      for (int tx = 0; tx < bw; ++tx)
+      {
+        const int id = ty * bw + tx;
+        if (s.paints[std::size_t(id)] != 1 ||
+            std::find(mPaintSkip.begin(), mPaintSkip.end(), id) != mPaintSkip.end())
+          continue;
+        const int key = std::abs(tx * kCellsPerTile - p.x) + 3 * std::abs(ty * kCellsPerTile - 1 - p.y);
+        if (best < 0 || key < bestKey)
+        {
+          best = id;
+          bestKey = key;
+        }
+      }
+    if (best >= 0)
+      return {12, (best % bw) * kCellsPerTile, (best / bw) * kCellsPerTile - 1, 2, 1, best};
+    return {};
+  }
+  if (!mTakeBonus || mSkipBonus || w.stats().letters.find('G') != std::string::npos)
+    return {};
+  for (const auto& it : w.items())
+    if (!it.taken && it.kind == ItemKind::LetterG && std::abs(it.x - p.x) <= 40)
+      return {18, it.x - 1, it.y - 4, 4, 5, -1};
+  return {};
+}
+
 Planner::Goal Planner::writersGoal(const World& w) const
 {
   const auto& s = w.writers();
@@ -785,6 +822,13 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   if (w.flyTower().on && !w.flyTower().route.empty())
   {
     const Goal h = flyTowerGoal(w);
+    if (h.kind != 0)
+      return h;
+  }
+  // Level 41: the letter G for the bonus; Paintball's block tops.
+  if (w.sweeps().on)
+  {
+    const Goal h = sweepsGoal(w);
     if (h.kind != 0)
       return h;
   }
@@ -3141,7 +3185,9 @@ void Planner::plan(const World& world)
       nw.mirrors()[std::size_t(goal.index)].to == goal.h;
     const bool sheltered = (goal.kind == 9 && nw.inShelter(goal.index)) ||
       ((goal.kind == 10 || goal.kind == 11) && nw.besideAltar(goal.index)) ||
-      (goal.kind == 12 && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1) ||
+      (goal.kind == 12 && !nw.sweeps().paint && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1) ||
+      (goal.kind == 12 && nw.sweeps().paint && nw.sweeps().paints[std::size_t(goal.index)] != 1) || // Level 41
+
       (goal.kind == 14 && nw.atValve(goal.index));
     const bool lit = goal.kind == 13 && std::size_t(goal.index) < nw.green().lamps.size() &&
       nw.green().lamps[std::size_t(goal.index)].lit &&

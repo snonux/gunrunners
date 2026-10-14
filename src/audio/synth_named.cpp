@@ -296,6 +296,110 @@ std::vector<float> makeNamedSfx(const std::string& id)
   }
   if (id == "bell_ding")
     return makeSfx(Sfx::CarriageBell);
+  // Level 39's briefing: the security desk's walkies over the control
+  // room's hum: a squelch, a garbled voice in bursts, the squelch tail;
+  // twice, the second voice answering the first.
+  if (id == "radio_chatter")
+  {
+    Noise n(seed), m(seed + 3u);
+    Svf voice, f1, f2, hiss;
+    OnePole room;
+    Osc buzz, hum, syl;
+    std::vector<float> out = render(3.6, [&](double t, double total) {
+      // Two transmissions: 0.15-1.5 s and 1.9-3.3 s.
+      const bool second = t >= 1.75;
+      const double t0 = second ? 1.9 : 0.15, t1 = second ? 3.3 : 1.5;
+      double v = 0.0;
+      if (t >= t0 - 0.06 && t < t1 + 0.12)
+      {
+        const double u = t - t0;
+        const double sq = (u < 0.0 ? 1.0 : t >= t1 ? 1.0 : 0.0) * hiss.band(n.next(), 3400.0, 0.8) * 0.9;
+        double talk = 0.0;
+        if (u >= 0.0 && t < t1)
+        {
+          // Syllables: a buzzy voice (a low saw) through two moving
+          // formants, gated on and off, the pitch wandering.
+          const double rate = second ? 6.2 : 7.4;
+          const double ph = std::fmod(u * rate, 1.0);
+          const double gate = ph < 0.7 ? std::sin(kPi * ph / 0.7) : 0.0;
+          const double pitch = (second ? 105.0 : 140.0) * (1.0 + 0.12 * std::sin(u * 2.0 * kPi * 1.3) + 0.05 * syl.step(rate * 0.5, Wave::Sine));
+          const double src = buzz.step(pitch, Wave::Saw);
+          const double a = 500.0 + 350.0 * std::sin(u * 2.0 * kPi * rate * 0.37), b = 1500.0 + 700.0 * std::sin(u * 2.0 * kPi * rate * 0.23 + 1.0);
+          talk = (f1.band(float(src), a, 4.0) + f2.band(float(src), b, 5.0) * 0.7) * gate * (u < 0.05 ? u / 0.05 : 1.0);
+          talk = voice.band(float(talk + m.next() * 0.15), 1300.0, 0.6) * 2.2; // the walkie's tiny speaker
+        }
+        v = sq + talk;
+      }
+      const double bed = room.lowpass(m.next(), 300.0) * 0.08 + hum.step(50.0, Wave::Sine) * 0.02;
+      return (v + bed) * std::min(1.0, t / 0.05) * std::min(1.0, (total - t) / 0.2);
+    });
+    float peak = 0.0f;
+    for (const float x : out)
+      peak = std::max(peak, std::abs(x));
+    if (peak > 0.0f)
+      for (float& x : out)
+        x *= 0.4f / peak;
+    return out;
+  }
+  // Maxine grabbed: feet scuffing on the studio floor, grunts, a thump
+  // against the desk, her headset clattering down.
+  if (id == "scuffle")
+  {
+    std::vector<float> out(std::size_t(samples(1.7)), 0.0f);
+    Noise pick(seed);
+    auto add = [&](double at, const std::vector<float>& v, double vol) {
+      const int s0 = samples(at);
+      for (std::size_t i = 0; i < v.size() && s0 + int(i) < int(out.size()); ++i)
+        out[std::size_t(s0) + i] += float(v[i] * vol);
+    };
+    // Feet: short scrapes of shoe on floor.
+    for (int k = 0; k < 7; ++k)
+    {
+      Noise n(seed + 31u * std::uint32_t(k + 1));
+      Svf bp;
+      const double len = 0.08 + 0.08 * double(pick.next() * 0.5f + 0.5f);
+      const double f = 900.0 + 900.0 * double(pick.next() * 0.5f + 0.5f);
+      add(0.02 + 0.2 * double(k) + 0.06 * double(pick.next()), render(len, [&](double t, double total) {
+        return bp.band(n.next(), f, 1.2) * std::sin(kPi * t / total);
+      }), 0.7);
+    }
+    // Grunts: a low voice pushed out through a formant, falling.
+    for (int k = 0; k < 3; ++k)
+    {
+      Osc o;
+      Svf f1, f2;
+      Noise breath(seed + 77u * std::uint32_t(k + 1));
+      const double p0 = k == 1 ? 240.0 : 120.0 + 20.0 * double(k);
+      add(0.15 + 0.45 * double(k), render(0.22, [&](double t, double total) {
+        const double src = o.step(sweep(p0, p0 * 0.75, t / total), Wave::Saw) + breath.next() * 0.3;
+        const double env = std::min(1.0, t / 0.02) * std::pow(1.0 - t / total, 1.5);
+        return (f1.band(float(src), k == 1 ? 800.0 : 550.0, 5.0) + f2.band(float(src), k == 1 ? 1500.0 : 1100.0, 6.0) * 0.6) * env;
+      }), 0.9);
+    }
+    // A body bumping the desk, and the headset hitting the floor.
+    {
+      Osc o;
+      Noise n(seed + 5u);
+      OnePole lp;
+      add(0.8, render(0.3, [&](double t, double) {
+        return o.step(sweep(110.0, 50.0, t / 0.1), Wave::Sine) * decay(t, 0.07) + lp.lowpass(n.next(), 800.0) * decay(t, 0.03) * 2.5;
+      }), 1.0);
+      Noise c(seed + 9u);
+      Svf r1, r2;
+      add(1.18, render(0.35, [&](double t, double) {
+        const double hit = std::fmod(t, 0.09) < 0.004 ? 1.0 : 0.0;
+        return (r1.band(c.next(), 3100.0, 6.0) + r2.band(c.next(), 1900.0, 5.0) * 0.6) * decay(std::fmod(t, 0.09), 0.012) * decay(t, 0.15) * 2.0 +
+          hit * 0.2;
+      }), 0.8);
+    }
+    float peak = 0.0f;
+    for (const float x : out)
+      peak = std::max(peak, std::abs(x));
+    if (peak > 0.0f)
+      for (float& x : out)
+        x *= 0.42f / peak;
+    return out;
+  }
   // Level 35's briefing: the wind round the mast, the cargo airship.
   if (id == "wind")
     return makeSfx(Sfx::MastWind);

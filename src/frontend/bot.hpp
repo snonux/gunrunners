@@ -106,6 +106,9 @@ public:
   Input triggerHappy(const World& world);
   bool mFlyPrevFire = false, mFlyJet = false;
   int mFlyDisc = -1;
+  // Level 41 (bot_sweeps.cpp): the Virus's V, Plants standing up; MIRROR MODE.
+  bool sweeps(const World& world, Input& in);
+  bool mSwPrevFire = false;
   Input breakout(const World& world);
   bool mPenPrev = false, mTypePrevJump = false;
   int mStrikeWait = 0;

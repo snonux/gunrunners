@@ -170,6 +170,9 @@ enum class EnemyKind
   Followspot,   // Level 40: a stage light whose beam follows the runner
   Rigger,       // Level 40: a sniper on a catwalk, aiming where the light is
   SandbagDrop,  // Level 40: cuts sandbags down onto the runner
+  WarmupComic,  // Level 41: patrols and lobs rubber chickens
+  AudiencePlant, // Level 41: sits in the crowd, stands up and shoots
+  CueDrone,     // Level 41: hovers over the crowd, swoops on a runner under it
 };
 
 enum EnemyFlag : unsigned

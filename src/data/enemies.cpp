@@ -304,6 +304,9 @@ const EnemyDef kEnemies[] = {
   {"followspot", "FOLLOWSPOT", K::Followspot, L::Styled, 4, 4, 5, 700, 0, 0, 8, 0, kEnemyHarmless, 0},
   {"rigger", "RIGGER", K::Rigger, L::Styled, 3, 5, 4, 600, 0, 45, 30, 0, 0, 0},
   {"sandbag", "SANDBAG DROP", K::SandbagDrop, L::Styled, 3, 5, 3, 400, 0, 45, 22, 0, 0, 0},
+  {"comic", "WARM-UP COMIC", K::WarmupComic, L::Styled, 3, 5, 4, 500, 2, 45, 12, 30, 0, 0},
+  {"audience_plant", "AUDIENCE PLANT", K::AudiencePlant, L::Styled, 3, 5, 5, 700, 0, 30, 12, 10, 0, 0},
+  {"cuedrone", "CUE CARD DRONE", K::CueDrone, L::Styled, 4, 3, 2, 400, 2, 45, 10, 0, 0, 0},
   {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 

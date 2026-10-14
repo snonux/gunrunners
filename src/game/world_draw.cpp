@@ -13,6 +13,7 @@
 #include "game/tower_draw.hpp"
 #include "game/wardrobe_draw.hpp"
 #include "game/writers_draw.hpp"
+#include "game/gallery_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -136,6 +137,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawWardrobeSet(r, *this, mArt, camX, camY, frame, alpha); // Level 37: the fitting room, the racks, the makeup hall, the sewing room, the vault
   if (mWriters.on)
     drawWritersSet(r, *this, mArt, camX, camY, frame, alpha); // Level 38: the desks, the corkboard, the typewriter, the final draft
+  if (mGallery.on)
+    drawGallerySet(r, *this, mArt, camX, camY, frame, alpha); // Level 39: the edit suite, the studios, the tape library, the gallery
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -251,6 +254,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGalleryBack(r, camX, camY, frame, alpha);
   if (mFly.on)
     drawFlyTowerBack(r, camX, camY, frame, alpha);
+  if (mSweeps.on)
+    drawSweepsBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -378,6 +383,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawRedPenIcon(r, mArt, x, y, 1.0f, frame); // Level 38 (world_writers_draw.cpp)
         continue;
       }
+      if (mGallery.on && mLevelProto == int(ProtoId::EchoMic))
+      {
+        drawEchoMicIcon(r, mArt, x, y, 1.0f, frame); // Level 39 (world_gallery_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -484,6 +494,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_glasses_pencil", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mGallery.on && mLevel->themeKey == "gallery")
+      {
+        // The Gallery's duck wears a pair of studio headphones, the lead coiled down to the desk.
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_headphones", 0, 0, 2, 2).get(1), x + 32, y + 64);
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_headphones", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
       if (mStorm.on && mLevel->themeKey == "storm_cliffs")
       {
         // Storm Relay's duck wears a sou'wester.
@@ -563,6 +581,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     if (e.kind == EnemyKind::Typo || e.kind == EnemyKind::Deadline || e.kind == EnemyKind::WritersBlock ||
         e.kind == EnemyKind::SketchGuard)
       continue; // Level 38 (world_writers_draw.cpp)
+    if (e.kind == EnemyKind::FloorManager || e.kind == EnemyKind::CableWrangler || e.kind == EnemyKind::BoomOp)
+      continue; // Level 39 (world_gallery_draw.cpp)
     if (e.kind == EnemyKind::MastClimber || e.kind == EnemyKind::RelayDrone || e.kind == EnemyKind::FeedbackNode)
       continue; // Level 35 (world_tower_draw.cpp)
     if (e.kind == EnemyKind::Echo)
@@ -1069,6 +1089,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGalleryFront(r, camX, camY, frame, alpha);
   if (mFly.on)
     drawFlyTowerFront(r, camX, camY, frame, alpha);
+  if (mSweeps.on)
+    drawSweepsFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1093,6 +1115,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // a swarm pellet, a Relay Drone's ring or the Titan's lattice shot (world_tower_draw.cpp)
     if (mWriters.on && drawWritersShot(r, *this, mArt, pr, cx, cy, frame))
       continue; // the Red Pen's ink or a sketch guard's pencil lead (world_writers_draw.cpp)
+    if (mGallery.on && drawGalleryShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // the Echo Mic's rings or a crew member's cue card (world_gallery_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1338,6 +1362,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
 
   if (mSplitPass != 0)
     return; // Both Sides: the HUD goes over both halves (drawSplit)
+  if (mSweeps.on)
+    drawSweepsTop(r, camX, camY, frame); // Level 41: LIGHTS OUT, MIRROR MODE
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
   drawVehicleHud(r, frame);
@@ -1569,6 +1595,11 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
         o.angle = float(-p.facing) * 80.0f;
       break;
   }
+  if (mGallery.on && mGallery.trip > 0 && p.visual != PlayerVisual::Dying)
+  {
+    spr = &ca.hurt; // Level 39: tripped over a cable, flat on the floor
+    o.angle = float(-p.facing) * 80.0f;
+  }
 
   float x = lerpCells(p.prevX, p.x, alpha) + 1.5f * kCellPx - camX;
   float y = lerpCells(p.prevY + 1, p.y + 1, alpha) - camY - lift;
@@ -1795,6 +1826,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawDecoyIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 37: a decoy launcher (world_wardrobe_draw.cpp)
   else if (proto && mWriters.on && p.proto == int(ProtoId::RedPen))
     drawRedPenIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 38: the Red Pen (world_writers_draw.cpp)
+  else if (proto && mGallery.on && p.proto == int(ProtoId::EchoMic))
+    drawEchoMicIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 39: the Echo Mic (world_gallery_draw.cpp)
   else if (proto)
   {
     DrawOpts io;
@@ -1961,6 +1994,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawGalleryHud(r, frame);
   if (mFly.on)
     drawFlyTowerHud(r, frame);
+  if (mSweeps.on)
+    drawSweepsHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

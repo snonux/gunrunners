@@ -4372,6 +4372,212 @@ std::vector<float> makeSfx(Sfx id)
         x *= 0.385f; // to a peak near 0.36
       return v;
     }
+    case Sfx::MonitorHop:
+    {
+      // Level 39: through a monitor: a burst of TV snow swelling and
+      // cutting off, the CRT's degauss thunk, its high whine coming up.
+      Noise n(39001);
+      Svf hiss;
+      OnePole lp;
+      Osc thunk, whine;
+      auto v = render(0.5, [&](double t, double total) {
+        const double u = t / total;
+        const double gate = (std::fmod(t, 0.05) < 0.04 ? 1.0 : 0.55) * std::sin(kPi * std::min(1.0, u * 1.15));
+        const double snow = (hiss.band(n.next(), 5200.0, 0.7) * 0.8 + lp.lowpass(n.next(), 2200.0) * 0.6) * gate;
+        const double th = thunk.step(sweep(140.0, 50.0, t / 0.12), Wave::Sine) * decay(t, 0.06) * 0.9;
+        const double wh = whine.step(15734.0 * 0.5, Wave::Sine) * 0.06 * std::min(1.0, t / 0.2);
+        return (snow + th + wh) * attack(t, 0.004);
+      });
+      for (float& x : v)
+        x *= 0.384f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::EchoRepeat:
+    {
+      // An Echo Mic shot's echo: the shot again a beat later, fainter and
+      // darker, a slapback off the studio walls tailing away.
+      Osc o, s;
+      Noise n(39003);
+      Svf room;
+      auto v = render(0.5, [&](double t, double) {
+        double out = 0.0;
+        for (int k = 0; k < 3; ++k)
+        {
+          const double u = t - double(k) * 0.11;
+          if (u < 0.0)
+            continue;
+          const double g = std::pow(0.45, double(k));
+          out += g * (o.step(sweep(880.0, 420.0, u / 0.12), Wave::Triangle) * decay(u, 0.05) * 0.7 +
+            room.band(n.next(), 1400.0, 2.0) * decay(u, 0.03) * 0.5);
+        }
+        return (out + s.step(220.0, Wave::Sine) * decay(t, 0.08) * 0.2) * attack(t, 0.003);
+      });
+      for (float& x : v)
+        x *= 0.397f; // to a peak near 0.33, an echo is fainter
+      return v;
+    }
+    case Sfx::FloorBeep:
+    {
+      // A Floor Manager counting down: a walkie's short beep with a little
+      // squelch of static behind it.
+      Osc o;
+      Noise n(39005);
+      Svf bp;
+      auto v = render(0.16, [&](double t, double total) {
+        const double env = std::min(1.0, (total - t) / 0.02) * attack(t, 0.004);
+        const double beep = t < 0.11 ? o.step(1320.0, Wave::Square, 0.5) * 0.5 : 0.0;
+        const double sq = bp.band(n.next(), 2600.0, 1.2) * (t > 0.1 ? 0.6 : 0.08);
+        return (beep + sq) * env;
+      });
+      for (float& x : v)
+        x *= 0.338f; // to a peak near 0.34
+      return v;
+    }
+    case Sfx::CountOne:
+    {
+      // "One": a clapperboard's clack, then the whole room letting fly, a
+      // volley of cards flapping out.
+      Noise n(39007), m(39009);
+      Svf clack, flap;
+      Osc low;
+      auto v = render(0.6, [&](double t, double) {
+        const double c = clack.band(n.next(), 2200.0, 3.0) * decay(t, 0.012) * 1.1 + low.step(sweep(180.0, 90.0, t / 0.05), Wave::Sine) * decay(t, 0.03);
+        double cards = 0.0;
+        for (int k = 0; k < 5; ++k)
+        {
+          const double u = t - 0.05 - double(k) * 0.045;
+          if (u > 0.0)
+            cards += decay(u, 0.05) * (0.6 + 0.4 * std::sin(u * 2.0 * kPi * (40.0 + 7.0 * k)));
+        }
+        return (c + flap.band(m.next(), 3200.0, 1.0) * cards * 1.6) * attack(t, 0.001);
+      });
+      for (float& x : v)
+        x *= 0.234f; // to a peak near 0.42
+      return v;
+    }
+    case Sfx::CableWhip:
+    {
+      // A Cable Wrangler yanking his cable: a rubbery swish building to a
+      // whip crack, the slack slapping the floor.
+      Noise n(39011), m(39013);
+      Svf sw, crack;
+      Osc slap;
+      auto v = render(0.42, [&](double t, double) {
+        const double u = std::min(1.0, t / 0.16);
+        const double swish = sw.band(n.next(), sweep(400.0, 3600.0, u), 1.4) * u * u * (t < 0.17 ? 1.0 : decay(t - 0.17, 0.02));
+        const double ct = t - 0.16;
+        const double cr = ct > 0.0 ? crack.band(m.next(), 4200.0, 0.8) * decay(ct, 0.008) * 2.5 : 0.0;
+        const double st = t - 0.24;
+        const double sl = st > 0.0 ? slap.step(sweep(160.0, 70.0, st / 0.06), Wave::Sine) * decay(st, 0.035) * 0.8 : 0.0;
+        return (swish * 0.8 + cr + sl) * attack(t, 0.01);
+      });
+      for (float& x : v)
+        x *= 0.213f; // to a peak near 0.4
+      return v;
+    }
+    case Sfx::TripFall:
+    {
+      // Tripped over a cable: a scuffed stumble, the body's thump on the
+      // studio floor, the cable twanging.
+      Noise n(39015), m(39017);
+      Svf scuff;
+      OnePole lp;
+      Osc body, twang;
+      auto v = render(0.55, [&](double t, double) {
+        const double sc = t < 0.12 ? scuff.band(n.next(), 1600.0, 1.0) * std::sin(kPi * t / 0.12) * 0.7 : 0.0;
+        const double bt = t - 0.11;
+        const double th = bt > 0.0 ? (body.step(sweep(120.0, 45.0, bt / 0.1), Wave::Sine) * decay(bt, 0.08) * 1.2 +
+                                        lp.lowpass(m.next(), 700.0) * decay(bt, 0.04) * 2.0)
+                                   : 0.0;
+        const double tw = bt > 0.0 ? twang.step(196.0 * (1.0 + 0.04 * decay(bt, 0.05)), Wave::Saw) * decay(bt, 0.12) * 0.18 : 0.0;
+        return (sc + th + tw) * attack(t, 0.004);
+      });
+      for (float& x : v)
+        x *= 0.252f; // to a peak near 0.42
+      return v;
+    }
+    case Sfx::BoomWhoosh:
+    {
+      // A Boom Op's pass: a long airy swoosh going over, low and furry,
+      // the dead-cat windshield's rumble under it.
+      Noise n(39019), m(39021);
+      Svf air;
+      OnePole fur;
+      auto v = render(0.75, [&](double t, double total) {
+        const double u = t / total;
+        const double env = std::sin(kPi * std::pow(u, 0.8));
+        const double a = air.band(n.next(), sweep(500.0, 1800.0, std::sin(kPi * u)), 1.1);
+        const double f = fur.lowpass(m.next(), 160.0) * 3.0;
+        return (a * 0.9 + f) * env;
+      });
+      for (float& x : v)
+        x *= 0.406f; // to a peak near 0.38
+      return v;
+    }
+    case Sfx::PressHiss:
+    {
+      // A studio press about to drop: a hydraulic groan, air hissing out of
+      // its valve.
+      Noise n(39023);
+      Svf hiss;
+      Osc g1, g2;
+      auto v = render(0.5, [&](double t, double total) {
+        const double u = t / total;
+        const double groan = (g1.step(70.0 + 18.0 * std::sin(t * 2.0 * kPi * 3.0), Wave::Saw) * 0.5 +
+                                g2.step(105.0 + 10.0 * std::sin(t * 2.0 * kPi * 4.3), Wave::Saw) * 0.3) *
+          std::sin(kPi * u);
+        const double h = hiss.band(n.next(), 5200.0, 0.6) * std::min(1.0, u * 3.0) * (1.0 - u);
+        return (groan * 0.6 + h * 0.9) * attack(t, 0.02);
+      });
+      for (float& x : v)
+        x *= 0.354f; // to a peak near 0.36
+      return v;
+    }
+    case Sfx::PressSlam:
+    {
+      // The press slamming: a heavy steel slam, a clank ringing off, a hiss
+      // of relief as it lets go.
+      Noise n(39025), m(39027);
+      OnePole lp;
+      Svf ring, hiss;
+      Osc sub;
+      auto v = render(0.7, [&](double t, double) {
+        const double slam = sub.step(sweep(110.0, 38.0, t / 0.15), Wave::Sine) * decay(t, 0.12) * 1.3 + lp.lowpass(n.next(), 900.0) * decay(t, 0.03) * 3.0;
+        const double cl = ring.band(m.next(), 2350.0, 14.0) * decay(t, 0.12) * 2.0;
+        const double ht = t - 0.3;
+        const double h = ht > 0.0 ? hiss.band(n.next(), 4800.0, 0.7) * std::sin(kPi * std::min(1.0, ht / 0.4)) * 0.5 : 0.0;
+        return (slam + cl + h) * attack(t, 0.001);
+      });
+      for (float& x : v)
+        x *= 0.0994f; // to a peak near 0.45
+      return v;
+    }
+    case Sfx::VhsRewind:
+    {
+      // The tape rewinding: the deck's clunk, the spools whirring up in
+      // pitch, the heads chattering against the tape.
+      Noise n(39029), m(39031);
+      Svf head;
+      OnePole lp;
+      Osc spool, motor;
+      auto v = render(1.3, [&](double t, double total) {
+        const double cl = lp.lowpass(n.next(), 1200.0) * decay(t, 0.02) * 3.0 + motor.step(sweep(160.0, 60.0, t / 0.05), Wave::Sine) * decay(t, 0.03);
+        const double rt = t - 0.08;
+        double whirr = 0.0;
+        if (rt > 0.0)
+        {
+          const double u = rt / (total - 0.08);
+          const double f = sweep(180.0, 1400.0, std::min(1.0, u * 1.2));
+          const double chatter = 0.6 + 0.4 * std::sin(rt * 2.0 * kPi * (30.0 + 50.0 * u));
+          whirr = (spool.step(f, Wave::Saw) * 0.25 + head.band(m.next(), f * 3.0, 3.0) * 0.8 * chatter) * std::min(1.0, rt / 0.1) *
+            std::min(1.0, (total - t) / 0.12);
+        }
+        return cl + whirr;
+      });
+      for (float& x : v)
+        x *= 0.229f; // to a peak near 0.4
+      return v;
+    }
     case Sfx::LavaRumble:
     {
       // Level 33: the lava rising: a deep rumble swelling up from below, a

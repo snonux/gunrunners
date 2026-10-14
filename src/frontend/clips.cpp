@@ -13945,6 +13945,684 @@ void brief38Door(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.drawText("MAXINE - HEADSET", ix + 22.0f, iy + ih + 4.0f, TextStyle{16.0f, rgb(220, 220, 236)});
 }
 
+// --- Level 39: The Gallery (brief_39) -------------------------------------------
+
+// The security desk's control room in the dark: a low ceiling with its
+// lighting grid and two dimmed lamps, the steel rack the monitor wall hangs
+// in, and the desk along the bottom (a strip of buttons and faders, the
+// talkback mic on its gooseneck). Full screen, static.
+const Texture& controlRoom39(ClipKit& k)
+{
+  return cached(k, "g39_room", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(10, 12, 22), rgb(18, 20, 34), rgb(8, 8, 14));
+    // The ceiling: acoustic tiles, the grid's pipes, two lamps turned down.
+    cairo_rectangle(cr, 0, 0, W, 36);
+    setRgbaC(cr, rgb(20, 22, 32), 1.0);
+    cairo_fill(cr);
+    for (double x = 0; x < W; x += 80)
+    {
+      cairo_rectangle(cr, x, 0, 1, 36);
+      setRgbaC(cr, rgb(40, 42, 56), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, 30, W, 6);
+    setRgbaC(cr, rgb(60, 62, 74), 1.0);
+    cairo_fill(cr);
+    for (const double x : {180.0, 1100.0})
+    {
+      cairo_rectangle(cr, x - 22, 36, 44, 22);
+      setRgbaC(cr, rgb(30, 30, 38), 1.0);
+      cairo_fill(cr);
+      radialGlow(cr, x, 60, 90, rgb(255, 220, 170), 0.18);
+    }
+    // The rack the wall hangs in, wider than the screen, its rails.
+    cairo_rectangle(cr, 0, 44, W, 420);
+    setRgbaC(cr, rgb(24, 25, 32), 1.0);
+    cairo_fill(cr);
+    for (const double y : {44.0, 172.0, 300.0, 428.0})
+    {
+      cairo_rectangle(cr, 0, y, W, 8);
+      setRgbaC(cr, rgb(48, 50, 60), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, 0, y, W, 2);
+      setRgbaC(cr, rgb(90, 94, 108), 1.0);
+      cairo_fill(cr);
+    }
+    // The desk: its sloped top, a strip of buttons, faders, the edge.
+    cairo_move_to(cr, 0, 560);
+    cairo_line_to(cr, W, 560);
+    cairo_line_to(cr, W, 640);
+    cairo_line_to(cr, 0, 640);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(34, 36, 46), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 556, W, 6);
+    setRgbaC(cr, rgb(110, 114, 130), 1.0);
+    cairo_fill(cr);
+    for (int i = 0; i < 40; ++i)
+    {
+      cairo_rectangle(cr, 18 + i * 32.0, 574, 22, 12);
+      setRgbaC(cr, i % 7 == 3 ? rgb(120, 30, 30) : i % 5 == 1 ? rgb(30, 90, 50) : rgb(60, 62, 74), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, 26 + i * 32.0, 598, 6, 32);
+      setRgbaC(cr, rgb(14, 14, 20), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, 22 + i * 32.0, 604 + (i * 7 % 18), 14, 8);
+      setRgbaC(cr, rgb(170, 172, 186), 1.0);
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, 640, W, 80);
+    setRgbaC(cr, rgb(16, 16, 24), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 640, W, 4);
+    setRgbaC(cr, rgb(70, 72, 86), 1.0);
+    cairo_fill(cr);
+    // The talkback mic on its gooseneck.
+    cairo_move_to(cr, 1150, 600);
+    cairo_curve_to(cr, 1150, 520, 1110, 500, 1080, 480);
+    setRgbaC(cr, rgb(30, 30, 36), 1.0);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    cairo_arc(cr, 1076, 476, 9, 0, 2 * kPi);
+    setRgbaC(cr, rgb(60, 60, 70), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// A security camera's picture (150 x 104): 0 a corridor going off in
+// perspective (doors, ceiling lights), 1 a stairwell, 2 the lobby's
+// reception desk, 3 a studio floor (a pedestal camera, the cyc), 4 the car
+// park, 5 a booth in a gallery (a desk, monitors), 6 colour bars.
+const Texture& secCam39(ClipKit& k, int kind)
+{
+  return cached(k, "g39_cam" + std::to_string(kind), 150, 104, 0, 0, [kind](cairo_t* cr) {
+    const double w = 150, h = 104;
+    auto line = [&](double x0, double y0, double x1, double y1, Color c, double lw) {
+      cairo_move_to(cr, x0, y0);
+      cairo_line_to(cr, x1, y1);
+      setRgbaC(cr, c, 1.0);
+      cairo_set_line_width(cr, lw);
+      cairo_stroke(cr);
+    };
+    auto rect = [&](double x, double y, double rw, double rh, Color c) {
+      cairo_rectangle(cr, x, y, rw, rh);
+      setRgbaC(cr, c, 1.0);
+      cairo_fill(cr);
+    };
+    switch (kind)
+    {
+      case 0:
+      case 5:
+      {
+        // A corridor (or the booth's back wall at the end of it).
+        rect(0, 0, w, h, rgb(70, 76, 88));
+        cairo_move_to(cr, 0, h);
+        cairo_line_to(cr, 55, 62);
+        cairo_line_to(cr, 95, 62);
+        cairo_line_to(cr, w, h);
+        cairo_close_path(cr);
+        setRgbaC(cr, rgb(96, 98, 104), 1.0);
+        cairo_fill(cr);
+        cairo_move_to(cr, 0, 0);
+        cairo_line_to(cr, 55, 30);
+        cairo_line_to(cr, 95, 30);
+        cairo_line_to(cr, w, 0);
+        cairo_close_path(cr);
+        setRgbaC(cr, rgb(50, 54, 64), 1.0);
+        cairo_fill(cr);
+        rect(55, 30, 40, 32, kind == 5 ? rgb(40, 50, 80) : rgb(84, 90, 102));
+        if (kind == 5)
+          for (int i = 0; i < 3; ++i)
+            rect(58 + i * 12.5, 34, 10, 8, rgb(110, 170, 220));
+        else
+          rect(68, 36, 14, 26, rgb(60, 50, 44));
+        // Two strip lights on the ceiling.
+        for (const double t : {0.25, 0.55})
+          line(55 * (1 - t), 30 * t, 95 + 55 * t, 30 * t, rgb(200, 210, 220), 2.0);
+        // Doors down both sides.
+        rect(12, 40, 14, 44, rgb(50, 44, 40));
+        rect(124, 40, 14, 44, rgb(50, 44, 40));
+        rect(38, 48, 8, 22, rgb(54, 48, 44));
+        rect(104, 48, 8, 22, rgb(54, 48, 44));
+        break;
+      }
+      case 1:
+      {
+        rect(0, 0, w, h, rgb(80, 82, 90));
+        for (int i = 0; i < 7; ++i)
+          rect(20 + i * 14.0, 90 - i * 12.0, 60, 12, i % 2 ? rgb(110, 112, 120) : rgb(96, 98, 106));
+        line(20, 80, 120, 0, rgb(210, 180, 40), 3.0);
+        rect(0, 0, 18, h, rgb(60, 62, 70));
+        break;
+      }
+      case 2:
+      {
+        rect(0, 0, w, h, rgb(110, 104, 96));
+        rect(0, 70, w, 34, rgb(140, 130, 116));
+        rect(30, 50, 90, 30, rgb(60, 54, 70));
+        rect(30, 50, 90, 4, rgb(200, 190, 170));
+        rect(50, 14, 50, 20, rgb(40, 40, 60));
+        cairo_move_to(cr, 75, 24);
+        setRgbaC(cr, rgb(220, 220, 240), 1.0);
+        cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+        cairo_set_font_size(cr, 11);
+        cairo_text_extents_t te;
+        cairo_text_extents(cr, "MAXTV", &te);
+        cairo_move_to(cr, 75 - te.width / 2 - te.x_bearing, 29);
+        cairo_show_text(cr, "MAXTV");
+        break;
+      }
+      case 3:
+      {
+        rect(0, 0, w, h, rgb(40, 44, 60));
+        rect(0, 0, w, 70, rgb(150, 160, 190));
+        rect(0, 70, w, 34, rgb(30, 30, 36));
+        rect(96, 44, 30, 18, rgb(30, 30, 36));
+        rect(108, 62, 6, 30, rgb(50, 50, 58));
+        rect(96, 90, 30, 4, rgb(50, 50, 58));
+        break;
+      }
+      case 4:
+      {
+        rect(0, 0, w, h, rgb(36, 38, 44));
+        for (int i = 0; i < 5; ++i)
+        {
+          line(10 + i * 34.0, h, 40 + i * 20.0, 40, rgb(200, 200, 200), 1.5);
+          rect(16 + i * 30.0, 56, 22, 12, i % 2 ? rgb(130, 30, 30) : rgb(50, 70, 110));
+        }
+        rect(0, 0, w, 30, rgb(26, 26, 30));
+        break;
+      }
+      default:
+      {
+        static const Color bars[7] = {rgb(192, 192, 192), rgb(192, 192, 0), rgb(0, 192, 192), rgb(0, 192, 0), rgb(192, 0, 192),
+          rgb(192, 0, 0), rgb(0, 0, 192)};
+        for (int i = 0; i < 7; ++i)
+          rect(i * w / 7.0, 0, w / 7.0 + 0.5, h * 0.72, bars[i]);
+        rect(0, h * 0.72, w, h * 0.28, rgb(16, 16, 40));
+        break;
+      }
+    }
+    // A security camera's grey cast and its wide lens's dark corners.
+    cairo_rectangle(cr, 0, 0, w, h);
+    setRgbaC(cr, rgb(40, 60, 70), 0.18);
+    cairo_fill(cr);
+    cairo_pattern_t* v = cairo_pattern_create_radial(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.7);
+    cairo_pattern_add_color_stop_rgba(v, 0.0, 0, 0, 0, 0.0);
+    cairo_pattern_add_color_stop_rgba(v, 1.0, 0, 0, 0, 0.7);
+    cairo_rectangle(cr, 0, 0, w, h);
+    cairo_set_source(cr, v);
+    cairo_fill(cr);
+    cairo_pattern_destroy(v);
+  });
+}
+
+// Maxine on a security monitor, full length, 120 x 200 (feet at (60, 196)):
+// her grey cardigan over a black top, dark trousers, her bun with its grey
+// streak and the pencil through it, her headset. pose 0/1 waving at the
+// camera (her arm up, the hand to one side and the other), 2 held by both
+// arms (her arms out to the sides), 3 struggling (one foot kicking up).
+const Texture& maxineFigure39(ClipKit& k, int pose)
+{
+  return cached(k, "g39_maxine" + std::to_string(pose), 120, 200, 60, 196, [pose](cairo_t* cr) {
+    const Color cardigan = rgb(140, 140, 150), top = rgb(26, 26, 32), trousers = rgb(44, 44, 56), skin = rgb(220, 170, 140),
+                hair = rgb(54, 38, 30);
+    auto limb = [&](double x0, double y0, double x1, double y1, double wdt, Color c) {
+      cairo_move_to(cr, x0, y0);
+      cairo_line_to(cr, x1, y1);
+      setRgbaC(cr, c, 1.0);
+      cairo_set_line_width(cr, wdt);
+      cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+      cairo_stroke(cr);
+    };
+    // Legs.
+    limb(52, 122, 50, 192, 14, trousers);
+    if (pose == 3)
+      limb(68, 122, 88, 168, 14, trousers);
+    else
+      limb(68, 122, 70, 192, 14, trousers);
+    limb(44, 194, 56, 194, 7, rgb(20, 20, 24));
+    if (pose == 3)
+      limb(86, 170, 96, 166, 7, rgb(20, 20, 24));
+    else
+      limb(66, 194, 78, 194, 7, rgb(20, 20, 24));
+    // The body: the top, the cardigan open over it, the lanyard.
+    cairo_move_to(cr, 40, 62);
+    cairo_line_to(cr, 80, 62);
+    cairo_line_to(cr, 84, 128);
+    cairo_line_to(cr, 36, 128);
+    cairo_close_path(cr);
+    setRgbaC(cr, cardigan, 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 52, 62, 16, 64);
+    setRgbaC(cr, top, 1.0);
+    cairo_fill(cr);
+    limb(54, 64, 60, 92, 2, rgb(200, 40, 40));
+    limb(66, 64, 60, 92, 2, rgb(200, 40, 40));
+    cairo_rectangle(cr, 56, 92, 8, 10);
+    setRgbaC(cr, rgb(240, 240, 240), 1.0);
+    cairo_fill(cr);
+    // Arms.
+    switch (pose)
+    {
+      case 0:
+      case 1:
+      {
+        limb(44, 68, 36, 118, 11, cardigan);
+        const double hx = pose == 0 ? 98 : 110, hy = pose == 0 ? 20 : 30;
+        limb(78, 68, 92, 50, 11, cardigan);
+        limb(92, 50, hx, hy, 10, cardigan);
+        cairo_arc(cr, hx, hy - 4, 7, 0, 2 * kPi);
+        setRgbaC(cr, skin, 1.0);
+        cairo_fill(cr);
+        cairo_arc(cr, 34, 122, 5, 0, 2 * kPi);
+        cairo_fill(cr);
+        break;
+      }
+      default:
+      {
+        limb(44, 68, 14, 84, 11, cardigan);
+        limb(78, 68, 106, 84 - (pose == 3 ? 8 : 0), 11, cardigan);
+        setRgbaC(cr, skin, 1.0);
+        cairo_arc(cr, 10, 86, 6, 0, 2 * kPi);
+        cairo_fill(cr);
+        cairo_arc(cr, 110, 82 - (pose == 3 ? 8 : 0), 6, 0, 2 * kPi);
+        cairo_fill(cr);
+        break;
+      }
+    }
+    // The head: neck, face, the bun with its grey streak, the pencil, the
+    // headset's band and boom.
+    cairo_rectangle(cr, 55, 50, 10, 14);
+    setRgbaC(cr, skin, 1.0);
+    cairo_fill(cr);
+    const double tilt = pose == 3 ? 4 : 0;
+    cairo_arc(cr, 60 + tilt, 38, 15, 0, 2 * kPi);
+    cairo_fill(cr);
+    cairo_arc(cr, 60 + tilt, 34, 16, kPi, 2 * kPi);
+    setRgbaC(cr, hair, 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, 60 + tilt, 16, 9, 0, 2 * kPi);
+    cairo_fill(cr);
+    limb(56 + tilt, 12, 64 + tilt, 22, 2.5, rgb(170, 170, 176));
+    limb(48 + tilt, 6, 74 + tilt, 22, 2.5, rgb(240, 200, 60));
+    cairo_arc(cr, 60 + tilt, 36, 18, kPi * 1.05, kPi * 1.95);
+    setRgbaC(cr, rgb(20, 20, 24), 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    limb(44 + tilt, 40, 54 + tilt, 50, 2, rgb(20, 20, 24));
+    // Eyes and a mouth, small.
+    setRgbaC(cr, rgb(30, 20, 20), 1.0);
+    cairo_arc(cr, 55 + tilt, 38, 1.8, 0, 2 * kPi);
+    cairo_fill(cr);
+    cairo_arc(cr, 65 + tilt, 38, 1.8, 0, 2 * kPi);
+    cairo_fill(cr);
+    if (pose >= 2)
+      cairo_arc(cr, 60 + tilt, 46, 3, 0, 2 * kPi); // shouting
+    else
+      cairo_arc(cr, 60 + tilt, 45, 3, 0.1 * kPi, 0.9 * kPi); // a smile
+    setRgbaC(cr, rgb(120, 40, 40), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// A security guard, 120 x 200 (feet at (60, 196)), facing right: a navy
+// uniform, a peaked cap, a badge, a belt with its radio. pose 0 striding,
+// 1 reaching out (his near arm out ahead at shoulder height), 2 gripping
+// (both hands forward, braced).
+const Texture& guardFigure39(ClipKit& k, int pose)
+{
+  return cached(k, "g39_guard" + std::to_string(pose), 120, 200, 60, 196, [pose](cairo_t* cr) {
+    const Color navy = rgb(36, 46, 80), navyLo = rgb(24, 30, 54), skin = rgb(196, 140, 110);
+    auto limb = [&](double x0, double y0, double x1, double y1, double wdt, Color c) {
+      cairo_move_to(cr, x0, y0);
+      cairo_line_to(cr, x1, y1);
+      setRgbaC(cr, c, 1.0);
+      cairo_set_line_width(cr, wdt);
+      cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+      cairo_stroke(cr);
+    };
+    // Legs.
+    if (pose == 0)
+    {
+      limb(54, 120, 36, 190, 16, navyLo);
+      limb(66, 120, 82, 190, 16, navy);
+    }
+    else
+    {
+      limb(54, 120, 44, 190, 16, navyLo);
+      limb(66, 120, 76, 190, 16, navy);
+    }
+    limb(pose == 0 ? 30 : 38, 194, pose == 0 ? 44 : 52, 194, 8, rgb(14, 14, 18));
+    limb(pose == 0 ? 78 : 72, 194, pose == 0 ? 94 : 88, 194, 8, rgb(14, 14, 18));
+    // The body, broad; the belt, the radio, the badge.
+    cairo_move_to(cr, 36, 58);
+    cairo_line_to(cr, 84, 58);
+    cairo_line_to(cr, 82, 124);
+    cairo_line_to(cr, 38, 124);
+    cairo_close_path(cr);
+    setRgbaC(cr, navy, 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 38, 112, 44, 6);
+    setRgbaC(cr, rgb(16, 16, 20), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 40, 100, 8, 14);
+    setRgbaC(cr, rgb(30, 30, 30), 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, 72, 72, 4, 0, 2 * kPi);
+    setRgbaC(cr, rgb(230, 200, 80), 1.0);
+    cairo_fill(cr);
+    // Arms.
+    if (pose == 0)
+    {
+      limb(40, 64, 30, 110, 12, navyLo);
+      limb(80, 64, 92, 106, 12, navy);
+    }
+    else
+    {
+      limb(40, 64, 70, 84, 12, navyLo);
+      limb(80, 64, 112, 74 + (pose == 2 ? 6 : 0), 12, navy);
+    }
+    setRgbaC(cr, skin, 1.0);
+    if (pose == 0)
+    {
+      cairo_arc(cr, 30, 114, 6, 0, 2 * kPi);
+      cairo_fill(cr);
+      cairo_arc(cr, 93, 110, 6, 0, 2 * kPi);
+      cairo_fill(cr);
+    }
+    else
+    {
+      cairo_arc(cr, 74, 86, 6, 0, 2 * kPi);
+      cairo_fill(cr);
+      cairo_arc(cr, 114, 76 + (pose == 2 ? 6 : 0), 6, 0, 2 * kPi);
+      cairo_fill(cr);
+    }
+    // The head and cap, the peak forward.
+    cairo_rectangle(cr, 55, 46, 10, 14);
+    cairo_fill(cr);
+    cairo_arc(cr, 62, 36, 14, 0, 2 * kPi);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 46, 18, 32, 12);
+    setRgbaC(cr, navyLo, 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 62, 28, 22, 4);
+    setRgbaC(cr, rgb(10, 10, 14), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 58, 20, 6, 5);
+    setRgbaC(cr, rgb(230, 200, 80), 1.0);
+    cairo_fill(cr);
+    // A scowl.
+    setRgbaC(cr, rgb(30, 20, 20), 1.0);
+    cairo_rectangle(cr, 66, 36, 6, 2);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 64, 44, 8, 2);
+    cairo_fill(cr);
+  });
+}
+
+// One of the three runners from behind, 440 x 420, anchored at the bottom
+// middle (220, 420): shoulders, the neck, the back of the head. Dash's
+// spiky blond hair and the goggles' strap; Rocco broad in his green tank,
+// close-cropped, the red bandana's knot and tails; Nova's pink ponytail
+// down the back of her purple suit. In the dark of the control room, lit
+// only from the front by the monitors: a cold rim along the top.
+const Texture& runnerBack39(ClipKit& k, int who)
+{
+  return cached(k, "g39_back" + std::to_string(who), 440, 420, 220, 420, [who](cairo_t* cr) {
+    const double cx = 220;
+    const double sw = who == 1 ? 210 : who == 2 ? 160 : 180; // half the shoulders
+    const double hr = who == 1 ? 92 : who == 2 ? 80 : 86;     // the head's radius
+    const double hy = 420 - 150 - hr;
+    const Color top = who == 1 ? rgb(104, 146, 64) : who == 2 ? rgb(132, 66, 216) : rgb(232, 64, 52);
+    const Color skin = who == 1 ? rgb(170, 108, 70) : who == 2 ? rgb(252, 214, 186) : rgb(246, 200, 160);
+    // Shoulders.
+    cairo_move_to(cr, cx - sw - 30, 420);
+    cairo_curve_to(cr, cx - sw - 20, 330, cx - sw * 0.6, 290, cx, 286);
+    cairo_curve_to(cr, cx + sw * 0.6, 290, cx + sw + 20, 330, cx + sw + 30, 420);
+    cairo_close_path(cr);
+    if (who == 1)
+    {
+      // Bare shoulders, the tank's back between them.
+      setRgbaC(cr, skin, 1.0);
+      cairo_fill(cr);
+      cairo_move_to(cr, cx - 90, 420);
+      cairo_line_to(cr, cx - 70, 300);
+      cairo_line_to(cr, cx + 70, 300);
+      cairo_line_to(cr, cx + 90, 420);
+      cairo_close_path(cr);
+      setRgbaC(cr, top, 1.0);
+    }
+    else
+      setRgbaC(cr, top, 1.0);
+    cairo_fill(cr);
+    if (who == 0)
+    {
+      // The jacket's collar, turned up.
+      cairo_move_to(cr, cx - 70, 300);
+      cairo_curve_to(cr, cx - 40, 280, cx + 40, 280, cx + 70, 300);
+      cairo_line_to(cr, cx + 60, 318);
+      cairo_curve_to(cr, cx + 30, 304, cx - 30, 304, cx - 60, 318);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(150, 28, 40), 1.0);
+      cairo_fill(cr);
+    }
+    // The neck.
+    cairo_rectangle(cr, cx - hr * 0.45, hy + hr * 0.6, hr * 0.9, 300 - hy - hr * 0.6);
+    setRgbaC(cr, skin, 1.0);
+    cairo_fill(cr);
+    // Ears.
+    for (const double s : {-1.0, 1.0})
+    {
+      cairo_save(cr);
+      cairo_translate(cr, cx + s * hr * 0.98, hy + 14);
+      cairo_scale(cr, 12, 22);
+      cairo_arc(cr, 0, 0, 1, 0, 2 * kPi);
+      cairo_restore(cr);
+      setRgbaC(cr, skin, 1.0);
+      cairo_fill(cr);
+    }
+    // The back of the head: the hair.
+    const Color hair = who == 1 ? rgb(42, 30, 24) : who == 2 ? rgb(255, 86, 184) : rgb(255, 214, 72);
+    cairo_arc(cr, cx, hy, hr, 0, 2 * kPi);
+    setRgbaC(cr, hair, 1.0);
+    cairo_fill(cr);
+    if (who == 0)
+    {
+      // Spikes all round the top, the goggles' strap across the back.
+      for (int i = 0; i < 9; ++i)
+      {
+        const double a = kPi * 0.95 + kPi * 1.1 * (double(i) + 0.5) / 9.0;
+        cairo_move_to(cr, cx + std::cos(a - 0.22) * hr * 0.9, hy + std::sin(a - 0.22) * hr * 0.9);
+        cairo_line_to(cr, cx + std::cos(a) * hr * 1.6, hy + std::sin(a) * hr * 1.5);
+        cairo_line_to(cr, cx + std::cos(a + 0.22) * hr * 0.9, hy + std::sin(a + 0.22) * hr * 0.9);
+        cairo_close_path(cr);
+        setRgbaC(cr, hair, 1.0);
+        cairo_fill(cr);
+      }
+      cairo_rectangle(cr, cx - hr * 1.02, hy + 6, hr * 2.04, 18);
+      setRgbaC(cr, rgb(30, 40, 60), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, cx - 14, hy + 3, 28, 24);
+      setRgbaC(cr, rgb(64, 226, 255), 1.0);
+      cairo_fill(cr);
+    }
+    else if (who == 1)
+    {
+      // The bandana over the top of the head, knotted at the back.
+      cairo_arc(cr, cx, hy, hr * 1.02, kPi * 1.02, kPi * 1.98);
+      cairo_line_to(cr, cx + hr, hy - 4);
+      cairo_line_to(cr, cx - hr, hy - 4);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(240, 70, 70), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, cx - hr, hy - 10, hr * 2, 10);
+      setRgbaC(cr, rgb(170, 24, 30), 1.0);
+      cairo_fill(cr);
+      cairo_arc(cr, cx + 10, hy - 4, 14, 0, 2 * kPi);
+      setRgbaC(cr, rgb(214, 40, 44), 1.0);
+      cairo_fill(cr);
+      for (const double s : {-1.0, 1.0})
+      {
+        cairo_move_to(cr, cx + 10, hy);
+        cairo_curve_to(cr, cx + 10 + s * 20, hy + 30, cx + 10 + s * 30, hy + 60, cx + 10 + s * 24, hy + 86);
+        cairo_line_to(cr, cx + 10 + s * 8, hy + 80);
+        cairo_curve_to(cr, cx + 10 + s * 12, hy + 50, cx + 10 + s * 4, hy + 24, cx + 10, hy + 8);
+        cairo_close_path(cr);
+        setRgbaC(cr, rgb(214, 40, 44), 1.0);
+        cairo_fill(cr);
+      }
+    }
+    else
+    {
+      // The ponytail from its band, down her back to one side.
+      cairo_move_to(cr, cx - 18, hy - 30);
+      cairo_curve_to(cr, cx - 60, hy + 40, cx + 10, hy + 120, cx - 40, hy + 220);
+      cairo_curve_to(cr, cx + 30, hy + 150, cx + 40, hy + 60, cx + 18, hy - 30);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(230, 70, 166), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, cx - 18, hy - 40, 36, 12);
+      setRgbaC(cr, rgb(110, 236, 255), 1.0);
+      cairo_fill(cr);
+    }
+    // In the dark: shade it all, then a cold rim of monitor light along the
+    // top and the outer edges.
+    cairo_set_operator(cr, CAIRO_OPERATOR_ATOP);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 420);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0.05, 0.07, 0.16, 0.55);
+    cairo_pattern_add_color_stop_rgba(g, 0.5, 0.03, 0.04, 0.1, 0.72);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.0, 0.0, 0.02, 0.88);
+    cairo_rectangle(cr, 0, 0, 440, 420);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+    // The rim: the silhouette less itself moved down a few px, in cold light.
+    cairo_surface_t* tgt = cairo_get_target(cr);
+    cairo_surface_flush(tgt);
+    cairo_surface_t* rim = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 440, 420);
+    cairo_t* rc = cairo_create(rim);
+    cairo_set_source_rgba(rc, 0.62, 0.78, 1.0, 0.7);
+    cairo_mask_surface(rc, tgt, 0, 0);
+    cairo_set_operator(rc, CAIRO_OPERATOR_DEST_OUT);
+    cairo_set_source_surface(rc, tgt, 0, 6);
+    cairo_paint(rc);
+    cairo_destroy(rc);
+    cairo_set_source_surface(cr, rim, 0, 0);
+    cairo_paint(cr);
+    cairo_surface_destroy(rim);
+  });
+}
+
+// brief39_wall: the security desk's wall of 24 monitors (8 x 3, numbered
+// down each column), each a 4-frame loop of its camera's picture rolling,
+// tearing and dropping to snow, the wall panning left 1 px a frame. On
+// monitor 7 Maxine waves up at the camera (frames 0-7); then she's on 8,
+// and two guards come in from both sides and grab her by the arms (8-11);
+// on 12 the whole wall drops to static, and 8 comes back as NO SIGNAL.
+// In front, the backs of the three runners' heads watching it.
+void brief39Wall(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(controlRoom39(k), ox * 0.1f, oy * 0.1f);
+  const float pan = -float(frame) + ox * 0.5f;
+  const float mw = 150.0f, mh = 104.0f, pitchX = 168.0f, pitchY = 128.0f;
+  const float x0 = 40.0f + pan, y0 = 62.0f + oy * 0.5f;
+  const bool burst = frame == 12;
+  for (int i = 0; i < 24; ++i)
+  {
+    const int col = i / 3, row = i % 3, n = i + 1;
+    const float x = x0 + float(col) * pitchX, y = y0 + float(row) * pitchY;
+    if (x > W || x + mw < 0.0f)
+      continue;
+    // The bezel, the UMD under it, the tally on top.
+    k.r.fillRect(x - 8.0f, y - 8.0f, mw + 16.0f, mh + 26.0f, rgb(30, 30, 38));
+    k.r.fillRect(x - 8.0f, y - 8.0f, mw + 16.0f, 2.0f, rgb(76, 78, 92));
+    k.r.fillRect(x - 2.0f, y - 2.0f, mw + 4.0f, mh + 4.0f, kInk);
+    const bool live = (n == 7 && frame < 8) || (n == 8 && frame >= 8 && frame < 12);
+    k.r.fillRect(x + mw * 0.5f - 6.0f, y - 6.0f, 12.0f, 3.0f, live && (ticks / 12) % 2 == 0 ? rgb(255, 50, 40) : rgb(70, 20, 20));
+    char label[16];
+    std::snprintf(label, sizeof(label), "CAM %02d", n);
+    k.r.drawText(label, x + mw * 0.5f, y + mh + 3.0f, {11.0f, live ? rgb(255, 120, 110) : rgb(110, 255, 150), 0, false}, Align::Center);
+    // The picture: a 4-frame loop per monitor, out of step with its
+    // neighbours (it keeps going while a line holds the shot).
+    const std::uint32_t h = hash2(n, 3939);
+    const int phase = (frame + ticks / 7 + int(h % 4u)) % 4;
+    const bool dead = (n != 7 && n != 8 && h % 6u == 0) || (n == 8 && frame >= 13);
+    clipTo(k, x, y, mw, mh);
+    if (burst || dead)
+    {
+      staticNoise(k, ticks / 2 + i * 13, 1.0f, x, y, mw, mh);
+      if (dead && (phase % 2 == 0))
+        k.r.drawText("NO SIGNAL", x + mw * 0.5f, y + mh * 0.5f - 9.0f, {14.0f, rgb(255, 255, 255), kInk, false}, Align::Center);
+    }
+    else
+    {
+      const int kind = n == 7 ? 0 : n == 8 ? 5 : int((h >> 4) % 7u);
+      const float roll = phase == 1 ? 6.0f : 0.0f; // the picture slipping a line
+      stretchTex(k, secCam39(k, kind), x, y - roll, mw, mh, rgb(255, 255, 255), 1.0f);
+      if (roll > 0.0f)
+        stretchTex(k, secCam39(k, kind), x, y + mh - roll, mw, mh, rgb(255, 255, 255), 1.0f);
+      const float s = 0.45f;
+      if (n == 7 && frame < 8)
+      {
+        // Maxine, waving up at the camera.
+        DrawOpts o;
+        o.scale = s;
+        k.r.draw(maxineFigure39(k, frame % 2), x + mw * 0.5f, y + mh - 4.0f, o);
+      }
+      if (n == 8 && frame >= 8)
+      {
+        // The grab: the guards stride in from both sides (8), reach (9),
+        // and have her by the arms (10, 11), her foot kicking.
+        static constexpr float kIn[4] = {62.0f, 44.0f, 32.0f, 32.0f};
+        const int f = std::min(frame - 8, 3);
+        const float cx = x + mw * 0.5f, fy = y + mh - 4.0f;
+        DrawOpts o;
+        o.scale = s;
+        k.r.draw(maxineFigure39(k, f >= 2 ? 2 + (frame % 2) : 1), cx + (f >= 3 ? 2.0f : 0.0f), fy, o);
+        const Texture& g = guardFigure39(k, f == 0 ? 0 : f == 1 ? 1 : 2);
+        k.r.draw(g, cx - kIn[f], fy, o);
+        // The right one faces left: the same guard, flipped.
+        const SDL_FRect dst{cx + kIn[f] - 60.0f * s, fy - 196.0f * s, 120.0f * s, 200.0f * s};
+        SDL_RenderCopyExF(k.r.sdl(), g.get(), nullptr, &dst, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
+      }
+      if (phase == 3)
+        staticNoise(k, ticks / 2 + i * 7, 0.35f, x, y + float(h % 60u), mw, 24.0f); // a tear of interference
+      k.r.fillRect(x, y, mw, mh, rgba(80, 120, 160, 26), Blend::Add);
+    }
+    scanlines(k, 46, y, y + mh, x, mw);
+    const float bar = y + std::fmod(float(ticks + i * 11) * 1.5f, mh + 20.0f) - 10.0f;
+    k.r.fillRect(x, bar, mw, 8.0f, rgba(255, 255, 255, 14));
+    unclip(k);
+    if (live)
+      drawGlow(k.r, k.art, x + mw * 0.5f, y + mh * 0.5f, 120.0f, rgb(255, 80, 70), 0.12f);
+    drawGlow(k.r, k.art, x + mw * 0.5f, y + mh * 0.5f, 110.0f, rgb(150, 190, 255), 0.06f);
+  }
+  if (burst)
+    k.r.fillRect(0, 0, W, 470.0f, rgba(255, 255, 255, 40), Blend::Add);
+  // The wall's light on the desk; the desk's buttons blinking.
+  k.r.fillRect(0, 556.0f + oy * 0.1f, W, 90.0f, rgba(120, 160, 220, 18), Blend::Add);
+  for (int b = 0; b < 8; ++b)
+  {
+    const std::uint32_t h = hash2(b, (ticks / 18) * 7 + 39);
+    if (h % 3u == 0)
+      k.r.fillRect(18.0f + float(h % 40u) * 32.0f + ox * 0.1f, 574.0f + oy * 0.1f, 22.0f, 12.0f, h % 2u ? rgb(255, 70, 60) : rgb(90, 255, 130),
+        Blend::Add);
+  }
+  // The runners, watching: Rocco, Dash, Nova. On "they got her" Dash's
+  // head drops a little; on his line it comes back up.
+  const float fx = ox * 1.4f, fy = oy * 1.4f;
+  DrawOpts o;
+  o.scale = 0.92f;
+  k.r.draw(runnerBack39(k, 1), 300.0f + fx, H + 10.0f + fy, o);
+  o.scale = 0.86f;
+  k.r.draw(runnerBack39(k, 2), 990.0f + fx, H + 16.0f + fy, o);
+  o.scale = 0.9f;
+  const float dip = frame >= 13 && frame < 15 ? 10.0f : 0.0f;
+  k.r.draw(runnerBack39(k, 0), 650.0f + fx, H - 10.0f + dip + fy, o);
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -14060,6 +14738,9 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
   // Level 38.
   if (clip == "brief38_door")
     return brief38Door(k, frame, ticks, ox, oy);
+  // Level 39.
+  if (clip == "brief39_wall")
+    return brief39Wall(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

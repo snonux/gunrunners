@@ -34,6 +34,7 @@
 #include "game/writers.hpp"
 #include "game/gallery.hpp"
 #include "game/flytower.hpp"
+#include "game/sweeps.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1865,6 +1866,13 @@ public:
   int pyroHeat(const FtPyro& py, int ahead) const; // Level 40: 2 burning, 1 burns within `ahead` frames, 0 cold
   bool trussHome(const FtTruss& t) const;          // Level 40: at its first stop and staying there
   int cueIn(const FtCue& c) const;                  // Level 40: frames until the cue fires, -1 never
+  const SweepsState& sweeps() const { return mSweeps; }
+  void forceSweepsRule(unsigned rules) { mSweeps.force = rules; } // Level 41 (tests): every ballot's winner
+  void setSweepsQuack(bool on) { mSweeps.quackOk = on; }          // Level 41: every duck of levels 1-40 found
+  int sweepsSegment(int cx) const;                                 // Level 41: the segment cell column cx is in
+  bool sweepsMirrored() const;                                     // Level 41: MIRROR MODE swaps left and right now
+  int sweepsStyle() const;                                         // Level 41: the style score of the segment so far
+  bool sweepsVisible(const CellBox& b) const { return isOnScreen(b, 0); } // Level 41 (the bot): on screen now
   int writersFloor(int cy) const;    // Level 38: 0 the script floor, 1 the corkboard, 2 the desks
   bool wardrobeStepDone(int i) const; // Level 37: the bot's route step i is done
   int rackLaunch() const;             // Level 37: cells a spring rack throws the runner now
@@ -2826,6 +2834,33 @@ private:
   void drawFlyTowerBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawFlyTowerFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawFlyTowerHud(Renderer& r, int frame) const;
+  // Level 41 (world_sweeps.cpp).
+  bool setupSweepsEntity(const EntityDef& e);
+  void setupSweepsEnemy(Enemy& en, const EntityDef& e);
+  void linkSweeps();
+  void updateSweepsFrames(const PlayerInput& input);
+  bool sweepsGround(int mvX, int mvY);
+  void openBallot(int v);
+  void closeBallot();
+  void applySweepsRules(unsigned rules);
+  std::uint32_t sweepsRand();
+  void updateSweeps();
+  void updateChickens();
+  void updatePaint();
+  bool shotAtSweeps(Projectile& pr, const CellBox& b);
+  SwActor* sweepsActor(const Enemy& e);
+  void updateComic(Enemy& e, const EnemyDef& def);
+  void updatePlant(Enemy& e, const EnemyDef& def);
+  void updateCueDrone(Enemy& e, const EnemyDef& def);
+  void resetSweeps();
+  bool sweepsCanSave() const;
+  std::vector<int> sweepsSave() const;
+  bool validSweepsSave(const std::vector<int>& v) const;
+  void loadSweeps(const std::vector<int>& v);
+  void drawSweepsBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSweepsFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawSweepsTop(Renderer& r, float camX, float camY, int frame) const;
+  void drawSweepsHud(Renderer& r, int frame) const;
   PlayerInput breakoutInput(const PlayerInput& raw);
   void updateBreakout();
   bool writersCanSave() const;
@@ -3493,6 +3528,7 @@ private:
   };
   std::deque<RewindFrame> mRewind;
   FlyTowerState mFly; // Level 40
+  SweepsState mSweeps; // Level 41
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner

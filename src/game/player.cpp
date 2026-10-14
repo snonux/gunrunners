@@ -329,6 +329,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
         if (mLaunch > 0)
           break; // a kicker in the ice launched the runner
       }
+      else if (mSweeps.on && sweepsGround(mvX, mvY))
+      {
+        // Level 41: SLIPPERY FLOORS (world_sweeps.cpp).
+      }
       else if (mvY != 0)
       {
         p.stance = mvY < 0 ? Stance::Up : Stance::Crouched;
@@ -1246,6 +1250,8 @@ void World::respawnPlayer()
     resetGallery();
   if (mFly.on)
     resetFlyTower();
+  if (mSweeps.on)
+    resetSweeps();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

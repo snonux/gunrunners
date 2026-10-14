@@ -13,6 +13,7 @@
 #include "assets/art_tower35.hpp"
 #include "assets/art_wardrobe37.hpp"
 #include "assets/art_writers38.hpp"
+#include "assets/art_gallery39.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -2136,6 +2137,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeWardrobeSolid(r, t, variant);
   if (isWritersRoom(t))
     return bakeWritersSolid(r, t, variant);
+  if (isGallery(t))
+    return bakeGallerySolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2592,6 +2595,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeWardrobeSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isWritersRoom(t))
     return bakeWritersSolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isGallery(t))
+    return bakeGallerySolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2739,6 +2744,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
     return bakeWardrobePlatform(r, t); // a gilt mirror frame's top
   if (isWritersRoom(t))
     return bakeWritersPlatform(r, t); // a script line
+  if (isGallery(t))
+    return bakeGalleryPlatform(r, t); // a cable tray
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -2799,6 +2806,8 @@ Texture bakeSpikes(const Renderer& r, const Theme& t)
     return bakeWardrobeSpikes(r, t); // needles in a pincushion
   if (isWritersRoom(t))
     return bakeWritersSpikes(r, t); // pencils points up in a tray
+  if (isGallery(t))
+    return bakeGallerySpikes(r, t); // broken screen glass in a hazard tray
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   if (t.id == ThemeId::NeonOverdrive)
@@ -7369,6 +7378,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeWardrobeSky(r, t);
   if (isWritersRoom(t))
     return bakeWritersSky(r, t);
+  if (isGallery(t))
+    return bakeGallerySky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7558,6 +7569,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeWardrobeFar(r, t, kLayerW);
   if (isWritersRoom(t))
     return bakeWritersFar(r, t, kLayerW);
+  if (isGallery(t))
+    return bakeGalleryFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7730,6 +7743,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeWardrobeNear(r, t, kLayerW);
   if (isWritersRoom(t))
     return bakeWritersNear(r, t, kLayerW);
+  if (isGallery(t))
+    return bakeGalleryNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))
@@ -8011,6 +8026,8 @@ Texture bakeExitBase(const Renderer& r, const Theme& t)
     return bakeWardrobeExitBase(r, t); // the stage door
   if (isWritersRoom(t))
     return bakeWritersExitBase(r, t); // the back door, THE END on its glass
+  if (isGallery(t))
+    return bakeGalleryExitBase(r, t); // CAM 1, live, ON AIR
   // 96 wide, 144 tall; anchor so (0,0) is the top-left of the 64x128 exit area.
   VectorImage img(96, 144);
   cairo_t* cr = img.cr();

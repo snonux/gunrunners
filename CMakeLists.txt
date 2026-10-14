@@ -35,6 +35,7 @@ add_library(gunrunners_core STATIC
   src/assets/art_tower35.cpp
   src/assets/art_wardrobe37.cpp
   src/assets/art_writers38.cpp
+  src/assets/art_gallery39.cpp
   src/assets/art_garden.cpp
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
@@ -62,6 +63,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_tower35.cpp
   src/assets/enemy_art_wardrobe37.cpp
   src/assets/enemy_art_writers38.cpp
+  src/assets/enemy_art_gallery39.cpp
   src/assets/enemy_art_garden.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp
@@ -161,6 +163,8 @@ add_library(gunrunners_core STATIC
   src/game/world_gallery_draw.cpp
   src/game/world_flytower.cpp
   src/game/world_flytower_draw.cpp
+  src/game/world_sweeps.cpp
+  src/game/world_sweeps_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -199,6 +203,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_writers.cpp
   src/frontend/bot_gallery.cpp
   src/frontend/bot_flytower.cpp
+  src/frontend/bot_sweeps.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -438,3 +443,8 @@ target_link_libraries(flytower_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME flytower COMMAND flytower_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt
   ${CMAKE_SOURCE_DIR}/levels/40_bonus_trigger.txt)
 add_test(NAME savegame_fly_tower COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt 300)
+add_executable(sweeps_test tests/sweeps_test.cpp)
+target_link_libraries(sweeps_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME sweeps COMMAND sweeps_test ${CMAKE_SOURCE_DIR}/levels/41_sweeps_week.txt
+  ${CMAKE_SOURCE_DIR}/levels/41_bonus_paintball.txt)
+add_test(NAME savegame_sweeps_week COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/41_sweeps_week.txt 300)

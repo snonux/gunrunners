@@ -196,6 +196,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkWriters();
   linkGallery();
   linkFlyTower();
+  linkSweeps();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -309,6 +310,13 @@ void World::update(const PlayerInput& input)
     again.use.triggered = false;
     for (int i = 0; i < 2 && mState == WorldState::Playing; ++i)
       updateFrame(again);
+    return;
+  }
+  // Level 41: MIRROR MODE swaps left and right; TURBO FOR EVERYONE runs
+  // every fourth frame twice (world_sweeps.cpp).
+  if (mSweeps.on)
+  {
+    updateSweepsFrames(input);
     return;
   }
   if (!mFilm.on)
@@ -535,6 +543,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateGallery();
   if (mFly.on)
     updateFlyTower();
+  if (mSweeps.on)
+    updateSweeps();
   updateHatches();
   updateProps(input);
 }
@@ -1106,6 +1116,15 @@ void World::updateEnemies()
       case EnemyKind::SandbagDrop:
         updateSandbagDrop(e, def);
         break;
+      case EnemyKind::WarmupComic:
+        updateComic(e, def);
+        break;
+      case EnemyKind::AudiencePlant:
+        updatePlant(e, def);
+        break;
+      case EnemyKind::CueDrone:
+        updateCueDrone(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1256,6 +1275,9 @@ void World::updateProjectiles()
       return true;
     // Level 40: the Q99 cannon's fuse box, Trigger Happy's discs.
     if (mFly.on && pr.kind != ShotKind::Enemy && shotAtFlyTower(pr, b))
+      return true;
+    // Level 41: big heads, confetti cannons, the Applause Cannon's streak, Paintball.
+    if (mSweeps.on && shotAtSweeps(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))
