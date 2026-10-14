@@ -492,3 +492,11 @@ body::after {
 .story-steps h4 { margin: 0 0 4px; font: 800 italic 20px var(--display); color: var(--cyan); }
 .story-steps p { margin: 0 0 10px; }
 .story-steps blockquote { margin: 8px 0 12px; }
+
+/* The TV show twist explained as short questions and answers. */
+.show-explained { margin: 14px 0 22px; padding: 14px 16px; border-radius: 12px; background: rgba(47, 216, 255, 0.07); border: 1px solid rgba(47, 216, 255, 0.35); }
+.show-explained h4 { margin: 0 0 10px; font: 800 italic 21px var(--display); color: var(--gold); }
+.show-explained dl { margin: 0; }
+.show-explained dt { font-weight: 600; color: var(--cyan); margin-top: 10px; }
+.show-explained dt:first-child { margin-top: 0; }
+.show-explained dd { margin: 2px 0 0; }
