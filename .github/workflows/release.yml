@@ -1,5 +1,7 @@
 # Staged here because an agent cannot write .github/workflows/; Paul moves it
 # over the live one with: git mv -f ci/workflows/release.yml .github/workflows/
+# Staged here because an agent cannot write .github/workflows/; Paul moves it
+# over the live one with: git mv -f ci/workflows/release.yml .github/workflows/
 # Release workflow for Gunrunners on Linux and Android; the APK is published
 # through snonux/fdroid. See android/README.md, "Releasing".
 #
@@ -90,7 +92,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libsdl2-dev libcairo2-dev fonts-dejavu-core
+          sudo apt-get install -y build-essential cmake libsdl2-dev libcairo2-dev libcurl4-openssl-dev fonts-dejavu-core
 
       - name: Build, test and package
         run: |
