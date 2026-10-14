@@ -1,8 +1,9 @@
 // Gunrunners web page: the turnable game box, the gameplay clips that play
-// while they are on screen, and a lightbox for the screenshots. No
-// dependencies. Without JavaScript the page still reads fine: the box stands
-// at its resting angle, its turn controls stay hidden, the clips have their
-// own controls and the screenshots link to the full-size files.
+// while they are on screen, a lightbox for the screenshots and little
+// synthesized sound effects. No dependencies. Without JavaScript the page
+// still reads fine: the box stands at its resting angle, its turn controls
+// and the sound switch stay hidden, the clips have their own controls and
+// the screenshots link to the full-size files.
 (function () {
   "use strict";
 
@@ -234,7 +235,135 @@
     });
   }
 
+  // ---------- sound effects ----------
+  // Little blips synthesized on the spot with Web Audio, like the game's own
+  // sounds (no samples): moving parts and cards make a noise when the mouse
+  // comes over them, buttons when clicked. Browsers allow sound only after a
+  // click or a key press, so the first one starts the audio. The speaker in
+  // the header switches the effects off and on, remembered in this browser.
+  // Each voice: oscillator type (or noise through a band-pass sweep), the
+  // frequency sweep f0 -> f1 in Hz, length t and start offset at in seconds,
+  // peak gain g.
+  var SFX = {
+    blip: [{ type: "square", f0: 880, f1: 1320, t: 0.06, g: 0.04 }],
+    tick: [{ type: "triangle", f0: 2600, f1: 1900, t: 0.03, g: 0.05 }],
+    boing: [{ type: "square", f0: 180, f1: 900, t: 0.18, g: 0.035 }],
+    zap: [{ type: "sawtooth", f0: 1500, f1: 80, t: 0.24, g: 0.035 }],
+    whoosh: [{ noise: true, f0: 250, f1: 3200, t: 0.4, g: 0.16 }],
+    glitch: [{ noise: true, f0: 5000, f1: 500, t: 0.16, g: 0.1 }, { type: "square", f0: 70, f1: 45, t: 0.16, g: 0.03 }],
+    coin: [{ type: "square", f0: 988, f1: 988, t: 0.07, g: 0.03 }, { type: "square", f0: 1319, f1: 1319, t: 0.22, g: 0.03, at: 0.07 }],
+  };
+  var SOUND_KEY = "gunrunners-sfx"; // localStorage: "off" when switched off
+
+  // One voice of an effect (see SFX), starting `now` on the context's clock:
+  // an oscillator, or the white `noise` buffer through a band-pass filter,
+  // sweeping from f0 to f1 under a quickly falling volume.
+  function playVoice(ctx, noise, v, now) {
+    var start = now + (v.at || 0), end = start + v.t, src, sweep;
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(v.g, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    gain.connect(ctx.destination);
+    if (noise) {
+      src = ctx.createBufferSource();
+      src.buffer = noise;
+      sweep = ctx.createBiquadFilter();
+      sweep.type = "bandpass";
+      sweep.Q.value = 1.5;
+      sweep.frequency.setValueAtTime(v.f0, start);
+      sweep.frequency.exponentialRampToValueAtTime(v.f1, end);
+      src.connect(sweep).connect(gain);
+    } else {
+      src = ctx.createOscillator();
+      src.type = v.type;
+      src.frequency.setValueAtTime(v.f0, start);
+      src.frequency.exponentialRampToValueAtTime(v.f1, end);
+      src.connect(gain);
+    }
+    src.start(start);
+    src.stop(end + 0.02);
+  }
+
+  // The audio engine: unlock() on a user gesture, play(name) afterwards.
+  function createSfx() {
+    var ctx = null, noise = null, on = true;
+    try { on = window.localStorage.getItem(SOUND_KEY) !== "off"; } catch (e) { /* storage blocked: default on */ }
+
+    function unlock() {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!ctx && AC) ctx = new AC();
+      if (ctx && ctx.state === "suspended") ctx.resume();
+    }
+    function noiseBuffer() {
+      if (noise) return noise;
+      noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate / 2), ctx.sampleRate);
+      var d = noise.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      return noise;
+    }
+    function play(name) {
+      if (!on || !ctx || ctx.state !== "running") return;
+      SFX[name].forEach(function (v) { playVoice(ctx, v.noise ? noiseBuffer() : null, v, ctx.currentTime); });
+    }
+    function setOn(value) {
+      on = value;
+      try { window.localStorage.setItem(SOUND_KEY, on ? "on" : "off"); } catch (e) { /* not remembered */ }
+    }
+    return { unlock: unlock, play: play, isOn: function () { return on; }, setOn: setOn };
+  }
+
+  // Which sound goes with which part of the page: on mouse-over (not touch:
+  // a tap would also be a click) and on click. One sound per element at most
+  // every 250 ms, so sweeping across the page doesn't turn into noise.
+  var HOVER_SOUNDS = [
+    [".box-stage", "whoosh"], [".runner", "boing"], [".boss", "zap"], [".logo", "glitch"],
+    [".filmstrip", "tick"], [".episode, .video, .get-card, .cast-card, .shot-grid a", "blip"],
+    [".btn, .top nav a, .sound-toggle", "tick"],
+  ];
+  var CLICK_SOUNDS = [["#flip", "whoosh"], [".btn:not(#flip)", "coin"]];
+
+  function bindSounds(sfx) {
+    var last = new WeakMap();
+    function sound(el, name) {
+      var now = performance.now();
+      if (now - (last.get(el) || 0) < 250) return;
+      last.set(el, now);
+      sfx.play(name);
+    }
+    HOVER_SOUNDS.forEach(function (pair) {
+      document.querySelectorAll(pair[0]).forEach(function (el) {
+        el.addEventListener("pointerenter", function (e) { if (e.pointerType !== "touch") sound(el, pair[1]); });
+      });
+    });
+    CLICK_SOUNDS.forEach(function (pair) {
+      document.querySelectorAll(pair[0]).forEach(function (el) {
+        el.addEventListener("click", function () { sound(el, pair[1]); });
+      });
+    });
+    var stage = document.querySelector(".box-stage");
+    if (stage) stage.addEventListener("pointerdown", function () { sfx.play("whoosh"); });
+  }
+
+  function setupSound() {
+    var button = document.querySelector(".sound-toggle");
+    var sfx = createSfx();
+    ["pointerdown", "keydown"].forEach(function (type) {
+      document.addEventListener(type, sfx.unlock, { capture: true, passive: true });
+    });
+    if (button) {
+      button.hidden = false;
+      button.setAttribute("aria-pressed", String(sfx.isOn()));
+      button.addEventListener("click", function () {
+        sfx.setOn(!sfx.isOn());
+        button.setAttribute("aria-pressed", String(sfx.isOn()));
+        sfx.play("coin"); // the switch says so when it turns the sound on
+      });
+    }
+    bindSounds(sfx);
+  }
+
   setupBox();
   setupVideos();
   setupLightbox();
+  setupSound();
 })();

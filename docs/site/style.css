@@ -66,6 +66,23 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .top nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 17px; }
 .top nav a:hover { color: var(--text); }
 .top nav .nav-cta { color: var(--hot); }
+.top nav { margin-left: auto; }
+/* The sound effects switch: a speaker with waves when on, crossed out when off. */
+.sound-toggle {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  border: 1.5px solid var(--cyan); background: transparent; color: var(--text); cursor: pointer;
+  font: 700 15px var(--display); letter-spacing: 0.08em;
+}
+.sound-toggle[hidden] { display: none; }
+.sound-toggle svg { width: 20px; height: 20px; }
+.sound-toggle .spk { fill: currentColor; }
+.sound-toggle .waves, .sound-toggle .cross { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.sound-toggle .cross { display: none; }
+.sound-toggle[aria-pressed="false"] { border-color: var(--line); color: var(--muted); }
+.sound-toggle[aria-pressed="false"] .waves { display: none; }
+.sound-toggle[aria-pressed="false"] .cross { display: inline; }
+.sound-toggle:hover { box-shadow: 0 0 16px rgba(47, 216, 255, 0.45); }
+.sound-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 @media (max-width: 760px) { .top nav a:not(.nav-cta) { display: none; } }
 
 /* ---------- layout ---------- */
@@ -237,11 +254,13 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 @media (max-width: 1100px) { .runner-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .runner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .runner { padding: 14px 10px 12px; } .runner img { height: 130px; } }
 .runner {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, var(--panel)), var(--panel) 55%);
+  /* --c is the runner's colour, --c-soft and --c-glow see-through versions
+     of it (set next to it in index.html). */
+  background: linear-gradient(180deg, var(--c-soft), transparent 55%), var(--panel);
   border: 1px solid var(--line); border-top: 3px solid var(--c);
   border-radius: var(--radius); padding: 18px 16px 16px; text-align: center;
 }
-.runner img { height: 170px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c) 45%, transparent)); }
+.runner img { height: 170px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 0 16px var(--c-glow)); }
 .runner h3 { font-size: 27px; font-style: italic; color: var(--c); margin: 0; }
 /* Keeps a hyphenated word together; the self-hosted fonts' latin subset
    has no non-breaking hyphen (U+2011), which would come from a system font. */
@@ -356,11 +375,12 @@ main > section:not(.hero)::after {
 .gallery { --scene: url(../media/level44.jpg); }
 .get { --scene: url(../media/title.jpg); }
 /* The hero's picture covers it, anchored at the bottom, and starts a
-   quarter of the hero's height above the page: when it is scaled to the
+   third of the hero's height above the page: when it is scaled to the
    box's height (phones, most desktops) that takes the top fifth, the HUD
-   and the banner line, off the top. */
+   and the banner line, off the top with room to spare (a quarter left a
+   sliver of the banner in Firefox). */
 .hero::before {
-  top: -25%;
+  top: -33%;
   clip-path: none;
   background:
     radial-gradient(60% 50% at 70% 40%, rgba(255, 63, 174, 0.25), transparent 70%),
@@ -446,3 +466,19 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .logo, .hero-floor::before, .filmstrip-track, .runner:hover img { animation: none; }
 }
+
+/* The story's who's who and its episode-by-episode walkthrough. */
+.who-is-who { margin: 26px 0 8px; font-size: 22px; color: var(--cyan); }
+.story-cast { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.story-cast dt { font: 800 italic 18px var(--display); color: var(--sun); }
+.story-cast dd { margin: 0; color: #d4c9f5; }
+@media (max-width: 520px) { .story-cast { grid-template-columns: 1fr; } .story-cast dd { margin-bottom: 8px; } }
+.story-steps { list-style: none; margin: 14px 0 4px; padding: 0; counter-reset: ep; }
+.story-steps li { position: relative; padding: 4px 0 6px 22px; border-left: 2px solid var(--hot); margin-left: 6px; }
+.story-steps li::before {
+  content: ""; position: absolute; left: -7px; top: 10px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--sun); box-shadow: 0 0 12px var(--sun);
+}
+.story-steps h4 { margin: 0 0 4px; font: 800 italic 20px var(--display); color: var(--cyan); }
+.story-steps p { margin: 0 0 10px; }
+.story-steps blockquote { margin: 8px 0 12px; }

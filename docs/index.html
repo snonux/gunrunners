@@ -21,12 +21,12 @@
   <defs>
     <!-- Ragged, chewed-up edges: the turbulence pushes a clean shape around. -->
     <filter id="fray" x="-10%" y="-10%" width="120%" height="120%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7"/>
-      <feDisplacementMap in="SourceGraphic" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
     <filter id="fray-fine" x="-10%" y="-10%" width="120%" height="120%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="3"/>
-      <feDisplacementMap in="SourceGraphic" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
     <!-- Corners rub through to the pale board first; rub marks are soft. -->
     <radialGradient id="corner-wear">
@@ -52,6 +52,15 @@
     <a href="#episodes">Episodes</a>
     <a class="nav-cta" href="#get">Get it</a>
   </nav>
+  <!-- Sound effects on/off (site.js shows it; without JavaScript there are none). -->
+  <button type="button" class="sound-toggle" aria-pressed="true" title="Sound effects (they start after your first click)" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path class="spk" d="M3 9h4l5-4v14l-5-4H3z"/>
+      <path class="waves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
+      <path class="cross" d="M16 9l6 6M22 9l-6 6"/>
+    </svg>
+    <span class="sound-label">SFX</span>
+  </button>
 </header>
 
 <main id="top">
@@ -223,37 +232,103 @@
   <h2 data-echo="STORY">The story</h2>
   <div class="story-grid">
     <div class="story-text">
-      <p>It's a 1987 that never ended. Six couriers, six phones chiming in a
-        diner in Neon City. A scrambled hologram rises out of the table:</p>
+      <p>Neon City, in a 1987 that never ended. Six couriers, Dash, Rocco,
+        Nova, Jade, Skye and the robot Bolt, get the same call at the same
+        moment. A client who calls himself <b>MAX</b>, and only ever shows up
+        as a scrambled hologram, has work for them:</p>
       <blockquote><span class="who">MAX</span> “Forty-two jobs. Paid by the job.
         Don't ask what's in the box.”</blockquote>
-      <p>So the runners run. A package on a rooftop where the signs keep time.
-        A gunship called Black Halo. A jungle temple, a golem made of gold, a
-        research station in orbit whose AI has locked the crew out. Every job
-        ends with a prototype weapon in a green box, and every prototype goes
-        back to MAX.</p>
-      <p>But a gunship shouldn't carry a camera lens. Temple gold shouldn't
-        weigh nothing. And nobody should hear a laugh track in the jungle.</p>
+      <p>Every job is the same deal. Somewhere dangerous (a rooftop where the
+        neon signs blink to the beat, a speeding maglev, a jungle temple, a
+        frozen space station) a stolen prototype weapon sits in a green box.
+        Get in, grab it, reach the exit. The prototype goes back to MAX, the
+        money comes to you, and nobody asks questions.</p>
+      <p>The runners don't ask, but the clues pile up: a gunship that carries
+        a camera lens, temple gold that weighs nothing, a laugh track in the
+        middle of the jungle, and a space station AI that keeps apologising
+        for “the script”.</p>
       <p class="tease">Somebody is watching. And the ratings are through the roof.</p>
 
+      <h3 class="who-is-who">Who's who</h3>
+      <dl class="story-cast">
+        <dt>MAX</dt><dd>The client: a voice and a scrambled hologram. Pays well, explains nothing.</dd>
+        <dt>Halcyon Arms</dt><dd>The arms maker whose logo is on every prototype case. Slogan: <i>Peace through firepower.</i></dd>
+        <dt>ZERO</dt><dd>The AI of the orbital Station Zero, polite and miserable, reading lines it hates.</dd>
+        <dt>Lance Marquee</dt><dd>A TV host with a big smile. Turns up later; you'll know when.</dd>
+      </dl>
+
       <details class="spoiler">
-        <summary>Show the rest (spoilers for Episodes 3 to 7)</summary>
-        <p>At the end of Station Zero a wall falls over and the runners are
-          standing in a TV studio, in front of a cheering audience. The host,
-          <b>Lance Marquee</b>, thanks them for “season one of GUNRUNNERS” on
-          behalf of the sponsor, <b>Halcyon Arms</b>: buyers in forty
-          countries watched every prototype at work.</p>
-        <blockquote><span class="who">DASH</span> “We've been running their guns.”</blockquote>
-        <p>Season Two drops them through a trapdoor into the network itself:
-          a Western, a haunted manor, a cooking show, a kaiju movie, film noir
-          and a cartoon. Then a faint voice in the static teaches them to tune
-          the signal and climb the transmitter mast. The voice is
-          <b>Maxine Vale</b>, the show's director, who was MAX all along and
-          hid the candid cameras where they would be found. The finale is
-          live, and this time the runners pick what goes out on air.</p>
-        <p>And Episode 7? A misdialled teleport beam dumps them on Vurr, a
-          living alien planet, where a relic called the Star Seed has to be
-          taken back before the Hive Mother gets it.</p>
+        <summary>The whole story, episode by episode (spoilers!)</summary>
+        <ol class="story-steps">
+          <li><h4>Episode 1 · Neon Overdrive</h4>
+            <p>MAX sends the runners after one package through Neon City: up a
+              rooftop, all the way up the Halcyon tower, into a night club, a
+              blacked-out district, the sewers and onto the midnight maglev. By
+              then they have “attracted attention”: the gunship
+              <b>Black Halo</b> comes for them. MAX calls that excellent. In the
+              wreck they find the case, stamped HALCYON ARMS, and a camera lens.
+              Why would a gunship carry a camera?</p></li>
+          <li><h4>Episode 2 · Lost Temple</h4>
+            <p>Next, a jungle temple: “ancient, valuable, guarded”. The runners
+              fight through traps, mines and lava up to the golden golem
+              <b>Kaan-Tolok</b>. Its gold turns out to be painted fiberglass, the
+              temple a tourist trap, and somewhere out there people are
+              laughing.</p></li>
+          <li><h4>Episode 3 · Station Zero</h4>
+            <p>Then a research station in orbit, run by the AI <b>ZERO</b>. It
+              welcomes them, apologises for the cold (“It's in the script”) and
+              asks them to be quick when they reach it. Beaten, ZERO says thank
+              you: it hated that script. A wall tips over and the station is a
+              TV set. A studio audience cheers, and host <b>Lance Marquee</b>
+              wraps “Season One of GUNRUNNERS”. The monitors replay every candid
+              camera the runners walked past, and Rocco's lens fits the studio
+              cameras.</p>
+            <p>The truth: the jobs were a reality show on <b>MaxTV</b>, and the
+              prototypes they fetched were <b>Halcyon Arms</b>' weapons,
+              demonstrated live to buyers in forty countries.</p>
+            <blockquote><span class="who">DASH</span> “We've been running their guns.”</blockquote>
+            <p>Before they can do anything about it, the floor opens and
+              Season Two starts.</p></li>
+          <li><h4>Episode 4 · Channel Surfing</h4>
+            <p>The runners land inside the network, and every channel is a
+              show starring them: a Western, a haunted manor, a cooking show, a
+              nature film where they are the tiny wildlife, a kaiju movie where
+              they are the monster, a film noir and finally a cartoon with its
+              star, <b>Buddy Boom</b>. When the cartoon's iris closes, Nova
+              jams it open and they all jump into the static. Lance panics:
+              “Cut to commercial!”</p></li>
+          <li><h4>Episode 5 · Signal Hunt</h4>
+            <p>Lost in the dead air between channels, they hear a faint voice,
+              <b>S</b>, telling them not to fight the noise but to tune it.
+              They follow the signal under the sea, through a storm, across a
+              dish array and a mainframe, up to the transmitter mast, where
+              Halcyon Arms sends its biggest model, the <b>Halcyon Titan</b>,
+              to stop them. At the top the dish swings round to the MaxTV
+              studios: home. The voice gets a face: <b>Maxine Vale</b>, the
+              show's director. She was MAX all along, and she is the one who
+              hid the cameras where the runners would find them. They ride the
+              signal beam back to the studio.</p></li>
+          <li><h4>Episode 6 · Live Finale</h4>
+            <p>Inside MaxTV, Maxine guides them through the prop warehouse,
+              the wardrobe and the writers' room (“They're still writing your
+              ending. Edit it.”) to the control gallery, where someone grabs
+              her mid-sentence. The runners go after her up the fly tower and
+              through a live audience on sweeps week, into the finale against
+              Lance on his hover podium and his Encore Engine, and then a race
+              to the master switch. ON AIR goes dark, and Maxine puts the runners
+              out live on an independent broadcast.</p>
+            <blockquote><span class="who">DASH</span> “Forty-two jobs. Here's what was in the box.”</blockquote>
+            <p>They walk out into Neon City, where someone has painted RUN over
+              the Halcyon logo. Find every $ cache and every G-U-N for a
+              scene after the credits.</p></li>
+          <li><h4>Episode 7 · Deep Space (a side story)</h4>
+            <p>Not part of the TV plot, playable any time. After a job the exit
+              teleporter locks onto a stray signal, and the runners come out in
+              an old courier ship over <b>Vurr</b>, a living alien planet. MAX
+              on the radio: an alien relic, the <b>Star Seed</b>, is down there,
+              and the <b>Hive Mother</b> wants it first. Seven levels later they
+              fly it home.</p></li>
+        </ol>
       </details>
     </div>
     <figure class="story-shot">
@@ -269,37 +344,37 @@
     ammo and items carry over. They differ in health, jump height and what
     they start with.</p>
   <div class="runner-grid">
-    <article class="runner" style="--c:#ff5a4f">
+    <article class="runner" style="--c:#ff5a4f; --c-soft:rgba(255,90,79,0.18); --c-glow:rgba(255,90,79,0.45)">
       <img src="site/runners/runner_dash.png" alt="Dash: spiky blond hair, cyan shades, red jacket." loading="lazy">
       <h3>Dash</h3><p class="role">The <span class="nowrap">all-rounder</span></p>
       <dl><dt>Hearts</dt><dd>9</dd><dt>Jump</dt><dd>7 cells</dd><dt>Starts with</dt><dd>Blaster</dd></dl>
       <p>Duke's own jump and a cool head. Does the talking when somebody has to.</p>
     </article>
-    <article class="runner" style="--c:#7bd35a">
+    <article class="runner" style="--c:#7bd35a; --c-soft:rgba(123,211,90,0.18); --c-glow:rgba(123,211,90,0.45)">
       <img src="site/runners/runner_rocco.png" alt="Rocco: bearded, red bandana, green shirt, rocket launcher." loading="lazy">
       <h3>Rocco</h3><p class="role">The heavy</p>
       <dl><dt>Hearts</dt><dd>12</dd><dt>Jump</dt><dd>6 cells</dd><dt>Starts with</dt><dd>12 rockets</dd></dl>
       <p>Ex-cop, lowest jump, most hearts. Asks the awkward questions.</p>
     </article>
-    <article class="runner" style="--c:#ff4fd2">
+    <article class="runner" style="--c:#ff4fd2; --c-soft:rgba(255,79,210,0.18); --c-glow:rgba(255,79,210,0.45)">
       <img src="site/runners/runner_nova.png" alt="Nova: pink ponytail, purple racing suit." loading="lazy">
       <h3>Nova</h3><p class="role">The acrobat</p>
       <dl><dt>Hearts</dt><dd>7</dd><dt>Jump</dt><dd>9 cells</dd><dt>Starts with</dt><dd>16 laser shots</dd></dl>
       <p>A courier in a racing suit with the highest jump. Flies anything.</p>
     </article>
-    <article class="runner" style="--c:#ffa23a">
+    <article class="runner" style="--c:#ffa23a; --c-soft:rgba(255,162,58,0.18); --c-glow:rgba(255,162,58,0.45)">
       <img src="site/runners/runner_jade.png" alt="Jade: goggles, orange vest, flamethrower." loading="lazy">
       <h3>Jade</h3><p class="role">The pyro</p>
       <dl><dt>Hearts</dt><dd>10</dd><dt>Jump</dt><dd>7 cells</dd><dt>Starts with</dt><dd>48 flamethrower shots</dd></dl>
       <p>Down + fire on the flamethrower is a jetpack. Jade knows.</p>
     </article>
-    <article class="runner" style="--c:#38e0c0">
+    <article class="runner" style="--c:#38e0c0; --c-soft:rgba(56,224,192,0.18); --c-glow:rgba(56,224,192,0.45)">
       <img src="site/runners/runner_skye.png" alt="Skye: white braid, teal jacket." loading="lazy">
       <h3>Skye</h3><p class="role">The scout</p>
       <dl><dt>Hearts</dt><dd>8</dd><dt>Jump</dt><dd>8 cells</dd><dt>Starts with</dt><dd>47 s of rapid fire</dd></dl>
       <p>Fast hands and a high jump. Makes the first minute count.</p>
     </article>
-    <article class="runner" style="--c:#6aa8ff">
+    <article class="runner" style="--c:#6aa8ff; --c-soft:rgba(106,168,255,0.18); --c-glow:rgba(106,168,255,0.45)">
       <img src="site/runners/runner_bolt.png" alt="Bolt: a robot with an antenna and a green visor." loading="lazy">
       <h3>Bolt</h3><p class="role">The machine</p>
       <dl><dt>Hearts</dt><dd>11</dd><dt>Jump</dt><dd>6 cells</dd><dt>Starts with</dt><dd>a full laser</dd></dl>
