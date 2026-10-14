@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
@@ -2685,7 +2686,9 @@ void World::drawWritersHud(Renderer& r, int frame) const
       r.draw(baked(mArt, r, "paperball", 40, 40, 20.0f, 20.0f, paintPaperBall), x + 30.0f + float(k) * 36.0f, y + 23.0f, o);
     }
     char buf[48];
-    std::snprintf(buf, sizeof buf, "BRICKS %d / %d", s.broken, std::max(1, int(s.bricks.size()) - 4));
+    const std::string& goal = mLevel->goal; // collect:N
+    const int need = goal.rfind("collect:", 0) == 0 ? std::atoi(goal.c_str() + 8) : int(s.bricks.size());
+    std::snprintf(buf, sizeof buf, "BRICKS %d / %d", s.broken, need);
     r.drawText(buf, x + 270.0f, y + 9.0f, {24.0f, rgb(250, 246, 236), kHudInk}, Align::Center);
     return;
   }
