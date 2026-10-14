@@ -92,6 +92,10 @@ Controls::Action Controls::handleEvent(const SDL_Event& ev)
       break;
     case SDL_CONTROLLERDEVICEREMOVED:
       close(ev.cdevice.which);
+      return Action::Pause; // a pad that drops out mid-jump shouldn't cost a life
+    case SDL_WINDOWEVENT:
+      if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+        return Action::Pause;
       break;
     case SDL_CONTROLLERBUTTONDOWN:
       if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK && !kBackIsBackKey &&

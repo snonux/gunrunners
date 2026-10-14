@@ -200,16 +200,20 @@ bool exitSpot(const CollisionMap& map, const Vehicle& v, int& x, int& y)
     {v.x + v.w, v.y}};
   // A submarine lets you out through the hatch on top.
   const int first = v.kind == VehicleKind::Sub ? 1 : 0;
-  for (int k = 0; k < 5; ++k)
-  {
-    const int i = (k + first) % 5;
-    const CellBox b = boxAt(spots[i][0], spots[i][1], Player::kWidth, 5);
-    if (b.x < 0 || b.right() >= map.width() || b.y < 0 || map.overlapsSolid(b))
-      continue;
-    x = spots[i][0];
-    y = spots[i][1];
-    return true;
-  }
+  // A spot clear of spikes comes first; any free one will do after that.
+  for (int pass = 0; pass < 2; ++pass)
+    for (int k = 0; k < 5; ++k)
+    {
+      const int i = (k + first) % 5;
+      const CellBox b = boxAt(spots[i][0], spots[i][1], Player::kWidth, 5);
+      if (b.x < 0 || b.right() >= map.width() || b.y < 0 || map.overlapsSolid(b))
+        continue;
+      if (pass == 0 && (map.overlapsHazard(b) || map.overlapsHazard({b.x, b.y + 1, b.w, b.h})))
+        continue;
+      x = spots[i][0];
+      y = spots[i][1];
+      return true;
+    }
   return false;
 }
 
@@ -436,6 +440,16 @@ bool World::vehicleFall(Vehicle& v, int cells)
   return true;
 }
 
+void World::settleVehicleAir(Vehicle& v)
+{
+  if (mMap.onSolidGround(v.box()))
+    v.air = -1;
+  else if (v.kind == VehicleKind::Bike)
+    v.air = std::max(v.air, int(kBikeArc.size()));
+  else if (v.kind == VehicleKind::Mech)
+    v.air = std::max(v.air, int(kMechArc.size()));
+}
+
 bool World::vehicleStep(Vehicle& v, int dx, int dy)
 {
   if (dx == 0 && dy == 0)
@@ -455,34 +469,48 @@ void World::updateDrive(int mvX, int mvY, const PlayerInput& input)
 {
   auto& p = mPlayer;
   Vehicle& v = mVehicles[std::size_t(p.vehicle)];
-  if (input.use.triggered || (mvY > 0 && input.jump.triggered))
+  if (input.use.triggered || (mPlay.downJumpLeaves && mvY > 0 && input.jump.triggered))
   {
     leaveVehicle(false);
     if (p.vehicle < 0)
       return;
   }
+  PlayerInput in = input;
+  if (mPlay.jumpHelp && (v.kind == VehicleKind::Bike || v.kind == VehicleKind::Mech || v.kind == VehicleKind::Bounder))
+  {
+    // Jump help: a jump pressed just before landing goes off on landing.
+    if (input.jump.triggered && v.air >= 0)
+      mJumpBuffer = kJumpBufferFrames + 1;
+    else if (mJumpBuffer > 0)
+      --mJumpBuffer;
+    if (mJumpBuffer > 0 && v.air < 0)
+    {
+      in.jump = {true, true};
+      mJumpBuffer = 0;
+    }
+  }
   switch (v.kind)
   {
     case VehicleKind::Tank:
-      driveTank(v, mvX, mvY, input);
+      driveTank(v, mvX, mvY, in);
       break;
     case VehicleKind::Heli:
-      driveHeli(v, mvX, mvY, input);
+      driveHeli(v, mvX, mvY, in);
       break;
     case VehicleKind::Bike:
-      driveBike(v, mvX, mvY, input);
+      driveBike(v, mvX, mvY, in);
       break;
     case VehicleKind::Sub:
-      driveSub(v, mvX, mvY, input);
+      driveSub(v, mvX, mvY, in);
       break;
     case VehicleKind::Ship:
-      driveShip(v, mvX, mvY, input);
+      driveShip(v, mvX, mvY, in);
       break;
     case VehicleKind::Mech:
-      driveMech(v, mvX, mvY, input);
+      driveMech(v, mvX, mvY, in);
       break;
     case VehicleKind::Bounder:
-      driveBounder(v, mvX, mvY, input);
+      driveBounder(v, mvX, mvY, in);
       break;
     case VehicleKind::Count:
       break;
@@ -981,7 +1009,7 @@ void World::updateVehicles(const PlayerInput& /*input*/)
       case VehicleKind::Bike:
       case VehicleKind::Mech:
         vehicleFall(v, 2);
-        v.air = -1;
+        settleVehicleAir(v);
         break;
       case VehicleKind::Bounder:
         updateParkedBounder(v);

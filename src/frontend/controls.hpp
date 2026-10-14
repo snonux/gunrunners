@@ -30,6 +30,7 @@ public:
     Quit, // window closed
     CycleTheme,
     ToggleFullscreen, // F11 or Alt+Enter
+    Pause,            // the window lost focus or a gamepad was unplugged
   };
 
   // Feed every SDL event through here. Handles hotplugging and returns the

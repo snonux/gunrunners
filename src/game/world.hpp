@@ -1488,6 +1488,13 @@ struct VehicleDef
 const VehicleDef& vehicleDef(VehicleKind k);
 VehicleKind vehicleKindForKey(const std::string& key, bool* ok = nullptr);
 
+// Jump help: a jump pressed this many logic frames before landing counts.
+constexpr int kJumpBufferFrames = 2;
+
+// Per vehicle in a save after the 9 fields of where it is: how it moves
+// (vx, vy, ax, ay, air, fallen, aim, cool, cool2, mercy, step, barrel).
+constexpr int kVehicleMotionSave = 12;
+
 struct Vehicle
 {
   VehicleKind kind = VehicleKind::Tank;
@@ -1694,6 +1701,10 @@ public:
   void clearBonusRequest() { mBonusRequested = false; }
   // Bonus levels: the timer and goal from the header.
   int bonusFramesLeft() const { return mBonusFramesLeft; }
+  // The countdown in real seconds, rounded up (Overclock and the Silent
+  // Picture tick faster than 15 a second), and its last ten seconds.
+  int bonusSecondsLeft() const;
+  bool bonusHurry() const;
   bool bonusFailed() const { return mBonusFailed; }
   // Adds what was collected in a bonus level to this level's run.
   void addBonusReward(int score, int gems, bool star);
@@ -1774,6 +1785,34 @@ public:
   bool canLeaveVehicle() const;
   // Pressing up next to a vehicle boards it too (people; the bot uses USE).
   void setUpBoards(bool on) { mUpBoards = on; }
+  // Player options and assists (the frontend's ASSISTS menu). None of them
+  // counts as a cheat.
+  struct PlayOptions
+  {
+    bool holdFire = false;       // holding fire keeps shooting (slower than rapid fire)
+    bool downJumpLeaves = false; // down + jump climbs out of a vehicle, as well as USE
+    bool jumpHelp = false;       // a jump pressed just before landing still jumps; longer ledge grace
+    bool lowDamage = false;      // hits take half the hearts (every other heart of damage)
+    bool quickRetry = false;     // jump or fire cuts the death scene short (people, not the bot)
+    bool calm = false;           // reduced effects: no screen shake, no flashes of light
+  };
+  void setPlayOptions(const PlayOptions& o)
+  {
+    mPlay = o;
+    mCamera.setCalm(o.calm);
+  }
+  const PlayOptions& playOptions() const { return mPlay; }
+  // Something here keeps time with the music (beat signs, the Pulse
+  // Pistol's beat): the game can't run slower than the music plays.
+  bool beatTimed() const
+  {
+    if (mHasBeat)
+      return true;
+    for (const auto& l : mLayers)
+      if (l.driver == LayerDriver::Beat)
+        return true;
+    return false;
+  }
   // How the USE action is labelled in prompts ("E / LB").
   void setUseLabel(const std::string& s) { mUseLabel = s; }
   const std::vector<Sea>& seas() const { return mSeas; }
@@ -3300,6 +3339,9 @@ private:
   void driveMech(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
   void driveBounder(Vehicle& v, int mvX, int mvY, const PlayerInput& input);
   bool vehicleFall(Vehicle& v, int cells); // false once it is on the ground
+  // A parked bike or mech off the ground is falling, not landed: no fresh
+  // jump for whoever climbs back in on the way down.
+  void settleVehicleAir(Vehicle& v);
   bool vehicleStep(Vehicle& v, int dx, int dy); // moves a free mover a cell, true if it moved
   void stomp(Vehicle& v);
   void vehicleContacts(Vehicle& v);
@@ -3660,8 +3702,17 @@ private:
   std::vector<Vehicle> mVehicles;
   std::vector<Sea> mSeas;
   int mAir = kAirFrames;
+  // Runner switches keep the hearts of the runner switched away from (the
+  // base) and what the last switch gave, so switching back and forth works
+  // out from the base each time instead of rounding up again and again.
+  int mSwapBaseHp = 0, mSwapBaseMax = 0, mSwapHp = -1, mSwapMax = 0;
   int mDrown = 0;          // frames since the last heart lost to drowning
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
+  PlayOptions mPlay;
+  int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
+  int mJumpBuffer = 0;   // jump help: frames a jump pressed in the air still counts on landing
+  int mDamageCarry = 0;  // low damage: half a heart not yet taken
+  bool mDeathRush = false; // quick retry asked for: the death scene ends early
   bool mUpHeld = false;    // up was held last frame (boarding wants a fresh press)
   std::string mUseLabel = "USE";
   std::vector<Particle> mParticles;

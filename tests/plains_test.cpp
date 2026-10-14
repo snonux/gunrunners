@@ -127,15 +127,23 @@ int main()
       std::printf("     jump %d cells on foot, %d on the Bounder\n", onFoot, riding);
       check(riding >= 2 * onFoot - 1, "it hops about twice as high");
       idle(w, 30);
-      bool off = false;
-      for (int f = 0; f < 4 && !off; ++f)
+      // Down + jump only climbs off with that option on (USE always does).
+      for (int opt = 0; opt < 2; ++opt)
       {
-        PlayerInput in = press(0, f == 1);
-        in.down = true;
-        w.update(in);
-        off = !w.riding();
+        World::PlayOptions o;
+        o.downJumpLeaves = opt != 0;
+        w.setPlayOptions(o);
+        bool off = false;
+        for (int f = 0; f < 4 && !off; ++f)
+        {
+          PlayerInput in = press(0, f == 1);
+          in.down = true;
+          w.update(in);
+          off = !w.riding();
+        }
+        idle(w, 30);
+        check(off == (opt != 0), opt ? "down + jump gets off with the option on" : "down + jump stays on by default");
       }
-      check(off, "down + jump gets off");
     }
 
     {

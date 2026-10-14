@@ -24,8 +24,26 @@ enum class RowKind
   TouchScheme,
   TouchSize,
   TouchLayout,
+  Assists,
   Reset,
 };
+
+// ASSISTS AND OPTIONS: profile key, label, and what each one does.
+struct AssistRow
+{
+  const char* key;
+  const char* label;
+  const char* help;
+};
+const AssistRow kAssistRows[] = {
+  {"opt.holdfire", "HOLD TO FIRE", "Holding fire keeps shooting (rapid fire is still faster)."},
+  {"opt.downjump", "DOWN + JUMP LEAVES A RIDE", "Off: only USE gets you out of a vehicle."},
+  {"assist.jump", "JUMP HELP", "A jump pressed just before landing still jumps; more time at ledges."},
+  {"assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
+  {"assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
+  {"opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
+};
+constexpr int kAssistCount = int(sizeof(kAssistRows) / sizeof(kAssistRows[0]));
 
 } // namespace
 
@@ -46,6 +64,7 @@ std::vector<Game::ControlRow> Game::controlRows() const
     rows.push_back({RowKind::TouchSize, Act::Count});
     rows.push_back({RowKind::TouchLayout, Act::Count});
   }
+  rows.push_back({RowKind::Assists, Act::Count});
   rows.push_back({RowKind::Reset, Act::Count});
   return rows;
 }
@@ -163,6 +182,10 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
     case RowKind::TouchLayout:
       mMenu = Menu::TouchEdit;
       break;
+    case RowKind::Assists:
+      mMenu = Menu::Assists;
+      mAssistCursor = 0;
+      break;
     case RowKind::Reset:
       mBindings = Bindings::defaults();
       mProfile.controls.erase("touch.layout");
@@ -261,6 +284,7 @@ void Game::renderControls()
         ? (touchThumbs() ? "TOUCH: THUMB ZONES" : "TOUCH: CLASSIC BUTTONS")
         : row.kind == RowKind::TouchSize                      ? touchSizeLabel()
         : row.kind == RowKind::TouchLayout                    ? "EDIT TOUCH LAYOUT"
+        : row.kind == RowKind::Assists                        ? "ASSISTS AND OPTIONS"
                                                               : "RESET TO DEFAULTS";
       r.drawText(label, 640, y, sel ? chosen : plain, Align::Center);
       continue;
@@ -291,6 +315,89 @@ void Game::renderControls()
   }
   r.drawText(help, 640, rows.size() > 15 ? 601.0f : rows.size() > 13 ? 596.0f : 584.0f, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
     Align::Center);
+}
+
+bool Game::playOption(const char* key, bool fallback) const
+{
+  const auto it = mProfile.controls.find(key);
+  return it == mProfile.controls.end() || it->second.empty() ? fallback : it->second[0] != 0;
+}
+
+World::PlayOptions Game::playOptions() const
+{
+  World::PlayOptions o;
+  o.holdFire = playOption("opt.holdfire");
+  o.downJumpLeaves = playOption("opt.downjump");
+  o.jumpHelp = playOption("assist.jump");
+  o.lowDamage = playOption("assist.damage");
+  o.quickRetry = !mOptions.autoplay;
+  o.calm = playOption("opt.calm");
+  return o;
+}
+
+void Game::tickAssists(bool ok, bool cancel, int dir)
+{
+  const int n = kAssistCount + 1; // the rows, then BACK
+  mAssistCursor = (mAssistCursor + dir + n) % n;
+  if (cancel || (ok && mAssistCursor == kAssistCount))
+  {
+    mMenu = Menu::Controls;
+    mMenuHold = true;
+    sound(Sfx::MenuSelect);
+    return;
+  }
+  if (!ok)
+    return;
+  sound(Sfx::MenuSelect);
+  const char* key = kAssistRows[mAssistCursor].key;
+  mProfile.controls[key] = {playOption(key) ? 0 : 1};
+  mProfile.save(saveDir());
+  // The level being played (and one parked behind a bonus level) changes now.
+  for (World* w : {mWorld.get(), mMainWorld.get()})
+    if (w)
+      w->setPlayOptions(playOptions());
+}
+
+void Game::renderAssists()
+{
+  auto& r = mRenderer;
+  const auto& t = theme();
+  r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, 150));
+  r.draw(mSlotPanel, 140, 100);
+  r.drawText("ASSISTS AND OPTIONS", 640, 116, {40.0f, t.accentA, kInk, true}, Align::Center);
+  r.drawText("They keep records and bonus stars: none of them is a cheat.", 640, 168, {16.0f, t.accentB, kInk},
+    Align::Center);
+  const float step = 52.0f;
+  for (int i = 0; i <= kAssistCount; ++i)
+  {
+    const bool sel = i == mAssistCursor;
+    const float y = 210.0f + float(i) * step + (i == kAssistCount ? 10.0f : 0.0f);
+    tapTarget(300, y - 6, 680, step - 6, [this, i](float, float) {
+      if (mAssistCursor != i)
+      {
+        mAssistCursor = i;
+        sound(Sfx::MenuMove);
+        return;
+      }
+      tapPress(&Input::confirm);
+    });
+    if (sel)
+      r.fillRect(300, y - 4, 680, step - 8, withAlpha(t.accentA, 60));
+    const TextStyle plain{22.0f, t.hudText, kInk};
+    const TextStyle chosen{22.0f, t.accentA, kInk, true};
+    if (i == kAssistCount)
+    {
+      r.drawText("BACK", 640, y, sel ? chosen : plain, Align::Center);
+      continue;
+    }
+    const AssistRow& row = kAssistRows[i];
+    r.drawText(std::string(row.label) + (playOption(row.key) ? ": ON" : ": OFF"), 640, y, sel ? chosen : plain,
+      Align::Center);
+    r.drawText(row.help, 640, y + 24, {14.0f, rgb(190, 188, 214), kInk}, Align::Center);
+  }
+  r.drawText(mOptions.touch ? "TAP a row to pick it, TAP it again to switch it   BACK to leave"
+                            : "UP/DOWN choose   ENTER / A switch   ESC / B back",
+    640, 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
 }
 
 } // namespace gr

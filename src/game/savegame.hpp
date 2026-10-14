@@ -165,6 +165,9 @@ struct SaveGame
   // and whether it is wrecked, then the one being driven (-1 none) and the
   // runner's air (see World::snapshot).
   std::vector<int> vehicles;
+  // Runner switches since the last hit or heal: the hearts and maximum the
+  // first runner had, and what the switch left (see World::switchCharacter).
+  std::vector<int> swap;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.

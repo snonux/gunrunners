@@ -83,6 +83,8 @@ void Camera::shiftX(int cells)
 
 void Camera::shake(int ticks, float strength)
 {
+  if (mCalm)
+    return;
   if (ticks >= mShakeTicks)
     mShakeTotal = ticks;
   mShakeTicks = std::max(mShakeTicks, ticks);

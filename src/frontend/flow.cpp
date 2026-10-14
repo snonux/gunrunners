@@ -395,10 +395,7 @@ void Game::applyLevelLook(int ep, const std::string& themeKey)
   const int idx = themeFor(ep, themeKey, mOptions.theme);
   if (idx == mThemeIndex || mMainWorld)
     return;
-  mWorld.reset(); // holds references into the art
-  mThemeIndex = idx;
-  mArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
-  buildPanels();
+  useTheme(idx);
 }
 
 void Game::playLevelMusic()
@@ -498,7 +495,10 @@ void Game::recordClear()
     mProfile.reached = std::max(mProfile.reached, std::min(kCampaignLevels, n + 1));
   mProfile.duckMode = mProfile.ducks.size() >= std::size_t(kCampaignLevels);
   if (!mProfile.save(saveDir()))
+  {
     std::fprintf(stderr, "could not save the profile to %s\n", saveDir().c_str());
+    notice("PROGRESS NOT SAVED - THE DISK REFUSED IT");
+  }
 }
 
 // --- Cutscenes ---------------------------------------------------------------
@@ -636,6 +636,9 @@ void Game::startBonusWorld()
   const int who = mMainWorld ? mMainWorld->characterIndex() : mCursor;
   mWorld = std::make_unique<World>(mLevel, who, theme(), *mArt);
   prepareWorld(*mWorld);
+  // Cheats used on the way to the TV count for its bonus level too: no star.
+  if (mMainWorld && mMainWorld->stats().cheated)
+    mWorld->markCheated();
   mBot = Bot{};
   mSubTick = 0;
   mLatched = PlayerInput{};
@@ -651,10 +654,13 @@ void Game::leaveBonus()
   mBonusGems = st.gems;
   mBonusWon = !mWorld->bonusFailed();
   mBonusCheated = st.cheated;
+  bool saved = true;
   if (mBonusWon && mLevelNumber > 0 && !mBonusCheated)
   {
     mProfile.stars.insert(mLevelNumber);
-    mProfile.save(saveDir());
+    saved = mProfile.save(saveDir());
+    if (!saved)
+      notice("BONUS STAR NOT SAVED - THE DISK REFUSED IT");
   }
   mWorld.reset();
   if (mBonusOnly)
@@ -662,7 +668,7 @@ void Game::leaveBonus()
     mBonusOnly = false;
     if (mLevelNumber <= 0)
       notice(mBonusWon ? "LEVEL CLEARED" : "BETTER LUCK NEXT TIME");
-    else
+    else if (saved)
       notice(mBonusWon ? "BONUS STAR!" : "BETTER LUCK NEXT TIME");
     playCutscenes({"sting_back"}, After::List);
     return;

@@ -2081,9 +2081,8 @@ void World::drawHud(Renderer& r, int frame) const
   // Bonus level countdown.
   if (mBonusLevel && mLevel->timer > 0)
   {
-    const int perSecond = mMagma.overclock ? 45 : 15; // Overclock runs three frames to one
-    std::snprintf(buf, sizeof(buf), "%d", (mBonusFramesLeft + perSecond - 1) / perSecond);
-    const bool hurry = mBonusFramesLeft < 150 && (frame / 10) % 2 == 0;
+    std::snprintf(buf, sizeof(buf), "%d", bonusSecondsLeft());
+    const bool hurry = bonusHurry() && (frame / 10) % 2 == 0;
     r.fillRect(float(kScreenW) / 2.0f - 70.0f, 84, 140, 52, rgba(8, 6, 22, 190));
     r.drawText(buf, float(kScreenW) / 2.0f, 88, {40.0f, hurry ? rgb(255, 80, 80) : mTheme.accentA, kHudInk, true}, Align::Center);
   }
@@ -2092,7 +2091,9 @@ void World::drawHud(Renderer& r, int frame) const
   if (mMessageTicks > 0)
   {
     const float a = std::min(1.0f, float(mMessageTicks) / 20.0f);
-    r.drawText(mMessage, float(kScreenW) / 2.0f, 92.0f, {26.0f, rgb(255, 255, 255), kHudInk}, Align::Center, a);
+    // Below a bonus level's countdown box, so the two never overlap.
+    const float y = mBonusLevel && mLevel->timer > 0 ? 146.0f : 92.0f;
+    r.drawText(mMessage, float(kScreenW) / 2.0f, y, {26.0f, rgb(255, 255, 255), kHudInk}, Align::Center, a);
   }
 }
 

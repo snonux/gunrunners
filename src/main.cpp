@@ -679,6 +679,9 @@ int runWindowed(const CliOptions& o)
         case Controls::Action::ToggleFullscreen:
           toggleFullscreen();
           break;
+        case Controls::Action::Pause:
+          game.pauseLevel();
+          break;
         case Controls::Action::None:
           break;
       }

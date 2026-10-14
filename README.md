@@ -187,7 +187,7 @@ CLASSIC BUTTONS) switches to Fire (the big corner
 button) and Jump left of it, with swipes on the right half (up jumps, down
 switches runner) and a tap on an empty spot there shooting at it; a touch near a button presses the nearest one, a thumb
 that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb
-in, and down + Jump to climb out. Menus take your finger directly: tap
+in, and Use to climb out. Menus take your finger directly: tap
 an item to pick it, drag to scroll a list, tap a card on runner select to
 turn to it and tap it again to run, drag the map to pan it and tap it to
 zoom. BACK is the small arrow in the top left corner. If you'd rather steer
@@ -212,7 +212,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
-| E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too; down + jump gets out) |
+| E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
 | F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
@@ -236,6 +236,22 @@ back the table above. Your choice is saved with your profile and works on
 Linux and Android alike. So that no setting can lock you out, the menus
 always answer the arrows, Enter, Esc, the d-pad, A, B and Start, Esc and
 Start always pause, and the left stick always walks.
+
+**Assists and options.** ASSISTS AND OPTIONS at the bottom of CONTROLS
+switches these on or off (all off to start with). None of them is a cheat:
+records and bonus stars still count.
+
+| Option | What it does |
+|---|---|
+| HOLD TO FIRE | holding fire keeps shooting, five shots a second (rapid fire is still faster) |
+| DOWN + JUMP LEAVES A RIDE | down + jump climbs out of a vehicle as well as Use (off: only Use does, so a jump while steering down never throws you out) |
+| JUMP HELP | a jump pressed just before landing still happens, and there is a little more time to jump off a ledge |
+| HALF DAMAGE | hits take half the hearts |
+| GAME SPEED 75% | everything runs slower, except in levels that keep time with the music |
+| REDUCED EFFECTS | no screen shake and no flashes of light |
+
+After a death, Jump or Fire skips ahead to the retry. The game pauses by
+itself when its window loses focus or a gamepad is unplugged.
 
 **Fullscreen** fills your screen with no window frame. Press F11 or
 Alt+Enter, or pick FULLSCREEN on the title screen or in the pause menu. The

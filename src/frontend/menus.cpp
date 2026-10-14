@@ -87,9 +87,16 @@ bool Game::inLevel() const
 
 void Game::suspend()
 {
+  pauseLevel();
+  mProfile.save(saveDir());
+}
+
+void Game::pauseLevel()
+{
+  if (mOptions.autoplay)
+    return;
   if (mMenu == Menu::None && mMode == Mode::Play && mWorld && mWorld->state() == WorldState::Playing)
     openMenu(Menu::Pause);
-  mProfile.save(saveDir());
 }
 
 void Game::notice(const std::string& text)
@@ -260,6 +267,7 @@ void Game::openMenu(Menu m)
     case Menu::Cheats:
     case Menu::Controls:
     case Menu::TouchEdit:
+    case Menu::Assists:
     case Menu::Map:
       break;
     case Menu::Slots:
@@ -397,24 +405,18 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     notice("THAT SAVE IS FROM ANOTHER LEVEL");
     return false;
   }
-  if (s.theme >= 0 && s.theme < themeTotal() && s.theme != mThemeIndex)
-  {
-    // A fresh world comes next, so only the art needs rebuilding (the
-    // world holds references into it).
-    mWorld.reset();
-    mMainWorld.reset();
-    mThemeIndex = s.theme;
-    mArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
-    buildPanels();
-  }
   auto world = std::make_unique<World>(mLevel, std::clamp(s.character, 0, characterCount() - 1), theme(), *mArt);
   prepareWorld(*world);
   if (!world->restore(s))
   {
+    // The run in progress (if any) carries on.
     sound(Sfx::Hurt);
     notice("THAT SAVE DOES NOT FIT THIS LEVEL");
     return false;
   }
+  // The save's look: the art changes in place under the new world.
+  if (s.theme >= 0 && s.theme < themeTotal() && s.theme != mThemeIndex)
+    useTheme(s.theme);
   mWorld = std::move(world);
   mCursor = mWorld->characterIndex();
   mBot = Bot{};
@@ -593,6 +595,10 @@ bool Game::tickMenu(const Input& in)
       tickControls(in, ok, cancel, dir, side);
       break;
 
+    case Menu::Assists:
+      tickAssists(ok, cancel, dir);
+      break;
+
     case Menu::Map:
       tickMap(in, cancel || edge(&Input::map), ok);
       break;
@@ -634,6 +640,12 @@ void Game::renderMenu()
   if (mMenu == Menu::Controls || mMenu == Menu::TouchEdit)
   {
     renderControls();
+    return;
+  }
+
+  if (mMenu == Menu::Assists)
+  {
+    renderAssists();
     return;
   }
 

@@ -27,6 +27,8 @@ public:
   // One logic frame. manualScroll is -1 (look up), 0 or 1 (look down).
   void update(const Target& t, int manualScroll, int worldW, int worldH);
   void shake(int ticks, float strength);
+  // REDUCED EFFECTS: no shaking.
+  void setCalm(bool on) { mCalm = on; }
   // Level 35's turning tower: the world moved `cells` sideways under the
   // view (shiftX), and the view sits at x whatever the dead zone says (lockX).
   void shiftX(int cells);
@@ -61,6 +63,7 @@ private:
   Rng mRng{777u};
   float mShakeX = 0.0f;
   float mShakeY = 0.0f;
+  bool mCalm = false;
 };
 
 } // namespace gr

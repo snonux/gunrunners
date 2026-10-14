@@ -42,6 +42,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   , mRenderer(renderer)
   , mAudio(audio)
   , mThemeIndex(options.theme)
+  , mLook(themeByIndex(options.theme))
   , mArt(std::make_unique<Art>(Art::build(themeByIndex(options.theme), renderer)))
   , mCursor(options.autoplay ? 0 : options.character)
 {
@@ -97,9 +98,8 @@ void Game::sound(Sfx s)
 
 void Game::cycleTheme()
 {
-  // A parked level (during its bonus level) and cutscenes hold on to the
-  // current art.
-  if (mMainWorld || mMode == Mode::Cutscene)
+  // Cutscenes hold on to the current art.
+  if (mMode == Mode::Cutscene)
     return;
   setTheme((mThemeIndex + 1) % themeCount());
 }
@@ -108,38 +108,21 @@ void Game::setTheme(int index)
 {
   if (index == mThemeIndex && mArt)
     return;
-  // Mid-level, the run carries over into the new look.
-  std::optional<SaveGame> progress;
-  if (mWorld && mMode == Mode::Play && mWorld->canSave())
-    progress = mWorld->snapshot();
+  // Only the look changes: the run (a boss phase, a ride, a bonus level's
+  // clock, the level parked behind a bonus) carries on untouched.
+  useTheme(index);
+}
 
+void Game::useTheme(int index)
+{
   mThemeIndex = index;
-  // World holds references into the art, so rebuild it alongside.
-  auto newArt = std::make_unique<Art>(Art::build(theme(), mRenderer));
+  mLook = themeByIndex(index);
+  // In place: worlds keep their references to the palette and the art.
+  if (mArt)
+    *mArt = Art::build(mLook, mRenderer);
+  else
+    mArt = std::make_unique<Art>(Art::build(mLook, mRenderer));
   buildPanels();
-  mWorld.reset();
-  mArt = std::move(newArt);
-  if (progress)
-  {
-    mWorld = std::make_unique<World>(mLevel, progress->character, theme(), *mArt);
-    prepareWorld(*mWorld);
-    mWorld->restore(*progress);
-    mSubTick = 0;
-    mLatched = PlayerInput{};
-  }
-  else if (mMode == Mode::Play || mMode == Mode::Bonus)
-  {
-    if (campaign())
-    {
-      goTitle();
-    }
-    else
-    {
-      setMode(Mode::Select);
-      if (mAudio)
-        mAudio->playMusic(Music::Menu);
-    }
-  }
 }
 
 void Game::setMode(Mode m)
@@ -159,6 +142,7 @@ void Game::prepareWorld(World& world) const
   if (!pad.empty())
     label += " / " + padName(pad[0]);
   world.setUseLabel(label);
+  world.setPlayOptions(playOptions());
   // Level 41: QUACK MODE is on the ballot once every duck of levels 1-40 is found.
   bool quack = true;
   for (int n = 1; n <= 40; ++n)
@@ -284,7 +268,8 @@ void Game::finishTally()
   {
     const auto& s = mWorld->stats();
     std::fprintf(stderr,
-      "cleared: %s, %.1f s, deaths %d, hits %s, bots %d/%d, gems %d/%d, merch %d/%d, letters %s, score %d (+%d bonus)\n",
+      "%s: %s, %.1f s, deaths %d, hits %s, bots %d/%d, gems %d/%d, merch %d/%d, letters %s, score %d (+%d bonus)\n",
+      mWorld->bonusFailed() ? "bonus failed" : "cleared",
       mWorld->character().name.c_str(), double(s.frames) / 15.0, s.deaths, s.tookDamage ? "taken" : "none", s.kills,
       s.enemiesTotal, s.gems, s.gemsTotal, s.merch, s.merchTotal, s.letters.empty() ? "-" : s.letters.c_str(),
       mShownScore, mShownScore - mScoreBeforeBonus);
@@ -358,7 +343,14 @@ void Game::tickPlay(const Input& raw)
     mLatched.fire.triggered = true;
   mPrevLogicInput = in;
 
-  if (mSubTick == 0)
+  // GAME SPEED 75%: every fourth logic frame waits (presses stay latched).
+  bool logicFrame = mSubTick == 0;
+  if (logicFrame)
+  {
+    mHeldFrame = playOption("assist.slow") && !mOptions.autoplay && !mWorld->beatTimed() && ++mSlowCount % 4 == 0;
+    logicFrame = !mHeldFrame;
+  }
+  if (logicFrame)
   {
     // Held states use the latest input; a tap that was already released
     // still counts as pressed for this frame.
@@ -482,6 +474,8 @@ float Game::renderAlpha() const
   // the way to the newest logic state, and 0 means we have reached it.
   // (Treating 0 as "at the previous state" made everything snap back once
   // per logic frame, which showed up as a constant judder.)
+  if (mHeldFrame)
+    return 1.0f; // a logic frame skipped for GAME SPEED 75%: stay on the newest state
   const int sinceUpdate = mSubTick == 0 ? kTicksPerLogicFrame : mSubTick;
   return float(sinceUpdate) / float(kTicksPerLogicFrame);
 }

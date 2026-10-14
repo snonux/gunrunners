@@ -760,6 +760,20 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
 {
   if (!mBonusLevel || mState != WorldState::Playing)
     return;
+  // A goal reached in time wins, even when the last gem came in on the
+  // clock's final frame: the goal is checked before the clock runs out.
+  // goal=collect:N ends the bonus level as soon as N gems are in.
+  const auto& goal = mLevel->goal;
+  if ((goal.rfind("collect:", 0) == 0 && (mOrbit.on ? mOrbit.partsTaken : mTower.copycat ? mTower.caught : mWriters.breakout ? mWriters.broken : mFly.trigger ? mFly.hits : mStats.gems) >= std::atoi(goal.c_str() + 8)) ||
+      (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)) ||
+      (goal.rfind("goals:", 0) == 0 && mCryo.goalTarget > 0 && mCryo.scored >= mCryo.goalTarget))
+  {
+    showMessage("GOAL!");
+    playSound(Sfx::Teleport);
+    mState = WorldState::Exiting;
+    mStateFrames = 0;
+    return;
+  }
   if (mLevel->timer > 0 && --mBonusFramesLeft <= 0)
   {
     mBonusFramesLeft = 0;
@@ -775,19 +789,30 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
     mBonusFailed = true;
     mState = WorldState::Done;
     mStateFrames = 0;
-    return;
   }
-  // goal=collect:N ends the bonus level as soon as N gems are in.
-  const auto& goal = mLevel->goal;
-  if ((goal.rfind("collect:", 0) == 0 && (mOrbit.on ? mOrbit.partsTaken : mTower.copycat ? mTower.caught : mWriters.breakout ? mWriters.broken : mFly.trigger ? mFly.hits : mStats.gems) >= std::atoi(goal.c_str() + 8)) ||
-      (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)) ||
-      (goal.rfind("goals:", 0) == 0 && mCryo.goalTarget > 0 && mCryo.scored >= mCryo.goalTarget))
-  {
-    showMessage("GOAL!");
-    playSound(Sfx::Teleport);
-    mState = WorldState::Exiting;
-    mStateFrames = 0;
-  }
+}
+
+namespace
+{
+
+// Bonus clock frames per two real seconds: Overclock runs three frames to
+// one, the undercranked Silent Picture one and a half.
+int bonusFramesPer2s(bool overclock, bool film)
+{
+  return overclock ? 90 : film ? 45 : 30;
+}
+
+} // namespace
+
+int World::bonusSecondsLeft() const
+{
+  const int per2s = bonusFramesPer2s(mMagma.overclock, mFilm.on);
+  return (mBonusFramesLeft * 2 + per2s - 1) / per2s;
+}
+
+bool World::bonusHurry() const
+{
+  return mBonusFramesLeft * 2 < 10 * bonusFramesPer2s(mMagma.overclock, mFilm.on);
 }
 
 void World::addBonusReward(int score, int gems, bool star)

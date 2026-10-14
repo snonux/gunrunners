@@ -275,6 +275,10 @@ add_test(NAME bindings COMMAND bindings_test WORKING_DIRECTORY ${CMAKE_BINARY_DI
 add_executable(runner_editor_test tests/runner_editor_test.cpp)
 target_link_libraries(runner_editor_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME runner_editor COMMAND runner_editor_test)
+add_executable(audit_test tests/audit_test.cpp)
+target_link_libraries(audit_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME audit COMMAND audit_test)
+
 add_executable(vehicle_test tests/vehicle_test.cpp)
 target_link_libraries(vehicle_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME vehicles COMMAND vehicle_test ${CMAKE_SOURCE_DIR}/levels)

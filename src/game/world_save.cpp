@@ -456,7 +456,16 @@ SaveGame World::snapshot() const
     }
     s.vehicles.push_back(p.vehicle);
     s.vehicles.push_back(mAir);
+    // Then how each one is moving: a jump, a drift or a gun's cooldown
+    // carries on after loading exactly as it would have.
+    for (const auto& v : mVehicles)
+    {
+      const int motion[] = {v.vx, v.vy, v.ax, v.ay, v.air, v.fallen, v.aim, v.cool, v.cool2, v.mercy, v.step, v.barrel};
+      s.vehicles.insert(s.vehicles.end(), std::begin(motion), std::end(motion));
+    }
   }
+  if (mSwapHp >= 0)
+    s.swap = {mSwapBaseHp, mSwapBaseMax, mSwapHp, mSwapMax};
   return s;
 }
 
@@ -471,9 +480,18 @@ bool World::switchCharacter(int index)
   }
   auto& p = mPlayer;
   const auto& next = characterByIndex(index);
-  // Same fraction of hearts, rounded up so a switch never kills you.
-  p.hp = std::max(1, (p.hp * next.maxHp + p.maxHp - 1) / p.maxHp);
+  // Same fraction of hearts, rounded up so a switch never kills you. The
+  // fraction is the one before the first of a row of switches (nothing hit
+  // or healed the runner since), so rounding up never adds up to free hearts.
+  if (mSwapHp != p.hp || mSwapMax != p.maxHp || mSwapBaseMax <= 0)
+  {
+    mSwapBaseHp = p.hp;
+    mSwapBaseMax = p.maxHp;
+  }
+  p.hp = std::clamp((mSwapBaseHp * next.maxHp + mSwapBaseMax - 1) / mSwapBaseMax, 1, next.maxHp);
   p.maxHp = next.maxHp;
+  mSwapHp = p.hp;
+  mSwapMax = p.maxHp;
   mCharacter = next;
   mCharacterIndex = index;
 
@@ -528,7 +546,8 @@ bool World::restore(const SaveGame& s)
       (!s.flytower.empty() && !validFlyTowerSave(s.flytower)) ||
       (!s.sweeps.empty() && !validSweepsSave(s.sweeps)) ||
       (!s.finale.empty() && !validFinaleSave(s.finale)) ||
-      (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
+      (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2 &&
+        s.vehicles.size() != mVehicles.size() * (9 + kVehicleMotionSave) + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
     return false;
@@ -590,6 +609,14 @@ bool World::restore(const SaveGame& s)
   st.protoKills = s.protoKills;
   st.cheated = s.cheated;
   mGod = s.god;
+  mSwapHp = -1;
+  if (s.swap.size() == 4 && s.swap[1] > 0)
+  {
+    mSwapBaseHp = s.swap[0];
+    mSwapBaseMax = s.swap[1];
+    mSwapHp = s.swap[2];
+    mSwapMax = s.swap[3];
+  }
   mBonusStar = s.bonusStar;
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];
@@ -1273,6 +1300,33 @@ bool World::restore(const SaveGame& s)
       boardVehicle(ride);
       mTexts.clear();
       mParticles.clear();
+    }
+    if (s.vehicles.size() > at)
+    {
+      // Saves since the audit fixes carry the motion too (older ones load
+      // with every vehicle at rest).
+      for (auto& v : mVehicles)
+      {
+        v.vx = s.vehicles[at++];
+        v.vy = s.vehicles[at++];
+        v.ax = s.vehicles[at++];
+        v.ay = s.vehicles[at++];
+        v.air = s.vehicles[at++];
+        v.fallen = s.vehicles[at++];
+        v.aim = s.vehicles[at++];
+        v.cool = std::max(0, s.vehicles[at++]);
+        v.cool2 = std::max(0, s.vehicles[at++]);
+        v.mercy = std::max(0, s.vehicles[at++]);
+        v.step = s.vehicles[at++];
+        v.barrel = s.vehicles[at++];
+      }
+    }
+    else
+    {
+      // An old save: a vehicle off the ground falls rather than counting as
+      // landed (a fresh jump in mid-air).
+      for (auto& v : mVehicles)
+        settleVehicleAir(v);
     }
     syncPlatformCollision();
   }

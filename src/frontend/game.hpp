@@ -84,6 +84,8 @@ public:
   // The app is going to the background (Android may close it there): the
   // pause menu opens over a running level and the profile is saved.
   void suspend();
+  // The window lost focus or a gamepad dropped out: a running level pauses.
+  void pauseLevel();
 
   // The CONTROLS menu (controls_menu.cpp). The window code reads the
   // bindings, and while the menu listens for a new key or pad button it
@@ -118,6 +120,8 @@ public:
   // Where the runner is on the screen (the middle of its body), for a touch
   // that shoots at the spot it lands on; false outside a level.
   bool runnerOnScreen(float& x, float& y) const;
+  // The level being played (the bonus level while one runs), for tests.
+  const World* world() const { return mWorld.get(); }
 
 private:
   enum class Mode
@@ -240,6 +244,7 @@ private:
     Cheats,
     Controls,
     TouchEdit,
+    Assists, // ASSISTS AND OPTIONS, from CONTROLS
     Map,
   };
   bool tickMenu(const Input& in);
@@ -260,6 +265,7 @@ private:
   bool loadSave(SaveGame s, const std::string& message);
   void switchRunner(int index);
   void setTheme(int index);
+  void useTheme(int index);
   void notice(const std::string& text);
   void renderMenu();
   void renderNotice();
@@ -278,7 +284,17 @@ private:
   void renderControls();
   void saveBindings();
   std::string keysHint() const;
-  const Theme& theme() const { return themeByIndex(mThemeIndex); }
+  // The ASSISTS AND OPTIONS rows (kept in the profile; none is a cheat).
+  bool playOption(const char* key, bool fallback = false) const;
+  World::PlayOptions playOptions() const;
+  void tickAssists(bool ok, bool cancel, int dir);
+  void renderAssists();
+  int mAssistCursor = 0;
+  int mSlowCount = 0;       // GAME SPEED 75%: every fourth logic frame is skipped
+  bool mHeldFrame = false;  // the last logic frame was skipped: draw the newest state
+  // The palette in use. Worlds, panels and cutscene clips hold references to
+  // it and to the art, so a new look is copied into these same objects.
+  const Theme& theme() const { return mLook; }
 
   // Campaign.
   Profile mProfile;
@@ -313,6 +329,7 @@ private:
   Renderer& mRenderer;
   Audio* mAudio;
   int mThemeIndex;
+  Theme mLook;
   std::unique_ptr<Art> mArt;
   std::shared_ptr<const Level> mLevel;
   std::unique_ptr<World> mWorld;

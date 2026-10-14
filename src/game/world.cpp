@@ -2071,7 +2071,7 @@ void World::burst(Vec2 at, Color a, Color b, int count, float speed, bool glow)
 
 void World::flashAt(Vec2 at, float radius, Color c, int life)
 {
-  if (mSimulation)
+  if (mSimulation || mPlay.calm)
     return;
   mFlashes.push_back({at, radius, c, life, life});
 }

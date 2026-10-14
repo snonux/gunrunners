@@ -17,6 +17,7 @@ namespace
 {
 
 constexpr int kMercyFrames = 30;      // RigelEngine: 40/30/20 by difficulty
+constexpr int kHoldFireFrames = 3;    // hold to fire: 5 shots a second (rapid fire is 7.5)
 constexpr int kInitialMercyFrames = 20;
 // Gunrunners additions on top of Duke II: timed Turbo Mode and Virus.
 constexpr int kEffectAboutToExpire = 45;
@@ -100,6 +101,16 @@ void World::updatePlayer(const PlayerInput& raw)
 
   if (p.state == PlayerState::Dying)
   {
+    // Quick retry: jump or fire cuts the death scene short.
+    if (mPlay.quickRetry && !mDeathRush && (raw.jump.triggered || raw.fire.triggered))
+    {
+      mDeathRush = true;
+      if (p.deathPhase < 2)
+      {
+        p.deathPhase = 2;
+        p.frames = 9; // straight to the explosion
+      }
+    }
     updateDeathAnimation();
     return;
   }
@@ -329,6 +340,20 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
     p.jumpRequested = true;
   if (!jumpButton.pressed)
     p.jumpRequested = false;
+  if (mPlay.jumpHelp)
+  {
+    // Jump help: a jump pressed a moment before landing still happens.
+    if (jumpButton.triggered &&
+        (p.state == PlayerState::Jumping || p.state == PlayerState::Falling || p.state == PlayerState::Recovering))
+      mJumpBuffer = kJumpBufferFrames + 1;
+    else if (mJumpBuffer > 0)
+      --mJumpBuffer;
+    if (mJumpBuffer > 0 && p.state == PlayerState::OnGround)
+    {
+      p.jumpRequested = true;
+      mJumpBuffer = 0;
+    }
+  }
 
   const bool shouldUseJetpack = canFire() && (p.weapon == Weapon::Flame || pyroJet()) && mvY > 0 && fireButton.pressed;
   if (shouldUseJetpack && p.state != PlayerState::Jetpack)
@@ -425,7 +450,7 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       {
         startFalling();
         if (p.state == PlayerState::Falling)
-          p.coyote = 2;
+          p.coyote = mPlay.jumpHelp ? 3 : 2;
       }
       break;
     }
@@ -874,8 +899,16 @@ void World::updateShooting(const Button& fire)
   const bool hasRapidFire = p.virus == 0 && (p.rapidFire > 0 || p.weapon == Weapon::Flame || p.turbo > 0);
   if (!canFire())
     return;
+  if (!fire.pressed || fire.triggered)
+    mHoldFireWait = 0;
   if (fire.triggered || (fire.pressed && hasRapidFire && (!p.rapidFiredLastFrame || p.turbo > 0)))
     fireShot();
+  else if (mPlay.holdFire && fire.pressed && !hasRapidFire && ++mHoldFireWait >= kHoldFireFrames)
+  {
+    // Hold to fire: a shot every few frames, slower than the rapid fire pickup.
+    mHoldFireWait = 0;
+    fireShot();
+  }
   if (fire.pressed && hasRapidFire)
     p.rapidFiredLastFrame = !p.rapidFiredLastFrame;
   else
@@ -1084,6 +1117,14 @@ void World::hurtPlayer(int amount)
   }
   if (p.mercy > 0)
     return;
+  if (mPlay.lowDamage)
+  {
+    // Half the damage: an odd half heart waits for the next hit (which
+    // still flashes and gives the moment of mercy).
+    mDamageCarry += amount;
+    amount = mDamageCarry / 2;
+    mDamageCarry %= 2;
+  }
   p.hp -= amount;
   mStats.tookDamage = true;
   if (!mSimulation && std::getenv("GR_PLANNER_DEBUG"))
@@ -1177,11 +1218,11 @@ void World::updateDeathAnimation()
         playSound(Sfx::Explosion);
         mCamera.shake(14, 2.5f);
       }
-      if (p.frames >= 35)
+      if (p.frames >= (mDeathRush ? 18 : 35))
         respawnPlayer();
       break;
     default: // fell out of the map
-      if (++p.frames >= 15)
+      if (++p.frames >= (mDeathRush ? 5 : 15))
         respawnPlayer();
       break;
   }
@@ -1197,6 +1238,7 @@ void World::respawnPlayer()
   p.stance = Stance::Regular;
   p.frames = 0;
   p.deathPhase = 0;
+  mDeathRush = false;
   p.somersault = -1;
   p.hidden = false;
   p.vine = -1;
