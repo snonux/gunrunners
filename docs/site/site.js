@@ -1,8 +1,9 @@
 // Gunrunners web page: the turnable game box, the gameplay clips that play
-// while they are on screen, and a lightbox for the screenshots. No
-// dependencies. Without JavaScript the page still reads fine: the box stands
-// at its resting angle, its turn controls stay hidden, the clips have their
-// own controls and the screenshots link to the full-size files.
+// while they are on screen, one trailer at a time, and a lightbox for the
+// screenshots. No dependencies. Without JavaScript the page still reads
+// fine: the box stands at its resting angle, its turn controls stay hidden,
+// the clips and trailers have their own controls and the screenshots link
+// to the full-size files.
 (function () {
   "use strict";
 
@@ -203,6 +204,20 @@
     videos.forEach(function (v) { io.observe(v); });
   }
 
+  // ---------- the trailers ----------
+  // The trailers have voice-over and play only when clicked. One at a time:
+  // starting one pauses any other trailer and mutes the game clips, so no
+  // two soundtracks talk over each other.
+  function setupTrailers() {
+    var trailers = document.querySelectorAll(".trailer video");
+    trailers.forEach(function (t) {
+      t.addEventListener("play", function () {
+        trailers.forEach(function (other) { if (other !== t && !other.paused) other.pause(); });
+        document.querySelectorAll(".video video").forEach(function (v) { v.muted = true; });
+      });
+    });
+  }
+
   // ---------- the screenshots ----------
   function setupLightbox() {
     if (typeof HTMLDialogElement !== "function") return;
@@ -229,5 +244,6 @@
 
   setupBox();
   setupVideos();
+  setupTrailers();
   setupLightbox();
 })();

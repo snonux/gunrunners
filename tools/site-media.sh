@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # Makes the media of the web page (docs/index.html, served on
 # https://gunrunners.snonux.foo): the six runner portraits, short gameplay
-# clips with sound, and the screenshots the page shows that docs/media does
-# not have. Everything is drawn or played by the game itself, headless and
-# deterministic, and the PNGs carry no timestamps, so a rerun gives the same
-# files.
+# clips with sound, the screenshots the page shows that docs/media does not
+# have, and posters for the trailers in docs/trailers. All but the posters
+# are drawn or played by the game itself, headless and deterministic; the
+# posters are frames cut from the committed trailers. The PNGs carry no
+# timestamps, so a rerun gives the same files.
 #
 # Usage: tools/site-media.sh [portraits|clips|shots|trailers|all]   (default: all)
 # Writes docs/site/runners/*.png, docs/site/icon.png, docs/site/video/*.mp4
 # (+ .jpg posters), docs/site/shots/levelNN.jpg and a poster for each
-# trailer in docs/trailers (docs/site/video/trailer_*.jpg). Needs cmake, ffmpeg and ImageMagick (magick).
-# Like record.sh and covers.sh it (re)configures build/ as a Release build.
+# trailer in docs/trailers (docs/site/video/trailer_*.jpg). Needs ffmpeg,
+# and for everything but the trailer posters cmake and ImageMagick (magick):
+# like record.sh and covers.sh, those modes (re)configure build/ as a
+# Release build and build the game first.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -22,7 +25,9 @@ case $WHAT in
   portraits | clips | shots | trailers | all) ;;
   *) echo "usage: $0 [portraits|clips|shots|trailers|all]" >&2; exit 2 ;;
 esac
-for tool in cmake ffmpeg magick; do
+tools="ffmpeg"
+[[ $WHAT == trailers ]] || tools="cmake ffmpeg magick"
+for tool in $tools; do
   command -v "$tool" > /dev/null || { echo "$0: needs $tool" >&2; exit 1; }
 done
 
@@ -117,7 +122,7 @@ trailers() {
   done
 }
 
-build
+[[ $WHAT == trailers ]] || build
 case $WHAT in
   portraits) portraits ;;
   clips) clips ;;

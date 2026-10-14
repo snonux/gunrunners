@@ -209,7 +209,10 @@ the game itself: the runner portraits and the page icon
 (`gunrunners_cover --portraits`), the gameplay clips (the bot playing,
 recorded headless like `record.sh`), the screenshots the page shows that
 `docs/media` has none of, and a poster for each trailer in `docs/trailers`
-(the page plays the trailers from there). `tests/site/links.sh` (ctest `site_links`) checks
+(the page plays the trailers from there). The trailers' captions,
+`docs/site/captions/*.vtt`, were transcribed with Whisper (`small.en`,
+WebVTT output) and the names (Gunrunners, Lance Marquee, Skye, the web
+address) corrected by hand; redo them the same way when a trailer changes. `tests/site/links.sh` (ctest `site_links`) checks
 that every file and anchor the page points at exists and that `docs/CNAME`
 matches its domain.
 
