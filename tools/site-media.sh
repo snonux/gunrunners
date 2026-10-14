@@ -5,8 +5,7 @@
 # have, and posters for the trailers in docs/trailers. All but the trailer
 # posters are drawn or played by the game itself, headless and
 # deterministic; the trailer posters are frames cut from the committed
-# trailers. The PNGs carry no
-# timestamps, so a rerun gives the same files.
+# trailers. The PNGs carry no timestamps, so a rerun gives the same files.
 #
 # Usage: tools/site-media.sh [portraits|clips|shots|trailers|all]   (default: all)
 # Writes docs/site/runners/*.png, docs/site/icon.png, docs/site/video/*.mp4
