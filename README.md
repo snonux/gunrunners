@@ -144,11 +144,10 @@ or USB gamepad, connected at any time; the on-screen controls step aside
 while you use the pad. Building the APK yourself is described in
 [android/README.md](android/README.md).
 
-**Linux (x86_64):** when a [release](https://github.com/snonux/gunrunners/releases/latest)
-carries `gunrunners-vX.Y.Z-linux-x86_64.tar.gz`, download it, unpack it
-anywhere and start `gunrunners` in it. The releases so far (up to v0.5.0)
-ship only the Android APK, so until a tarball is there, build from source
-as shown below. The tarball needs SDL2, Cairo and libcurl, which most desktops
+**Linux (x86_64):** download `gunrunners-vX.Y.Z-linux-x86_64.tar.gz` from
+the [latest release](https://github.com/snonux/gunrunners/releases/latest)
+(v0.4.0 and later carry one), unpack it anywhere and start `gunrunners` in
+it. The tarball needs SDL2, Cairo and libcurl, which most desktops
 already have:
 
 ```sh
