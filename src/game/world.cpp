@@ -197,6 +197,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkGallery();
   linkFlyTower();
   linkSweeps();
+  linkFinale();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -317,6 +318,14 @@ void World::update(const PlayerInput& input)
   if (mSweeps.on)
   {
     updateSweepsFrames(input);
+    return;
+  }
+  // Level 42: the turntable's roll-ins, the monitors' wipes and the
+  // commercial breaks hold the world still; the Blooper Reel switches its
+  // rules (world_finale.cpp).
+  if (mFinale.on)
+  {
+    updateFinaleFrames(input);
     return;
   }
   if (!mFilm.on)
@@ -545,6 +554,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateFlyTower();
   if (mSweeps.on)
     updateSweeps();
+  if (mFinale.on)
+    updateFinale(input);
   updateHatches();
   updateProps(input);
 }
@@ -1125,6 +1136,18 @@ void World::updateEnemies()
       case EnemyKind::CueDrone:
         updateCueDrone(e, def);
         break;
+      case EnemyKind::CensorBar:
+        updateCensorBar(e, def);
+        break;
+      case EnemyKind::AdBreak:
+        updateAdBreak(e, def);
+        break;
+      case EnemyKind::SampleBot:
+        updateSampleBot(e, def);
+        break;
+      case EnemyKind::StuntDouble:
+        updateStuntDouble(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1278,6 +1301,9 @@ void World::updateProjectiles()
       return true;
     // Level 41: big heads, confetti cannons, the Applause Cannon's streak, Paintball.
     if (mSweeps.on && shotAtSweeps(pr, b))
+      return true;
+    // Level 42: Lance's podium, the Encore Engine, the switch's glass cover.
+    if (mFinale.on && shotAtFinale(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))

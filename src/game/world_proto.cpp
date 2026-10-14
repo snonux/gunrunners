@@ -66,6 +66,9 @@ void World::updateProtoShooting(const Button& fire)
     mGreen.trim = 0;
     return;
   }
+  // Level 42: the Encore fires whichever prototype its wheel shows (world_finale.cpp).
+  if (ProtoId(p.proto) == ProtoId::Encore && updateEncore(fire))
+    return;
   // Level 29: Up + fire turns the Tri-Tone's tint instead (world_signal.cpp).
   if (ProtoId(p.proto) == ProtoId::TriToneBlaster && turnTint(fire))
     return;

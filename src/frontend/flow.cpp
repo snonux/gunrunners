@@ -488,6 +488,8 @@ void Game::recordClear()
     mProfile.ducks.insert(n);
   if (st.camera)
     mProfile.cameras.insert(n);
+  if (mWorld->secretsComplete())
+    mProfile.secrets.insert(n); // every $ cache and G-U-N: Level 42's post-credits scene counts them
   if (mWorld->bonusStar())
     mProfile.stars.insert(n);
   if (spaceLevel(n))

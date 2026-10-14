@@ -376,7 +376,8 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       const CellBox b = p.box();
       const bool headroom = !mMap.touchingCeiling(b) && !mMap.touchingCeiling({b.x, b.y - 1, b.w, b.h});
       // No jumping out of sludge: you wade, or step up onto the bank.
-      if (p.jumpRequested && headroom && !(wading() && mFluids.size() > 0) && !(mToon.on && toonNoJump()))
+      if (p.jumpRequested && headroom && !(wading() && mFluids.size() > 0) && !(mToon.on && toonNoJump()) &&
+          !(mFinale.on && finaleNoJump()))
       {
         jump();
       }
@@ -387,6 +388,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       else if (mWardrobe.toon && !mMap.onSolidGround(p.box()) && wardrobeAirRun(mvX))
       {
         // Level 37: the OUT OF ORDER booth's cartoon, a few frames on air.
+      }
+      else if (mFinale.on && !mMap.onSolidGround(p.box()) && finaleAirRun(mvX))
+      {
+        // Level 42: the toon wagon's slot, running on air (world_finale.cpp).
       }
       else if (!mMap.onSolidGround(p.box()) && !(!mFluids.empty() && buoyed()))
       {
@@ -1252,6 +1257,8 @@ void World::respawnPlayer()
     resetFlyTower();
   if (mSweeps.on)
     resetSweeps();
+  if (mFinale.on)
+    resetFinale();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

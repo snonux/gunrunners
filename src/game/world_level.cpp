@@ -186,6 +186,8 @@ void World::setupEntities()
       continue;
     if (setupSweepsEntity(e))
       continue;
+    if (setupFinaleEntity(e))
+      continue;
     if (setupWarehouseEntity(e))
       continue;
     if (setupTowerEntity(e))
@@ -264,6 +266,7 @@ void World::setupEntities()
       setupGalleryEnemy(en, e);
       setupFlyTowerEnemy(en, e);
       setupSweepsEnemy(en, e);
+      setupFinaleEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:

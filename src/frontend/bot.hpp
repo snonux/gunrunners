@@ -109,6 +109,10 @@ public:
   // Level 41 (bot_sweeps.cpp): the Virus's V, Plants standing up; MIRROR MODE.
   bool sweeps(const World& world, Input& in);
   bool mSwPrevFire = false;
+  // Level 42 (bot_finale.cpp): roll-ins, plates, monitors, the glass cover; Lance and the Encore Engine.
+  bool finale(const World& world, Input& in);
+  Input fightFinale(const World& world);
+  Input mFnPrev;
   Input breakout(const World& world);
   bool mPenPrev = false, mTypePrevJump = false;
   int mStrikeWait = 0;

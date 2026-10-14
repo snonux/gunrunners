@@ -221,6 +221,8 @@ bool World::exitPowered() const
     return false; // High Noon: the way out opens after the twentieth duel
   if (mTower.titan.on && mTower.titan.phase != TitanPhase::Done)
     return false; // the beam shows once the Halcyon Titan has fallen
+  if (mFinale.boss.on && !(mFinale.boss.phase == FnPhase::OffAir && mFinale.boss.coverHp <= 0))
+    return false; // the master switch, once its glass cover is broken in Off the Air
   return !darkAt(mLevel->exitTx * kCellsPerTile, (mLevel->exitTy + 1) * kCellsPerTile - 1) || mSectors.empty();
 }
 

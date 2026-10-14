@@ -60,6 +60,8 @@ Profile Profile::load(const std::string& dir)
       readSet(in, p.ducks);
     else if (key == "cameras")
       readSet(in, p.cameras);
+    else if (key == "secrets")
+      readSet(in, p.secrets);
     else if (key == "cutscenes")
       readSet(in, p.cutscenes);
     else if (key == "kills")
@@ -115,6 +117,7 @@ bool Profile::save(const std::string& dir) const
     writeSet(o, "stars", stars);
     writeSet(o, "ducks", ducks);
     writeSet(o, "cameras", cameras);
+    writeSet(o, "secrets", secrets);
     writeSet(o, "cutscenes", cutscenes);
     o << "scores";
     for (const auto& [n, v] : scores)

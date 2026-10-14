@@ -35,6 +35,7 @@
 #include "game/gallery.hpp"
 #include "game/flytower.hpp"
 #include "game/sweeps.hpp"
+#include "game/finale.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -265,6 +266,7 @@ struct Projectile
   bool pierce = false;
   int pierceLeft = 0; // enemies it still passes through (pierce-one shots)
   int proto = -1;     // ProtoId for ShotKind::Proto
+  int encore = -1;    // Level 42: the prototype an Encore shot was fired as (-1 none)
   bool strong = false; // on-the-beat and other powered-up shots look bigger
   bool carrier = false; // an infected enemy's shot: infects instead of hurting
   int range = -1;       // cells left before it fizzles, -1 unlimited
@@ -1873,6 +1875,13 @@ public:
   bool sweepsMirrored() const;                                     // Level 41: MIRROR MODE swaps left and right now
   int sweepsStyle() const;                                         // Level 41: the style score of the segment so far
   bool sweepsVisible(const CellBox& b) const { return isOnScreen(b, 0); } // Level 41 (the bot): on screen now
+  const FinaleState& finale() const { return mFinale; }
+  bool finaleFight() const;                       // Level 42: Lance, the Encore Engine or Off the Air is on
+  bool finaleFrozen() const;                      // Level 42: a roll-in, a static wipe or a commercial holds the world
+  bool finaleStepDone(int i) const;               // Level 42 (the bot): step i of the route is behind the runner
+  bool finaleVisible(const CellBox& b) const { return isOnScreen(b, 0); } // Level 42 (the bot)
+  void setFinaleArsenal(const std::vector<std::string>& keys); // Level 42: the Encore's wheel (the profile's Arsenal)
+  bool secretsComplete() const;                   // every $ cache and letter of this level found (post-credits)
   int writersFloor(int cy) const;    // Level 38: 0 the script floor, 1 the corkboard, 2 the desks
   bool wardrobeStepDone(int i) const; // Level 37: the bot's route step i is done
   int rackLaunch() const;             // Level 37: cells a spring rack throws the runner now
@@ -2861,6 +2870,51 @@ private:
   void drawSweepsFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSweepsTop(Renderer& r, float camX, float camY, int frame) const;
   void drawSweepsHud(Renderer& r, int frame) const;
+  // Level 42 (world_finale.cpp, world_finale_boss.cpp, world_finale_draw.cpp).
+  bool setupFinaleEntity(const EntityDef& e);
+  void setupFinaleEnemy(Enemy& en, const EntityDef& e);
+  void linkFinale();
+  void updateFinaleFrames(const PlayerInput& input);
+  void updateFinale(const PlayerInput& input);
+  void updateWagons();
+  void setWagonTrick(FnWagon& w, bool on);
+  void updateFinalePlates();
+  void updateFinalePortals(const PlayerInput& input);
+  bool finaleAirRun(int mvX);
+  bool finaleNoJump() const;
+  bool inWagon(FnWagonKind kind, bool running) const;
+  void updateCensorBar(Enemy& e, const EnemyDef& def);
+  void updateAdBreak(Enemy& e, const EnemyDef& def);
+  void updateSampleBot(Enemy& e, const EnemyDef& def);
+  void updateStuntDouble(Enemy& e, const EnemyDef& def);
+  FnActor* finaleActor(const Enemy& e);
+  void updateFinaleActors();
+  bool shotAtFinale(Projectile& pr, const CellBox& b);
+  bool updateEncore(const Button& fire);
+  void resetFinale();
+  bool finaleCanSave() const;
+  std::vector<int> finaleSave() const;
+  bool validFinaleSave(const std::vector<int>& v) const;
+  void loadFinale(const std::vector<int>& v);
+  void applyFinaleLayers();
+  void setFinaleLayer(int index, bool solid);
+  void updateReel();
+  void setReelRule(int rule, bool on);
+  std::uint32_t finaleRand();
+  void updateFinaleBoss(const PlayerInput& input);
+  void updateLance();
+  void startLanceAttack();
+  void updateLanceAttack();
+  void updateEncoreEngine();
+  void updateOffAir();
+  void finaleHurts(int damage);
+  void finaleDrop(ItemKind kind, int x, int y);
+  void restartOffAir();
+  bool shotAtBoss(Projectile& pr, const CellBox& b);
+  void drawFinaleBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFinaleFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFinaleTop(Renderer& r, float camX, float camY, int frame) const;
+  void drawFinaleHud(Renderer& r, int frame) const;
   PlayerInput breakoutInput(const PlayerInput& raw);
   void updateBreakout();
   bool writersCanSave() const;
@@ -3529,6 +3583,7 @@ private:
   std::deque<RewindFrame> mRewind;
   FlyTowerState mFly; // Level 40
   SweepsState mSweeps; // Level 41
+  FinaleState mFinale; // Level 42
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner

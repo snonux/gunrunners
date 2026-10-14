@@ -256,6 +256,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFlyTowerBack(r, camX, camY, frame, alpha);
   if (mSweeps.on)
     drawSweepsBack(r, camX, camY, frame, alpha);
+  if (mFinale.on)
+    drawFinaleBack(r, camX, camY, frame, alpha);
   if (mGolden)
     drawGolden(r, camX, camY, frame);
   drawClub(r, camX, camY, frame);
@@ -1091,6 +1093,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawFlyTowerFront(r, camX, camY, frame, alpha);
   if (mSweeps.on)
     drawSweepsFront(r, camX, camY, frame, alpha);
+  if (mFinale.on)
+    drawFinaleFront(r, camX, camY, frame, alpha);
 
   // Projectiles.
   for (const auto& pr : mProjectiles)
@@ -1364,6 +1368,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     return; // Both Sides: the HUD goes over both halves (drawSplit)
   if (mSweeps.on)
     drawSweepsTop(r, camX, camY, frame); // Level 41: LIGHTS OUT, MIRROR MODE
+  if (mFinale.on)
+    drawFinaleTop(r, camX, camY, frame); // Level 42: the roll-in, the wipe, the commercial, BLOOPER!
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
   drawVehicleHud(r, frame);
@@ -1996,6 +2002,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawFlyTowerHud(r, frame);
   if (mSweeps.on)
     drawSweepsHud(r, frame);
+  if (mFinale.on)
+    drawFinaleHud(r, frame);
   if (mGarden.on)
     drawGardenHud(r, frame);
   if (mGolden)

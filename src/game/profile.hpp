@@ -18,6 +18,7 @@ struct Profile
   std::set<int> stars;             // levels whose bonus level was beaten
   std::set<int> ducks;             // levels whose rubber duck was found
   std::set<int> cameras;           // levels whose candid camera was shot
+  std::set<int> secrets;           // levels cleared with every $ cache and G-U-N found (the post-credits scene)
   std::set<std::string> cutscenes; // seen cutscenes
   std::map<int, int> scores;       // best score per level (level 6's billboard shows level 2's)
   int reached = 1;                 // highest level started

@@ -158,6 +158,7 @@ struct SaveGame
   std::vector<int> gallery;   // Level 39 (World::gallerySave)
   std::vector<int> flytower;  // Level 40 (World::flyTowerSave)
   std::vector<int> sweeps;    // Level 41 (World::sweepsSave)
+  std::vector<int> finale;    // Level 42 (World::finaleSave)
   // The map: runs of unexplored, explored, unexplored... blocks, row by row.
   std::vector<int> explored;
   // Vehicles: each one's x, y, facing, armour, fuel, home x, y and facing

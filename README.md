@@ -17,14 +17,15 @@ playable any time from WORLD SELECT on the title screen. Six vehicles (tank,
 helicopter, hoverbike, submarine, space ship and mech) turn up along the
 way, and two EXTRAS levels are built around them.
 
-**Playable now: 48 levels.** Episodes 1 to 5 (Levels 1-35), every level
-with its bonus level and every episode with its ending, Levels 36 to 41 of
-Episode 6 (Prop Warehouse, with its Throw Everything bonus, Wardrobe, with
-its Totem bonus, Writers' Room, with its Breakout bonus, The Gallery, with
-its Rewind bonus, The Fly Tower, with its Trigger Happy bonus, and Sweeps
-Week, with its Paintball bonus), all of Episode 7 (Levels 43-49) with its
-ending, and both EXTRAS. The rest of Episode 6 (Level 42) is being built
-now.
+**Playable now: all 49 levels.** The whole campaign, Episodes 1 to 6
+(Levels 1-42), every level with its bonus level and every episode with its
+ending: Episode 6 (Prop Warehouse, with its Throw Everything bonus,
+Wardrobe, with its Totem bonus, Writers' Room, with its Breakout bonus, The
+Gallery, with its Rewind bonus, The Fly Tower, with its Trigger Happy bonus,
+Sweeps Week, with its Paintball bonus, and The Live Finale, with its
+Blooper Reel bonus) closes on the finale and, once every $ cache and every
+G-U-N of the campaign has been found, a post-credits scene. All of Episode
+7 (Levels 43-49) with its ending, and both EXTRAS.
 
 | Rooftop Run: neon signs that are only solid on the beat | Club Laserdisc: bounce pads, bouncers and the bass drop |
 |---|---|

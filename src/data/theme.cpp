@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 49> kVariants{{
+const std::array<Variant, 50> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -737,6 +737,20 @@ const std::array<Variant, 49> kVariants{{
     rgb(60, 24, 40), rgb(90, 36, 56),
     rgb(200, 180, 170), rgb(250, 235, 220), rgb(100, 80, 80), rgb(255, 60, 120),
     rgb(255, 245, 220), "sweeps_week"}},
+  // Level 42: the live finale, a main stage in midnight blue, gold trim and ON AIR red.
+  {"main_stage",
+   {ThemeId::NeonOverdrive,
+    "THE LIVE FINALE",
+    "THE SEASON RECAP, LIVE ON AIR",
+    rgb(8, 10, 30), rgb(24, 26, 70), rgb(70, 50, 120),
+    rgb(50, 46, 90), rgb(110, 100, 160), rgb(24, 20, 44),
+    rgb(255, 215, 90), rgb(255, 245, 190),
+    rgb(150, 120, 70), rgb(90, 70, 40),
+    rgb(255, 60, 60), rgb(255, 200, 180),
+    rgb(255, 215, 90), rgb(90, 200, 255),
+    rgb(34, 30, 60), rgb(56, 50, 90),
+    rgb(190, 190, 210), rgb(245, 240, 255), rgb(80, 80, 110), rgb(255, 50, 70),
+    rgb(255, 250, 235), "main_stage"}},
 }};
 
 } // namespace

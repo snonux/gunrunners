@@ -713,6 +713,46 @@ Planner::Goal Planner::sweepsGoal(const World& w) const
   return {};
 }
 
+// Level 42: the route's next step (the station's floor plate, its ceiling
+// plate, the studio's first monitor; Bot::finale waits on the plates and
+// presses up at the monitor); in Off the Air, the console beside the
+// switch's glass cover until it is broken.
+Planner::Goal Planner::finaleGoal(const World& w) const
+{
+  const auto& f = w.finale();
+  if (f.reel)
+    return {};
+  const auto& b = f.boss;
+  if (b.on && b.phase == FnPhase::OffAir && b.coverHp > 0)
+  {
+    const CellBox c = finaleCoverBox(w);
+    return {18, c.x - 3, c.bottom() - 4, 2, 5, -1};
+  }
+  for (int i = 0; i < int(f.route.size()); ++i)
+  {
+    if (w.finaleStepDone(i))
+      continue;
+    const auto& st = f.route[std::size_t(i)];
+    // A fuse on the way to it comes first (the Level 22 fuse goal below).
+    const auto& ws = w.west();
+    const int px = w.player().x / kCellsPerTile;
+    for (const auto& fu : ws.fuses)
+      if (fu.bot && !fu.lit() && !fu.cells.empty() && fu.cells[0].x < st.x / kCellsPerTile && px <= fu.cells[0].x + 2 &&
+          !(fu.barrel >= 0 && (ws.barrels[std::size_t(fu.barrel)].blown || ws.barrels[std::size_t(fu.barrel)].t >= 0)))
+        return {};
+    if (st.act == "ceiling")
+      return {18, st.x - 1, st.y - 1 - 4, 4, 5, -1}; // hanging from the slab: y is the feet's row at the top
+    if (st.act == "hop")
+      return {18, st.x, st.y - 4, 3, 5, -1}; // the middle on the monitor's bottom row
+    return {18, st.x - 1, st.y - 4, 4, 5, -1};
+  }
+  // Into the arena (the show starts behind the ON AIR door; Bot::fightFinale fights it).
+  if (b.on && b.phase != FnPhase::OffAir && b.phase != FnPhase::Switched && w.player().x < b.arenaX0 + 4 &&
+      w.player().x >= b.arenaX0 - 80)
+    return {18, b.arenaX0 + 6, b.floorY - 4, 4, 5, -1};
+  return {};
+}
+
 Planner::Goal Planner::writersGoal(const World& w) const
 {
   const auto& s = w.writers();
@@ -829,6 +869,13 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   if (w.sweeps().on)
   {
     const Goal h = sweepsGoal(w);
+    if (h.kind != 0)
+      return h;
+  }
+  // Level 42: the route's plates and monitor; the switch's console.
+  if (w.finale().on)
+  {
+    const Goal h = finaleGoal(w);
     if (h.kind != 0)
       return h;
   }
@@ -1384,6 +1431,10 @@ void Planner::buildField(const World& w, const Goal& goal)
   for (const auto& b : w.signal().bars)
     if (b.color == kSignalBlack && !w.layers()[std::size_t(b.layer)].solid)
       willOpen[std::size_t(b.layer)] = 1;
+  // Level 42: the ON AIR door and the switch's glass cover, once open, are no walls.
+  for (int li : {w.finale().door, w.finale().cover})
+    if (li >= 0 && !w.layers()[std::size_t(li)].solid)
+      willOpen[std::size_t(li)] = 1;
   std::vector<std::uint8_t> dishStrut(w.layers().size());
   for (const auto& st : w.dish().struts)
     dishStrut[std::size_t(st.layer)] = 1;
@@ -2766,6 +2817,9 @@ void Planner::plan(const World& world)
     // Level 22: barrels blown (bridges down, rock gone).
     for (const auto& b : world.west().barrels)
       powered = powered * 2 + b.blown;
+    // Level 42: the ON AIR door and the switch's glass cover, open or shut.
+    for (int li : {world.finale().door, world.finale().cover})
+      powered = powered * 2 + (li >= 0 && !world.layers()[std::size_t(li)].solid);
     // Level 19: which way each chamber is turned, and the gates.
     for (const auto& z : world.grav().zones)
       powered = powered * 2 + (z.dir == Grav::Up);

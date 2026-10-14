@@ -173,6 +173,10 @@ enum class EnemyKind
   WarmupComic,  // Level 41: patrols and lobs rubber chickens
   AudiencePlant, // Level 41: sits in the crowd, stands up and shoots
   CueDrone,     // Level 41: hovers over the crowd, swoops on a runner under it
+  CensorBar,    // Level 42: hovers on a path, lays a black bar over the area below it
+  AdBreak,      // Level 42: a billboard on wheels that spits sample bots
+  SampleBot,    // Level 42: an Ad Break's free sample, walks at the runner
+  StuntDouble,  // Level 42: a masked double of a runner, chases and shoots
 };
 
 enum EnemyFlag : unsigned

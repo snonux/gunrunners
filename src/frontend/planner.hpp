@@ -63,6 +63,7 @@ private:
   Goal galleryGoal(const World& world) const;   // Level 39's route: monitor to monitor
   Goal flyTowerGoal(const World& world) const;  // Level 40's route: up the tower
   Goal sweepsGoal(const World& world) const;    // Level 41: the letter G; Paintball's block tops
+  Goal finaleGoal(const World& world) const;    // Level 42: the route's plates and monitor; the switch's console
   Goal wardrobeGoal(const World& world) const;  // Level 37's route: booths, heavy plates
   // Level 23's bonus detour: through the broken mirror into the crypt, the
   // bonus door, back out through the crypt's mirror. Returns kind 18 (the

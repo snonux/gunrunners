@@ -110,6 +110,8 @@ Input Bot::play(const World& world)
     return inkwell(world);
   if (world.signal().wrap)
     return wraparound(world);
+  if (world.finale().reel)
+    return mPlanner.next(world); // Level 42's Blooper Reel: the planner plays every rule it switches to
   if (world.flyTower().trigger)
     return triggerHappy(world);
   if (world.trench().bubble)
@@ -252,6 +254,21 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (sweeps(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 42: roll-ins, plates, monitors, the glass cover; Lance and the Encore Engine.
+  if (world.finale().on)
+  {
+    if (world.finaleFight() && !world.finaleFrozen() && world.finale().boss.phase != FnPhase::OffAir)
+    {
+      mFighting = true;
+      return fightFinale(world);
+    }
+    Input in;
+    if (finale(world, in))
     {
       mPlanner.reset();
       return in;

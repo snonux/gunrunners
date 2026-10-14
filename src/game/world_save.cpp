@@ -23,7 +23,8 @@ bool World::canSave() const
     (!mFleet.on || fleetCanSave()) && (!mTower.on || towerCanSave()) &&
     (!mWarehouse.on || warehouseCanSave()) && (!mWardrobe.on || wardrobeCanSave()) &&
     (!mWriters.on || writersCanSave()) && (!mGallery.on || galleryCanSave()) &&
-    (!mFly.on || flyTowerCanSave()) && (!mSweeps.on || sweepsCanSave());
+    (!mFly.on || flyTowerCanSave()) && (!mSweeps.on || sweepsCanSave()) &&
+    (!mFinale.on || finaleCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -418,6 +419,8 @@ SaveGame World::snapshot() const
     s.flytower = flyTowerSave();
   if (mSweeps.on)
     s.sweeps = sweepsSave();
+  if (mFinale.on)
+    s.finale = finaleSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -524,6 +527,7 @@ bool World::restore(const SaveGame& s)
       (!s.gallery.empty() && !validGallerySave(s.gallery)) ||
       (!s.flytower.empty() && !validFlyTowerSave(s.flytower)) ||
       (!s.sweeps.empty() && !validSweepsSave(s.sweeps)) ||
+      (!s.finale.empty() && !validFinaleSave(s.finale)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -1010,6 +1014,8 @@ bool World::restore(const SaveGame& s)
     loadFlyTower(s.flytower);
   if (!s.sweeps.empty())
     loadSweeps(s.sweeps);
+  if (!s.finale.empty())
+    loadFinale(s.finale);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

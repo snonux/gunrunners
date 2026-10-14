@@ -307,6 +307,10 @@ const EnemyDef kEnemies[] = {
   {"comic", "WARM-UP COMIC", K::WarmupComic, L::Styled, 3, 5, 4, 500, 2, 45, 12, 30, 0, 0},
   {"audience_plant", "AUDIENCE PLANT", K::AudiencePlant, L::Styled, 3, 5, 5, 700, 0, 30, 12, 10, 0, 0},
   {"cuedrone", "CUE CARD DRONE", K::CueDrone, L::Styled, 4, 3, 2, 400, 2, 45, 10, 0, 0, 0},
+  {"censorbar", "CENSOR BAR", K::CensorBar, L::Styled, 4, 2, 3, 600, 2, 45, 12, 0, 0, 0},
+  {"adbreak", "AD BREAK", K::AdBreak, L::Styled, 6, 8, 10, 900, 2, 45, 15, 0, 0, 0},
+  {"sample_bot", "SAMPLE BOT", K::SampleBot, L::Styled, 2, 3, 1, 100, 2, 0, 0, 0, kEnemyNoTally, 0},
+  {"double", "STUNT DOUBLE", K::StuntDouble, L::Styled, 3, 5, 9, 1000, 1, 30, 10, 30, 0, 0},
   {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 

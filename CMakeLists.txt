@@ -165,6 +165,9 @@ add_library(gunrunners_core STATIC
   src/game/world_flytower_draw.cpp
   src/game/world_sweeps.cpp
   src/game/world_sweeps_draw.cpp
+  src/game/world_finale.cpp
+  src/game/world_finale_boss.cpp
+  src/game/world_finale_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -204,6 +207,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_gallery.cpp
   src/frontend/bot_flytower.cpp
   src/frontend/bot_sweeps.cpp
+  src/frontend/bot_finale.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -448,3 +452,8 @@ target_link_libraries(sweeps_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME sweeps COMMAND sweeps_test ${CMAKE_SOURCE_DIR}/levels/41_sweeps_week.txt
   ${CMAKE_SOURCE_DIR}/levels/41_bonus_paintball.txt)
 add_test(NAME savegame_sweeps_week COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/41_sweeps_week.txt 300)
+add_executable(finale_test tests/finale_test.cpp)
+target_link_libraries(finale_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME finale COMMAND finale_test ${CMAKE_SOURCE_DIR}/levels/42_live_finale.txt
+  ${CMAKE_SOURCE_DIR}/levels/42_bonus_bloopers.txt)
+add_test(NAME savegame_live_finale COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/42_live_finale.txt 300)

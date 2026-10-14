@@ -164,6 +164,8 @@ void Game::prepareWorld(World& world) const
   for (int n = 1; n <= 40; ++n)
     quack = quack && mProfile.ducks.count(n) != 0;
   world.setSweepsQuack(quack);
+  // Level 42: the Encore's wheel holds every prototype logged to the Arsenal.
+  world.setFinaleArsenal({mProfile.protos.begin(), mProfile.protos.end()});
 }
 
 void Game::startLevel()
@@ -300,7 +302,16 @@ void Game::finishTally()
     // The main story and the space episode each end with their own scenes.
     const bool last = n == kCampaignLevels || n == kAllLevels;
     if (n == kCampaignLevels)
-      next = {"finale", "post_credits"};
+    {
+      // The post-credits scene plays once every $ cache and every G-U-N
+      // of the campaign has been found.
+      next = {"finale"};
+      bool all = true;
+      for (int k = 1; k <= kCampaignLevels; ++k)
+        all = all && mProfile.secrets.count(k) != 0;
+      if (all)
+        next.push_back("post_credits");
+    }
     else if (n == episode(episodeOfLevel(n)).last)
       next = {"end_e" + std::to_string(episodeOfLevel(n))};
     playCutscenes(next, last ? After::Title : After::NextLevel);
