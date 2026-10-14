@@ -794,7 +794,9 @@ void portraits(const std::string& dir, int pose)
   }
 }
 
-// A runner pose number as drawRunnerPose takes it: 0-8, or 10-20.
+// A runner pose number among those src/assets/art.hpp documents: 0-8, or
+// 10-20. (poseFor() in art.cpp also knows 9 and 21, which art.hpp leaves
+// out; anything else would quietly draw the idle pose.)
 bool parsePose(const char* text, int& pose)
 {
   char* end = nullptr;

@@ -82,7 +82,7 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   border: 1.5px solid var(--cyan); color: var(--text); background: transparent;
   font: 700 16px var(--display); letter-spacing: 0.03em; text-decoration: none; cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
-  max-width: 100%; overflow-wrap: anywhere; text-align: center;
+  max-width: 100%; overflow-wrap: break-word; text-align: center; /* long labels break at their <wbr>s */
 }
 .btn:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(47, 216, 255, 0.35); color: var(--text); }
 .btn-hot { border-color: transparent; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)); color: #1a0820; }

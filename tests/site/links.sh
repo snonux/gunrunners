@@ -152,10 +152,14 @@ expect_fail() {
 }
 
 # The self-test works in a fixture folder: $tmp/site/ is the published
-# folder with a good page ($good), a stylesheet, media and a CNAME; each
-# group below breaks one thing at a time in a copy ($bad) and expects the
-# check to fail. A sed that doesn't apply leaves the good page, which then
-# passes, so expect_fail reports it: no test passes vacuously.
+# folder with a good page ($good), a stylesheet, media and a CNAME. Each
+# test breaks one thing (a copy of the page in $bad, or the stylesheet or
+# the CNAME, put back right after) and expects the check to fail. A sed
+# that doesn't apply leaves a good page, which passes, so expect_fail
+# reports it; the one test that breaks two things guards its sed with a
+# grep. Before each group the good page must pass again, so a group that
+# left the fixture broken can't make the next group's tests pass for the
+# wrong reason.
 
 # fixture: builds the good fixture in $tmp.
 fixture() {
@@ -218,9 +222,17 @@ self_test_css() {
   css 's#fonts/f.woff2#fonts/gone.woff2#' "a missing font in the stylesheet" &&
     css 's#../media/a.jpg#../../outside.md#' "a stylesheet url() outside the published folder" &&
     css 's#url(\#fray)#url(\#missing)#' "a stylesheet url(#id) without its element" || return 1
+  # A broken stylesheet plus a reordered <link>: the grep makes sure the
+  # reorder happened, or the broken stylesheet alone would fail the page.
   sed 's#fonts/f.woff2#fonts/gone.woff2#' "$tmp/style.keep" > "$tmp/site/css/style.css"
-  broken "a missing font behind a reordered <link>" \
-    's#<link rel="stylesheet" href="css/style.css?v=1">#<link href="css/style.css?v=1" rel="stylesheet">#' || rc=1
+  sed 's#<link rel="stylesheet" href="css/style.css?v=1">#<link href="css/style.css?v=1" rel="stylesheet">#' \
+    "$good" > "$bad"
+  if ! grep -q '<link href=' "$bad"; then
+    echo "self-test: the <link> was not reordered"
+    rc=1
+  else
+    expect_fail "a missing font behind a reordered <link>" "$bad" || rc=1
+  fi
   cp "$tmp/style.keep" "$tmp/site/css/style.css"
   return $rc
 }
@@ -231,10 +243,18 @@ self_test_meta() {
     broken "a missing og:image" 's#example.org/media/a.jpg#example.org/media/gone.jpg#' &&
     broken "an og:image on another domain" 's#content="https://example.org/media#content="https://elsewhere.org/media#' ||
     return 1
+  local rc=0
   echo other.org > "$tmp/site/CNAME"
-  expect_fail "a wrong CNAME" "$good" || return 1
+  expect_fail "a wrong CNAME" "$good" || rc=1
   rm "$tmp/site/CNAME"
-  expect_fail "a missing CNAME" "$good"
+  expect_fail "a missing CNAME" "$good" || rc=1
+  echo example.org > "$tmp/site/CNAME"
+  return $rc
+}
+
+# still_good: the fixture is back to a good page after a group.
+still_good() {
+  check "$good" > /dev/null || { echo "self-test: fixture not restored"; check "$good"; return 1; }
 }
 
 # A good page passes; each kind of breakage fails on its own.
@@ -246,7 +266,10 @@ self_test() {
   bad="$tmp/site/bad.html"
   fixture
   check "$good" > /dev/null || { echo "self-test: a good page failed"; check "$good"; return 1; }
-  self_test_refs && self_test_unreadable && self_test_css && self_test_meta || return 1
+  local group
+  for group in self_test_refs self_test_unreadable self_test_css self_test_meta; do
+    "$group" && still_good || return 1
+  done
   echo "self-test ok"
 }
 
