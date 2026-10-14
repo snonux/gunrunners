@@ -243,6 +243,59 @@ std::vector<float> makeNamedSfx(const std::string& id)
   // Level 37's briefing: a changing booth's curtain.
   if (id == "curtain_swish")
     return makeSfx(Sfx::CurtainSwish);
+  // Level 38's briefing: the writers' room through its door, a typewriter
+  // going at it (it loops, see Audio::playNamed): keys in bursts, the space
+  // bar's deeper thunk between words, a low room tone. Every key rings out
+  // inside the 3 s, so the loop joins without a seam. Then the carriage
+  // bell at the end of the line.
+  if (id == "typewriter_loop")
+  {
+    std::vector<float> out(std::size_t(samples(3.0)), 0.0f);
+    Noise pick(seed);
+    double at = 0.05;
+    int letters = 0;
+    std::uint32_t k = 0;
+    while (at < 2.8)
+    {
+      const bool space = letters > 2 && pick.next() > 0.45f;
+      const double vol = 0.75 + 0.25 * double(pick.next());
+      const double bodyF = space ? 120.0 : 170.0 + 40.0 * double(pick.next());
+      Noise n(seed + 101u * ++k), m(seed + 211u * k);
+      Svf click, slap;
+      OnePole lp;
+      Osc body;
+      const int s0 = samples(at);
+      for (int i = 0; i < samples(0.12) && s0 + i < int(out.size()); ++i)
+      {
+        const double t = double(i) / kRate;
+        const double c = click.band(n.next(), space ? 1800.0 : 3200.0, 3.0) * decay(t, 0.004) * 1.4;
+        const double u = t - 0.026;
+        const double sl = u > 0.0
+          ? (slap.band(m.next(), 1700.0, 1.5) * 1.3 + lp.lowpass(m.next(), 500.0) * 1.5 + body.step(bodyF, Wave::Triangle) * 0.5) *
+              decay(u, space ? 0.03 : 0.016)
+          : 0.0;
+        out[std::size_t(s0 + i)] += float((c + sl) * vol * 0.22);
+      }
+      if (space)
+      {
+        letters = 0;
+        at += 0.2 + 0.1 * double(pick.next());
+      }
+      else
+      {
+        ++letters;
+        at += 0.1 + 0.035 * double(pick.next());
+      }
+    }
+    Noise r(seed + 11u);
+    OnePole room;
+    Osc hum;
+    for (auto& x : out)
+      x += float(room.lowpass(r.next(), 400.0) * 0.05 + hum.step(60.0, Wave::Sine) * 0.012);
+    return out;
+  }
+  if (id == "bell_ding")
+    return makeSfx(Sfx::CarriageBell);
   // Level 35's briefing: the wind round the mast, the cargo airship.
   if (id == "wind")
     return makeSfx(Sfx::MastWind);

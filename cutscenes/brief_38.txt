@@ -7,6 +7,7 @@ music theme_typewriter_clarinet
 # loop); the camera pushes in 2 px/frame. Characters: Dash's hand on the
 # handle. Foreground: Maxine inset on her headset, 4-frame talk loop.
 # 12 frames at 100 ms = 1.2 s, plus 9.5 s of holds.
+# clip brief38_door; 12 frames
 shot brief38_door delay=100 repeat=1
   cue 0 fade=in:500
   cue 0 sound=typewriter_loop

@@ -361,7 +361,7 @@ void World::strikeWord(Word& w)
     return;
   w.state = WordState::Striking;
   w.t = 0;
-  playSound(Sfx::PencilScratch);
+  playSound(Sfx::PenStrike);
   const Vec2 c = cellCenter(w.box());
   burst(c, rgb(230, 30, 40), rgb(255, 200, 200), 10, 1.4f);
 }
@@ -379,7 +379,7 @@ void World::finishWord(Word& w)
   w.t = 0;
   w.typo = -1;
   setWordTarget(w, true);
-  playSound(Sfx::Rebuild);
+  playSound(Sfx::WordBack);
 }
 
 void World::updateWords()
@@ -399,7 +399,7 @@ void World::updateWords()
         break;
       case WordState::Striking:
         if (w.t == kWrStrikeLine)
-          playSound(Sfx::EraserRub);
+          playSound(Sfx::WordFade);
         if (w.t >= kWrStrikeLine + kWrStrikeFade)
         {
           setWordTarget(w, false);
@@ -417,7 +417,7 @@ void World::updateWords()
           {
             w.state = WordState::Sketching;
             w.t = 0;
-            playSound(Sfx::PencilScratch);
+            playSound(Sfx::PencilSketch);
           }
         }
         break;
@@ -433,7 +433,7 @@ void World::updateWords()
         else if (w.t >= kWrRewrite)
           finishWord(w);
         else if (w.t % 6 == 0)
-          playSound(Sfx::PencilScratch);
+          playSound(Sfx::Scribble);
         break;
       }
       case WordState::Sketching:
@@ -482,7 +482,7 @@ bool World::shotAtWriters(Projectile& pr, const CellBox& b)
     if (e.alive && b.intersects(e.box()))
     {
       burst(cellCenter(b), rgb(200, 200, 200), rgb(120, 120, 120), 4, 1.0f);
-      playSound(Sfx::Tink);
+      playSound(Sfx::BlockTink);
       return true;
     }
   }
@@ -490,7 +490,7 @@ bool World::shotAtWriters(Projectile& pr, const CellBox& b)
     if (c.spin == 0 && b.intersects({c.x, c.y, 4, 3}))
     {
       c.spin = 24;
-      playSound(Sfx::PosterSpin);
+      playSound(Sfx::CardSpin);
     }
   return false;
 }
@@ -508,27 +508,27 @@ void World::typeKey(TypeKey& k)
   k.press = 6;
   if (br.text.empty() || br.typed >= int(br.text.size()))
   {
-    playSound(Sfx::Click);
+    playSound(Sfx::KeyClack);
     return;
   }
   if (br.text[std::size_t(br.typed)] != k.ch)
   {
     br.wrong = 10;
-    playSound(Sfx::Clunk);
+    playSound(Sfx::KeyWrong);
     return;
   }
   const int x = br.x0 + br.typed;
   if (x <= br.x1)
     mMap.setBlock(x, br.row, Tile::Solid);
   ++br.typed;
-  playSound(Sfx::Click);
+  playSound(Sfx::KeyClack);
   if (br.typed >= int(br.text.size()))
   {
     // The rest of the gap, if the sentence is shorter than the bridge.
     for (int tx = x + 1; tx <= br.x1; ++tx)
       mMap.setBlock(tx, br.row, Tile::Solid);
     showMessage(br.text);
-    playSound(Sfx::BellDing);
+    playSound(Sfx::CarriageBell);
   }
 }
 
@@ -581,14 +581,14 @@ void World::updateCrushers()
     {
       c.face = up - 1;
       if (c.t == tellAt)
-        playSound(Sfx::Creak);
+        playSound(Sfx::CrusherCreak);
     }
     else if (c.t < tellAt + kWrCrusherTell + 4)
     {
       c.face = std::min(down, c.face + (down - up + 3) / 4 + 1);
       if (c.face == down)
       {
-        playSound(Sfx::Stomp);
+        playSound(Sfx::CrusherSlam);
         mCamera.shake(6, 1.0f);
       }
     }
@@ -638,7 +638,7 @@ void World::updateInkwells()
             t.tell = 0;
           }
         burst(cellCenter(e.box()), rgb(30, 30, 60), rgb(80, 80, 140), 10, 1.2f);
-        playSound(Sfx::Bloop);
+        playSound(Sfx::InkPlop);
         break;
       }
   }
@@ -711,7 +711,7 @@ void World::updateTypo(Enemy& e, const EnemyDef& def)
       if (p.turbo > 0)
       {
         if (e.timer % 8 == 0)
-          playSound(Sfx::PencilScratch);
+          playSound(Sfx::Scribble);
         return;
       }
       w.state = WordState::Rewriting;
@@ -727,7 +727,7 @@ void World::updateTypo(Enemy& e, const EnemyDef& def)
     if (dir != 0 && dir != e.dir && t->tell == 0)
     {
       t->tell = kWrTypoTell;
-      playSound(Sfx::Chitter);
+      playSound(Sfx::TypoSqueak);
     }
     if (t->tell > 0)
     {
@@ -788,7 +788,9 @@ void World::updateDeadline(Enemy& e, const EnemyDef& def)
     ++d->lap;
     e.tell = d->lap >= kWrDeadlineLap - kWrDeadlineBell ? kWrDeadlineLap - d->lap : 0;
     if (d->lap == kWrDeadlineLap - kWrDeadlineBell)
-      playSound(Sfx::Bell);
+      playSound(Sfx::DeadlineBell);
+    else if (d->lap % 15 == 0 && isOnScreen(e.box(), 0))
+      playSound(Sfx::DeadlineTick); // the minute hand ticking round, a quarter lap at a time
     if (d->lap >= kWrDeadlineLap)
     {
       d->lap = 0;
@@ -883,7 +885,7 @@ void World::updateWritersBlock(Enemy& e, const EnemyDef& def)
           break;
         }
         p.x = x;
-        playSound(Sfx::Thud);
+        playSound(Sfx::BlockThud);
       }
       e.x += dir;
       b->slide -= dir;
@@ -902,7 +904,7 @@ void World::updateWritersBlock(Enemy& e, const EnemyDef& def)
           e.x -= dir2;
       }
       e.cool = def.cooldown;
-      playSound(Sfx::Thud);
+      playSound(Sfx::BlockThud);
       burst(cellCenter({e.x, e.y, e.w, 1}), rgb(200, 190, 170), rgb(150, 140, 120), 8, 1.0f);
     }
     return;
@@ -932,7 +934,7 @@ void World::updateWritersBlock(Enemy& e, const EnemyDef& def)
     return;
   e.dir = -sgn(dx);
   e.tell = kWrBlockTell;
-  playSound(Sfx::Rumble);
+  playSound(Sfx::BlockScrape);
 }
 
 // --- The sketch guard -------------------------------------------------------------------------
@@ -1017,7 +1019,7 @@ void World::updateWriters(const PlayerInput& input)
       b.alive = true;
       b.flash = 8;
       burst(cellCenter(b.box()), rgb(230, 30, 40), rgb(255, 255, 255), 10, 1.4f);
-      playSound(Sfx::PencilScratch);
+      playSound(Sfx::PencilSketch);
     }
   }
   // Pitch cards spin down.
@@ -1070,7 +1072,7 @@ void World::updateWritersEgg()
         g.state = 3;
         g.checkpoints = active;
         showMessage("CHEEP!");
-        playSound(Sfx::Chime);
+        playSound(Sfx::EggCrack);
       }
       break;
     case 3: // a chick at the runner's heels, home at the next checkpoint
@@ -1083,7 +1085,7 @@ void World::updateWritersEgg()
       if (p.state == PlayerState::Jumping && p.frames == 1)
       {
         g.cheep = 10;
-        playSound(Sfx::Chime);
+        playSound(Sfx::EggCheep);
       }
       if (active > g.checkpoints)
         g.state = 4;
@@ -1200,7 +1202,7 @@ void World::updateBreakout()
         const Vec2 c = cellCenter({b.x, b.y, 4, 2});
         burst(c, b.red ? rgb(220, 40, 50) : rgb(40, 40, 50), rgb(255, 250, 230), 10, 1.4f);
         addScore(100, c);
-        playSound(Sfx::BoxBreak);
+        playSound(Sfx::BrickBreak);
         if (b.gem)
         {
           Item it;
@@ -1213,7 +1215,7 @@ void World::updateBreakout()
         }
       }
       else
-        playSound(Sfx::Tink);
+        playSound(Sfx::BrickCrack);
       break;
     }
     if (bounced)
@@ -1227,7 +1229,7 @@ void World::updateBreakout()
       const float dir = rel < -0.05f ? -1.0f : rel > 0.05f ? 1.0f : (s.bvx < 0 ? -1.0f : 1.0f);
       s.bvx = dir * 2.0f * std::cos(a);
       s.bvy = -2.0f * std::sin(a);
-      playSound(Sfx::Boing);
+      playSound(Sfx::PaddleBoing);
       continue;
     }
     // Past the runner, down to the floor: lost.
@@ -1235,7 +1237,7 @@ void World::updateBreakout()
     {
       s.ball = false;
       --s.balls;
-      playSound(Sfx::Hurt);
+      playSound(Sfx::BallLost);
       if (s.balls <= 0)
       {
         showMessage("THE SHOW IS OVER");

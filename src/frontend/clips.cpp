@@ -13555,6 +13555,396 @@ void brief37Booths(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.drawText("MAXINE - HEADSET", ix + 22.0f, iy + ih + 4.0f, TextStyle{16.0f, rgb(220, 220, 236)});
 }
 
+// --- Level 38: Writers' Room (brief_38) ----------------------------------------
+
+// The corridor outside the writers' room at night: pencil-grey walls with a
+// dado rail and faint graph ruling, a strip light buzzing overhead, framed
+// show posters, a worn carpet runner going off in perspective, a fire
+// extinguisher by the skirting. Full screen, static.
+const Texture& hallway38(ClipKit& k)
+{
+  return cached(k, "w38_hall", int(W), int(H), 0, 0, [](cairo_t* cr) {
+    gradient(cr, W, H, rgb(74, 76, 86), rgb(110, 112, 122), rgb(58, 60, 70));
+    // Graph ruling, faint.
+    for (double x = 8; x < W; x += 32)
+    {
+      cairo_move_to(cr, x, 0);
+      cairo_line_to(cr, x, 560);
+    }
+    for (double y = 8; y < 560; y += 32)
+    {
+      cairo_move_to(cr, 0, y);
+      cairo_line_to(cr, W, y);
+    }
+    setRgbaC(cr, rgb(160, 176, 200), 0.08);
+    cairo_set_line_width(cr, 1);
+    cairo_stroke(cr);
+    // The ceiling and its strip light, its pool on the wall.
+    cairo_rectangle(cr, 0, 0, W, 46);
+    setRgbaC(cr, rgb(40, 42, 50), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 380, 38, 520, 12);
+    setRgbaC(cr, rgb(250, 250, 236), 1.0);
+    cairo_fill(cr);
+    radialGlow(cr, 640, 60, 560, rgb(255, 250, 220), 0.28);
+    // The dado rail and the darker wall under it.
+    cairo_rectangle(cr, 0, 400, W, 160);
+    setRgbaC(cr, rgb(70, 72, 84), 0.55);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 396, W, 10);
+    setRgbaC(cr, rgb(170, 150, 120), 1.0);
+    cairo_fill(cr);
+    // Two framed posters either side of the door.
+    for (const double x : {60.0, 1000.0})
+    {
+      cairo_rectangle(cr, x, 120, 200, 250);
+      setRgbaC(cr, rgb(30, 26, 22), 1.0);
+      cairo_fill(cr);
+      cairo_rectangle(cr, x + 12, 132, 176, 226);
+      setRgbaC(cr, x < 500 ? rgb(46, 30, 70) : rgb(90, 24, 30), 1.0);
+      cairo_fill(cr);
+      radialGlow(cr, x + 100, 250, 90, rgb(255, 200, 120), 0.35);
+      selectGameFont(cr);
+      cairo_set_font_size(cr, 22);
+      cairo_text_extents_t e;
+      cairo_text_extents(cr, "GUNRUNNERS", &e);
+      cairo_move_to(cr, x + 100 - e.width * 0.5 - e.x_bearing, 170);
+      setRgbaC(cr, rgb(240, 200, 80), 1.0);
+      cairo_show_text(cr, "GUNRUNNERS");
+      cairo_set_font_size(cr, 14);
+      const char* line = x < 500 ? "SEASON 6" : "THE LAST EPISODE";
+      cairo_text_extents(cr, line, &e);
+      cairo_move_to(cr, x + 100 - e.width * 0.5 - e.x_bearing, 345);
+      setRgbaC(cr, rgb(230, 230, 236), 1.0);
+      cairo_show_text(cr, line);
+      for (int f = 0; f < 3; ++f)
+      {
+        cairo_arc(cr, x + 60 + f * 40.0, 260, 15, 0, 2 * kPi);
+        setRgbaC(cr, rgb(20, 16, 24), 0.8);
+        cairo_fill(cr);
+      }
+    }
+    // A fire extinguisher by the skirting.
+    cairo_rectangle(cr, 1180, 450, 34, 96);
+    setRgbaC(cr, rgb(200, 30, 36), 1.0);
+    cairo_fill(cr);
+    cairo_rectangle(cr, 1186, 456, 6, 84);
+    setRgbaC(cr, rgb(255, 120, 110), 0.6);
+    cairo_fill(cr);
+    // The floor: a carpet runner going off down the corridor.
+    cairo_rectangle(cr, 0, 560, W, 160);
+    setRgbaC(cr, rgb(44, 46, 56), 1.0);
+    cairo_fill(cr);
+    cairo_move_to(cr, 420, 560);
+    cairo_line_to(cr, 860, 560);
+    cairo_line_to(cr, 1060, 720);
+    cairo_line_to(cr, 220, 720);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(72, 88, 110), 1.0);
+    cairo_fill(cr);
+    for (int b = 0; b < 6; ++b)
+    {
+      const double y = 570 + b * 26.0;
+      cairo_move_to(cr, 420 - (y - 560) * 1.25, y);
+      cairo_line_to(cr, 860 + (y - 560) * 1.25, y);
+    }
+    setRgbaC(cr, rgb(50, 62, 80), 0.6);
+    cairo_set_line_width(cr, 2);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 0, 548, W, 12);
+    setRgbaC(cr, rgb(30, 30, 36), 1.0);
+    cairo_fill(cr);
+  });
+}
+
+// The writers' room door, 460 x 640, its anchor at the middle of its frosted
+// glass (230, 200): oak in a dark frame, kick plate and a brass lever; the
+// glass (60..400, 60..340) left clear for the light behind it.
+const Texture& door38(ClipKit& k)
+{
+  return cached(k, "w38_door", 460, 640, 230.0f, 200.0f, [](cairo_t* cr) {
+    // The frame.
+    cairo_rectangle(cr, 0, 0, 460, 640);
+    setRgbaC(cr, rgb(40, 28, 20), 1.0);
+    cairo_fill(cr);
+    // The leaf, around the glass.
+    cairo_rectangle(cr, 18, 18, 424, 622);
+    cairo_rectangle(cr, 60, 60, 340, 280);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_pattern_t* g = cairo_pattern_create_linear(18, 0, 442, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.42, 0.28, 0.16);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.62, 0.42, 0.24);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.38, 0.24, 0.14);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+    // The grain.
+    for (int i = 0; i < 26; ++i)
+    {
+      const double x = 24 + i * 16.0 + double(hash2(i, 3801) % 7u);
+      cairo_move_to(cr, x, 18);
+      cairo_curve_to(cr, x + 4, 200, x - 4, 420, x + 2, 640);
+    }
+    setRgbaC(cr, rgb(70, 44, 24), 0.35);
+    cairo_set_line_width(cr, 1.2);
+    cairo_stroke(cr);
+    // The glass's beading, the lower panel.
+    cairo_rectangle(cr, 52, 52, 356, 296);
+    setRgbaC(cr, rgb(50, 32, 18), 1.0);
+    cairo_set_line_width(cr, 10);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 70, 400, 320, 170);
+    setRgbaC(cr, rgb(60, 38, 22), 0.6);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    // The kick plate.
+    cairo_rectangle(cr, 30, 590, 400, 40);
+    cairo_pattern_t* kp = cairo_pattern_create_linear(0, 590, 0, 630);
+    cairo_pattern_add_color_stop_rgb(kp, 0.0, 0.9, 0.76, 0.42);
+    cairo_pattern_add_color_stop_rgb(kp, 1.0, 0.56, 0.42, 0.18);
+    cairo_set_source(cr, kp);
+    cairo_fill(cr);
+    cairo_pattern_destroy(kp);
+    // The lock plate under the lever.
+    cairo_rectangle(cr, 386, 352, 30, 110);
+    setRgbaC(cr, rgb(200, 160, 80), 1.0);
+    cairo_fill(cr);
+    cairo_arc(cr, 401, 440, 6, 0, 2 * kPi);
+    setRgbaC(cr, rgb(40, 28, 16), 1.0);
+    cairo_fill(cr);
+    // A sticky note on the frame.
+    cairo_save(cr);
+    cairo_translate(cr, 330, 470);
+    cairo_rotate(cr, 0.08);
+    cairo_rectangle(cr, 0, 0, 80, 70);
+    setRgbaC(cr, rgb(255, 232, 110), 1.0);
+    cairo_fill(cr);
+    selectGameFont(cr, true);
+    cairo_set_font_size(cr, 13);
+    setRgbaC(cr, rgb(40, 40, 60), 1.0);
+    cairo_move_to(cr, 8, 26);
+    cairo_show_text(cr, "REWRITES");
+    cairo_move_to(cr, 8, 46);
+    cairo_show_text(cr, "IN PROG.");
+    cairo_restore(cr);
+    // The hole for the glass.
+    cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+    cairo_rectangle(cr, 60, 60, 340, 280);
+    cairo_fill(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+  });
+}
+
+// The frosted glass over the light (340 x 280, top-left): milky and
+// stippled, WRITERS in black marker across it, a little crooked, the ink
+// thick where the pen stopped.
+const Texture& glass38(ClipKit& k)
+{
+  return cached(k, "w38_glass", 340, 280, 0.0f, 0.0f, [](cairo_t* cr) {
+    cairo_rectangle(cr, 0, 0, 340, 280);
+    setRgbaC(cr, rgb(236, 240, 236), 0.42);
+    cairo_fill(cr);
+    for (int i = 0; i < 900; ++i)
+    {
+      const std::uint32_t h = hash2(i, 3803);
+      cairo_rectangle(cr, double(h % 340u), double((h >> 9) % 280u), 1.5, 1.5);
+      setRgbaC(cr, rgb(255, 255, 255), 0.18 + double((h >> 18) % 20u) / 100.0);
+      cairo_fill(cr);
+    }
+    cairo_save(cr);
+    cairo_translate(cr, 170, 124);
+    cairo_rotate(cr, -0.05);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 62);
+    cairo_text_extents_t e;
+    cairo_text_extents(cr, "WRITERS", &e);
+    const double x0 = -e.width * 0.5 - e.x_bearing;
+    cairo_move_to(cr, x0, 22);
+    cairo_text_path(cr, "WRITERS");
+    setRgbaC(cr, rgb(18, 16, 24), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    cairo_stroke_preserve(cr);
+    cairo_fill(cr);
+    // The marker's blobs where it stopped, and a drip.
+    for (const double x : {x0 + 6.0, x0 + e.width - 4.0})
+    {
+      cairo_arc(cr, x, 20, 5, 0, 2 * kPi);
+      cairo_fill(cr);
+    }
+    cairo_move_to(cr, x0 + e.width * 0.42, 22);
+    cairo_curve_to(cr, x0 + e.width * 0.42 + 2, 34, x0 + e.width * 0.42 - 1, 44, x0 + e.width * 0.42 + 1, 52);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_arc(cr, x0 + e.width * 0.42 + 1, 53, 3, 0, 2 * kPi);
+    cairo_fill(cr);
+    // Underlined twice, in a hurry.
+    cairo_move_to(cr, x0, 38);
+    cairo_curve_to(cr, x0 + e.width * 0.3, 44, x0 + e.width * 0.7, 34, x0 + e.width, 40);
+    cairo_move_to(cr, x0 + 20, 48);
+    cairo_curve_to(cr, x0 + e.width * 0.4, 52, x0 + e.width * 0.7, 46, x0 + e.width - 30, 50);
+    cairo_set_line_width(cr, 3.5);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+  });
+}
+
+// A writer's shadow on the glass, hunched over the typewriter: shoulders,
+// a head, a pencil behind the ear (160 x 150, its anchor at the base).
+const Texture& writerShadow38(ClipKit& k)
+{
+  return cached(k, "w38_shadow", 160, 150, 80.0f, 150.0f, [](cairo_t* cr) {
+    cairo_move_to(cr, 0, 150);
+    cairo_curve_to(cr, 6, 96, 40, 80, 80, 80);
+    cairo_curve_to(cr, 120, 80, 154, 96, 160, 150);
+    cairo_close_path(cr);
+    cairo_arc(cr, 84, 52, 34, 0, 2 * kPi);
+    setRgbaC(cr, rgb(30, 20, 14), 1.0);
+    cairo_fill(cr);
+    cairo_move_to(cr, 104, 26);
+    cairo_line_to(cr, 140, 8);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+  });
+}
+
+// Dash's hand on the lever handle (320 x 200, its anchor at the lever's
+// pivot): the brass lever, his gloved fingers wrapped over it, the cuff of
+// his red jacket. `down` the lever pressed down a little.
+const Texture& doorHand38(ClipKit& k, bool down)
+{
+  return cached(k, std::string("w38_hand") + (down ? "d" : ""), 320, 200, 30.0f, 90.0f, [down](cairo_t* cr) {
+    cairo_translate(cr, 30, 90);
+    cairo_rotate(cr, down ? 0.22 : 0.0);
+    // The lever: a rose and a long brass handle.
+    cairo_arc(cr, 0, 0, 22, 0, 2 * kPi);
+    cairo_pattern_t* rg = cairo_pattern_create_radial(-6, -6, 2, 0, 0, 22);
+    cairo_pattern_add_color_stop_rgb(rg, 0.0, 1.0, 0.92, 0.6);
+    cairo_pattern_add_color_stop_rgb(rg, 1.0, 0.6, 0.44, 0.16);
+    cairo_set_source(cr, rg);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(rg);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 0, -8);
+    cairo_line_to(cr, 150, -6);
+    cairo_curve_to(cr, 162, -6, 162, 10, 150, 10);
+    cairo_line_to(cr, 0, 8);
+    cairo_close_path(cr);
+    cairo_pattern_t* lg = cairo_pattern_create_linear(0, -8, 0, 10);
+    cairo_pattern_add_color_stop_rgb(lg, 0.0, 1.0, 0.9, 0.56);
+    cairo_pattern_add_color_stop_rgb(lg, 1.0, 0.58, 0.42, 0.14);
+    cairo_set_source(cr, lg);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(lg);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_stroke(cr);
+    // The fingers wrapped over the handle.
+    for (int f = 0; f < 4; ++f)
+    {
+      const double x = 56 + f * 22.0;
+      cairo_move_to(cr, x - 10, -16);
+      cairo_curve_to(cr, x - 12, 4, x - 6, 22, x + 4, 22);
+      cairo_curve_to(cr, x + 12, 22, x + 12, 4, x + 10, -16);
+      cairo_close_path(cr);
+      setRgbaC(cr, rgb(244, 196, 160), 1.0);
+      cairo_fill_preserve(cr);
+      setRgbaC(cr, kInk, 1.0);
+      cairo_set_line_width(cr, 2.5);
+      cairo_stroke(cr);
+    }
+    // The back of the hand and the cuff of the red jacket.
+    cairo_move_to(cr, 44, -14);
+    cairo_curve_to(cr, 70, -46, 130, -46, 146, -14);
+    cairo_line_to(cr, 44, -14);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(244, 196, 160), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 2.5);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 120, -40);
+    cairo_line_to(cr, 300, -104);
+    cairo_line_to(cr, 300, -4);
+    cairo_line_to(cr, 140, -10);
+    cairo_close_path(cr);
+    setRgbaC(cr, rgb(214, 46, 40), 1.0);
+    cairo_fill_preserve(cr);
+    setRgbaC(cr, kInk, 1.0);
+    cairo_set_line_width(cr, 3);
+    cairo_stroke(cr);
+    cairo_move_to(cr, 126, -38);
+    cairo_line_to(cr, 142, -12);
+    setRgbaC(cr, rgb(250, 250, 250), 1.0);
+    cairo_set_line_width(cr, 5);
+    cairo_stroke(cr);
+  });
+}
+
+// brief38_door: the writers' room door at night, the camera pushing in two
+// pixels a frame; typewriter light flickering through its frosted glass on
+// a 6-frame loop, a writer's shadow typing behind it; Dash's hand on the
+// handle (pressing it from frame 10). Maxine on her headset in an inset.
+void brief38Door(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(hallway38(k), ox * 0.1f, oy * 0.1f);
+  // The push: two pixels a frame on the door's 460 px.
+  const float s = 1.0f + 2.0f * float(frame) / 230.0f;
+  const float px = 520.0f + ox * 0.6f, py = 250.0f + oy * 0.6f; // the glass's middle
+  auto at = [&](float lx, float ly) { return std::array<float, 2>{px + (lx - 230.0f) * s, py + (ly - 200.0f) * s}; };
+  // The glass, lit from behind: the typewriter's lamp flickering.
+  static constexpr std::array<float, 6> kFlicker = {1.0f, 0.62f, 0.9f, 0.45f, 0.82f, 0.56f};
+  const float fl = kFlicker[std::size_t(frame % 6)];
+  const auto g0 = at(60.0f, 60.0f);
+  const float gw = 340.0f * s, gh = 280.0f * s;
+  k.r.fillRect(g0[0], g0[1], gw, gh, rgb(70, 48, 26));
+  k.r.fillRect(g0[0], g0[1], gw, gh, rgba(int(255 * fl), int(190 * fl), int(110 * fl), 255), Blend::Add);
+  const auto lamp = at(160.0f, 250.0f);
+  drawGlow(k.r, k.art, lamp[0], lamp[1], 130.0f * s, rgb(255, 210, 140), 0.55f * fl);
+  // The writer's shadow, bobbing as they type.
+  DrawOpts so;
+  so.scale = s * 1.1f;
+  so.alpha = 0.5f;
+  const auto sh = at(250.0f, 340.0f);
+  k.r.draw(writerShadow38(k), sh[0], sh[1] + float(frame % 2) * 3.0f * s, so);
+  DrawOpts go;
+  go.scale = s;
+  k.r.draw(glass38(k), g0[0], g0[1], go);
+  // The door round it, the light spilling under it.
+  k.r.draw(door38(k), px, py, go);
+  const auto sill = at(0.0f, 640.0f);
+  k.r.fillRect(sill[0] + 30.0f * s, sill[1] - 4.0f * s, 400.0f * s, 6.0f * s, rgba(255, 200, 120, int(120 * fl)), Blend::Add);
+  // Dash's hand on the lever.
+  const auto hand = at(401.0f, 400.0f);
+  k.r.draw(doorHand38(k, frame >= 10), hand[0], hand[1], go);
+  // Maxine's inset, from the first frame: a frame of static, then her,
+  // talking on a 4-frame loop.
+  const float ix = 1012.0f, iy = 60.0f, sc = 0.48f, iw = 520.0f * sc, ih = 400.0f * sc;
+  k.r.fillRect(ix - 8.0f, iy - 8.0f, iw + 16.0f, ih + 40.0f, rgb(20, 20, 28));
+  k.r.fillRect(ix - 8.0f, iy - 8.0f, iw + 16.0f, 3.0f, rgb(90, 96, 120));
+  if (frame == 0)
+  {
+    for (int i = 0; i < 70; ++i)
+    {
+      const std::uint32_t h = hash2(i, ticks + 3803);
+      const int v = 60 + int(h % 180u);
+      k.r.fillRect(ix + float(h % 220u), iy + float((h >> 8) % 180u), 4.0f + float((h >> 16) % 30u), 3.0f, rgb(v, v, v));
+    }
+  }
+  else
+  {
+    DrawOpts pic;
+    pic.scale = sc;
+    k.r.draw(maxinePicture(k), ix, iy, pic);
+    static constexpr std::array<int, 4> kTalk = {1, 2, 0, 3};
+    k.r.draw(maxineMouth(k, kTalk[std::size_t(frame % 4)]), ix + 262.0f * sc, iy + 228.0f * sc, pic);
+  }
+  k.r.fillRect(ix + 4.0f, iy + ih + 10.0f, 10.0f, 10.0f, (ticks / 20) % 2 ? rgb(230, 40, 40) : rgb(90, 20, 20));
+  k.r.drawText("MAXINE - HEADSET", ix + 22.0f, iy + ih + 4.0f, TextStyle{16.0f, rgb(220, 220, 236)});
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -13667,6 +14057,9 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
   // Level 37.
   if (clip == "brief37_booths")
     return brief37Booths(k, frame, ticks, ox, oy);
+  // Level 38.
+  if (clip == "brief38_door")
+    return brief38Door(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

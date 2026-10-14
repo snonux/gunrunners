@@ -12,6 +12,7 @@
 #include "game/warehouse_draw.hpp"
 #include "game/tower_draw.hpp"
 #include "game/wardrobe_draw.hpp"
+#include "game/writers_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -133,6 +134,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawTowerSet(r, *this, mArt, camX, camY, frame, alpha); // Level 35: the cloud sea, the lattice, the dishes, the spire
   if (mWardrobe.on)
     drawWardrobeSet(r, *this, mArt, camX, camY, frame, alpha); // Level 37: the fitting room, the racks, the makeup hall, the sewing room, the vault
+  if (mWriters.on)
+    drawWritersSet(r, *this, mArt, camX, camY, frame, alpha); // Level 38: the desks, the corkboard, the typewriter, the final draft
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -368,6 +371,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawDecoyIcon(r, mArt, x, y, 1.0f, frame); // Level 37 (world_wardrobe_draw.cpp)
         continue;
       }
+      if (mWriters.on && mLevelProto == int(ProtoId::RedPen))
+      {
+        drawRedPenIcon(r, mArt, x, y, 1.0f, frame); // Level 38 (world_writers_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -464,6 +472,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_boa_top_hat", 0, 0, 2, 2).get(1), x + 32, y + 64);
         r.draw(mArt.items[std::size_t(icon)], x, y);
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_boa_top_hat", 1, 0, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
+      if (mWriters.on && mLevel->themeKey == "writers_room")
+      {
+        // The Writers' Room's duck sits in a coffee mug in reading glasses, a pencil behind its ear.
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_glasses_pencil", 0, 0, 2, 2).get(1), x + 32, y + 64);
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_glasses_pencil", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
       if (mStorm.on && mLevel->themeKey == "storm_cliffs")
@@ -1071,6 +1087,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // the Magnet Gun's push pulse or a Stagehand's tape roll (world_warehouse_draw.cpp)
     if (mTower.on && drawTowerShot(r, *this, mArt, pr, cx, cy, frame))
       continue; // a swarm pellet, a Relay Drone's ring or the Titan's lattice shot (world_tower_draw.cpp)
+    if (mWriters.on && drawWritersShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // the Red Pen's ink or a sketch guard's pencil lead (world_writers_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1342,6 +1360,8 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
       const Tile t = mMap.block(tx, ty);
       if (mLayerMask[std::size_t(ty * mLevel->width + tx)])
         continue; // a creeper draws itself (level 17)
+      if (t == Tile::Ladder && mWriters.on && writersDrawsBlock(tx, ty))
+        continue; // a LADDER word's ladder, fading or sketched (world_writers_draw.cpp)
       if (t == Tile::Ladder)
         r.draw(mArt.ladder, x, y);
       else if (t == Tile::Pipe)
@@ -1397,12 +1417,16 @@ void World::drawTiles(Renderer& r, float camX, float camY, int frame) const
             break; // an inked line (world_toon_draw.cpp)
           if (mWardrobe.on && wardrobeDrawsBlock(tx, ty))
             break; // a cutting table (world_wardrobe_draw.cpp)
+          if (mWriters.on && writersDrawsBlock(tx, ty))
+            break; // the sticky note, the FLOOR plank (world_writers_draw.cpp)
           r.draw(platformTex, x, y);
           break;
         case Tile::Grate:
           r.draw(styledEnemySprite(mArt, r, mTheme, "grate", 0, 0, 2, 2).get(1), x + 32.0f, y + 64.0f);
           break;
         case Tile::Spikes:
+          if (mWriters.on && writersDrawsBlock(tx, ty))
+            break; // SPIKES fading (world_writers_draw.cpp)
           r.draw(mArt.spikes, x, y);
           break;
         case Tile::SpikesDown:
@@ -1765,6 +1789,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawSwarmIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 35: a handheld uplink (world_tower_draw.cpp)
   else if (proto && mWardrobe.on && p.proto == int(ProtoId::DecoyLauncher))
     drawDecoyIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 37: a decoy launcher (world_wardrobe_draw.cpp)
+  else if (proto && mWriters.on && p.proto == int(ProtoId::RedPen))
+    drawRedPenIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 38: the Red Pen (world_writers_draw.cpp)
   else if (proto)
   {
     DrawOpts io;
