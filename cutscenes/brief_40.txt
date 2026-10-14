@@ -6,6 +6,7 @@ music theme_arena_rock
 # 3 px/frame (the camera cranes upward). Characters: the three runners on
 # a catwalk, Nova looking up. Foreground: a PA speaker that buzzes on
 # frame 4. 16 frames at 100 ms = 1.6 s, plus 9 s of holds.
+# clip brief40_rigging; 16 frames
 shot brief40_rigging delay=100 repeat=1
   cue 0 fade=in:500
   cue 4 sound=pa_feedback

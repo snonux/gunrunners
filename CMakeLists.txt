@@ -36,6 +36,7 @@ add_library(gunrunners_core STATIC
   src/assets/art_wardrobe37.cpp
   src/assets/art_writers38.cpp
   src/assets/art_gallery39.cpp
+  src/assets/art_flytower40.cpp
   src/assets/art_garden.cpp
   src/assets/art_starfall.cpp
   src/assets/art_crystal.cpp
@@ -64,6 +65,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_wardrobe37.cpp
   src/assets/enemy_art_writers38.cpp
   src/assets/enemy_art_gallery39.cpp
+  src/assets/enemy_art_flytower40.cpp
   src/assets/enemy_art_garden.cpp
   src/assets/enemy_art_hull.cpp
   src/assets/enemy_art_hive.cpp

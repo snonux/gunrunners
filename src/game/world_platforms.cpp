@@ -522,6 +522,8 @@ void World::drawPlatforms(Renderer& r, float camX, float camY, int frame, float 
       continue; // Level 36's crane crates (world_warehouse_draw.cpp)
     if (mDish.on && pl.dead)
       continue; // Level 32's rims and feed arms (world_dish_draw.cpp)
+    if (mFly.on && std::any_of(mFly.trusses.begin(), mFly.trusses.end(), [&](const auto& t) { return t.platform == int(i); }))
+      continue; // Level 40's trusses (world_flytower_draw.cpp)
     float x = (float(pl.prevX) + (float(pl.x) - float(pl.prevX)) * alpha) * kCellPx - camX;
     const float y = (float(pl.prevY) + (float(pl.y) - float(pl.prevY)) * alpha) * kCellPx - camY;
     const float w = float(pl.w) * kCellPx;

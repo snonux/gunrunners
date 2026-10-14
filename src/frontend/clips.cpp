@@ -12116,7 +12116,7 @@ void runnersHeat(ClipKit& k, int frame, int ticks, float ox, float oy)
   for (int s = 0; s < 8; ++s)
     k.r.fillRect(0, 560.0f + float(s) * 20.0f + oy, W, 20.0f, rgba(255, 100, 30, 12 + s * 10), Blend::Add);
   // The catwalk: grating deck, a rail, posts.
-  const float deck = 600.0f + oy;
+  const float deck = 540.0f + oy; // the feet clear of the subtitles
   k.r.fillRect(0, deck, W, 14.0f, rgb(120, 126, 140));
   k.r.fillRect(0, deck, W, 3.0f, rgb(230, 234, 242));
   for (int x = 0; x < int(W); x += 12)
@@ -14623,6 +14623,382 @@ void brief39Wall(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.draw(runnerBack39(k, 0), 650.0f + fx, H - 10.0f + dip + fy, o);
 }
 
+// --- Level 40: The Fly Tower --------------------------------------------------------------
+
+// A moving-head's beam: a long soft wedge of light, its tip at the bottom
+// centre (the anchor), 900 px long.
+const Texture& beam40(ClipKit& k)
+{
+  return cached(k, "beam40", 260, 900, 130, 900, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 900, 0, 0);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1, 1, 1, 0.75);
+    cairo_pattern_add_color_stop_rgba(g, 0.35, 1, 1, 1, 0.3);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 1, 1, 1, 0.0);
+    cairo_move_to(cr, 122, 900);
+    cairo_line_to(cr, 0, 0);
+    cairo_line_to(cr, 260, 0);
+    cairo_line_to(cr, 138, 900);
+    cairo_close_path(cr);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // A brighter core.
+    g = cairo_pattern_create_linear(0, 900, 0, 0);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1, 1, 1, 0.6);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 1, 1, 1, 0.0);
+    cairo_move_to(cr, 127, 900);
+    cairo_line_to(cr, 90, 0);
+    cairo_line_to(cr, 170, 0);
+    cairo_line_to(cr, 133, 900);
+    cairo_close_path(cr);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// The stage house going up into the dark: the sooty back wall, its steel
+// columns and the counterweight arbors in their tracks.
+const Texture& stageHouse40(ClipKit& k)
+{
+  return cached(k, "stagehouse40", 1280, 720, 0, 0, [](cairo_t* cr) {
+    gradient(cr, 1280, 720, rgb(10, 8, 18), rgb(24, 18, 32), rgb(40, 26, 36));
+    // Brick courses, barely there in the dark.
+    for (int row = 0; row < 720 / 22 + 1; ++row)
+    {
+      const double y = row * 22.0;
+      cairo_rectangle(cr, 0, y, 1280, 1.5);
+      cairo_set_source_rgba(cr, 0, 0, 0, 0.35);
+      cairo_fill(cr);
+      for (double x = (row % 2) * 34.0; x < 1280; x += 68.0)
+      {
+        cairo_rectangle(cr, x, y, 1.5, 22);
+        cairo_fill(cr);
+        if (hash2(int(x), row) % 5u == 0)
+        {
+          cairo_rectangle(cr, x + 2, y + 2, 64, 18);
+          cairo_set_source_rgba(cr, 0.5, 0.3, 0.3, 0.05);
+          cairo_fill(cr);
+          cairo_set_source_rgba(cr, 0, 0, 0, 0.35);
+        }
+      }
+    }
+    // Columns and the arbor tracks.
+    for (int c = 0; c < 4; ++c)
+    {
+      const double x = 90 + c * 360.0;
+      cairo_rectangle(cr, x, 0, 44, 720);
+      setColor(cr, rgb(16, 14, 22));
+      cairo_fill(cr);
+      cairo_rectangle(cr, x + 4, 0, 3, 720);
+      cairo_set_source_rgba(cr, 0.6, 0.6, 0.7, 0.12);
+      cairo_fill(cr);
+      for (double y = 30; y < 720; y += 120)
+      {
+        cairo_rectangle(cr, x - 4, y, 52, 8);
+        setColor(cr, rgb(22, 20, 30));
+        cairo_fill(cr);
+      }
+    }
+    for (int a = 0; a < 6; ++a)
+    {
+      const double x = 230 + a * 150.0 + (a % 2) * 20.0, y = 120 + double(hash2(a, 40) % 380u);
+      cairo_rectangle(cr, x, 0, 2, 720);
+      cairo_set_source_rgba(cr, 0.7, 0.6, 0.45, 0.18);
+      cairo_fill(cr);
+      cairo_rectangle(cr, x - 12, y, 26, 120);
+      setColor(cr, rgb(30, 28, 36));
+      cairo_fill(cr);
+      for (double s = y + 8; s < y + 116; s += 12)
+      {
+        cairo_rectangle(cr, x - 10, s, 22, 8);
+        setColor(cr, rgb(48, 44, 52));
+        cairo_fill(cr);
+      }
+    }
+  });
+}
+
+// The rigging overhead, black against the haze: box trusses, battens with
+// their lamps, a catwalk, the purchase lines, 1280 x 1100 (the camera
+// cranes up it).
+const Texture& rigging40(ClipKit& k)
+{
+  return cached(k, "rigging40", 1280, 1100, 0, 0, [](cairo_t* cr) {
+    auto truss = [&](double x, double y, double w, double tilt) {
+      cairo_save(cr);
+      cairo_translate(cr, x, y);
+      cairo_rotate(cr, tilt);
+      setColor(cr, rgb(6, 6, 10));
+      cairo_set_line_width(cr, 5);
+      cairo_move_to(cr, 0, 0);
+      cairo_line_to(cr, w, 0);
+      cairo_move_to(cr, 0, 36);
+      cairo_line_to(cr, w, 36);
+      cairo_stroke(cr);
+      cairo_set_line_width(cr, 2.5);
+      for (double s = 0; s < w; s += 36)
+      {
+        cairo_move_to(cr, s, 0);
+        cairo_line_to(cr, s + 36, 36);
+        cairo_move_to(cr, s, 0);
+        cairo_line_to(cr, s, 36);
+      }
+      cairo_stroke(cr);
+      // Lamps under it, a rim of coloured light on each.
+      for (double s = 40; s < w - 20; s += 110)
+      {
+        cairo_rectangle(cr, s - 12, 40, 24, 30);
+        setColor(cr, rgb(10, 10, 14));
+        cairo_fill(cr);
+        cairo_rectangle(cr, s - 10, 66, 20, 4);
+        cairo_set_source_rgba(cr, 1.0, 0.7, 0.35, 0.6);
+        cairo_fill(cr);
+      }
+      // Lift lines up out of frame.
+      cairo_set_line_width(cr, 1.5);
+      cairo_set_source_rgba(cr, 0.05, 0.05, 0.08, 1);
+      cairo_move_to(cr, 20, 0);
+      cairo_line_to(cr, 20, -1200);
+      cairo_move_to(cr, w - 20, 0);
+      cairo_line_to(cr, w - 20, -1200);
+      cairo_stroke(cr);
+      cairo_restore(cr);
+    };
+    auto batten = [&](double x, double y, double w, double drop) {
+      cairo_rectangle(cr, x, y, w, drop);
+      setColor(cr, rgb(4, 4, 8));
+      cairo_fill(cr);
+      for (double s = x; s < x + w; s += 18)
+      {
+        cairo_rectangle(cr, s, y, 3, drop);
+        cairo_set_source_rgba(cr, 0.2, 0.15, 0.25, 0.25);
+        cairo_fill(cr);
+      }
+      cairo_set_line_width(cr, 1.5);
+      cairo_set_source_rgba(cr, 0.05, 0.05, 0.08, 1);
+      for (double s = x + 30; s < x + w; s += w / 3.0)
+      {
+        cairo_move_to(cr, s, y);
+        cairo_line_to(cr, s, y - 1200);
+      }
+      cairo_stroke(cr);
+    };
+    batten(-40, 60, 560, 70);
+    batten(760, 180, 600, 60);
+    truss(80, 330, 520, -0.04);
+    truss(700, 470, 480, 0.03);
+    batten(300, 640, 700, 50);
+    truss(-20, 820, 420, 0.02);
+    truss(900, 900, 420, -0.03);
+    // A catwalk across the top, hanger rods up from it.
+    cairo_rectangle(cr, 0, 260, 1280, 10);
+    setColor(cr, rgb(8, 8, 12));
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 2);
+    cairo_move_to(cr, 0, 226);
+    cairo_line_to(cr, 1280, 226);
+    cairo_stroke(cr);
+    for (double s = 20; s < 1280; s += 64)
+    {
+      cairo_move_to(cr, s, 226);
+      cairo_line_to(cr, s, 262);
+    }
+    cairo_stroke(cr);
+    for (double s = 100; s < 1280; s += 280)
+    {
+      cairo_move_to(cr, s, 262);
+      cairo_line_to(cr, s, -400);
+    }
+    cairo_stroke(cr);
+  });
+}
+
+// The catwalk the runners stand on, in front: grating, a toe board with
+// yellow glow tape, the handrail.
+const Texture& catwalk40(ClipKit& k)
+{
+  return cached(k, "catwalk40", 1280, 200, 0, 60, [](cairo_t* cr) {
+    // Deck and toe board (the deck's top at y = 60).
+    cairo_rectangle(cr, 0, 60, 1280, 16);
+    setColor(cr, rgb(40, 40, 48));
+    cairo_fill(cr);
+    for (double x = 0; x < 1280; x += 10)
+    {
+      cairo_rectangle(cr, x, 62, 6, 12);
+      setColor(cr, rgb(20, 20, 26));
+      cairo_fill(cr);
+    }
+    cairo_rectangle(cr, 0, 76, 1280, 26);
+    setColor(cr, rgb(24, 24, 30));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 76, 1280, 3);
+    setColor(cr, rgb(250, 200, 40));
+    cairo_fill(cr);
+    // The stringer below, the deep dark.
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 102, 0, 200);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0.05, 0.05, 0.07, 1.0);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_rectangle(cr, 0, 102, 1280, 98);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+const Texture& handrail40(ClipKit& k)
+{
+  return cached(k, "handrail40", 1280, 120, 0, 120, [](cairo_t* cr) {
+    // Posts and two rails, the glow tape on the top rail.
+    cairo_set_line_width(cr, 6);
+    setColor(cr, rgb(30, 30, 38));
+    for (double x = 40; x < 1280; x += 200)
+    {
+      cairo_move_to(cr, x, 120);
+      cairo_line_to(cr, x, 6);
+    }
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 0, 4, 1280, 8);
+    setColor(cr, rgb(44, 44, 54));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 4, 1280, 2);
+    setColor(cr, rgb(120, 120, 136));
+    cairo_fill(cr);
+    cairo_rectangle(cr, 0, 58, 1280, 6);
+    setColor(cr, rgb(36, 36, 44));
+    cairo_fill(cr);
+    for (double x = 10; x < 1280; x += 80)
+    {
+      cairo_rectangle(cr, x, 6, 30, 4);
+      cairo_set_source_rgba(cr, 0.66, 1.0, 0.75, 0.8);
+      cairo_fill(cr);
+    }
+  });
+}
+
+// The house PA hung off the side of the bridge, in front, cut off by the frame.
+const Texture& paSpeaker40(ClipKit& k)
+{
+  return cached(k, "pa40", 300, 420, 0, 0, [](cairo_t* cr) {
+    cairo_save(cr);
+    cairo_translate(cr, 40, 20);
+    cairo_rotate(cr, 0.08);
+    // The cabinet.
+    cairo_rectangle(cr, 0, 0, 230, 360);
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 230, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.1, 0.1, 0.12);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.17, 0.17, 0.2);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.06, 0.06, 0.08);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    // The grille, a fine mesh.
+    cairo_rectangle(cr, 14, 14, 202, 332);
+    setColor(cr, rgb(20, 20, 24));
+    cairo_fill(cr);
+    for (double y = 18; y < 344; y += 5)
+    {
+      cairo_rectangle(cr, 14, y, 202, 1.4);
+      cairo_set_source_rgba(cr, 0.35, 0.35, 0.4, 0.35);
+      cairo_fill(cr);
+    }
+    // The cones behind the mesh: a horn up top, two woofers.
+    cairo_arc(cr, 115, 220, 70, 0, 2 * kPi);
+    cairo_arc(cr, 115, 220, 26, 0, 2 * kPi);
+    cairo_set_source_rgba(cr, 0, 0, 0, 0.35);
+    cairo_set_line_width(cr, 6);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 40, 50, 150, 60);
+    cairo_stroke(cr);
+    // The fly bar and its shackle on top.
+    cairo_rectangle(cr, -10, -12, 250, 14);
+    setColor(cr, rgb(50, 50, 58));
+    cairo_fill(cr);
+    cairo_set_line_width(cr, 5);
+    setColor(cr, rgb(70, 70, 80));
+    cairo_arc(cr, 115, -26, 14, 0, 2 * kPi);
+    cairo_stroke(cr);
+    // The logo plate.
+    cairo_rectangle(cr, 80, 330, 70, 12);
+    setColor(cr, rgb(90, 90, 100));
+    cairo_fill(cr);
+    cairo_restore(cr);
+  });
+}
+
+// brief40_rigging: looking up the fly tower from a catwalk. Behind,
+// coloured beams sweep through the haze (an 8-frame loop); the rigging
+// hangs black against it, sliding down 3 px a frame as the camera cranes
+// up; the three runners stand on the catwalk in front, Nova looking up;
+// the PA speaker in the corner buzzes on frame 4.
+void brief40Rigging(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(stageHouse40(k), ox * 0.1f, oy * 0.1f - 20.0f + float(frame) * 1.0f);
+  // The haze, lit warm from below.
+  const Texture& glow = cached(k, "haze40", 1280, 720, 0, 0, [](cairo_t* cr) {
+    cairo_pattern_t* g = cairo_pattern_create_radial(640, 820, 60, 640, 820, 900);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 1.0, 0.55, 0.3, 0.5);
+    cairo_pattern_add_color_stop_rgba(g, 0.6, 0.6, 0.2, 0.5, 0.15);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+  });
+  DrawOpts ho;
+  ho.blend = Blend::Add;
+  k.r.draw(glow, 0, 0, ho);
+  // The beams: an 8-frame sweep, each out of phase.
+  static constexpr Color kBeams[5] = {rgb(255, 170, 60), rgb(230, 70, 170), rgb(80, 190, 255), rgb(255, 240, 220), rgb(255, 120, 40)};
+  const float ph = float(frame % 8) / 8.0f + float(ticks % 6) / 48.0f;
+  for (int b = 0; b < 5; ++b)
+  {
+    DrawOpts o;
+    o.blend = Blend::Add;
+    o.tint = kBeams[b];
+    o.alpha = 0.32f;
+    o.angle = float(-34 + b * 17) + 16.0f * std::sin(float(2.0 * kPi) * (ph + float(b) * 0.27f));
+    k.r.draw(beam40(k), 180.0f + float(b) * 230.0f + ox * 0.3f, 780.0f + oy * 0.3f, o);
+  }
+  // The rigging, the camera craning up it.
+  k.r.draw(rigging40(k), ox * 0.5f, -420.0f + float(frame) * 3.0f + oy * 0.5f);
+  // Dust in the beams.
+  for (int i = 0; i < 40; ++i)
+  {
+    const std::uint32_t h = hash2(i, 4040);
+    const float x = float(h % 1280u), y = std::fmod(float(h % 720u) + float(ticks) * 0.3f * (1.0f + float(i % 3)), 720.0f);
+    k.r.fillRect(x + ox * 0.6f, y + oy * 0.6f, 2.0f, 2.0f, rgba(255, 220, 180, 50 + int(h % 60u)), Blend::Add);
+  }
+  // The runners on the catwalk: Rocco, Dash, Nova (looking up, on her line
+  // she starts climbing - she crouches to spring).
+  const float deck = 540.0f + oy; // the feet clear of the subtitles
+  k.r.draw(catwalk40(k), ox, deck);
+  const int idle = (ticks / 30) % 2 ? 8 : 0;
+  k.r.draw(runner(k, 1, idle, 2.5f), 360.0f + ox, deck + 2.0f);
+  k.r.draw(runner(k, 0, frame >= 6 && frame < 13 ? 3 : idle, 2.5f), 600.0f + ox, deck);
+  k.r.draw(runner(k, 2, frame >= 15 ? 4 : 3, 2.5f, true), 860.0f + ox, deck);
+  k.r.draw(handrail40(k), ox * 1.1f, deck + 50.0f);
+  // Warm rim light from the show below.
+  k.r.fillRect(0, deck + 40.0f, W, H - deck - 40.0f, rgba(255, 120, 60, 14), Blend::Add);
+  // The PA, top right, cut off by the frame; on frame 4 it buzzes.
+  const bool buzz = frame == 4 || (frame == 5 && ticks % 4 < 2);
+  const float jx = buzz ? float(int(hash2(ticks, 40) % 7u) - 3) : 0.0f;
+  const float jy = buzz ? float(int(hash2(ticks, 41) % 5u) - 2) : 0.0f;
+  const float px = 1040.0f + ox * 1.6f + jx, py = -60.0f + oy * 1.6f + jy;
+  k.r.draw(paSpeaker40(k), px, py);
+  if (buzz)
+  {
+    for (int ring = 0; ring < 3; ++ring)
+    {
+      const float rr = 60.0f + float(ring) * 40.0f + float(ticks % 8) * 6.0f;
+      drawGlow(k.r, k.art, px + 155.0f, py + 260.0f, rr, rgb(255, 255, 255), 0.06f);
+    }
+    k.r.drawLine(px + 30.0f, py + 400.0f, px - 10.0f, py + 430.0f, 3.0f, rgba(255, 255, 255, 120));
+    k.r.drawLine(px + 70.0f, py + 410.0f, px + 50.0f, py + 450.0f, 3.0f, rgba(255, 255, 255, 120));
+  }
+  // The haze over everything.
+  k.r.fillRect(0, 0, W, H, rgba(60, 40, 70, 30));
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -14741,6 +15117,9 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
   // Level 39.
   if (clip == "brief39_wall")
     return brief39Wall(k, frame, ticks, ox, oy);
+  // Level 40.
+  if (clip == "brief40_rigging")
+    return brief40Rigging(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

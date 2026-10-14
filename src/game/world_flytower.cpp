@@ -340,7 +340,7 @@ void World::fireFlyCue(FtCue& c)
       for (int k : c.targets)
         if (isOnScreen(s.pyros[std::size_t(k)].flame(), 4))
         {
-          playSound(Sfx::FlameShot);
+          playSound(Sfx::PyroBurst);
           break;
         }
       break;
@@ -350,14 +350,14 @@ void World::fireFlyCue(FtCue& c)
         auto& t = s.trusses[std::size_t(k)];
         t.goal = std::clamp(c.stop, 0, int(t.stops.size()) - 1);
         if (isOnScreen(mPlatforms[std::size_t(t.platform)].box(), 4))
-          playSound(Sfx::Clunk);
+          playSound(Sfx::TrussMotor);
       }
       break;
     case FtCueKind::Confetti:
       for (int k : c.targets)
         if (isOnScreen(s.confetti[std::size_t(k)].lane(), 4))
         {
-          playSound(Sfx::Applause);
+          playSound(Sfx::ConfettiBlast);
           break;
         }
       break;
@@ -369,7 +369,7 @@ void World::fireFlyCue(FtCue& c)
           s.actors[std::size_t(k)].lock = 0;
         const Enemy& e = mEnemies[std::size_t(s.actors[std::size_t(k)].enemy)];
         if (e.alive && isOnScreen(e.box(), 8))
-          playSound(Sfx::LightClunk);
+          playSound(c.on ? Sfx::SpotStrike : Sfx::SpotDouse);
       }
       break;
     case FtCueKind::Towel:
@@ -436,7 +436,7 @@ void World::updateFlyPyro()
       py.spent = true;
     }
     if (py.fuseT == kFtGlow)
-      playSound(Sfx::FlameShot);
+      playSound(Sfx::CannonRoar);
     // The Q99 cannon: the board's struck cue flickers when the runner faces it.
     if (py.dir != 0)
     {
@@ -592,7 +592,7 @@ void World::updateBags()
       const Vec2 c = cellCenter(b.box());
       burst(c, rgb(200, 170, 120), rgb(140, 110, 70), 16, 1.6f);
       if (isOnScreen(b.box(), 4))
-        playSound(Sfx::Thud);
+        playSound(Sfx::SandbagThump);
       gone = true;
     }
     if (!gone && !b.hit && alive(p) && b.box().intersects(p.hitBox()))
@@ -767,7 +767,7 @@ void World::updatePyroRig(const Button& fire)
   p.muzzleTicks = 4;
   p.muzzleStance = p.stance;
   if (s.stream == 1)
-    playSound(Sfx::FlameShot);
+    playSound(Sfx::PyroStream);
   if ((s.stream - 1) % kFtStreamEvery == 0)
   {
     const CellBox cone = pyroStream();
@@ -812,7 +812,7 @@ bool World::shotAtFlyTower(Projectile& pr, const CellBox& b)
         showMessage("Q99 - THE CUT CUE GOES OFF");
       }
       else
-        playSound(Sfx::Hit);
+        playSound(Sfx::BreakerSnap);
       return true;
     }
   // Trigger Happy's discs.
@@ -824,7 +824,7 @@ bool World::shotAtFlyTower(Projectile& pr, const CellBox& b)
       const Vec2 c = cellCenter(t.box());
       addScore(300, c);
       burst(c, rgb(255, 230, 120), rgb(255, 80, 60), 14, 1.6f);
-      playSound(Sfx::Hit);
+      playSound(Sfx::DiscPing);
       return true;
     }
   return false;
@@ -878,7 +878,7 @@ void World::updateFollowspot(Enemy& e, const EnemyDef& /*def*/)
   const bool on = std::abs(a->beamX - mid) <= 3;
   a->lock = on ? a->lock + 1 : 0;
   if (a->lock == kFtSpotLock)
-    playSound(Sfx::LightClunk);
+    playSound(Sfx::SpotLock);
 }
 
 void World::updateRigger(Enemy& e, const EnemyDef& def)
@@ -938,7 +938,7 @@ void World::updateRigger(Enemy& e, const EnemyDef& def)
   }
   e.tell = std::max(1, kFtRiggerAim - a->aim + 1);
   if (a->aim == kFtRiggerAim - kFtRiggerBeep)
-    playSound(Sfx::Beep);
+    playSound(Sfx::LaserBeep);
   if (a->aim < kFtRiggerAim)
     return;
   a->aim = 0;
@@ -962,7 +962,7 @@ void World::updateRigger(Enemy& e, const EnemyDef& def)
   pr.x = pr.prevX = fx;
   pr.y = pr.prevY = fy;
   mProjectiles.push_back(pr);
-  playSound(Sfx::EnemyShot);
+  playSound(Sfx::RiggerShot);
 }
 
 void World::updateSandbagDrop(Enemy& e, const EnemyDef& def)
@@ -985,7 +985,7 @@ void World::updateSandbagDrop(Enemy& e, const EnemyDef& def)
       a->tell = 0;
       e.tell = 0;
       e.cool = def.cooldown;
-      playSound(Sfx::Whoosh);
+      playSound(Sfx::RopeCut);
     }
     return;
   }

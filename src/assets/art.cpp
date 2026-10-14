@@ -14,6 +14,7 @@
 #include "assets/art_wardrobe37.hpp"
 #include "assets/art_writers38.hpp"
 #include "assets/art_gallery39.hpp"
+#include "assets/art_flytower40.hpp"
 #include "assets/art_garden.hpp"
 
 #include "base/math.hpp"
@@ -1881,6 +1882,8 @@ Texture bakeLadder(const Renderer& r, const Theme& t)
     return bakeWardrobeLadder(r, t); // a wooden library ladder
   if (isWritersRoom(t))
     return bakeWritersLadder(r, t); // two pencils with ruler rungs
+  if (isFlyTower(t))
+    return bakeFlyTowerLadder(r, t); // black steel, glow tape
   // One block of ladder; the rails straddle the left cell column, so the
   // texture is drawn 16 px left of its block.
   VectorImage img(64, 64);
@@ -2139,6 +2142,8 @@ Texture bakeSolid(const Renderer& r, const Theme& t, int variant)
     return bakeWritersSolid(r, t, variant);
   if (isGallery(t))
     return bakeGallerySolid(r, t, variant);
+  if (isFlyTower(t))
+    return bakeFlyTowerSolid(r, t, variant);
   if (isKitchen(t))
     return bakeKitchenSolid(r, t, variant);
   if (isManor(t))
@@ -2597,6 +2602,8 @@ Texture bakeSolidTop(const Renderer& r, const Theme& t)
     return bakeWritersSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isGallery(t))
     return bakeGallerySolidTop(r, t, float(kTopOff), kTopTexH);
+  if (isFlyTower(t))
+    return bakeFlyTowerSolidTop(r, t, float(kTopOff), kTopTexH);
   if (isKitchen(t))
     return bakeKitchenSolidTop(r, t);
   if (isManor(t))
@@ -2746,6 +2753,8 @@ Texture bakePlatform(const Renderer& r, const Theme& t)
     return bakeWritersPlatform(r, t); // a script line
   if (isGallery(t))
     return bakeGalleryPlatform(r, t); // a cable tray
+  if (isFlyTower(t))
+    return bakeFlyTowerPlatform(r, t); // a catwalk
   if (isKitchen(t))
     return bakeKitchenPlatform(r, t);
   if (isManor(t))
@@ -2808,6 +2817,8 @@ Texture bakeSpikes(const Renderer& r, const Theme& t)
     return bakeWritersSpikes(r, t); // pencils points up in a tray
   if (isGallery(t))
     return bakeGallerySpikes(r, t); // broken screen glass in a hazard tray
+  if (isFlyTower(t))
+    return bakeFlyTowerSpikes(r, t); // stage-brace spikes in a tray
   VectorImage img(64, 64);
   cairo_t* cr = img.cr();
   if (t.id == ThemeId::NeonOverdrive)
@@ -7380,6 +7391,8 @@ Texture bakeSky(const Renderer& r, const Theme& t)
     return bakeWritersSky(r, t);
   if (isGallery(t))
     return bakeGallerySky(r, t);
+  if (isFlyTower(t))
+    return bakeFlyTowerSky(r, t);
   if (isKitchen(t))
     return bakeKitchenSky(r, t);
   if (isManor(t))
@@ -7571,6 +7584,8 @@ Texture bakeBackFar(const Renderer& r, const Theme& t)
     return bakeWritersFar(r, t, kLayerW);
   if (isGallery(t))
     return bakeGalleryFar(r, t, kLayerW);
+  if (isFlyTower(t))
+    return bakeFlyTowerFar(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenFar(r, t);
   if (isManor(t))
@@ -7745,6 +7760,8 @@ Texture bakeBackNear(const Renderer& r, const Theme& t)
     return bakeWritersNear(r, t, kLayerW);
   if (isGallery(t))
     return bakeGalleryNear(r, t, kLayerW);
+  if (isFlyTower(t))
+    return bakeFlyTowerNear(r, t, kLayerW);
   if (isKitchen(t))
     return bakeKitchenNear(r, t);
   if (isManor(t))
@@ -8028,6 +8045,8 @@ Texture bakeExitBase(const Renderer& r, const Theme& t)
     return bakeWritersExitBase(r, t); // the back door, THE END on its glass
   if (isGallery(t))
     return bakeGalleryExitBase(r, t); // CAM 1, live, ON AIR
+  if (isFlyTower(t))
+    return bakeFlyTowerExitBase(r, t); // the hatch to the lighting bridge
   // 96 wide, 144 tall; anchor so (0,0) is the top-left of the 64x128 exit area.
   VectorImage img(96, 144);
   cairo_t* cr = img.cr();

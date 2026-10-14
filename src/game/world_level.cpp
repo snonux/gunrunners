@@ -914,7 +914,7 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         }
         break;
       case PropKind::Deco42:
-        if (!foreground && onScreen && mWest.posters.empty() && !mDish.on) // Dry Gulch prints it on its wanted posters; Dish Array on D4
+        if (!foreground && onScreen && mWest.posters.empty() && !mDish.on && !mFly.on) // Dry Gulch prints it on its wanted posters; Dish Array on D4; the Fly Tower stencils it on a sandbag
           r.drawText(pr.text, x + w * 0.5f, y + h * 0.5f - 16, {28.0f, rgba(255, 255, 255, 150), kInk, true},
             Align::Center);
         break;

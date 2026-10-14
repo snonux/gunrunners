@@ -694,6 +694,26 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return (hiss * 0.3 * wash * (1.0 - 0.45 * thin) + crackle * m.next() * 0.2 + buzz.step(60.0, Wave::Saw) * 0.012) * env;
     });
   }
+  if (id == "pa_feedback")
+  {
+    // The Fly Tower (brief_40): the house PA keyed open: a thump and a
+    // crackle in the speaker, then the howl of feedback creeping up and
+    // squealing until someone pulls the fader down.
+    Noise n(seed), m(seed + 5u);
+    OnePole lp;
+    Svf howl, cone;
+    Osc tone, tone2, mains;
+    return render(1.6, [&](double t, double total) {
+      const double key = lp.lowpass(n.next(), 300.0) * decay(t, 0.05) * 2.0;
+      const double crackle = (m.next() > 0.97f ? m.next() : 0.0f) * decay(t, 0.35) * 0.6;
+      const double u = std::clamp((t - 0.15) / 1.1, 0.0, 1.0);
+      const double f = 1180.0 + 40.0 * std::sin(t * 2.0 * kPi * 5.0) * u;
+      const double ring = (tone.step(f, Wave::Sine) * 0.8 + tone2.step(f * 2.0, Wave::Sine) * 0.25 * u + howl.band(n.next(), f, 12.0) * 0.4) *
+        u * u * std::min(1.0, (total - t) / 0.12);
+      const double buzz = mains.step(60.0, Wave::Saw) * 0.06 * std::min(1.0, t / 0.05) + cone.band(m.next(), 900.0, 2.0) * 0.08;
+      return (key + crackle + ring * 0.5 + buzz) * 0.45;
+    });
+  }
   if (has(id, "steam") || has(id, "hiss") || has(id, "airlock") || has(id, "sizzle") || has(id, "deflate"))
     return noiseBed(has(id, "static_hiss") ? 3.0 : 1.2, seed, 2000.0, 9000.0, 0.35, 0.05);
   if (has(id, "static") || has(id, "snow") || has(id, "tv_"))
