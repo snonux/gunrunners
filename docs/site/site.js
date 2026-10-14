@@ -205,15 +205,36 @@
   }
 
   // ---------- the trailers ----------
-  // The trailers have voice-over and play only when clicked. One at a time:
-  // starting one pauses any other trailer and mutes the game clips, so no
-  // two soundtracks talk over each other.
+  // The trailers have voice-over and play only when clicked. One sound at a
+  // time: starting a trailer pauses any other trailer and mutes the game
+  // clips someone had unmuted (they get their sound back when no trailer
+  // plays any more); unmuting a clip pauses the trailer.
   function setupTrailers() {
-    var trailers = document.querySelectorAll(".trailer video");
+    var trailers = [].slice.call(document.querySelectorAll(".trailer video"));
+    var clips = [].slice.call(document.querySelectorAll(".video video"));
+    var silenced = []; // clips muted for a trailer, to unmute afterwards
+
+    function trailerPlaying() { return trailers.some(function (t) { return !t.paused; }); }
+
     trailers.forEach(function (t) {
       t.addEventListener("play", function () {
         trailers.forEach(function (other) { if (other !== t && !other.paused) other.pause(); });
-        document.querySelectorAll(".video video").forEach(function (v) { v.muted = true; });
+        clips.forEach(function (c) {
+          if (!c.muted) { silenced.push(c); c.muted = true; }
+        });
+      });
+      t.addEventListener("pause", function () {
+        if (trailerPlaying()) return;
+        var back = silenced;
+        silenced = [];
+        back.forEach(function (c) { c.muted = false; });
+      });
+    });
+    clips.forEach(function (c) {
+      c.addEventListener("volumechange", function () {
+        if (c.muted || !trailerPlaying()) return;
+        silenced = silenced.filter(function (x) { return x !== c; });
+        trailers.forEach(function (t) { if (!t.paused) t.pause(); });
       });
     });
   }

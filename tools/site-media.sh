@@ -2,9 +2,10 @@
 # Makes the media of the web page (docs/index.html, served on
 # https://gunrunners.snonux.foo): the six runner portraits, short gameplay
 # clips with sound, the screenshots the page shows that docs/media does not
-# have, and posters for the trailers in docs/trailers. All but the posters
-# are drawn or played by the game itself, headless and deterministic; the
-# posters are frames cut from the committed trailers. The PNGs carry no
+# have, and posters for the trailers in docs/trailers. All but the trailer
+# posters are drawn or played by the game itself, headless and
+# deterministic; the trailer posters are frames cut from the committed
+# trailers. The PNGs carry no
 # timestamps, so a rerun gives the same files.
 #
 # Usage: tools/site-media.sh [portraits|clips|shots|trailers|all]   (default: all)
