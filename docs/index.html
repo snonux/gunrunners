@@ -482,11 +482,11 @@
       <p>Grab <code>gunrunners-vX.Y.Z-linux-x86_64.tar.gz</code> from the
         <a href="https://github.com/snonux/gunrunners/releases/latest">latest release</a>
         when it carries one, unpack it anywhere and start <code>gunrunners</code>.
-        It needs SDL2, Cairo and the DejaVu fonts. Or build it, on any architecture:</p>
+        It needs SDL2, Cairo, libcurl and the DejaVu fonts. Or build it, on any architecture:</p>
 <pre><code>git clone https://github.com/snonux/gunrunners
 cd gunrunners
-sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel   # Fedora
-sudo apt install build-essential cmake libsdl2-dev libcairo2-dev   # Debian/Ubuntu
+sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel libcurl-devel   # Fedora
+sudo apt install build-essential cmake libsdl2-dev libcairo2-dev libcurl4-openssl-dev   # Debian/Ubuntu
 ./build.sh -r</code></pre>
     </article>
     <article class="get-card">
