@@ -83,7 +83,10 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .sound-toggle[aria-pressed="false"] .cross { display: inline; }
 .sound-toggle:hover { box-shadow: 0 0 16px rgba(47, 216, 255, 0.45); }
 .sound-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-@media (max-width: 760px) { .top nav a:not(.nav-cta) { display: none; } }
+@media (max-width: 420px) { .sound-label { display: none; } .sound-toggle { padding: 5px 8px; } } /* icon only on narrow phones */
+/* Below 960px the section links no longer fit on one line (with a classic
+   scrollbar): keep only "Get it" and the sound switch. */
+@media (max-width: 960px) { .top nav a:not(.nav-cta) { display: none; } }
 
 /* ---------- layout ---------- */
 main > section { padding: clamp(48px, 8vw, 96px) clamp(16px, 5vw, 64px); max-width: 1240px; margin: 0 auto; }
@@ -349,8 +352,9 @@ main > section { position: relative; isolation: isolate; }
    the page's own. */
 main > section::before {
   content: ""; position: absolute; z-index: -2; top: 0; bottom: 0;
-  left: calc(50% - 50vw); width: 100vw;
+  left: calc(50% - 50vw - 8px); width: calc(100vw + 16px); /* 8px spare a side: the blur fades its own edges */
   background:
+    var(--veil, linear-gradient(transparent, transparent)),
     linear-gradient(180deg, rgba(20, 10, 38, 0.5), rgba(20, 10, 38, 0.72) 22%, rgba(20, 10, 38, 0.9) 48%, var(--bg) 70%),
     var(--scene, none) center -10vw / 100% auto no-repeat var(--bg);
   filter: blur(2px) saturate(1.35);
@@ -360,7 +364,7 @@ main > section::before {
    sits half a slant down. */
 main > section:not(.hero)::after {
   content: ""; position: absolute; z-index: -1; top: calc(var(--slant) / 2 - 1px);
-  left: calc(50% - 50vw); width: 100vw; height: 3px;
+  left: calc(50% - 50vw - 8px); width: calc(100vw + 16px); height: 3px;
   transform: rotate(var(--slant-angle));
   background: linear-gradient(90deg, var(--cyan), var(--hot), var(--sun));
   box-shadow: 0 0 14px rgba(255, 63, 174, 0.8), 0 0 40px rgba(47, 216, 255, 0.35);
@@ -369,11 +373,13 @@ main > section:not(.hero)::after {
 .videos { --scene: url(../media/level03.jpg); }
 .story { --scene: url(../media/level04.jpg); }
 .runners { --scene: url(../media/level06.jpg); }
-.villains { --scene: url(../media/level21.jpg); }
-.episodes { --scene: url(../media/level43.jpg); }
-.features { --scene: url(../media/level19.jpg); }
+.villains { --scene: url(../site/shots/level39.jpg); }
+.episodes { --scene: url(../site/shots/level31.jpg); }
+.features { --scene: url(../media/level05.jpg); }
 .gallery { --scene: url(../media/level44.jpg); }
-.get { --scene: url(../media/title.jpg); }
+.get { --scene: url(../media/level02.jpg); }
+/* Bright pictures get an extra veil, so the headings keep their contrast. */
+.get, .gallery { --veil: linear-gradient(rgba(20, 10, 38, 0.45), rgba(20, 10, 38, 0.45)); }
 /* The hero's picture covers it, anchored at the bottom, and starts a
    third of the hero's height above the page: when it is scaled to the
    box's height (phones, most desktops) that takes the top fifth, the HUD
@@ -405,7 +411,9 @@ main > section:not(.hero)::after {
   transform: rotateX(72deg); transform-origin: 50% 100%;
   animation: floor-roll 1.1s linear infinite;
 }
-@keyframes floor-roll { to { background-position: 0 64px, 0 0; } }
+/* One grid cell along the tilted plane per loop: a transform, so the GPU
+   moves it without repainting (the far end is masked off). */
+@keyframes floor-roll { from { transform: rotateX(72deg) translateY(0); } to { transform: rotateX(72deg) translateY(64px); } }
 
 /* Every few seconds the logo's signal breaks up, like a bad VHS tape. */
 .logo { animation: glitch 6s infinite; }
@@ -452,19 +460,21 @@ body::after {
 /* Cards come alive under the pointer: runners hop, episodes and bosses lean in. */
 @media (hover: hover) {
   .runner:hover img { animation: hop 0.6s cubic-bezier(0.3, 0.7, 0.4, 1); }
-  .episode, .boss, .video, .get-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
-  .episode:hover, .boss:hover, .get-card:hover {
+  .episode, .boss, .video { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+  .episode:hover, .boss:hover {
     transform: translateY(-6px) rotate(-0.6deg);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 26px rgba(255, 63, 174, 0.35);
   }
 }
 @keyframes hop { 0%, 100% { transform: none; } 40% { transform: translateY(-22px) rotate(-4deg); } 70% { transform: translateY(0) scaleY(0.92); } }
 
-/* Panels sit on the pictures: a little glass so the text stays readable. */
-.video, .runner, .boss, .episode, .get-card, .cast-card, .spoiler { backdrop-filter: blur(6px); }
+/* The see-through cast cards frost the picture behind them (the other
+   panels are opaque, so a blur behind them would cost and show nothing). */
+.cast-card { backdrop-filter: blur(6px); }
 
 @media (prefers-reduced-motion: reduce) {
   .logo, .hero-floor::before, .filmstrip-track, .runner:hover img { animation: none; }
+  .episode:hover, .boss:hover { transform: none; }
 }
 
 /* The story's who's who and its episode-by-episode walkthrough. */

@@ -7,14 +7,16 @@
 (function () {
   "use strict";
 
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Read live (the visitor can switch it while the page is open).
+  var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  function reduceMotion() { return reducedMotion.matches; }
   var TURN_MS = 950; // a little over the .box.animate transition in style.css
 
   // ---------- the box ----------
   // The box is turned by setting --rx/--ry on .box-stage (style.css reads
   // them). `rest` is where the box was left (dragged to, flipped to or turned
-  // with the keys); the idle sway only wobbles a few degrees around it.
-  function createBox(stage, flip) {
+  // with the keys); the idle spin carries on from there.
+  function createBox(stage) {
     var state = {
       rest: { rx: -10, ry: -24 }, // the three-quarter view of the front, from a little above
       rx: -10, ry: -24,
@@ -31,11 +33,6 @@
       set(value);
     }
 
-    function showingBack() {
-      var a = ((state.ry % 360) + 360) % 360;
-      return a > 90 && a < 270;
-    }
-
     // Push the current angles to the page.
     function apply() {
       write("rx", state.rx.toFixed(2) + "deg", function (v) { stage.style.setProperty("--rx", v); });
@@ -43,10 +40,6 @@
       // One full sweep of the sheen per half turn, so it lines up after a flip.
       var phase = ((state.ry % 180) + 180) % 180;
       write("sheen", ((phase / 180) * 100).toFixed(1) + "%", function (v) { stage.style.setProperty("--sheen", v); });
-      if (flip) {
-        write("label", showingBack() ? "Turn the box to the front" : "Turn the box over",
-          function (v) { flip.textContent = v; });
-      }
     }
 
     return { state: state, apply: apply };
@@ -68,7 +61,7 @@
         box.classList.remove("animate");
         s.turning = false;
         s.swayStart = performance.now();
-      }, reduceMotion ? 0 : TURN_MS);
+      }, reduceMotion() ? 0 : TURN_MS);
     };
     // Cut a running turn short for a drag: without the transition the box
     // jumps to where the turn was heading, and the drag starts from there.
@@ -139,16 +132,23 @@
   // second about its upright axis) while nodding up and down a little,
   // starting from wherever it was left (dragged, flipped or turned with the
   // keys) and easing in over the first two seconds. It runs only while the
-  // box is on screen (it repaints the box and its SVG filters).
+  // box is on screen (it repaints the box and its SVG filters) and stops
+  // whenever reduced motion is switched on. After any pause (off screen, a
+  // background tab) it starts again from the angle it stopped at.
   var SPIN = 24;
   function startSway(stage, b) {
-    var s = b.state, visible = false, frame = 0;
+    var s = b.state, visible = false, frame = 0, last = 0;
     // Degrees turned t seconds after the spin (re)started: the speed ramps
     // up linearly over 2 s, then stays at SPIN.
     function turned(t) { return t < 2 ? SPIN * t * t / 4 : SPIN * (t - 1); }
     function sway(now) {
       frame = 0;
-      if (!visible) return;
+      if (!visible || reduceMotion()) return;
+      if (now - last > 250) { // a pause: carry on from here
+        s.rest = { rx: s.rest.rx, ry: s.ry };
+        s.swayStart = now;
+      }
+      last = now;
       if (!s.dragging && !s.turning) {
         var t = (now - s.swayStart) / 1000;
         s.ry = s.rest.ry + turned(t);
@@ -157,11 +157,13 @@
       }
       frame = window.requestAnimationFrame(sway);
     }
-    if (reduceMotion || !("IntersectionObserver" in window)) return;
+    function resume() { if (visible && !frame && !reduceMotion()) frame = window.requestAnimationFrame(sway); }
+    if (!("IntersectionObserver" in window)) return;
     new IntersectionObserver(function (entries) {
       visible = entries[entries.length - 1].isIntersecting;
-      if (visible && !frame) frame = window.requestAnimationFrame(sway);
+      resume();
     }).observe(stage);
+    reducedMotion.addEventListener("change", resume);
   }
 
   function setupBox() {
@@ -170,7 +172,7 @@
     var flip = document.getElementById("flip");
     var controls = document.querySelector(".box-controls");
     if (!stage || !box) return;
-    var b = createBox(stage, flip);
+    var b = createBox(stage);
     addTurns(box, b);
     setupDrag(stage, b);
     setupControls(stage, flip, b);
@@ -188,7 +190,7 @@
   // paused; dataset.auto marks the pauses made here.
   function setupVideos() {
     var videos = document.querySelectorAll(".video video");
-    if (!("IntersectionObserver" in window) || reduceMotion) return;
+    if (!("IntersectionObserver" in window) || reduceMotion()) return;
     var userPaused = new WeakSet();
     videos.forEach(function (v) {
       v.addEventListener("pause", function () { if (v.dataset.auto !== "1") userPaused.add(v); v.dataset.auto = ""; });
