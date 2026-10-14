@@ -32,6 +32,7 @@
 #include "assets/enemy_art_writers38.hpp"
 #include "assets/enemy_art_gallery39.hpp"
 #include "assets/enemy_art_flytower40.hpp"
+#include "assets/enemy_art_sweeps41.hpp"
 #include "assets/enemy_art_garden.hpp"
 #include "assets/enemy_art_hull.hpp"
 #include "assets/enemy_art_station.hpp"
@@ -2678,6 +2679,7 @@ const Sprite& styledEnemySprite(const Art& art, const Renderer& r, const Theme& 
            !drawWriters38Art(c.cr, t, key, w, h, variant, frame) &&
            !drawGallery39Art(c.cr, t, key, w, h, variant, frame) &&
            !drawFlyTower40Art(c.cr, t, key, w, h, variant, frame) &&
+           !drawSweeps41Art(c.cr, t, key, w, h, variant, frame) &&
            !drawVehicleArt(c.cr, key, w, h, variant, frame))
     fallbackBot(c);
   Sprite s;

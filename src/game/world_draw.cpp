@@ -15,6 +15,7 @@
 #include "game/writers_draw.hpp"
 #include "game/gallery_draw.hpp"
 #include "game/flytower_draw.hpp"
+#include "game/sweeps_draw.hpp"
 #include "game/zero_draw.hpp"
 
 #include <algorithm>
@@ -142,6 +143,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawGallerySet(r, *this, mArt, camX, camY, frame, alpha); // Level 39: the edit suite, the studios, the tape library, the gallery
   if (mFly.on)
     drawFlyTowerSet(r, *this, mArt, camX, camY, frame, alpha); // Level 40: the stage house, the battens, the catwalks, the wings
+  if (mSweeps.on)
+    drawSweepsSet(r, *this, mArt, camX, camY, frame, alpha); // Level 41: the back rows, the understage
 
   const int tx0 = std::max(0, int(camX / kTilePx) - 1);
   const int tx1 = std::min(mLevel->width - 1, int((camX + float(kScreenW)) / kTilePx) + 1);
@@ -398,6 +401,11 @@ void World::draw(Renderer& r, int frame, float alpha) const
         drawPyroRigIcon(r, mArt, x, y, 1.0f, frame); // Level 40 (world_flytower_draw.cpp)
         continue;
       }
+      if (mSweeps.on && mLevelProto == int(ProtoId::ApplauseCannon))
+      {
+        drawApplauseCannonIcon(r, mArt, x, y, 1.0f, frame); // Level 41 (world_sweeps_draw.cpp)
+        continue;
+      }
       DrawOpts po;
       po.tint = lerpColor(c, rgb(255, 255, 255), 0.35f);
       r.draw(mArt.items[std::size_t(icon)], x, y, po);
@@ -520,6 +528,13 @@ void World::draw(Renderer& r, int frame, float alpha) const
         r.draw(styledEnemySprite(mArt, r, mTheme, "duck_headset", 1, 0, 2, 2).get(1), x + 32, y + 64);
         continue;
       }
+      if (mSweeps.on && mLevel->themeKey == "sweeps_week")
+      {
+        // Sweeps Week's duck is dressed for the show: a sequined bow tie.
+        r.draw(mArt.items[std::size_t(icon)], x, y);
+        r.draw(styledEnemySprite(mArt, r, mTheme, "duck_bowtie", 1, (frame / 8) % 2, 2, 2).get(1), x + 32, y + 64);
+        continue;
+      }
       if (mStorm.on && mLevel->themeKey == "storm_cliffs")
       {
         // Storm Relay's duck wears a sou'wester.
@@ -603,6 +618,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // Level 39 (world_gallery_draw.cpp)
     if (e.kind == EnemyKind::Followspot || e.kind == EnemyKind::Rigger || e.kind == EnemyKind::SandbagDrop)
       continue; // Level 40 (world_flytower_draw.cpp)
+    if (e.kind == EnemyKind::WarmupComic || e.kind == EnemyKind::AudiencePlant || e.kind == EnemyKind::CueDrone)
+      continue; // Level 41 (world_sweeps_draw.cpp)
     if (e.kind == EnemyKind::MastClimber || e.kind == EnemyKind::RelayDrone || e.kind == EnemyKind::FeedbackNode)
       continue; // Level 35 (world_tower_draw.cpp)
     if (e.kind == EnemyKind::Echo)
@@ -1141,6 +1158,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
       continue; // the Echo Mic's rings or a crew member's cue card (world_gallery_draw.cpp)
     if (mFly.on && drawFlyTowerShot(r, *this, mArt, pr, cx, cy, frame))
       continue; // a Rigger's dart (world_flytower_draw.cpp)
+    if (mSweeps.on && drawSweepsShot(r, *this, mArt, pr, cx, cy, frame))
+      continue; // a tomato, an Applause Cannon burst, a paintball (world_sweeps_draw.cpp)
     if (pr.thrown == 4)
     {
       // Level 24: a Cleaver Bot's cleaver, spinning end over end.
@@ -1856,6 +1875,8 @@ void World::drawHud(Renderer& r, int frame) const
     drawEchoMicIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 39: the Echo Mic (world_gallery_draw.cpp)
   else if (proto && mFly.on && p.proto == int(ProtoId::PyroRig))
     drawPyroRigIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 40: the Pyro Rig (world_flytower_draw.cpp)
+  else if (proto && mSweeps.on && p.proto == int(ProtoId::ApplauseCannon))
+    drawApplauseCannonIcon(r, mArt, x + 18, top + 20, 0.62f, frame); // Level 41: the Applause Cannon (world_sweeps_draw.cpp)
   else if (proto)
   {
     DrawOpts io;

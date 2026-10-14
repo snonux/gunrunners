@@ -251,7 +251,7 @@ void World::updateSweepsFrames(const PlayerInput& input)
     closeBallot();
   if (mState == WorldState::Exiting && mSweeps.fanfare >= 0 && !mSweeps.played)
   {
-    static const Sfx kSounds[] = {Sfx::FlagUp, Sfx::Drum, Sfx::Applause};
+    static const Sfx kSounds[] = {Sfx::BrassFanfare, Sfx::DrumRoll, Sfx::Ovation};
     mSweeps.played = true;
     playSound(kSounds[std::clamp(mSweeps.fanfare, 0, 2)]);
     showMessage(sweepsOptionName({0u, SwCat::Fanfare, mSweeps.fanfare, 100}) + "!");
@@ -361,7 +361,7 @@ void World::openBallot(int k)
       s.winner = slot;
     }
   }
-  playSound(Sfx::Bell); // the HUD shows the ballot
+  playSound(Sfx::BallotSting); // the HUD shows the ballot
 }
 
 void World::closeBallot()
@@ -404,7 +404,7 @@ void World::closeBallot()
     it.y = it.prevY = v.virusY;
     it.floating = true;
     mItems.push_back(it);
-    playSound(Sfx::Warn);
+    playSound(Sfx::VirusWarble);
   }
 }
 
@@ -510,10 +510,10 @@ void World::updateSweeps()
   {
     ++s.ballotT;
     if (s.ballotT % 2 == 0 && s.ballotT < kSwSwing)
-      playSound(Sfx::Click);
+      playSound(Sfx::MeterTick);
     if (s.ballotT == kSwSwing)
     {
-      playSound(Sfx::Applause);
+      playSound(Sfx::AudienceRoar);
       showMessage(sweepsOptionName(s.options[s.winner]) + " WINS THE VOTE");
     }
     if (s.ballotT >= kSwSwing + kSwShow)
@@ -542,7 +542,7 @@ void World::updateSweeps()
     }
   for (const auto& t : s.turntables)
     if (s.clock % kSwTurnFlip == 0 && isOnScreen({t.x0 * kCellsPerTile, t.row * kCellsPerTile, (t.x1 - t.x0 + 1) * kCellsPerTile, 2}, 2))
-      playSound(Sfx::Clunk);
+      playSound(Sfx::TurntableTurn);
   updateChickens();
   // VIRUS FOR THE RUNNER: the V drifts at the runner's chest.
   if (s.clock % kSwVirusEvery == 0 && alive(p))
@@ -585,7 +585,7 @@ void World::updateChickens()
         if (++c.bounces > kSwChickenBounces)
           gone = true;
         if (isOnScreen(c.box(), 2))
-          playSound(Sfx::Honk);
+          playSound(Sfx::ChickenSqueak);
       }
       c.vy = c.vy > 0.0f ? std::min(-0.75f, -c.vy * 0.6f) : 0.0f;
     }
@@ -615,7 +615,7 @@ void World::updateChickens()
           for (int k = 0; k < cells; ++k)
             mMap.moveHorizontally(p.x, p.y, Player::kWidth, p.height(), dir == 0 ? 1 : dir);
         }
-        playSound(Sfx::Honk);
+        playSound(Sfx::ChickenSqueak);
         gone = true;
       }
     }
@@ -671,7 +671,7 @@ void World::updatePaint()
   while (s.chant < 3 && pct >= 25 * (s.chant + 1))
   {
     ++s.chant;
-    playSound(Sfx::Cheer);
+    playSound(Sfx::CrowdChant);
     char buf[48];
     std::snprintf(buf, sizeof(buf), "THE CROWD CHANTS - %d%%", 25 * s.chant);
     showMessage(buf);
@@ -745,7 +745,7 @@ bool World::shotAtSweeps(Projectile& pr, const CellBox& b)
       static const Color kBits[] = {rgb(255, 80, 80), rgb(80, 220, 255), rgb(255, 230, 60), rgb(160, 255, 120)};
       for (const Color bit : kBits)
         burst(c, bit, rgb(255, 255, 255), 8, 2.0f);
-      playSound(Sfx::Applause);
+      playSound(Sfx::ConfettiBlast);
       return true;
     }
     const bool applause = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::ApplauseCannon);
@@ -761,7 +761,7 @@ bool World::shotAtSweeps(Projectile& pr, const CellBox& b)
       if (meter > s.meter)
       {
         s.meter = meter;
-        playSound(Sfx::Cheer);
+        playSound(Sfx::MeterUp);
         char buf[32];
         std::snprintf(buf, sizeof(buf), "APPLAUSE x%d", meter);
         showMessage(buf);
@@ -838,7 +838,7 @@ void World::updateComic(Enemy& e, const EnemyDef& def)
     {
       e.dir = mid >= ex ? 1 : -1;
       e.tell = def.tell;
-      playSound(Sfx::Drum);
+      playSound(Sfx::Rimshot);
       return;
     }
   }
@@ -891,7 +891,7 @@ void World::updatePlant(Enemy& e, const EnemyDef& def)
     a->stand = 1;
     a->away = 0;
     e.tell = def.tell;
-    playSound(Sfx::Creak);
+    playSound(Sfx::SeatFlip);
     return;
   }
   if (a->stand < def.tell)
@@ -930,7 +930,7 @@ void World::updatePlant(Enemy& e, const EnemyDef& def)
   pr.x = pr.prevX = fx;
   pr.y = pr.prevY = fy;
   mProjectiles.push_back(pr);
-  playSound(Sfx::EnemyShot);
+  playSound(Sfx::TomatoToss);
 }
 
 void World::updateCueDrone(Enemy& e, const EnemyDef& def)
@@ -970,7 +970,7 @@ void World::updateCueDrone(Enemy& e, const EnemyDef& def)
       e.tell = 0;
       a->swoop = 1;
       a->card = (a->card + 1) % 3;
-      playSound(Sfx::Whoosh);
+      playSound(Sfx::DroneSwoop);
     }
     return;
   }

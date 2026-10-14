@@ -714,6 +714,48 @@ std::vector<float> makeNamedSfx(const std::string& id)
       return (key + crackle + ring * 0.5 + buzz) * 0.45;
     });
   }
+  if (id == "crowd_murmur")
+  {
+    // Sweeps Week (brief_41): a studio audience filling the banks: a warm
+    // murmur of voices, seats thumping down, a laugh here and there.
+    Noise n(seed), m(seed + 3u), s(seed + 11u);
+    Svf v1, v2, v3;
+    OnePole lp;
+    Osc thump;
+    double seatT = -1.0;
+    return render(4.0, [&](double t, double total) {
+      const double env = std::min(1.0, t / 0.8) * std::min(1.0, (total - t) / 0.8);
+      const double babble = v1.band(n.next(), 420.0 + 120.0 * std::sin(t * 3.1), 2.5) * 0.7 +
+        v2.band(m.next(), 900.0 + 200.0 * std::sin(t * 4.7 + 1.0), 3.0) * 0.45;
+      if (s.next() > 0.99985f)
+        seatT = t;
+      double seat = 0.0;
+      if (seatT >= 0.0 && t - seatT < 0.12)
+        seat = thump.step(sweep(140.0, 60.0, (t - seatT) / 0.1), Wave::Sine) * decay(t - seatT, 0.04) * 0.5 + lp.lowpass(n.next(), 800.0) * decay(t - seatT, 0.02) * 0.6;
+      const double laugh = t > 1.6 && t < 2.2 ? v3.band(m.next(), 1100.0, 6.0) * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 7.0)) * 0.4 *
+          std::sin(kPi * (t - 1.6) / 0.6)
+                                             : 0.0;
+      return (babble * env + seat + laugh) * 0.5;
+    });
+  }
+  if (id == "marker_squeak")
+  {
+    // Sweeps Week (brief_41): a fat marker struck across a cue card: two
+    // squeaky strokes over the card's fibre.
+    Noise n(seed);
+    Svf fibre;
+    Osc squeak;
+    return render(0.6, [&](double t, double) {
+      const bool second = t > 0.3;
+      const double st = second ? t - 0.3 : t, len = second ? 0.2 : 0.25;
+      if (st > len)
+        return 0.0;
+      const double u = st / len;
+      const double f = (second ? 1700.0 : 1400.0) + 400.0 * std::sin(kPi * u) + 120.0 * std::sin(st * 2.0 * kPi * 35.0);
+      const double env = std::sin(kPi * u);
+      return (squeak.step(f, Wave::Triangle) * 0.3 + fibre.band(n.next(), 3500.0, 2.0) * 0.5) * env * 0.6;
+    });
+  }
   if (has(id, "steam") || has(id, "hiss") || has(id, "airlock") || has(id, "sizzle") || has(id, "deflate"))
     return noiseBed(has(id, "static_hiss") ? 3.0 : 1.2, seed, 2000.0, 9000.0, 0.35, 0.05);
   if (has(id, "static") || has(id, "snow") || has(id, "tv_"))

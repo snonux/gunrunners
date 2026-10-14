@@ -14999,6 +14999,208 @@ void brief40Rigging(ClipKit& k, int frame, int ticks, float ox, float oy)
   k.r.fillRect(0, 0, W, H, rgba(60, 40, 70, 30));
 }
 
+// --- Level 41: Sweeps Week ----------------------------------------------------------------
+
+// The gold sequin curtain behind the studio audience, deep folds catching
+// the light.
+const Texture& sequinCurtain41(ClipKit& k)
+{
+  return cached(k, "curtain41", 1280, 720, 0, 0, [](cairo_t* cr) {
+    for (int x = 0; x < 1280; x += 90)
+    {
+      cairo_pattern_t* g = cairo_pattern_create_linear(x, 0, x + 90, 0);
+      cairo_pattern_add_color_stop_rgb(g, 0.0, 0.25, 0.15, 0.04);
+      cairo_pattern_add_color_stop_rgb(g, 0.3, 0.62, 0.42, 0.14);
+      cairo_pattern_add_color_stop_rgb(g, 0.48, 0.86, 0.66, 0.28);
+      cairo_pattern_add_color_stop_rgb(g, 0.65, 0.58, 0.38, 0.12);
+      cairo_pattern_add_color_stop_rgb(g, 1.0, 0.25, 0.15, 0.04);
+      cairo_rectangle(cr, x, 0, 90, 720);
+      cairo_set_source(cr, g);
+      cairo_fill(cr);
+      cairo_pattern_destroy(g);
+    }
+    for (int i = 0; i < 3000; ++i)
+    {
+      const double x = double(hash2(i, 41) % 1280u), y = double(hash2(i, 43) % 720u);
+      const double fold = std::fmod(x, 90.0) / 90.0, light = std::max(0.0, 1.0 - std::abs(fold - 0.48) * 3.0);
+      cairo_arc(cr, x, y, 1.1, 0, 2 * kPi);
+      cairo_set_source_rgba(cr, 1.0, 0.9, 0.6, 0.08 + light * 0.3);
+      cairo_fill(cr);
+    }
+    cairo_pattern_t* g = cairo_pattern_create_linear(0, 0, 0, 720);
+    cairo_pattern_add_color_stop_rgba(g, 0.0, 0.1, 0.0, 0.04, 0.6);
+    cairo_pattern_add_color_stop_rgba(g, 0.5, 0.1, 0.0, 0.04, 0.0);
+    cairo_pattern_add_color_stop_rgba(g, 1.0, 0.1, 0.0, 0.04, 0.7);
+    cairo_rectangle(cr, 0, 0, 1280, 720);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+  });
+}
+
+// A floor runner from the back: black T-shirt, a talkback headset, both
+// arms up holding the cue card over his head (the card drawn separately),
+// 300 x 420, anchored at the bottom middle.
+const Texture& floorRunner41(ClipKit& k)
+{
+  return cached(k, "floorrunner41", 300, 420, 150, 420, [](cairo_t* cr) {
+    auto ink = [&](double wdt) {
+      cairo_set_source_rgb(cr, 0.04, 0.02, 0.06);
+      cairo_set_line_width(cr, wdt);
+      cairo_stroke(cr);
+    };
+    // Arms up to the card.
+    for (const double s : {-1.0, 1.0})
+    {
+      cairo_move_to(cr, 150 + s * 60, 250);
+      cairo_curve_to(cr, 150 + s * 100, 200, 150 + s * 110, 120, 150 + s * 100, 40);
+      cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+      cairo_set_source_rgb(cr, 0.04, 0.02, 0.06);
+      cairo_set_line_width(cr, 40);
+      cairo_stroke_preserve(cr);
+      cairo_set_source_rgb(cr, 0.16, 0.14, 0.18);
+      cairo_set_line_width(cr, 32);
+      cairo_stroke(cr);
+      cairo_arc(cr, 150 + s * 100, 34, 18, 0, 2 * kPi);
+      cairo_set_source_rgb(cr, 0.78, 0.56, 0.42);
+      cairo_fill_preserve(cr);
+      ink(3);
+    }
+    // The back: a black T-shirt, CREW across the shoulders.
+    cairo_move_to(cr, 70, 270);
+    cairo_curve_to(cr, 80, 230, 220, 230, 230, 270);
+    cairo_line_to(cr, 240, 420);
+    cairo_line_to(cr, 60, 420);
+    cairo_close_path(cr);
+    cairo_pattern_t* g = cairo_pattern_create_linear(60, 0, 240, 0);
+    cairo_pattern_add_color_stop_rgb(g, 0.0, 0.08, 0.07, 0.1);
+    cairo_pattern_add_color_stop_rgb(g, 0.5, 0.2, 0.18, 0.24);
+    cairo_pattern_add_color_stop_rgb(g, 1.0, 0.07, 0.06, 0.09);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    ink(4);
+    selectGameFont(cr);
+    cairo_set_font_size(cr, 30);
+    cairo_text_extents_t e;
+    cairo_text_extents(cr, "CREW", &e);
+    cairo_move_to(cr, 150 - e.width * 0.5 - e.x_bearing, 320);
+    cairo_set_source_rgb(cr, 0.95, 0.85, 0.3);
+    cairo_show_text(cr, "CREW");
+    // The head from behind, the headset's band and its cup.
+    cairo_arc(cr, 150, 210, 46, 0, 2 * kPi);
+    cairo_set_source_rgb(cr, 0.22, 0.13, 0.08);
+    cairo_fill_preserve(cr);
+    ink(4);
+    cairo_arc(cr, 150, 210, 50, kPi * 1.05, kPi * 1.95);
+    cairo_set_source_rgb(cr, 0.1, 0.1, 0.12);
+    cairo_set_line_width(cr, 9);
+    cairo_stroke(cr);
+    cairo_rectangle(cr, 96, 200, 16, 30);
+    cairo_set_source_rgb(cr, 0.12, 0.12, 0.14);
+    cairo_fill_preserve(cr);
+    ink(2);
+  });
+}
+
+// The cue card: CHEER FOR THE RUNNERS? in black marker (540 x 150).
+const Texture& cueCard41(ClipKit& k)
+{
+  return cached(k, "cuecard41", 540, 150, 270, 150, [](cairo_t* cr) {
+    cairo_rectangle(cr, 6, 6, 528, 138);
+    cairo_set_source_rgb(cr, 0.99, 0.98, 0.94);
+    cairo_fill_preserve(cr);
+    cairo_set_source_rgb(cr, 0.04, 0.02, 0.06);
+    cairo_set_line_width(cr, 4);
+    cairo_stroke(cr);
+    selectGameFont(cr);
+    cairo_set_source_rgb(cr, 0.06, 0.06, 0.1);
+    cairo_set_font_size(cr, 44);
+    cairo_move_to(cr, 40, 64);
+    cairo_show_text(cr, "CHEER FOR");
+    cairo_move_to(cr, 40, 118);
+    cairo_show_text(cr, "THE RUNNERS");
+    cairo_move_to(cr, 432, 118);
+    cairo_show_text(cr, "?");
+  });
+}
+
+// brief41_audience: the studio audience filling its banks against the
+// gold sequin curtain (glitter on a 4-frame loop), row by row (frames
+// 0-11), panning right a pixel a frame; a floor runner holds up a cue
+// card, CHEER FOR THE RUNNERS?, and on frame 14 a red marker strikes out
+// the question mark; marquee bulbs chase round the frame (2-frame loop).
+void brief41Audience(ClipKit& k, int frame, int ticks, float ox, float oy)
+{
+  k.r.draw(sequinCurtain41(k), ox * 0.1f, oy * 0.1f);
+  // Glitter: a 4-frame loop of glints across the curtain.
+  for (int i = 0; i < 26; ++i)
+  {
+    const std::uint32_t h = hash2(i * 13 + frame % 4, 4141);
+    drawGlow(k.r, k.art, float(h % 1280u) + ox * 0.1f, float((h >> 11) % 460u), 10.0f + float(h % 7u), rgb(255, 240, 190), 0.8f);
+  }
+  // The audience banks: four rows climbing away, each row in on its frame.
+  const float pan = float(frame) + float(ticks % 6) / 6.0f;
+  for (int row = 0; row < 4; ++row) // the back row first
+  {
+    const int in = row * 3;
+    if (frame < (3 - row) * 3)
+      continue;
+    const float scale = 0.55f + 0.12f * float(row);
+    const float y = 330.0f + float(row) * 80.0f + oy * (0.3f + 0.1f * float(row));
+    const float pop = frame == (3 - row) * 3 ? 14.0f : 0.0f;
+    // The bank's front edge.
+    k.r.fillRect(0, y - 18.0f * scale, W, 70.0f, rgba(80, 10, 26, 255));
+    k.r.fillRect(0, y - 18.0f * scale, W, 4.0f, rgb(226, 176, 70));
+    const float pitch = 82.0f * scale;
+    const int seats = int((W + 120.0f) / pitch) + 1;
+    for (int i = 0; i < seats; ++i)
+    {
+      const float x = std::fmod(float(i) * pitch + pan * (0.6f + 0.2f * float(row)) + float(row) * 40.0f, float(seats) * pitch) - 60.0f +
+        ox * (0.3f + 0.1f * float(row));
+      const std::uint32_t h = hash2(i, row + in * 7);
+      const int look = h % 11u == 0 ? 3 : 0;
+      const int variant = look * 16 + int(h % 4u) * 2 + int((h >> 3) % 2u);
+      DrawOpts o;
+      o.scale = scale;
+      k.r.draw(styledEnemySprite(k.art, k.r, k.theme, "crowd", variant, (ticks / 5 + i) % 2, 3, 5).get((h >> 5) % 2 ? 1 : -1), x,
+        y - pop, o);
+    }
+    // The seat backs in front of them.
+    for (float x = std::fmod(pan, 64.0f) - 64.0f; x < W + 64.0f; x += 64.0f * scale + 8.0f)
+    {
+      k.r.fillRect(x, y - 40.0f * scale, 52.0f * scale, 40.0f * scale + 2.0f, rgb(150, 26, 50));
+      k.r.fillRect(x, y - 40.0f * scale, 52.0f * scale, 3.0f, rgb(220, 80, 100));
+    }
+  }
+  // The floor runner and the card.
+  const float fx = 420.0f + ox, fy = H + 40.0f + oy;
+  k.r.draw(floorRunner41(k), fx, fy);
+  const float cardY = fy - 380.0f;
+  k.r.draw(cueCard41(k), fx, cardY);
+  if (frame >= 14)
+  {
+    // The marker strikes out the question mark (and puts a "!" over it).
+    const float sx = fx - 270.0f + 428.0f, sy = cardY - 150.0f + 70.0f;
+    const float prog = frame == 14 ? 0.5f + float(ticks % 6) / 12.0f : 1.0f;
+    k.r.drawLine(sx, sy + 46.0f, sx + 40.0f * prog, sy + 46.0f - 40.0f * prog, 8.0f, rgb(220, 20, 40));
+    if (frame >= 15)
+      k.r.drawText("!", sx + 60.0f, sy - 6.0f, {54.0f, rgb(220, 20, 40), 0}, Align::Center);
+  }
+  // Marquee bulbs chasing round the frame.
+  for (int i = 0; i < 40; ++i)
+  {
+    const bool on = (i + frame) % 2 == 0;
+    const float x = 16.0f + float(i) * 32.5f;
+    for (const float y : {14.0f, H - 14.0f})
+    {
+      k.r.fillRect(x - 6.0f, y - 6.0f, 12.0f, 12.0f, on ? rgb(255, 236, 170) : rgb(110, 80, 50));
+      if (on)
+        drawGlow(k.r, k.art, x, y, 22.0f, rgb(255, 220, 140), 0.7f);
+    }
+  }
+}
+
 } // namespace
 
 void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float t, int ticks, float ox, float oy)
@@ -15120,6 +15322,9 @@ void drawClip(ClipKit& k, const std::string& clip, int frame, int frames, float 
   // Level 40.
   if (clip == "brief40_rigging")
     return brief40Rigging(k, frame, ticks, ox, oy);
+  // Level 41.
+  if (clip == "brief41_audience")
+    return brief41Audience(k, frame, ticks, ox, oy);
   if (starts(clip, "static") || clip == "monitors_snow")
     return staticNoise(k, ticks / 2);
   if (clip == "tower_tilt")

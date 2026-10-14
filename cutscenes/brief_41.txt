@@ -7,6 +7,7 @@ music theme_big_band
 # card "CHEER FOR THE RUNNERS?"; on frame 14 a red marker line crosses out
 # the question mark. Foreground: marquee bulbs chasing (2-frame loop).
 # 18 frames at 100 ms = 1.8 s, plus 9.5 s of holds.
+# clip brief41_audience; 18 frames
 shot brief41_audience delay=100 repeat=1
   cue 0 fade=in:500
   cue 0 sound=crowd_murmur

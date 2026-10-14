@@ -4836,6 +4836,287 @@ std::vector<float> makeSfx(Sfx id)
       });
       return scaledToPeak(std::move(v), 0.34f);
     }
+    case Sfx::BallotSting:
+    {
+      // Level 41: the ballot up on the big screen: a game-show sting, three
+      // bright brass stabs climbing to a held chord with a cymbal swell.
+      std::vector<float> v(std::size_t(samples(1.0)), 0.0f);
+      const double notes[3][3] = {{60, 64, 67}, {62, 65, 69}, {64, 67, 72}};
+      for (int k = 0; k < 3; ++k)
+        for (int j = 0; j < 3; ++j)
+        {
+          const double len = k == 2 ? 0.7 : 0.12;
+          addTone(v, k * 0.11, len, midiFreq(notes[k][j]), Wave::Saw, 0.16, k == 2 ? 0.4 : 0.07);
+          addTone(v, k * 0.11, len, midiFreq(notes[k][j]) * 1.004, Wave::Square, 0.06, k == 2 ? 0.35 : 0.06);
+        }
+      Noise n(41001);
+      Svf cym;
+      for (std::size_t i = std::size_t(samples(0.22)), k = 0; i < v.size(); ++i, ++k)
+      {
+        const double t = double(k) / kRate;
+        v[i] += float(cym.band(n.next(), 7000.0, 1.0) * 0.25 * attack(t, 0.08) * decay(t, 0.3));
+      }
+      return scaledToPeak(std::move(v), 0.38f);
+    }
+    case Sfx::VirusWarble:
+    {
+      // The Virus coming in: a sick, wobbling synth drone sliding down,
+      // a bubbling underneath.
+      Osc a, b, lfo;
+      Noise n(41011);
+      Svf bub;
+      auto v = render(1.0, [&](double t, double total) {
+        const double f = sweep(520.0, 180.0, t / total) * (1.0 + 0.06 * lfo.step(7.0, Wave::Sine));
+        const double tone = a.step(f, Wave::Square, 0.3) * 0.3 + b.step(f * 1.5 * 1.01, Wave::Triangle) * 0.25;
+        const double gl = bub.band(n.next(), 300.0 + 200.0 * std::sin(t * 40.0), 6.0) * 0.6;
+        return (tone + gl) * attack(t, 0.02) * std::min(1.0, (total - t) / 0.2);
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::MeterTick:
+    {
+      // The applause meter's needle ticking across: a small ratchet click.
+      Noise n(41021);
+      Svf click;
+      Osc o;
+      auto v = render(0.05, [&](double t, double) {
+        return click.band(n.next(), 3200.0, 4.0) * decay(t, 0.004) * 1.5 + o.step(1800.0, Wave::Sine) * decay(t, 0.008) * 0.3;
+      });
+      return scaledToPeak(std::move(v), 0.2f);
+    }
+    case Sfx::AudienceRoar:
+    {
+      // The audience has spoken: applause swelling into a roar, whistles
+      // over it.
+      Noise n(41031), m(41033), c(41035);
+      Svf crowdLo, crowdHi;
+      Osc wh1, wh2;
+      auto v = render(1.8, [&](double t, double total) {
+        const double env = attack(t, 0.12) * std::min(1.0, (total - t) / 0.6);
+        // Claps: a dense patter of short noise bursts.
+        const double clap = (c.next() > 0.6f ? 1.0 : 0.0) * crowdHi.band(m.next(), 2400.0, 1.0) * 1.4;
+        const double roar = crowdLo.band(n.next(), 700.0 + 150.0 * std::sin(t * 5.0), 1.0) * 0.9;
+        double whistle = 0.0;
+        if (t > 0.3 && t < 0.9)
+          whistle += wh1.step(2400.0 + 600.0 * std::sin((t - 0.3) * 6.0), Wave::Sine) * 0.12 * std::sin(kPi * (t - 0.3) / 0.6);
+        if (t > 0.7 && t < 1.2)
+          whistle += wh2.step(sweep(1800.0, 2900.0, (t - 0.7) / 0.5), Wave::Sine) * 0.1 * std::sin(kPi * (t - 0.7) / 0.5);
+        return (clap + roar) * env + whistle;
+      });
+      return scaledToPeak(std::move(v), 0.38f);
+    }
+    case Sfx::TurntableTurn:
+    {
+      // A turntable reversing: a heavy motor clunk, the bearing rumbling
+      // round the other way.
+      Noise n(41041), m(41043);
+      OnePole lp;
+      Osc hum;
+      auto v = render(0.7, [&](double t, double total) {
+        const double clunk = lp.lowpass(n.next(), 600.0) * decay(t, 0.04) * 3.0;
+        const double rt = t - 0.05;
+        double rum = 0.0;
+        if (rt > 0.0)
+          rum = (hum.step(sweep(40.0, 70.0, rt / 0.3), Wave::Saw) * 0.3 + m.next() * 0.05) * std::min(1.0, rt / 0.1) *
+            std::min(1.0, (total - t) / 0.25);
+        return clunk + rum;
+      });
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::ChickenSqueak:
+    {
+      // A rubber chicken bouncing: the squeeze-squawk, a wheezing rubbery
+      // honk bending up and back.
+      Osc o, o2;
+      Noise n(41051);
+      OnePole lp;
+      auto v = render(0.32, [&](double t, double total) {
+        const double u = t / total;
+        const double f = 700.0 + 500.0 * std::sin(kPi * u) + 40.0 * std::sin(t * 2.0 * kPi * 30.0);
+        const double tone = o.step(f, Wave::Square, 0.25) * 0.5 + o2.step(f * 2.02, Wave::Saw) * 0.2;
+        const double air = lp.lowpass(n.next(), 3000.0) * 0.3;
+        return (tone + air) * std::sin(kPi * u);
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::CrowdChant:
+    {
+      // Paintball's crowd chanting: three shouted "HEY!"s, a stomp under
+      // each.
+      std::vector<float> v(std::size_t(samples(1.1)), 0.0f);
+      for (int k = 0; k < 3; ++k)
+      {
+        Noise n(41061u + std::uint32_t(k) * 3u);
+        Svf vow1, vow2;
+        Osc stomp;
+        const int s0 = samples(k * 0.32);
+        for (int i = 0; i < samples(0.26) && s0 + i < int(v.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          const double env = attack(t, 0.01) * decay(t, 0.09);
+          const double voice = vow1.band(n.next(), 700.0, 5.0) * 1.0 + vow2.band(n.next(), 1200.0, 5.0) * 0.7;
+          v[std::size_t(s0 + i)] += float(voice * env + stomp.step(sweep(120.0, 50.0, t / 0.1), Wave::Sine) * decay(t, 0.05) * 0.8);
+        }
+      }
+      return scaledToPeak(std::move(v), 0.36f);
+    }
+    case Sfx::MeterUp:
+    {
+      // The Applause Cannon's meter up a step: a rising bell arpeggio and a
+      // whoop from the crowd.
+      std::vector<float> v(std::size_t(samples(0.7)), 0.0f);
+      const double notes[] = {72, 76, 79, 84};
+      for (int k = 0; k < 4; ++k)
+      {
+        addTone(v, k * 0.05, 0.4, midiFreq(notes[k]), Wave::Sine, 0.4, 0.15);
+        addTone(v, k * 0.05, 0.3, midiFreq(notes[k]) * 2.76, Wave::Sine, 0.1, 0.06);
+      }
+      Noise n(41071);
+      Svf whoop;
+      for (std::size_t i = 0; i < v.size(); ++i)
+      {
+        const double t = double(i) / kRate;
+        v[i] += float(whoop.band(n.next(), sweep(500.0, 1400.0, t / 0.5), 4.0) * 0.3 * std::sin(kPi * std::min(1.0, t / 0.6)));
+      }
+      return scaledToPeak(std::move(v), 0.34f);
+    }
+    case Sfx::Rimshot:
+    {
+      // Ba-dum-tss: two snare hits and a tom, then the crash cymbal.
+      std::vector<float> v(std::size_t(samples(0.9)), 0.0f);
+      auto hit = [&](double at, double f, double snare, std::uint32_t seed) {
+        Noise n(seed);
+        Osc o;
+        Svf bp;
+        const int s0 = samples(at);
+        for (int i = 0; i < samples(0.2) && s0 + i < int(v.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          v[std::size_t(s0 + i)] += float(o.step(sweep(f, f * 0.6, t / 0.08), Wave::Sine) * decay(t, 0.06) * 0.8 +
+            bp.band(n.next(), 2500.0, 0.8) * decay(t, 0.05) * snare);
+        }
+      };
+      hit(0.0, 220.0, 0.9, 41081);
+      hit(0.12, 140.0, 0.4, 41083);
+      Noise n(41085);
+      OnePole hp;
+      Svf ring;
+      for (int i = samples(0.3); i < int(v.size()); ++i)
+      {
+        const double t = double(i - samples(0.3)) / kRate;
+        const double c = hp.highpass(n.next(), 5000.0) * 0.8 + ring.band(n.next(), 8200.0, 6.0) * 0.4;
+        v[std::size_t(i)] += float(c * attack(t, 0.002) * decay(t, 0.22));
+      }
+      return scaledToPeak(std::move(v), 0.4f);
+    }
+    case Sfx::SeatFlip:
+    {
+      // An Audience Plant getting up: the theatre seat's spring snapping it
+      // up, a padded thunk.
+      Noise n(41091);
+      OnePole lp;
+      Osc spring, thunk;
+      auto v = render(0.4, [&](double t, double) {
+        const double sp = spring.step(sweep(260.0, 420.0, t / 0.08), Wave::Triangle) * decay(t, 0.05) * 0.4 *
+          (0.6 + 0.4 * std::sin(t * 2.0 * kPi * 60.0));
+        const double rt = t - 0.07;
+        const double th = rt > 0.0 ? (thunk.step(sweep(150.0, 70.0, rt / 0.06), Wave::Sine) * decay(rt, 0.05) +
+                                         lp.lowpass(n.next(), 900.0) * decay(rt, 0.02) * 1.5)
+                                   : 0.0;
+        return sp + th;
+      });
+      return scaledToPeak(std::move(v), 0.32f);
+    }
+    case Sfx::TomatoToss:
+    {
+      // A tomato lobbed: an underarm whoosh and a wet wobble.
+      Noise n(41101);
+      Svf air;
+      Osc wob;
+      auto v = render(0.35, [&](double t, double total) {
+        const double whoosh = air.band(n.next(), sweep(400.0, 1600.0, t / total), 1.6) * std::sin(kPi * t / total) * 0.9;
+        const double squish = wob.step(180.0 + 60.0 * std::sin(t * 90.0), Wave::Sine) * decay(t, 0.05) * 0.4;
+        return whoosh + squish;
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::DroneSwoop:
+    {
+      // A Cue Card Drone diving: its rotors winding up and dropping in pitch
+      // as it falls, the card flapping in the wind.
+      Osc rot, rot2;
+      Noise n(41111);
+      Svf flap;
+      auto v = render(0.6, [&](double t, double total) {
+        const double u = t / total;
+        const double f = sweep(380.0, 210.0, u);
+        const double buzz = (rot.step(f, Wave::Saw) * 0.3 + rot2.step(f * 1.5, Wave::Square, 0.3) * 0.1) *
+          (0.7 + 0.3 * std::sin(t * 2.0 * kPi * 45.0));
+        const double paper = flap.band(n.next(), 1500.0, 2.0) * (0.5 + 0.5 * std::sin(t * 2.0 * kPi * 22.0)) * 0.5;
+        return (buzz + paper) * std::sin(kPi * u);
+      });
+      return scaledToPeak(std::move(v), 0.3f);
+    }
+    case Sfx::BrassFanfare:
+    {
+      // The exit fanfare, BRASS BAND: a big-band shout chorus, a triplet
+      // pickup into a held major chord with a trumpet shake.
+      std::vector<float> v(std::size_t(samples(1.8)), 0.0f);
+      const double pick[3] = {67, 69, 71};
+      for (int k = 0; k < 3; ++k)
+      {
+        addTone(v, k * 0.09, 0.09, midiFreq(pick[k]), Wave::Saw, 0.22, 0.05);
+        addTone(v, k * 0.09, 0.09, midiFreq(pick[k] - 12), Wave::Square, 0.1, 0.05);
+      }
+      for (const double nt : {60.0, 64.0, 67.0, 72.0, 48.0})
+      {
+        Osc o, o2, vib;
+        const int s0 = samples(0.27);
+        for (int i = 0; s0 + i < int(v.size()); ++i)
+        {
+          const double t = double(i) / kRate;
+          const double f = midiFreq(nt) * (1.0 + (t > 0.5 ? 0.012 * vib.step(7.0, Wave::Sine) : 0.0));
+          const double env = attack(t, 0.02) * std::min(1.0, (1.5 - t) / 0.3) * (0.8 + 0.2 * decay(t, 0.1));
+          v[std::size_t(s0 + i)] += float((o.step(f, Wave::Saw) * 0.16 + o2.step(f * 1.003, Wave::Square, 0.4) * 0.07) * std::max(0.0, env));
+        }
+      }
+      return scaledToPeak(std::move(v), 0.42f);
+    }
+    case Sfx::DrumRoll:
+    {
+      // The exit fanfare, DRUM ROLL: a snare roll swelling, a cymbal crash.
+      Noise n(41121), m(41123);
+      Svf snare, cym;
+      Osc body;
+      auto v = render(1.9, [&](double t, double total) {
+        const double roll = t < 1.2 ? 1.0 : 0.0;
+        const double hitEnv = std::fmod(t, 1.0 / 28.0) * 28.0;
+        const double sn = (snare.band(n.next(), 2600.0, 0.9) * std::exp(-hitEnv * 5.0) + body.step(190.0, Wave::Sine) * std::exp(-hitEnv * 6.0) * 0.3) *
+          roll * (0.3 + 0.7 * t / 1.2);
+        const double ct = t - 1.2;
+        const double crash = ct > 0.0 ? cym.band(m.next(), 6500.0, 0.7) * decay(ct, 0.4) * 1.2 + m.next() * decay(ct, 0.2) * 0.4 : 0.0;
+        return (sn + crash) * std::min(1.0, (total - t) / 0.1);
+      });
+      return scaledToPeak(std::move(v), 0.4f);
+    }
+    case Sfx::Ovation:
+    {
+      // The exit fanfare, STANDING OVATION: applause rising and rising, the
+      // seats creaking as they stand, bravos.
+      Noise n(41131), m(41133), c(41135);
+      Svf hi, lo, bravo;
+      Osc vox;
+      auto v = render(2.2, [&](double t, double total) {
+        const double env = attack(t, 0.5) * std::min(1.0, (total - t) / 0.5);
+        const double claps = (c.next() > 0.5f ? 1.0 : 0.0) * hi.band(m.next(), 2200.0, 1.0) * 1.2 + lo.band(n.next(), 600.0, 1.0) * 0.6;
+        double br = 0.0;
+        if (t > 0.6 && t < 1.1)
+          br = (vox.step(220.0 + 80.0 * std::sin(kPi * (t - 0.6) / 0.5), Wave::Saw) * 0.12 + bravo.band(n.next(), 800.0, 4.0) * 0.4) *
+            std::sin(kPi * (t - 0.6) / 0.5);
+        return claps * env + br;
+      });
+      return scaledToPeak(std::move(v), 0.4f);
+    }
     case Sfx::LavaRumble:
     {
       // Level 33: the lava rising: a deep rumble swelling up from below, a
