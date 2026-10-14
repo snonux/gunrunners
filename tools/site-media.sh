@@ -7,8 +7,8 @@
 # files.
 #
 # Usage: tools/site-media.sh [portraits|clips|shots|all]   (default: all)
-# Writes docs/site/runners/*.png, docs/site/video/*.mp4 (+ .jpg posters) and
-# docs/site/shots/levelNN.jpg. Needs cmake, ffmpeg and ImageMagick (magick).
+# Writes docs/site/runners/*.png, docs/site/icon.png, docs/site/video/*.mp4
+# (+ .jpg posters) and docs/site/shots/levelNN.jpg. Needs cmake, ffmpeg and ImageMagick (magick).
 # Like record.sh and covers.sh it (re)configures build/ as a Release build.
 set -euo pipefail
 

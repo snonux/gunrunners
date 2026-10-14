@@ -52,9 +52,9 @@ void stop(cairo_pattern_t* p, double at, unsigned v, double a = 1.0)
   cairo_pattern_add_color_stop_rgba(p, at, c.r, c.g, c.b, a);
 }
 
-// Set when a PNG could not be written: main() then exits non-zero instead
-// of claiming it wrote the files.
-bool writeFailed = false;
+// Set when a PNG could not be written, or a screenshot for the back could
+// not be read: main() then exits non-zero instead of claiming success.
+bool failed = false;
 
 // Writes `surf` to `path`, reporting (and remembering) a failure.
 bool writePng(cairo_surface_t* surf, const std::string& path)
@@ -62,7 +62,7 @@ bool writePng(cairo_surface_t* surf, const std::string& path)
   if (cairo_surface_write_to_png(surf, path.c_str()) == CAIRO_STATUS_SUCCESS)
     return true;
   std::fprintf(stderr, "cannot write %s\n", path.c_str());
-  writeFailed = true;
+  failed = true;
   return false;
 }
 
@@ -577,6 +577,7 @@ void screenshot(cairo_t* cr, const std::string& file, double cx, double cy, doub
   if (cairo_surface_status(img) != CAIRO_STATUS_SUCCESS)
   {
     std::fprintf(stderr, "cover: cannot read %s\n", file.c_str());
+    failed = true;
     cairo_surface_destroy(img);
     return;
   }
@@ -793,6 +794,17 @@ void portraits(const std::string& dir, int pose)
   }
 }
 
+// A runner pose number as drawRunnerPose takes it: 0-8, or 10-20.
+bool parsePose(const char* text, int& pose)
+{
+  char* end = nullptr;
+  const long v = std::strtol(text, &end, 10);
+  if (end == text || *end != '\0' || v < 0 || v > 20 || v == 9)
+    return false;
+  pose = int(v);
+  return true;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -800,15 +812,21 @@ int main(int argc, char** argv)
   if (argc == 3 && std::string(argv[1]) == "--icon")
   {
     icon(argv[2]);
-    if (writeFailed)
+    if (failed)
       return 1;
     std::printf("wrote %s/icon.png and the adaptive icon layers\n", argv[2]);
     return 0;
   }
   if ((argc == 3 || argc == 4) && std::string(argv[1]) == "--portraits")
   {
-    portraits(argv[2], argc == 4 ? std::atoi(argv[3]) : 0);
-    if (writeFailed)
+    int pose = 0;
+    if (argc == 4 && !parsePose(argv[3], pose))
+    {
+      std::fprintf(stderr, "POSE must be 0-8 or 10-20 (see src/assets/art.hpp), not %s\n", argv[3]);
+      return 1;
+    }
+    portraits(argv[2], pose);
+    if (failed)
       return 1;
     std::printf("wrote the six runner portraits to %s\n", argv[2]);
     return 0;
@@ -826,7 +844,7 @@ int main(int argc, char** argv)
   std::vector<std::string> shots(argv + 2, argv + argc);
   front(dir + "/cover_front.png");
   back(dir + "/cover_back.png", shots);
-  if (writeFailed)
+  if (failed)
     return 1;
   std::printf("wrote %s/cover_front.png and %s/cover_back.png\n", dir.c_str(), dir.c_str());
   return 0;

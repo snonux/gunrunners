@@ -8,8 +8,8 @@
 # - every in-page anchor (#id) and every url(#id), in the page or its
 #   stylesheets (the SVG filters and gradients), has an element with that id;
 # - no src/href/poster/srcset is written in a form these checks can't read
-#   (unquoted, spaced around the "=", or a value running over several
-#   lines), so nothing slips past them;
+#   (unquoted, spaced around the "=", a value or a <link> tag running over
+#   several lines), so nothing slips past them;
 # - og:url and og:image are absolute URLs on the page's domain, og:image
 #   names a file of the page, and docs/CNAME names that domain, so GitHub
 #   Pages serves the page where it says it lives.
@@ -67,7 +67,7 @@ check_meta() {
 
 # has_id PAGE ID: an element of PAGE has id="ID".
 has_id() {
-  grep -qE "id=[\"']${2}[\"']" "$1" || { echo "no element with id $2"; return 1; }
+  grep -qE "(^|[[:space:]])id=[\"']${2}[\"']" "$1" || { echo "no element with id $2"; return 1; }
 }
 
 # stylesheets PAGE: the local stylesheets the page links, whatever the order
@@ -106,6 +106,10 @@ check_unreadable() {
   fi
   if grep -nE "$name=(\"[^\"]*|'[^']*)$" "$1"; then
     echo "attribute values above run over several lines; keep each on one line"
+    return 1
+  fi
+  if grep -nE '<link([[:space:]][^>]*)?$' "$1"; then
+    echo "<link> tags above run over several lines; keep each on one line"
     return 1
   fi
 }
@@ -147,17 +151,20 @@ expect_fail() {
   fi
 }
 
-# A good page passes; each kind of breakage fails on its own.
-self_test() {
-  local tmp good
-  tmp=$(mktemp -d)
-  trap 'rm -rf "$tmp"' RETURN
+# The self-test works in a fixture folder: $tmp/site/ is the published
+# folder with a good page ($good), a stylesheet, media and a CNAME; each
+# group below breaks one thing at a time in a copy ($bad) and expects the
+# check to fail. A sed that doesn't apply leaves the good page, which then
+# passes, so expect_fail reports it: no test passes vacuously.
+
+# fixture: builds the good fixture in $tmp.
+fixture() {
   mkdir -p "$tmp/site/media" "$tmp/site/css/fonts"
   touch "$tmp/site/media/a.jpg" "$tmp/site/media/b.jpg" "$tmp/site/css/fonts/f.woff2" "$tmp/outside.md"
   echo '@font-face { src: url(fonts/f.woff2) format("woff2"); } body { background: url("../media/a.jpg"); }
-.x { fill: url(#fray); }' > "$tmp/site/css/style.css"
+.x { fill: url(#fray); }' > "$tmp/style.keep"
+  cp "$tmp/style.keep" "$tmp/site/css/style.css"
   echo example.org > "$tmp/site/CNAME"
-  good="$tmp/site/index.html"
   cat > "$good" << 'EOF'
 <meta property="og:url" content="https://example.org/">
 <meta property="og:image" content="https://example.org/media/a.jpg">
@@ -166,53 +173,80 @@ self_test() {
 <svg><filter id="fray"></filter><rect filter="url(#fray)"/></svg>
 <img src='media/a.jpg' srcset="media/a.jpg 1x, media/b.jpg 2x"> <video poster="media/a.jpg#t=1"></video>
 EOF
-  check "$good" > /dev/null || { echo "self-test: a good page failed"; check "$good"; return 1; }
+}
 
-  local bad="$tmp/site/bad.html"
-  sed 's#src=.media/a.jpg.#src="media/missing.jpg"#' "$good" > "$bad"
-  expect_fail "a missing img src" "$bad" || return 1
-  sed "s#src='media/a.jpg'#src='media/missing.jpg'#" "$good" > "$bad"
-  grep -q missing "$bad" && expect_fail "a missing single-quoted src" "$bad" || return 1
-  sed 's#css/style.css?v=1#css/gone.css?v=1#' "$good" > "$bad"
-  expect_fail "a missing href with a query" "$bad" || return 1
-  sed 's#poster="media/a.jpg#poster="media/gone.jpg#' "$good" > "$bad"
-  expect_fail "a missing poster" "$bad" || return 1
-  sed 's#media/b.jpg 2x#media/gone.jpg 2x#' "$good" > "$bad"
-  expect_fail "a missing srcset candidate" "$bad" || return 1
-  sed 's#href="css/style.css?v=1"#href="../outside.md"#' "$good" > "$bad"
-  expect_fail "a link outside the published folder" "$bad" || return 1
-  sed 's#href="\#top"#href="\#nowhere"#' "$good" > "$bad"
-  expect_fail "a dead in-page anchor" "$bad" || return 1
-  sed 's#url(\#fray)#url(\#nowhere)#' "$good" > "$bad"
-  expect_fail "a dead url(#id)" "$bad" || return 1
-  sed 's#<img src=#<img src = #' "$good" > "$bad"
-  expect_fail "a spaced attribute" "$bad" || return 1
-  sed 's#poster="media/a.jpg\#t=1"#poster=media/a.jpg#' "$good" > "$bad"
-  expect_fail "an unquoted attribute" "$bad" || return 1
-  cp "$tmp/site/css/style.css" "$tmp/style.keep"
-  sed 's#fonts/f.woff2#fonts/gone.woff2#' "$tmp/style.keep" > "$tmp/site/css/style.css"
-  expect_fail "a missing font in the stylesheet" "$good" || return 1
-  sed 's#../media/a.jpg#../../outside.md#' "$tmp/style.keep" > "$tmp/site/css/style.css"
-  expect_fail "a stylesheet url() outside the published folder" "$good" || return 1
-  sed 's#url(\#fray)#url(\#missing)#' "$tmp/style.keep" > "$tmp/site/css/style.css"
-  expect_fail "a stylesheet url(#id) without its element" "$good" || return 1
-  sed 's#fonts/f.woff2#fonts/gone.woff2#' "$tmp/style.keep" > "$tmp/site/css/style.css"
-  sed 's#<link rel="stylesheet" href="css/style.css?v=1">#<link href="css/style.css?v=1" rel="stylesheet">#' \
-    "$good" > "$bad"
-  grep -q '<link href=' "$bad" && expect_fail "a missing font behind a reordered <link>" "$bad" || return 1
+# broken NAME SED: the good page edited by SED must fail the check.
+broken() {
+  sed "$2" "$good" > "$bad"
+  expect_fail "$1" "$bad"
+}
+
+# The page's own references.
+self_test_refs() {
+  broken "a missing img src" 's#src=.media/a.jpg.#src="media/missing.jpg"#' &&
+    broken "a missing single-quoted src" "s#src='media/a.jpg'#src='media/missing.jpg'#" &&
+    broken "a missing href with a query" 's#css/style.css?v=1#css/gone.css?v=1#' &&
+    broken "a missing poster" 's#poster="media/a.jpg#poster="media/gone.jpg#' &&
+    broken "a missing srcset candidate" 's#media/b.jpg 2x#media/gone.jpg 2x#' &&
+    broken "a link outside the published folder" 's#href="css/style.css?v=1"#href="../outside.md"#' &&
+    broken "a dead in-page anchor" 's#href="\#top"#href="\#nowhere"#' &&
+    broken "a dead url(#id)" 's#url(\#fray)#url(\#nowhere)#' &&
+    broken "an id only in a data-id" 's#<filter id="fray">#<filter data-id="fray">#'
+}
+
+# Attributes written so the checks could not read them.
+self_test_unreadable() {
+  broken "a spaced attribute" 's#<img src=#<img src = #' &&
+    broken "an unquoted attribute" 's#poster="media/a.jpg\#t=1"#poster=media/a.jpg#' &&
+    broken "a srcset running over two lines" \
+      's#srcset="media/a.jpg 1x, media/b.jpg 2x"#srcset="media/a.jpg 1x,\n media/gone.jpg 2x"#' &&
+    broken "a <link> running over two lines" 's#<link rel="stylesheet" href#<link rel="stylesheet"\n href#'
+}
+
+# css SED NAME: the stylesheet edited by SED must make the good page fail.
+css() {
+  local rc=0
+  sed "$1" "$tmp/style.keep" > "$tmp/site/css/style.css"
+  expect_fail "$2" "$good" || rc=1
   cp "$tmp/style.keep" "$tmp/site/css/style.css"
-  sed 's#srcset="media/a.jpg 1x, media/b.jpg 2x"#srcset="media/a.jpg 1x,\n media/gone.jpg 2x"#' "$good" > "$bad"
-  grep -q 'gone' "$bad" && expect_fail "a srcset running over two lines" "$bad" || return 1
-  grep -v og:url "$good" > "$bad"
-  expect_fail "a page without og:url" "$bad" || return 1
-  sed 's#example.org/media/a.jpg#example.org/media/gone.jpg#' "$good" > "$bad"
-  expect_fail "a missing og:image" "$bad" || return 1
-  sed 's#content="https://example.org/media#content="https://elsewhere.org/media#' "$good" > "$bad"
-  expect_fail "an og:image on another domain" "$bad" || return 1
+  return $rc
+}
+
+# The stylesheet's url()s.
+self_test_css() {
+  local rc=0
+  css 's#fonts/f.woff2#fonts/gone.woff2#' "a missing font in the stylesheet" &&
+    css 's#../media/a.jpg#../../outside.md#' "a stylesheet url() outside the published folder" &&
+    css 's#url(\#fray)#url(\#missing)#' "a stylesheet url(#id) without its element" || return 1
+  sed 's#fonts/f.woff2#fonts/gone.woff2#' "$tmp/style.keep" > "$tmp/site/css/style.css"
+  broken "a missing font behind a reordered <link>" \
+    's#<link rel="stylesheet" href="css/style.css?v=1">#<link href="css/style.css?v=1" rel="stylesheet">#' || rc=1
+  cp "$tmp/style.keep" "$tmp/site/css/style.css"
+  return $rc
+}
+
+# og:url, og:image and the CNAME.
+self_test_meta() {
+  broken "a page without og:url" '/og:url/d' &&
+    broken "a missing og:image" 's#example.org/media/a.jpg#example.org/media/gone.jpg#' &&
+    broken "an og:image on another domain" 's#content="https://example.org/media#content="https://elsewhere.org/media#' ||
+    return 1
   echo other.org > "$tmp/site/CNAME"
   expect_fail "a wrong CNAME" "$good" || return 1
   rm "$tmp/site/CNAME"
-  expect_fail "a missing CNAME" "$good" || return 1
+  expect_fail "a missing CNAME" "$good"
+}
+
+# A good page passes; each kind of breakage fails on its own.
+self_test() {
+  local tmp good bad
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+  good="$tmp/site/index.html"
+  bad="$tmp/site/bad.html"
+  fixture
+  check "$good" > /dev/null || { echo "self-test: a good page failed"; check "$good"; return 1; }
+  self_test_refs && self_test_unreadable && self_test_css && self_test_meta || return 1
   echo "self-test ok"
 }
 

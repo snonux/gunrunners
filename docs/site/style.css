@@ -231,7 +231,7 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 /* minmax(0, 1fr): equal columns, however wide a portrait is. */
 .runner-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 1100px) { .runner-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .runner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .runner { padding: 14px 10px 12px; } .runner img { height: 130px; } .runner dl { font-size: 13px; } }
+@media (max-width: 620px) { .runner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .runner { padding: 14px 10px 12px; } .runner img { height: 130px; } }
 .runner {
   background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, var(--panel)), var(--panel) 55%);
   border: 1px solid var(--line); border-top: 3px solid var(--c);
@@ -240,9 +240,11 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 .runner img { height: 170px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c) 45%, transparent)); }
 .runner h3 { font-size: 24px; font-style: italic; color: var(--c); margin: 0; }
 .role { margin: 0 0 10px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
-.runner dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; text-align: left; font-size: 14px; margin: 0 0 10px; }
-.runner dt { color: var(--muted); }
-.runner dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+/* Each stat's label sits above its value: the cards are too narrow for a
+   label column without breaking words like "flamethrower". */
+.runner dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; text-align: left; font-size: 14px; margin: 0 0 10px; }
+.runner dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.runner dd { margin: 0 0 4px; font-weight: 600; overflow-wrap: break-word; }
 .runner p:last-child { font-size: 14px; color: #d4c9f5; text-align: left; margin: 0; }
 .aside { margin-top: 26px; color: var(--muted); max-width: 70ch; }
 .aside b { color: var(--text); }
