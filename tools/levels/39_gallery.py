@@ -151,6 +151,7 @@ L.at("boomop", 122, 35)
 L.at("floormgr", 128, 35)
 L.at("wrangler", 133, 35)
 L.row(128, 132, 30, "=")      # the light rig
+L.col(127, 30, 35, "H")       # and its ladder
 put(130, 29, "3")                                 # N
 L.at("deco", 126, 22, kind="onair", text="ON AIR", w=2, h=1)
 put(137, 35, "X")

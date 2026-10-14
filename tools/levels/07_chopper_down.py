@@ -98,7 +98,7 @@ L.put(63, 31, "3")
 L.on(74, 31, "W")
 L.on(86, 29, "c")
 L.at("shield_trooper", 90, 28)
-L.put(90, 39, "$")
+L.put(83, 39, "$")                          # on the street, in the alley under R4 (x90 is inside R4)
 L.row(88, 90, 25, "#")                      # Nova's perch N1
 gem((52, 32), (53, 31), (68, 30), (69, 29), (82, 28), (83, 27), (89, 24), (92, 26))
 
@@ -129,14 +129,14 @@ gem((97, 25), (100, 23), (104, 22), (111, 19), (122, 15), (127, 14))
 L.ground(137, 158, 15)                      # walkway
 L.col(158, 10, 14, "H")                     # the mast ladder in its shaft (x157-158)
 L.ground(159, 159, 11)                      # the mast
-L.fill(142, 147, 2, 4, "#")                 # counterweight
+L.fill(142, 147, 3, 4, "#")                 # counterweight (low enough to stand on)
 L.row(148, 155, 4, "#")                     # the spare gunship's deck
 L.at("deco", kind="spareship", rect=(148, 0, 155, 3))
 L.at("deco", kind="lattice", rect=(140, 5, 156, 9))
 L.at("health", 152, 14, full=1)
-L.put(144, 1, "C")
+L.put(144, 2, "C")
 L.put(151, 1, "B")
-gem((143, 1), (145, 1), (146, 1))
+gem((143, 2), (145, 2), (146, 2))
 
 # --- 5. Arena: the jib (x159-189) ---------------------------------------------------
 L.ground(159, 189, 10)

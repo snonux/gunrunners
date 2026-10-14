@@ -80,7 +80,8 @@ for x in (48, 60, 70):
     L.at("glow_raver", x, 51)
 for k in range(6):
     a = k * math.pi / 3
-    gems((int(round(60 + 6 * math.cos(a))), int(round(45 + 3 * math.sin(a)))))
+    x, y = int(round(60 + 6 * math.cos(a))), int(round(45 + 3 * math.sin(a)))
+    gems((min(x, 61) if y < 45 else x, y))  # the top right one clear of the F3 tier
 
 # --- 4. VIP lounge (F1 right) -------------------------------------------------------
 L.at("deco", kind="text", x=79, y=47, w=4, h=1, text="VIP")

@@ -72,11 +72,11 @@ L.at("spore_nurse", 62, UP - 7)
 # Secret: ledges up to the cache under the gallery's roof.
 L.row(58, 60, UP - 3, "=")
 L.row(62, 64, UP - 6, "=")
-L.row(66, 73, UP - 9, "=")
-on(67, UP - 9, "m")
-on(70, UP - 9, "Q")
-L.at("deco", 72, UP - 10, kind="42", text="XLII", w=1, h=2)
-gem((68, UP - 10), (69, UP - 11), (71, UP - 10), (63, UP - 8))
+L.row(66, 73, UP - 8, "=")      # 3 blocks under the roof: room to stand
+on(67, UP - 8, "m")
+on(70, UP - 8, "Q")
+L.at("deco", 72, UP - 9, kind="42", text="XLII", w=1, h=2)
+gem((68, UP - 9), (69, UP - 10), (71, UP - 9), (63, UP - 8))
 L.at("egg_guard", 76, UP - 1, carrier=1)  # the Virus
 L.at("egg_guard", 86, UP - 1)
 on(80, UP, "m")

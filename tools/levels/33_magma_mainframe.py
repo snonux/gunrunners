@@ -187,10 +187,11 @@ ladder(44, 50, 57, 50)
 ladder(15, 42, 49, 42)
 L.row(42, 45, 42, "=")                         # Turbo jumps up through here
 ladder(44, 34, 41, 34)
-# The stash notch in the east wall (Turbo's 5-block jump from g50).
-L.clear(46, 56, 42, 44)
-put(53, 44, "$")
-gem((47, 44), (48, 44), (49, 44), (50, 44), (51, 44), (52, 44), (54, 44), (55, 44))
+# The stash notch in the east wall, 3 blocks over g50: Nova, Skye or Turbo
+# jump up into it (5 blocks was more than even Turbo jumps).
+L.clear(46, 56, 42, 46)
+put(53, 46, "$")
+gem((47, 46), (48, 46), (49, 46), (50, 46), (51, 46), (52, 46), (54, 46), (55, 46))
 L.at("fan_bot", 13, 62, dir="r")
 L.at("fan_bot", 46, 54, dir="l")
 L.at("fan_bot", 13, 38, dir="r")

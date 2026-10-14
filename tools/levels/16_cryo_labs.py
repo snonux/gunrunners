@@ -27,7 +27,9 @@ Changes from the spec, so it plays in this engine:
   the block left of the ladder open too.
 - Ladder holes in the catwalk deck are 3 blocks wide (x 125-127).
 - The vault shelf is a one-way platform on row 30 (ground 30), so the way
-  to the exit runs under it; the duck's ice cube is on it at (184, 29).
+  to the exit runs under it; the duck's ice cube is on it at (184, 29). A
+  one-way step at (180-181, 32) leads up to it: the shelf is 8 cells over
+  the floor, more than any runner jumps.
 - The goal vent sits on the goal bumper's face at (86, 31)-(86, 32).
 - The marked arena is left out: this engine wakes every enemy on screen.
 - A bulkhead at x 90 (rows 22-27) closes the catwalk's west end, so the
@@ -163,6 +165,7 @@ for x in range(175, 187, 2):
 L.at("deco", 178, 33, kind="hostpod")
 put(182, 33, "m")
 L.row(183, 186, 30, "=")    # the vault shelf
+L.row(180, 181, 32, "=")    # a step up to it (no runner jumps 8 cells)
 L.at("breakable", None, None, rect=(184, 29, 184, 29), hp=1, look="ice")
 put(184, 29, "Q")
 L.at("deco", 181, 30, kind="42")

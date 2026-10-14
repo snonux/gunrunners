@@ -18,7 +18,8 @@ Changes from the spec, so it plays in this engine:
 - F3's coolant pipe ledge is x 76-82 at ground 46 (not x 76-86 ground 47),
   so runners walk under it to the ladder hole; a lead crate at x 74 is the
   step up to it.
-- The crane catwalk runs x 40-51 so it meets the unlit ladder at x 52.
+- The crane catwalk runs x 40-51 so it meets the unlit ladder at x 52,
+  which reaches down to F5's floor (rows 76-87, not 76-84).
 - The lift cage has a lead roof (row 100) over x 4-8; its bars are x 8.
 """
 
@@ -153,8 +154,8 @@ gem((16, 87), (36, 87), (46, 87), (66, 87), (72, 87), (80, 87))
 # Secret 2: the crane catwalk over the core, up a ladder seen only in a flash.
 L.fill(40, 51, 76, 76, "=")
 L.at("deco", None, None, kind="crane", rect=(38, 72, 53, 76))
-L.fill(52, 52, 76, 84, "H")
-L.at("unlit", rect=(52, 76, 52, 84))
+L.fill(52, 52, 76, 87, "H")                     # down to F5's floor: no gap to jump
+L.at("unlit", rect=(52, 76, 52, 87))
 put(45, 75, "C")
 put(48, 75, "$")
 

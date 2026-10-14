@@ -29,6 +29,16 @@ def put(x, y, c):
 L.fill(0, W - 1, 0, H - 1, "#")
 L.clear(3, 20, 1, 77)                       # the shaft (coral walls at 0-2 and 21-23)
 
+# The side pockets: a lip, three rows open, two blocks deep.
+POCKETS = ((1, 73), (21, 58), (1, 51), (21, 44), (1, 30), (21, 23), (1, 9), (21, 2))
+
+
+def by_mouth(x, y):
+    # No spikes hang on a pocket's lip row within 4 blocks of its mouth: a
+    # bubble held level at the lip has to slip in without touching them.
+    return any(y == r and (x <= 6 if px == 1 else x >= 17) for px, r in POCKETS)
+
+
 # The shelves: (row, gap x0, gap x1); spikes hang under them away from the gap.
 SHELVES = ((72, 4, 7), (65, 15, 18), (57, 9, 12), (50, 4, 7), (43, 15, 18), (36, 8, 11), (29, 14, 17),
            (22, 4, 7), (15, 15, 18), (8, 9, 12))
@@ -37,15 +47,14 @@ for row, g0, g1 in SHELVES:
         if g0 <= x <= g1:
             continue
         L.put(x, row, "#")
-        if (x < g0 - 2 or x > g1 + 2) and L.get(x, row + 1) == ".":
+        if (x < g0 - 2 or x > g1 + 2) and L.get(x, row + 1) == "." and not by_mouth(x, row + 1):
             L.put(x, row + 1, "v")
 
 # Coral spike clusters in the open water.
 for x, y in ((8, 68), (9, 68), (12, 46), (13, 46), (16, 33), (17, 33), (7, 18), (8, 18)):
     put(x, y, "^")
 
-# The side pockets: a lip, three rows open, two blocks deep.
-POCKETS = ((1, 73), (21, 58), (1, 51), (21, 44), (1, 30), (21, 23), (1, 9), (21, 2))
+# The pockets' gems: two at the back, one by the mouth.
 for x, r in POCKETS:
     L.clear(x, x + 1, r + 1, r + 3)
     inner = x if x == 1 else x + 1

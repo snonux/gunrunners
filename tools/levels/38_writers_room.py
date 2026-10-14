@@ -162,11 +162,14 @@ gems(*[(x, on_string(x)) for x in (112, 106, 100, 94, 86, 80, 70, 64, 55, 50, 40
 gems((138, 38), (128, 38))
 
 # --- F3: the typewriter, then the final draft (left to right) ------------------------------------
-# The top shelf (a Nova line): the original pitch.
-L.row(2, 3, 18, "#")
-L.row(5, 6, 14, "#")
-L.row(7, 9, 10, "#")
-L.at("pitch", 8, 9)
+# The top shelf (a Nova line): the original pitch. A staircase of steps 3
+# blocks up and 4 across (4 up was more than Nova jumps, and a step right
+# over the one below it bumps her head).
+L.row(2, 3, 19, "#")
+L.row(6, 7, 16, "#")
+L.row(10, 11, 13, "#")
+L.row(14, 16, 10, "#")
+L.at("pitch", 15, 9)
 KEYS = "ASDGERIPB "
 for i, ch in enumerate(KEYS):
     kx = 28 + 4 * i
@@ -177,7 +180,7 @@ L.at("inkwell", 24, 21)
 put(26, 21, "h")
 put(55, 17, "3")                                 # N
 put(67, 21, "m")
-gems((16, 20), (20, 20), (31, 19), (39, 19), (47, 19), (59, 19), (63, 19), (68, 20), (4, 16), (8, 8))
+gems((16, 20), (20, 20), (31, 19), (39, 19), (47, 19), (59, 19), (63, 19), (68, 20), (6, 14), (15, 8))
 
 put(88, 21, "c")
 put(90, 21, "W")

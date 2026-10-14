@@ -197,6 +197,6 @@ L.at("plant", None, None, "FLOWER", lamp="LP6", kind="flower",
 put(9, 4, "B")
 put(8, 6, "3")                # letter N
 put(106, 3, "X")
-gem((74, 12), (79, 9), (84, 6), (89, 3), (92, 3), (95, 3), (98, 3), (101, 3), (104, 3), (108, 3))
+gem((74, 12), (79, 9), (84, 6), (89, 3), (92, 3), (95, 3), (98, 3), (101, 3), (104, 3), (102, 1))  # none past the exit
 
 L.write(__file__, "17_hydroponics.txt")

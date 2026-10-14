@@ -16,7 +16,7 @@ under. Time the shot.
 
 The rink: floor row 20 wall to wall, goals as openings in the side walls
 (x 0-1 and x 58-59, rows 14-19), 6 pucks in a row at x 24-35, the runner
-at (6, 19), 24 gems on rows 10-16 above the ice.
+at (6, 19), 24 gems on rows 11-16 above the ice.
 
 Changes from the spec, so it plays in this engine:
 - The goal is counted in goals (`goal=goals:6`), not score.
@@ -53,7 +53,10 @@ for i, x in enumerate(range(24, 36, 2)):
 L.at("puck_drone", 3, 19, "GL", goalie=1, phase=0)
 L.at("puck_drone", 55, 19, "GR", goalie=1, phase=24)
 
-GEMS = ([(x, 10) for x in range(8, 52, 6)] + [(x, 13) for x in range(11, 52, 6)] +
+# Every gem within a jump: the high ones over the bumpers (stand on one and
+# jump), the rest low enough to jump to from the ice.
+GEMS = ([(18, 12), (20, 11), (22, 12), (38, 12), (40, 11), (42, 12), (10, 14), (30, 14)] +
+        [(x, 15) for x in range(11, 52, 6)] +
         [(x, 16) for x in (6, 12, 16, 24, 28, 32, 36, 44, 48)])
 assert len(GEMS) == 24, len(GEMS)
 for x, y in GEMS:

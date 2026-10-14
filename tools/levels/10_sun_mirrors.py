@@ -27,7 +27,8 @@ Changes from the spec, so the route plays as intended in this engine:
   x48-70 so he walks into B3 at x60.
 - The Nova line's balconies are at x42-46 (the spec's x50-57 hole would cut
   the Monk off from the beam at x60).
-- The stone sun SDS is 1 x 4 (rows 2-5) so it stands on the summit floor.
+- The stone sun SDS is 1 x 4 (rows 2-5) so it stands on the summit floor;
+  nothing can get past it, so the summit's gems are all east of it.
 - The cursed mirror and the moths are given by the block they stand in.
 """
 
@@ -205,6 +206,6 @@ L.at("sundoor", 45, 2, "SDS", h=4, latch=1, opens="HS")
 on(50, 6, "X")
 on(88, 6, "Q")
 on(65, 6, "m")
-gem((34, 5), (38, 4), (56, 5), (60, 4), (70, 5), (74, 4), (78, 5), (82, 4))
+gem((47, 5), (53, 4), (56, 5), (60, 4), (70, 5), (74, 4), (78, 5), (82, 4))  # none behind the stone sun
 
 L.write(__file__, "10_sun_mirrors.txt")

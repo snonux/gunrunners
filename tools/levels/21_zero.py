@@ -123,7 +123,7 @@ put(99, 29, "W")
 put(101, 29, "2")                                 # letter U
 put(112, 35, "h")
 put(114, 35, "c")
-gem((89, 35), (95, 32), (100, 29), (103, 25), (107, 25), (111, 35))
+gem((89, 35), (95, 32), (100, 29), (102, 28), (106, 32), (111, 35))  # none on the rack tops: no runner jumps up there
 
 # --- 4. Layout 3, the approach (x 115-149) -------------------------------------------------------------
 bulkhead("BK_L3a", 126, 24, 127, 30, False)       # half-height baffles, down in L3

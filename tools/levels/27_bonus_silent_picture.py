@@ -64,6 +64,6 @@ L.at("laddergag", 52, 17, h=8, len=10)
 L.at("peel", 47, 17)
 L.at("flatfoot", 64, 17)
 put(67, 17, "X")
-gem((49, 16), (52, 13), (63, 16), (65, 16), (66, 16), (69, 16))
+gem((49, 16), (52, 13), (61, 16), (63, 16), (65, 16), (66, 16))  # none past the exit
 
 L.write(__file__, "27_bonus_silent_picture.txt")
