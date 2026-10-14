@@ -968,7 +968,7 @@ void World::drawGreenHud(Renderer& r, int frame) const
   const auto& g = mGreen;
   if (!g.grow)
     return;
-  const float x = float(kScreenW) * 0.5f - 120.0f, y = 150.0f;
+  const float x = float(kScreenW) * 0.5f - 120.0f, y = 184.0f; // under the countdown and the message line
   r.fillRect(x, y, 240, 48, rgba(10, 30, 14, 190));
   const bool flash = g.sizeFlash > 0 && (frame / 3) % 2;
   char buf[32];

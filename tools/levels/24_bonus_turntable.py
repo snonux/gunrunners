@@ -4,7 +4,7 @@
 rules=turntable: a microwave interior that makes one full turn in 60 s
 (0.4 degrees a frame) about its centre while gravity keeps pointing down the
 screen; the runner and the loose gems slide along whatever is "down".
-timer=60, goal=collect:24.
+timer=60, goal=collect:20.
 
 Walls of 1 block; a shelf 4 blocks long on each wall, 6 blocks from a
 corner, set round the room like a pinwheel (the spec leaves which corner
@@ -12,6 +12,10 @@ open); the turntable plate in the middle (x 8-15, row 16). Each wall has a
 grille at x/y 11-12 (`@ grille`) that lets gems out but not the runner.
 24 gems: on the two flat shelves, on the plate and along the floor, the
 ones left of the floor's grille sliding over it in the first quarter turn.
+
+Change from the spec: the goal is 20 of the 24 gems, not all of them (the
+2026-10-14 audit: bonuses stay at most upper-medium, and a gem that slips
+through a grille is gone for good, so 24 of 24 was one slip from failing).
 
 Change from the spec: the file is 36 x 36 with the 24 x 24 room in the
 middle (blocks 6-29), so the room's corners stay inside the map (and the
@@ -25,7 +29,7 @@ O = 6  # the room's offset in the map
 L = Level(W + 2 * O, H + 2 * O,
           name="BONUS - TURNTABLE", episode=4, theme="tv_kitchen",
           music="theme_accordion", par=60, flags="",
-          rules="turntable", timer=60, goal="collect:24")
+          rules="turntable", timer=60, goal="collect:20")
 
 
 def fill(x0, x1, y0, y1, c):

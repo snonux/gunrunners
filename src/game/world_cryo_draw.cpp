@@ -303,7 +303,7 @@ void World::drawCryoHud(Renderer& r, int frame) const
   const auto& c = mCryo;
   if (!c.zeroFriction || c.goalTarget <= 0)
     return;
-  const float x = float(kScreenW) * 0.5f - 130.0f, y = 150.0f;
+  const float x = float(kScreenW) * 0.5f - 130.0f, y = 184.0f; // under the countdown and the message line
   r.fillRect(x, y, 260, 48, rgba(8, 14, 30, 190));
   const Color col = c.scoredFlash > 0 && (frame / 3) % 2 ? rgb(255, 255, 255) : rgb(160, 225, 255);
   r.drawText("GOALS " + std::to_string(c.scored) + " / " + std::to_string(c.goalTarget), x + 130, y + 8,

@@ -2035,7 +2035,7 @@ void World::drawMagmaHud(Renderer& r, int frame) const
     DrawOpts so;
     so.scale = 0.8f + 0.04f * std::sin(float(frame) * 0.5f);
     so.alpha = (frame / 3) % 9 == 0 ? 0.6f : 1.0f;
-    const float x = float(kScreenW) * 0.5f, y = 184.0f;
+    const float x = float(kScreenW) * 0.5f, y = 204.0f; // under the countdown and the message line
     drawGlow(r, mArt, x, y, 200.0f, rgb(255, 90, 40), 0.25f + 0.15f * std::sin(float(frame) * 0.5f));
     r.draw(baked(mArt, r, "overclock_sign", 360, 84, 180, 42, paintOverclockSign), x, y, so);
     char buf[32];
