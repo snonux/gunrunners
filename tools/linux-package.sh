@@ -5,8 +5,9 @@
 # Usage: tools/linux-package.sh [OUTDIR]   (default: out/)
 # Output: OUTDIR/gunrunners-vX.Y.Z-linux-<arch>.tar.gz
 #
-# The game links SDL2 and Cairo from the system (packages libsdl2-2.0-0 and
-# libcairo2 on Debian/Ubuntu, SDL2 and cairo on Fedora); the C++ runtime is
+# The game links SDL2, Cairo and libcurl from the system (packages
+# libsdl2-2.0-0, libcairo2 and libcurl4 on Debian/Ubuntu, SDL2, cairo and
+# libcurl on Fedora); the C++ runtime is
 # linked in statically so the binary also runs on older distributions.
 
 set -euo pipefail
