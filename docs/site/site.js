@@ -205,11 +205,13 @@
   }
 
   // ---------- the trailers ----------
-  // The trailers have voice-over and play only when clicked. One sound at a
-  // time: a trailer that plays with sound pauses any other trailer and mutes
-  // the game clips (they stay muted; a click on their speaker brings the
-  // sound back), and unmuting a clip pauses a trailer that plays with sound.
-  // A muted trailer, say one watched with captions, leaves the clips alone.
+  // The trailers have voice-over and play only when clicked, one at a time:
+  // a trailer that starts pauses any other. Trailers and clips don't talk
+  // over each other: a trailer playing with sound mutes the game clips (they
+  // stay muted; a click on their speaker brings the sound back), and
+  // unmuting a clip pauses a trailer that plays with sound. A muted trailer,
+  // say one watched with captions, leaves the clips alone. (Clips the
+  // visitor unmutes side by side are left as they are.)
   function setupTrailers() {
     var trailers = [].slice.call(document.querySelectorAll(".trailer video"));
     var clips = [].slice.call(document.querySelectorAll(".video video"));
@@ -217,9 +219,12 @@
 
     function audible(t) { return !t.paused && !t.muted && t.volume > 0; }
 
-    function takeOver(t) {
-      if (!audible(t)) return;
+    function pauseOthers(t) {
       trailers.forEach(function (other) { if (other !== t && !other.paused) other.pause(); });
+    }
+
+    function muteClips(t) {
+      if (!audible(t)) return;
       clips.forEach(function (c) {
         if (c.muted) return;
         ours.add(c);
@@ -228,8 +233,8 @@
     }
 
     trailers.forEach(function (t) {
-      t.addEventListener("play", function () { takeOver(t); });
-      t.addEventListener("volumechange", function () { takeOver(t); });
+      t.addEventListener("play", function () { pauseOthers(t); muteClips(t); });
+      t.addEventListener("volumechange", function () { muteClips(t); });
     });
     clips.forEach(function (c) {
       c.addEventListener("volumechange", function () {
