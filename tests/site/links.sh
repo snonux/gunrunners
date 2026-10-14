@@ -3,7 +3,12 @@
 # - every local file it points at (src, href, poster, srcset, in single or
 #   double quotes) exists and lies inside the page's folder, the only part
 #   GitHub Pages publishes (a link to ../README.md would be dead online);
-# - every in-page anchor (#id) has an element with that id;
+# - every url(...) in the local stylesheets it links (fonts, images) names a
+#   file inside that folder, too;
+# - every in-page anchor (#id) and every url(#id) (the SVG filters and
+#   gradients) has an element with that id;
+# - no src/href/poster/srcset is written in a form these checks can't read
+#   (unquoted, or with spaces around the "="), so nothing slips past them;
 # - og:url and og:image are absolute URLs on the page's domain, og:image
 #   names a file of the page, and docs/CNAME names that domain, so GitHub
 #   Pages serves the page where it says it lives.
@@ -30,13 +35,14 @@ meta() {
   grep -oE "<meta property=\"$2\" content=\"[^\"]*\"" "$1" | sed -E 's/.*content="([^"]*)"/\1/' || true
 }
 
-# check_file DIR REF: REF (no query or fragment) is a file inside DIR.
+# check_file ROOT BASE REF: REF (no query or fragment), relative to the
+# folder BASE, is a file inside the published folder ROOT.
 check_file() {
-  local dir=$1 ref=$2 path root target
+  local root base=$2 ref=$3 path target
   path=${ref%%[?#]*}
   [[ -z "$path" ]] && return 0
-  root=$(realpath -m "$dir")
-  target=$(realpath -m "$dir/$path")
+  root=$(realpath -m "$1")
+  target=$(realpath -m "$base/$path")
   if [[ "$target" != "$root"/* ]]; then
     echo "reference outside the published folder: $ref"
     return 1
@@ -55,7 +61,43 @@ check_meta() {
   cname=$(cat "$dir/CNAME" 2> /dev/null || true)
   [[ "$cname" == "$host" ]] || { echo "$dir/CNAME ('$cname') does not name $host"; return 1; }
   [[ "$image" == "https://$host/"* ]] || { echo "og:image is not on https://$host/: '$image'"; return 1; }
-  check_file "$dir" "${image#"https://$host/"}"
+  check_file "$dir" "$dir" "${image#"https://$host/"}"
+}
+
+# check_css PAGE: the url(...)s of every local stylesheet the page links,
+# relative to the stylesheet.
+check_css() {
+  local page=$1 dir css ref bad=0
+  dir=$(dirname "$page")
+  while IFS= read -r css; do
+    css=${css%%[?#]*}
+    [[ -f "$dir/$css" ]] || continue # a missing stylesheet is reported by check
+    while IFS= read -r ref; do
+      case $ref in
+        http:* | https:* | //* | data:* | '#'*) ;;
+        *) check_file "$dir" "$(dirname "$dir/$css")" "$ref" || bad=1 ;;
+      esac
+    done < <(grep -oE 'url\([^)]*\)' "$dir/$css" | sed -E "s/^url\([\"']?//; s/[\"']?\)$//")
+  done < <(grep -oE "<link rel=\"stylesheet\" href=\"[^\"]*\"" "$page" | sed -E 's/.*href="([^"]*)"/\1/' |
+    grep -vE '^(https?:)?//')
+  return $bad
+}
+
+# check_unreadable PAGE: attributes refs() would not see.
+check_unreadable() {
+  if grep -nE "(src|href|poster|srcset)([[:space:]]+=|=[[:space:]]+|=[^\"'[:space:]])" "$1"; then
+    echo "attributes above are unquoted or spaced; quote them so they get checked"
+    return 1
+  fi
+}
+
+# check_ids PAGE: every url(#id) in the page names an element there.
+check_ids() {
+  local page=$1 id bad=0
+  while IFS= read -r id; do
+    grep -qE "id=[\"']${id}[\"']" "$page" || { echo "no element with id $id for url(#$id)"; bad=1; }
+  done < <(grep -oE 'url\(#[^)]+\)' "$page" | sed -E 's/^url\(#//; s/\)$//' | sort -u)
+  return $bad
 }
 
 # check PAGE: prints every problem; exits non-zero if there was one.
@@ -68,10 +110,13 @@ check() {
       http:* | https:* | //* | mailto:* | data:*) ;;
       '#') ;;
       '#'*) grep -qE "id=[\"']${ref#\#}[\"']" "$page" || { echo "no element with id ${ref#\#}"; bad=1; } ;;
-      *) check_file "$dir" "$ref" || bad=1 ;;
+      *) check_file "$dir" "$dir" "$ref" || bad=1 ;;
     esac
   done < <(refs "$page")
   check_meta "$page" || bad=1
+  check_css "$page" || bad=1
+  check_ids "$page" || bad=1
+  check_unreadable "$page" || bad=1
   return $bad
 }
 
@@ -88,15 +133,18 @@ self_test() {
   local tmp good
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' RETURN
-  mkdir -p "$tmp/site/media"
-  touch "$tmp/site/media/a.jpg" "$tmp/site/media/b.jpg" "$tmp/site/style.css" "$tmp/outside.md"
+  mkdir -p "$tmp/site/media" "$tmp/site/css/fonts"
+  touch "$tmp/site/media/a.jpg" "$tmp/site/media/b.jpg" "$tmp/site/css/fonts/f.woff2" "$tmp/outside.md"
+  echo '@font-face { src: url(fonts/f.woff2) format("woff2"); } body { background: url("../media/a.jpg"); }' \
+    > "$tmp/site/css/style.css"
   echo example.org > "$tmp/site/CNAME"
   good="$tmp/site/index.html"
   cat > "$good" << 'EOF'
 <meta property="og:url" content="https://example.org/">
 <meta property="og:image" content="https://example.org/media/a.jpg">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="css/style.css?v=1">
 <a href="#top">top</a> <a href="https://github.com/">gh</a> <main id="top"></main>
+<svg><filter id="fray"></filter><rect filter="url(#fray)"/></svg>
 <img src='media/a.jpg' srcset="media/a.jpg 1x, media/b.jpg 2x"> <video poster="media/a.jpg#t=1"></video>
 EOF
   check "$good" > /dev/null || { echo "self-test: a good page failed"; check "$good"; return 1; }
@@ -106,16 +154,28 @@ EOF
   expect_fail "a missing img src" "$bad" || return 1
   sed "s#src='media/a.jpg'#src='media/missing.jpg'#" "$good" > "$bad"
   grep -q missing "$bad" && expect_fail "a missing single-quoted src" "$bad" || return 1
-  sed 's#style.css?v=1#gone.css?v=1#' "$good" > "$bad"
+  sed 's#css/style.css?v=1#css/gone.css?v=1#' "$good" > "$bad"
   expect_fail "a missing href with a query" "$bad" || return 1
   sed 's#poster="media/a.jpg#poster="media/gone.jpg#' "$good" > "$bad"
   expect_fail "a missing poster" "$bad" || return 1
   sed 's#media/b.jpg 2x#media/gone.jpg 2x#' "$good" > "$bad"
   expect_fail "a missing srcset candidate" "$bad" || return 1
-  sed 's#href="style.css?v=1"#href="../outside.md"#' "$good" > "$bad"
+  sed 's#href="css/style.css?v=1"#href="../outside.md"#' "$good" > "$bad"
   expect_fail "a link outside the published folder" "$bad" || return 1
   sed 's#href="\#top"#href="\#nowhere"#' "$good" > "$bad"
   expect_fail "a dead in-page anchor" "$bad" || return 1
+  sed 's#url(\#fray)#url(\#nowhere)#' "$good" > "$bad"
+  expect_fail "a dead url(#id)" "$bad" || return 1
+  sed 's#<img src=#<img src = #' "$good" > "$bad"
+  expect_fail "a spaced attribute" "$bad" || return 1
+  sed 's#poster="media/a.jpg\#t=1"#poster=media/a.jpg#' "$good" > "$bad"
+  expect_fail "an unquoted attribute" "$bad" || return 1
+  cp "$tmp/site/css/style.css" "$tmp/style.keep"
+  sed 's#fonts/f.woff2#fonts/gone.woff2#' "$tmp/style.keep" > "$tmp/site/css/style.css"
+  expect_fail "a missing font in the stylesheet" "$good" || return 1
+  sed 's#../media/a.jpg#../../outside.md#' "$tmp/style.keep" > "$tmp/site/css/style.css"
+  expect_fail "a stylesheet url() outside the published folder" "$good" || return 1
+  cp "$tmp/style.keep" "$tmp/site/css/style.css"
   grep -v og:url "$good" > "$bad"
   expect_fail "a page without og:url" "$bad" || return 1
   sed 's#example.org/media/a.jpg#example.org/media/gone.jpg#' "$good" > "$bad"

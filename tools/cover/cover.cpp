@@ -804,7 +804,9 @@ int main(int argc, char** argv)
     std::printf("wrote the six runner portraits to %s\n", argv[2]);
     return 0;
   }
-  if (argc < 2)
+  // Anything else starting with "--" is a mode with missing arguments, not
+  // an OUTDIR: say how to use it instead of writing covers into "--icon/".
+  if (argc < 2 || std::string(argv[1]).rfind("--", 0) == 0)
   {
     std::fprintf(stderr, "usage: %s OUTDIR [SHOT.png ...]   or   %s --icon OUTDIR   or   %s --portraits OUTDIR [POSE]\n",
       argv[0], argv[0], argv[0]);

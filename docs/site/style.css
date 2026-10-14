@@ -124,7 +124,7 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
   height: calc(var(--h) + 80px);
   display: grid; place-items: center;
   position: relative;
-  cursor: grab; touch-action: pan-y; user-select: none;
+  cursor: grab; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-drag: none;
 }
 .box-stage.dragging { cursor: grabbing; }
 .box {
@@ -156,12 +156,12 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 .spine-badge { font: 900 calc(var(--d) * 0.36) var(--display); color: var(--sun); margin-top: 4%; }
 .spine-title {
   writing-mode: vertical-rl;
-  font: 900 italic calc(var(--d) * 0.52)/1 var(--display); letter-spacing: 0.04em;
+  font: 900 italic calc(var(--d) * 0.46)/1 var(--display); letter-spacing: 0.04em;
   background: linear-gradient(90deg, #fff6b0, var(--sun) 40%, var(--hot));
   -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(2px 0 0 #0aa9d6);
 }
-.spine-sub { writing-mode: vertical-rl; font: 600 calc(var(--d) * 0.13) var(--body); letter-spacing: 0.18em; color: #c9bdf0; }
+.spine-sub { writing-mode: vertical-rl; white-space: nowrap; font: 600 calc(var(--d) * 0.13) var(--body); letter-spacing: 0.18em; color: #c9bdf0; }
 .spine-no { font: 800 calc(var(--d) * 0.2) var(--display); color: #0d0619; background: var(--sun); border-radius: 3px; padding: 1px 5px; margin-bottom: 6%; }
 /* Years of window light bleach one side of a shelf box. */
 .sunfade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 240, 210, 0.16), rgba(255, 240, 210, 0.04) 60%, transparent); mix-blend-mode: screen; pointer-events: none; }

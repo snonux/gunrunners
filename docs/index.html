@@ -81,7 +81,7 @@
     <div class="box-stage" role="group" aria-roledescription="3D model" aria-label="The Gunrunners game box">
       <div class="box">
         <div class="face front">
-          <img src="media/cover_front.jpg" alt="Front of the Gunrunners box: the six runners in front of a neon city, a tank, a space ship and a ringed planet." width="1000" height="1400">
+          <img src="media/cover_front.jpg" draggable="false" alt="Front of the Gunrunners box: the six runners in front of a neon city, a tank, a space ship and a ringed planet." width="1000" height="1400">
           <svg class="wear" viewBox="0 0 1000 1400" preserveAspectRatio="none" aria-hidden="true">
             <!-- edges whitened in patches where the box rubbed against its neighbours -->
             <rect class="edge" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
@@ -112,7 +112,7 @@
         </div>
 
         <div class="face back">
-          <img src="media/cover_back.jpg" alt="Back of the Gunrunners box: the story blurb, four screenshots, the feature list and the six runners." width="1000" height="1400">
+          <img src="media/cover_back.jpg" draggable="false" alt="Back of the Gunrunners box: the story blurb, four screenshots, the feature list and the six runners." width="1000" height="1400">
           <svg class="wear" viewBox="0 0 1000 1400" preserveAspectRatio="none" aria-hidden="true">
             <rect class="edge" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
             <rect class="edge edge-b" x="2" y="2" width="996" height="1396" filter="url(#fray-fine)"/>
@@ -141,7 +141,7 @@
           <div class="spine-stripe"></div>
           <span class="spine-badge">GR</span>
           <span class="spine-title">GUNRUNNERS</span>
-          <span class="spine-sub">ACTION · 1 PLAYER</span>
+          <span class="spine-sub">1 PLAYER</span>
           <span class="spine-no">042</span>
           <div class="spine-stripe bottom"></div>
           <svg class="wear" viewBox="0 0 220 1400" preserveAspectRatio="none">
@@ -157,7 +157,7 @@
           <div class="spine-stripe"></div>
           <span class="spine-badge">GR</span>
           <span class="spine-title">GUNRUNNERS</span>
-          <span class="spine-sub">49 LEVELS · 6 RUNNERS</span>
+          <span class="spine-sub">49 LEVELS</span>
           <span class="spine-no">042</span>
           <div class="spine-stripe bottom"></div>
           <svg class="wear" viewBox="0 0 220 1400" preserveAspectRatio="none">
@@ -320,8 +320,9 @@
     <article class="boss">
       <img src="media/level14.jpg" alt="The Idol Awakens: the golden Idol Golem." loading="lazy">
       <div><h3>Kaan-Tolok, the Idol Golem</h3><p class="where">Level 14 · The Idol Awakens</p>
-      <p>The temple's golden guardian. Every coin you pocket fills a greed
-        meter; gems offered at the altars bring it back down.</p></div>
+      <p>The temple's golden guardian. Every gem you pick up feeds a greed
+        meter that plates the golem in gold; gems offered at the altars
+        bring it back down.</p></div>
     </article>
     <article class="boss">
       <img src="media/level21.jpg" alt="ZERO: the station AI's red eye." loading="lazy">
@@ -330,19 +331,19 @@
         why it keeps saying “please be quick.”</p></div>
     </article>
     <article class="boss">
-      <img src="site/shots/level28.jpg" alt="Toon Town Throwdown, in rubber-hose cartoon style." loading="lazy">
+      <img src="site/shots/level28.jpg" alt="Buddy Boom, a giant cartoon mouse in a circus big top, calls PIE TIME." loading="lazy">
       <div><h3>Buddy Boom</h3><p class="where">Level 28 · Toon Town Throwdown</p>
       <p>A rubber-hose cartoon star with a mallet, a pie and a giant pencil
         that draws new floors (and erases yours).</p></div>
     </article>
     <article class="boss">
-      <img src="site/shots/level35.jpg" alt="The Transmitter: a lattice mast above the clouds." loading="lazy">
+      <img src="site/shots/level35.jpg" alt="The Halcyon Titan, a white mech on the transmitter mast, overheating." loading="lazy">
       <div><h3>The Halcyon Titan</h3><p class="where">Level 35 · The Transmitter</p>
       <p>Halcyon Arms' biggest demo model, sent up the transmitter mast to
         keep the signal from pointing home.</p></div>
     </article>
     <article class="boss">
-      <img src="media/level49.jpg" alt="The Hive Mother on her throne of eggs." loading="lazy">
+      <img src="media/level49.jpg" alt="The Hive Mother charging at a runner in her chamber." loading="lazy">
       <div><h3>The Hive Mother</h3><p class="where">Level 49 · The Hive Mother</p>
       <p>The queen of Vurr on a throne of eggs, with Spore Nurses to heal
         her. Shoot her crown when it glows. Then run.</p></div>
@@ -361,13 +362,13 @@
   <h3 class="sub">A few of the residents</h3>
   <ul class="enemy-list">
     <li><b>Bouncer</b> <span>Club Laserdisc</span> patrols his post; shots from the front only stagger him</li>
-    <li><b>Stalker</b> <span>Blackout</span> chases in the dark and freezes in any light</li>
-    <li><b>Gator</b> <span>Sludge Line</span> swims under the sludge, lunges up out of it</li>
+    <li><b>Night Stalker</b> <span>Blackout</span> chases in the dark and freezes in any light</li>
+    <li><b>Sludge Gator</b> <span>Sludge Line</span> swims under the sludge, lunges up out of it</li>
     <li><b>Decoupler</b> <span>Maglev Express</span> climbs out of a coupling and unhooks it</li>
-    <li><b>Cutter</b> <span>Canopy Road</span> runs to the rope bridge's far anchor and chops it down</li>
-    <li><b>Monk</b> <span>Sun Mirrors</span> sends shots and sunbeams back off a mirror shield</li>
-    <li><b>Crab</b> <span>Lava Heart</span> armoured on top and in front; flips when hit from behind</li>
-    <li><b>Mutant</b> <span>Cryo Labs</span> staggers out of a Sleeper Pod and lunges to grab</li>
+    <li><b>Bridge Cutter</b> <span>Canopy Road</span> runs to the rope bridge's far anchor and chops it down</li>
+    <li><b>Mirror Monk</b> <span>Sun Mirrors</span> sends shots and sunbeams back off a mirror shield</li>
+    <li><b>Basalt Crab</b> <span>Lava Heart</span> armoured on top and in front; flips when hit from behind</li>
+    <li><b>Pod Mutant</b> <span>Cryo Labs</span> staggers out of a Sleeper Pod and lunges to grab</li>
     <li><b>Test Subject</b> <span>Gravity Lab</span> crouches and copies your jumps</li>
     <li><b>Echo</b> <span>ZERO</span> a hologram replaying your own moves from a while ago</li>
     <li><b>Duelist</b> <span>Dry Gulch</span> the bell rings twice, then he draws</li>
@@ -425,7 +426,7 @@
       <p class="ep-note">Playable any time from WORLD SELECT. No bonus levels here: Vurr has twists of its own.</p></div>
     </article>
     <article class="episode">
-      <img src="media/motor_pool.jpg" alt="Motor Pool: tank, hoverbike and helicopter in the depot." loading="lazy">
+      <img src="media/motor_pool.jpg" alt="Motor Pool: a runner flies the helicopter over the city at sunset." loading="lazy">
       <div class="ep-body"><p class="ep-no">Extras</p><h3>Motor Pool &amp; Deep Dive</h3><p class="ep-tag">Two levels built around the vehicles</p>
       <p class="ep-note">Tank, helicopter, hoverbike, submarine, space ship and mech. Hits go to the armour, not your hearts.</p></div>
     </article>

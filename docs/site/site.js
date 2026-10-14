@@ -13,7 +13,7 @@
   // The box is turned by setting --rx/--ry on .box-stage (style.css reads
   // them). `rest` is where the box was left (dragged to, flipped to or turned
   // with the keys); the idle sway only wobbles a few degrees around it.
-  function createBox(stage, box, flip) {
+  function createBox(stage, flip) {
     var state = {
       rest: { rx: -6, ry: -24 }, // the three-quarter view of the front
       rx: -6, ry: -24,
@@ -48,36 +48,42 @@
       }
     }
 
-    // Turn smoothly to the resting angle with the CSS transition. A turn
-    // started during another one restarts the timer, so the transition isn't
-    // cut short.
-    function turnToRest() {
-      window.clearTimeout(state.turnTimer);
+    return { state: state, apply: apply };
+  }
+
+  // Turning with the CSS transition (.box.animate in style.css).
+  function addTurns(box, b) {
+    var s = b.state;
+    // Turn smoothly to the resting angle. A turn started during another one
+    // restarts the timer, so the transition isn't cut short.
+    b.turnToRest = function () {
+      window.clearTimeout(s.turnTimer);
       box.classList.add("animate");
-      state.turning = true;
-      state.rx = state.rest.rx;
-      state.ry = state.rest.ry;
-      apply();
-      state.turnTimer = window.setTimeout(function () {
+      s.turning = true;
+      s.rx = s.rest.rx;
+      s.ry = s.rest.ry;
+      b.apply();
+      s.turnTimer = window.setTimeout(function () {
         box.classList.remove("animate");
-        state.turning = false;
-        state.swayStart = performance.now();
+        s.turning = false;
+        s.swayStart = performance.now();
       }, reduceMotion ? 0 : TURN_MS);
-    }
-
-    // Stop a running turn where it is (a drag takes over from it).
-    function stopTurn() {
-      window.clearTimeout(state.turnTimer);
+    };
+    // Cut a running turn short for a drag: without the transition the box
+    // jumps to where the turn was heading, and the drag starts from there.
+    b.stopTurn = function () {
+      window.clearTimeout(s.turnTimer);
       box.classList.remove("animate");
-      state.turning = false;
-    }
-
-    return { state: state, apply: apply, turnToRest: turnToRest, stopTurn: stopTurn };
+      s.turning = false;
+    };
   }
 
   // Drag with the mouse (main button), a finger or a pen to turn the box.
+  // The browser's own image drag would steal the pointer (pointercancel),
+  // so it is blocked here as well as with draggable="false" on the covers.
   function setupDrag(stage, b) {
     var s = b.state, drag = null;
+    stage.addEventListener("dragstart", function (e) { e.preventDefault(); });
     stage.addEventListener("pointerdown", function (e) {
       if (e.pointerType === "mouse" && e.button !== 0) return;
       b.stopTurn();
@@ -156,7 +162,8 @@
     var flip = document.getElementById("flip");
     var controls = document.querySelector(".box-controls");
     if (!stage || !box) return;
-    var b = createBox(stage, box, flip);
+    var b = createBox(stage, flip);
+    addTurns(box, b);
     setupDrag(stage, b);
     setupControls(stage, flip, b);
     if (controls) controls.hidden = false;
@@ -167,7 +174,8 @@
 
   // ---------- the clips ----------
   // Muted clips play while at least half of them is on screen, so a long
-  // page doesn't decode six videos at once. A clip someone paused stays
+  // page doesn't decode six videos at once. The ratio is checked by hand:
+  // isIntersecting alone is true for a single visible pixel. A clip someone paused stays
   // paused; dataset.auto marks the pauses made here.
   function setupVideos() {
     var videos = document.querySelectorAll(".video video");
@@ -180,16 +188,17 @@
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         var v = en.target;
-        if (en.isIntersecting && !userPaused.has(v)) {
+        var onScreen = en.intersectionRatio >= 0.5;
+        if (onScreen && !userPaused.has(v)) {
           v.preload = "auto";
           var p = v.play();
           if (p && p.catch) p.catch(function () {});
-        } else if (!en.isIntersecting && !v.paused) {
+        } else if (!onScreen && !v.paused) {
           v.dataset.auto = "1";
           v.pause();
         }
       });
-    }, { threshold: 0.5 });
+    }, { threshold: [0, 0.5] });
     videos.forEach(function (v) { io.observe(v); });
   }
 
