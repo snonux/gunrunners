@@ -158,6 +158,8 @@ enum class Inst
   SynthBass,
   Upright,
   SubBass,
+  LeadGtr,   // distorted lead guitar (Duke mode)
+  PickBass,  // picked electric bass (Duke mode)
 };
 
 struct Tone
@@ -192,6 +194,111 @@ void karplus(Bus& b, const Tone& n, const Send& s, double ring, double bright, d
     if (drive > 0.0)
       v = std::tanh(v * drive) * 0.6;
     return v * n.vel;
+  });
+}
+
+// --- Guitars (Duke mode) -------------------------------------------------------
+
+// tanh, cheap: exact at 0 and +-3, within 2% between.
+inline double ftanh(double x)
+{
+  if (x > 3.0)
+    return 1.0;
+  if (x < -3.0)
+    return -1.0;
+  const double x2 = x * x;
+  return x * (27.0 + x2) / (27.0 + 9.0 * x2);
+}
+
+// A high-gain amp into a 4x12 cabinet: tighten the lows, clip twice
+// (slightly asymmetric, like a tube), roll off at the speaker and scoop the
+// mids a little, the 90s metal way. The clipper runs at twice the rate
+// (a midpoint sample) to keep aliasing down.
+struct Amp
+{
+  double gain = 8.0;
+  double bias = 0.12;
+  OnePole tight, fizz, out;
+  Svf cab, scoop;
+  double prev = 0.0;
+  double clip(double x) const { return ftanh((ftanh(x * gain + bias) - ftanh(bias)) * 2.2); }
+  float run(double x)
+  {
+    x = tight.highpass(float(x), 140.0);
+    const double y = 0.5 * (clip(0.5 * (x + prev)) + clip(x));
+    prev = x;
+    double c = cab.low(float(y), 4300.0, 1.1);
+    c -= 0.35 * scoop.band(float(c), 600.0, 0.9);
+    c = fizz.lowpass(float(c), 7000.0);
+    return out.highpass(float(c), 70.0);
+  }
+};
+
+// One pick of a power chord (root, fifth, octave) through the amp. The
+// strings go into the amp together, so they growl against each other.
+// A palm-muted chug is short, dull and tight; an open chord rings.
+void powerChord(Bus& b, double t0, double dur, int root, bool mute, float vel, const Send& s, double detune, std::uint32_t seed)
+{
+  std::array<Osc, 6> o;
+  for (std::size_t k = 0; k < o.size(); ++k)
+    o[k].reset(double((seed >> k) & 7u) / 8.0);
+  Noise pick(seed);
+  OnePole damp;
+  Amp amp;
+  amp.gain = mute ? 9.0 : 6.0;
+  double f[3];
+  const int notes[3] = {root, root + 7, root + 12};
+  for (int k = 0; k < 3; ++k)
+    f[k] = midiFreq(notes[k]) * detune * (1.0 + 0.0007 * k);
+  const double len = mute ? std::min(dur + 0.06, 0.24) : dur + 0.07;
+  emit(b, t0, len, s, [&](double t) {
+    const double bend = 1.0 + 0.004 * fdecay(t, 0.012);
+    double x = 0.0;
+    for (std::size_t k = 0; k < 3; ++k)
+      x += (o[2 * k].step(f[k] * bend * 0.9985, Wave::Saw) + o[2 * k + 1].step(f[k] * bend * 1.0015, Wave::Saw)) * (k == 2 ? 0.6 : 1.0);
+    x = x * 0.25 + pick.next() * fdecay(t, 0.004) * 0.4;
+    if (mute)
+      x = damp.lowpass(float(x), 500.0 + 1400.0 * fdecay(ctl(t), 0.02));
+    const double string = mute ? fdecay(t, 0.07) : 0.35 + 0.65 * fdecay(t, 1.2);
+    const double env = mute ? fdecay(t, 0.09) * attack(t, 0.002) : adsr(t, dur, 0.002, 0.0, 1.0, 0.05) * (0.8 + 0.2 * fdecay(t, 0.3));
+    return amp.run(x * string) * env * 0.5 * vel;
+  });
+}
+
+// A singing lead: two saws and a touch of octave into more gain, with wide
+// rock vibrato on held notes and, now and then, a whole-step bend up into
+// a long one.
+void leadGuitar(Bus& b, const Tone& n, const Send& s, std::uint32_t seed)
+{
+  Osc a, c, d;
+  Noise pick(seed);
+  OnePole pickup;
+  Amp amp;
+  amp.gain = 14.0;
+  amp.bias = 0.1;
+  const bool bendUp = n.dur > 0.28 && seed % 3u == 0u;
+  double lastCtl = -1.0, ff = 0.0;
+  emit(b, n.t0, n.dur + 0.12, s, [&](double t) {
+    const double tc = ctl(t);
+    if (tc != lastCtl)
+    {
+      lastCtl = tc;
+      double note = n.note;
+      if (bendUp)
+      {
+        const double u = std::min(1.0, tc / 0.1);
+        note -= 2.0 * (1.0 - u * u * (3.0 - 2.0 * u));
+      }
+      else
+      {
+        note -= 0.25 * fdecay(tc, 0.015);
+      }
+      note += 0.22 * std::min(1.0, std::max(0.0, tc - 0.22) / 0.25) * sin2pi(5.6 * tc);
+      ff = midiFreq(note);
+    }
+    double x = a.step(ff * 0.999, Wave::Saw) + c.step(ff * 1.001, Wave::Saw) * 0.8 + d.step(ff * 2.0, Wave::Square, 0.3) * 0.15;
+    x = pickup.lowpass(float(x * 0.3 + pick.next() * fdecay(t, 0.003) * 0.3), 3500.0);
+    return amp.run(x) * adsr(t, n.dur, 0.004, 0.3, 0.85, 0.09) * n.vel * 0.55;
   });
 }
 
@@ -524,6 +631,20 @@ void play(Bus& b, Inst inst, const Tone& n, const Send& s, std::uint32_t seed)
       });
       return;
     }
+    case Inst::LeadGtr:
+      leadGuitar(b, n, s, seed);
+      return;
+    case Inst::PickBass:
+    {
+      Osc a;
+      Svf lp;
+      emit(b, n.t0, n.dur + 0.04, s, [&](double t) {
+        const double x = a.step(f, Wave::Saw) * 0.6 + sin2pi(f * t) * 0.7;
+        const double y = lp.low(float(x), 220.0 + 2200.0 * fdecay(ctl(t), 0.05), 1.3);
+        return ftanh(y * 1.8) * 0.5 * adsr(t, n.dur, 0.002, 0.1, 0.75, 0.03) * v;
+      });
+      return;
+    }
   }
 }
 
@@ -553,6 +674,8 @@ enum class Perc
   Ding,     // typewriter bell
   Blip,     // glitch blip
   Chop,     // rotor blade
+  MKick,    // metal kick: tight, with a beater click
+  MSnare,   // metal snare: fat crack in a room
 };
 
 void hit(Bus& b, Perc p, double t0, float vol, char ch, float pan, std::uint32_t seed)
@@ -752,6 +875,31 @@ void hit(Bus& b, Perc p, double t0, float vol, char ch, float pan, std::uint32_t
       });
       return;
     }
+    case Perc::MKick:
+    {
+      double ph = 0.0;
+      OnePole hp;
+      emit(b, t0, 0.3, s, [&](double t) {
+        ph += (52.0 + 170.0 * fdecay(t, 0.025)) / kRate;
+        const double click = hp.highpass(noise.next(), 2500.0) * fdecay(t, 0.002) * 0.6 + sin2pi(3000.0 * t) * fdecay(t, 0.003) * 0.3;
+        return ftanh((sin2pi(ph) * fdecay(t, 0.16) + click) * 1.4) * attack(t, 0.0008) * 0.95;
+      });
+      return;
+    }
+    case Perc::MSnare:
+    {
+      Svf bp;
+      OnePole hp;
+      Osc o;
+      s.rev = 0.22f;
+      emit(b, t0, 0.35, s, [&](double t) {
+        const double body = o.step(200.0 * (1.0 + 0.3 * fdecay(t, 0.01)), Wave::Triangle) * fdecay(t, 0.07) * 0.7;
+        const double n = noise.next();
+        const double wires = bp.band(n, 2200.0, 0.6) * fdecay(t, 0.11) + hp.highpass(n, 6000.0) * fdecay(t, 0.05) * 0.3;
+        return ftanh((body + wires) * 1.3) * attack(t, 0.0008) * 0.75;
+      });
+      return;
+    }
   }
 }
 
@@ -802,6 +950,14 @@ enum class Groove
   Pulse,
   Desert,
   Shimmer,
+  // Duke mode kits.
+  MetalRock,
+  MetalGallop,
+  DoubleKick,
+  Sludge,
+  Industrial,
+  MetalWaltz,
+  MetalWar,
 };
 
 struct GrooveDef
@@ -936,6 +1092,37 @@ GrooveDef grooveDef(Groove g)
               3, false};
     case Groove::Shimmer:
       return {{{{P::Shaker, "-.-.-.-.-.-.-.-.", 0.3f, 0.3f}, {P::Rim, "............x...", 0.25f, -0.2f, 2}}}, 2, false};
+    case Groove::MetalRock:
+      return {{{{P::MKick, "x.....x.x.x.....", 1.0f, 0.0f}, {P::MSnare, "....x.......x...", 0.9f, 0.05f},
+                {P::HatC, "x.x.x.x.x.x.x.x.", 0.35f, -0.3f}, {P::HatO, "..............x.", 0.22f, -0.3f, 2},
+                {P::Crash, "x...............", 0.5f, 0.35f, 4}}},
+              5, true};
+    case Groove::MetalGallop:
+      return {{{{P::MKick, "x.xxx.xxx.xxx.xx", 0.65f, 0.0f}, {P::MSnare, "....x.......x...", 0.9f, 0.05f},
+                {P::Ride, "x...x...x...x...", 0.3f, 0.3f}, {P::Crash, "x...............", 0.5f, -0.35f, 4}}},
+              4, true};
+    case Groove::DoubleKick:
+      return {{{{P::MKick, "xxxxxxxxxxxxxxxx", 0.55f, 0.0f}, {P::MSnare, "....x.......x...", 0.95f, 0.05f},
+                {P::Ride, "x.x.x.x.x.x.x.x.", 0.28f, 0.3f}, {P::Crash, "x...............", 0.5f, -0.35f, 2}}},
+              4, true};
+    case Groove::Sludge:
+      return {{{{P::MKick, "x.....x...x.....", 1.0f, 0.0f}, {P::MSnare, "........x.......", 0.95f, 0.05f},
+                {P::Ride, "x...x...x...x...", 0.35f, 0.3f}, {P::Crash, "x...............", 0.5f, -0.35f, 2}}},
+              4, true};
+    case Groove::Industrial:
+      return {{{{P::MKick, "x...x...x...x...", 1.0f, 0.0f}, {P::MSnare, "....x.......x...", 0.8f, 0.05f},
+                {P::Clap, "....x.......x...", 0.35f, -0.1f}, {P::HatO, "..x...x...x...x.", 0.3f, -0.3f},
+                {P::HatC, "x.x.x.x.x.x.x.x.", 0.2f, 0.3f}, {P::Crash, "x...............", 0.45f, 0.35f, 4}}},
+              6, true};
+    case Groove::MetalWaltz:
+      return {{{{P::MKick, "x.....x.x...", 1.0f, 0.0f}, {P::MSnare, "....x...x...", 0.85f, 0.05f},
+                {P::HatC, "x.x.x.x.x.x.", 0.32f, -0.3f}, {P::Crash, "x...........", 0.5f, 0.35f, 4}}},
+              4, true};
+    case Groove::MetalWar:
+      return {{{{P::Taiko, "x...x...x...x...", 0.8f, 0.0f}, {P::MKick, "xxxxxxxxxxxxxxxx", 0.5f, 0.0f},
+                {P::MSnare, "....x.......x...", 0.9f, 0.05f}, {P::Tom, "......m.....l.l.", 0.5f, 0.25f},
+                {P::Crash, "x...............", 0.5f, -0.35f, 4}}},
+              5, true};
   }
   return {{}, 0, false};
 }
@@ -1146,6 +1333,7 @@ const std::vector<int>& progression(int i)
     {0, 1, 0, 6},             // 21 lydian lift
     {0, 0, 4, 4},             // 22 i i V V
     {0, 5, 1, 4},             // 23 I vi ii V
+    {0, 5, 2, 6, 0, 5, 3, 4}, // 24 Level 1's theme: Am F C G | Am F Dm E
   };
   return kProgs[std::size_t(i) % kProgs.size()];
 }
@@ -1191,7 +1379,7 @@ struct Style
 // clang-format off
 const Style kStyles[] = {
   // id                         bpm  m key mode         pr groove            bass pattern       bass             pad              comp              arp              arp pattern      lead             lead2            dn swing rev  echo extras             bars
-  {"theme_synthwave",          120, 4, 9, Mode::Minor,  0, Groove::Four,     BassPat::Octaves,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Square,    ArpPat::Up16,    Inst::Saw,       Inst::Bell,      1, 0.0f, 0.25f, 0.3f, 0, 16},
+  {"theme_synthwave",          120, 4, 9, Mode::Minor, 24, Groove::Four,     BassPat::Octaves,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Square,    ArpPat::Up16,    Inst::Saw,       Inst::Bell,      1, 0.0f, 0.25f, 0.3f, 0, 16},
   {"theme_airy",                92, 4, 5, Mode::Lydian, 21, Groove::Airy,    BassPat::Roots,    Inst::SubBass,   Inst::Choir,     Comp::Sustain,    Inst::Kalimba,   ArpPat::Sparse,  Inst::Flute,     Inst::Bell,      0, 0.0f, 0.5f, 0.35f, 0, 16},
   {"theme_clubhouse",          120, 4, 6, Mode::Minor,  2, Groove::House,    BassPat::Funk,     Inst::SynthBass, Inst::Organ,     Comp::Stabs,      Inst::Saw,       ArpPat::Trance,  Inst::Square,    Inst::Pluck,     2, 0.0f, 0.25f, 0.25f, kRiser, 16},
   {"theme_heartbeat",          120, 4, 1, Mode::Minor, 12, Groove::Heart,    BassPat::Pedal,    Inst::SubBass,   Inst::Strings,   Comp::Sustain,    Inst::Bell,      ArpPat::Sparse,  Inst::Flute,     Inst::Celesta,   0, 0.0f, 0.45f, 0.2f, kHeart, 16},
@@ -1346,7 +1534,8 @@ struct MelNote
   int bar;
   int step;
   int len;
-  int deg; // scale degree, 0 = tonic
+  int deg;      // scale degree, 0 = tonic
+  int midi = 0; // a fixed pitch instead (Level 1's theme)
 };
 
 // An 8-bar tune: phrases A B A C | A B A' D, where A is a motif carried over
@@ -1434,7 +1623,7 @@ std::vector<MelNote> compose(std::uint32_t seed, const std::vector<int>& prog, i
         // Land on the root of the last chord.
         deg = chord + 7 * int(std::round(double(deg - chord) / 7.0));
       }
-      out.push_back({bar, r[i][0], r[i][1], deg});
+      out.push_back({bar, r[i][0], r[i][1], deg, 0});
       prev = deg;
     }
   }
@@ -1464,6 +1653,8 @@ int leadCentre(Inst i)
     case Inst::Slide:
     case Inst::Dist:
       return 65;
+    case Inst::LeadGtr:
+      return 67;
     default:
       return 70;
   }
@@ -1481,9 +1672,206 @@ float leadLevel(Inst i)
     case Inst::Strings:
     case Inst::Choir:
       return 1.2f;
+    case Inst::LeadGtr:
+      return 0.7f;
     default:
       return 0.9f;
   }
+}
+
+// --- Duke mode -----------------------------------------------------------------
+
+// Paul (2026-10-14): every level's music in the style of Duke Nukem, 90s
+// guitar metal. A level keeps its key, mode, chords, tune and signature
+// instrument (now the voice that answers the tune); under it the band
+// becomes double-tracked rhythm guitars, a picked bass doubling the riff, a
+// metal kit plus the level's own colour percussion (rotor chops, typewriter
+// keys, congas...), and a distorted lead guitar that plays the tune.
+//
+// A riff is one bar of 16th steps on the bar's chord root: 'P' accented
+// palm-muted chug, 'p' chug, 'R' open power chord, and open power chords a
+// few semitones up: 'y' +1, '2' +2, '3' +3, '5' +5, '6' +6, '7' +7,
+// 'x' +10. '-' holds, '.' rests.
+struct Metal
+{
+  bool on = false;
+  const char* riff = "";
+  const char* chorus = "";
+  const char* tail = "";
+  Groove flavor = Groove::None;
+};
+
+int riffOffset(char c)
+{
+  switch (c)
+  {
+    case 'P':
+    case 'p':
+    case 'R':
+      return 0;
+    case 'y':
+      return 1;
+    case '2':
+      return 2;
+    case '3':
+      return 3;
+    case '5':
+      return 5;
+    case '6':
+      return 6;
+    case '7':
+      return 7;
+    case 'x':
+      return 10;
+    default:
+      return -1;
+  }
+}
+
+// Tracks that keep their own style: the cutscene scores, and the chiptune
+// the club's DJ decks switch to.
+bool keepsOwnStyle(const std::string& id)
+{
+  static const char* kKeep[] = {"theme_opening", "theme_episode_end", "theme_cartoon_end", "theme_credits",
+                                "theme_finale", "theme_show", "theme_chiptune"};
+  for (const char* k : kKeep)
+    if (id == k)
+      return true;
+  return false;
+}
+
+// Tracks the 120 BPM music clock follows (beat blocks, the club's drops):
+// their tempo and metre stay.
+bool beatLocked(const std::string& id)
+{
+  static const char* kLocked[] = {"theme_synthwave", "theme_clubhouse", "theme_heartbeat", "bonus_step_on_the_beat",
+                                  "theme_war_drums"};
+  for (const char* k : kLocked)
+    if (id == k)
+      return true;
+  return false;
+}
+
+// Turns a style into its Duke mode arrangement.
+Metal metalize(Style& st, const std::string& id)
+{
+  Metal m;
+  if (keepsOwnStyle(id))
+    return m;
+  m.on = true;
+  m.flavor = st.groove;
+  const std::uint32_t h = hashId(id);
+  const bool locked = beatLocked(id);
+  auto pick = [&](const auto& list, unsigned shift) { return list[(h >> shift) % (sizeof(list) / sizeof(list[0]))]; };
+
+  static const char* kRock[] = {"P.p.P.p.P.p.R-3-", "R--P.pR--P.pR-x-", "PppPppR-PppPpp5-", "P..P..P.R---3-x-"};
+  static const char* kFast[] = {"P.ppP.ppP.ppR-5-", "PpppPppp3-p-5-p-", "PppPppR-PppPpp5-", "P.p.P.p.P.p.R-3-"};
+  static const char* kSludge[] = {"R-------x---5---", "R-----pp3-----pp", "P..P..P.R---3-x-"};
+  static const char* kWaltz[] = {"P.p.p.R-3-5-", "R---p.p.p.p.", "P.ppP.ppR-x-"};
+  static const char* kWar[] = {"PpppPppp3-p-5-p-", "R-----pp3-----pp"};
+  m.chorus = "R-----R-R-----R-";
+  if (st.meter == 3)
+  {
+    st.groove = Groove::MetalWaltz;
+    m.riff = pick(kWaltz, 3);
+    m.chorus = "R-----R-----";
+    if (!locked)
+      st.bpm = std::clamp(st.bpm * 1.25, 120.0, 168.0);
+  }
+  else if (id == "theme_clubhouse")
+  {
+    st.groove = Groove::Industrial;
+    m.riff = "P.P.PP.PP.P.PP.P";
+    m.chorus = "R-------P.P.PP.P";
+  }
+  else if (st.groove == Groove::War || st.groove == Groove::Panic)
+  {
+    st.groove = Groove::MetalWar;
+    m.riff = pick(kWar, 3);
+    if (!locked)
+      st.bpm = std::clamp(st.bpm, 120.0, 160.0);
+  }
+  else if (st.groove == Groove::Gallop || st.bassPat == BassPat::Gallop)
+  {
+    st.groove = Groove::MetalGallop;
+    m.riff = "P.ppP.ppP.ppR-5-";
+    if (!locked)
+      st.bpm = std::clamp(st.bpm + 8.0, 110.0, 168.0);
+  }
+  else if (id == "theme_heartbeat" || st.bpm < 92.0)
+  {
+    st.groove = Groove::Sludge;
+    m.riff = pick(kSludge, 3);
+    m.chorus = "R-------R-------";
+    if (!locked)
+      st.bpm = std::clamp(st.bpm * 1.3, 92.0, 112.0);
+  }
+  else if (st.bpm <= 125.0)
+  {
+    st.groove = Groove::MetalRock;
+    m.riff = pick(kRock, 3);
+    if (!locked)
+      st.bpm = std::min(st.bpm + 8.0, 132.0);
+  }
+  else
+  {
+    st.groove = st.density == 2 ? Groove::DoubleKick : Groove::MetalRock;
+    m.riff = pick(kFast, 3);
+    st.bpm = std::min(st.bpm, 176.0);
+  }
+  if (id == "theme_synthwave")
+    m.riff = "PppPppR-PppPpp5-";
+
+  // Every fourth bar turns round with chords that suit the mode.
+  static const char* kDark[] = {"y-R-", "6-y-"};
+  static const char* kMinor[] = {"3-5-", "x-R-", "5-3-"};
+  static const char* kMajor[] = {"x-5-", "5-7-", "x-R-"};
+  if (st.mode == Mode::Phryg || st.mode == Mode::Harm)
+    m.tail = pick(kDark, 9);
+  else if (st.mode == Mode::Minor || st.mode == Mode::Dorian)
+    m.tail = pick(kMinor, 9);
+  else
+    m.tail = pick(kMajor, 9);
+
+  // The signature instrument answers the guitar; the rest of the old band
+  // makes way, but a sustained organ, choir, string, brass or synth pad
+  // stays under the guitars.
+  const Inst sig = st.lead != Inst::Dist && st.lead != Inst::None ? st.lead
+    : st.lead2 != Inst::Dist && st.lead2 != Inst::None             ? st.lead2
+                                                                    : Inst::LeadGtr;
+  st.lead = Inst::LeadGtr;
+  st.lead2 = sig;
+  st.bass = Inst::PickBass;
+  if (st.pad != Inst::Organ && st.pad != Inst::Choir && st.pad != Inst::Strings && st.pad != Inst::Brass && st.pad != Inst::Pad)
+    st.pad = Inst::None;
+  st.swing = st.swing >= 0.4f ? 0.3f : 0.0f;
+  st.reverb = std::min(st.reverb, 0.35f);
+  st.echo = std::min(st.echo, 0.3f);
+  return m;
+}
+
+// Level 1's theme, the game's own tune, in eighths (0 rest, -1 hold).
+const std::vector<MelNote>& levelOneTune()
+{
+  static const int kMel[64] = {
+    76, -1, 74, 72, -1, 71, 72, -1,   77, -1, 76, 74, -1, 72, 74, -1,
+    72, -1, 71, 67, -1, 0, 67, 69,    71, -1, 74, -1, 71, -1, 67, -1,
+    76, -1, 74, 72, -1, 71, 72, 76,   77, -1, 81, -1, 79, 77, 76, -1,
+    74, -1, 72, 74, -1, 77, 76, -1,   76, -1, -1, -1, 0, 0, 0, 0};
+  static const std::vector<MelNote> tune = [] {
+    std::vector<MelNote> out;
+    for (int i = 0; i < 64; ++i)
+    {
+      if (kMel[i] <= 0)
+        continue;
+      int len = 1;
+      while (i + len < 64 && kMel[i + len] == -1)
+        ++len;
+      out.push_back({i / 8, (i % 8) * 2, len * 2, 0, kMel[i]});
+    }
+    return out;
+  }();
+  return tune;
 }
 
 struct Options
@@ -1520,6 +1908,7 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
     st.swing = 0.0f;
     st.extras = (st.extras & kSevenths) | kVinyl;
   }
+  const Metal metal = opt.cover ? Metal{} : metalize(st, seedName);
   const std::uint32_t seed = hashId(seedName);
   const int bars = opt.bars > 0 ? opt.bars : st.bars;
   const int spb = st.meter * 4; // 16th steps per bar
@@ -1543,6 +1932,31 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
     return (bar * spb + step + shift) * stepSec;
   };
   auto chordOf = [&](int bar) { return prog[std::size_t(bar) % prog.size()]; };
+  // Duke mode: the riff for a bar. Bars 8-11 of each 16 are the chorus;
+  // every fourth bar of the verse turns round.
+  auto riffFor = [&](int bar) {
+    const bool chorus = bars >= 16 && bar % 16 >= 8 && bar % 16 < 12;
+    std::string r = chorus ? metal.chorus : metal.riff;
+    if (!chorus && bar % 4 == 3 && r.size() >= 4)
+      r.replace(r.size() - 4, 4, metal.tail);
+    return r;
+  };
+  // Calls f(step, hold, offset, muted, velocity) for each pick of the bar's riff.
+  auto eachPick = [&](int bar, auto f) {
+    const std::string r = riffFor(bar);
+    const int len = int(r.size());
+    for (int s = 0; s < spb; ++s)
+    {
+      const char ch = r[std::size_t(s % len)];
+      const int off = riffOffset(ch);
+      if (off < 0)
+        continue;
+      int hold = 1;
+      while (s + hold < spb && r[std::size_t((s + hold) % len)] == '-')
+        ++hold;
+      f(s, hold, off, ch == 'p' || ch == 'P', ch == 'p' ? 0.8f : 1.0f);
+    }
+  };
 
   // Drums.
   if (opt.layers >= 2)
@@ -1565,10 +1979,50 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
           hit(bus, lane.perc, at(bar, s), lane.vol * v * 0.6f, ch, lane.pan, hs += 7919u);
         }
       }
+    if (metal.on)
+    {
+      // The level's own colour percussion rides on the metal kit.
+      const GrooveDef f = grooveDef(metal.flavor);
+      for (int li = 0; li < f.count; ++li)
+      {
+        const Lane& lane = f.lanes[std::size_t(li)];
+        switch (lane.perc)
+        {
+          case Perc::Chop:
+          case Perc::Typer:
+          case Perc::Ding:
+          case Perc::Blip:
+          case Perc::Conga:
+          case Perc::Block:
+          case Perc::Cowbell:
+          case Perc::Tamb:
+          case Perc::Timpani:
+            break;
+          default:
+            continue;
+        }
+        const int len = int(std::strlen(lane.pattern));
+        for (int bar = 0; bar < bars; ++bar)
+          if (bar % lane.every == 0)
+            for (int s = 0; s < spb; ++s)
+            {
+              const char ch = lane.pattern[s % len];
+              if (ch == '.')
+                continue;
+              const float v = ch == 'o' ? 0.55f : ch == '-' ? 0.3f : 1.0f;
+              hit(bus, lane.perc, at(bar, s), lane.vol * v * 0.4f, ch, lane.pan, hs += 7919u);
+            }
+      }
+    }
     if (g.fills)
       for (int bar = 7; bar < bars; bar += 8)
         for (int s = spb - 4; s < spb; ++s)
-          hit(bus, Perc::Snare, at(bar, s), (0.25f + 0.08f * float(s - spb + 4)) * 0.6f, 'x', 0.1f, hs += 7919u);
+        {
+          if (metal.on)
+            hit(bus, Perc::Tom, at(bar, s), 0.45f, "hmll"[s - spb + 4], 0.3f - 0.2f * float(s - spb + 4), hs += 7919u);
+          else
+            hit(bus, Perc::Snare, at(bar, s), (0.25f + 0.08f * float(s - spb + 4)) * 0.6f, 'x', 0.1f, hs += 7919u);
+        }
   }
 
   // Heartbeat.
@@ -1583,7 +2037,22 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
         });
       }
 
-  // Bass.
+  // Bass: in Duke mode it doubles the riff, an octave under the guitars.
+  if (metal.on)
+  {
+    for (int bar = 0; bar < bars; ++bar)
+    {
+      const int root = into(th.midi(chordOf(bar), 60), 28);
+      eachPick(bar, [&](int s, int hold, int off, bool muted, float vel) {
+        const int note = root + off - (root + off >= 41 ? 12 : 0);
+        const double t0 = at(bar, s);
+        const double dur = muted ? stepSec * 0.85 : (at(bar, s + hold) - t0) * 0.92;
+        play(bus, Inst::PickBass, Tone{t0, dur, double(note), 0.0, vel * 0.95f}, Send{0.8f, 0.0f, 0.03f, 0.0f},
+             seed + std::uint32_t(bar * 31 + s));
+      });
+    }
+  }
+  else
   {
     const char* pat = bassPattern(st.bassPat, st.meter);
     const int len = int(std::strlen(pat));
@@ -1652,12 +2121,27 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
     std::sort(notes.begin(), notes.end());
     return notes;
   };
+  // Rhythm guitars, double-tracked: one take hard left, one hard right, a
+  // hair apart in time and tuning.
+  if (metal.on && opt.layers >= 1)
+    for (int bar = 0; bar < bars; ++bar)
+    {
+      const int root = into(th.midi(chordOf(bar), 60), 40);
+      eachPick(bar, [&](int s, int hold, int off, bool muted, float vel) {
+        const int note = root + off - (root + off >= 53 ? 12 : 0);
+        const double t0 = at(bar, s);
+        const double dur = (at(bar, s + hold) - t0) * 0.97;
+        const auto k = std::uint32_t(bar * 64 + s);
+        powerChord(bus, t0, dur, note, muted, vel, Send{0.7f, -0.8f, 0.1f, 0.0f}, 0.9992, seed * 3u + k);
+        powerChord(bus, t0 + 0.007, dur, note, muted, vel, Send{0.7f, 0.8f, 0.1f, 0.0f}, 1.0008, seed * 5u + k);
+      });
+    }
   if (opt.layers >= 1 && st.pad != Inst::None && st.comp != Comp::None)
   {
     const char* pat = compPattern(st.comp, st.meter);
     const int len = int(std::strlen(pat));
     const bool sustain = st.comp == Comp::Sustain;
-    const float vol = (st.pad == Inst::Strings || st.pad == Inst::Choir || st.pad == Inst::Pad ? 0.55f : 0.42f);
+    const float vol = (st.pad == Inst::Strings || st.pad == Inst::Choir || st.pad == Inst::Pad ? 0.55f : 0.42f) * (metal.on ? 0.45f : 1.0f);
     for (int bar = 0; bar < bars; ++bar)
     {
       const auto notes = chordNotes(bar);
@@ -1707,7 +2191,7 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
         const double dur = (at(bar, s + hold) - t0) * 0.7;
         const float pan = (s % 4 < 2 ? -0.3f : 0.3f);
         play(bus, st.arp, Tone{t0, dur, double(tones[ch - '0']), 0.0, s % 4 == 0 ? 0.85f : 0.65f},
-             Send{0.42f, pan, 0.25f, st.echo}, seed + std::uint32_t(s * 13 + bar * 101));
+             Send{metal.on ? 0.28f : 0.42f, pan, 0.25f, st.echo}, seed + std::uint32_t(s * 13 + bar * 101));
       }
     }
   }
@@ -1715,7 +2199,7 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
   // Lead, then the second voice answers with the opening phrases.
   if (opt.layers >= 4 && st.lead != Inst::None)
   {
-    const auto tune = compose(seed * 2654435761u + 17u, prog, spb, st.density);
+    const auto tune = seedName == "theme_synthwave" ? levelOneTune() : compose(seed * 2654435761u + 17u, prog, spb, st.density);
     auto voice = [&](Inst inst, int fromBar, int toBar, int phraseFrom, float level) {
       const int centre = leadCentre(inst);
       double prevNote = 0.0;
@@ -1724,7 +2208,7 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
         const int bar = fromBar + m.bar - phraseFrom;
         if (m.bar < phraseFrom || bar >= toBar)
           continue;
-        const int note = th.midi(m.deg, centre - 5);
+        const int note = m.midi > 0 ? m.midi : th.midi(m.deg, centre - 5);
         const double t0 = at(bar, m.step);
         const double dur = (at(bar, m.step + m.len) - t0) * 0.92;
         play(bus, inst, Tone{t0, dur, double(note), prevNote, 0.85f},
@@ -1820,7 +2304,8 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
     for (int pass = 0; pass < 2; ++pass)
       for (std::size_t i = 0; i < out.l.size(); ++i)
       {
-        const float a = lpL.lowpass(out.l[i], 1100.0), c = lpR.lowpass(out.r[i], 1100.0);
+        const double cut = metal.on ? 2400.0 : 1100.0;
+        const float a = lpL.lowpass(out.l[i], cut), c = lpR.lowpass(out.r[i], cut);
         if (pass == 1)
         {
           out.l[i] = a * 1.4f;

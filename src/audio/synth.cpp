@@ -6942,19 +6942,8 @@ MusicTrack makeMusic(Music m)
       break;
     }
     case Music::Level:
-    {
-      const std::vector<int> melody = {
-        76, -1, 74, 72, -1, 71, 72, -1,   77, -1, 76, 74, -1, 72, 74, -1,
-        72, -1, 71, 67, -1, 0, 67, 69,    71, -1, 74, -1, 71, -1, 67, -1,
-        76, -1, 74, 72, -1, 71, 72, 76,   77, -1, 81, -1, 79, 77, 76, -1,
-        74, -1, 72, 74, -1, 77, 76, -1,   76, -1, -1, -1, 0, 0, 0, 0};
-      Song s{120.0, 16, chords, true, true, melody};
-      auto mix = renderSong(s);
-      out.left = std::move(mix.left);
-      out.right = std::move(mix.right);
-      out.loops = true;
-      break;
-    }
+      // Level 1's theme, arranged in Duke mode with the level soundtracks.
+      return makeStyledMusic("theme_synthwave");
     case Music::Victory:
     {
       // A short fanfare: rising arpeggio into a held major chord.
