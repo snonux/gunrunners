@@ -52,6 +52,20 @@ void stop(cairo_pattern_t* p, double at, unsigned v, double a = 1.0)
   cairo_pattern_add_color_stop_rgba(p, at, c.r, c.g, c.b, a);
 }
 
+// Set when a PNG could not be written: main() then exits non-zero instead
+// of claiming it wrote the files.
+bool writeFailed = false;
+
+// Writes `surf` to `path`, reporting (and remembering) a failure.
+bool writePng(cairo_surface_t* surf, const std::string& path)
+{
+  if (cairo_surface_write_to_png(surf, path.c_str()) == CAIRO_STATUS_SUCCESS)
+    return true;
+  std::fprintf(stderr, "cannot write %s\n", path.c_str());
+  writeFailed = true;
+  return false;
+}
+
 // A small deterministic RNG so the art is the same every run.
 struct Rng
 {
@@ -552,7 +566,7 @@ void front(const std::string& path)
   text(cr, "DASH \xC2\xB7 ROCCO \xC2\xB7 NOVA", W / 2.0, H - 52, 0xffd66a, 0.5);
   text(cr, "JADE \xC2\xB7 SKYE \xC2\xB7 BOLT", W / 2.0, H - 26, 0xffd66a, 0.5);
   frame(cr);
-  cairo_surface_write_to_png(s, path.c_str());
+  writePng(s, path);
   cairo_destroy(cr);
   cairo_surface_destroy(s);
 }
@@ -701,7 +715,7 @@ void back(const std::string& path, const std::vector<std::string>& shots)
   text(cr, "Original art, music and sound, all synthesized in code.", 270, H - 46, 0xffffff);
   text(cr, "Built for Linux and Android. Keyboard, gamepad and touch.", 270, H - 20, 0x2ee6ff);
   frame(cr);
-  cairo_surface_write_to_png(s, path.c_str());
+  writePng(s, path);
   cairo_destroy(cr);
   cairo_surface_destroy(s);
 }
@@ -726,7 +740,7 @@ void icon(const std::string& dir)
       glow(cr, 500, 520, 300, 0x40e0ff, 0.35);
       runner(cr, 1, 0, 470, 1240, 9.0, false);
     }
-    cairo_surface_write_to_png(surf, (dir + "/" + name).c_str());
+    writePng(surf, dir + "/" + name);
     cairo_destroy(cr);
     cairo_surface_destroy(surf);
   };
@@ -756,7 +770,7 @@ void icon(const std::string& dir)
     cairo_paint(cr);
     cairo_surface_destroy(img);
   }
-  cairo_surface_write_to_png(surf, (dir + "/icon.png").c_str());
+  writePng(surf, dir + "/icon.png");
   cairo_destroy(cr);
   cairo_surface_destroy(surf);
 }
@@ -764,27 +778,19 @@ void icon(const std::string& dir)
 // The six built-in runners for the web page (docs/index.html), one
 // transparent PNG each (runner_<id>.png: runner_dash.png, ...), in pose
 // `pose` (see art.hpp; 0 is idle). The canvas leaves room for the gun and
-// the hair; tools/site-media.sh trims the empty margin. False if a file
-// could not be written.
-bool portraits(const std::string& dir, int pose)
+// the hair; tools/site-media.sh trims the empty margin.
+void portraits(const std::string& dir, int pose)
 {
   constexpr int kW = 420, kH = 440;
-  bool ok = true;
   for (int i = 0; i < 6; ++i)
   {
     cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, kW, kH);
     cairo_t* cr = cairo_create(surf);
     rosterRunner(cr, i, pose, 170, 420, 2.6, false);
-    const std::string path = dir + "/runner_" + gr::characterByIndex(i).id + ".png";
-    if (cairo_surface_write_to_png(surf, path.c_str()) != CAIRO_STATUS_SUCCESS)
-    {
-      std::fprintf(stderr, "cannot write %s\n", path.c_str());
-      ok = false;
-    }
+    writePng(surf, dir + "/runner_" + gr::characterByIndex(i).id + ".png");
     cairo_destroy(cr);
     cairo_surface_destroy(surf);
   }
-  return ok;
 }
 
 } // namespace
@@ -794,18 +800,22 @@ int main(int argc, char** argv)
   if (argc == 3 && std::string(argv[1]) == "--icon")
   {
     icon(argv[2]);
+    if (writeFailed)
+      return 1;
     std::printf("wrote %s/icon.png and the adaptive icon layers\n", argv[2]);
     return 0;
   }
   if ((argc == 3 || argc == 4) && std::string(argv[1]) == "--portraits")
   {
-    if (!portraits(argv[2], argc == 4 ? std::atoi(argv[3]) : 0))
+    portraits(argv[2], argc == 4 ? std::atoi(argv[3]) : 0);
+    if (writeFailed)
       return 1;
     std::printf("wrote the six runner portraits to %s\n", argv[2]);
     return 0;
   }
-  // Anything else starting with "--" is a mode with missing arguments, not
-  // an OUTDIR: say how to use it instead of writing covers into "--icon/".
+  // Anything else starting with "--" is not an OUTDIR but a mode with the
+  // wrong number of arguments or an unknown one: say how to use the tool
+  // instead of writing covers into "--icon/".
   if (argc < 2 || std::string(argv[1]).rfind("--", 0) == 0)
   {
     std::fprintf(stderr, "usage: %s OUTDIR [SHOT.png ...]   or   %s --icon OUTDIR   or   %s --portraits OUTDIR [POSE]\n",
@@ -816,6 +826,8 @@ int main(int argc, char** argv)
   std::vector<std::string> shots(argv + 2, argv + argc);
   front(dir + "/cover_front.png");
   back(dir + "/cover_back.png", shots);
+  if (writeFailed)
+    return 1;
   std::printf("wrote %s/cover_front.png and %s/cover_back.png\n", dir.c_str(), dir.c_str());
   return 0;
 }

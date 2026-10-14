@@ -5,10 +5,11 @@
 #   GitHub Pages publishes (a link to ../README.md would be dead online);
 # - every url(...) in the local stylesheets it links (fonts, images) names a
 #   file inside that folder, too;
-# - every in-page anchor (#id) and every url(#id) (the SVG filters and
-#   gradients) has an element with that id;
+# - every in-page anchor (#id) and every url(#id), in the page or its
+#   stylesheets (the SVG filters and gradients), has an element with that id;
 # - no src/href/poster/srcset is written in a form these checks can't read
-#   (unquoted, or with spaces around the "="), so nothing slips past them;
+#   (unquoted, spaced around the "=", or a value running over several
+#   lines), so nothing slips past them;
 # - og:url and og:image are absolute URLs on the page's domain, og:image
 #   names a file of the page, and docs/CNAME names that domain, so GitHub
 #   Pages serves the page where it says it lives.
@@ -64,8 +65,20 @@ check_meta() {
   check_file "$dir" "$dir" "${image#"https://$host/"}"
 }
 
+# has_id PAGE ID: an element of PAGE has id="ID".
+has_id() {
+  grep -qE "id=[\"']${2}[\"']" "$1" || { echo "no element with id $2"; return 1; }
+}
+
+# stylesheets PAGE: the local stylesheets the page links, whatever the order
+# of the <link>'s attributes.
+stylesheets() {
+  grep -oE '<link [^>]*>' "$1" | grep -E "rel=[\"']stylesheet[\"']" |
+    sed -nE "s/.*href=[\"']([^\"']*)[\"'].*/\1/p" | grep -vE '^(https?:)?//' || true
+}
+
 # check_css PAGE: the url(...)s of every local stylesheet the page links,
-# relative to the stylesheet.
+# files relative to the stylesheet, url(#id)s against the page's ids.
 check_css() {
   local page=$1 dir css ref bad=0
   dir=$(dirname "$page")
@@ -74,19 +87,25 @@ check_css() {
     [[ -f "$dir/$css" ]] || continue # a missing stylesheet is reported by check
     while IFS= read -r ref; do
       case $ref in
-        http:* | https:* | //* | data:* | '#'*) ;;
+        http:* | https:* | //* | data:*) ;;
+        '#'*) has_id "$page" "${ref#\#}" || bad=1 ;;
         *) check_file "$dir" "$(dirname "$dir/$css")" "$ref" || bad=1 ;;
       esac
     done < <(grep -oE 'url\([^)]*\)' "$dir/$css" | sed -E "s/^url\([\"']?//; s/[\"']?\)$//")
-  done < <(grep -oE "<link rel=\"stylesheet\" href=\"[^\"]*\"" "$page" | sed -E 's/.*href="([^"]*)"/\1/' |
-    grep -vE '^(https?:)?//')
+  done < <(stylesheets "$page")
   return $bad
 }
 
-# check_unreadable PAGE: attributes refs() would not see.
+# check_unreadable PAGE: attributes refs() would not see. The name must start
+# the attribute (so "?src=x" inside a quoted URL is fine).
 check_unreadable() {
-  if grep -nE "(src|href|poster|srcset)([[:space:]]+=|=[[:space:]]+|=[^\"'[:space:]])" "$1"; then
+  local name='(^|[[:space:]<])(src|href|poster|srcset)'
+  if grep -nE "$name([[:space:]]+=|=[[:space:]]+|=[^\"'[:space:]])" "$1"; then
     echo "attributes above are unquoted or spaced; quote them so they get checked"
+    return 1
+  fi
+  if grep -nE "$name=(\"[^\"]*|'[^']*)$" "$1"; then
+    echo "attribute values above run over several lines; keep each on one line"
     return 1
   fi
 }
@@ -95,7 +114,7 @@ check_unreadable() {
 check_ids() {
   local page=$1 id bad=0
   while IFS= read -r id; do
-    grep -qE "id=[\"']${id}[\"']" "$page" || { echo "no element with id $id for url(#$id)"; bad=1; }
+    has_id "$page" "$id" || bad=1
   done < <(grep -oE 'url\(#[^)]+\)' "$page" | sed -E 's/^url\(#//; s/\)$//' | sort -u)
   return $bad
 }
@@ -109,7 +128,7 @@ check() {
     case $ref in
       http:* | https:* | //* | mailto:* | data:*) ;;
       '#') ;;
-      '#'*) grep -qE "id=[\"']${ref#\#}[\"']" "$page" || { echo "no element with id ${ref#\#}"; bad=1; } ;;
+      '#'*) has_id "$page" "${ref#\#}" || bad=1 ;;
       *) check_file "$dir" "$dir" "$ref" || bad=1 ;;
     esac
   done < <(refs "$page")
@@ -135,15 +154,15 @@ self_test() {
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/site/media" "$tmp/site/css/fonts"
   touch "$tmp/site/media/a.jpg" "$tmp/site/media/b.jpg" "$tmp/site/css/fonts/f.woff2" "$tmp/outside.md"
-  echo '@font-face { src: url(fonts/f.woff2) format("woff2"); } body { background: url("../media/a.jpg"); }' \
-    > "$tmp/site/css/style.css"
+  echo '@font-face { src: url(fonts/f.woff2) format("woff2"); } body { background: url("../media/a.jpg"); }
+.x { fill: url(#fray); }' > "$tmp/site/css/style.css"
   echo example.org > "$tmp/site/CNAME"
   good="$tmp/site/index.html"
   cat > "$good" << 'EOF'
 <meta property="og:url" content="https://example.org/">
 <meta property="og:image" content="https://example.org/media/a.jpg">
 <link rel="stylesheet" href="css/style.css?v=1">
-<a href="#top">top</a> <a href="https://github.com/">gh</a> <main id="top"></main>
+<a href="#top">top</a> <a href="https://github.com/x?src=site">gh</a> <main id="top"></main>
 <svg><filter id="fray"></filter><rect filter="url(#fray)"/></svg>
 <img src='media/a.jpg' srcset="media/a.jpg 1x, media/b.jpg 2x"> <video poster="media/a.jpg#t=1"></video>
 EOF
@@ -175,7 +194,15 @@ EOF
   expect_fail "a missing font in the stylesheet" "$good" || return 1
   sed 's#../media/a.jpg#../../outside.md#' "$tmp/style.keep" > "$tmp/site/css/style.css"
   expect_fail "a stylesheet url() outside the published folder" "$good" || return 1
+  sed 's#url(\#fray)#url(\#missing)#' "$tmp/style.keep" > "$tmp/site/css/style.css"
+  expect_fail "a stylesheet url(#id) without its element" "$good" || return 1
+  sed 's#fonts/f.woff2#fonts/gone.woff2#' "$tmp/style.keep" > "$tmp/site/css/style.css"
+  sed 's#<link rel="stylesheet" href="css/style.css?v=1">#<link href="css/style.css?v=1" rel="stylesheet">#' \
+    "$good" > "$bad"
+  grep -q '<link href=' "$bad" && expect_fail "a missing font behind a reordered <link>" "$bad" || return 1
   cp "$tmp/style.keep" "$tmp/site/css/style.css"
+  sed 's#srcset="media/a.jpg 1x, media/b.jpg 2x"#srcset="media/a.jpg 1x,\n media/gone.jpg 2x"#' "$good" > "$bad"
+  grep -q 'gone' "$bad" && expect_fail "a srcset running over two lines" "$bad" || return 1
   grep -v og:url "$good" > "$bad"
   expect_fail "a page without og:url" "$bad" || return 1
   sed 's#example.org/media/a.jpg#example.org/media/gone.jpg#' "$good" > "$bad"
