@@ -6,9 +6,10 @@
 # deterministic, and the PNGs carry no timestamps, so a rerun gives the same
 # files.
 #
-# Usage: tools/site-media.sh [portraits|clips|shots|all]   (default: all)
+# Usage: tools/site-media.sh [portraits|clips|shots|trailers|all]   (default: all)
 # Writes docs/site/runners/*.png, docs/site/icon.png, docs/site/video/*.mp4
-# (+ .jpg posters) and docs/site/shots/levelNN.jpg. Needs cmake, ffmpeg and ImageMagick (magick).
+# (+ .jpg posters), docs/site/shots/levelNN.jpg and a poster for each
+# trailer in docs/trailers (docs/site/video/trailer_*.jpg). Needs cmake, ffmpeg and ImageMagick (magick).
 # Like record.sh and covers.sh it (re)configures build/ as a Release build.
 set -euo pipefail
 
@@ -18,8 +19,8 @@ SITE="$ROOT/docs/site"
 WHAT=${1:-all}
 
 case $WHAT in
-  portraits | clips | shots | all) ;;
-  *) echo "usage: $0 [portraits|clips|shots|all]" >&2; exit 2 ;;
+  portraits | clips | shots | trailers | all) ;;
+  *) echo "usage: $0 [portraits|clips|shots|trailers|all]" >&2; exit 2 ;;
 esac
 for tool in cmake ffmpeg magick; do
   command -v "$tool" > /dev/null || { echo "$0: needs $tool" >&2; exit 1; }
@@ -105,11 +106,23 @@ shots() {
   done
 }
 
+# A poster for each trailer in docs/trailers, from 12 seconds in: past the
+# opening title, into the gameplay.
+trailers() {
+  local mp4 name
+  mkdir -p "$SITE/video"
+  for mp4 in "$ROOT"/docs/trailers/*.mp4; do
+    name=$(basename "$mp4" .mp4)
+    ffmpeg -loglevel error -y -ss 12 -i "$mp4" -frames:v 1 -q:v 4 "$SITE/video/trailer_${name#gunrunners_trailer_}.jpg"
+  done
+}
+
 build
 case $WHAT in
   portraits) portraits ;;
   clips) clips ;;
   shots) shots ;;
-  all) portraits; clips; shots ;;
+  trailers) trailers ;;
+  all) portraits; clips; shots; trailers ;;
 esac
 echo "wrote the page media to $SITE"

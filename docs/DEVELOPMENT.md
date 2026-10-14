@@ -207,8 +207,9 @@ The game box on it is the two covers on a 3D box in CSS, with the shelf
 wear drawn as SVG over each face. `tools/site-media.sh` makes the rest from
 the game itself: the runner portraits and the page icon
 (`gunrunners_cover --portraits`), the gameplay clips (the bot playing,
-recorded headless like `record.sh`) and the screenshots the page shows that
-`docs/media` has none of. `tests/site/links.sh` (ctest `site_links`) checks
+recorded headless like `record.sh`), the screenshots the page shows that
+`docs/media` has none of, and a poster for each trailer in `docs/trailers`
+(the page plays the trailers from there). `tests/site/links.sh` (ctest `site_links`) checks
 that every file and anchor the page points at exists and that `docs/CNAME`
 matches its domain.
 
