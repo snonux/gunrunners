@@ -195,6 +195,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   linkWardrobe();
   linkWriters();
   linkGallery();
+  linkFlyTower();
   if (mSpace.starfall)
     finishStarfallSetup();
   if (mSpace.crystals)
@@ -415,6 +416,8 @@ void World::updateFrame(const PlayerInput& input)
         updatePlayer(writersInput(input)); // Level 38's Breakout: the runner is the paddle
       else if (mGallery.on)
         updatePlayer(galleryInput(input)); // Level 39: up into a monitor; tripped over a cable
+      else if (mFly.trigger)
+        updatePlayer(flyTowerInput(input)); // Level 40's Trigger Happy: jump and fire are one button
       else
         updatePlayer(input);
       if (mManor.split.on)
@@ -530,6 +533,8 @@ void World::updateMovingWorld(const PlayerInput& input)
     updateWriters(input);
   if (mGallery.on)
     updateGallery();
+  if (mFly.on)
+    updateFlyTower();
   updateHatches();
   updateProps(input);
 }
@@ -1092,6 +1097,15 @@ void World::updateEnemies()
       case EnemyKind::BoomOp:
         updateBoomOp(e, def);
         break;
+      case EnemyKind::Followspot:
+        updateFollowspot(e, def);
+        break;
+      case EnemyKind::Rigger:
+        updateRigger(e, def);
+        break;
+      case EnemyKind::SandbagDrop:
+        updateSandbagDrop(e, def);
+        break;
       case EnemyKind::TestCard:
         updateTestCard(e, def);
         break;
@@ -1239,6 +1253,9 @@ void World::updateProjectiles()
       return true;
     // Level 39: the Echo Mic's repeats; shots fly through monitors.
     if (mGallery.on && shotAtGallery(pr, b))
+      return true;
+    // Level 40: the Q99 cannon's fuse box, Trigger Happy's discs.
+    if (mFly.on && pr.kind != ShotKind::Enemy && shotAtFlyTower(pr, b))
       return true;
     // Level 27: the painting, the office alarm, the jukebox.
     if (mNoir.on && pr.kind != ShotKind::Enemy && shotAtNoir(pr, b))

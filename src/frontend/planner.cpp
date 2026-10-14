@@ -658,6 +658,24 @@ Planner::Goal Planner::galleryGoal(const World& w) const
   return {18, st.x - 2, st.y - 4, 4, 5, -1};
 }
 
+int flyTowerStep(const World& w)
+{
+  const auto& s = w.flyTower();
+  for (int i = s.routeAt; i < int(s.route.size()); ++i)
+    if (!w.flyTowerStepDone(i))
+      return i;
+  return -1;
+}
+
+Planner::Goal Planner::flyTowerGoal(const World& w) const
+{
+  const int i = flyTowerStep(w);
+  if (i < 0)
+    return {};
+  const auto& st = w.flyTower().route[std::size_t(i)];
+  return {18, st.x - 2, st.y - 4, 4, 5, -1};
+}
+
 Planner::Goal Planner::writersGoal(const World& w) const
 {
   const auto& s = w.writers();
@@ -760,6 +778,13 @@ Planner::Goal Planner::chooseGoal(const World& w) const
   if (w.gallery().on && !w.gallery().route.empty())
   {
     const Goal h = galleryGoal(w);
+    if (h.kind != 0)
+      return h;
+  }
+  // Level 40: up the tower step by step; Bot::flyTower rides the trusses.
+  if (w.flyTower().on && !w.flyTower().route.empty())
+  {
+    const Goal h = flyTowerGoal(w);
     if (h.kind != 0)
       return h;
   }
@@ -2685,6 +2710,9 @@ void Planner::plan(const World& world)
       for (const auto& b : ws.blocks)
         powered = int(unsigned(powered) * 131u + unsigned(b.stampX * 97 + b.stampY + 1));
     }
+    // Level 40: catwalk blocks a sandbag broke.
+    for (const auto& g : world.flyTower().gaps)
+      powered = int(unsigned(powered) * 131u + unsigned(g.bx * 97 + g.by + 1));
     // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
     for (const auto& [lx, ly] : world.warehouse().loose)
       powered = int(unsigned(powered) * 131u + unsigned(lx * 97 + ly));

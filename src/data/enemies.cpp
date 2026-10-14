@@ -301,6 +301,9 @@ const EnemyDef kEnemies[] = {
   {"floormgr", "FLOOR MANAGER", K::FloorManager, L::Styled, 3, 5, 6, 800, 2, 45, 22, 24, 0, 0},
   {"wrangler", "CABLE WRANGLER", K::CableWrangler, L::Styled, 4, 5, 4, 500, 2, 30, 10, 0, 0, 0},
   {"boomop", "BOOM OP", K::BoomOp, L::Styled, 4, 5, 5, 600, 0, 45, 10, 0, 0, 0},
+  {"followspot", "FOLLOWSPOT", K::Followspot, L::Styled, 4, 4, 5, 700, 0, 0, 8, 0, kEnemyHarmless, 0},
+  {"rigger", "RIGGER", K::Rigger, L::Styled, 3, 5, 4, 600, 0, 45, 30, 0, 0, 0},
+  {"sandbag", "SANDBAG DROP", K::SandbagDrop, L::Styled, 3, 5, 3, 400, 0, 45, 22, 0, 0, 0},
   {"practice_dummy", "PRACTICE DUMMY", K::Walker, L::Styled, 3, 5, 3, 0, 3, 0, 0, 0, kEnemyHarmless | kEnemyNoTally, 0},
 };
 

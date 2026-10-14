@@ -61,6 +61,7 @@ private:
   Goal warehouseGoal(const World& world) const; // Level 36's route: levers, cranes, crates
   Goal writersGoal(const World& world) const;   // Level 38's route: spots, the keyboard
   Goal galleryGoal(const World& world) const;   // Level 39's route: monitor to monitor
+  Goal flyTowerGoal(const World& world) const;  // Level 40's route: up the tower
   Goal wardrobeGoal(const World& world) const;  // Level 37's route: booths, heavy plates
   // Level 23's bonus detour: through the broken mirror into the crypt, the
   // bonus door, back out through the crypt's mirror. Returns kind 18 (the
@@ -123,6 +124,8 @@ bool warehouseLiftable(const World& w, int bx, int by);
 // Level 38: the first step on the writers' route not done yet, -1 if none.
 int writersStep(const World& w);
 int galleryStep(const World& w);
+// Level 40: the first step on the fly tower's route not done yet, -1 if none.
+int flyTowerStep(const World& w);
 // Level 37: the first step on the wardrobe route not done yet, -1 if none.
 int wardrobeStep(const World& w);
 

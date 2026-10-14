@@ -182,6 +182,8 @@ void World::setupEntities()
       continue;
     if (setupGalleryEntity(e))
       continue;
+    if (setupFlyTowerEntity(e))
+      continue;
     if (setupWarehouseEntity(e))
       continue;
     if (setupTowerEntity(e))
@@ -258,6 +260,7 @@ void World::setupEntities()
       setupWardrobeEnemy(en, e);
       setupWritersEnemy(en, e);
       setupGalleryEnemy(en, e);
+      setupFlyTowerEnemy(en, e);
       switch (en.kind)
       {
         case EnemyKind::Crawler:
@@ -770,7 +773,7 @@ void World::updateBonusRules(const PlayerInput& /*input*/)
   }
   // goal=collect:N ends the bonus level as soon as N gems are in.
   const auto& goal = mLevel->goal;
-  if ((goal.rfind("collect:", 0) == 0 && (mOrbit.on ? mOrbit.partsTaken : mTower.copycat ? mTower.caught : mWriters.breakout ? mWriters.broken : mStats.gems) >= std::atoi(goal.c_str() + 8)) ||
+  if ((goal.rfind("collect:", 0) == 0 && (mOrbit.on ? mOrbit.partsTaken : mTower.copycat ? mTower.caught : mWriters.breakout ? mWriters.broken : mFly.trigger ? mFly.hits : mStats.gems) >= std::atoi(goal.c_str() + 8)) ||
       (goal.rfind("score:", 0) == 0 && mStats.score >= std::atoi(goal.c_str() + 6)) ||
       (goal.rfind("goals:", 0) == 0 && mCryo.goalTarget > 0 && mCryo.scored >= mCryo.goalTarget))
   {

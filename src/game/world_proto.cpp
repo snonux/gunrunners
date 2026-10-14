@@ -101,6 +101,12 @@ void World::updateProtoShooting(const Button& fire)
     updateMagnetGun(fire);
     return;
   }
+  // Level 40: hold for the flame stream, down + fire for the jetpack (world_flytower.cpp).
+  if (ProtoId(p.proto) == ProtoId::PyroRig)
+  {
+    updatePyroRig(fire);
+    return;
+  }
   // Level 33: hold to suck fireballs in, release to throw them back (world_magma.cpp).
   if (ProtoId(p.proto) == ProtoId::HeatSink)
   {

@@ -304,7 +304,7 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
   if (!jumpButton.pressed)
     p.jumpRequested = false;
 
-  const bool shouldUseJetpack = canFire() && p.weapon == Weapon::Flame && mvY > 0 && fireButton.pressed;
+  const bool shouldUseJetpack = canFire() && (p.weapon == Weapon::Flame || pyroJet()) && mvY > 0 && fireButton.pressed;
   if (shouldUseJetpack && p.state != PlayerState::Jetpack)
   {
     p.state = PlayerState::Jetpack;
@@ -1244,6 +1244,8 @@ void World::respawnPlayer()
     resetWriters();
   if (mGallery.on)
     resetGallery();
+  if (mFly.on)
+    resetFlyTower();
   if (!mVehicles.empty())
     resetVehicles();
   if (mSpace.starfall)

@@ -100,6 +100,12 @@ public:
   // Level 39 (bot_gallery.cpp): monitors, panning cameras, cables; Rewind's crushers.
   bool gallery(const World& world, Input& in);
   bool mGalleryUp = false;
+  // Level 40 (bot_flytower.cpp): truss rides, waiting out the pyro, the
+  // jetpack lane; Trigger Happy's discs.
+  bool flyTower(const World& world, Input& in);
+  Input triggerHappy(const World& world);
+  bool mFlyPrevFire = false, mFlyJet = false;
+  int mFlyDisc = -1;
   Input breakout(const World& world);
   bool mPenPrev = false, mTypePrevJump = false;
   int mStrikeWait = 0;

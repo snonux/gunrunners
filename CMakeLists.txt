@@ -159,6 +159,8 @@ add_library(gunrunners_core STATIC
   src/game/world_writers_draw.cpp
   src/game/world_gallery.cpp
   src/game/world_gallery_draw.cpp
+  src/game/world_flytower.cpp
+  src/game/world_flytower_draw.cpp
   src/game/world_topdown.cpp
   src/game/world_turntable.cpp
   src/game/world_hull_draw.cpp
@@ -196,6 +198,7 @@ add_library(gunrunners_core STATIC
   src/frontend/bot_wardrobe.cpp
   src/frontend/bot_writers.cpp
   src/frontend/bot_gallery.cpp
+  src/frontend/bot_flytower.cpp
   src/frontend/bot_noir.cpp
   src/frontend/planner.cpp
   src/frontend/bindings.cpp
@@ -430,3 +433,8 @@ target_link_libraries(gallery_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME gallery COMMAND gallery_test ${CMAKE_SOURCE_DIR}/levels/39_gallery.txt
   ${CMAKE_SOURCE_DIR}/levels/39_bonus_rewind.txt)
 add_test(NAME savegame_gallery COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/39_gallery.txt 300)
+add_executable(flytower_test tests/flytower_test.cpp)
+target_link_libraries(flytower_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME flytower COMMAND flytower_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt
+  ${CMAKE_SOURCE_DIR}/levels/40_bonus_trigger.txt)
+add_test(NAME savegame_fly_tower COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt 300)

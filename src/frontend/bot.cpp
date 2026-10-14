@@ -110,6 +110,8 @@ Input Bot::play(const World& world)
     return inkwell(world);
   if (world.signal().wrap)
     return wraparound(world);
+  if (world.flyTower().trigger)
+    return triggerHappy(world);
   if (world.trench().bubble)
     return bubbleUp(world);
   if (world.storm().bungee)
@@ -230,6 +232,16 @@ Input Bot::play(const World& world)
   {
     Input in;
     if (gallery(world, in))
+    {
+      mPlanner.reset();
+      return in;
+    }
+  }
+  // Level 40: truss rides, the pyro wave, the jetpack lane.
+  if (world.flyTower().on)
+  {
+    Input in;
+    if (flyTower(world, in))
     {
       mPlanner.reset();
       return in;

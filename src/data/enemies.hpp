@@ -167,6 +167,9 @@ enum class EnemyKind
   FloorManager, // Level 39: counts 3-2-1, then his whole room fires
   CableWrangler, // Level 39: drags a cable that trips the runner
   BoomOp,       // Level 39: sweeps a boom mic over its head
+  Followspot,   // Level 40: a stage light whose beam follows the runner
+  Rigger,       // Level 40: a sniper on a catwalk, aiming where the light is
+  SandbagDrop,  // Level 40: cuts sandbags down onto the runner
 };
 
 enum EnemyFlag : unsigned

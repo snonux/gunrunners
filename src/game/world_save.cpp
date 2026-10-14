@@ -22,7 +22,8 @@ bool World::canSave() const
     (!mDish.on || dishCanSave()) && (!mMagma.on || magmaCanSave()) &&
     (!mFleet.on || fleetCanSave()) && (!mTower.on || towerCanSave()) &&
     (!mWarehouse.on || warehouseCanSave()) && (!mWardrobe.on || wardrobeCanSave()) &&
-    (!mWriters.on || writersCanSave()) && (!mGallery.on || galleryCanSave());
+    (!mWriters.on || writersCanSave()) && (!mGallery.on || galleryCanSave()) &&
+    (!mFly.on || flyTowerCanSave());
 }
 
 SaveGame World::snapshot() const
@@ -413,6 +414,8 @@ SaveGame World::snapshot() const
     s.writers = writersSave();
   if (mGallery.on)
     s.gallery = gallerySave();
+  if (mFly.on)
+    s.flytower = flyTowerSave();
   if (mStation.on())
   {
     s.station = {mStation.setFired};
@@ -517,6 +520,7 @@ bool World::restore(const SaveGame& s)
       (!s.wardrobe.empty() && !validWardrobeSave(s.wardrobe)) ||
       (!s.writers.empty() && !validWritersSave(s.writers)) ||
       (!s.gallery.empty() && !validGallerySave(s.gallery)) ||
+      (!s.flytower.empty() && !validFlyTowerSave(s.flytower)) ||
       (!s.vehicles.empty() && s.vehicles.size() != mVehicles.size() * 9 + 2) ||
       s.boxes.size() != mBoxes.size() || s.checkpoints.size() != mCheckpoints.size() ||
       s.weapon < 0 || s.weapon > int(Weapon::Proto) || (!s.props.empty() && s.props.size() != mProps.size()))
@@ -999,6 +1003,8 @@ bool World::restore(const SaveGame& s)
     loadWriters(s.writers);
   if (!s.gallery.empty())
     loadGallery(s.gallery);
+  if (!s.flytower.empty())
+    loadFlyTower(s.flytower);
   if (!s.grav.empty())
   {
     auto& g = mGrav;

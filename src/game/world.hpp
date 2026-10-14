@@ -33,6 +33,7 @@
 #include "game/wardrobe.hpp"
 #include "game/writers.hpp"
 #include "game/gallery.hpp"
+#include "game/flytower.hpp"
 #include "game/trench.hpp"
 #include "game/kitchen.hpp"
 #include "game/manor.hpp"
@@ -1859,6 +1860,11 @@ public:
   int camX(const CamSpot& c) const;  // where a panning camera looks now (cells)
   bool atMonitor(const Monitor& m) const;
   CellBox boomArc(const Enemy& e) const;
+  const FlyTowerState& flyTower() const { return mFly; }
+  bool flyTowerStepDone(int i) const; // Level 40: the bot's route step i is done
+  int pyroHeat(const FtPyro& py, int ahead) const; // Level 40: 2 burning, 1 burns within `ahead` frames, 0 cold
+  bool trussHome(const FtTruss& t) const;          // Level 40: at its first stop and staying there
+  int cueIn(const FtCue& c) const;                  // Level 40: frames until the cue fires, -1 never
   int writersFloor(int cy) const;    // Level 38: 0 the script floor, 1 the corkboard, 2 the desks
   bool wardrobeStepDone(int i) const; // Level 37: the bot's route step i is done
   int rackLaunch() const;             // Level 37: cells a spring rack throws the runner now
@@ -2792,6 +2798,34 @@ private:
   void drawGalleryBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawGalleryFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawGalleryHud(Renderer& r, int frame) const;
+  // Level 40 (world_flytower.cpp).
+  bool setupFlyTowerEntity(const EntityDef& e);
+  void setupFlyTowerEnemy(Enemy& en, const EntityDef& e);
+  void linkFlyTower();
+  PlayerInput flyTowerInput(const PlayerInput& raw);
+  void fireFlyCue(FtCue& c);
+  void updateFlyCues();
+  void updateFlyPyro();
+  void updateTrusses();
+  void updateConfetti();
+  void updateBags();
+  void updateFlyTower();
+  bool pyroJet() const;
+  void updatePyroRig(const Button& fire);
+  CellBox pyroStream() const;
+  bool shotAtFlyTower(Projectile& pr, const CellBox& b);
+  FtActor* flyActor(const Enemy& e);
+  void updateFollowspot(Enemy& e, const EnemyDef& def);
+  void updateRigger(Enemy& e, const EnemyDef& def);
+  void updateSandbagDrop(Enemy& e, const EnemyDef& def);
+  void resetFlyTower();
+  bool flyTowerCanSave() const;
+  std::vector<int> flyTowerSave() const;
+  bool validFlyTowerSave(const std::vector<int>& v) const;
+  void loadFlyTower(const std::vector<int>& v);
+  void drawFlyTowerBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFlyTowerFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
+  void drawFlyTowerHud(Renderer& r, int frame) const;
   PlayerInput breakoutInput(const PlayerInput& raw);
   void updateBreakout();
   bool writersCanSave() const;
@@ -3458,6 +3492,7 @@ private:
     int gems = 0, score = 0;
   };
   std::deque<RewindFrame> mRewind;
+  FlyTowerState mFly; // Level 40
   bool mTowerUpHeld = false;
   std::vector<std::string> mStormCycles; // `cycle=` of each lightning zone until linkStorm
   Player mTwin; // Both Sides: the bottom runner

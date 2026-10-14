@@ -55,7 +55,7 @@ struct Variant
   Theme theme;
 };
 
-const std::array<Variant, 47> kVariants{{
+const std::array<Variant, 48> kVariants{{
   {"glass_canyon",
    {ThemeId::NeonOverdrive,
     "GLASS CANYON",
@@ -709,6 +709,20 @@ const std::array<Variant, 47> kVariants{{
     rgb(50, 56, 70), rgb(100, 110, 130),
     rgb(140, 160, 190), rgb(210, 225, 245), rgb(30, 34, 44), rgb(230, 40, 40),
     rgb(240, 246, 255), "gallery"}},
+  // Level 40: the fly tower, black steel in stage haze, gel amber and pyro orange.
+  {"fly_tower",
+   {ThemeId::StationZero,
+    "THE FLY TOWER",
+    "UP THROUGH THE RIGGING WHILE THE SHOW RUNS",
+    rgb(14, 12, 20), rgb(34, 26, 44), rgb(70, 46, 60),
+    rgb(46, 46, 52), rgb(90, 90, 100), rgb(24, 24, 28),
+    rgb(255, 170, 40), rgb(255, 220, 140),
+    rgb(80, 80, 90), rgb(40, 40, 46),
+    rgb(255, 110, 30), rgb(255, 210, 120),
+    rgb(255, 170, 40), rgb(120, 200, 255),
+    rgb(30, 26, 40), rgb(54, 48, 66),
+    rgb(60, 60, 70), rgb(120, 120, 135), rgb(24, 24, 30), rgb(255, 60, 40),
+    rgb(255, 240, 220), "fly_tower"}},
 }};
 
 } // namespace
