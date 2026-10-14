@@ -208,13 +208,10 @@ h3 { font: 700 20px/1.25 var(--display); margin: 0 0 6px; }
 
 /* ---------- videos ---------- */
 .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 22px; }
-/* .video clips autoplay muted (site.js); .trailer ones have voice-over and wait for a click. */
-.video, .trailer { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.trailer { border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); }
-.video video, .trailer video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; }
-.video figcaption, .trailer figcaption { padding: 10px 14px 12px; color: var(--muted); font-size: 15px; }
-.video figcaption b, .trailer figcaption b { color: var(--text); }
-.videos .sub:first-of-type { margin-top: 0; }
+.video { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.video video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; }
+.video figcaption { padding: 10px 14px 12px; color: var(--muted); font-size: 15px; }
+.video figcaption b { color: var(--text); }
 .note { color: var(--muted); font-size: 14px; margin-top: 16px; }
 
 /* ---------- story ---------- */

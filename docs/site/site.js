@@ -1,9 +1,8 @@
 // Gunrunners web page: the turnable game box, the gameplay clips that play
-// while they are on screen, one trailer at a time, and a lightbox for the
-// screenshots. No dependencies. Without JavaScript the page still reads
-// fine: the box stands at its resting angle, its turn controls stay hidden,
-// the clips and trailers have their own controls and the screenshots link
-// to the full-size files.
+// while they are on screen, and a lightbox for the screenshots. No
+// dependencies. Without JavaScript the page still reads fine: the box stands
+// at its resting angle, its turn controls stay hidden, the clips have their
+// own controls and the screenshots link to the full-size files.
 (function () {
   "use strict";
 
@@ -204,46 +203,6 @@
     videos.forEach(function (v) { io.observe(v); });
   }
 
-  // ---------- the trailers ----------
-  // The trailers have voice-over and play only when clicked, one at a time:
-  // a trailer that starts pauses any other. Trailers and clips don't talk
-  // over each other: a trailer playing with sound mutes the game clips (they
-  // stay muted; a click on their speaker brings the sound back), and
-  // unmuting a clip pauses a trailer that plays with sound. A muted trailer,
-  // say one watched with captions, leaves the clips alone. (Clips the
-  // visitor unmutes side by side are left as they are.)
-  function setupTrailers() {
-    var trailers = [].slice.call(document.querySelectorAll(".trailer video"));
-    var clips = [].slice.call(document.querySelectorAll(".video video"));
-    var ours = new WeakSet(); // clips whose next volumechange we caused
-
-    function audible(t) { return !t.paused && !t.muted && t.volume > 0; }
-
-    function pauseOthers(t) {
-      trailers.forEach(function (other) { if (other !== t && !other.paused) other.pause(); });
-    }
-
-    function muteClips(t) {
-      if (!audible(t)) return;
-      clips.forEach(function (c) {
-        if (c.muted) return;
-        ours.add(c);
-        c.muted = true;
-      });
-    }
-
-    trailers.forEach(function (t) {
-      t.addEventListener("play", function () { pauseOthers(t); muteClips(t); });
-      t.addEventListener("volumechange", function () { muteClips(t); });
-    });
-    clips.forEach(function (c) {
-      c.addEventListener("volumechange", function () {
-        if (ours.delete(c) || c.muted) return;
-        trailers.forEach(function (t) { if (audible(t)) t.pause(); });
-      });
-    });
-  }
-
   // ---------- the screenshots ----------
   function setupLightbox() {
     if (typeof HTMLDialogElement !== "function") return;
@@ -270,6 +229,5 @@
 
   setupBox();
   setupVideos();
-  setupTrailers();
   setupLightbox();
 })();
