@@ -16,20 +16,22 @@ import soundfile as sf
 NEUTRAL = ("Listen up, because I am only going to say this once. We go in fast, we hit hard, "
            "and we get out before anybody knows what happened. Grab the prototype, find the exit, "
            "and do not stop running!")
-EXCITED = ("Oh man, look at that! We are so getting paid for this one. Come on, move it, let's go, let's go! "
-           "Nothing is stopping us today!")
+# Paul (2026-10-15) wanted every voice a bit more enthusiastic: hotter text,
+# higher exaggeration and lower cfg (faster, more animated delivery).
+EXCITED = ("Oh wow, look at that! This is amazing! We are so getting paid for this one! Come on, move it, "
+           "let's go, let's go, let's go! Nothing is stopping us today!")
 # Rocco is the trailer voice: deep and deadpan rather than shouty.
-DEADPAN = ("Listen up. I came here to grab the prototype and kick some butt. And I am all out of prototypes. "
-           "Let's rock.")
+DEADPAN = ("Listen up! I came here to grab the prototype and kick some butt. And I am all out of prototypes! "
+           "Let's rock!")
 
 # voice: (Kokoro voice, speed, language, exaggeration, cfg weight)
 VOICES = {
-    "dash": ("am_puck", 1.0, "a", 0.9, 0.3),
-    "rocco": ("am_onyx", 0.86, "a", 0.85, 0.25),
-    "nova": ("af_nova", 1.0, "a", 0.9, 0.3),
-    "jade": ("bf_isabella", 1.0, "b", 0.95, 0.3),
-    "skye": ("af_sky", 1.05, "a", 0.9, 0.3),
-    "bolt": ("am_michael", 0.95, "a", 0.6, 0.4),
+    "dash": ("am_puck", 1.0, "a", 1.15, 0.2),
+    "rocco": ("am_onyx", 0.86, "a", 1.0, 0.25),
+    "nova": ("af_nova", 1.0, "a", 1.15, 0.2),
+    "jade": ("bf_isabella", 1.0, "b", 1.2, 0.2),
+    "skye": ("af_sky", 1.05, "a", 1.15, 0.2),
+    "bolt": ("am_michael", 0.95, "a", 0.85, 0.3),
 }
 
 
