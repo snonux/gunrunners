@@ -56,14 +56,18 @@ faster-whisper, soundfile and ffmpeg; none of it is part of the build):
 
 1. A reference per runner: a Kokoro-82M voice (Dash am_puck, Rocco am_onyx
    at 0.86 speed, Nova af_nova, Jade bf_isabella, Skye af_sky, Bolt
-   am_michael) read by Chatterbox at high exaggeration, so the reference
-   itself is excited (`tools/voices/refs.py`).
-2. Every line cloned from it with Chatterbox Turbo, transcribed with
+   am_michael) re-read by Chatterbox as a shout at very high exaggeration,
+   so the reference itself is screamed (`tools/voices/refs.py`; Rocco stays
+   lower, or his voice jumps an octave and loses the trailer sound).
+2. Every line cloned from it with Chatterbox Turbo, read with every
+   sentence ending in "!" so it stays at a shout, transcribed with
    faster-whisper and re-rolled (up to four takes) when the words don't
    match.
 3. The runner's sound (`tools/voices/fx.py`): Rocco 8% lower with chest and
    gravel (the trailer voice), Bolt ring-modulated and tinny, the rest as
-   cloned; then trimmed, levelled and encoded.
+   cloned; then a shout stage for everyone (a strained upper-mid edge,
+   drive, and 4% faster and higher except for Rocco), trimmed, levelled and
+   encoded.
 
 The takes (high quality, one file per line) are kept as masters outside
 the repository, in the project's shared folder under
