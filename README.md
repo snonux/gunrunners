@@ -269,6 +269,7 @@ records and bonus stars still count.
 | JUMP HELP | a jump pressed just before landing still happens, and there is a little more time to jump off a ledge |
 | HALF DAMAGE | hits take half the hearts |
 | GAME SPEED 75% | everything runs slower, except in levels that keep time with the music |
+| GUIDE ARROW | a blinking arrow by the runner points the way to the nearest thing still missing for 100% (a gem, a G-U-N letter, a crate of merchandise or a weapon you don't have yet, a gem cache, a bot), along a route you can walk, climb and jump; once everything is done it points to the exit. Gold for items, red for bots, green for the exit; pointing down while you walk means crawl, and next to a crate or bot it turns to face it (down: crouch and shoot). Not in bonus levels |
 | REDUCED EFFECTS | no screen shake and no flashes of light |
 | SWAP RUNNER ON DEATH | a runner who dies sits out the rest of the level and the whole next one; the next free runner takes over at the checkpoint with full hearts (once nobody is left to swap in, the last runner simply comes back) |
 
@@ -337,10 +338,10 @@ On top of that:
   skipped by C and RANDOM RUNNER.
 - **Carry up to three guns.** A weapon pickup still goes straight into
   your hands, but the gun you held stays with you instead of being thrown
-  away: three guns at most, the blaster included (the pips by WEAPON in
-  the HUD count them). Q (gamepad left trigger, the pistol button on
+  away: three guns plus the blaster at most (the pips by WEAPON in the
+  HUD count them). Q (gamepad left trigger, the pistol button on
   touch) switches to the next one, each keeping its own ammo. With three
-  already, a new gun takes the place of the one in your hands (or, with
+  guns already, a new gun takes the place of the one in your hands (or, with
   the blaster in hand, of the gun you held last). A gun that runs dry
   still drops you back to the blaster.
 - **Runner editor.** NEW RUNNER on the runner select screen makes your own:

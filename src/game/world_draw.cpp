@@ -1429,6 +1429,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSweepsTop(r, camX, camY, frame); // Level 41: LIGHTS OUT, MIRROR MODE
   if (mFinale.on)
     drawFinaleTop(r, camX, camY, frame); // Level 42: the roll-in, the wipe, the commercial, BLOOPER!
+  drawGuide(r, camX, camY, frame); // ASSISTS: the guide arrow (world_guide.cpp)
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
   drawVehicleHud(r, frame);

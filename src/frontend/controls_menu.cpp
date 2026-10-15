@@ -42,6 +42,7 @@ const AssistRow kAssistRows[] = {
   {"assist.jump", "JUMP HELP", "A jump pressed just before landing still jumps; more time at ledges."},
   {"assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
   {"assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
+  {"assist.guide", "GUIDE ARROW", "A blinking arrow points to every item and bot left, then the exit (not in bonus levels)."},
   {"opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
   {"opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies sits out this level and the next; the next one steps in."},
   {"opt.voices", "RUNNER VOICES", "The runners talk about what they see. SAY A LINE (V) for more."},
@@ -347,6 +348,7 @@ World::PlayOptions Game::playOptions() const
   o.quickRetry = !mOptions.autoplay;
   o.calm = playOption("opt.calm");
   o.swapOnDeath = playOption("opt.swapdeath");
+  o.guide = playOption("assist.guide");
   return o;
 }
 
@@ -399,7 +401,7 @@ void Game::renderAssists()
   for (int i = 0; i <= kAssistCount; ++i)
   {
     const bool sel = i == mAssistCursor;
-    const float y = 200.0f + float(i) * step + (i == kAssistCount ? 6.0f : 0.0f);
+    const float y = 196.0f + float(i) * step + (i == kAssistCount ? 6.0f : 0.0f);
     tapTarget(300, y - 6, 680, step - 6, [this, i](float, float) {
       if (mAssistCursor != i)
       {
@@ -410,7 +412,7 @@ void Game::renderAssists()
       tapPress(&Input::confirm);
     });
     if (sel)
-      r.fillRect(300, y - 4, 680, step - 8, withAlpha(t.accentA, 60));
+      r.fillRect(300, y - 2, 680, step - 1, withAlpha(t.accentA, 60)); // the row and its help line
     const TextStyle plain{22.0f, t.hudText, kInk};
     const TextStyle chosen{22.0f, t.accentA, kInk, true};
     if (i == kAssistCount)
@@ -427,7 +429,9 @@ void Game::renderAssists()
       value = std::string(": ") + kVoiceLevels[std::clamp(v, 0, 3)];
     }
     r.drawText(std::string(row.label) + value, 640, y, sel ? chosen : plain, Align::Center);
-    r.drawText(row.help, 640, y + 24, {14.0f, rgb(190, 188, 214), kInk}, Align::Center);
+    // Closer rows: the help line tucks up under its label in smaller type.
+    r.drawText(row.help, 640, y + std::min(24.0f, step - 14.0f), {step < 40.0f ? 13.0f : 14.0f, rgb(190, 188, 214), kInk},
+      Align::Center);
   }
   r.drawText(mOptions.touch ? "TAP a row to pick it, TAP it again to switch it   BACK to leave"
                             : "UP/DOWN choose   ENTER / A switch   ESC / B back",
