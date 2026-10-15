@@ -27,6 +27,7 @@ enum class Act
   QuickLoad,
   Map,
   Say, // the runner says a random line
+  NextWeapon,
   Count,
 };
 constexpr int kActCount = int(Act::Count);

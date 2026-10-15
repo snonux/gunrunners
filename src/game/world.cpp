@@ -38,6 +38,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   p.hp = p.maxHp = mCharacter.maxHp;
   p.weapon = mCharacter.startWeapon;
   p.ammo = mCharacter.startAmmo;
+  p.spareCount = p.weapon != Weapon::Normal ? 1 : 0; // the blaster (Player::Spare's default)
   p.rapidFire = mCharacter.startRapidFire;
   mLevelProto = protoIndex(mLevel->weapon);
   mLayerMask.assign(std::size_t(mLevel->width * mLevel->height), 0);
@@ -301,6 +302,13 @@ std::vector<Bonus> World::bonuses() const
 
 void World::update(const PlayerInput& input)
 {
+  // However the frame went, the spares end it in line with the gun in hand.
+  struct Tidy
+  {
+    World& w;
+    ~Tidy() { w.tidySpares(); }
+  } tidy{*this};
+  mFireHeld = input.fire.pressed;
   // Overclock: three logic frames for every one.
   if (mMagma.overclock)
   {
@@ -1875,7 +1883,7 @@ void World::collectItem(Item& it)
   it.taken = true;
   const Vec2 c = cellCenter(it.box());
   auto takeWeapon = [&](Weapon w, const char* msg) {
-    p.weapon = w;
+    equip(w); // the gun held so far goes to the spares
     p.ammo = maxAmmo(w);
     mStats.weaponsCollected |= weaponBit(w);
     addScore(2000, c);

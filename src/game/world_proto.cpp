@@ -30,18 +30,14 @@ void World::takeProto(const Vec2& at)
     return;
   const ProtoDef& def = protoDef(mLevelProto);
   const bool first = !mStats.protoFound;
-  if (p.weapon == Weapon::Proto && p.proto == mLevelProto)
-  {
+  const bool inHand = p.weapon == Weapon::Proto && p.proto == mLevelProto;
+  // Into the runner's hands; the gun held so far goes to the spares.
+  if (equip(Weapon::Proto, mLevelProto))
     p.ammo = std::min(def.maxAmmo, p.ammo + def.boxAmmo);
-  }
   else
-  {
-    p.weapon = Weapon::Proto;
-    p.proto = mLevelProto;
     p.ammo = def.boxAmmo;
-    p.charge = 0;
+  if (!inHand)
     p.shotCooldown = 0;
-  }
   mStats.protoFound = true;
   addScore(2000, at);
   showMessage(std::string(def.name) + (first ? " - LOGGED TO THE ARSENAL" : " - MORE AMMO"));

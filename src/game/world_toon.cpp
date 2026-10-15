@@ -401,10 +401,11 @@ void World::refundHole()
   auto& p = mPlayer;
   if (p.weapon == Weapon::Proto && ProtoId(p.proto) == ProtoId::PortableHole)
     p.ammo = std::min(protoDef(p.proto).maxAmmo, p.ammo + 1);
+  else if (Player::Spare* s = spareGun(Weapon::Proto, int(ProtoId::PortableHole)))
+    s->ammo = std::min(protoDef(s->proto).maxAmmo, s->ammo + 1);
   else if (mLevelProto == int(ProtoId::PortableHole))
   {
-    p.weapon = Weapon::Proto;
-    p.proto = mLevelProto;
+    equip(Weapon::Proto, mLevelProto);
     p.ammo = 1;
   }
 }

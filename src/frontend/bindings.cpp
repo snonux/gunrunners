@@ -12,7 +12,7 @@ namespace
 {
 
 const char* const kActKeys[kActCount] = {"left", "right", "up", "down", "jump", "fire", "swap", "use", "pause",
-                                            "quicksave", "quickload", "map", "say"};
+                                            "quicksave", "quickload", "map", "say", "weapon"};
 
 } // namespace
 
@@ -33,6 +33,7 @@ Bindings Bindings::defaults()
   keys(Act::QuickLoad, SDL_SCANCODE_F9, 0);
   keys(Act::Map, SDL_SCANCODE_M, 0);
   keys(Act::Say, SDL_SCANCODE_V, 0);
+  keys(Act::NextWeapon, SDL_SCANCODE_Q, 0);
   auto pad = [&b](Act a, std::vector<int> codes) { b.pad[std::size_t(a)] = std::move(codes); };
   pad(Act::Left, {SDL_CONTROLLER_BUTTON_DPAD_LEFT});
   pad(Act::Right, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT});
@@ -48,11 +49,14 @@ Bindings Bindings::defaults()
 #ifdef __ANDROID__
   // Back is the system back key there (pause / leave a menu), so the map
   // takes LB and getting in or out of a vehicle takes LT.
+  // The next weapon takes a click of the left stick.
   pad(Act::Use, {kPadLeftTrigger});
   pad(Act::Map, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER});
+  pad(Act::NextWeapon, {SDL_CONTROLLER_BUTTON_LEFTSTICK});
 #else
   pad(Act::Use, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER});
   pad(Act::Map, {SDL_CONTROLLER_BUTTON_BACK});
+  pad(Act::NextWeapon, {kPadLeftTrigger});
 #endif
   return b;
 }
@@ -129,7 +133,7 @@ const char* actName(Act a)
 {
   static const char* const kNames[kActCount] = {
     "MOVE LEFT", "MOVE RIGHT", "UP / CLIMB", "DOWN / DUCK", "JUMP", "FIRE", "SWITCH RUNNER", "VEHICLE IN/OUT", "PAUSE",
-    "QUICK SAVE", "QUICK LOAD", "MAP", "SAY A LINE"};
+    "QUICK SAVE", "QUICK LOAD", "MAP", "SAY A LINE", "NEXT WEAPON"};
   return kNames[std::clamp(int(a), 0, kActCount - 1)];
 }
 

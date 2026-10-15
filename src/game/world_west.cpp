@@ -293,8 +293,7 @@ void World::linkWest()
     // his way.
     if (mLevelProto >= 0)
     {
-      mPlayer.weapon = Weapon::Proto;
-      mPlayer.proto = mLevelProto;
+      equip(Weapon::Proto, mLevelProto);
       mPlayer.ammo = protoDef(mLevelProto).maxAmmo;
     }
     startDuel();

@@ -111,7 +111,8 @@ public:
   bool takeMenuPadChange();
 
   // Where the player moved the controls in a level (the profile keeps it):
-  // x, y offsets for the stick, then jump, fire, switch, pause and map.
+  // x, y offsets for the stick, then jump, fire, switch, pause, map, use
+  // and next weapon.
   void setLayout(const std::vector<int>& offsets);
   std::vector<int> layout() const;
   // The layout editor: every control can be dragged; RESET puts them back,
@@ -143,6 +144,7 @@ private:
     kPause,
     kMap, // left of pause
     kUse, // get in or out of a vehicle, along the top
+    kWeapon, // the next gun carried, along the top
     kButtonCount,
   };
   struct Circle

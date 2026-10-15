@@ -68,6 +68,7 @@ constexpr float kStickZone = 1.8f;
 // Thumbs: Switch runner and Use join Map and Pause along the top.
 constexpr float kSwapTopFromRight = 244.0f;
 constexpr float kUseFromRight = 338.0f;
+constexpr float kWeaponFromRight = 432.0f;
 
 constexpr Color kNeon = rgb(46, 242, 255);
 constexpr Color kPink = rgb(255, 46, 196);
@@ -198,6 +199,22 @@ Texture bakeIcon(Renderer& renderer, float r, Color col, int icon)
         cairo_fill(cr);
         break;
       }
+      case 9: // next weapon: a pistol
+      {
+        const double x0 = c - s * 0.95, y0 = c - s * 0.55;
+        cairo_rectangle(cr, x0, y0, s * 1.9, s * 0.5);                        // barrel and slide
+        cairo_fill(cr);
+        cairo_move_to(cr, x0 + s * 0.15, y0 + s * 0.45);                       // grip
+        cairo_line_to(cr, x0 + s * 0.75, y0 + s * 0.45);
+        cairo_line_to(cr, x0 + s * 0.55, y0 + s * 1.5);
+        cairo_line_to(cr, x0 - s * 0.05, y0 + s * 1.5);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+        cairo_set_line_width(cr, rr * 0.07);                                     // trigger guard
+        cairo_arc(cr, x0 + s * 0.98, y0 + s * 0.62, s * 0.24, 0.0, M_PI);
+        cairo_stroke(cr);
+        break;
+      }
       case 8: // use a vehicle: a steering wheel
         cairo_set_line_width(cr, rr * 0.12);
         cairo_arc(cr, c, c, s * 0.85, 0.0, 2.0 * M_PI);
@@ -247,6 +264,7 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
   mPlayIcons[kPause] = bakeIcon(renderer, kPauseR, kNeon, 3);
   mPlayIcons[kMap] = bakeIcon(renderer, kPauseR, kGold, 6);
   mPlayIcons[kUse] = bakeIcon(renderer, kPauseR, kGold, 8);
+  mPlayIcons[kWeapon] = bakeIcon(renderer, kPauseR, kPink, 9);
   // Thumbs: where the right thumb aims, beside the fire mark.
   const double angles[4] = {-M_PI * 0.5, M_PI * 0.5, M_PI, 0.0};
   for (int i = 0; i < 4; ++i)
@@ -319,13 +337,15 @@ TouchControls::Circle TouchControls::button(int b) const
   // Menus without the menu pad keep a small BACK, out of the way.
   if (b == kFire && mLayout == Layout::Menu && !mEditing && !mMenuPad)
     return {mLeft + kCornerInset * mScale, mTop + kCornerInset * mScale, kPauseR * mScale};
-  // The row along the top: Pause, Map, then (thumbs) Switch runner, and Use.
+  // The row along the top: Pause, Map, then (thumbs) Switch runner, Use and
+  // Next weapon.
   const bool topSwap = b == kSwap && mThumbs && (mLayout == Layout::Play || mEditing);
-  if (b == kPause || b == kMap || b == kUse || topSwap)
+  if (b == kPause || b == kMap || b == kUse || b == kWeapon || topSwap)
   {
     const float from = b == kPause ? kPauseFromRight
       : b == kMap                 ? kMapFromRight
       : topSwap                   ? kSwapTopFromRight
+      : b == kWeapon              ? (mThumbs ? kWeaponFromRight : kUseFromRight)
                                   : (mThumbs ? kUseFromRight : kSwapTopFromRight);
     return place({mRight - from * mScale, std::max(mTop, 0.0f) + kPauseY, kPauseR * mScale}, 1 + b);
   }
@@ -778,7 +798,8 @@ int TouchControls::buttonFor(float x, float y) const
     const Circle c = button(b);
     const float gap = std::hypot(x - c.x, y - c.y) - c.r;
     // The row along the top only answers touches close to it.
-    const bool small = b == kPause || b == kMap || b == kUse || (mLayout == Layout::Menu && !mEditing && !mMenuPad) ||
+    const bool small = b == kPause || b == kMap || b == kUse || b == kWeapon ||
+      (mLayout == Layout::Menu && !mEditing && !mMenuPad) ||
       (b == kSwap && mThumbs && mLayout == Layout::Play && !mEditing);
     const float reach = (small ? kPauseReach : kReach) * c.r;
     if (gap < reach && (best < 0 || gap < bestGap))
@@ -854,6 +875,7 @@ Input TouchControls::held() const
     in.pause = buttonHeld(kPause);
     in.map = buttonHeld(kMap);
     in.use = buttonHeld(kUse);
+    in.nextWeapon = buttonHeld(kWeapon);
     if (stickJump)
       in.jump = in.upJump = true;
     for (const auto& f : mFingers)
@@ -962,7 +984,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     const bool held = buttonHeld(b) || grabbed(1 + b);
     // The radius each icon was baked for (the menus' small BACK is smaller).
     const float baked = !play ? kSpecs[b == kJump ? kCorner : kInner].r
-      : b == kPause || b == kMap || b == kUse ? kPauseR
+      : b == kPause || b == kMap || b == kUse || b == kWeapon ? kPauseR
       : b == kSwap             ? kSpecs[2].r
                                : kSpecs[b == kFire ? kCorner : kInner].r;
     DrawOpts o;

@@ -168,6 +168,8 @@ struct SaveGame
   // Runner switches since the last hit or heal: the hearts and maximum the
   // first runner had, and what the switch left (see World::switchCharacter).
   std::vector<int> swap;
+  // The spare guns (Player::spares): weapon, proto, ammo for each.
+  std::vector<int> guns;
 };
 
 // $XDG_DATA_HOME/gunrunners/saves, or ~/.local/share/gunrunners/saves.
