@@ -119,7 +119,7 @@ def syncGameData = tasks.register('syncGameData') {
         project.copy {
             from "${gameData}/voices"
             into new File(out, 'data/voices')
-            include '*.txt', '*.ogg'
+            include '*.txt', '*.ogg', 'cutscenes/*.txt', 'cutscenes/*.ogg'
         }
         project.copy {
             from "${rootDir}/deps/cacert.pem"
