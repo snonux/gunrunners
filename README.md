@@ -323,10 +323,10 @@ On top of that:
   pause menu has a RANDOM RUNNER button.
 - **Carry up to three guns.** A weapon pickup still goes straight into
   your hands, but the gun you held stays with you instead of being thrown
-  away: three guns at most, the blaster included (the pips by WEAPON in
-  the HUD count them). Q (gamepad left trigger, the pistol button on
+  away: three guns plus the blaster at most (the pips by WEAPON in the
+  HUD count them). Q (gamepad left trigger, the pistol button on
   touch) switches to the next one, each keeping its own ammo. With three
-  already, a new gun takes the place of the one in your hands (or, with
+  guns already, a new gun takes the place of the one in your hands (or, with
   the blaster in hand, of the gun you held last). A gun that runs dry
   still drops you back to the blaster.
 - **Runner editor.** NEW RUNNER on the runner select screen makes your own:

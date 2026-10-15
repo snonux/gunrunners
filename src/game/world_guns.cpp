@@ -1,5 +1,5 @@
-// The guns a runner carries: the one in hand plus up to two spares
-// (Player::spares), the blaster always among them. A pickup still puts the
+// The guns a runner carries: three guns plus the blaster, the one in hand
+// and the rest as spares (Player::spares). A pickup still puts the
 // new gun in hand, as it always did; the gun held so far now stays in the
 // spares instead of being thrown away, and nextWeapon cycles through them.
 

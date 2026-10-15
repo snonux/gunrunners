@@ -148,7 +148,7 @@ struct Player
     int proto = -1;
     int ammo = 0;
   };
-  static constexpr int kMaxGuns = 3; // in hand plus spares, the blaster included
+  static constexpr int kMaxGuns = 4; // in hand plus spares: three guns plus the blaster
   std::array<Spare, kMaxGuns - 1> spares{};
   int spareCount = 0;
   int shotCooldown = 0; // frames until the prototype can fire again

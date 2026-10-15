@@ -1,5 +1,5 @@
-// The weapon switch: every gun picked up stays carried (three at most, the
-// blaster included), a pickup still puts the new gun in hand, a gun that
+// The weapon switch: every gun picked up stays carried (three guns plus the
+// blaster at most), a pickup still puts the new gun in hand, a gun that
 // runs dry still drops back to the blaster, and the spares survive a save.
 // A test room drives the real world logic with edge-correct input.
 
@@ -132,7 +132,7 @@ int main()
 
     // Dash starts with the blaster alone: nothing to switch to.
     {
-      const auto level = room("LRW");
+      const auto level = room("LRFW");
       World w(level, 0, theme, art);
       Driver d{w};
       d.run({}, 3);
@@ -143,16 +143,19 @@ int main()
       check(guns(w) == "LASER, BLASTER", "the blaster is kept (" + guns(w) + ")");
       check(takeNext(d, Weapon::Rocket), "the rocket box puts rockets in hand (" + guns(w) + ")");
       check(guns(w) == "ROCKETS, BLASTER, LASER", "the laser is kept (" + guns(w) + ")");
+      check(takeNext(d, Weapon::Flame), "the flamer box puts the flamer in hand (" + guns(w) + ")");
+      check(guns(w) == "FLAMER, BLASTER, LASER, ROCKETS", "three guns plus the blaster (" + guns(w) + ")");
 
-      const int rockets = w.player().ammo;
-      check(w.nextWeapon() && guns(w) == "BLASTER, LASER, ROCKETS", "switch: rockets to the blaster (" + guns(w) + ")");
-      check(w.nextWeapon() && guns(w) == "LASER, ROCKETS, BLASTER", "switch: the blaster to the laser (" + guns(w) + ")");
-      check(w.nextWeapon() && guns(w) == "ROCKETS, BLASTER, LASER", "switch: back round to rockets (" + guns(w) + ")");
-      check(w.player().ammo == rockets, "the rockets kept their ammo while stowed");
+      const int flame = w.player().ammo;
+      check(w.nextWeapon() && guns(w) == "BLASTER, LASER, ROCKETS, FLAMER", "switch: flamer to the blaster (" + guns(w) + ")");
+      check(w.nextWeapon() && guns(w) == "LASER, ROCKETS, FLAMER, BLASTER", "switch: the blaster to the laser (" + guns(w) + ")");
+      check(w.nextWeapon() && guns(w) == "ROCKETS, FLAMER, BLASTER, LASER", "switch: the laser to rockets (" + guns(w) + ")");
+      check(w.nextWeapon() && guns(w) == "FLAMER, BLASTER, LASER, ROCKETS", "switch: back round to the flamer (" + guns(w) + ")");
+      check(w.player().ammo == flame, "the flamer kept its ammo while stowed");
 
-      // Three carried: the prototype takes the place of the gun in hand.
+      // Full: the prototype takes the place of the gun in hand.
       check(takeNext(d, Weapon::Proto, pistol), "the W box puts the prototype in hand (" + guns(w) + ")");
-      check(guns(w) == "PULSE PISTOL, BLASTER, LASER", "three at most: the rockets in hand made room (" + guns(w) + ")");
+      check(guns(w) == "PULSE PISTOL, BLASTER, LASER, ROCKETS", "full: the flamer in hand made room (" + guns(w) + ")");
 
       // A save keeps the spares, in order.
       const std::string path = slotPath(dir, 1);
@@ -163,17 +166,18 @@ int main()
       check(guns(fresh) == guns(w), "the spares come back from a save (" + guns(fresh) + ")");
     }
 
-    // With the blaster in hand and three carried, the gun held last makes room.
+    // With the blaster in hand and three guns carried, the gun held last makes room.
     {
-      World w(room("LRW"), 0, theme, art);
+      World w(room("LRFW"), 0, theme, art);
       Driver d{w};
       d.run({}, 3);
       takeNext(d, Weapon::Laser);
       takeNext(d, Weapon::Rocket);
-      w.nextWeapon(); // blaster in hand: BLASTER, LASER, ROCKETS
-      check(guns(w) == "BLASTER, LASER, ROCKETS", "blaster in hand (" + guns(w) + ")");
+      takeNext(d, Weapon::Flame);
+      w.nextWeapon();
+      check(guns(w) == "BLASTER, LASER, ROCKETS, FLAMER", "blaster in hand (" + guns(w) + ")");
       takeNext(d, Weapon::Proto, pistol);
-      check(guns(w) == "PULSE PISTOL, LASER, BLASTER", "the rockets (held last) made room (" + guns(w) + ")");
+      check(guns(w) == "PULSE PISTOL, LASER, ROCKETS, BLASTER", "the flamer (held last) made room (" + guns(w) + ")");
     }
 
     // Running dry drops back to the blaster, as before; the other spares stay.
