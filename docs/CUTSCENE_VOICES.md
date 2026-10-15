@@ -33,6 +33,9 @@ line.
 
 ## Recording
 
+The scripts reuse `fx.py` and `generate.py` from the runner voice lines
+(`tools/voices/`, [VOICES.md](VOICES.md)) and its Python setup.
+
 A clip's id is the cutscene's name and an FNV-1a hash of `SPEAKER|text`
 (`CutsceneVoices::clipId`), so editing a line's words makes it a silent
 subtitle until it is recorded again; nothing plays the old words.
