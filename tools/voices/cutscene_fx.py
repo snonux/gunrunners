@@ -7,6 +7,41 @@ import fx
 
 RATE = fx.RATE
 RUNNERS = {"dash", "rocco", "nova", "jade", "skye", "bolt"}
+# Paul (2026-10-15): "almost screamed". Everyone shouts but ZERO (a calm AI)
+# and S (a whisper in the static); as the runners' in-game lines.
+CALM = {"zero", "signal"}
+
+
+def shouted(text, who):
+    """What the speech model reads: a line that ends in a full stop ends
+    in "!" instead, so it comes out shouted."""
+    if who in CALM:
+        return text
+    out = []
+    for part in text.split(" "):
+        out.append(part[:-1] + "!" if part.endswith(".") and not part.endswith("..") else part)
+    return " ".join(out)
+
+
+def _peak(sr, f0, gain_db, q=1.0):
+    A = 10 ** (gain_db / 40)
+    w = 2 * np.pi * f0 / sr
+    al = np.sin(w) / (2 * q)
+    c = np.cos(w)
+    a0 = 1 + al / A
+    return ((1 + al * A) / a0, -2 * c / a0, (1 - al * A) / a0), (1.0, -2 * c / a0, (1 - al / A) / a0)
+
+
+def shout(wav, who):
+    """The runners' shout stage: a touch faster and higher (not Rocco or the
+    pitched voices), less boom, more bite, driven, and louder."""
+    if who in RUNNERS - {"rocco"} or who in {"lance", "maxine", "narrator"}:
+        wav = fx.resample(wav, RATE, int(RATE / 1.04))
+    wav = fx.biquad(wav, *fx.low_shelf(RATE, 200, -3.0))
+    wav = fx.biquad(wav, *_peak(RATE, 2800, 5.0))
+    wav = wav / (np.max(np.abs(wav)) + 1e-9)
+    wav = np.tanh(wav * 2.4) / np.tanh(2.4)
+    return fx.normalize(np.asarray(wav, dtype=np.float32), rms=0.19)
 
 
 def _pitch(wav, sr, factor):
@@ -25,7 +60,7 @@ def _echoes(wav, taps):
 def voice(wav, sr, who):
     wav = np.asarray(wav, dtype=np.float32)
     if who in RUNNERS:
-        return fx.voice(wav, sr, who)
+        return shout(fx.voice(wav, sr, who), who)
     if who == "max":
         # A hologram: lower, ring-modulated, with a short tin-can comb.
         wav = _pitch(wav, sr, 0.9)
@@ -59,4 +94,5 @@ def voice(wav, sr, who):
         wav = _pitch(wav, sr, 0.95)
     else:
         wav = fx.resample(wav, sr, RATE)
-    return fx.normalize(np.asarray(wav, dtype=np.float32))
+    wav = fx.normalize(np.asarray(wav, dtype=np.float32))
+    return wav if who in CALM else shout(wav, who)

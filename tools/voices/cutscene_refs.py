@@ -19,36 +19,37 @@ NEUTRAL = ("Listen up, because I am only going to say this once. We go in fast, 
 
 # voice: (Kokoro voice, speed, language, exaggeration, cfg weight, text in the character's manner)
 VOICES = {
-    # MAX, the client: a cool, clipped hologram (fx: pitched down, ring modulated).
-    "max": ("af_heart", 0.95, "a", 0.75, 0.3,
-            "Your next package is waiting. The pay is excellent. The questions are not. Move fast, runners, "
-            "and do not stop for anything!"),
+    # Paul (2026-10-15): almost screamed. ZERO and S stay eerie, just livelier.
+    # MAX, the client: a hologram (fx: pitched down, ring modulated).
+    "max": ("af_heart", 0.95, "a", 1.3, 0.15,
+            "Your next package is waiting! The pay is EXCELLENT! The questions are NOT! Move, runners, MOVE! "
+            "Do not stop for ANYTHING!"),
     # Maxine Vale, the director, in her own voice: urgent, sure of herself.
-    "maxine": ("af_heart", 1.0, "a", 1.0, 0.25,
+    "maxine": ("af_heart", 1.0, "a", 1.5, 0.15,
                "Listen to me! The cameras are rolling, the whole world is watching, and you are going to give "
                "them a show they will never forget! Go, go, go!"),
     # ZERO, the station AI: calm, polite and sad (fx: a cold metal room).
-    "zero": ("bm_lewis", 0.92, "b", 0.45, 0.45,
+    "zero": ("bm_lewis", 0.92, "b", 0.6, 0.4,
              "Good morning. The station is operating within normal parameters. Please remain calm. "
              "I am so very glad you are here."),
     # Lance Marquee, the host with the chrome teeth.
-    "lance": ("am_adam", 1.0, "a", 1.25, 0.2,
-              "Good evening ladies and gentlemen, and welcome to the biggest show on television! "
-              "Give it up for our contestants! The ratings are through the roof tonight, folks!"),
+    "lance": ("am_adam", 1.0, "a", 1.6, 0.15,
+              "GOOD EVENING ladies and gentlemen, and WELCOME to the BIGGEST show on television! "
+              "Give it up for our contestants! The ratings are THROUGH THE ROOF tonight, folks! YEAH!"),
     # S, a voice in the static (fx: a weak radio signal).
-    "signal": ("af_river", 0.95, "a", 0.6, 0.35,
+    "signal": ("af_river", 0.95, "a", 0.9, 0.25,
                "Can you hear me? Don't be afraid. Follow the signal. It will lead you home. Hurry!"),
     # The nature documentary's narrator: hushed wonder.
-    "narrator": ("bm_george", 0.95, "b", 0.7, 0.3,
+    "narrator": ("bm_george", 0.95, "b", 1.1, 0.2,
                  "And here, in the warm light of dawn, we find a truly remarkable creature. "
                  "Look at it. Simply magnificent. Absolutely extraordinary!"),
     # The network board, in the post-credits scene.
-    "board": ("am_santa", 0.95, "a", 1.0, 0.25,
-              "Gentlemen, the numbers are in, and they are spectacular! Get me the network on the phone, right now!"),
+    "board": ("am_santa", 0.95, "a", 1.5, 0.15,
+              "Gentlemen, the numbers are IN, and they are SPECTACULAR! Get me the network on the phone, RIGHT NOW!"),
     # MaxTV's announcer: the big voice on the cards and idents.
-    "announcer": ("am_fenrir", 0.95, "a", 1.2, 0.2,
-                  "Coming up next on MaxTV! The most explosive hour of television ever made! "
-                  "Stay tuned, don't touch that dial!"),
+    "announcer": ("am_fenrir", 0.95, "a", 1.6, 0.15,
+                  "Coming up NEXT on MaxTV! The most EXPLOSIVE hour of television EVER MADE! "
+                  "Stay tuned! DON'T touch that dial!"),
 }
 
 
