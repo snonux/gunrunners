@@ -9,6 +9,8 @@ endif()
 
 if(ANDROID)
   include(android/android.cmake)
+elseif(EMSCRIPTEN)
+  include(web/web.cmake)
 else()
   find_package(SDL2 REQUIRED)
   find_package(PkgConfig REQUIRED)
@@ -249,6 +251,11 @@ endif()
 if(ANDROID)
   # The APK's libmain.so; no desktop binary, tools or tests.
   gr_add_android_main()
+  return()
+endif()
+if(EMSCRIPTEN)
+  # The page's gunrunners.html; no tools or tests.
+  gr_add_web_main()
   return()
 endif()
 

@@ -14,6 +14,9 @@
 #ifdef __ANDROID__
 #include "frontend/android_data.hpp"
 #endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include <SDL.h>
 #include <cairo.h>
@@ -585,6 +588,160 @@ int runHeadless(const CliOptions& o)
   return result;
 }
 
+// One windowed game: everything the main loop needs, on the heap, so a
+// browser page can run it one frame per animation frame (the stack of
+// runWindowed is gone by then) and a desktop loop simply calls frame().
+struct WindowedRun
+{
+  WindowedRun(const CliOptions& options, SDL_Window* w, SDL_Renderer* r, bool startFullscreen)
+    : o(options)
+    , window(w)
+    , sdlRenderer(r)
+    , renderer(r)
+    , audio(openAudio(options))
+    , game(windowOptions(options), renderer, audio.get())
+  {
+    SDL_ShowCursor(startFullscreen ? SDL_DISABLE : SDL_ENABLE);
+    game.showFullscreen(startFullscreen);
+    if (o.touch)
+      touch = std::make_unique<TouchControls>(renderer, true);
+  }
+
+  static std::unique_ptr<Audio> openAudio(const CliOptions& o)
+  {
+    if (o.noAudio)
+      return nullptr;
+    auto audio = std::make_unique<Audio>();
+    if (!audio->openDevice())
+      audio.reset();
+    return audio;
+  }
+
+  static GameOptions windowOptions(const CliOptions& o)
+  {
+    GameOptions options = o.game;
+    // FULLSCREEN in the menus; an Android app is always fullscreen.
+#ifndef __ANDROID__
+    options.window = true;
+#endif
+    return options;
+  }
+
+  void applyFullscreen(bool on)
+  {
+    SDL_SetWindowFullscreen(window, on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    SDL_ShowCursor(on ? SDL_DISABLE : SDL_ENABLE);
+  }
+  bool isFullscreen() const { return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0; }
+  void toggleFullscreen()
+  {
+    const bool on = !isFullscreen();
+    applyFullscreen(on);
+    game.setFullscreen(on);
+  }
+
+  // Events, the fixed 60 Hz ticks that are due, and one picture. False
+  // once the game is over.
+  bool frame();
+
+  const CliOptions o;
+  SDL_Window* window;
+  SDL_Renderer* sdlRenderer;
+  Renderer renderer;
+  std::unique_ptr<Audio> audio;
+  Game game;
+  Controls controls;
+  std::unique_ptr<TouchControls> touch;
+  const double tickSeconds = 1.0 / 60.0;
+  const double freq = double(SDL_GetPerformanceFrequency());
+  Uint64 last = SDL_GetPerformanceCounter();
+  double accumulator = 0.0;
+  long frames = 0;
+  bool running = true;
+};
+
+bool WindowedRun::frame()
+{
+  SDL_Event ev;
+  while (SDL_PollEvent(&ev))
+  {
+    if (touch)
+      touch->handleEvent(ev, window);
+    // Android may close a backgrounded app without warning.
+    if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
+      game.suspend();
+    if (captureBinding(game, ev) || captureText(game, ev))
+      continue;
+    switch (controls.handleEvent(ev))
+    {
+      case Controls::Action::Quit:
+        running = false;
+        break;
+      case Controls::Action::CycleTheme:
+        game.cycleTheme();
+        break;
+      case Controls::Action::ToggleFullscreen:
+        toggleFullscreen();
+        break;
+      case Controls::Action::Pause:
+        game.pauseLevel();
+        break;
+      case Controls::Action::None:
+        break;
+    }
+  }
+
+  const Uint64 now = SDL_GetPerformanceCounter();
+  accumulator += double(now - last) / freq;
+  last = now;
+  accumulator = std::min(accumulator, 0.25);
+  if (controls.bindings() != game.bindings())
+    controls.setBindings(game.bindings());
+  if (touch)
+  {
+    int pw = 0, ph = 0;
+    SDL_GetRendererOutputSize(sdlRenderer, &pw, &ph);
+    touch->setScreen(pw, ph);
+    syncTouch(*touch, game);
+    forwardTouch(*touch, game);
+  }
+  while (accumulator >= tickSeconds && running)
+  {
+#ifndef __ANDROID__
+    // (On Android the on-screen letters do: a soft keyboard would cover them.)
+    if (game.wantsText() && !SDL_IsTextInputActive())
+      SDL_StartTextInput();
+#endif
+    const Input keysAndPads = controls.read(!game.inLevel(), game.wantsText());
+    if (touch)
+      touch->advance(SDL_GetTicks());
+    running = game.tick(touch ? keysAndPads | touch->read() : keysAndPads);
+    if (touch)
+      syncTouch(*touch, game);
+    if (game.takeFullscreenToggle())
+      toggleFullscreen();
+    accumulator -= tickSeconds;
+    ++frames;
+    if (o.maxFrames >= 0 && frames >= o.maxFrames)
+      running = false;
+  }
+
+  game.render();
+  if (touch)
+    touch->draw(renderer);
+  SDL_RenderPresent(sdlRenderer);
+#ifdef __ANDROID__
+  static Uint32 fpsStart = SDL_GetTicks(), fpsFrames = 0;
+  if (++fpsFrames == 300 || SDL_GetTicks() - fpsStart > 10000)
+  {
+    SDL_Log("%.1f fps", fpsFrames * 1000.0 / double(SDL_GetTicks() - fpsStart));
+    fpsStart = SDL_GetTicks();
+    fpsFrames = 0;
+  }
+#endif
+  return running;
+}
+
 int runWindowed(const CliOptions& o)
 {
   if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -618,129 +775,22 @@ int runWindowed(const CliOptions& o)
     sdlRenderer = SDL_CreateRenderer(window, -1, 0);
   SDL_RenderSetLogicalSize(sdlRenderer, kScreenW, kScreenH);
 
+  auto run = std::make_unique<WindowedRun>(o, window, sdlRenderer, startFullscreen);
+#ifdef __EMSCRIPTEN__
+  // The browser owns the loop: one frame per animation frame. The run lives
+  // as long as the page, and nothing after this line is reached.
+  emscripten_set_main_loop_arg(
+    [](void* run) {
+      if (!static_cast<WindowedRun*>(run)->frame())
+        emscripten_cancel_main_loop();
+    },
+    run.release(), 0, true);
+#else
+  while (run->frame())
   {
-  Renderer renderer(sdlRenderer);
-  std::unique_ptr<Audio> audio;
-  if (!o.noAudio)
-  {
-    audio = std::make_unique<Audio>();
-    if (!audio->openDevice())
-      audio.reset();
   }
-  GameOptions gameOptions = o.game;
-  // FULLSCREEN in the menus; an Android app is always fullscreen.
-#ifndef __ANDROID__
-  gameOptions.window = true;
+  run.reset();
 #endif
-  Game game(gameOptions, renderer, audio.get());
-
-  const auto applyFullscreen = [&](bool on) {
-    SDL_SetWindowFullscreen(window, on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-    SDL_ShowCursor(on ? SDL_DISABLE : SDL_ENABLE);
-  };
-  const auto isFullscreen = [&] {
-    return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
-  };
-  const auto toggleFullscreen = [&] {
-    const bool on = !isFullscreen();
-    applyFullscreen(on);
-    game.setFullscreen(on);
-  };
-  SDL_ShowCursor(startFullscreen ? SDL_DISABLE : SDL_ENABLE);
-  game.showFullscreen(startFullscreen);
-
-  Controls controls;
-  std::unique_ptr<TouchControls> touch;
-  if (o.touch)
-    touch = std::make_unique<TouchControls>(renderer, true);
-  const double tickSeconds = 1.0 / 60.0;
-  const double freq = double(SDL_GetPerformanceFrequency());
-  Uint64 last = SDL_GetPerformanceCounter();
-  double accumulator = 0.0;
-  long frames = 0;
-  bool running = true;
-
-  while (running)
-  {
-    SDL_Event ev;
-    while (SDL_PollEvent(&ev))
-    {
-      if (touch)
-        touch->handleEvent(ev, window);
-      // Android may close a backgrounded app without warning.
-      if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
-        game.suspend();
-      if (captureBinding(game, ev) || captureText(game, ev))
-        continue;
-      switch (controls.handleEvent(ev))
-      {
-        case Controls::Action::Quit:
-          running = false;
-          break;
-        case Controls::Action::CycleTheme:
-          game.cycleTheme();
-          break;
-        case Controls::Action::ToggleFullscreen:
-          toggleFullscreen();
-          break;
-        case Controls::Action::Pause:
-          game.pauseLevel();
-          break;
-        case Controls::Action::None:
-          break;
-      }
-    }
-
-    const Uint64 now = SDL_GetPerformanceCounter();
-    accumulator += double(now - last) / freq;
-    last = now;
-    accumulator = std::min(accumulator, 0.25);
-    if (controls.bindings() != game.bindings())
-      controls.setBindings(game.bindings());
-    if (touch)
-    {
-      int pw = 0, ph = 0;
-      SDL_GetRendererOutputSize(sdlRenderer, &pw, &ph);
-      touch->setScreen(pw, ph);
-      syncTouch(*touch, game);
-      forwardTouch(*touch, game);
-    }
-    while (accumulator >= tickSeconds && running)
-    {
-#ifndef __ANDROID__
-      // (On Android the on-screen letters do: a soft keyboard would cover them.)
-      if (game.wantsText() && !SDL_IsTextInputActive())
-        SDL_StartTextInput();
-#endif
-      const Input keysAndPads = controls.read(!game.inLevel(), game.wantsText());
-      if (touch)
-        touch->advance(SDL_GetTicks());
-      running = game.tick(touch ? keysAndPads | touch->read() : keysAndPads);
-      if (touch)
-        syncTouch(*touch, game);
-      if (game.takeFullscreenToggle())
-        toggleFullscreen();
-      accumulator -= tickSeconds;
-      ++frames;
-      if (o.maxFrames >= 0 && frames >= o.maxFrames)
-        running = false;
-    }
-
-    game.render();
-    if (touch)
-      touch->draw(renderer);
-    SDL_RenderPresent(sdlRenderer);
-#ifdef __ANDROID__
-    static Uint32 fpsStart = SDL_GetTicks(), fpsFrames = 0;
-    if (++fpsFrames == 300 || SDL_GetTicks() - fpsStart > 10000)
-    {
-      SDL_Log("%.1f fps", fpsFrames * 1000.0 / double(SDL_GetTicks() - fpsStart));
-      fpsStart = SDL_GetTicks();
-      fpsFrames = 0;
-    }
-#endif
-  }
-  }
 
   SDL_DestroyRenderer(sdlRenderer);
   SDL_DestroyWindow(window);
@@ -769,6 +819,13 @@ int main(int argc, char** argv)
   o.touch = true;
   o.fullscreen = true;
   loadGameFont((o.game.dataDir + "/fonts/DejaVuSans-Bold.ttf").c_str());
+#endif
+#ifdef __EMSCRIPTEN__
+  // In a browser page: the data is the page's preloaded /data, the saves
+  // are in IndexedDB, mounted at /saves by web/pre.js before main runs.
+  o.game.dataDir = "/data";
+  o.game.saveDir = "/saves";
+  loadGameFont("/data/fonts/DejaVuSans-Bold.ttf");
 #endif
   o.game.touch = o.touch;
   try

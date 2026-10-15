@@ -183,7 +183,12 @@ void Audio::preloadMusic(const std::string& id)
 {
   if (id.empty() || id == "stop" || mNamedTracks.count(id) || mPendingTracks.count(id))
     return;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+  // A browser page without threads renders the track when it starts.
+  mPendingTracks.emplace(id, std::async(std::launch::deferred, synthTrack, id));
+#else
   mPendingTracks.emplace(id, std::async(std::launch::async, synthTrack, id));
+#endif
 }
 
 void Audio::seekMusic(double seconds)

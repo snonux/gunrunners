@@ -2,3 +2,4 @@ build*/
 out/
 *.rgb
 __pycache__/
+web/deps/
