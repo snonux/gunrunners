@@ -115,16 +115,23 @@ int followArrow(World& w, const std::function<bool()>& done, int frames, bool sh
     in.up = g.dy < 0;
     in.down = g.dy > 0; // down, crouch to shoot low, crawl
     // Up at a ladder climbs it; anywhere else it is a jump. Sideways off a
-    // ladder is a jump too.
+    // ladder, or up at its top, is a jump too.
     const CellBox b = w.player().box();
     bool ladder = w.player().state == PlayerState::Ladder;
     for (int x = b.left(); x <= b.right() && !ladder; ++x)
       ladder = w.map().ladder(x, b.top());
     const bool onLadder = w.player().state == PlayerState::Ladder;
+    // At the top of a ladder, up is a jump off it.
+    bool above = false;
+    for (int x = b.left(); x <= b.right() && !above; ++x)
+      above = w.map().ladder(x, b.top() - 1);
+    if (onLadder && !above)
+      ladder = false;
     // Jump is held for the whole jump (letting go cuts it short), and let go
-    // for a frame on landing to jump again.
-    const bool want = (g.dy < 0 && !ladder) || (onLadder && g.dx != 0);
-    const bool landed = w.player().state == PlayerState::OnGround && jumpWas;
+    // for a frame on landing (or on a ladder) to jump again.
+    // Down and jump lets go of a pipe.
+    const bool want = (g.dy < 0 && !ladder) || (onLadder && g.dx != 0) || (w.player().state == PlayerState::Pipe && g.dy > 0);
+    const bool landed = w.player().state != PlayerState::Jumping && jumpWas; // landed, or caught a ladder
     const bool jump = (want || w.player().state == PlayerState::Jumping) && !landed;
     in.jump = {jump, jump && !jumpWas};
     const bool fire = shoot && f % 2 == 0;
@@ -200,6 +207,48 @@ int main()
         std::printf("     runner at %d,%d state %d: %s\n", w.player().x, w.player().y, int(w.player().state), describe(w.guide()).c_str());
       check(f >= 0, "following the arrow climbs up and takes it (frames " + std::to_string(f) + ")");
     }
+
+    // A ledge 2 to 5 blocks over the floor with a gem on it, for Dash,
+    // Rocco and Nova: the arrow finds a way up exactly when the runner's
+    // own jump (and steer) lands on it.
+    for (int runner = 0; runner < 3; ++runner)
+      for (int rows = 2; rows <= 5; ++rows)
+        for (const char tile : {'=', '#'})
+        {
+          const auto ledge = load(room("", [&](int y, std::string& row) {
+            if (y == 14 - rows)
+              for (int x = 8; x < 20; ++x)
+                row[std::size_t(x)] = tile;
+            if (y == 13 - rows)
+              row[14] = 'g';
+          }, 4));
+          // Up to the ledge, jump holding right, on along it; or (through a
+          // one-way ledge) a jump from right under the gem.
+          bool lands = false;
+          for (const int under : {0, 1})
+          {
+            World jumper(ledge, runner, theme, art);
+            bool jumpWas = false;
+            int at = -1;
+            for (int f = 0; f < 80 && jumper.stats().gems == 0; ++f)
+            {
+              PlayerInput in;
+              if (at < 0 && (under ? jumper.player().x >= 27 : f >= 3))
+                at = f;
+              in.right = !under || at < 0;
+              const bool j = at >= 0 && f < at + 20;
+              in.jump = {j, j && !jumpWas};
+              jumpWas = j;
+              jumper.update(in);
+            }
+            lands = lands || jumper.stats().gems == 1;
+          }
+          World w(ledge, runner, theme, art);
+          guideOn(w);
+          const bool walkable = w.guide().walkable;
+          check(walkable == lands, "runner " + std::to_string(runner) + ", a ledge " + std::to_string(rows) + " blocks up (" +
+            tile + "): the route " + (walkable ? "goes up" : "doesn't") + ", the jump " + (lands ? "lands" : "doesn't"));
+        }
 
     // A bot down the corridor; a box of merchandise; nothing else counts.
     const auto botRoom = load(room("", [](int y, std::string& row) {
@@ -283,7 +332,43 @@ int main()
         describe(w.guide()).c_str());
       // A crude player (no timing, no looking ahead) still gets a good way
       // round: the crates crouched, the crawlspace, up the ladders.
-      check(left0 - w.guide().left >= 15, "level 1: following the arrow alone collects and clears a good deal");
+      check(left0 - w.guide().left >= 25, "level 1: following the arrow alone collects and clears most of it");
+    }
+    // More levels and runners by the arrow alone, on request:
+    // GR_GUIDE_LEVELS=2,8,12 GR_GUIDE_RUNNERS=0,1,2 (reported, not checked).
+    if (const char* list = std::getenv("GR_GUIDE_LEVELS"))
+    {
+      const char* rl = std::getenv("GR_GUIDE_RUNNERS");
+      std::vector<int> runners;
+      for (const char* q = rl ? rl : "0"; *q;)
+      {
+        runners.push_back(std::atoi(q));
+        while (*q && *q != ',')
+          ++q;
+        if (*q)
+          ++q;
+      }
+      for (const char* q = list; *q;)
+      {
+        const int n = std::atoi(q);
+        while (*q && *q != ',')
+          ++q;
+        if (*q)
+          ++q;
+        for (const int runner : runners)
+        {
+          const auto level = std::make_shared<const Level>(Level::loadFile(levelFile(GR_DATA_DIR, n)));
+          World w(level, runner, theme, art);
+          guideOn(w);
+          w.cheat(Cheat::God);
+          const int left0 = w.guide().left;
+          const int f = followArrow(w, [&] { return w.state() != WorldState::Playing; }, 6000, true);
+          const auto& st = w.stats();
+          std::printf("     level %d runner %d by the arrow: %d frames, %d of %d done, gems %d/%d, merch %d/%d, bots %d/%d, left %d (%s; at %d,%d)\n",
+            n, runner, f, left0 - w.guide().left, left0, st.gems, st.gemsTotal, st.merch, st.merchTotal, st.kills,
+            st.enemiesTotal, w.guide().left, describe(w.guide()).c_str(), w.player().x, w.player().y);
+        }
+      }
     }
     std::printf("     %d of %d levels start with a walkable route; slowest search %.1f ms (%s)\n", walkable,
       int(files.size()), worst, worstLevel.c_str());
