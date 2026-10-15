@@ -6,6 +6,7 @@
 #include "frontend/bindings.hpp"
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
+#include "frontend/cutscene_voices.hpp"
 #include "frontend/runner_editor.hpp"
 #include "game/input.hpp"
 #include "game/profile.hpp"
@@ -370,6 +371,9 @@ private:
   std::array<std::optional<SaveGame>, kSaveSlots> mSlots;
   std::string mNotice;
   std::string mPlayingOverride; // the world's music override now playing
+  CutsceneVoices mCutsceneVoices; // the cutscenes' speech (voices/cutscenes)
+  std::string voicesDir() const;
+  float voiceVolume() const;
   int mNoticeTicks = 0;
   std::future<std::string> mCloudRefresh;
   struct CloudUpload

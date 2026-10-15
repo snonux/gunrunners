@@ -13,6 +13,7 @@ namespace gr
 {
 
 class Audio;
+class CutsceneVoices;
 struct Art;
 struct Theme;
 
@@ -23,9 +24,9 @@ struct Theme;
 struct CutsceneCue
 {
   int frame = 0;
-  std::string key;   // sound, stopsound, music, say, hold, delay, fade, flash, shake, wait
-  std::string value; // everything after '=' (for say: the speaker)
-  std::string text;  // say: the line
+  std::string key;   // sound, stopsound, music, say, voice, hold, delay, fade, flash, shake, wait
+  std::string value; // everything after '=' (for say and voice: the speaker)
+  std::string text;  // say and voice: the line (voice: spoken only, the words are on screen)
 };
 
 struct CutsceneShot
@@ -77,6 +78,12 @@ public:
   void render(ClipKit& kit);
   bool done() const { return mDone; }
   bool waiting() const { return mWaiting; } // for a button press
+  // Speech for the `say` and `voice` cues at this volume (0: subtitles
+  // only, as before); subtitles false hides the box under a spoken line.
+  // Call before the first tick: the opening shot's lines are cued already.
+  void setVoices(CutsceneVoices* voices, float volume, bool subtitles);
+  bool speaking() const { return mSpeakTicks > 0; }
+  const std::string& subtitle() const { return mLine; } // empty: no box
   const std::string& name() const { return mCutscene.name; }
 
 private:
@@ -84,6 +91,9 @@ private:
   void nextShot();
   void finish();
   int totalFrames() const;
+  bool frameSpeaks(int frame) const; // waits for a spoken line to end
+  void speak(const CutsceneCue& c);
+  void stopSpeaking();
 
   Cutscene mCutscene;
   Audio* mAudio;
@@ -98,8 +108,15 @@ private:
   int mTicks = 0;
   std::vector<bool> mFired;
 
+  // Speech: the clip of each cue (by shot, then cue), loaded up front.
+  std::vector<std::vector<std::shared_ptr<const std::vector<float>>>> mClips;
+  float mVoiceVolume = 0.0f;
+  bool mSubtitles = true;
+  int mSpeakTicks = 0; // ticks left of the line being said
+
   // Subtitle.
   std::string mSpeaker, mLine;
+  bool mVoiced = false; // the line is being spoken: no blips
   int mShown = 0;
   int mRevealTicks = 0;
 

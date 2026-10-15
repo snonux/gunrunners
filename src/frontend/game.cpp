@@ -58,6 +58,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   mCursor = std::clamp(mCursor, 0, characterCount() - 1);
   mSelectScroll = float(mCursor);
   buildPanels();
+  mCutsceneVoices.setDir(voicesDir() + "/cutscenes");
   if (!campaign())
   {
     mLevel = std::make_shared<const Level>(Level::loadFile(options.levelPath));
@@ -566,6 +567,25 @@ void Game::renderPlayOverlay()
     r.drawText(big, 640, y + 46, {56.0f, t.accentA, kInk, true}, Align::Center, a);
     r.drawText(small, 640, y + 122, {20.0f, rgb(200, 200, 216)}, Align::Center, a);
   }
+}
+
+std::string Game::voicesDir() const
+{
+#ifdef __ANDROID__
+  // Read straight from the APK's assets (they are not unpacked).
+  return "data/voices";
+#else
+  return dataDir() + "/voices";
+#endif
+}
+
+float Game::voiceVolume() const
+{
+  // RUNNER VOICES: OFF, QUIET, NORMAL (the default), LOUD.
+  static const float kVolumes[] = {0.0f, 0.45f, 0.8f, 1.15f};
+  const auto it = mProfile.controls.find("opt.voices");
+  const int v = it == mProfile.controls.end() || it->second.empty() ? 2 : it->second[0];
+  return kVolumes[std::clamp(v, 0, 3)];
 }
 
 void Game::renderBonus()

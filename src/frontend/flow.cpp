@@ -603,6 +603,7 @@ void Game::nextCutscene()
   const std::string name = mCutQueue.front();
   mCutQueue.pop_front();
   mCutscene = std::make_unique<CutscenePlayer>(Cutscene::load(cutsceneFile(dataDir(), name)), mAudio);
+  mCutscene->setVoices(&mCutsceneVoices, voiceVolume(), playOption("opt.subtitles", true));
   if (!mClipKit)
     mClipKit.reset(new ClipKit{mRenderer, *mArt, theme(), mLevelNumber, {}, {}});
   mClipKit->level = mLevelNumber;
@@ -619,7 +620,7 @@ void Game::tickCutscene(const Input& raw)
   Input in = raw;
   // The autopilot presses a button once a panel has waited long enough to
   // read (2.5 s), so recorded playthroughs keep the story legible.
-  mAutoWait = mCutscene->waiting() ? mAutoWait + 1 : 0;
+  mAutoWait = mCutscene->waiting() && !mCutscene->speaking() ? mAutoWait + 1 : 0;
   if (mOptions.autoplay && mAutoWait >= 150)
   {
     in.confirm = true;

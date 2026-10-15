@@ -9,6 +9,7 @@ shot static_snow delay=60 repeat=6
 #   letters shakes in (frames 0-5), "MONSTERS" with a scream-shaped
 #   underline; 12 frames
 shot ident_ch50 delay=80 repeat=1
+  cue 8 voice=ANNOUNCER "MaxTV, channel fifty! Monsters!"
   cue 0 stopsound=tv_static
   cue 0 sound=channel_ident
   cue 0 shake=3:400

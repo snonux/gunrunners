@@ -8,6 +8,7 @@ shot static_snow delay=60 repeat=6
 # clip ident_ch31: backdrop a leaf in golden light; "CH 31" in a thin serif
 #   fades up over frames 0-5, "NATURE" draws on as a vine on 6-11; 12 frames
 shot ident_ch31 delay=90 repeat=1
+  cue 8 voice=ANNOUNCER "MaxTV, channel thirty-one. Nature!"
   cue 0 stopsound=tv_static
   cue 0 sound=channel_ident
   cue 11 hold=1200

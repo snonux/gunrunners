@@ -25,5 +25,7 @@ shot lance_panic delay=100 repeat=3
 # logo, the slogan "PEACE THROUGH FIREPOWER"). 24 frames.
 shot halcyon_ad delay=100 repeat=1
   cue 0 music=jingle_halcyon
+  cue 14 voice=ANNOUNCER "Halcyon Arms. Peace through firepower."
+  cue 20 voice=ANNOUNCER "Trusted in forty countries. Peace sold separately."
   cue 23 hold=1500
   cue 23 fade=out:800

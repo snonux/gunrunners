@@ -31,12 +31,15 @@ shot max_hologram delay=90 repeat=1
 # action (Dash cocks his blaster, Rocco cracks his knuckles, Nova spins her
 # keys) on frames 0-4, the name card slams in on frame 5.
 shot name_dash delay=70 repeat=1
+  cue 5 voice=ANNOUNCER "Starring Dash!"
   cue 5 sound=name_slam
   cue 5 hold=2000
 shot name_rocco delay=70 repeat=1
+  cue 5 voice=ANNOUNCER "The mighty Rocco!"
   cue 5 sound=name_slam
   cue 5 hold=2000
 shot name_nova delay=70 repeat=1
+  cue 5 voice=ANNOUNCER "And Nova!"
   cue 5 sound=name_slam
   cue 5 hold=2000
 
@@ -52,5 +55,6 @@ shot logo delay=60 repeat=1
   cue 14 sound=big_explosion
   cue 14 shake=8:500
   cue 14 hold=1000
+  cue 15 voice=ANNOUNCER "This is Gunrunners!"
   cue 17 hold=2500
   cue 17 fade=out:1000
