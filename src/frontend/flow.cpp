@@ -989,7 +989,10 @@ void Game::tickList(const Input& in)
       const std::string path = extraFile(dataDir(), std::atoi(id.c_str()));
       try
       {
-        mLevel = std::make_shared<const Level>(Level::loadFile(path));
+        Level level = Level::loadFile(path);
+        if (mHard)
+          addHardModeEnemies(level); // the difficulty last picked on runner select
+        mLevel = std::make_shared<const Level>(std::move(level));
       }
       catch (const std::exception&)
       {
