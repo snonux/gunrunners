@@ -73,6 +73,7 @@ private:
     Boots,
     Glow,
     Gun,
+    Voice,
     Health,
     Jump,
     Power,
@@ -95,6 +96,7 @@ private:
   std::string mName;
   RunnerParts mParts;
   Weapon mGun;
+  int mVoice = 0; // voiceId
   int mPips[3];
   int mCursor = 0;
   bool mConfirmDelete = false;

@@ -16,6 +16,9 @@ constexpr std::size_t kMaxVoices = 24;
 constexpr int kMaxSameSound = 3;
 constexpr float kMusicVolume = 0.55f;
 constexpr float kSfxVolume = 0.8f;
+constexpr float kDuckedMusic = 0.4f;
+// The duck eases over about 80 ms each way, so the music never clicks.
+constexpr float kDuckStep = 1.0f / (0.08f * float(kAudioRate));
 
 } // namespace
 
@@ -241,6 +244,26 @@ void Audio::voiceBlip(const std::string& speaker)
   mVoices.push_back(v);
 }
 
+void Audio::playVoice(std::shared_ptr<const std::vector<float>> clip, float volume)
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  mVoiceClip = std::move(clip);
+  mVoicePos = 0;
+  mVoiceVolume = volume;
+}
+
+void Audio::stopVoice()
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  mVoiceClip.reset();
+}
+
+bool Audio::voicePlaying()
+{
+  std::lock_guard<std::mutex> lock(mMutex);
+  return mVoiceClip != nullptr;
+}
+
 void Audio::mix(float* out, int frames)
 {
   std::lock_guard<std::mutex> lock(mMutex);
@@ -253,6 +276,8 @@ void Audio::mixLocked(float* out, int frames)
 
   static const Track kSilence;
   const auto& track = mTrack ? *mTrack : kSilence;
+  const float duckTo = mVoiceClip && mVoiceVolume > 0.0f ? kDuckedMusic : 1.0f;
+  float duck = mDuck;
   if (!track.left.empty())
   {
     for (int i = 0; i < frames; ++i)
@@ -263,10 +288,25 @@ void Audio::mixLocked(float* out, int frames)
           break;
         mMusicPos = 0;
       }
-      out[i * 2] += track.left[mMusicPos] * kMusicVolume;
-      out[i * 2 + 1] += track.right[mMusicPos] * kMusicVolume;
+      duck += std::clamp(duckTo - duck, -kDuckStep, kDuckStep);
+      out[i * 2] += track.left[mMusicPos] * kMusicVolume * duck;
+      out[i * 2 + 1] += track.right[mMusicPos] * kMusicVolume * duck;
       ++mMusicPos;
     }
+  }
+  mDuck = track.left.empty() ? duckTo : duck;
+
+  if (mVoiceClip)
+  {
+    const auto& d = *mVoiceClip;
+    for (int i = 0; i < frames && mVoicePos < d.size(); ++i, ++mVoicePos)
+    {
+      const float s = d[mVoicePos] * mVoiceVolume;
+      out[i * 2] += s;
+      out[i * 2 + 1] += s;
+    }
+    if (mVoicePos >= d.size())
+      mVoiceClip.reset();
   }
 
   for (auto& v : mVoices)

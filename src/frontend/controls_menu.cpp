@@ -42,7 +42,11 @@ const AssistRow kAssistRows[] = {
   {"assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
   {"assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
   {"opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
+  {"opt.voices", "RUNNER VOICES", "The runners talk about what they see. SAY A LINE (V) for more."},
+  {"opt.subtitles", "VOICE SUBTITLES", "What the runners say, written at the bottom of the screen."},
 };
+const char* const kVoiceLevels[] = {"OFF", "QUIET", "NORMAL", "LOUD"};
+constexpr int kVoiceDefault = 2;
 constexpr int kAssistCount = int(sizeof(kAssistRows) / sizeof(kAssistRows[0]));
 
 } // namespace
@@ -237,7 +241,7 @@ void Game::renderControls()
     r.drawText(heads[c], colX[c], 168, {15.0f, t.accentB, kInk}, Align::Center);
 
   const auto rows = controlRows();
-  const float step = rows.size() > 15 ? 25.0f : rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
+  const float step = rows.size() > 17 ? 22.0f : rows.size() > 15 ? 25.0f : rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
   // While it listens, a tap anywhere gives up (like BACK).
   if (mListening)
     tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::back); });
@@ -317,6 +321,12 @@ void Game::renderControls()
     Align::Center);
 }
 
+bool Game::assistOn(const char* key) const
+{
+  // Subtitles are on until switched off; everything else starts off.
+  return playOption(key, std::string(key) == "opt.subtitles");
+}
+
 bool Game::playOption(const char* key, bool fallback) const
 {
   const auto it = mProfile.controls.find(key);
@@ -350,7 +360,19 @@ void Game::tickAssists(bool ok, bool cancel, int dir)
     return;
   sound(Sfx::MenuSelect);
   const char* key = kAssistRows[mAssistCursor].key;
-  mProfile.controls[key] = {playOption(key) ? 0 : 1};
+  if (std::string(key) == "opt.voices")
+  {
+    // NORMAL, LOUD, OFF, QUIET, NORMAL...
+    const auto it = mProfile.controls.find(key);
+    const int v = it == mProfile.controls.end() || it->second.empty() ? kVoiceDefault : it->second[0];
+    mProfile.controls[key] = {(std::clamp(v, 0, 3) + 1) % 4};
+    if (voiceVolume() <= 0.0f)
+      mVoice.stop(mAudio);
+  }
+  else
+  {
+    mProfile.controls[key] = {assistOn(key) ? 0 : 1};
+  }
   mProfile.save(saveDir());
   // The level being played (and one parked behind a bonus level) changes now.
   for (World* w : {mWorld.get(), mMainWorld.get()})
@@ -367,11 +389,11 @@ void Game::renderAssists()
   r.drawText("ASSISTS AND OPTIONS", 640, 116, {40.0f, t.accentA, kInk, true}, Align::Center);
   r.drawText("They keep records and bonus stars: none of them is a cheat.", 640, 168, {16.0f, t.accentB, kInk},
     Align::Center);
-  const float step = 52.0f;
+  const float step = 42.0f;
   for (int i = 0; i <= kAssistCount; ++i)
   {
     const bool sel = i == mAssistCursor;
-    const float y = 210.0f + float(i) * step + (i == kAssistCount ? 10.0f : 0.0f);
+    const float y = 200.0f + float(i) * step + (i == kAssistCount ? 6.0f : 0.0f);
     tapTarget(300, y - 6, 680, step - 6, [this, i](float, float) {
       if (mAssistCursor != i)
       {
@@ -391,8 +413,14 @@ void Game::renderAssists()
       continue;
     }
     const AssistRow& row = kAssistRows[i];
-    r.drawText(std::string(row.label) + (playOption(row.key) ? ": ON" : ": OFF"), 640, y, sel ? chosen : plain,
-      Align::Center);
+    std::string value = assistOn(row.key) ? ": ON" : ": OFF";
+    if (std::string(row.key) == "opt.voices")
+    {
+      const auto it = mProfile.controls.find(row.key);
+      const int v = it == mProfile.controls.end() || it->second.empty() ? kVoiceDefault : it->second[0];
+      value = std::string(": ") + kVoiceLevels[std::clamp(v, 0, 3)];
+    }
+    r.drawText(std::string(row.label) + value, 640, y, sel ? chosen : plain, Align::Center);
     r.drawText(row.help, 640, y + 24, {14.0f, rgb(190, 188, 214), kInk}, Align::Center);
   }
   r.drawText(mOptions.touch ? "TAP a row to pick it, TAP it again to switch it   BACK to leave"

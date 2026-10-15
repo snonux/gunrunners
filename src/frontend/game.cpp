@@ -58,6 +58,8 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   mCursor = std::clamp(mCursor, 0, characterCount() - 1);
   mSelectScroll = float(mCursor);
   buildPanels();
+  mVoiceBank.load(voicesDir());
+  mVoice.setLog(mOptions.voiceLog);
   if (!campaign())
   {
     mLevel = std::make_shared<const Level>(Level::loadFile(options.levelPath));
@@ -127,6 +129,9 @@ void Game::useTheme(int index)
 
 void Game::setMode(Mode m)
 {
+  // A line can finish over the tally; anywhere else it stops.
+  if (m != Mode::Play && m != Mode::Bonus)
+    mVoice.stop(mAudio);
   mMode = m;
   mModeTicks = 0;
 }
@@ -165,6 +170,7 @@ void Game::startLevel()
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
   playLevelMusic();
+  beginVoices();
 }
 
 bool Game::tick(const Input& input)
@@ -249,9 +255,13 @@ bool Game::tick(const Input& input)
       }
       if (edge(&Input::swap))
         switchRunner((mWorld->characterIndex() + 1) % characterCount());
+      if (edge(&Input::say) && mWorld->state() == WorldState::Playing)
+        mVoice.sayRandom(*mWorld, mAudio, voiceVolume());
+      mVoice.tick();
       tickPlay(raw);
       break;
     case Mode::Bonus:
+      mVoice.tick();
       tickBonus(in);
       if (mModeTicks > kBonusStep * (int(mBonuses.size()) + 2) + 200 ||
           (mModeTicks > 60 && !mOptions.autoplay && (edge(&Input::confirm) || edge(&Input::jump))))
@@ -365,8 +375,10 @@ void Game::tickPlay(const Input& raw)
     mLatched.jump.triggered = false;
     mLatched.fire.triggered = false;
     mLatched.use.triggered = false;
-    for (const auto s : mWorld->takeSounds())
+    const auto sounds = mWorld->takeSounds();
+    for (const auto s : sounds)
       sound(s);
+    mVoice.update(*mWorld, sounds, mAudio, voiceVolume());
     if (mAudio && !mWorld->musicOverride().empty() && mWorld->musicOverride() != mPlayingOverride)
     {
       // A new track (an easter egg, a sector's layer coming back): it picks
@@ -520,10 +532,12 @@ void Game::render()
     case Mode::Play:
       mWorld->draw(mRenderer, mFrame, alpha);
       renderPlayOverlay();
+      renderSubtitle();
       break;
     case Mode::Bonus:
       mWorld->draw(mRenderer, mFrame, 0.0f);
       renderBonus();
+      renderSubtitle();
       tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::confirm); });
       break;
   }
@@ -566,6 +580,39 @@ void Game::renderPlayOverlay()
     r.drawText(big, 640, y + 46, {56.0f, t.accentA, kInk, true}, Align::Center, a);
     r.drawText(small, 640, y + 122, {20.0f, rgb(200, 200, 216)}, Align::Center, a);
   }
+}
+
+std::string Game::voicesDir() const
+{
+#ifdef __ANDROID__
+  // Read straight from the APK's assets (they are not unpacked).
+  return "data/voices";
+#else
+  return dataDir() + "/voices";
+#endif
+}
+
+float Game::voiceVolume() const
+{
+  // RUNNER VOICES: OFF, QUIET, NORMAL (the default), LOUD.
+  static const float kVolumes[] = {0.0f, 0.45f, 0.8f, 1.15f};
+  const auto it = mProfile.controls.find("opt.voices");
+  const int v = it == mProfile.controls.end() || it->second.empty() ? 2 : it->second[0];
+  return kVolumes[std::clamp(v, 0, 3)];
+}
+
+void Game::beginVoices()
+{
+  if (mLevel)
+    mVoice.begin(&mVoiceBank, *mLevel);
+}
+
+void Game::renderSubtitle()
+{
+  if (mVoice.subtitle().empty() || !playOption("opt.subtitles", true))
+    return;
+  const std::string text = mVoice.speaker() + ": " + mVoice.subtitle();
+  mRenderer.drawText(text, 640, 600, {22.0f, rgb(255, 255, 255), kInk, true}, Align::Center);
 }
 
 void Game::renderBonus()

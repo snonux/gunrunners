@@ -595,6 +595,7 @@ void Game::afterCutscenes()
       mLevel = mMainLevel;
       mMainLevel.reset();
       mBot = mMainBot;
+      mVoice = mMainVoice;
       mSubTick = 0;
       mLatched = PlayerInput{};
       mWorld->addBonusReward(mBonusScore, mBonusGems, mBonusWon);
@@ -628,6 +629,7 @@ void Game::enterBonus()
   mLevel = std::move(level);
   mMainWorld = std::move(mWorld);
   mMainBot = mBot;
+  mMainVoice = mVoice;
   playCutscenes({"sting_break"}, After::EnterBonus);
 }
 
@@ -645,6 +647,7 @@ void Game::startBonusWorld()
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
   playLevelMusic();
+  beginVoices();
 }
 
 void Game::leaveBonus()

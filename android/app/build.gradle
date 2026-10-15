@@ -95,11 +95,14 @@ android {
 // levels/, cutscenes/ and fonts/ go into the APK as assets, with a manifest
 // listing them: Android can't list APK assets from native code, and the game
 // copies them to internal storage on start (src/frontend/android_data.cpp).
+// voices/ goes in too but stays out of the manifest: the game reads each
+// line straight from the APK when it is said (src/frontend/voices.cpp).
 def syncGameData = tasks.register('syncGameData') {
     def out = generatedAssets.get().asFile
     inputs.dir("${gameData}/levels")
     inputs.dir("${gameData}/cutscenes")
     inputs.dir("${gameData}/fonts")
+    inputs.dir("${gameData}/voices")
     inputs.file("${rootDir}/deps/cacert.pem")
     outputs.dir(out)
     doLast {
@@ -112,6 +115,11 @@ def syncGameData = tasks.register('syncGameData') {
                 include '*.txt', '*.ttf'
             }
             new File(out, "data/${dir}").eachFile { f -> files << "${dir}/${f.name}" }
+        }
+        project.copy {
+            from "${gameData}/voices"
+            into new File(out, 'data/voices')
+            include '*.txt', '*.ogg'
         }
         project.copy {
             from "${rootDir}/deps/cacert.pem"

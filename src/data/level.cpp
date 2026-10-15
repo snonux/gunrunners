@@ -401,7 +401,12 @@ Level Level::loadFile(const std::string& path)
     throw std::runtime_error("cannot open level file: " + path);
   std::stringstream ss;
   ss << f.rdbuf();
-  return parse(ss.str());
+  Level level = parse(ss.str());
+  std::string slug = path.substr(path.find_last_of("/\\") + 1);
+  if (slug.size() > 4 && slug.compare(slug.size() - 4, 4, ".txt") == 0)
+    slug.resize(slug.size() - 4);
+  level.slug = slug;
+  return level;
 }
 
 } // namespace gr

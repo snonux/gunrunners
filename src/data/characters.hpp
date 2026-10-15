@@ -77,12 +77,24 @@ struct CharacterDef
   int art = -1;
   RunnerParts parts;
   bool custom = false;
+  // The voice the runner speaks with (voiceId); empty for a built-in (its
+  // own id) or a custom runner from before voices (picked by its body).
+  std::string voice;
   // A custom runner brought back by a savegame after it was deleted: it is
   // playable but not written back to runners.txt.
   bool transient = false;
 };
 
 constexpr int kDefaultRunners = 6;
+
+// The voices a runner can speak with: the built-in runners' own, recorded
+// in voices/<id>/. Custom runners pick one in the runner editor.
+constexpr int kVoiceCount = kDefaultRunners;
+const char* voiceId(int index); // "dash" ... "bolt"
+int voiceIndex(const std::string& id); // -1 if there is none
+// The voice this runner speaks with: its pick, else a robot sounds like
+// Bolt and anyone else like Dash.
+std::string runnerVoice(const CharacterDef& def);
 constexpr int kMaxCustomRunners = 24;
 constexpr int kMaxRunnerName = 10;
 // Stat points a custom runner spreads over HEALTH, JUMP and POWER.

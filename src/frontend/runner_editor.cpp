@@ -17,7 +17,7 @@ constexpr int kKeyCols = 10;
 constexpr int kKeyChars = 40;
 constexpr int kKeySpace = 40, kKeyDelete = 41, kKeyDone = 42;
 constexpr float kRowY = 84.0f;
-constexpr float kRowH = 28.0f;
+constexpr float kRowH = 27.0f;
 const Weapon kGuns[4] = {Weapon::Normal, Weapon::Laser, Weapon::Rocket, Weapon::Flame};
 
 int wrap(int v, int n) { return ((v % n) + n) % n; }
@@ -54,6 +54,7 @@ RunnerEditor::RunnerEditor(const Renderer& renderer, const CharacterDef& start, 
   for (int s = 2; s >= 0; --s)
     while (mPips[s] > kMinPips[s] && runnerPointsLeft(mPips[0], mPips[1], mPips[2]) < 0)
       --mPips[s];
+  mVoice = std::max(0, voiceIndex(runnerVoice(start)));
   mPanel = makePanel(renderer, 450, 590, rgba(8, 6, 22, 215), rgba(255, 255, 255, 70), 26);
   mListPanel = makePanel(renderer, 770, 590, rgba(8, 6, 22, 215), rgba(255, 255, 255, 70), 26);
   mKeysPanel = makePanel(renderer, 780, 470, rgba(8, 6, 22, 245), rgba(255, 255, 255, 110), 26);
@@ -63,13 +64,14 @@ CharacterDef RunnerEditor::runner() const
 {
   CharacterDef d = makeCustomRunner(mId, mName, mParts, mGun, mPips[0], mPips[1], mPips[2]);
   d.transient = false;
+  d.voice = voiceId(mVoice);
   return d;
 }
 
 std::vector<RunnerEditor::Row> RunnerEditor::rows() const
 {
   std::vector<Row> out = {Row::Name, Row::Body, Row::Build, Row::Hair, Row::Face, Row::Outfit, Row::Arms, Row::Skin,
-    Row::HairColor, Row::Top, Row::Pants, Row::Boots, Row::Glow, Row::Gun, Row::Health, Row::Jump, Row::Power,
+    Row::HairColor, Row::Top, Row::Pants, Row::Boots, Row::Glow, Row::Gun, Row::Voice, Row::Health, Row::Jump, Row::Power,
     Row::Randomize, Row::Save};
   if (!mIsNew)
     out.push_back(Row::Delete);
@@ -122,6 +124,7 @@ void RunnerEditor::change(Row row, int step)
       mGun = kGuns[wrap(i + step, 4)];
       break;
     }
+    case Row::Voice: mVoice = wrap(mVoice + step, kVoiceCount); break;
     case Row::Health: changePips(0, step); break;
     case Row::Jump: changePips(1, step); break;
     case Row::Power: changePips(2, step); break;
@@ -145,6 +148,7 @@ void RunnerEditor::randomize()
   p.boots = roll(paletteSize());
   p.glow = roll(paletteSize());
   mGun = kGuns[roll(4)];
+  mVoice = p.body == 1 ? voiceIndex("bolt") : roll(kVoiceCount - 1);
   // Spend the whole budget, one point at a time on a random stat.
   mPips[0] = kMinPips[0];
   mPips[1] = kMinPips[1];
@@ -317,6 +321,7 @@ std::string RunnerEditor::rowLabel(Row row) const
     case Row::Boots: return "BOOTS";
     case Row::Glow: return "GLOW";
     case Row::Gun: return "STARTING GUN";
+    case Row::Voice: return "VOICE";
     case Row::Health: return "HEALTH";
     case Row::Jump: return "JUMP";
     case Row::Power: return "POWER";
@@ -342,6 +347,7 @@ std::string RunnerEditor::rowValue(Row row) const
     case Row::Outfit: return outfitName(p.outfit);
     case Row::Arms: return p.sleeves == 1 ? (p.body == 1 ? "BARE METAL" : "BARE") : "SLEEVES";
     case Row::Gun: return weaponName(mGun);
+    case Row::Voice: return characterByIndex(mVoice).name + " - " + characterByIndex(mVoice).role;
     case Row::Health:
       std::snprintf(buf, sizeof(buf), "%d HEARTS", d.maxHp);
       return buf;

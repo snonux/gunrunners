@@ -419,6 +419,7 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     useTheme(s.theme);
   mWorld = std::move(world);
   mCursor = mWorld->characterIndex();
+  beginVoices();
   mBot = Bot{};
   mSubTick = 0;
   mMainWorld.reset();

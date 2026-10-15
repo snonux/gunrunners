@@ -12,7 +12,7 @@ namespace
 {
 
 const char* const kActKeys[kActCount] = {"left", "right", "up", "down", "jump", "fire", "swap", "use", "pause",
-                                            "quicksave", "quickload", "map"};
+                                            "quicksave", "quickload", "map", "say"};
 
 } // namespace
 
@@ -32,6 +32,7 @@ Bindings Bindings::defaults()
   keys(Act::QuickSave, SDL_SCANCODE_F5, 0);
   keys(Act::QuickLoad, SDL_SCANCODE_F9, 0);
   keys(Act::Map, SDL_SCANCODE_M, 0);
+  keys(Act::Say, SDL_SCANCODE_V, 0);
   auto pad = [&b](Act a, std::vector<int> codes) { b.pad[std::size_t(a)] = std::move(codes); };
   pad(Act::Left, {SDL_CONTROLLER_BUTTON_DPAD_LEFT});
   pad(Act::Right, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT});
@@ -128,7 +129,7 @@ const char* actName(Act a)
 {
   static const char* const kNames[kActCount] = {
     "MOVE LEFT", "MOVE RIGHT", "UP / CLIMB", "DOWN / DUCK", "JUMP", "FIRE", "SWITCH RUNNER", "VEHICLE IN/OUT", "PAUSE",
-    "QUICK SAVE", "QUICK LOAD", "MAP"};
+    "QUICK SAVE", "QUICK LOAD", "MAP", "SAY A LINE"};
   return kNames[std::clamp(int(a), 0, kActCount - 1)];
 }
 

@@ -63,6 +63,7 @@ struct EntityDef
 struct Level
 {
   std::string name;
+  std::string slug; // the file's name without ".txt" (loadFile): "01_rooftop_run"
   // Header keys (levels/README.md). Everything is also kept in `header`.
   std::map<std::string, std::string> header;
   int episode = 0;

@@ -339,7 +339,31 @@ CharacterDef remixRunner(const CharacterDef& base)
   const int h = std::clamp(base.healthPips, kMinPips[0], kMaxPips);
   const int j = std::clamp(base.jumpPips, kMinPips[1], kMaxPips);
   const int p = std::clamp(base.powerPips, kMinPips[2], kMaxPips);
-  return makeCustomRunner(newRunnerId(), base.name + "-2", base.parts, base.startWeapon, h, j, p);
+  CharacterDef d = makeCustomRunner(newRunnerId(), base.name + "-2", base.parts, base.startWeapon, h, j, p);
+  d.voice = runnerVoice(base);
+  return d;
+}
+
+const char* voiceId(int index)
+{
+  return defaults()[std::size_t(std::clamp(index, 0, kVoiceCount - 1))].id.c_str();
+}
+
+int voiceIndex(const std::string& id)
+{
+  for (int i = 0; i < kVoiceCount; ++i)
+    if (id == voiceId(i))
+      return i;
+  return -1;
+}
+
+std::string runnerVoice(const CharacterDef& d)
+{
+  if (voiceIndex(d.voice) >= 0)
+    return d.voice;
+  if (!d.custom && voiceIndex(d.id) >= 0)
+    return d.id;
+  return d.parts.body == 1 ? "bolt" : "dash";
 }
 
 int putCustomRunner(const CharacterDef& def)
@@ -369,10 +393,10 @@ std::string encodeRunner(const CharacterDef& d)
 {
   const auto& p = d.parts;
   std::ostringstream o;
-  o << "v1 " << d.id << ' ' << int(d.startWeapon) << ' ' << d.healthPips << ' ' << d.jumpPips << ' ' << d.powerPips
+  o << "v2 " << d.id << ' ' << int(d.startWeapon) << ' ' << d.healthPips << ' ' << d.jumpPips << ' ' << d.powerPips
     << ' ' << p.body << ' ' << p.build << ' ' << p.hair << ' ' << p.face << ' ' << p.outfit << ' ' << p.sleeves << ' '
     << p.skin << ' ' << p.hairColor << ' ' << p.top << ' ' << p.pants << ' ' << p.boots << ' ' << p.glow << ' '
-    << d.name;
+    << runnerVoice(d) << ' ' << d.name;
   return o.str();
 }
 
@@ -384,11 +408,16 @@ bool decodeRunner(const std::string& line, CharacterDef& out)
   RunnerParts p;
   if (!(in >> version >> id >> gun >> h >> j >> pw >> p.body >> p.build >> p.hair >> p.face >> p.outfit >> p.sleeves >>
         p.skin >> p.hairColor >> p.top >> p.pants >> p.boots >> p.glow) ||
-      version != "v1" || id.empty() || id[0] != 'c')
+      (version != "v1" && version != "v2") || id.empty() || id[0] != 'c')
+    return false;
+  // v2 adds the voice (runners from before voices sound like their body).
+  std::string voice;
+  if (version == "v2" && !(in >> voice))
     return false;
   std::string name;
   std::getline(in >> std::ws, name);
   out = makeCustomRunner(id, name, p, Weapon(std::clamp(gun, 0, kWeaponCount - 1)), h, j, pw);
+  out.voice = voiceIndex(voice) >= 0 ? voice : "";
   return true;
 }
 

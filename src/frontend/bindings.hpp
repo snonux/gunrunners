@@ -26,6 +26,7 @@ enum class Act
   QuickSave,
   QuickLoad,
   Map,
+  Say, // the runner says a random line
   Count,
 };
 constexpr int kActCount = int(Act::Count);

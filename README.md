@@ -217,6 +217,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
 | F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
 | M | Back / Select (LB on Android) | the level map: what you have explored so far |
+| V | (bind one in CONTROLS) | your runner says a random line |
 | Enter | A (or Start) | confirm in menus |
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
 | T | | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
@@ -281,6 +282,12 @@ have seen) and the TRAINING STAGE, a free-play level for trying the controls.
   and a slot in the Bonus Channel.
 - **Secrets.** A rubber duck in every level, candid cameras, hidden gem
   caches and the number 42 somewhere.
+- **Runners who talk.** Every runner has their own voice and comments on
+  what they see: three lines in every level, one or two in every bonus
+  level, a bark now and then when something big happens, and a random
+  line on V. RUNNER VOICES and VOICE SUBTITLES in ASSISTS AND OPTIONS set
+  the volume (or switch them off) and the subtitles; custom runners pick a
+  voice in the runner editor.
 - **Savegames.** Five slots, from the pause menu or LOAD GAME on the title
   screen. A save keeps everything: your runner, score, health, weapons,
   items and what is left of the level. A sixth, the quick save, needs no

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.6.0 LANGUAGES CXX)
+project(Gunrunners VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -87,6 +87,8 @@ add_library(gunrunners_core STATIC
   src/audio/synth.cpp
   src/audio/synth_named.cpp
   src/audio/music.cpp
+  src/audio/voice_clip.cpp
+  src/third_party/stb_vorbis.c
   src/game/collision.cpp
   src/game/player.cpp
   src/game/world.cpp
@@ -229,10 +231,14 @@ add_library(gunrunners_core STATIC
   src/frontend/clips.cpp
   src/frontend/flow.cpp
   src/frontend/worlds.cpp
+  src/frontend/voices.cpp
   src/data/campaign.cpp
   src/game/profile.cpp
 )
 target_include_directories(gunrunners_core PUBLIC src)
+# The Ogg Vorbis decoder for the runners' voices (public domain, upstream as is).
+set_source_files_properties(src/third_party/stb_vorbis.c PROPERTIES
+  COMPILE_DEFINITIONS STB_VORBIS_NO_PUSHDATA_API COMPILE_OPTIONS -w)
 target_link_libraries(gunrunners_core PUBLIC SDL2::SDL2 PkgConfig::CAIRO CURL::libcurl)
 target_compile_definitions(gunrunners_core PUBLIC GR_DATA_DIR="${CMAKE_SOURCE_DIR}")
 if(NOT MSVC)
@@ -275,6 +281,18 @@ add_test(NAME bindings COMMAND bindings_test WORKING_DIRECTORY ${CMAKE_BINARY_DI
 add_executable(runner_editor_test tests/runner_editor_test.cpp)
 target_link_libraries(runner_editor_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME runner_editor COMMAND runner_editor_test)
+add_executable(voices_test tests/voices_test.cpp)
+target_link_libraries(voices_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME voices COMMAND voices_test ${CMAKE_SOURCE_DIR})
+# The runner talks on the way through Rooftop Run: the opening line, the
+# hover lenses and the giant sign.
+add_test(NAME voices_rooftop_run COMMAND gunrunners --headless --autoplay --skip-menu --no-cutscenes --voice-log
+  --quit-after-clear --frames 20000 --level ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
+set_tests_properties(voices_rooftop_run PROPERTIES PASS_REGULAR_EXPRESSION "voice: say 01_rooftop_run_3 ")
+# SAY A LINE: Jade says something of her own or of the level, on the key.
+add_test(NAME voices_hotkey COMMAND gunrunners --headless --autoplay --skip-menu --no-cutscenes --voice-log
+  --character 3 --frames 700 --press 500:say --level ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
+set_tests_properties(voices_hotkey PROPERTIES PASS_REGULAR_EXPRESSION "voice: say [a-z0-9_]+ \\(jade\\) frame [0-9]+ \\[hotkey\\]")
 add_executable(audit_test tests/audit_test.cpp)
 target_link_libraries(audit_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME audit COMMAND audit_test)

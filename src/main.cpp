@@ -111,6 +111,7 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "quickload") in.quickLoad = true;
       else if (b == "map") in.map = true;
       else if (b == "use") in.use = true;
+      else if (b == "say") in.say = true;
       else if (b == "aimleft") in.aimLeft = true;
       else if (b == "aimright") in.aimRight = true;
       else if (b == "upjump") in.up = in.jump = in.upJump = true;
@@ -142,6 +143,7 @@ void printUsage()
     "  --audio-out PATH     headless: write the matching soundtrack as a WAV file\n"
     "  --no-audio           windowed: run without sound\n"
     "  --trace              print the player state every logic frame\n"
+    "  --voice-log          print the runners' lines as they trigger and play\n"
     "  --screenshots LIST   headless: save PNGs of these ticks, e.g. 100,250\n"
     "  --screenshot-prefix P  path prefix for those PNGs (default shot_)\n"
     "  --frames N           stop after N ticks\n"
@@ -323,6 +325,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.noAudio = true;
     else if (a == "--trace")
       o.game.trace = true;
+    else if (a == "--voice-log")
+      o.game.voiceLog = true;
     else if (a == "--frames")
       o.maxFrames = std::atol(next());
     else if (a == "--screenshots")

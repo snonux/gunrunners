@@ -1,0 +1,623 @@
+# Gunrunners: what the runners say (docs/VOICES.md has the design).
+#
+# [level <file>]   a level's lines: `<trigger> | <text>`. Triggers:
+#                  start, see <enemy>, at <x> <y>, reach <x> <y> <r>,
+#                  time <seconds>, clear. x, y are map blocks.
+# [event <name>]   barks on game events: turbo, virus, weapon, letters,
+#                  vehicle, respawn, lowhp. Trigger `say`.
+# [runner <voice>] catchphrases for the SAY A LINE hotkey, in that voice.
+#
+# Line ids are the section and the line's number in it (01_rooftop_run_2,
+# event_turbo_1, runner_rocco_3); <voice>.txt says where each one is in
+# <voice>.ogg. Reordering lines renames their recordings: add new lines at
+# the end of a section. tools/voices/ records them.
+
+[event turbo]
+say | Turbo mode! Nothing can touch us now!
+say | Maximum power! Out of the way!
+
+[event virus]
+say | I caught the virus. Everything feels slow and wrong!
+say | Infected? Seriously? Somebody find me a cure!
+
+[event weapon]
+say | New toy! Let's see what it does!
+say | Oh, now this is a real gun!
+
+[event letters]
+say | All three letters! The bonus is ours!
+say | Spelled it out! Somebody pay us extra!
+
+[event vehicle]
+say | Nice ride! Buckle up, everybody!
+say | Keys in the ignition. Let's roll!
+
+[event respawn]
+say | Okay, that did not happen. Round two!
+say | Back on my feet and twice as angry!
+
+[event lowhp]
+say | Running on fumes here! I need a health pack!
+say | One more hit and I am toast!
+
+[runner dash]
+say | Fastest courier in the city, and the best looking.
+say | Package picked up. Bad guys put down.
+say | Keep up, everybody, I am not slowing down!
+say | Another day, another impossible delivery.
+say | Running on coffee and pure talent.
+say | Did somebody order a hero? Because here I am.
+
+[runner rocco]
+say | I came here to deliver. And to blow stuff up.
+say | Rockets. The answer to every question.
+say | Big guns. Bigger attitude.
+say | Nobody said this job would be quiet.
+say | Knock knock. Rocket delivery.
+say | Pain is temporary. Explosions are forever.
+
+[runner nova]
+say | Flip, twist, land it! Ten out of ten!
+say | Gravity is more of a suggestion for me.
+say | Faster, higher, and way more stylish!
+say | Did you see that jump? Tell me you saw that jump!
+say | Laser locked and looking fabulous.
+say | This is the most fun I have had all week!
+
+[runner jade]
+say | Everything is better with a little fire.
+say | Smells like barbecue in here. My favourite.
+say | Light them up! Every last one of them!
+say | Some people collect stamps. I collect scorch marks.
+say | Hot, hotter, and then there is me.
+say | Do not worry, the fire is totally under control. Mostly.
+
+[runner skye]
+say | Eyes up, I see everything from up here.
+say | Scouted ahead. It is a mess. Let's go!
+say | Quick feet, quick trigger, quick exit.
+say | I found the shortcut. You are welcome!
+say | Rapid fire, rapid fun!
+say | Nothing gets past these eyes. Nothing!
+
+[runner bolt]
+say | Fun levels at maximum. No, wait. Beyond maximum!
+say | Beep boop. That means hello, and also run.
+say | My laser is calibrated for maximum awesome.
+say | Warning. Excitement circuits overheating!
+say | I do not have feelings, but this is amazing!
+say | Processing. Processing. Yes, we should shoot it.
+
+[level 01_rooftop_run]
+start | Neon rooftops at sunset, and we are on the clock!
+# why: hover_lens patrol over the hang bar and the long spike pit, x 89-106 row 8, on route
+see hover_lens | Hover lenses! Say cheese, then say goodbye.
+# why: the giant GUN sign whose letters light up, x 151-172 rows 6-10, the victory lap before the exit
+at 161 8 | A giant neon sign that spells gun. Somebody gets us!
+
+[level 01_bonus_cloud_nine]
+start | Jumping on thin air? Gravity just got fired!
+# why: last clouds under the moon balloon at the top right, x 72 row 4, final stretch to the exit
+at 72 4 | A moon balloon up top! Last one there carries the bags!
+
+[level 02_glass_canyon]
+start | A whole glass tower to climb at dawn? Easy money!
+# why: squeegee_drone rails sweep across the pulley stacks, rows 79-91, mid climb
+see squeegee_drone | Window washer drones! Nobody squeegees us off this building.
+# why: penthouse_sniper on the balcony at x 25 row 23, the sniper floors near the top
+reach 25 23 11 | Red laser dot! Sniper on the balcony, get moving!
+
+[level 02_bonus_free_fall]
+start | No floor, no brakes, no problem. Straight down!
+# why: the SAFETY NET sign at the bottom of the shaft, x 8-15 row 76, right before the exit
+at 12 74 | Safety net dead ahead! Stick the landing!
+
+[level 03_club_laserdisc]
+start | Underground club with a killer bass line. Dress code: armed.
+# why: bouncers at the VIP door on floor one, x 81 and 95 row 51, on route
+see bouncer | Big bouncer at the velvet rope. We are on the list!
+# why: the DJ booth decks at x 49-53 row 22 beside the exit, seen on arrival from the drop chain
+at 51 22 | The turntables up top! Time to drop the bass on somebody.
+
+[level 03_bonus_step_on_the_beat]
+start | One move per beat? Good thing we can dance.
+# why: three cardboard_bouncer cutouts on the upper dance floor, x 36-44 row 10, on the way to the exit
+see cardboard_bouncer | Cardboard bouncers? Even the security here is fake.
+
+[level 04_blackout]
+start | The whole district just blacked out. Spooky. Love it!
+# why: night_stalker at x 43 row 13 in the sector A fire escape branch, on the way to breaker A
+see night_stalker | Something tall moving in the dark. Light it up!
+# why: breaker D at x 203 row 18, the last breaker right beside the exit
+reach 203 18 4 | Last breaker! Watch this whole city light back up!
+
+[level 04_bonus_echo_room]
+start | Cannot see a thing. Every shot is a flashlight now.
+time 8 | Still pitch black in here. Keep shooting, keep moving!
+
+[level 05_sludge_line]
+start | Glowing green sludge and a rising tide. Lovely neighborhood.
+# why: first sludge_gator at x 48 row 32 in the low tunnel pools, on route
+see sludge_gator | Sludge gators! Who flushed those down here?
+# why: sludge waterfall at x 166-170 rows 14-31 beside the final outflow walk to the exit
+at 168 28 | A sludge waterfall! Postcard from the worst vacation ever.
+
+[level 05_bonus_duck_rapids]
+start | Riding a rubber duck down the rapids? Best job ever!
+# why: low pipes over the rapids at x 44 and 52, mid course
+at 48 13 | Low pipes coming! Duck, duck, duck!
+
+[level 06_maglev_express]
+start | Train roof at midnight in the pouring rain. Now this is travel!
+# why: first track_hopper at x 72 row 11 on the middle cars, on route
+see track_hopper | Track hoppers jumping car to car. Show offs!
+# why: decoupler at x 178 row 11 between the last cars, late on route
+see decoupler | It is unhooking the cars! Cross now or wave goodbye!
+
+[level 06_bonus_light_trail]
+start | Our feet leave neon now? Bridges, made to order!
+# why: the tall exit tower at x 74-79 from row 6, the climb at the end
+at 72 9 | Big tower ahead. Draw a staircase straight to the top!
+
+[level 07_chopper_down]
+start | A gunship searchlight sweeping the site. It is looking for us!
+# why: first hover_biker at x 58 row 32 charging along the rooftops under construction, on route
+see hover_biker | Hover bikers on the rooftops! Nice rides, terrible drivers.
+# why: the crane-top boss arena at x 160-189 rows 0-11, seen from the top of the crane ladder at x 159
+at 168 6 | Top of the crane. Just us and that gunship now!
+
+[level 07_bonus_pilot_seat]
+start | We get to fly the gunship? Best day on the job!
+# why: cardboard target runners popping up over the street, x 46 row 20, mid run
+at 46 20 | Cardboard runners! Target practice, chaingun style!
+
+[level 08_canopy_road]
+start | Vines, rope bridges, and a long way down. Swing time!
+# why: first cutter at x 128 row 21 hacking rope bridge B1, on route
+see cutter | Somebody is chopping the bridge! Not while we are on it!
+# why: the temple gate at x 203-209 rows 26-33 at the end of the vine chain, next to the exit
+at 205 28 | Temple gate! That golden idol had better be in there.
+
+[level 08_bonus_bounce]
+start | Everything bounces! This tree root is a trampoline park!
+# why: cloud ledges below the exit ledge at x 70 row 6, the last climb
+at 70 6 | Exit ledge way up there. Hold jump and send it!
+
+[level 09_hall_of_traps]
+start | Torches, glyphs, carved faces. Somebody really hates visitors.
+# why: scarabs tide at x 115 row 25 in the east wing stone corridor, mid route
+reach 100 37 11 | A carpet of beetles! That is way too many legs.
+# why: the final trap hall past the key door, spikes and blades at x 92-125 rows 6-11, last stretch to the exit
+at 109 7 | Every trap firing at once. Just walk the safe line!
+
+[level 09_bonus_trapmaster]
+start | We are the temple now? Oh, this is going to be fun.
+# why: treasure_hunter spawns walk in from the left along both halls for the whole bonus
+see treasure_hunter | Treasure hunters! Nobody touches this idol on our watch.
+
+[level 10_sun_mirrors]
+start | Marble, gold, and sunbeams everywhere. Fancy place for a fight.
+# why: Mirror Monk patrols at x 48-70 and 8-38 on row 57, the monk gallery mid climb
+see monk | A monk with a mirror shield. Bounce some sunlight off that!
+# why: the stone sun door at x 45 rows 2-5 beside the summit exit, end of the climb
+at 46 3 | A stone sun at the summit! Now that is a front door.
+
+[level 10_bonus_negative]
+start | Sun, moon, sun, moon. Make up your mind, sky!
+# why: alternating sun and moon floors over the pits at x 29-50 row 18, on route
+at 40 17 | Sun floors, moon floors. Jump when the right one shows!
+[level 11_idol_mines]
+start | Mine carts on a gold vein. Now that is a commute!
+# why: first rock_mole (mole 124 25) in the on-foot cracked rock maze, x 116-150, on route
+see mole | Rock moles popping out of the walls! Whack time!
+# why: cart bandits ride rail R6 (row 22) beside the trestle race on rail R4 (row 28), x 165-199, late
+see cartbandit | Cart bandits on the next track! This is a drag race now!
+
+[level 11_bonus_pinball]
+start | I am the pinball now? Okay, launch me!
+time 8 | Light every lantern! Flippers, do not let me down!
+
+[level 12_lava_heart]
+start | Lava below and the floor is sinking. Lovely place!
+# why: magma toads leap from the lava under the stone chain, x 58-78 row 25, on route mid
+see toad | Magma toads jumping out of the lava! Hot and hoppy!
+# why: party-hat Basalt Crab on ferry F2 (path 154-162, row 35), crab ferry section, late
+at 158 35 | A crab in a party hat? Somebody is celebrating early!
+
+[level 12_bonus_floor_lava]
+start | The floor is lava? Fine, the toads are my floor!
+# why: middle of the toad cavern, halfway across the head hops (toads x 6-71 row 21)
+at 52 16 | Toad to toad to toad! Who needs a floor anyway?
+
+[level 13_boulder_run]
+start | A boulder the size of a bus! Nobody stop running!
+# why: pit snakes in chase two, first at 107 18, x 104-137, on route mid
+see pitsnake | Snakes in the floor? Of course there are snakes!
+# why: totem stacks block chase three at 168, 189, 210 row 18, on route late
+see totem | Stacked stone heads spitting darts! Knock their blocks off!
+
+[level 13_bonus_surf]
+start | Riding a boulder through a crowd of cultists. Best day ever!
+# why: thickest cultist crowd in the canyon, x 46-59 rows 19-22, on the boulder route
+at 52 19 | Boulder bowling! That is a strike!
+
+[level 14_idol_awakens]
+start | Solid gold everywhere! Greed is a trap. A shiny trap.
+# why: first War Drummer at 52 29 on the golden hall floor, on route mid
+see drummer | A war drummer! Shut down the band before the encore!
+# why: boss arena floor in front of Kaan-Tolok (golem 166 20, arena 151-188), late
+at 162 27 | A giant golden idol is getting up. Of course it is!
+
+[level 14_bonus_golden]
+start | Everything I touch turns to gold? Finally, a fair deal!
+# why: temple cats on the floor past the first gold door, x 34-49 rows 18-21, on route
+see templecat | Temple cats! Hold still for your golden statue.
+
+[level 15_hangar_bay]
+start | Blow a hole in a space station on purpose? Dream job!
+# why: Loader Mech LM1 at 68 49 among the parked shuttles on the hangar floor, on route mid
+see loader_mech | A cargo mech chucking crates! Somebody skipped safety training!
+# why: Tether Pairs patrol the gantries, TP1 at 128 41 and TP2 at 130 33, on route late
+see tether_pair | Two drones with a laser between them. Cut the cord!
+
+[level 15_bonus_asteroid_belt]
+start | No gravity, no floor. Every shot is a free ride!
+# why: big tumbling asteroid A10 at 62 14 on the way to the beacon at 76 12
+at 63 15 | Big tumbling rock ahead! Bounce off it and look cool!
+
+[level 16_cryo_labs]
+start | Ice floors and frozen labs. Skating was not in the job description!
+# why: Sleeper Pods line the pod hall, x 95-119 row 33, on route mid
+see sleeper_pod | Cryo pods cracking open! Somebody woke up grumpy.
+# why: the cryo vault crew pods, x 175-185 row 33, right before the exit at 187 33
+at 180 32 | The whole crew on ice. Sleep tight, we will be quick.
+
+[level 16_bonus_air_hockey]
+start | Air hockey with frozen drones? Best break room ever!
+time 8 | No friction at all! The only brakes here are walls!
+
+[level 17_hydroponics]
+start | A greenhouse in space? Smells like salad and trouble!
+# why: first Glob GB1 at 30 45 in the Glob tanks dome (row 45), on route mid
+see glob | Lab slime! Hit it and it splits. Of course it does.
+# why: arriving in the top dome off the vine ladder at x 4, lamps and stairs ahead, late
+reach 5 15 4 | Top dome! Light every lamp and let the jungle do the climbing.
+
+[level 17_bonus_growth_spurt]
+start | Every gem makes me bigger? Pass the gems!
+# why: the heavy rock wall at x 23-25 rows 1-20 right after the first gem run
+at 24 15 | A whole wall of rock. Grow big, walk right through.
+
+[level 18_hull_walk]
+start | Walking on the outside of a space station. Do not look down!
+# why: crashed UFO deco at 58-63 rows 27-29 on the hull, on route mid
+at 60 28 | A crashed flying saucer? Somebody failed their driving test!
+# why: Rivet Mites on the far-side hull plates, x 165-190 row 29, on route late
+reach 175 29 4 | Tiny robots unbolting the floor! Get off my hull!
+
+[level 18_bonus_planetoids]
+start | Tiny planets with their own gravity! Walk right around them!
+# why: middle planetoid at 46 9 with a ship part at 42 7, halfway across
+at 46 9 | Planet hopping for alien spare parts. Living the dream!
+
+[level 19_gravity_lab]
+start | Gravity switches everywhere. Up is down and down is optional!
+# why: Gravity Probes in the long B-row corridor, first GP1 at 112 32, on route mid
+see gravity_probe | A floating orb pulling me in! Personal space, please!
+# why: Test Subjects in chamber B1 at 15 43 and 30 43 by the test gate, on route late
+see test_subject | A lab mutant copying my every jump? Get your own moves!
+
+[level 19_bonus_gun_gravity]
+start | Down is wherever I shoot? This is going to get messy!
+time 8 | Floor, wall, ceiling. Who even needs a floor anymore?
+
+[level 20_reactor_core]
+start | Blue glow, big hum, pulse every ten seconds. Stay behind the lead!
+# why: Shield Drone SD1 at 35 44 guarding Isotope Imps on the row 49 hall, on route mid
+see shield_drone | A shield drone babysitting imps! Pop the bubble first!
+# why: first coolant valve V1 at 72 105 on the core floor, last stretch to the exit at 6 105
+at 72 104 | Three coolant valves. Time to put this reactor to bed!
+
+[level 20_bonus_stop_motion]
+start | Time only moves when I move? Then nobody blink.
+# why: Isotope Imps at 65 15 and 72 17 on the lower floor, mid level
+see isotope_imp | Glowing imps stuck mid step. Only move when you mean it!
+[level 21_zero]
+start | A cathedral made of servers. Somebody really worships computers.
+# why: repair_swarm RS1 at 60 30 in the first layout, right after the rack corridor, on route
+see repair_swarm | Tiny repair bots! We break it, they fix it. Shoot them first!
+# why: ZERO's eye at 167 30 in the core arena (152-187), the boss fight at the end of the route
+at 167 30 | There it is. One giant red eye, and it is all ours.
+
+[level 21_bonus_wireframe]
+start | Everything is wireframe! Can we walk through walls now?
+time 8 | Only the pink outlines are solid. The gems hide in the walls!
+
+[level 22_dry_gulch]
+start | Channel seven, westerns. Dusty town, lots of dynamite. Perfect.
+# why: duelist D1 standing in main street at 94 21, past the saloon and bank, mid route
+see duelist | A duelist waiting for the church bell. Draw fast, partner!
+# why: tumble_mine spawner at 174 33, mines blown left through the mine tunnel (row 33, x 137-178) the route must cross
+see tumble_mine | Tumbleweeds with mines inside? This town really hates visitors!
+
+[level 22_bonus_high_noon]
+start | Twenty duels, one shot each. Fastest hand in the west!
+time 8 | Another bell, another duel. We never miss.
+
+[level 23_fright_night_manor]
+start | Channel thirteen, horror. Even the portraits are staring at us.
+# why: coffin with its sign at 68-71 66 in the cellar, passed on the way to the cellar lever at 100 67
+at 70 66 | A coffin with a do not disturb sign. Happy to oblige.
+# why: the ballroom mirror row (bm_a to bm_e, x 9-41 row 23) after the attic lever, the last stretch before the exit
+at 25 23 | A ballroom full of mirrors. Somebody here loves their reflection.
+
+[level 23_bonus_both_sides]
+start | Two runners, two sides, mirrored controls. What could go wrong?
+time 8 | Top and bottom both need their exit. Stay in sync!
+
+[level 24_too_many_cooks]
+start | Shrunk to the size of a spoon, on a cooking show!
+# why: big meatballs MB1/MB2 at 66-74 47 and the meatball spawner at 78 36 in the sushi bar, mid route
+see meatball | A meatball rolling straight at us! Who ordered the meatball?
+# why: cleaver_bot CB1 on the stovetop pot rims at 133 28, late route before the fridge climb
+see cleaver_bot | A robot chef throwing cleavers! Hey, we are not on the menu!
+
+[level 24_bonus_turntable]
+start | The whole room is turning! Grab the gems before they slide!
+time 8 | Walls are floors and floors are walls. Love this kitchen.
+
+[level 25_tiny_kingdom]
+start | Grass like trees, dew drops like boulders. We are tiny!
+# why: bombardier_beetle BB1 at 63 43 on the lawn among the ant columns, mid route on the ground row
+see bombardier_beetle | A beetle with a boiling backside. Never sneak up behind it!
+# why: the giant dandelion at 176 43 (stalk rising above it), the final set piece that lifts the runner to the exit
+at 176 38 | A dandelion the size of a radio tower. Going up!
+
+[level 25_bonus_dandelion_drift]
+start | Riding a dandelion seed across the whole garden!
+# why: dragonfly cluster at 32-47 rows 6-14, the middle of the drift
+at 40 9 | Dragonflies the size of helicopters! Keep drifting!
+
+[level 26_kaiju_tonight]
+start | A tiny model city, and tonight we are the monster!
+# why: maser_truck at 112 29 in the power plant (sector A), mid route on the street row
+see maser_truck | A truck with a laser dish? Bring it, tiny army!
+# why: Gorgazilla at 209 29 in the harbor arena (191-219), the mini-boss right before the exit
+at 209 27 | Another monster? That is a guy in a rubber lizard suit!
+
+[level 26_bonus_top_down]
+start | The camera tipped over! Rampage from straight above!
+# why: model_tank squads on the streets at rows 2, 14 and 20, x 16-60, across the whole page
+see model_tank | Tiny tanks shooting up at us. That is adorable.
+
+[level 27_the_long_rain]
+start | Black and white, pouring rain. We walked into a detective story.
+# why: the stage spotlight at 117 28 sweeping 108-126 in the dark jazz club, mid route
+at 117 32 | A jazz club with a roaming spotlight. Stay cool, stay dark.
+# why: rooftop at rows 17-19 after the stairs from the street, red exit sign at 187 19, end of the route
+at 184 18 | Rooftop at last, and that red exit sign is calling.
+
+[level 28_toon_town_throwdown]
+start | Channel one, cartoons! We have big eyes and white gloves now!
+# why: the first piano_bird spawner at x 105; the stork flies in over the runner on row 19
+at 108 16 | A stork carrying a piano? Watch for the shadow!
+# why: Buddy Boom at 192 35 in the big top arena (172-213), the boss at the end
+at 192 31 | That grinning mascot is three times our size. Perfect target!
+
+[level 28_bonus_inkwell]
+start | A blank page and a pot of ink. Time to draw a floor!
+time 8 | Every line we draw turns solid. Art class finally pays off!
+
+[level 29_dead_air]
+start | Dead air between channels. Nothing but static and that hum.
+# why: static_swarm cloud at 80-99 rows 35-43 in the ghost bar maze after the bar towers, mid route
+see static_swarm | A swarm of living static! Keep that snow off us!
+# why: test_card at 120 40 in the circle arena (105-136), the big fight late in the route
+see test_card | A giant test card with a face. Please stand by for damage!
+
+[level 29_bonus_wraparound]
+start | No edges on this screen. Fall off the bottom, drop in the top!
+# why: static_swarm at 4 21, 30 21 and 20 4, all on the single screen
+see static_swarm | Static again! Keep wrapping, keep shooting!
+
+[level 30_fiber_trench]
+start | Sea floor, and a glowing cable to follow. Dive, dive!
+# why: the dark sunken ship hold at 57-90 rows 24-33 with its air pocket, mid route
+at 70 29 | A sunken ship, dark as ink. Shiny things down here might bite.
+# why: cable_eel at 103 46 by the trench wall where the route turns west over the abyss, late route
+see cable_eel | Eels living inside the cable! This network has serious bugs.
+
+[level 30_bonus_bubble_up]
+start | Stuck in a bubble that only goes up. Mind the spikes!
+# why: near the top of the shaft by the last ring at 12 20, close to the exit at 12 1
+at 12 18 | Almost at the top. Hold together, little bubble!
+[level 31_storm_relay]
+start | Storm clouds, lightning, and a lighthouse. Perfect beach day!
+# why: two kite_drones over the sea caves at x 40 and 55, row 58, on the cave route from the lift to the ladder at x 30
+reach 40 58 9 | Kite drones on a leash! Lightning is going to love those.
+# why: metal spiral stairs (flight2) inside the lighthouse, late, on the climb to the lamp room and exit
+at 74 21 | Metal spiral stairs in a lightning storm? Who designed this?
+
+[level 31_bonus_bungee]
+start | Tied to a lighthouse in a thunderstorm. Best bungee jump ever!
+time 8 | Swing through those rings! Higher, faster, louder!
+
+[level 32_dish_array]
+start | Giant dishes, blue sky, endless sand. Somebody pass the sunscreen!
+# why: sand_sharks in the dune sea at x 45-70, row 37, mid-route between the start dune and the array
+reach 45 37 4 | A shark swimming in the sand? Stay on the rocks!
+# why: scorpion_mechs guarding the control bunker at x 146-172, row 37, late on the main floor route
+see scorpion_mech | Scorpion mech with a laser tail. Time to jam that thing!
+
+[level 32_bonus_heatstroke]
+start | Heat waves in these headphones. My head is spinning!
+time 8 | Left is right, right is left. Just keep moving!
+
+[level 33_magma_mainframe]
+start | Servers inside a volcano, and the lava is rising. Climb!
+# why: lava_daemons on the server floors, rows 103-115, the first enemies on the climb
+see lava_daemon | A fire imp throwing fireballs? Thanks for the free ammo!
+# why: firewall corridors at rows 73-85, mid-to-late on the climb, the level's signature enemy
+see firewall | A literal wall of fire. Somebody here loves a pun!
+
+[level 33_bonus_overclock]
+start | Everything at triple speed, us included. Hold on tight!
+time 8 | Faster than the firewall! Do not stop now!
+
+[level 34_zeppelin_relay]
+start | Airships above a sea of clouds. Whatever happens, do not look down!
+# why: sky_pirates spawn as the runner passes x 50 and x 90 (spawn kind=sky_pirate trigger=50/90), mid-route
+see sky_pirate | Sky pirates on jetpacks! Time to reel one in!
+# why: the wide gap between the fleets, crossed by the grapple chain from x 172 to 193 at row 22, late
+at 178 22 | Big gap between the fleets. Hook, swing, and hold on!
+
+[level 34_bonus_human_cannonball]
+start | Fired from a cannon above the clouds? Sign me up!
+# why: the far 5000-point net at x 69-70, row 20, seen in flight across the bonus
+time 4 | That far net looks tiny from up here!
+
+[level 35_the_transmitter]
+start | The whole tower turns when we walk. Now that is a stage!
+# why: relay_drones circling the dish level at rows 58-62, mid-climb on the route
+see relay_drone | Relay drone sneaking around the curve. I can hear you coming!
+# why: top of the ladder at x 44 onto the top deck (row 7), just before the Halcyon Titan arrives, late
+reach 44 7 6 | Top of the tower. Whatever they fly in, it is going down!
+
+[level 35_bonus_copycat]
+start | Everybody copies our moves? Fine, follow the leader!
+time 8 | Walk them right into the pits. Too easy!
+
+[level 36_prop_warehouse]
+start | Every set from every show, stacked to the roof!
+# why: prop mimics among the real boxes in the prop maze, x 70-90, rows 46-49, mid-route
+see mimic | That box is breathing. Nope, not opening that one!
+# why: the crane yard, ride cranes cr3-cr5 over the foam pit, pillar at x 108-110 row 50, late on route
+at 109 50 | Magnet cranes over a pit. All aboard the crate express!
+
+[level 36_bonus_throw]
+start | No gun, just muscle. Time to throw everything!
+time 8 | Stack it high! Furniture is the new staircase!
+
+[level 37_wardrobe]
+start | Velvet, mirrors, and changing booths. Time for a makeover!
+# why: mannequins in the costume rack aisles at x 50-63, row 43, mid-route
+see mannequin | That mannequin just moved! I saw it move!
+# why: the archive's row of three booths at x 131-135, row 47, late, just before the exit booth
+at 133 47 | One last row of booths. Pick a face and go!
+
+[level 37_bonus_totem]
+start | All three of us stacked up like a totem pole!
+time 8 | Up you go! Somebody catch the one on top!
+
+[level 38_writers_room]
+start | So this is where they write our doom. Red pen time!
+# why: deadline walking its lane x 87-106 on the bottom desk floor, row 54, mid-route (a second one at x 110 row 21)
+see deadline | A deadline with legs! Better beat this one early.
+# why: the LANCE WINS wall at x 140-141, rows 16-21, right before the exit at x 146, late
+at 140 18 | Lance wins? Not in this draft!
+
+[level 38_bonus_breakout]
+start | A wall of letters and a bouncing ball. Break it all!
+
+[level 39_gallery]
+start | Hundreds of monitors, and every one is watching us!
+# why: boomop at x 78, row 53, between the CAM 2 and CAM 5 monitors on the bottom floor, mid-route
+see boomop | Boom mic swinging overhead! Keep your heads down!
+# why: floor managers in the main gallery at x 110 and 128, row 35, late, before the exit at x 137
+see floormgr | Floor manager counting down? Cut that count short!
+
+[level 39_bonus_rewind]
+start | Rewind after every crash? Mistakes are free today!
+# why: the laser grid at x 53-63, rows 17-21, after the three crushers, mid-to-late on the only route
+at 58 19 | Laser grid ahead. Good thing we can rewind!
+
+[level 40_fly_tower]
+start | Stage lights, smoke, and flame cannons. Now this is a concert!
+# why: followspot FS1 at x 76, row 91, on the lower catwalks, mid-route
+see followspot | Spotlight robot! If it lights us up, the riggers start shooting!
+# why: the pyro wall, flame cannons at x 44-74 from row 51 up, platform at x 59-62 row 43, late
+reach 52 44 9 | A whole wall of flame cannons. Ride that heat up!
+
+[level 40_bonus_trigger]
+start | Every jump fires a shot. Trigger happy, here we come!
+time 8 | Discs everywhere! Jump, shoot, jump, shoot!
+
+[level 41_sweeps_week]
+start | Light bulbs, sequins, and a giant applause meter. Give them a show!
+# why: audience_plants in the stands at x 70-92, rows 32-37, segment 2, mid-route
+see audience_plant | That one is not clapping. Plant in the crowd!
+# why: the turntable stage at x 136-157, row 40, segment 4, late, before the exit at x 166
+at 141 39 | Spinning turntable stage! Keep those feet moving!
+
+[level 41_bonus_paintball]
+start | Every step paints the floor. Time to make some art!
+time 8 | The crowd wants color! Paint every last inch!
+
+[level 42_live_finale]
+start | Live on air, season finale. Let us steal the show!
+# why: stunt doubles on the toon and studio wagons at x 83-109, row 39, late-mid on the turntable route
+see double | Masked stunt doubles of us? The originals are better!
+# why: Lance's hover podium in the boss arena (lance path 124,32 to 150,32), late, after the backstage refill
+at 128 32 | Lance Marquee, live and in person. This show is cancelled!
+
+[level 42_bonus_bloopers]
+start | Blooper reel! The rules change every ten seconds!
+time 8 | Wait, what are the rules now? Just keep running!
+[level 43_starfall]
+start | We are flying a spaceship now? Best wrong turn ever!
+# why: first void_ray formation at x 188-190, rows 8-12, open space after the asteroid zig-zag, on the flight route
+see void_ray | Glowing space mantas! Line them up and light them up!
+# why: landing pad rect 285-295 row 22 below Vurr's clouds, the exit hatch at 292 21 sits on it
+reach 284 22 9 | Landing pad dead ahead. Try not to scratch the paint!
+
+[level 44_crash_garden]
+start | Glowing mushrooms the size of houses. Nice place to crash!
+# why: first gloop at 56 37 in the bottom corridor after the drop down the first shaft, on route
+see gloop | A hopping blob of green jelly! Dessert is served!
+# why: second goo chimney (goo walls x 139 and 145, rows 8-29), the late climb up to the canopy and exit
+at 142 26 | Goo on both walls again. Up the chimney we go!
+
+[level 45_hive_gullets]
+start | Pink, wet and pulsing. We are inside something alive!
+# why: drone_warden patrolling the hub at 74 24, right after the first tube spits the runner into the hub
+see drone_warden | Big armored bug on patrol! Swat it before it calls backup!
+# why: the breathing mouth of the crown tube at 157 40, east end of the east wing, the way up to the exit
+at 155 40 | That mouth is breathing. And we are jumping in there?
+
+[level 46_crystal_drift]
+start | Floating crystal islands! Watch that first step, it is a long one.
+# why: shard_golem on the fourth island at 98 22, mid-level, on the island route
+see shard_golem | A walking crystal boulder! Somebody find its soft side!
+# why: the crystal slab cliff at x 152-155 rows 15-22 on the fifth island, late, the climb on the route
+at 153 18 | A crystal tower in the way. Nothing is ever easy up here!
+
+[level 47_silk_canyon]
+start | Giant webs across the whole canyon. So where is the spider?
+# why: first Loom Spider, spawned on the third silk line 29 24 to 72 31 (spider=1), on the ride down
+see loom_spider | Spider on our line! Hands off the rope, eight legs!
+# why: the rock pillar hanging mid-canyon at x 46-53 rows 40-44, the fourth ride starts on its top
+reach 49 41 13 | A rock pillar hanging in midair. Solid ground, sort of!
+
+[level 48_bounder_plains]
+start | Purple thorn grass under two moons. Watch where you step!
+# why: the first Bounder in its pen at 28 27, just past the first Thorn Hog, where the ride starts
+at 29 26 | A giant friendly flea! Saddle up, we are riding!
+# why: the deep gully x 186-196 rows 22-30 after the high ground, crossed on the second Bounder, late
+at 191 25 | That gully is deep. Jump, flea, jump!
+
+[level 49_hive_mother]
+start | Glowing eggs everywhere. Nobody touch anything, I mean it!
+# why: the antechamber after the gallery drop, checkpoint and health boxes at x 98-103 row 29, before the arena door at 109
+reach 102 29 4 | Free health before a giant door? That is never good news!
+# why: the Hive Mother on her throne at 141 29 in the arena x 110-148, the boss fight
+at 140 24 | So that is the Hive Mother. Sorry, the Seed is ours now!
+
+[level extra_motor_pool]
+start | A garage full of war machines, and the keys are in all of them!
+# why: the mech parked at 202 29, fourth vehicle in the row, where the helicopter drops the runner
+at 203 27 | A giant walking battle suit! Now we are talking!
+
+[level extra_deep_dive]
+start | A submarine with our name on it. Dive, dive, dive!
+# why: the angler at 118 46, right past the gap under the third reef wall (x 110-113, open rows 41-47), on the sub route
+reach 118 46 6 | A fish with a lamp on its head. Do not follow the light!

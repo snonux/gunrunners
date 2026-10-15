@@ -74,8 +74,15 @@ int main()
     check(e.runner().parts.body == 1, "BODY switches to a robot");
     check(e.runner().parts.hair < hairStyleCount(1) && e.runner().parts.face < faceCount(1), "robot parts in range");
 
+    // VOICE: a remix starts with the voice it was made from, and steps
+    // through the six.
+    down(e, 13); // Voice
+    check(runnerVoice(e.runner()) == "rocco", "a remix of Rocco sounds like Rocco");
+    press(e, false, false, 0, 1);
+    check(runnerVoice(e.runner()) == "nova", "VOICE steps to the next voice");
+
     // Stats: HEALTH up to the limit of the budget, never over it.
-    down(e, 13); // Health
+    down(e, 1); // Health
     for (int i = 0; i < 6; ++i)
       press(e, false, false, 0, 1);
     d = e.runner();

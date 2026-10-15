@@ -55,6 +55,12 @@ public:
   void stopNamed(const std::string& id);
   void stopAllNamed();
   void voiceBlip(const std::string& speaker);
+  // A runner's spoken line (mono, kAudioRate): one at a time on its own
+  // channel, with the music ducked under it. A new line replaces the one
+  // playing. volume 0 is silence.
+  void playVoice(std::shared_ptr<const std::vector<float>> clip, float volume);
+  void stopVoice();
+  bool voicePlaying();
   // Mixes `frames` stereo frames (interleaved L/R floats in -1..1).
   void mix(float* out, int frames);
 
@@ -93,6 +99,10 @@ private:
   std::vector<Voice> mVoices;
   Music mMusic = Music::None;
   std::size_t mMusicPos = 0;
+  std::shared_ptr<const std::vector<float>> mVoiceClip;
+  std::size_t mVoicePos = 0;
+  float mVoiceVolume = 1.0f;
+  float mDuck = 1.0f; // music gain, eased towards kDuckedMusic under a line
   std::mutex mMutex;
   SDL_AudioDeviceID mDevice = 0;
 };

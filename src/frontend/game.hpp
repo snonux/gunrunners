@@ -7,6 +7,7 @@
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
 #include "frontend/runner_editor.hpp"
+#include "frontend/voices.hpp"
 #include "game/input.hpp"
 #include "game/profile.hpp"
 #include "game/s3.hpp"
@@ -44,6 +45,7 @@ struct GameOptions
   bool cheats = false;  // the pause menu's CHEATS item from the start
   bool window = false;  // a real window (not headless): offer FULLSCREEN
   bool touch = false;   // on-screen gamepad: offer its TOUCH PAD size
+  bool voiceLog = false; // print the runners' lines as they trigger and play
 };
 
 // Top-level mode management, the equivalent of RigelEngine's
@@ -286,6 +288,7 @@ private:
   std::string keysHint() const;
   // The ASSISTS AND OPTIONS rows (kept in the profile; none is a cheat).
   bool playOption(const char* key, bool fallback = false) const;
+  bool assistOn(const char* key) const;
   World::PlayOptions playOptions() const;
   void tickAssists(bool ok, bool cancel, int dir);
   void renderAssists();
@@ -305,6 +308,7 @@ private:
   std::unique_ptr<World> mMainWorld; // parked while its bonus level plays
   std::shared_ptr<const Level> mMainLevel;
   Bot mMainBot;
+  VoiceDirector mMainVoice; // the level's lines while its bonus level runs
   int mBonusScore = 0, mBonusGems = 0;
   bool mBonusWon = false;
   bool mBonusCheated = false;
@@ -366,6 +370,13 @@ private:
   std::array<std::optional<SaveGame>, kSaveSlots> mSlots;
   std::string mNotice;
   std::string mPlayingOverride; // the world's music override now playing
+  // The runners' spoken lines (voices.cpp) and the RUNNER VOICES setting.
+  VoiceBank mVoiceBank;
+  VoiceDirector mVoice;
+  std::string voicesDir() const;
+  float voiceVolume() const;
+  void beginVoices();
+  void renderSubtitle();
   int mNoticeTicks = 0;
   std::future<std::string> mCloudRefresh;
   struct CloudUpload
