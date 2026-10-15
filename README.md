@@ -192,7 +192,7 @@ low beside it and the runner crouches and shoots low. Shots go where the
 weapons can: up, left, right, or crouched to the side (straight down only
 from a hang bar or the jetpack). The fire mark in the bottom right corner
 shoots the way the runner faces; hold a finger down to keep firing, and a
-quick flick while it is down re-aims (up, down, left or right). Switch runner, Use (get in or out of a vehicle),
+quick flick while it is down re-aims (up, down, left or right). Next weapon (the pistol), Switch runner, Use (get in or out of a vehicle),
 the Map and Pause sit in a row along the top, out of both thumbs' way. If
 you'd rather have the classic buttons, TOUCH in CONTROLS (THUMB ZONES or
 CLASSIC BUTTONS) switches to Fire (the big corner
@@ -225,6 +225,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
 | R | right stick click (RS) | switch to a random runner (never the one you are playing) |
+| Q | left trigger (left stick click on Android) | switch to the next gun you carry |
 | E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
@@ -331,6 +332,14 @@ On top of that:
   runner right where you stand, or R (right stick click) for a random one.
   Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
   pause menu has a RANDOM RUNNER button.
+- **Carry up to three guns.** A weapon pickup still goes straight into
+  your hands, but the gun you held stays with you instead of being thrown
+  away: three guns at most, the blaster included (the pips by WEAPON in
+  the HUD count them). Q (gamepad left trigger, the pistol button on
+  touch) switches to the next one, each keeping its own ammo. With three
+  already, a new gun takes the place of the one in your hands (or, with
+  the blaster in hand, of the gun you held last). A gun that runs dry
+  still drops you back to the blaster.
 - **Runner editor.** NEW RUNNER on the runner select screen makes your own:
   human or robot, build, hair (or head kit), face (or optics), outfit,
   colours, name, starting gun, and ten stat points to spread over health,

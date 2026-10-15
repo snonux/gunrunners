@@ -139,6 +139,18 @@ struct Player
   Weapon weapon = Weapon::Normal;
   int proto = -1; // ProtoId while weapon == Weapon::Proto
   int ammo = 0;
+  // The guns carried but not in hand, in switching order (the gun after
+  // the one in hand first). The blaster is one of them while another gun
+  // is in hand; a gun that runs dry is gone.
+  struct Spare
+  {
+    Weapon weapon = Weapon::Normal;
+    int proto = -1;
+    int ammo = 0;
+  };
+  static constexpr int kMaxGuns = 3; // in hand plus spares, the blaster included
+  std::array<Spare, kMaxGuns - 1> spares{};
+  int spareCount = 0;
   int shotCooldown = 0; // frames until the prototype can fire again
   int charge = 0;       // frames fire has been held (charge and hold modes)
   int rapidFire = 0; // frames left
@@ -1686,6 +1698,12 @@ public:
   // items; health keeps the same share of the new runner's hearts. Returns
   // false while dying or leaving through the exit.
   bool switchCharacter(int characterIndex);
+  // Puts the next carried gun in the runner's hands (the gun in hand goes
+  // to the back of the line). Returns false if there is nothing to switch
+  // to, or not right now (fire held, at the wheel, a level that hands out
+  // one gun for good).
+  bool nextWeapon();
+  bool weaponLocked() const;
   int characterIndex() const { return mCharacterIndex; }
   // Shows a line of text under the HUD, like the pickup messages.
   void notify(const std::string& text) { showMessage(text); }
@@ -3381,6 +3399,19 @@ private:
   void fireProto(int ox, int oy, int dx, int dy);
   bool stepSurfaceShot(Projectile& pr);
   void takeProto(const Vec2& at);
+  // Puts this gun in hand; the gun held so far joins the spares (see
+  // Player::spares). A spare of the same gun comes back with its ammo;
+  // otherwise ammo is 0 for the caller to fill. With kMaxGuns carried
+  // already, the gun in hand is dropped for it (as before the switch
+  // existed), or, with the blaster in hand, the gun held most recently.
+  // Returns true if the gun was carried already.
+  bool equip(Weapon w, int proto = -1);
+  Player::Spare* spareGun(Weapon w, int proto = -1); // nullptr if not among the spares
+  // Keeps the spares in line with the gun in hand after code that set
+  // Player::weapon directly (a gun that ran dry, a level script).
+  void tidySpares();
+  // Lets go of whatever the gun in hand was doing (a held beam, a charge).
+  void stowGun();
   void updateProtoShooting(const Button& fire);
   bool onTheBeat() const;
 
@@ -3710,6 +3741,7 @@ private:
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
   PlayOptions mPlay;
   int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
+  bool mFireHeld = false; // in the latest logic frame (no weapon switch while firing)
   int mJumpBuffer = 0;   // jump help: frames a jump pressed in the air still counts on landing
   int mDamageCarry = 0;  // low damage: half a heart not yet taken
   bool mDeathRush = false; // quick retry asked for: the death scene ends early

@@ -98,6 +98,7 @@ add_library(gunrunners_core STATIC
   src/game/world_save.cpp
   src/game/world_level.cpp
   src/game/world_proto.cpp
+  src/game/world_guns.cpp
   src/game/world_platforms.cpp
   src/game/world_club.cpp
   src/game/world_actors.cpp
@@ -307,6 +308,9 @@ add_test(NAME cutscene_voices COMMAND cutscene_voices_test ${CMAKE_SOURCE_DIR})
 add_executable(audit_test tests/audit_test.cpp)
 target_link_libraries(audit_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME audit COMMAND audit_test)
+add_executable(weapons_test tests/weapons_test.cpp)
+target_link_libraries(weapons_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME weapons COMMAND weapons_test)
 
 add_executable(vehicle_test tests/vehicle_test.cpp)
 target_link_libraries(vehicle_test PRIVATE gunrunners_core SDL2::SDL2)

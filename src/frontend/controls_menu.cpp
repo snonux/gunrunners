@@ -7,6 +7,7 @@
 #include <SDL.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace gr
 {
@@ -241,7 +242,9 @@ void Game::renderControls()
     r.drawText(heads[c], colX[c], 168, {15.0f, t.accentB, kInk}, Align::Center);
 
   const auto rows = controlRows();
-  const float step = rows.size() > 17 ? 22.0f : rows.size() > 15 ? 25.0f : rows.size() > 13 ? 26.0f : rows.size() > 11 ? 28.0f : 30.0f;
+  // The rows share the panel down to the help line, closer as more come.
+  const float step = std::min(30.0f, std::floor(360.0f / float(std::max<std::size_t>(rows.size(), 2) - 1)));
+  const float textSize = step < 22.0f ? 18.0f : 20.0f;
   // While it listens, a tap anywhere gives up (like BACK).
   if (mListening)
     tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::back); });
@@ -278,8 +281,8 @@ void Game::renderControls()
           sound(Sfx::MenuMove);
         });
     }
-    const TextStyle plain{20.0f, t.hudText, kInk};
-    const TextStyle chosen{20.0f, t.accentA, kInk, true};
+    const TextStyle plain{textSize, t.hudText, kInk};
+    const TextStyle chosen{textSize, t.accentA, kInk, true};
     if (row.kind != RowKind::Action)
     {
       if (sel)

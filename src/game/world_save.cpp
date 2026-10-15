@@ -61,6 +61,11 @@ SaveGame World::snapshot() const
   s.letters = st.letters;
   s.forceFieldsOn = mMap.forceFieldsOn();
   s.proto = p.weapon == Weapon::Proto ? p.proto : -1;
+  for (int i = 0; i < p.spareCount; ++i)
+  {
+    const auto& g = p.spares[std::size_t(i)];
+    s.guns.insert(s.guns.end(), {int(g.weapon), g.proto, g.ammo});
+  }
   s.protoFound = st.protoFound;
   s.duck = st.duck;
   s.camera = st.camera;
@@ -603,6 +608,13 @@ bool World::restore(const SaveGame& s)
     if (p.proto < 0)
       p.weapon = Weapon::Normal;
   }
+  // The spare guns; a save from before the weapon switch has none, and
+  // the blaster joins by itself.
+  p.spareCount = 0;
+  for (std::size_t i = 0; i + 2 < s.guns.size() && p.spareCount < int(p.spares.size()); i += 3)
+    if (s.guns[i] >= int(Weapon::Normal) && s.guns[i] <= int(Weapon::Proto))
+      p.spares[std::size_t(p.spareCount++)] = {Weapon(s.guns[i]), s.guns[i + 1], s.guns[i + 2]};
+  tidySpares();
   st.protoFound = s.protoFound;
   st.duck = s.duck;
   st.camera = s.camera;

@@ -901,10 +901,11 @@ bool World::stepBoomerang(Projectile& pr)
     // Caught: the throw costs nothing.
     if (p.weapon == Weapon::Proto && p.proto == pr.proto)
       p.ammo = std::min(protoDef(pr.proto).maxAmmo, p.ammo + 1);
+    else if (Player::Spare* s = spareGun(Weapon::Proto, pr.proto))
+      s->ammo = std::min(protoDef(pr.proto).maxAmmo, s->ammo + 1);
     else if (p.weapon == Weapon::Normal && mLevelProto == pr.proto)
     {
-      p.weapon = Weapon::Proto;
-      p.proto = pr.proto;
+      equip(Weapon::Proto, pr.proto);
       p.ammo = 1;
     }
     playSound(Sfx::Item);
