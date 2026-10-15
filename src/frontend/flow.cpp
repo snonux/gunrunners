@@ -158,15 +158,8 @@ void Game::titleShout()
 {
   mTitleShoutFrame = mFrame;
   // The runners' voice volume (RUNNER VOICES: OFF, QUIET, NORMAL, LOUD).
-  static const float kVolumes[] = {0.0f, 0.45f, 0.8f, 1.15f};
-  const auto it = mProfile.controls.find("opt.voices");
-  const int level = it == mProfile.controls.end() || it->second.empty() ? 2 : it->second[0];
-  const float volume = kVolumes[std::clamp(level, 0, 3)];
-#ifdef __ANDROID__
-  const std::string path = "data/voices/title_shout.ogg"; // read straight from the APK
-#else
-  const std::string path = dataDir() + "/voices/title_shout.ogg";
-#endif
+  const float volume = voiceVolume();
+  const std::string path = voicesDir() + "/title_shout.ogg";
   std::vector<unsigned char> data;
   auto clip = std::make_shared<const std::vector<float>>(
     volume > 0.0f && readDataFile(path, data) ? decodeOggVorbis(data) : std::vector<float>{});
