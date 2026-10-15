@@ -182,8 +182,7 @@ void World::linkCryo()
     // Air Hockey: the Freeze Ray in hand, the pucks frozen for good.
     if (mLevelProto >= 0)
     {
-      mPlayer.weapon = Weapon::Proto;
-      mPlayer.proto = mLevelProto;
+      equip(Weapon::Proto, mLevelProto);
       mPlayer.ammo = protoDef(mLevelProto).maxAmmo;
     }
     for (auto& e : mEnemies)

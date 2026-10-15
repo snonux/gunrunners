@@ -62,6 +62,11 @@ SaveGame World::snapshot() const
   s.letters = st.letters;
   s.forceFieldsOn = mMap.forceFieldsOn();
   s.proto = p.weapon == Weapon::Proto ? p.proto : -1;
+  for (int i = 0; i < p.spareCount; ++i)
+  {
+    const auto& g = p.spares[std::size_t(i)];
+    s.guns.insert(s.guns.end(), {int(g.weapon), g.proto, g.ammo});
+  }
   s.protoFound = st.protoFound;
   s.duck = st.duck;
   s.camera = st.camera;
@@ -467,7 +472,25 @@ SaveGame World::snapshot() const
   }
   if (mSwapHp >= 0)
     s.swap = {mSwapBaseHp, mSwapBaseMax, mSwapHp, mSwapMax};
+  for (int left : mBench)
+    if (left > 0)
+    {
+      s.bench = mBench;
+      break;
+    }
   return s;
+}
+
+int World::nextFreeRunner(int from, int dir) const
+{
+  const int n = characterCount();
+  for (int k = 1; k < n; ++k)
+  {
+    const int i = ((from + dir * k) % n + n) % n;
+    if (i != mCharacterIndex && !benched(i))
+      return i;
+  }
+  return -1;
 }
 
 bool World::switchCharacter(int index)
@@ -477,6 +500,11 @@ bool World::switchCharacter(int index)
   if (mWardrobe.on)
   {
     showMessage("CHANGE IN A BOOTH"); // Level 37: runners swap in the changing booths
+    return false;
+  }
+  if (benched(index))
+  {
+    showMessage(characterByIndex(index).name + " IS DOWN FOR THIS LEVEL");
     return false;
   }
   auto& p = mPlayer;
@@ -604,6 +632,13 @@ bool World::restore(const SaveGame& s)
     if (p.proto < 0)
       p.weapon = Weapon::Normal;
   }
+  // The spare guns; a save from before the weapon switch has none, and
+  // the blaster joins by itself.
+  p.spareCount = 0;
+  for (std::size_t i = 0; i + 2 < s.guns.size() && p.spareCount < int(p.spares.size()); i += 3)
+    if (s.guns[i] >= int(Weapon::Normal) && s.guns[i] <= int(Weapon::Proto))
+      p.spares[std::size_t(p.spareCount++)] = {Weapon(s.guns[i]), s.guns[i + 1], s.guns[i + 2]};
+  tidySpares();
   st.protoFound = s.protoFound;
   st.duck = s.duck;
   st.camera = s.camera;
@@ -618,6 +653,9 @@ bool World::restore(const SaveGame& s)
     mSwapHp = s.swap[2];
     mSwapMax = s.swap[3];
   }
+  mBench.clear();
+  for (int left : s.bench)
+    mBench.push_back(std::clamp(left, 0, 1));
   mBonusStar = s.bonusStar;
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];

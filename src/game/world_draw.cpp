@@ -1429,6 +1429,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSweepsTop(r, camX, camY, frame); // Level 41: LIGHTS OUT, MIRROR MODE
   if (mFinale.on)
     drawFinaleTop(r, camX, camY, frame); // Level 42: the roll-in, the wipe, the commercial, BLOOPER!
+  drawGuide(r, camX, camY, frame); // ASSISTS: the guide arrow (world_guide.cpp)
   r.draw(mArt.vignette, 0.0f, 0.0f);
   drawHud(r, frame);
   drawVehicleHud(r, frame);
@@ -1871,6 +1872,11 @@ void World::drawHud(Renderer& r, int frame) const
   x += float(kHudHealthW) + 10.0f;
   r.draw(mArt.hudPanels[1], x, top);
   r.drawText("WEAPON", x + 16, top + 6, label);
+  // One pip per gun carried (the weapon switch), the one in hand lit.
+  if (p.spareCount > 0)
+    for (int g = 0; g <= p.spareCount; ++g)
+      r.fillRect(x + float(kHudWeaponW) - 26.0f - float(p.spareCount - g) * 13.0f, top + 9, 9, 9,
+        g == 0 ? mTheme.accentB : rgba(255, 255, 255, 70));
   const int icon = weaponIcon(p.weapon);
   const bool proto = p.weapon == Weapon::Proto && p.proto >= 0;
   if (proto && mTrench.on && p.proto == int(ProtoId::HarpoonLine))

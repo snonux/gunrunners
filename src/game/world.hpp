@@ -139,6 +139,18 @@ struct Player
   Weapon weapon = Weapon::Normal;
   int proto = -1; // ProtoId while weapon == Weapon::Proto
   int ammo = 0;
+  // The guns carried but not in hand, in switching order (the gun after
+  // the one in hand first). The blaster is one of them while another gun
+  // is in hand; a gun that runs dry is gone.
+  struct Spare
+  {
+    Weapon weapon = Weapon::Normal;
+    int proto = -1;
+    int ammo = 0;
+  };
+  static constexpr int kMaxGuns = 4; // in hand plus spares: three guns plus the blaster
+  std::array<Spare, kMaxGuns - 1> spares{};
+  int spareCount = 0;
   int shotCooldown = 0; // frames until the prototype can fire again
   int charge = 0;       // frames fire has been held (charge and hold modes)
   int rapidFire = 0; // frames left
@@ -1686,7 +1698,28 @@ public:
   // items; health keeps the same share of the new runner's hearts. Returns
   // false while dying or leaving through the exit.
   bool switchCharacter(int characterIndex);
+  // Puts the next carried gun in the runner's hands (the gun in hand goes
+  // to the back of the line). Returns false if there is nothing to switch
+  // to, or not right now (fire held, at the wheel, a level that hands out
+  // one gun for good).
+  bool nextWeapon();
+  bool weaponLocked() const;
   int characterIndex() const { return mCharacterIndex; }
+  // SWAP RUNNER ON DEATH (an option): a runner who dies is out for the rest
+  // of this level, and the next runner who isn't out takes over at the
+  // checkpoint. bench()[i] is 1 for a runner who is out (0 or missing: in).
+  // Once every runner is down, wipedOut() asks the frontend to start the
+  // level over from scratch with all of them.
+  const std::vector<int>& bench() const { return mBench; }
+  bool wipedOut() const { return mWipedOut; }
+  void setBench(std::vector<int> bench) { mBench = std::move(bench); }
+  bool benched(int index) const
+  {
+    return index >= 0 && std::size_t(index) < mBench.size() && mBench[std::size_t(index)] > 0;
+  }
+  // The first runner after `from` (going `dir`, wrapping round) who isn't
+  // benched and isn't the one playing; -1 when there is none.
+  int nextFreeRunner(int from, int dir = 1) const;
   // Shows a line of text under the HUD, like the pickup messages.
   void notify(const std::string& text) { showMessage(text); }
   // Applies a cheat and says what it did; false if it can't right now
@@ -1795,6 +1828,8 @@ public:
     bool lowDamage = false;      // hits take half the hearts (every other heart of damage)
     bool quickRetry = false;     // jump or fire cuts the death scene short (people, not the bot)
     bool calm = false;           // reduced effects: no screen shake, no flashes of light
+    bool swapOnDeath = false;    // a runner who dies is out for the level; all down starts it over
+    bool guide = false;          // the guide arrow: the way to every item and bot left, then the exit
   };
   void setPlayOptions(const PlayOptions& o)
   {
@@ -1802,6 +1837,31 @@ public:
     mCamera.setCalm(o.calm);
   }
   const PlayOptions& playOptions() const { return mPlay; }
+  // The guide arrow (world_guide.cpp; GUIDE ARROW in ASSISTS): which way
+  // the nearest thing still missing for 100% is (a gem, a letter, a box of
+  // merchandise, a weapon not had yet, a gem cache, a bot), along a route
+  // the runner can walk, climb and jump; once all of them are done, the
+  // exit. Off in bonus levels. Worked out when drawn, every few frames.
+  enum class GuideKind
+  {
+    None,
+    Item,
+    Enemy,
+    Exit,
+  };
+  struct Guide
+  {
+    GuideKind kind = GuideKind::None;
+    int dx = 0, dy = 0;    // the way to go, -1..1 each (8 directions; 0, 0 for none)
+    int tx = 0, ty = 0;    // the target's middle cell
+    bool routed = false;   // along a route (false: a straight line, nothing found to get there)
+    bool walkable = false; // that route walks, climbs and jumps (false: through any open space)
+    bool fire = false;     // in reach of the crate or bot: face that way (dx) and shoot
+    int left = 0;          // items and bots still missing
+    int fromX = 0, fromY = 0; // where the runner was when it was worked out
+  };
+  bool guideOn() const;
+  const Guide& guide() const;
   // Something here keeps time with the music (beat signs, the Pulse
   // Pistol's beat): the game can't run slower than the music plays.
   bool beatTimed() const
@@ -2071,7 +2131,7 @@ private:
   void startTurbo();
   void infect();
   const std::array<int, 8>& baseJumpArc() const;
-  int horizontalSteps() const; // cells per frame: 2 in turbo, 0 or 1 when infected
+  int horizontalSteps() const; // cells per frame: 2 in turbo or running, 0 or 1 when infected
   void killPlayer();
   void respawnPlayer();
   void updatePlayerInteractions();
@@ -3381,6 +3441,19 @@ private:
   void fireProto(int ox, int oy, int dx, int dy);
   bool stepSurfaceShot(Projectile& pr);
   void takeProto(const Vec2& at);
+  // Puts this gun in hand; the gun held so far joins the spares (see
+  // Player::spares). A spare of the same gun comes back with its ammo;
+  // otherwise ammo is 0 for the caller to fill. With kMaxGuns carried
+  // already, the gun in hand is dropped for it (as before the switch
+  // existed), or, with the blaster in hand, the gun held most recently.
+  // Returns true if the gun was carried already.
+  bool equip(Weapon w, int proto = -1);
+  Player::Spare* spareGun(Weapon w, int proto = -1); // nullptr if not among the spares
+  // Keeps the spares in line with the gun in hand after code that set
+  // Player::weapon directly (a gun that ran dry, a level script).
+  void tidySpares();
+  // Lets go of whatever the gun in hand was doing (a held beam, a charge).
+  void stowGun();
   void updateProtoShooting(const Button& fire);
   bool onTheBeat() const;
 
@@ -3706,14 +3779,23 @@ private:
   // base) and what the last switch gave, so switching back and forth works
   // out from the base each time instead of rounding up again and again.
   int mSwapBaseHp = 0, mSwapBaseMax = 0, mSwapHp = -1, mSwapMax = 0;
+  std::vector<int> mBench; // SWAP RUNNER ON DEATH: 1 for each runner who is out
+  bool mWipedOut = false;  // every runner is down: the level starts over
+  std::string swapAfterDeath(); // the dead runner is out, the next free one steps in
   int mDrown = 0;          // frames since the last heart lost to drowning
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
   PlayOptions mPlay;
+  // The guide arrow's last answer and the logic frame it was worked out on.
+  mutable Guide mGuide;
+  mutable int mGuideAt = -1000;
+  void drawGuide(Renderer& r, float camX, float camY, int frame) const;
   int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
+  bool mFireHeld = false; // in the latest logic frame (no weapon switch while firing)
   int mJumpBuffer = 0;   // jump help: frames a jump pressed in the air still counts on landing
   int mDamageCarry = 0;  // low damage: half a heart not yet taken
   bool mDeathRush = false; // quick retry asked for: the death scene ends early
   bool mUpHeld = false;    // up was held last frame (boarding wants a fresh press)
+  int mRunDir = 0;         // running this way (double tap and hold): 2 cells a frame
   std::string mUseLabel = "USE";
   std::vector<Particle> mParticles;
   std::vector<FloatingText> mTexts;

@@ -168,12 +168,14 @@ void Game::startLevel()
 {
   mWorld = std::make_unique<World>(mLevel, mCursor, theme(), *mArt);
   prepareWorld(*mWorld);
+  mLevelRunner = mCursor;
   if (const auto it = mProfile.scores.find(2); it != mProfile.scores.end())
     mWorld->setHiScore(it->second);
   mBot = Bot{};
   mBot.setTakeBonus(campaign() && mLevelNumber > 0 && !bonusFile(dataDir(), mLevelNumber).empty());
   mSubTick = 0;
   mLatched = PlayerInput{};
+  mRun.reset();
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
   playLevelMusic();
@@ -261,13 +263,23 @@ bool Game::tick(const Input& input)
         break;
       }
       if (edge(&Input::swap))
-        switchRunner((mWorld->characterIndex() + 1) % characterCount());
+        switchRunner(mWorld->nextFreeRunner(mWorld->characterIndex()));
       else if (edge(&Input::randomRunner))
         switchRandomRunner();
+      if (edge(&Input::nextWeapon))
+        mWorld->nextWeapon();
       if (edge(&Input::say) && mWorld->state() == WorldState::Playing)
         mVoice.sayRandom(*mWorld, mAudio, voiceVolume());
       mVoice.tick();
       tickPlay(raw);
+      // SWAP RUNNER ON DEATH: every runner is down, so the level starts over
+      // from scratch with all of them.
+      if (mMode == Mode::Play && mWorld && !mMainWorld && mWorld->wipedOut())
+      {
+        mCursor = mLevelRunner;
+        startLevel();
+        mWorld->notify("ALL RUNNERS DOWN - THE LEVEL STARTS OVER");
+      }
       break;
     case Mode::Bonus:
       mVoice.tick();
@@ -300,6 +312,10 @@ void Game::finishTally()
   if (campaign())
   {
     recordClear();
+    // SWAP RUNNER ON DEATH: every runner is back for the next level; if the
+    // one picked fell here, the runner who finished carries on.
+    if (mWorld->benched(mCursor))
+      mCursor = mWorld->characterIndex();
     mWorld.reset();
     const int n = mLevelNumber;
     std::vector<std::string> next;
@@ -347,8 +363,12 @@ void Game::tickPlay(const Input& raw)
   // stick is steering (turning on the spot takes one logic frame).
   if (in.fire && (in.aimLeft || in.aimRight) && !in.left && !in.right && player.facing != (in.aimLeft ? -1 : 1))
     (in.aimLeft ? in.left : in.right) = true;
+  // Running: a short tap of a way, then that way again and held. Only the
+  // player's own presses count (the bot's steps would read as taps).
+  mRun.update(raw.left == raw.right ? 0 : (raw.left ? -1 : 1));
   mLatched.left = in.left;
   mLatched.right = in.right;
+  mLatched.run = mRun.running();
   mLatched.up = in.up;
   mLatched.down = in.down;
   mLatched.jump.pressed = in.jump;
@@ -400,9 +420,10 @@ void Game::tickPlay(const Input& raw)
     if (mOptions.trace)
     {
       const auto& p = mWorld->player();
-      std::fprintf(stderr, "f%d pos %d,%d %s hp %d w%d/%d turbo %d virus %d in %s%s%s%s%s%s\n", mWorld->stats().frames, p.x, p.y,
+      std::fprintf(stderr, "f%d pos %d,%d %s hp %d w%d/%d turbo %d virus %d in %s%s%s%s%s%s%s\n", mWorld->stats().frames, p.x, p.y,
         stateName(p.state), p.hp, int(p.weapon), p.ammo, p.turbo, p.virus, frameInput.left ? "L" : "", frameInput.right ? "R" : "", frameInput.up ? "U" : "",
-        frameInput.down ? "D" : "", frameInput.jump.pressed ? "J" : "", frameInput.fire.pressed ? "F" : "");
+        frameInput.down ? "D" : "", frameInput.jump.pressed ? "J" : "", frameInput.fire.pressed ? "F" : "",
+        frameInput.run ? " run" : "");
       if (const auto& tw = mWorld->tower(); tw.wrap)
         std::fprintf(stderr, "  tower rot %d route %d\n", tw.rot, tw.routeAt); // Level 35
       if (const auto& ws = mWorld->writers(); ws.on) // Level 38

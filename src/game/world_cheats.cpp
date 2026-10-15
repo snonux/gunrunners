@@ -32,8 +32,7 @@ bool World::cheat(Cheat c)
       if (mLevelProto >= 0)
       {
         const ProtoDef& def = protoDef(mLevelProto);
-        p.weapon = Weapon::Proto;
-        p.proto = mLevelProto;
+        equip(Weapon::Proto, mLevelProto);
         p.ammo = def.maxAmmo;
         p.charge = 0;
         p.shotCooldown = 0;

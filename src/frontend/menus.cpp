@@ -53,9 +53,14 @@ const char* const kCheatLabels[int(Cheat::Count)] = {
 
 std::vector<int> Game::pauseItems() const
 {
+#ifdef __EMSCRIPTEN__
+  constexpr bool kCanQuit = false; // a browser tab is closed by the player
+#else
+  constexpr bool kCanQuit = true;
+#endif
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
+    if ((i != kQuitGame || kCanQuit) && (i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
       items.push_back(i);
   return items;
 }
@@ -303,6 +308,7 @@ void Game::closeMenu()
     playLevelMusic();
   // Buttons still held from the menu must not fire or jump in the game.
   mLatched = PlayerInput{};
+  mRun.reset();
   mPrevLogicInput = mPrev;
   mPrevLogicInput.jump = mPrevLogicInput.fire = true;
 }
@@ -315,14 +321,18 @@ void Game::switchRunner(int index)
 
 void Game::switchRandomRunner()
 {
-  const int n = characterCount();
-  if (!mWorld || n < 2)
+  if (!mWorld)
     return;
-  // Never the one already playing: a pick from the others.
+  // Never the one already playing, nor one sitting out after a death
+  // (SWAP RUNNER ON DEATH): a pick from the others.
+  std::vector<int> free;
+  for (int i = 0; i < characterCount(); ++i)
+    if (i != mWorld->characterIndex() && !mWorld->benched(i))
+      free.push_back(i);
+  if (free.empty())
+    return;
   static std::mt19937 rng{std::random_device{}()};
-  const int current = mWorld->characterIndex();
-  const int pick = std::uniform_int_distribution<int>(0, n - 2)(rng);
-  switchRunner(pick >= current ? pick + 1 : pick);
+  switchRunner(free[std::size_t(std::uniform_int_distribution<int>(0, int(free.size()) - 1)(rng))]);
 }
 
 void Game::saveToSlot(int slot)
@@ -402,6 +412,9 @@ bool Game::quickLoad()
 bool Game::loadSave(SaveGame s, const std::string& message)
 {
   // A copy: loading a level refreshes mSlots, which may hold the original.
+  // A save of the level being played keeps the runner it started with (for
+  // SWAP RUNNER ON DEATH's start over); one from elsewhere starts with its own.
+  const bool sameLevel = mMode == Mode::Play && mWorld && !mMainWorld && mLevel && mLevel->name == s.levelName;
   // A save brings its difficulty: the level reloads with (or without) the
   // HARD enemies, and the levels after it follow.
   if (campaign())
@@ -436,6 +449,8 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     useTheme(s.theme);
   mWorld = std::move(world);
   mCursor = mWorld->characterIndex();
+  if (!sameLevel)
+    mLevelRunner = mCursor;
   beginVoices();
   mBot = Bot{};
   mSubTick = 0;
@@ -601,6 +616,10 @@ bool Game::tickMenu(const Input& in)
       {
         openMenu(Menu::Pause);
       }
+      else if (ok && mWorld && mWorld->benched(mRunnerCursor))
+      {
+        sound(Sfx::Hurt); // sitting out after a death (SWAP RUNNER ON DEATH)
+      }
       else if (ok)
       {
         closeMenu();
@@ -758,14 +777,22 @@ void Game::renderMenu()
       });
       if (sel)
         drawGlow(r, *mArt, x, 330, 120, t.accentA, 0.35f);
+      // Runners sitting out after a death (SWAP RUNNER ON DEATH) are greyed out.
+      const bool out = mWorld && mWorld->benched(i);
       DrawOpts o;
       o.scale = 0.55f;
-      if (!sel)
+      if (out)
+      {
+        o.tint = rgb(70, 68, 80);
+        o.alpha = 0.45f;
+      }
+      else if (!sel)
         o.tint = rgb(130, 126, 150);
       r.draw(mArt->portrait(def), x, 210, o);
-      r.drawText(def.name, x, 360, {26.0f, sel ? t.accentA : t.hudText, kInk, true}, Align::Center);
-      r.drawText(i == current ? "PLAYING" : weaponName(def.startWeapon), x, 396, {15.0f, rgb(190, 188, 214)},
+      r.drawText(def.name, x, 360, {26.0f, out ? rgb(120, 118, 134) : sel ? t.accentA : t.hudText, kInk, true},
         Align::Center);
+      const std::string under = i == current ? "PLAYING" : out ? "DOWN" : weaponName(def.startWeapon);
+      r.drawText(under, x, 396, {15.0f, out ? rgb(220, 110, 110) : rgb(190, 188, 214)}, Align::Center);
     }
     char count[32];
     std::snprintf(count, sizeof(count), "< %d / %d >", mRunnerCursor + 1, n);

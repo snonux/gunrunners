@@ -737,8 +737,7 @@ void World::updateFinale(const PlayerInput& input)
     p.hp = p.maxHp;
     if (mLevelProto == int(ProtoId::Encore))
     {
-      p.weapon = Weapon::Proto;
-      p.proto = int(ProtoId::Encore);
+      equip(Weapon::Proto, int(ProtoId::Encore));
       p.ammo = kFnPool;
     }
     playSound(Sfx::RefillSparkle);

@@ -601,10 +601,8 @@ void World::resetFleet()
   const int gun = protoIndex("grapple_gun");
   if (reached >= 3 && gun >= 0 && !(p.weapon == Weapon::Proto && p.proto == gun && p.ammo >= 20))
   {
-    const bool had = p.weapon == Weapon::Proto && p.proto == gun;
-    p.weapon = Weapon::Proto;
-    p.proto = gun;
-    p.ammo = std::max(had ? p.ammo : 0, 20);
+    equip(Weapon::Proto, gun); // a spare grapple comes back with its own shots
+    p.ammo = std::max(p.ammo, 20);
     p.charge = 0;
   }
 }

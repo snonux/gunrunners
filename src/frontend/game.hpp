@@ -10,6 +10,7 @@
 #include "frontend/runner_editor.hpp"
 #include "frontend/voices.hpp"
 #include "game/input.hpp"
+#include "game/run_gesture.hpp"
 #include "game/profile.hpp"
 #include "game/s3.hpp"
 #include "game/savegame.hpp"
@@ -340,6 +341,9 @@ private:
   int mListEpisode = 1;       // whose levels ListKind::Levels shows
   int mWorldCursor = 0;       // WORLD SELECT's card
   bool mSelectFromList = false; // runner select backs out to the level list
+  // SWAP RUNNER ON DEATH: the runner the level started with, who starts it
+  // again once every runner is down (see World::wipedOut).
+  int mLevelRunner = 0;
 
   GameOptions mOptions;
   Renderer& mRenderer;
@@ -437,6 +441,7 @@ private:
   // 15 Hz logic clock and input latching.
   int mSubTick = 0;
   PlayerInput mLatched;
+  RunGesture mRun; // double tap and hold left or right: run
   Input mBotInput;
   Input mPrevLogicInput;
 

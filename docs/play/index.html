@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Play Gunrunners in your browser</title>
+<meta name="description" content="Play Gunrunners, a free neon jump-n-shoot, right in your browser. Also for Linux and Android.">
+<meta name="theme-color" content="#140a26">
+<link rel="icon" href="../site/icon.png">
+<!-- The game files next to this page (gunrunners.js, .wasm, .data) are built
+     from the latest release by the Pages workflow (web/pages.yml); the
+     workflow also fills in the version below. -->
+<style>
+  @font-face { font-family: "Exo 2"; font-style: italic; font-weight: 700 900; font-display: swap; src: url(../site/fonts/exo2-italic.woff2) format("woff2"); }
+  @font-face { font-family: "Inter"; font-style: normal; font-weight: 400 600; font-display: swap; src: url(../site/fonts/inter.woff2) format("woff2"); }
+  :root { --bg: #140a26; --panel: #241443; --line: #3a2563; --text: #ece6ff; --muted: #b5a8d8; --hot: #ff3fae; --cyan: #2fd8ff; --sun: #ffb02e; --gold: #ffd84a; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--text); font: 16px/1.5 "Inter", system-ui, sans-serif; overflow: hidden; }
+  a { color: var(--cyan); }
+  #canvas { position: absolute; display: block; outline: none; background: #000; }
+  #loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; text-align: center;
+    background: radial-gradient(ellipse at 50% 70%, #3a1660 0%, var(--bg) 70%); }
+  #loader[hidden] { display: none; }
+  .logo { margin: 0; font: italic 900 clamp(40px, 10vw, 96px) "Exo 2", "DejaVu Sans", sans-serif; color: var(--gold); letter-spacing: 0.02em;
+    text-shadow: 0 4px 0 #1a0820, 0 0 30px rgba(255, 63, 174, 0.55); }
+  .bar { width: min(560px, 86vw); height: 22px; border: 2px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+  .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)); transition: width 0.15s linear; }
+  .pct { font: italic 900 42px "Exo 2", "DejaVu Sans", sans-serif; color: var(--text); margin: 0; }
+  .what { margin: 0; color: var(--muted); min-height: 1.5em; }
+  .note { margin: 18px 0 0; max-width: 560px; color: var(--muted); font-size: 14px; }
+  .error { color: var(--hot); }
+  .back { position: fixed; top: 10px; left: 12px; font-size: 14px; color: var(--muted); text-decoration: none; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="loader">
+  <a class="back" href="../">&larr; gunrunners.snonux.foo</a>
+  <h1 class="logo">GUNRUNNERS</h1>
+  <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="fill"></div></div>
+  <p class="pct">0%</p>
+  <p class="what">Loading the game&hellip;</p>
+  <p class="note">The browser version is the same game as the downloads, version @VERSION@.
+    Rather install it? The <a href="../#get-android">Android</a> and <a href="../#get-linux">Linux</a>
+    versions run smoother, work offline and support cloud saves.</p>
+</div>
+<script>
+  (function () {
+    var loader = document.getElementById('loader');
+    var canvas = document.getElementById('canvas');
+    var bar = loader.querySelector('.bar');
+    var fill = loader.querySelector('.fill');
+    var pct = loader.querySelector('.pct');
+    var what = loader.querySelector('.what');
+    var MB = 1024 * 1024;
+
+    function progress(fraction, text) {
+      var p = Math.max(0, Math.min(100, Math.floor(fraction * 100)));
+      fill.style.width = p + '%';
+      bar.setAttribute('aria-valuenow', p);
+      pct.textContent = p + '%';
+      if (text) what.textContent = text;
+    }
+    function fail(text) {
+      what.textContent = text;
+      what.className = 'what error';
+    }
+
+    // The largest 16:9 box that fits the window, so clicks and taps land
+    // where the game draws (the game letterboxes 1280x720 inside it).
+    function fit() {
+      var w = window.innerWidth, h = window.innerHeight;
+      var cw = Math.min(w, h * 16 / 9), ch = cw * 9 / 16;
+      canvas.style.width = cw + 'px';
+      canvas.style.height = ch + 'px';
+      canvas.style.left = (w - cw) / 2 + 'px';
+      canvas.style.top = (h - ch) / 2 + 'px';
+    }
+    window.addEventListener('resize', fit);
+    fit();
+
+    window.Module = {
+      canvas: canvas,
+      // Emscripten reports the game data download as "... (loaded/total)".
+      setStatus: function (text) {
+        var m = /\((\d+(?:\.\d+)?)\/(\d+)\)/.exec(text || '');
+        if (m) {
+          var done = +m[1], total = +m[2];
+          progress(done / total, 'Downloading the game: ' + (done / MB).toFixed(1) + ' of ' + (total / MB).toFixed(1) + ' MB');
+        }
+      },
+      monitorRunDependencies: function (left) {
+        if (left === 0) progress(1, 'Starting the game…');
+      },
+      onFirstFrame: function () {
+        loader.hidden = true;
+        fit();
+        canvas.focus();
+      },
+      onAbort: function () {
+        loader.hidden = false;
+        fail('The game stopped with an error. Reload the page to try again.');
+      },
+      print: function (t) { console.log(t); },
+      printErr: function (t) { console.warn(t); }
+    };
+    window.addEventListener('click', function () { canvas.focus(); });
+
+    var script = document.createElement('script');
+    script.src = 'gunrunners.js';
+    script.async = true;
+    script.onerror = function () { fail('The browser version could not be loaded right now. Try again later, or install it for Android or Linux.'); };
+    document.body.appendChild(script);
+  })();
+</script>
+</body>
+</html>

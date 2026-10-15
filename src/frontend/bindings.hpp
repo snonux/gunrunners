@@ -28,6 +28,7 @@ enum class Act
   Map,
   Say, // the runner says a random line
   RandomRunner, // switch to a runner picked at random
+  NextWeapon,
   Count,
 };
 constexpr int kActCount = int(Act::Count);

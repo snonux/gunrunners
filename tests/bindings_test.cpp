@@ -158,7 +158,7 @@ void touchLayout(Renderer& r)
   t.release(1);
   check(t.takeLayoutChange(), "editor: dragging reports a change");
   const std::vector<int> layout = t.layout();
-  check(layout.size() == 14 && layout[2] == -300 && layout[3] == 0, "editor: jump moved 300 left");
+  check(layout.size() == 16 && layout[2] == -300 && layout[3] == 0, "editor: jump moved 300 left");
   check(!t.read().jump, "editor: dragging does not jump");
   t.touch(2, 760.0f, 352.0f); // DONE
   check(t.read().back, "editor: DONE reads as back");

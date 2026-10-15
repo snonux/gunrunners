@@ -8,6 +8,9 @@
 **Website: <https://gunrunners.snonux.foo>** (gameplay videos, the story,
 the runners and their enemies).
 
+**Play it in your browser: <https://gunrunners.snonux.foo/play/>**, or get
+it for [Linux and Android](#get-the-game).
+
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
 runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
 own in the runner editor, and blast your way to the exit.
@@ -134,7 +137,15 @@ harbour's reef walls). On Vurr you can also ride a Bounder.
 
 ## Get the game
 
-Gunrunners runs on Linux and Android.
+Gunrunners runs in your browser, on Linux and on Android. All three are
+built from the same source, and the browser version is always built from
+the latest release, so it is the same game as the downloads.
+
+**Browser:** play at <https://gunrunners.snonux.foo/play/>, nothing to
+install. About 20 MB loads once; saves stay in the browser. Keyboard,
+gamepad or on-screen touch controls; no cloud saves. The Android and Linux
+versions run smoother and work offline. Building it yourself (Emscripten)
+is described in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#browser-build).
 
 **Android:** install it with [F-Droid](https://f-droid.org) from Paul's
 F-Droid repository, <https://github.com/snonux/fdroid> (one-tap link and QR
@@ -172,15 +183,16 @@ After that, `./build/gunrunners` starts the game.
 
 In a level your left thumb moves and your right thumb shoots. The bottom
 left of the screen is a stick: put your thumb down there and slide it
-to walk or turn, down to crouch, up (or a quick flick up) to jump, up and
-over for a running jump. On a ladder, up climbs. Tap anywhere else to
+to walk or turn (a short flick to one side, then back that way and hold,
+runs), down to crouch, up (or a quick flick up) to jump, up and
+over for a jump to the side. On a ladder, up climbs. Tap anywhere else to
 shoot at that spot: tap an enemy above your runner and the runner shoots
 up at it, tap one beside it and the runner turns and shoots that way, tap
 low beside it and the runner crouches and shoots low. Shots go where the
 weapons can: up, left, right, or crouched to the side (straight down only
 from a hang bar or the jetpack). The fire mark in the bottom right corner
 shoots the way the runner faces; hold a finger down to keep firing, and a
-quick flick while it is down re-aims (up, down, left or right). Switch runner, Use (get in or out of a vehicle),
+quick flick while it is down re-aims (up, down, left or right). Next weapon (the pistol), Switch runner, Use (get in or out of a vehicle),
 the Map and Pause sit in a row along the top, out of both thumbs' way. If
 you'd rather have the classic buttons, TOUCH in CONTROLS (THUMB ZONES or
 CLASSIC BUTTONS) switches to Fire (the big corner
@@ -206,13 +218,14 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 
 | Keyboard | Gamepad | Action |
 |----------|---------|--------|
-| Left / Right (A / D) | left stick or d-pad | walk, pick a runner |
+| Left / Right (A / D) | left stick or d-pad | walk, pick a runner; tap a way, then press it again and hold to run |
 | Up (W) | stick or d-pad up | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
 | R | right stick click (RS) | switch to a random runner (never the one you are playing) |
+| Q | left trigger (left stick click on Android) | switch to the next gun you carry |
 | E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
@@ -223,6 +236,12 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
 | T | | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
 | F11 / Alt+Enter | | fullscreen on or off |
+
+**Running.** Every runner can run: tap left or right once, then press the
+same way again and hold it. The runner runs at twice the walking speed for
+as long as you hold it (jumps included, so a running jump goes further but
+no higher) and walks again when you let go or turn. It works the same on
+the keyboard, the d-pad, the stick and the touch stick.
 
 Most gamepads work out of the box (Xbox, PlayStation, Switch Pro, 8BitDo,
 Steam Deck and generic USB or Bluetooth pads), and you can plug them in
@@ -250,7 +269,9 @@ records and bonus stars still count.
 | JUMP HELP | a jump pressed just before landing still happens, and there is a little more time to jump off a ledge |
 | HALF DAMAGE | hits take half the hearts |
 | GAME SPEED 75% | everything runs slower, except in levels that keep time with the music |
+| GUIDE ARROW | a blinking arrow by the runner points the way to the nearest thing still missing for 100% (a gem, a G-U-N letter, a crate of merchandise or a weapon you don't have yet, a gem cache, a bot), along a route you can walk, climb and jump; once everything is done it points to the exit. Gold for items, red for bots, green for the exit; pointing down while you walk means crawl, and next to a crate or bot it turns to face it (down: crouch and shoot). Not in bonus levels |
 | REDUCED EFFECTS | no screen shake and no flashes of light |
+| SWAP RUNNER ON DEATH | a runner who dies is out for the rest of the level, and the next runner takes over at the checkpoint with full hearts; once every runner is down, the level starts over from the beginning with all of them back |
 
 After a death, Jump or Fire skips ahead to the retry. The game pauses by
 itself when its window loses focus or a gamepad is unplugged.
@@ -324,7 +345,17 @@ On top of that:
 - **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
   runner right where you stand, or R (right stick click) for a random one.
   Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
-  pause menu has a RANDOM RUNNER button.
+  pause menu has a RANDOM RUNNER button. With SWAP RUNNER ON DEATH on,
+  runners who are out after a death are greyed out in CHANGE RUNNER and
+  skipped by C and RANDOM RUNNER.
+- **Carry up to three guns.** A weapon pickup still goes straight into
+  your hands, but the gun you held stays with you instead of being thrown
+  away: three guns plus the blaster at most (the pips by WEAPON in the
+  HUD count them). Q (gamepad left trigger, the pistol button on
+  touch) switches to the next one, each keeping its own ammo. With three
+  guns already, a new gun takes the place of the one in your hands (or, with
+  the blaster in hand, of the gun you held last). A gun that runs dry
+  still drops you back to the blaster.
 - **Runner editor.** NEW RUNNER on the runner select screen makes your own:
   human or robot, build, hair (or head kit), face (or optics), outfit,
   colours, name, starting gun, and ten stat points to spread over health,

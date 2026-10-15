@@ -123,6 +123,12 @@ void Game::goTitle()
     mAudio->playMusic(Music::Menu);
 }
 
+#ifdef __EMSCRIPTEN__
+constexpr const char* kTitleHint = "UP/DOWN choose   ENTER / A select";
+#else
+constexpr const char* kTitleHint = "UP/DOWN choose   ENTER / A select   ESC quit";
+#endif
+
 std::vector<std::string> Game::titleItems() const
 {
   std::vector<std::string> items{"NEW GAME"};
@@ -142,8 +148,11 @@ std::vector<std::string> Game::titleItems() const
   if (mOptions.window)
     items.emplace_back(mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
   items.emplace_back("CONTROLS");
+#ifndef __EMSCRIPTEN__
+  // A browser page has no libcurl and nothing to quit to.
   items.emplace_back("CLOUD SAVES");
   items.emplace_back("QUIT");
+#endif
   return items;
 }
 
@@ -187,11 +196,13 @@ void Game::tickTitle(const Input& raw)
     sound(Sfx::MenuMove);
   }
   mTitleCursor = std::clamp(mTitleCursor, 0, n - 1);
+#ifndef __EMSCRIPTEN__
   if (edge(&Input::pause) && !in.confirm)
   {
     mQuit = true;
     return;
   }
+#endif
   if (!(edge(&Input::confirm) || edge(&Input::jump)) || mModeTicks < 20)
     return;
   sound(Sfx::MenuSelect);
@@ -309,7 +320,7 @@ void Game::renderTitle()
     int(mProfile.protos.size()), kProtoCount, int(mProfile.stars.size()), int(mProfile.ducks.size()),
     int(mProfile.cameras.size()));
   r.drawText(buf, cx, 640, {17.0f, t.accentB, kInk}, Align::Center);
-  r.drawText(mOptions.touch ? "TAP to choose" : "UP/DOWN choose   ENTER / A select   ESC quit", cx, 676,
+  r.drawText(mOptions.touch ? "TAP to choose" : kTitleHint, cx, 676,
     {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
 }
 
@@ -663,6 +674,7 @@ void Game::afterCutscenes()
       mVoice = mMainVoice;
       mSubTick = 0;
       mLatched = PlayerInput{};
+      mRun.reset();
       mWorld->addBonusReward(mBonusScore, mBonusGems, mBonusWon);
       if (mBonusCheated)
         mWorld->markCheated();
@@ -703,12 +715,15 @@ void Game::startBonusWorld()
   const int who = mMainWorld ? mMainWorld->characterIndex() : mCursor;
   mWorld = std::make_unique<World>(mLevel, who, theme(), *mArt);
   prepareWorld(*mWorld);
+  if (mMainWorld)
+    mWorld->setBench(mMainWorld->bench());
   // Cheats used on the way to the TV count for its bonus level too: no star.
   if (mMainWorld && mMainWorld->stats().cheated)
     mWorld->markCheated();
   mBot = Bot{};
   mSubTick = 0;
   mLatched = PlayerInput{};
+  mRun.reset();
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
   playLevelMusic();

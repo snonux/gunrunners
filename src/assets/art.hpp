@@ -135,6 +135,7 @@ struct Art
   Texture vignette;
   std::array<Texture, 4> glow; // soft white light, radius 16/32/64/128
   Texture dot;                 // soft particle
+  Texture guideArrow;          // the guide arrow, white (tinted when drawn), pointing right, anchored mid
 
   Texture decoBase;
   Texture decoLit;

@@ -154,6 +154,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("explored", s.explored);
   list("vehicles", s.vehicles);
   list("swap", s.swap);
+  list("guns", s.guns);
+  list("bench", s.bench);
   o << "end\n";
 
   const std::string tmp = path + ".tmp";
@@ -279,7 +281,7 @@ std::optional<SaveGame> readSave(const std::string& path)
       in >> s.allLitAt;
     else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
              key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "wardrobe" || key == "writers" || key == "gallery" || key == "flytower" || key == "sweeps" || key == "finale" || key == "explored" || key == "vehicles" || key == "swap")
+             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "wardrobe" || key == "writers" || key == "gallery" || key == "flytower" || key == "sweeps" || key == "finale" || key == "explored" || key == "vehicles" || key == "swap" || key == "guns" || key == "bench")
     {
       auto& v = key == "floods" ? s.floods
               : key == "valves" ? s.valves
@@ -322,6 +324,8 @@ std::optional<SaveGame> readSave(const std::string& path)
               : key == "explored" ? s.explored
               : key == "vehicles" ? s.vehicles
               : key == "swap" ? s.swap
+              : key == "guns" ? s.guns
+              : key == "bench" ? s.bench
                                 : s.bubbled;
       int n = 0;
       in >> n;

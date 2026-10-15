@@ -144,6 +144,12 @@ void World::updatePlayer(const PlayerInput& raw)
   }
   const int mvX = in.left ? -1 : (in.right ? 1 : 0);
   const int mvY = in.up ? -1 : (in.down ? 1 : 0);
+  // Running starts on the ground and carries through jumps for as long as
+  // the way stays held; letting go or turning walks again.
+  if (!in.run || mvX == 0 || (mRunDir != 0 && mvX != mRunDir))
+    mRunDir = 0;
+  else if (mRunDir == 0 && p.state == PlayerState::OnGround && mvY == 0)
+    mRunDir = mvX;
 
   if (mFreeFall)
   {
@@ -723,7 +729,7 @@ int World::horizontalSteps() const
     return p.oddFrame ? 0 : 1; // drawing the Jade Bow
   if (mReactor.raise > 0)
     return p.oddFrame ? 0 : 1; // behind the Deflector Bracer's shield
-  return 1;
+  return mRunDir != 0 ? 2 : 1;
 }
 
 namespace
@@ -1219,13 +1225,50 @@ void World::updateDeathAnimation()
         mCamera.shake(14, 2.5f);
       }
       if (p.frames >= (mDeathRush ? 18 : 35))
+      {
+        const std::string swapped = swapAfterDeath();
         respawnPlayer();
+        if (!swapped.empty())
+          showMessage(swapped);
+      }
       break;
     default: // fell out of the map
       if (++p.frames >= (mDeathRush ? 5 : 15))
+      {
+        const std::string swapped = swapAfterDeath();
         respawnPlayer();
+        if (!swapped.empty())
+          showMessage(swapped);
+      }
       break;
   }
+}
+
+// SWAP RUNNER ON DEATH: the runner who died is out for the rest of this
+// level; the next free runner takes over at the checkpoint with full hearts.
+// With nobody left, the world is wiped out and the frontend starts the level
+// over with every runner. Bonus levels end on a death anyway, and Level 37
+// changes runners in its booths. Returns what to say once the runner is back
+// ("" for the usual line).
+std::string World::swapAfterDeath()
+{
+  if (!mPlay.swapOnDeath || mBonusLevel || mWardrobe.on)
+    return {};
+  const int next = nextFreeRunner(mCharacterIndex);
+  if (next < 0)
+  {
+    mWipedOut = true;
+    return "ALL RUNNERS DOWN";
+  }
+  const std::string fallen = mCharacter.name;
+  if (mBench.size() < std::size_t(characterCount()))
+    mBench.resize(std::size_t(characterCount()), 0);
+  mBench[std::size_t(mCharacterIndex)] = 1;
+  mCharacter = characterByIndex(next);
+  mCharacterIndex = next;
+  mPlayer.maxHp = mCharacter.maxHp; // respawnPlayer fills the hearts
+  mSwapHp = -1;
+  return fallen + " IS DOWN - " + mCharacter.name + " STEPS IN";
 }
 
 void World::respawnPlayer()
