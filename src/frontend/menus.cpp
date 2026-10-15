@@ -412,6 +412,9 @@ bool Game::quickLoad()
 bool Game::loadSave(SaveGame s, const std::string& message)
 {
   // A copy: loading a level refreshes mSlots, which may hold the original.
+  // A save of the level being played keeps the runner it started with (for
+  // SWAP RUNNER ON DEATH's start over); one from elsewhere starts with its own.
+  const bool sameLevel = mMode == Mode::Play && mWorld && !mMainWorld && mLevel && mLevel->name == s.levelName;
   if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath))
   {
     // Campaign saves bring their level along.
@@ -442,6 +445,8 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     useTheme(s.theme);
   mWorld = std::move(world);
   mCursor = mWorld->characterIndex();
+  if (!sameLevel)
+    mLevelRunner = mCursor;
   beginVoices();
   mBot = Bot{};
   mSubTick = 0;
@@ -782,7 +787,7 @@ void Game::renderMenu()
       r.draw(mArt->portrait(def), x, 210, o);
       r.drawText(def.name, x, 360, {26.0f, out ? rgb(120, 118, 134) : sel ? t.accentA : t.hudText, kInk, true},
         Align::Center);
-      const std::string under = i == current ? "PLAYING" : out ? "SITTING OUT" : weaponName(def.startWeapon);
+      const std::string under = i == current ? "PLAYING" : out ? "DOWN" : weaponName(def.startWeapon);
       r.drawText(under, x, 396, {15.0f, out ? rgb(220, 110, 110) : rgb(190, 188, 214)}, Align::Center);
     }
     char count[32];

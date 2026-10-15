@@ -1,13 +1,14 @@
-// SWAP RUNNER ON DEATH (an ASSISTS AND OPTIONS row): a runner who dies sits
-// out the rest of the level and the whole next one, and the next free runner
-// takes over at the checkpoint. Checks, in a test room with a pit:
+// SWAP RUNNER ON DEATH (an ASSISTS AND OPTIONS row): a runner who dies is
+// out for the rest of the level, and the next free runner takes over at the
+// checkpoint; once every runner is down the level starts over with all of
+// them. Checks, in a test room with a pit:
 //   - with the option off a death brings the same runner back;
 //   - with it on the next runner steps in with full hearts, the fallen one is
-//     benched for two levels, and C / CHANGE RUNNER can't pick a benched one;
-//   - once every other runner is out, the last one just comes back;
+//     out, and C / CHANGE RUNNER can't pick a runner who is out;
 //   - the bench survives a save and a load;
-// and through the whole game, that the bench carries into the next campaign
-// level one level shorter, and that the next level starts with a free runner.
+//   - the last runner's death wipes the world out;
+// and through the whole game, that a wipe-out starts Level 1 over from
+// scratch with every runner, and that everyone is back for the next level.
 
 #include "assets/art.hpp"
 #include "data/characters.hpp"
@@ -119,7 +120,7 @@ int main()
       check(w.player().hp == characterByIndex(1).maxHp && w.player().maxHp == characterByIndex(1).maxHp,
         "the new runner has full hearts");
       check(w.player().state != PlayerState::Dying && w.player().x < 8 * kCellsPerTile, "back at the checkpoint");
-      check(benchOf(w, 0) == 2 && benchOf(w, 1) == 0, "Dash sits out this level and the next");
+      check(benchOf(w, 0) == 1 && benchOf(w, 1) == 0 && !w.wipedOut(), "Dash is out for the rest of the level");
       check(!w.switchCharacter(0) && w.characterIndex() == 1, "a benched runner can't be switched to");
       check(w.nextFreeRunner(1) == 2, "the C key skips past the benched runner");
       check(w.switchCharacter(3) && w.characterIndex() == 3, "a free runner still can be");
@@ -132,9 +133,9 @@ int main()
       const auto back = readSave(path);
       World x(level, back ? back->character : 0, theme, art);
       check(back && x.restore(*back), "loaded");
-      check(benchOf(x, 0) == 2 && x.characterIndex() == 3, "the bench is in the savegame");
+      check(benchOf(x, 0) == 1 && x.characterIndex() == 3, "the bench is in the savegame");
 
-      // Every other runner falls in turn; the last one just comes back.
+      // Every other runner falls in turn; the last one's death wipes them out.
       int deaths = 0;
       while (w.nextFreeRunner(w.characterIndex()) >= 0 && deaths < 40)
       {
@@ -145,13 +146,13 @@ int main()
       int out = 0;
       for (int i = 0; i < characterCount(); ++i)
         out += benchOf(w, i) > 0;
-      check(out == characterCount() - 1 && !w.benched(last), "all but one runner sit out");
+      check(out == characterCount() - 1 && !w.benched(last) && !w.wipedOut(), "all but one runner are down");
       dieInPit(w);
-      check(w.characterIndex() == last && w.player().state != PlayerState::Dying,
-        "with nobody left to swap in, the last runner respawns as usual");
+      check(w.wipedOut(), "the last runner's death wipes the world out");
     }
 
-    // Through the game: Level 1 cleared with Dash benched, Rocco playing.
+    // Through the game: all runners down in Level 1 starts it over, and a
+    // runner who fell in Level 1 is back for Level 2.
     {
       GameOptions o;
       o.saveDir = dir + "/game";
@@ -171,44 +172,52 @@ int main()
       check(w && w->playOptions().swapOnDeath, "the profile switches the option on");
       if (w)
       {
-        // Dash fell (as in the room above), Rocco took over and stands at the exit.
+        // Bolt is the last runner standing, on one heart, over Level 1's
+        // spike shaft, with a score to lose.
         const std::string name1 = w->level().name;
+        const int startX = w->player().x, startY = w->player().y;
         SaveGame s = w->snapshot();
-        s.character = 1;
-        s.hp = characterByIndex(1).maxHp;
-        s.bench = {2, 0, 0, 0, 0, 0};
-        s.x = w->level().exitTx * kCellsPerTile;
-        s.y = (w->level().exitTy + 1) * kCellsPerTile - 1;
-        check(w->restore(s), "Rocco put at Level 1's exit");
+        s.character = 5;
+        s.hp = 1;
+        s.score = 12345;
+        s.bench = {1, 1, 1, 1, 1, 0};
+        s.x = 80;
+        s.y = 55;
+        check(w->restore(s), "Bolt alone over the spikes");
+        const World* before = g.world();
+        for (int i = 0; i < 600 && g.world() == before; ++i)
+          g.tick({});
+        const World* fresh = g.world();
+        check(fresh && fresh != before, "every runner down: the level starts over");
+        if (fresh)
+        {
+          check(fresh->level().name == name1, "the same level");
+          check(fresh->bench().empty() && fresh->characterIndex() == 0, "with every runner, Dash (picked) first");
+          check(fresh->stats().score == 0 && fresh->stats().deaths == 0, "from scratch: score and deaths reset");
+          check(fresh->player().x == startX && fresh->player().y == startY, "back at the level's start");
+        }
+
+        // Dash falls (as in the room above), Rocco takes over and reaches the exit.
+        World* m = const_cast<World*>(g.world());
+        SaveGame s1 = m->snapshot();
+        s1.character = 1;
+        s1.hp = characterByIndex(1).maxHp;
+        s1.bench = {1, 0, 0, 0, 0, 0};
+        s1.x = m->level().exitTx * kCellsPerTile;
+        s1.y = (m->level().exitTy + 1) * kCellsPerTile - 1;
+        check(m->restore(s1), "Rocco put at Level 1's exit");
         for (int i = 0; i < 3000 && g.world() && g.world()->level().name == name1; ++i)
           g.tick({});
         for (int i = 0; i < 60 && !g.inLevel(); ++i)
           g.tick({});
-        const World* w2 = g.world();
+        World* w2 = const_cast<World*>(g.world());
         check(w2 && w2->level().name != name1, "on to Level 2");
         if (w2)
         {
-          check(w2->characterIndex() == 1, "Level 2 starts with Rocco, not the benched Dash (" +
+          check(w2->characterIndex() == 1, "Level 2 starts with Rocco, who finished Level 1 (" +
             std::to_string(w2->characterIndex()) + ")");
-          check(benchOf(*w2, 0) == 1, "Dash still sits out Level 2");
-          // Level 2 cleared: Dash is back for Level 3.
-          World* m = const_cast<World*>(w2);
-          const std::string name2 = m->level().name;
-          SaveGame s2 = m->snapshot();
-          s2.x = m->level().exitTx * kCellsPerTile;
-          s2.y = (m->level().exitTy + 1) * kCellsPerTile - 1;
-          check(m->restore(s2), "Rocco put at Level 2's exit");
-          for (int i = 0; i < 3000 && g.world() && g.world()->level().name == name2; ++i)
-            g.tick({});
-          for (int i = 0; i < 60 && !g.inLevel(); ++i)
-            g.tick({});
-          World* w3 = const_cast<World*>(g.world());
-          check(w3 && w3->level().name != name2, "on to Level 3");
-          if (w3)
-          {
-            check(!w3->benched(0), "Dash is free again in Level 3");
-            check(w3->switchCharacter(0), "and can be switched to");
-          }
+          check(w2->bench().empty(), "every runner is back for Level 2");
+          check(w2->switchCharacter(0), "Dash included");
         }
       }
     }

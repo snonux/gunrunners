@@ -170,8 +170,8 @@ struct SaveGame
   std::vector<int> swap;
   // The spare guns (Player::spares): weapon, proto, ammo for each.
   std::vector<int> guns;
-  // SWAP RUNNER ON DEATH: how many levels each runner still sits out, this
-  // one included, by runner index (see World::bench). Empty: nobody.
+  // SWAP RUNNER ON DEATH: 1 for each runner who is out for the rest of the
+  // level, by runner index (see World::bench). Empty: nobody.
   std::vector<int> bench;
 };
 

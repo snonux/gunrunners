@@ -1244,27 +1244,31 @@ void World::updateDeathAnimation()
   }
 }
 
-// SWAP RUNNER ON DEATH: the runner who died sits out the rest of this level
-// and the whole next one; the next free runner takes over at the checkpoint
-// with full hearts. With nobody left, the same runner just comes back. Bonus
-// levels end on a death anyway, and Level 37 changes runners in its booths.
-// Returns what to say once the runner is back ("" for the usual line).
+// SWAP RUNNER ON DEATH: the runner who died is out for the rest of this
+// level; the next free runner takes over at the checkpoint with full hearts.
+// With nobody left, the world is wiped out and the frontend starts the level
+// over with every runner. Bonus levels end on a death anyway, and Level 37
+// changes runners in its booths. Returns what to say once the runner is back
+// ("" for the usual line).
 std::string World::swapAfterDeath()
 {
   if (!mPlay.swapOnDeath || mBonusLevel || mWardrobe.on)
     return {};
   const int next = nextFreeRunner(mCharacterIndex);
   if (next < 0)
-    return "NOBODY LEFT TO SWAP IN - BACK IN ACTION";
+  {
+    mWipedOut = true;
+    return "ALL RUNNERS DOWN";
+  }
   const std::string fallen = mCharacter.name;
   if (mBench.size() < std::size_t(characterCount()))
     mBench.resize(std::size_t(characterCount()), 0);
-  mBench[std::size_t(mCharacterIndex)] = 2; // this level and the next
+  mBench[std::size_t(mCharacterIndex)] = 1;
   mCharacter = characterByIndex(next);
   mCharacterIndex = next;
   mPlayer.maxHp = mCharacter.maxHp; // respawnPlayer fills the hearts
   mSwapHp = -1;
-  return fallen + " IS OUT - " + mCharacter.name + " STEPS IN";
+  return fallen + " IS DOWN - " + mCharacter.name + " STEPS IN";
 }
 
 void World::respawnPlayer()

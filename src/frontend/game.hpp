@@ -334,9 +334,9 @@ private:
   int mListEpisode = 1;       // whose levels ListKind::Levels shows
   int mWorldCursor = 0;       // WORLD SELECT's card
   bool mSelectFromList = false; // runner select backs out to the level list
-  // SWAP RUNNER ON DEATH: the runners still sitting out, handed from a
-  // cleared campaign level to the next one (see World::bench).
-  std::vector<int> mBench;
+  // SWAP RUNNER ON DEATH: the runner the level started with, who starts it
+  // again once every runner is down (see World::wipedOut).
+  int mLevelRunner = 0;
 
   GameOptions mOptions;
   Renderer& mRenderer;

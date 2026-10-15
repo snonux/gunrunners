@@ -271,7 +271,7 @@ records and bonus stars still count.
 | GAME SPEED 75% | everything runs slower, except in levels that keep time with the music |
 | GUIDE ARROW | a blinking arrow by the runner points the way to the nearest thing still missing for 100% (a gem, a G-U-N letter, a crate of merchandise or a weapon you don't have yet, a gem cache, a bot), along a route you can walk, climb and jump; once everything is done it points to the exit. Gold for items, red for bots, green for the exit; pointing down while you walk means crawl, and next to a crate or bot it turns to face it (down: crouch and shoot). Not in bonus levels |
 | REDUCED EFFECTS | no screen shake and no flashes of light |
-| SWAP RUNNER ON DEATH | a runner who dies sits out the rest of the level and the whole next one; the next free runner takes over at the checkpoint with full hearts (once nobody is left to swap in, the last runner simply comes back) |
+| SWAP RUNNER ON DEATH | a runner who dies is out for the rest of the level, and the next runner takes over at the checkpoint with full hearts; once every runner is down, the level starts over from the beginning with all of them back |
 
 After a death, Jump or Fire skips ahead to the retry. The game pauses by
 itself when its window loses focus or a gamepad is unplugged.
@@ -334,7 +334,7 @@ On top of that:
   runner right where you stand, or R (right stick click) for a random one.
   Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
   pause menu has a RANDOM RUNNER button. With SWAP RUNNER ON DEATH on,
-  runners sitting out after a death are greyed out in CHANGE RUNNER and
+  runners who are out after a death are greyed out in CHANGE RUNNER and
   skipped by C and RANDOM RUNNER.
 - **Carry up to three guns.** A weapon pickup still goes straight into
   your hands, but the gun you held stays with you instead of being thrown

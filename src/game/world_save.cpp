@@ -503,7 +503,7 @@ bool World::switchCharacter(int index)
   }
   if (benched(index))
   {
-    showMessage(characterByIndex(index).name + " SITS THIS ONE OUT");
+    showMessage(characterByIndex(index).name + " IS DOWN FOR THIS LEVEL");
     return false;
   }
   auto& p = mPlayer;
@@ -654,7 +654,7 @@ bool World::restore(const SaveGame& s)
   }
   mBench.clear();
   for (int left : s.bench)
-    mBench.push_back(std::clamp(left, 0, 2));
+    mBench.push_back(std::clamp(left, 0, 1));
   mBonusStar = s.bonusStar;
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];

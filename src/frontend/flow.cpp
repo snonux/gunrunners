@@ -115,7 +115,6 @@ void Game::goTitle()
   mCutscene.reset();
   mBonusOnly = false;
   mSelectFromList = false;
-  mBench.clear();
   mLevelNumber = 0;
   mTitleCursor = 0;
   setMode(Mode::Title);
