@@ -2089,7 +2089,7 @@ private:
   void startTurbo();
   void infect();
   const std::array<int, 8>& baseJumpArc() const;
-  int horizontalSteps() const; // cells per frame: 2 in turbo, 0 or 1 when infected
+  int horizontalSteps() const; // cells per frame: 2 in turbo or running, 0 or 1 when infected
   void killPlayer();
   void respawnPlayer();
   void updatePlayerInteractions();
@@ -3746,6 +3746,7 @@ private:
   int mDamageCarry = 0;  // low damage: half a heart not yet taken
   bool mDeathRush = false; // quick retry asked for: the death scene ends early
   bool mUpHeld = false;    // up was held last frame (boarding wants a fresh press)
+  int mRunDir = 0;         // running this way (double tap and hold): 2 cells a frame
   std::string mUseLabel = "USE";
   std::vector<Particle> mParticles;
   std::vector<FloatingText> mTexts;

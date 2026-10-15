@@ -10,6 +10,7 @@
 #include <exception>
 #include <filesystem>
 #include <future>
+#include <random>
 
 namespace gr
 {
@@ -302,6 +303,7 @@ void Game::closeMenu()
     playLevelMusic();
   // Buttons still held from the menu must not fire or jump in the game.
   mLatched = PlayerInput{};
+  mRun.reset();
   mPrevLogicInput = mPrev;
   mPrevLogicInput.jump = mPrevLogicInput.fire = true;
 }
@@ -310,6 +312,18 @@ void Game::switchRunner(int index)
 {
   if (mWorld && mWorld->switchCharacter(index))
     mCursor = index;
+}
+
+void Game::switchRandomRunner()
+{
+  const int n = characterCount();
+  if (!mWorld || n < 2)
+    return;
+  // Never the one already playing: a pick from the others.
+  static std::mt19937 rng{std::random_device{}()};
+  const int current = mWorld->characterIndex();
+  const int pick = std::uniform_int_distribution<int>(0, n - 2)(rng);
+  switchRunner(pick >= current ? pick + 1 : pick);
 }
 
 void Game::saveToSlot(int slot)
@@ -440,7 +454,7 @@ bool Game::tickMenu(const Input& in)
   {
     // The key or button just bound is still down: it must not also act.
     mMenuHold = in.left || in.right || in.up || in.down || in.jump || in.fire || in.confirm || in.pause ||
-      in.back || in.swap || in.map;
+      in.back || in.swap || in.randomRunner || in.map;
     return !mQuit;
   }
   // Start both opens the pause menu and confirms; in a menu it backs out.
@@ -588,6 +602,11 @@ bool Game::tickMenu(const Input& in)
       {
         closeMenu();
         switchRunner(mRunnerCursor);
+      }
+      else if (edge(&Input::randomRunner))
+      {
+        closeMenu();
+        switchRandomRunner();
       }
       break;
 
@@ -749,6 +768,22 @@ void Game::renderMenu()
     std::snprintf(count, sizeof(count), "< %d / %d >", mRunnerCursor + 1, n);
     r.drawText(count, 640, 424, {18.0f, t.accentB, kInk, true}, Align::Center);
     r.drawText("Health carries over as a share of the new runner's hearts.", 640, 466, hint, Align::Center);
+    // A runner picked at random, never the one playing: the RANDOM RUNNER
+    // hotkey works here too, and touch has no hotkey, so it is a button.
+    if (n > 1)
+    {
+      tapTarget(500, 494, 280, 40, [this](float, float) { tapPress(&Input::randomRunner); });
+      std::string random = "? RANDOM RUNNER";
+      if (!touch)
+      {
+        const int key = mBindings.keys[std::size_t(Act::RandomRunner)][0];
+        const auto& pad = mBindings.pad[std::size_t(Act::RandomRunner)];
+        if (key > 0 || !pad.empty())
+          random += "   " + (key > 0 ? keyName(key) : std::string()) + (key > 0 && !pad.empty() ? " / " : "") +
+            (pad.empty() ? std::string() : padNames(pad));
+      }
+      r.drawText(random, 640, 504, {20.0f, t.accentB, kInk, true}, Align::Center);
+    }
     r.drawText(touch ? "TAP the middle runner to swap   BACK to leave"
                      : "LEFT/RIGHT choose   ENTER / A swap   ESC / B back",
       640, 560, hint, Align::Center);
