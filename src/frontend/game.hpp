@@ -267,6 +267,7 @@ private:
   void pollCloud();
   bool loadSave(SaveGame s, const std::string& message);
   void switchRunner(int index);
+  void switchRandomRunner(); // any runner but the current one
   void setTheme(int index);
   void useTheme(int index);
   void notice(const std::string& text);

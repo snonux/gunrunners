@@ -256,6 +256,8 @@ bool Game::tick(const Input& input)
       }
       if (edge(&Input::swap))
         switchRunner((mWorld->characterIndex() + 1) % characterCount());
+      else if (edge(&Input::randomRunner))
+        switchRandomRunner();
       if (edge(&Input::say) && mWorld->state() == WorldState::Playing)
         mVoice.sayRandom(*mWorld, mAudio, voiceVolume());
       mVoice.tick();

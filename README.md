@@ -212,6 +212,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
+| R | right stick click (RS) | switch to a random runner (never the one you are playing) |
 | E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
@@ -309,7 +310,9 @@ Jade a full flamethrower and Skye rapid fire.
 On top of that:
 
 - **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
-  runner right where you stand. Your weapon, ammo and items carry over.
+  runner right where you stand, or R (right stick click) for a random one.
+  Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
+  pause menu has a RANDOM RUNNER button.
 - **Runner editor.** NEW RUNNER on the runner select screen makes your own:
   human or robot, build, hair (or head kit), face (or optics), outfit,
   colours, name, starting gun, and ten stat points to spread over health,
