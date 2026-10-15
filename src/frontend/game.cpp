@@ -162,6 +162,8 @@ void Game::startLevel()
 {
   mWorld = std::make_unique<World>(mLevel, mCursor, theme(), *mArt);
   prepareWorld(*mWorld);
+  mWorld->setBench(std::move(mBench));
+  mBench.clear();
   if (const auto it = mProfile.scores.find(2); it != mProfile.scores.end())
     mWorld->setHiScore(it->second);
   mBot = Bot{};
@@ -256,7 +258,7 @@ bool Game::tick(const Input& input)
         break;
       }
       if (edge(&Input::swap))
-        switchRunner((mWorld->characterIndex() + 1) % characterCount());
+        switchRunner(mWorld->nextFreeRunner(mWorld->characterIndex()));
       else if (edge(&Input::randomRunner))
         switchRandomRunner();
       if (edge(&Input::nextWeapon))
@@ -297,6 +299,13 @@ void Game::finishTally()
   if (campaign())
   {
     recordClear();
+    // Runners who died sit out one level less; one still sitting out the
+    // next level hands it to the runner who finished this one.
+    mBench.clear();
+    for (int left : mWorld->bench())
+      mBench.push_back(std::max(0, left - 1));
+    if (std::size_t(mCursor) < mBench.size() && mBench[std::size_t(mCursor)] > 0)
+      mCursor = mWorld->characterIndex();
     mWorld.reset();
     const int n = mLevelNumber;
     std::vector<std::string> next;

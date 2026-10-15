@@ -115,6 +115,7 @@ void Game::goTitle()
   mCutscene.reset();
   mBonusOnly = false;
   mSelectFromList = false;
+  mBench.clear();
   mLevelNumber = 0;
   mTitleCursor = 0;
   setMode(Mode::Title);
@@ -702,6 +703,8 @@ void Game::startBonusWorld()
   const int who = mMainWorld ? mMainWorld->characterIndex() : mCursor;
   mWorld = std::make_unique<World>(mLevel, who, theme(), *mArt);
   prepareWorld(*mWorld);
+  if (mMainWorld)
+    mWorld->setBench(mMainWorld->bench());
   // Cheats used on the way to the TV count for its bonus level too: no star.
   if (mMainWorld && mMainWorld->stats().cheated)
     mWorld->markCheated();

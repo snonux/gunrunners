@@ -270,6 +270,7 @@ records and bonus stars still count.
 | HALF DAMAGE | hits take half the hearts |
 | GAME SPEED 75% | everything runs slower, except in levels that keep time with the music |
 | REDUCED EFFECTS | no screen shake and no flashes of light |
+| SWAP RUNNER ON DEATH | a runner who dies sits out the rest of the level and the whole next one; the next free runner takes over at the checkpoint with full hearts (once nobody is left to swap in, the last runner simply comes back) |
 
 After a death, Jump or Fire skips ahead to the retry. The game pauses by
 itself when its window loses focus or a gamepad is unplugged.
@@ -331,7 +332,9 @@ On top of that:
 - **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
   runner right where you stand, or R (right stick click) for a random one.
   Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
-  pause menu has a RANDOM RUNNER button.
+  pause menu has a RANDOM RUNNER button. With SWAP RUNNER ON DEATH on,
+  runners sitting out after a death are greyed out in CHANGE RUNNER and
+  skipped by C and RANDOM RUNNER.
 - **Carry up to three guns.** A weapon pickup still goes straight into
   your hands, but the gun you held stays with you instead of being thrown
   away: three guns at most, the blaster included (the pips by WEAPON in
