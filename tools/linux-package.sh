@@ -27,7 +27,7 @@ cmake --build "$BUILD_DIR" --target gunrunners -j"$(nproc)"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 install -m 755 -s "$BUILD_DIR/gunrunners" "$STAGE/gunrunners"
-cp -r "$SRC_DIR/levels" "$SRC_DIR/cutscenes" "$SRC_DIR/fonts" "$STAGE/"
+cp -r "$SRC_DIR/levels" "$SRC_DIR/cutscenes" "$SRC_DIR/fonts" "$SRC_DIR/voices" "$STAGE/"
 cp "$SRC_DIR/LICENSE" "$SRC_DIR/README.md" "$STAGE/"
 
 tar -C "$BUILD_DIR" -czf "$OUT_DIR/$NAME.tar.gz" "$NAME"

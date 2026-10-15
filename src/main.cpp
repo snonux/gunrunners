@@ -142,6 +142,7 @@ void printUsage()
     "  --audio-out PATH     headless: write the matching soundtrack as a WAV file\n"
     "  --no-audio           windowed: run without sound\n"
     "  --trace              print the player state every logic frame\n"
+    "  --voice-log          print the runners' lines as they trigger and play\n"
     "  --screenshots LIST   headless: save PNGs of these ticks, e.g. 100,250\n"
     "  --screenshot-prefix P  path prefix for those PNGs (default shot_)\n"
     "  --frames N           stop after N ticks\n"
@@ -323,6 +324,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.noAudio = true;
     else if (a == "--trace")
       o.game.trace = true;
+    else if (a == "--voice-log")
+      o.game.voiceLog = true;
     else if (a == "--frames")
       o.maxFrames = std::atol(next());
     else if (a == "--screenshots")

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.6.0 LANGUAGES CXX)
+project(Gunrunners VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -87,6 +87,8 @@ add_library(gunrunners_core STATIC
   src/audio/synth.cpp
   src/audio/synth_named.cpp
   src/audio/music.cpp
+  src/audio/voice_clip.cpp
+  src/third_party/stb_vorbis.c
   src/game/collision.cpp
   src/game/player.cpp
   src/game/world.cpp
@@ -233,6 +235,9 @@ add_library(gunrunners_core STATIC
   src/game/profile.cpp
 )
 target_include_directories(gunrunners_core PUBLIC src)
+# The Ogg Vorbis decoder for the runners' voices (public domain, upstream as is).
+set_source_files_properties(src/third_party/stb_vorbis.c PROPERTIES
+  COMPILE_DEFINITIONS STB_VORBIS_NO_PUSHDATA_API COMPILE_OPTIONS -w)
 target_link_libraries(gunrunners_core PUBLIC SDL2::SDL2 PkgConfig::CAIRO CURL::libcurl)
 target_compile_definitions(gunrunners_core PUBLIC GR_DATA_DIR="${CMAKE_SOURCE_DIR}")
 if(NOT MSVC)
@@ -479,3 +484,7 @@ add_test(NAME savegame_live_finale COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 add_executable(crawl_test tests/crawl_test.cpp)
 target_link_libraries(crawl_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME crawl COMMAND crawl_test)
+
+# The announcer shouts GUNRUNNERS as the title banner lands.
+add_test(NAME title_shout COMMAND gunrunners --headless --voice-log --frames 30)
+set_tests_properties(title_shout PROPERTIES PASS_REGULAR_EXPRESSION "voice: title shout frame [0-9]+ [1-9][.][0-9]+s")

@@ -6,6 +6,7 @@
 
 #include "data/campaign.hpp"
 #include "data/weapons.hpp"
+#include "audio/voice_clip.hpp"
 
 #include <SDL.h>
 
@@ -145,8 +146,41 @@ std::vector<std::string> Game::titleItems() const
   return items;
 }
 
+namespace
+{
+
+// The banner drops in over this many frames as the shout starts.
+constexpr int kBannerSlam = 12;
+
+} // namespace
+
+void Game::titleShout()
+{
+  mTitleShoutFrame = mFrame;
+  // The runners' voice volume (RUNNER VOICES: OFF, QUIET, NORMAL, LOUD).
+  static const float kVolumes[] = {0.0f, 0.45f, 0.8f, 1.15f};
+  const auto it = mProfile.controls.find("opt.voices");
+  const int level = it == mProfile.controls.end() || it->second.empty() ? 2 : it->second[0];
+  const float volume = kVolumes[std::clamp(level, 0, 3)];
+#ifdef __ANDROID__
+  const std::string path = "data/voices/title_shout.ogg"; // read straight from the APK
+#else
+  const std::string path = dataDir() + "/voices/title_shout.ogg";
+#endif
+  std::vector<unsigned char> data;
+  auto clip = std::make_shared<const std::vector<float>>(
+    volume > 0.0f && readDataFile(path, data) ? decodeOggVorbis(data) : std::vector<float>{});
+  if (mOptions.voiceLog)
+    std::printf("voice: title shout frame %d %.2fs%s\n", mFrame, double(clip->size()) / kAudioRate,
+      volume > 0.0f ? "" : " (voices off)");
+  if (mAudio && !clip->empty())
+    mAudio->playVoice(std::move(clip), volume);
+}
+
 void Game::tickTitle(const Input& raw)
 {
+  if (mTitleShoutFrame < 0)
+    titleShout();
   Input in = raw;
   if (mOptions.autoplay && mModeTicks > 90 && mModeTicks % 20 == 0)
     in.confirm = true; // NEW GAME is the first item
@@ -227,8 +261,32 @@ void Game::renderTitle()
 
   const float bounce = std::sin(float(mFrame) * 0.06f) * 5.0f;
   const float cx = float(kScreenW) / 2.0f;
-  r.drawText("GUNRUNNERS", cx + 7, 40 + bounce + 7, {120.0f, withAlpha(t.platform, 200), 0, true}, Align::Center);
-  r.drawText("GUNRUNNERS", cx, 40 + bounce, {120.0f, t.accentA, kInk, true}, Align::Center);
+  const int slam = mTitleShoutFrame < 0 ? 0 : mFrame - mTitleShoutFrame;
+  if (slam < kBannerSlam)
+  {
+    // With the shout: the banner comes at the screen big and lands.
+    const float k = float(slam) / float(kBannerSlam);
+    const float scale = 1.0f + 1.4f * (1.0f - k) * (1.0f - k);
+    const Texture& shadow = r.text("GUNRUNNERS", {120.0f, withAlpha(t.platform, 200), 0, true});
+    const Texture& banner = r.text("GUNRUNNERS", {120.0f, t.accentA, kInk, true});
+    DrawOpts o;
+    o.scale = scale;
+    o.alpha = 0.35f + 0.65f * k;
+    o.cull = false;
+    // Scaled about the middle of where drawText puts it.
+    const auto drawScaled = [&](const Texture& tex, float x, float y) {
+      const float midY = y - tex.anchorY() + float(tex.h()) * 0.5f;
+      r.draw(tex, x - (float(tex.w()) * 0.5f - tex.anchorX()) * scale,
+        midY - (float(tex.h()) * 0.5f - tex.anchorY()) * scale, o);
+    };
+    drawScaled(shadow, cx + 7, 40 + bounce + 7);
+    drawScaled(banner, cx, 40 + bounce);
+  }
+  else
+  {
+    r.drawText("GUNRUNNERS", cx + 7, 40 + bounce + 7, {120.0f, withAlpha(t.platform, 200), 0, true}, Align::Center);
+    r.drawText("GUNRUNNERS", cx, 40 + bounce, {120.0f, t.accentA, kInk, true}, Align::Center);
+  }
   r.drawText("42 LEVELS  -  42 PROTOTYPES  -  ONE SHOW", cx, 186, {22.0f, t.hudText, kInk}, Align::Center);
 
   const auto items = titleItems();

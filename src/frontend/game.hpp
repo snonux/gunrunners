@@ -44,6 +44,7 @@ struct GameOptions
   bool cheats = false;  // the pause menu's CHEATS item from the start
   bool window = false;  // a real window (not headless): offer FULLSCREEN
   bool touch = false;   // on-screen gamepad: offer its TOUCH PAD size
+  bool voiceLog = false; // print the runners' lines as they trigger and play
 };
 
 // Top-level mode management, the equivalent of RigelEngine's
@@ -314,6 +315,9 @@ private:
   After mAfter = After::Title;
   Mode mCutsceneReturn = Mode::Title; // where a skipped-into-nothing queue lands
   int mTitleCursor = 0;
+  // The announcer shouts GUNRUNNERS as the banner slams in, once per launch.
+  int mTitleShoutFrame = -1; // mFrame when it started (-1: not yet)
+  void titleShout();
   int mCloudCursor = 0;
   int mPendingLevel = 1;    // runner select leads into this campaign level
   bool mPendingNewGame = false;
