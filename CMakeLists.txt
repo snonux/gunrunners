@@ -497,3 +497,7 @@ add_test(NAME savegame_live_finale COMMAND savegame_test ${CMAKE_SOURCE_DIR}/lev
 add_executable(crawl_test tests/crawl_test.cpp)
 target_link_libraries(crawl_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME crawl COMMAND crawl_test)
+
+# The announcer shouts GUNRUNNERS as the title banner lands.
+add_test(NAME title_shout COMMAND gunrunners --headless --voice-log --frames 30)
+set_tests_properties(title_shout PROPERTIES PASS_REGULAR_EXPRESSION "voice: title shout frame [0-9]+ [1-9][.][0-9]+s")
