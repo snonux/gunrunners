@@ -186,6 +186,7 @@ add_library(gunrunners_core STATIC
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
   src/game/world_map.cpp
+  src/game/world_guide.cpp
   src/game/world_vehicle.cpp
   src/game/world_vehicle_draw.cpp
   src/game/world_sea.cpp
@@ -307,6 +308,9 @@ add_test(NAME weapons COMMAND weapons_test)
 add_executable(swap_death_test tests/swap_death_test.cpp)
 target_link_libraries(swap_death_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME swap_death COMMAND swap_death_test)
+add_executable(guide_test tests/guide_test.cpp)
+target_link_libraries(guide_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME guide COMMAND guide_test)
 
 add_executable(vehicle_test tests/vehicle_test.cpp)
 target_link_libraries(vehicle_test PRIVATE gunrunners_core SDL2::SDL2)

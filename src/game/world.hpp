@@ -1828,6 +1828,7 @@ public:
     bool quickRetry = false;     // jump or fire cuts the death scene short (people, not the bot)
     bool calm = false;           // reduced effects: no screen shake, no flashes of light
     bool swapOnDeath = false;    // a runner who dies is benched and the next free runner steps in
+    bool guide = false;          // the guide arrow: the way to every item and bot left, then the exit
   };
   void setPlayOptions(const PlayOptions& o)
   {
@@ -1835,6 +1836,31 @@ public:
     mCamera.setCalm(o.calm);
   }
   const PlayOptions& playOptions() const { return mPlay; }
+  // The guide arrow (world_guide.cpp; GUIDE ARROW in ASSISTS): which way
+  // the nearest thing still missing for 100% is (a gem, a letter, a box of
+  // merchandise, a weapon not had yet, a gem cache, a bot), along a route
+  // the runner can walk, climb and jump; once all of them are done, the
+  // exit. Off in bonus levels. Worked out when drawn, every few frames.
+  enum class GuideKind
+  {
+    None,
+    Item,
+    Enemy,
+    Exit,
+  };
+  struct Guide
+  {
+    GuideKind kind = GuideKind::None;
+    int dx = 0, dy = 0;    // the way to go, -1..1 each (8 directions; 0, 0 for none)
+    int tx = 0, ty = 0;    // the target's middle cell
+    bool routed = false;   // along a route (false: a straight line, nothing found to get there)
+    bool walkable = false; // that route walks, climbs and jumps (false: through any open space)
+    bool fire = false;     // in reach of the crate or bot: face that way (dx) and shoot
+    int left = 0;          // items and bots still missing
+    int fromX = 0, fromY = 0; // where the runner was when it was worked out
+  };
+  bool guideOn() const;
+  const Guide& guide() const;
   // Something here keeps time with the music (beat signs, the Pulse
   // Pistol's beat): the game can't run slower than the music plays.
   bool beatTimed() const
@@ -3757,6 +3783,10 @@ private:
   int mDrown = 0;          // frames since the last heart lost to drowning
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
   PlayOptions mPlay;
+  // The guide arrow's last answer and the logic frame it was worked out on.
+  mutable Guide mGuide;
+  mutable int mGuideAt = -1000;
+  void drawGuide(Renderer& r, float camX, float camY, int frame) const;
   int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
   bool mFireHeld = false; // in the latest logic frame (no weapon switch while firing)
   int mJumpBuffer = 0;   // jump help: frames a jump pressed in the air still counts on landing

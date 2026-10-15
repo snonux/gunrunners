@@ -8197,6 +8197,22 @@ Art Art::build(const Theme& theme, const Renderer& r)
     cairo_fill(dot.cr());
     art.dot = dot.toTexture(r, 8.0f, 8.0f);
   }
+  {
+    // The guide arrow: a chunky arrow pointing right, white with a dark rim.
+    VectorImage a(72, 56);
+    cairo_t* cr = a.cr();
+    cairo_move_to(cr, 6, 21);
+    cairo_line_to(cr, 34, 21);
+    cairo_line_to(cr, 34, 7);
+    cairo_line_to(cr, 66, 28);
+    cairo_line_to(cr, 34, 49);
+    cairo_line_to(cr, 34, 35);
+    cairo_line_to(cr, 6, 35);
+    cairo_close_path(cr);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    fillGradientOutline(cr, 7, 49, rgb(255, 255, 255), rgb(205, 205, 215), rgb(14, 10, 26), 5.0);
+    art.guideArrow = a.toTexture(r, 36.0f, 28.0f);
+  }
   art.decoBase = bakeDecoBase(r, theme);
   art.decoLit = bakeDecoLit(r, theme);
   art.exitBase = bakeExitBase(r, theme);
