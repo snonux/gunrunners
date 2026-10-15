@@ -115,6 +115,7 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "map") in.map = true;
       else if (b == "use") in.use = true;
       else if (b == "say") in.say = true;
+      else if (b == "random") in.randomRunner = true;
       else if (b == "aimleft") in.aimLeft = true;
       else if (b == "aimright") in.aimRight = true;
       else if (b == "upjump") in.up = in.jump = in.upJump = true;

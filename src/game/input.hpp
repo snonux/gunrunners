@@ -23,6 +23,7 @@ struct Input
   bool map = false;   // M, gamepad Back: open or close the level map
   bool use = false;   // E, gamepad LB: get in or out of a vehicle
   bool say = false;   // V: the runner says a random line
+  bool randomRunner = false; // R, gamepad RS: switch to a runner picked at random
   // Touch (thumbs scheme): fire aimed left or right turns the runner that
   // way first, and a jump that came from pushing the stick up (which on a
   // ladder climbs instead).
@@ -48,6 +49,7 @@ struct Input
     r.map = map || o.map;
     r.use = use || o.use;
     r.say = say || o.say;
+    r.randomRunner = randomRunner || o.randomRunner;
     r.aimLeft = aimLeft || o.aimLeft;
     r.aimRight = aimRight || o.aimRight;
     r.upJump = upJump || o.upJump;
@@ -69,6 +71,7 @@ struct PlayerInput
   bool right = false;
   bool up = false;
   bool down = false;
+  bool run = false; // the way held was double tapped (run_gesture.hpp)
   Button jump;
   Button fire;
   Button use; // get in or out of a vehicle

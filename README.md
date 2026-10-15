@@ -172,8 +172,9 @@ After that, `./build/gunrunners` starts the game.
 
 In a level your left thumb moves and your right thumb shoots. The bottom
 left of the screen is a stick: put your thumb down there and slide it
-to walk or turn, down to crouch, up (or a quick flick up) to jump, up and
-over for a running jump. On a ladder, up climbs. Tap anywhere else to
+to walk or turn (a short flick to one side, then back that way and hold,
+runs), down to crouch, up (or a quick flick up) to jump, up and
+over for a jump to the side. On a ladder, up climbs. Tap anywhere else to
 shoot at that spot: tap an enemy above your runner and the runner shoots
 up at it, tap one beside it and the runner turns and shoots that way, tap
 low beside it and the runner crouches and shoots low. Shots go where the
@@ -206,12 +207,13 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 
 | Keyboard | Gamepad | Action |
 |----------|---------|--------|
-| Left / Right (A / D) | left stick or d-pad | walk, pick a runner |
+| Left / Right (A / D) | left stick or d-pad | walk, pick a runner; tap a way, then press it again and hold to run |
 | Up (W) | stick or d-pad up | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
 | X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
+| R | right stick click (RS) | switch to a random runner (never the one you are playing) |
 | E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too) |
 | Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
@@ -222,6 +224,12 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | Esc / Backspace | B | back out of a menu (Esc on the title screen quits) |
 | T | | cycle theme (Neon Overdrive, Lost Temple, Station Zero) |
 | F11 / Alt+Enter | | fullscreen on or off |
+
+**Running.** Every runner can run: tap left or right once, then press the
+same way again and hold it. The runner runs at twice the walking speed for
+as long as you hold it (jumps included, so a running jump goes further but
+no higher) and walks again when you let go or turn. It works the same on
+the keyboard, the d-pad, the stick and the touch stick.
 
 Most gamepads work out of the box (Xbox, PlayStation, Switch Pro, 8BitDo,
 Steam Deck and generic USB or Bluetooth pads), and you can plug them in
@@ -309,7 +317,9 @@ Jade a full flamethrower and Skye rapid fire.
 On top of that:
 
 - **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
-  runner right where you stand. Your weapon, ammo and items carry over.
+  runner right where you stand, or R (right stick click) for a random one.
+  Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
+  pause menu has a RANDOM RUNNER button.
 - **Runner editor.** NEW RUNNER on the runner select screen makes your own:
   human or robot, build, hair (or head kit), face (or optics), outfit,
   colours, name, starting gun, and ten stat points to spread over health,

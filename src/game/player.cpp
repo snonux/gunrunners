@@ -144,6 +144,12 @@ void World::updatePlayer(const PlayerInput& raw)
   }
   const int mvX = in.left ? -1 : (in.right ? 1 : 0);
   const int mvY = in.up ? -1 : (in.down ? 1 : 0);
+  // Running starts on the ground and carries through jumps for as long as
+  // the way stays held; letting go or turning walks again.
+  if (!in.run || mvX == 0 || (mRunDir != 0 && mvX != mRunDir))
+    mRunDir = 0;
+  else if (mRunDir == 0 && p.state == PlayerState::OnGround && mvY == 0)
+    mRunDir = mvX;
 
   if (mFreeFall)
   {
@@ -723,7 +729,7 @@ int World::horizontalSteps() const
     return p.oddFrame ? 0 : 1; // drawing the Jade Bow
   if (mReactor.raise > 0)
     return p.oddFrame ? 0 : 1; // behind the Deflector Bracer's shield
-  return 1;
+  return mRunDir != 0 ? 2 : 1;
 }
 
 namespace

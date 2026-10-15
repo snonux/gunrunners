@@ -650,6 +650,7 @@ void Game::afterCutscenes()
       mVoice = mMainVoice;
       mSubTick = 0;
       mLatched = PlayerInput{};
+      mRun.reset();
       mWorld->addBonusReward(mBonusScore, mBonusGems, mBonusWon);
       if (mBonusCheated)
         mWorld->markCheated();
@@ -696,6 +697,7 @@ void Game::startBonusWorld()
   mBot = Bot{};
   mSubTick = 0;
   mLatched = PlayerInput{};
+  mRun.reset();
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
   playLevelMusic();

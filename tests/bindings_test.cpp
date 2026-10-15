@@ -34,6 +34,7 @@ void model()
   check(b.keys[std::size_t(Act::Jump)][0] == SDL_SCANCODE_X, "default: X jumps");
   check(b.keys[std::size_t(Act::Fire)][0] == SDL_SCANCODE_Z, "default: Z fires");
   check(b.keys[std::size_t(Act::Map)][0] == SDL_SCANCODE_M, "default: M opens the map");
+  check(b.keys[std::size_t(Act::RandomRunner)][0] == SDL_SCANCODE_R, "default: R picks a random runner");
 
   b.bindKey(Act::Jump, 0, SDL_SCANCODE_Z);
   check(b.keys[std::size_t(Act::Jump)][0] == SDL_SCANCODE_Z, "Z bound to jump");
@@ -95,6 +96,10 @@ void keyboard()
   keys[SDL_SCANCODE_M] = 1;
   check(c.readKeys(keys, false).map, "M opens the map by default");
   keys[SDL_SCANCODE_M] = 0;
+  keys[SDL_SCANCODE_R] = 1;
+  check(c.readKeys(keys, false).randomRunner, "R switches to a random runner by default");
+  check(!c.readKeys(keys, false).swap, "...and not to the next one");
+  keys[SDL_SCANCODE_R] = 0;
 }
 
 void pad()
@@ -129,6 +134,11 @@ void pad()
   SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_BACK, 1);
   pump();
   check(c.read().map, "pad: Back opens the map by default");
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_BACK, 0);
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_RIGHTSTICK, 1);
+  pump();
+  check(c.read().randomRunner, "pad: right stick click picks a random runner by default");
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_RIGHTSTICK, 0);
   SDL_JoystickDetachVirtual(device);
   pump();
 #else
