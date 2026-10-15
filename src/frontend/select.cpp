@@ -86,6 +86,7 @@ bool Game::tickSelect(Input& in, const Input& raw)
     }
     else if (campaign())
     {
+      mBench.clear(); // a fresh start: every runner plays
       beginCampaignLevel(mPendingLevel, mPendingNewGame);
     }
     else

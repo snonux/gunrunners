@@ -1705,6 +1705,20 @@ public:
   bool nextWeapon();
   bool weaponLocked() const;
   int characterIndex() const { return mCharacterIndex; }
+  // SWAP RUNNER ON DEATH (an option): a runner who dies sits out the rest
+  // of this level and all of the next one, and the next runner who isn't
+  // sitting out takes over at the checkpoint. bench()[i] is how many
+  // levels runner i still sits out, this one included (0 or missing: free).
+  // The frontend hands the list from level to level (nextLevelBench).
+  const std::vector<int>& bench() const { return mBench; }
+  void setBench(std::vector<int> bench) { mBench = std::move(bench); }
+  bool benched(int index) const
+  {
+    return index >= 0 && std::size_t(index) < mBench.size() && mBench[std::size_t(index)] > 0;
+  }
+  // The first runner after `from` (going `dir`, wrapping round) who isn't
+  // benched and isn't the one playing; -1 when there is none.
+  int nextFreeRunner(int from, int dir = 1) const;
   // Shows a line of text under the HUD, like the pickup messages.
   void notify(const std::string& text) { showMessage(text); }
   // Applies a cheat and says what it did; false if it can't right now
@@ -1813,6 +1827,7 @@ public:
     bool lowDamage = false;      // hits take half the hearts (every other heart of damage)
     bool quickRetry = false;     // jump or fire cuts the death scene short (people, not the bot)
     bool calm = false;           // reduced effects: no screen shake, no flashes of light
+    bool swapOnDeath = false;    // a runner who dies is benched and the next free runner steps in
   };
   void setPlayOptions(const PlayOptions& o)
   {
@@ -3737,6 +3752,8 @@ private:
   // base) and what the last switch gave, so switching back and forth works
   // out from the base each time instead of rounding up again and again.
   int mSwapBaseHp = 0, mSwapBaseMax = 0, mSwapHp = -1, mSwapMax = 0;
+  std::vector<int> mBench; // SWAP RUNNER ON DEATH: levels each runner still sits out
+  std::string swapAfterDeath(); // the dead runner is benched, the next free one steps in
   int mDrown = 0;          // frames since the last heart lost to drowning
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
   PlayOptions mPlay;

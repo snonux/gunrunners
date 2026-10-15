@@ -43,6 +43,7 @@ const AssistRow kAssistRows[] = {
   {"assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
   {"assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
   {"opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
+  {"opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies sits out this level and the next; the next one steps in."},
   {"opt.voices", "RUNNER VOICES", "The runners talk about what they see. SAY A LINE (V) for more."},
   {"opt.subtitles", "VOICE SUBTITLES", "What the runners say, written at the bottom of the screen."},
 };
@@ -345,6 +346,7 @@ World::PlayOptions Game::playOptions() const
   o.lowDamage = playOption("assist.damage");
   o.quickRetry = !mOptions.autoplay;
   o.calm = playOption("opt.calm");
+  o.swapOnDeath = playOption("opt.swapdeath");
   return o;
 }
 
@@ -392,7 +394,8 @@ void Game::renderAssists()
   r.drawText("ASSISTS AND OPTIONS", 640, 116, {40.0f, t.accentA, kInk, true}, Align::Center);
   r.drawText("They keep records and bonus stars: none of them is a cheat.", 640, 168, {16.0f, t.accentB, kInk},
     Align::Center);
-  const float step = 42.0f;
+  // The rows close up as more options join, so BACK stays above the help line.
+  const float step = std::min(42.0f, 360.0f / float(kAssistCount));
   for (int i = 0; i <= kAssistCount; ++i)
   {
     const bool sel = i == mAssistCursor;
@@ -428,7 +431,7 @@ void Game::renderAssists()
   }
   r.drawText(mOptions.touch ? "TAP a row to pick it, TAP it again to switch it   BACK to leave"
                             : "UP/DOWN choose   ENTER / A switch   ESC / B back",
-    640, 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
+    640, kAssistCount > 8 ? 596.0f : 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
 }
 
 } // namespace gr

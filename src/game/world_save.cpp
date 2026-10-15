@@ -471,7 +471,25 @@ SaveGame World::snapshot() const
   }
   if (mSwapHp >= 0)
     s.swap = {mSwapBaseHp, mSwapBaseMax, mSwapHp, mSwapMax};
+  for (int left : mBench)
+    if (left > 0)
+    {
+      s.bench = mBench;
+      break;
+    }
   return s;
+}
+
+int World::nextFreeRunner(int from, int dir) const
+{
+  const int n = characterCount();
+  for (int k = 1; k < n; ++k)
+  {
+    const int i = ((from + dir * k) % n + n) % n;
+    if (i != mCharacterIndex && !benched(i))
+      return i;
+  }
+  return -1;
 }
 
 bool World::switchCharacter(int index)
@@ -481,6 +499,11 @@ bool World::switchCharacter(int index)
   if (mWardrobe.on)
   {
     showMessage("CHANGE IN A BOOTH"); // Level 37: runners swap in the changing booths
+    return false;
+  }
+  if (benched(index))
+  {
+    showMessage(characterByIndex(index).name + " SITS THIS ONE OUT");
     return false;
   }
   auto& p = mPlayer;
@@ -629,6 +652,9 @@ bool World::restore(const SaveGame& s)
     mSwapHp = s.swap[2];
     mSwapMax = s.swap[3];
   }
+  mBench.clear();
+  for (int left : s.bench)
+    mBench.push_back(std::clamp(left, 0, 2));
   mBonusStar = s.bonusStar;
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];
