@@ -167,6 +167,47 @@ int main()
     run(g, 2, pressed(&Input::back));
     run(g, 2);
     check(g.inLevel(), "map: BACK closes it");
+
+    // RANDOM RUNNER: the hotkey always lands on another runner, and over a
+    // dozen presses on more than two of them.
+    {
+      bool alwaysNew = true;
+      bool seen[64] = {};
+      int distinct = 0;
+      for (int i = 0; i < 12; ++i)
+      {
+        const int before = g.world()->characterIndex();
+        run(g, 2, pressed(&Input::randomRunner));
+        run(g, 2);
+        const int after = g.world()->characterIndex();
+        alwaysNew = alwaysNew && after != before;
+        if (after >= 0 && after < 64 && !seen[after])
+        {
+          seen[after] = true;
+          ++distinct;
+        }
+      }
+      check(alwaysNew, "random runner: never the one already playing");
+      check(distinct > 2, "random runner: picks among all the runners");
+    }
+
+    // ...and on touch, from CHANGE RUNNER in the pause menu.
+    {
+      const int before = g.world()->characterIndex();
+      run(g, 2, pressed(&Input::pause));
+      run(g, 2);
+      for (int i = 0; i < 5; ++i)
+      {
+        run(g, 2, pressed(&Input::down));
+        run(g, 2);
+      }
+      run(g, 2, pressed(&Input::confirm));
+      run(g, 2);
+      check(!g.inLevel(), "change runner menu open");
+      tap(g, 640.0f, 514.0f);
+      check(g.inLevel(), "change runner: a tap on RANDOM RUNNER goes back to the level");
+      check(g.world()->characterIndex() != before, "...as another runner");
+    }
   }
   std::filesystem::remove_all(saves);
   SDL_DestroyRenderer(sdl);
