@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gunrunners: a neon jump-n-shoot</title>
-<meta name="description" content="Gunrunners is a free jump-n-shoot platformer in the spirit of Duke Nukem II: six runners, 49 levels, six vehicles and one very suspicious TV network. For Linux and Android.">
+<meta name="description" content="Gunrunners is a free jump-n-shoot platformer in the spirit of Duke Nukem II: six runners, 49 levels, six vehicles and one very suspicious TV network. Play it in your browser, or get it for Linux and Android.">
 <meta property="og:title" content="Gunrunners">
-<meta property="og:description" content="Six couriers. Forty-two jobs. Don't ask what's in the box. A free neon jump-n-shoot for Linux and Android.">
+<meta property="og:description" content="Six couriers. Forty-two jobs. Don't ask what's in the box. A free neon jump-n-shoot for your browser, Linux and Android.">
 <meta property="og:image" content="https://gunrunners.snonux.foo/media/cover_front.jpg">
 <meta property="og:url" content="https://gunrunners.snonux.foo/">
 <meta name="theme-color" content="#140a26">
@@ -51,7 +51,8 @@
     <a href="#runners">Runners</a>
     <a href="#villains">Villains</a>
     <a href="#episodes">Episodes</a>
-    <a class="nav-cta" href="#get">Get it</a>
+    <a href="#get">Get it</a>
+    <a class="nav-cta" href="play/">Play now</a>
   </nav>
   <!-- Sound effects on/off (site.js shows it; without JavaScript there are none). -->
   <button type="button" class="sound-toggle" aria-pressed="true" title="Sound effects (they start after your first click)" hidden>
@@ -66,6 +67,13 @@
 
 <main id="top">
 
+<aside class="play-strip" aria-label="Play in your browser">
+  <a class="btn btn-hot btn-play" href="play/">&#9654; Play now in your browser</a>
+  <p>No install: about 20 MB loads once, then it starts. Rather install it? The
+    <a href="#get-android">Android</a> and <a href="#get-linux">Linux</a> versions
+    run smoother, work offline and support cloud saves.</p>
+</aside>
+
 <section class="hero">
   <div class="hero-floor" aria-hidden="true"></div>
   <div class="trailers" id="trailers">
@@ -79,7 +87,7 @@
     </figure>
   </div>
   <div class="hero-text">
-    <p class="kicker">A jump-n-shoot for Linux and Android</p>
+    <p class="kicker">A jump-n-shoot for your browser, Linux and Android</p>
     <h1 class="logo">GUNRUNNERS</h1>
     <p class="lede">Six couriers. Forty-two jobs. A client called MAX who pays by the
       job and says <em>don't ask what's in the box.</em> Run, jump and blast
@@ -93,7 +101,8 @@
       <li><b>0</b> samples: every note made in code</li>
     </ul>
     <div class="ctas">
-      <a class="btn btn-hot" href="#get">Get the game</a>
+      <a class="btn btn-hot" href="play/">Play in your browser</a>
+      <a class="btn" href="#get">Get the game</a>
       <a class="btn" href="https://github.com/snonux/gunrunners">Source on GitHub</a>
     </div>
   </div>
@@ -665,7 +674,16 @@
   <p class="section-lede">Free software under the GNU GPL, version 2 or later. No ads and
     no accounts.</p>
   <div class="get-grid">
-    <article class="get-card">
+    <article class="get-card" id="get-browser">
+      <h3>Browser</h3>
+      <p><a href="play/">Play it right here</a>, in any current desktop or phone
+        browser. Nothing to install: about 20 MB loads once, and your saves stay
+        in the browser.</p>
+      <p>It is the same game as the latest Linux and Android release, built
+        from the same source. Keyboard, gamepad or on-screen touch controls;
+        no cloud saves.</p>
+    </article>
+    <article class="get-card" id="get-android">
       <h3>Android</h3>
       <p>Install with <a href="https://f-droid.org">F-Droid</a> from Paul's
         repository: open <a href="https://github.com/snonux/fdroid">snonux/fdroid</a>
@@ -674,7 +692,7 @@
         <i>Settings &gt; Repositories</i> and search for Gunrunners.</p>
       <p>On-screen thumb controls, or any Bluetooth or USB gamepad.</p>
     </article>
-    <article class="get-card">
+    <article class="get-card" id="get-linux">
       <h3>Linux</h3>
       <p>Grab <code>gunrunners-vX.Y.Z-linux-x86_64.tar.gz</code> from the
         <a href="https://github.com/snonux/gunrunners/releases/latest">latest release</a>

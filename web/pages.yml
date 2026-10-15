@@ -1,13 +1,20 @@
 # Proposed .github/workflows/pages.yml (agent tokens cannot write workflow
-# files, so this waits here for Paul to move it). Publishes the website
-# (docs/) with the browser version under /play/, built fresh from main.
-# Needs: repository Settings > Pages > Source = "GitHub Actions"; keep
-# docs/CNAME so gunrunners.snonux.foo stays the domain.
+# files, so this waits here for Paul to move it: git mv web/pages.yml
+# .github/workflows/pages.yml). Publishes the website from docs/ on main,
+# with the browser version under /play/ built from the latest release tag,
+# so it is the same game as that release's Linux tarball and APK.
+# Needs, once: Settings > Pages > Source = "GitHub Actions". docs/CNAME
+# keeps gunrunners.snonux.foo as the domain.
 name: Pages
 
 on:
   push:
     branches: [main]
+  # A new release (its tag is pushed by the Release workflow's token, which
+  # starts no workflows itself) rebuilds the game when that run finishes.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -24,21 +31,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Pick the latest release with a web build
+        id: game
+        run: |
+          tag=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          # Releases before the browser version have no web/ to build.
+          if [ -n "$tag" ] && git cat-file -e "$tag:web/build.sh" 2>/dev/null; then
+            git worktree add game "$tag"
+          else
+            tag="$(git describe --tags --always)"
+            git worktree add game HEAD
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - uses: mymindstorm/setup-emsdk@v14
         with:
           version: 6.0.12
       - run: pip install meson ninja
       - uses: actions/cache@v4
         with:
-          path: web/deps/prefix
-          key: web-deps-${{ hashFiles('web/build-deps.sh') }}
-      - run: web/build.sh
+          path: game/web/deps/prefix
+          key: web-deps-${{ hashFiles('game/web/build-deps.sh') }}
+      - run: game/web/build.sh
       - name: Site plus the game under /play
         run: |
           cp -r docs _site
-          mkdir -p _site/play
-          cp web/build/gunrunners.{html,js,wasm,data} _site/play/
-          mv _site/play/gunrunners.html _site/play/index.html
+          cp game/web/build/gunrunners.{js,wasm,data} _site/play/
+          sed -i "s/@VERSION@/${{ steps.game.outputs.tag }}/" _site/play/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

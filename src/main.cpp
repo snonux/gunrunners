@@ -782,8 +782,17 @@ int runWindowed(const CliOptions& o)
   // as long as the page, and nothing after this line is reached.
   emscripten_set_main_loop_arg(
     [](void* run) {
+      // The page drops its loading screen once there is a picture.
+      static bool first = true;
+      if (first)
+        EM_ASM({ if (Module.onFirstFrame) Module.onFirstFrame(); });
+      first = false;
+      // A page has nothing to quit to: back to a fresh title screen.
       if (!static_cast<WindowedRun*>(run)->frame())
+      {
         emscripten_cancel_main_loop();
+        EM_ASM({ location.reload(); });
+      }
     },
     run.release(), 0, true);
 #else
@@ -827,6 +836,8 @@ int main(int argc, char** argv)
   o.game.dataDir = "/data";
   o.game.saveDir = "/saves";
   loadGameFont("/data/fonts/DejaVuSans-Bold.ttf");
+  // Phones and tablets get the on-screen gamepad, as on Android.
+  o.touch = o.touch || EM_ASM_INT({ return navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches; });
 #endif
   o.game.touch = o.touch;
   try

@@ -53,9 +53,14 @@ const char* const kCheatLabels[int(Cheat::Count)] = {
 
 std::vector<int> Game::pauseItems() const
 {
+#ifdef __EMSCRIPTEN__
+  constexpr bool kCanQuit = false; // a browser tab is closed by the player
+#else
+  constexpr bool kCanQuit = true;
+#endif
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
+    if ((i != kQuitGame || kCanQuit) && (i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
       items.push_back(i);
   return items;
 }

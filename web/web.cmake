@@ -29,13 +29,14 @@ set_target_properties(CURL::libcurl PROPERTIES INTERFACE_COMPILE_DEFINITIONS GR_
 add_compile_options(-fexceptions)
 add_link_options(-fexceptions)
 
-# gunrunners.html/.js/.wasm plus gunrunners.data: levels, cutscenes, fonts
-# and voices, mounted at /data in the page's file system. Saves live in
-# IndexedDB (/saves, see src/main.cpp).
+# gunrunners.js/.wasm plus gunrunners.data: levels, cutscenes, fonts and
+# voices, mounted at /data in the page's file system. The page that loads
+# them is the website's docs/play/index.html (loading screen included).
+# Saves live in IndexedDB (/saves, see src/main.cpp).
 function(gr_add_web_main)
   add_executable(gunrunners src/main.cpp src/frontend/touch_controls.cpp)
   target_link_libraries(gunrunners PRIVATE gunrunners_core SDL2::SDL2)
-  set_target_properties(gunrunners PROPERTIES SUFFIX ".html")
+  set_target_properties(gunrunners PROPERTIES SUFFIX ".js")
   target_link_options(gunrunners PRIVATE
     -lidbfs.js
     -sALLOW_MEMORY_GROWTH=1
@@ -43,7 +44,6 @@ function(gr_add_web_main)
     -sMAXIMUM_MEMORY=2GB
     -sSTACK_SIZE=1MB
     -sEXPORTED_RUNTIME_METHODS=FS
-    "SHELL:--shell-file ${GR_WEB_DIR}/shell.html"
     "SHELL:--pre-js ${GR_WEB_DIR}/pre.js"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/levels@/data/levels"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/cutscenes@/data/cutscenes"

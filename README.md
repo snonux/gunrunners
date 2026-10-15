@@ -8,6 +8,9 @@
 **Website: <https://gunrunners.snonux.foo>** (gameplay videos, the story,
 the runners and their enemies).
 
+**Play it in your browser: <https://gunrunners.snonux.foo/play/>**, or get
+it for [Linux and Android](#get-the-game).
+
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
 runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
 own in the runner editor, and blast your way to the exit.
@@ -134,7 +137,15 @@ harbour's reef walls). On Vurr you can also ride a Bounder.
 
 ## Get the game
 
-Gunrunners runs on Linux and Android.
+Gunrunners runs in your browser, on Linux and on Android. All three are
+built from the same source, and the browser version is always built from
+the latest release, so it is the same game as the downloads.
+
+**Browser:** play at <https://gunrunners.snonux.foo/play/>, nothing to
+install. About 20 MB loads once; saves stay in the browser. Keyboard,
+gamepad or on-screen touch controls; no cloud saves. The Android and Linux
+versions run smoother and work offline. Building it yourself (Emscripten)
+is described in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#browser-build).
 
 **Android:** install it with [F-Droid](https://f-droid.org) from Paul's
 F-Droid repository, <https://github.com/snonux/fdroid> (one-tap link and QR
