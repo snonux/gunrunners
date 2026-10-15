@@ -1,0 +1,13 @@
+# zero: <id> <first sample> <samples> at 22050 Hz in zero.ogg (tools/voices/cutscene_pack.py)
+brief_15_ce3294f6 0 53517
+brief_16_f2581646 56824 45248
+brief_16_f85b1305 105379 16817
+brief_17_e31c2f10 125503 34683
+brief_18_8a6ec21f 163493 27103
+brief_18_ba6cdeb1 193903 10560
+brief_20_e148bfd8 207770 27562
+brief_20_cdd4b0aa 238639 19522
+brief_20_c9fea8d3 261468 16229
+brief_21_54f37427 281004 19051
+brief_21_40dde017 303362 17221
+end_e3_96b512b9 323890 45019
