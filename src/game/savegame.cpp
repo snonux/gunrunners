@@ -74,6 +74,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   o << "fields " << int(s.forceFieldsOn) << '\n';
   if (!s.levelFile.empty())
     o << "campaign " << s.levelNumber << ' ' << s.levelFile << '\n';
+  if (s.hard)
+    o << "hard 1\n";
   o << "extras " << s.proto << ' ' << int(s.protoFound) << ' ' << int(s.duck) << ' ' << int(s.camera) << ' '
     << int(s.bonusStar) << ' ' << s.protoKills << '\n';
   if (s.god || s.cheated)
@@ -229,6 +231,8 @@ std::optional<SaveGame> readSave(const std::string& path)
       s.forceFieldsOn = a != 0;
     else if (key == "campaign" && in >> s.levelNumber)
       s.levelFile = rest();
+    else if (key == "hard" && in >> a)
+      s.hard = a != 0;
     else if (key == "extras" && in >> s.proto >> a >> b >> c >> d >> s.protoKills)
     {
       s.protoFound = a != 0;

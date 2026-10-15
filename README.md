@@ -273,6 +273,18 @@ have seen) and the TRAINING STAGE, a free-play level for trying the controls.
   its first level, and inside an episode every level you have reached can
   be replayed.
 
+- **Hard mode.** Runner select has a DIFFICULTY button over the cards (up,
+  then left or right, or tap it): NORMAL plays the levels as designed, HARD
+  adds more enemies to every level of the campaign, DEEP SPACE and the
+  EXTRAS (about 200 more, roughly half as many again). An enemy that
+  fights on its own (patrollers, guards, flyers, turrets) gets a twin of
+  the same kind a few blocks along the same floor; where a level's enemies
+  belong to its set pieces, newcomers patrol open floors along the gems.
+  None stands near the start, a checkpoint or the exit, and never more
+  than two share a screen's width of floor. Bonus levels keep their own
+  rules. The game remembers the choice, a save keeps the difficulty it was
+  made on, and the HUD shows HARD over the score. `--hard` starts on HARD
+  from the command line.
 - **Prototypes and the Arsenal.** Each level hides its own prototype weapon
   in a green box. Reach the exit with it and it joins your Arsenal, with
   your best kill count.

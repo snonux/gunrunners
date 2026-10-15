@@ -1986,6 +1986,8 @@ void World::drawHud(Renderer& r, int frame) const
   x += float(kHudLettersW) + 10.0f;
   r.draw(mArt.hudPanels[4], x, top);
   r.drawText("SCORE", x + 16, top + 6, label);
+  if (mLevel->hard)
+    r.drawText("HARD", x + kHudScoreW - 16, top + 6, {15.0f, rgb(255, 96, 72), kHudInk, true}, Align::Right);
   std::snprintf(buf, sizeof(buf), "%07d", mStats.score);
   r.drawText(buf, x + kHudScoreW - 16, top + 22, value, Align::Right);
 

@@ -5,6 +5,7 @@
 #include "frontend/game.hpp"
 
 #include "data/campaign.hpp"
+#include "data/hard_mode.hpp"
 #include "data/weapons.hpp"
 #include "audio/voice_clip.hpp"
 
@@ -429,7 +430,10 @@ bool Game::loadLevel(const std::string& path)
   const std::string full = path.empty() || path[0] == '/' ? path : dataDir() + "/" + path;
   try
   {
-    mLevel = std::make_shared<const Level>(Level::loadFile(full));
+    Level level = Level::loadFile(full);
+    if (mHard)
+      addHardModeEnemies(level);
+    mLevel = std::make_shared<const Level>(std::move(level));
   }
   catch (const std::exception& e)
   {
@@ -439,6 +443,15 @@ bool Game::loadLevel(const std::string& path)
   }
   mLevelPath = path;
   return true;
+}
+
+void Game::setHard(bool hard)
+{
+  if (hard == mHard)
+    return;
+  mHard = hard;
+  mProfile.controls["opt.hard"] = {hard ? 1 : 0};
+  mProfile.save(saveDir());
 }
 
 void Game::applyLevelLook(int ep, const std::string& themeKey)

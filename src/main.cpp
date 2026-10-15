@@ -134,6 +134,7 @@ void printUsage()
     "  --skip-menu          start straight in the level (after its briefing)\n"
     "  --cheats             the pause menu shows CHEATS without the code\n"
     "  --no-cutscenes       skip the opening, briefings and episode endings\n"
+    "  --hard               HARD: more enemies in every level\n"
     "  --cutscene NAME      play cutscenes/NAME.txt, then quit\n"
     "  --data-dir PATH      where levels/ and cutscenes/ are\n"
     "  --autoplay           let the bot play (menu + level)\n"
@@ -303,6 +304,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.game.startLevel = std::atoi(next());
     else if (a == "--no-cutscenes")
       o.game.noCutscenes = true;
+    else if (a == "--hard")
+      o.game.hard = true;
     else if (a == "--cutscene")
       o.game.cutscene = next();
     else if (a == "--data-dir")

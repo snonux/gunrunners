@@ -45,6 +45,7 @@ struct SaveGame
   // Campaign: which level file, and its number (0 for a stand-alone level).
   std::string levelFile;
   int levelNumber = 0;
+  bool hard = false; // played on HARD: the level has its extra enemies
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
   // A custom runner's look and stats (encodeRunner), so the save still

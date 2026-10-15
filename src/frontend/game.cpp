@@ -1,6 +1,7 @@
 #include "frontend/game.hpp"
 
 #include "data/campaign.hpp"
+#include "data/hard_mode.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -63,7 +64,11 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   mCutsceneVoices.setDir(voicesDir() + "/cutscenes");
   if (!campaign())
   {
-    mLevel = std::make_shared<const Level>(Level::loadFile(options.levelPath));
+    mHard = options.hard;
+    Level level = Level::loadFile(options.levelPath);
+    if (mHard)
+      addHardModeEnemies(level);
+    mLevel = std::make_shared<const Level>(std::move(level));
     mMode = Mode::Select;
     if (mOptions.skipMenu)
     {
@@ -78,6 +83,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   }
   mProfile = Profile::load(saveDir());
   mBindings = Bindings::fromProfile(mProfile.controls);
+  mHard = mOptions.hard || playOption("opt.hard");
   if (!mOptions.cutscene.empty())
   {
     playCutscenes({mOptions.cutscene}, After::Quit);

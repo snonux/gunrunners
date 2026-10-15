@@ -389,7 +389,11 @@ bool Game::quickLoad()
 bool Game::loadSave(SaveGame s, const std::string& message)
 {
   // A copy: loading a level refreshes mSlots, which may hold the original.
-  if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath))
+  // A save brings its difficulty: the level reloads with (or without) the
+  // HARD enemies, and the levels after it follow.
+  if (campaign())
+    setHard(s.hard);
+  if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath || mLevel->hard != s.hard))
   {
     // Campaign saves bring their level along.
     mWorld.reset();

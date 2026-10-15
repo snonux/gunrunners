@@ -31,6 +31,7 @@ SaveGame World::snapshot() const
 {
   SaveGame s;
   s.levelName = mLevel->name;
+  s.hard = mLevel->hard;
   s.character = mCharacterIndex;
   if (mCharacter.custom)
     s.runner = encodeRunner(mCharacter);
@@ -505,7 +506,7 @@ bool World::switchCharacter(int index)
 
 bool World::restore(const SaveGame& s)
 {
-  if (s.levelName != mLevel->name || s.enemies.size() < mLevelEnemyCount ||
+  if (s.levelName != mLevel->name || s.hard != mLevel->hard || s.enemies.size() < mLevelEnemyCount ||
       (!s.platforms.empty() && s.platforms.size() != mPlatforms.size()) ||
       (!s.hatches.empty() && s.hatches.size() != mHatches.size()) ||
       (!s.breakables.empty() && s.breakables.size() != mBreakables.size()) ||
