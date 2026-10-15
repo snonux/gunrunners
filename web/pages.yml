@@ -1,0 +1,54 @@
+# Proposed .github/workflows/pages.yml (agent tokens cannot write workflow
+# files, so this waits here for Paul to move it). Publishes the website
+# (docs/) with the browser version under /play/, built fresh from main.
+# Needs: repository Settings > Pages > Source = "GitHub Actions"; keep
+# docs/CNAME so gunrunners.snonux.foo stays the domain.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.12
+      - run: pip install meson ninja
+      - uses: actions/cache@v4
+        with:
+          path: web/deps/prefix
+          key: web-deps-${{ hashFiles('web/build-deps.sh') }}
+      - run: web/build.sh
+      - name: Site plus the game under /play
+        run: |
+          cp -r docs _site
+          mkdir -p _site/play
+          cp web/build/gunrunners.{html,js,wasm,data} _site/play/
+          mv _site/play/gunrunners.html _site/play/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
