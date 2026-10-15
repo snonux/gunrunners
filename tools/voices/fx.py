@@ -55,6 +55,27 @@ def low_shelf(sr, f0, gain_db):
     return (b0 / a0, b1 / a0, b2 / a0), (1.0, a1 / a0, a2 / a0)
 
 
+def peaking(sr, f0, gain_db, q=0.9):
+    A = 10 ** (gain_db / 40)
+    w = 2 * np.pi * f0 / sr
+    al = np.sin(w) / (2 * q)
+    c = np.cos(w)
+    a0 = 1 + al / A
+    return ((1 + al * A) / a0, -2 * c / a0, (1 - al * A) / a0), (1.0, -2 * c / a0, (1 - al / A) / a0)
+
+
+def shout(wav, who):
+    """Paul (2026-10-15) wanted the lines almost screamed: a little faster and
+    higher (not Rocco, who stays deep), a strained upper-mid edge, thinner
+    lows, and drive like a voice at the top of its lungs."""
+    if who != "rocco":
+        wav = resample(wav, RATE, int(RATE / 1.04))
+        wav = biquad(wav, *low_shelf(RATE, 200, -3.0))
+    wav = biquad(wav, *peaking(RATE, 2800, 5.0))
+    wav = wav / (np.max(np.abs(wav)) + 1e-9)
+    return np.tanh(wav * 2.4) / np.tanh(2.4)
+
+
 def normalize(wav, peak=0.89, rms=0.16):
     r = np.sqrt(np.mean(wav ** 2) + 1e-12)
     wav = wav * min(rms / r, peak / (np.max(np.abs(wav)) + 1e-9))
@@ -82,7 +103,7 @@ def voice(wav, sr, who):
         wav = np.round(comb * 128) / 128
     else:
         wav = resample(wav, sr, RATE)
-    return normalize(wav)
+    return normalize(shout(wav, who), rms=0.19)
 
 
 def write_ogg(wav, sr, dest, quality="5", rate=None, bitrate=None):

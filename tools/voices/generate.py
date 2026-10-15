@@ -42,6 +42,12 @@ def match(want, got):
     return (dp[-1][-1] - 0.5 * extra) / len(a)
 
 
+def shouted(text):
+    """What the model reads: every sentence ends in an exclamation mark, so the
+    delivery stays at a shout (the subtitles keep lines.txt's punctuation)."""
+    return re.sub(r"[.]+(\s|$)", r"!\1", text)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("lines")
@@ -88,7 +94,7 @@ def main():
         tts.conds = conds[voice]
         best = None
         for attempt in range(TRIES):
-            wav = tts.generate(text).squeeze(0).numpy()
+            wav = tts.generate(shouted(text)).squeeze(0).numpy()
             wav = fx.trim(wav, tts.sr)
             with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
                 sf.write(tmp.name, wav, tts.sr)
