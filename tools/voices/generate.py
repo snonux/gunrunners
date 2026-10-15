@@ -51,6 +51,7 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--part", default="1/1")
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--max", type=int, default=0, help="stop after this many clips (bounds memory; rerun to go on)")
     args = ap.parse_args()
 
     import torch
@@ -71,6 +72,8 @@ def main():
     jobs = [j for i, j in enumerate(jobs) if i % n == k - 1]
     jobs = [j for j in jobs if not os.path.exists(os.path.join(args.out, j[2], j[0] + ".ogg"))]
     print(f"{len(jobs)} clips to record", flush=True)
+    if args.max:
+        jobs = jobs[: args.max]
     if not jobs:
         return
 
