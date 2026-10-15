@@ -78,6 +78,9 @@ struct Level
   int timer = 0; // seconds
   std::string goal;
   std::vector<EntityDef> entities;
+  // HARD (data/hard_mode.hpp): the level was loaded with its extra enemies.
+  bool hard = false;
+  int hardExtras = 0; // how many enemies HARD added
 
   bool flag(const std::string& f) const { return flags.count(f) != 0; }
   std::string headerStr(const std::string& k, const std::string& def = {}) const;

@@ -31,6 +31,12 @@ int Game::selectCards() const
   return characterCount() + (customCount() < kMaxCustomRunners ? 1 : 0);
 }
 
+void Game::toggleHard()
+{
+  setHard(!mHard);
+  notice(mHard ? "HARD - MORE ENEMIES IN EVERY LEVEL" : "NORMAL - THE LEVELS AS DESIGNED");
+}
+
 bool Game::tickSelect(Input& in, const Input& raw)
 {
   if (mOptions.autoplay)
@@ -44,19 +50,24 @@ bool Game::tickSelect(Input& in, const Input& raw)
   {
     if (mSelectFocus == SelectFocus::Action)
       mSelectFocus = SelectFocus::Cards;
-    else if (mSelectFocus == SelectFocus::Cards && !campaign())
-      mSelectFocus = SelectFocus::Load;
+    else if (mSelectFocus == SelectFocus::Cards)
+      mSelectFocus = campaign() ? SelectFocus::Difficulty : SelectFocus::Load;
     sound(Sfx::MenuMove);
   }
   if (edge(&Input::down))
   {
-    if (mSelectFocus == SelectFocus::Load)
+    if (mSelectFocus == SelectFocus::Load || mSelectFocus == SelectFocus::Difficulty)
       mSelectFocus = SelectFocus::Cards;
     else if (mSelectFocus == SelectFocus::Cards && onRunner)
       mSelectFocus = SelectFocus::Action;
     sound(Sfx::MenuMove);
   }
-  if (mSelectFocus != SelectFocus::Load && (edge(&Input::left) || edge(&Input::right)))
+  if (mSelectFocus == SelectFocus::Difficulty && (edge(&Input::left) || edge(&Input::right)))
+  {
+    toggleHard();
+    sound(Sfx::MenuMove);
+  }
+  else if (mSelectFocus != SelectFocus::Load && (edge(&Input::left) || edge(&Input::right)))
   {
     mCursor = (mCursor + (edge(&Input::left) ? cards - 1 : 1)) % cards;
     if (mCursor >= characterCount())
@@ -71,7 +82,11 @@ bool Game::tickSelect(Input& in, const Input& raw)
   if (go)
   {
     sound(Sfx::MenuSelect);
-    if (mSelectFocus == SelectFocus::Load)
+    if (mSelectFocus == SelectFocus::Difficulty)
+    {
+      toggleHard();
+    }
+    else if (mSelectFocus == SelectFocus::Load)
     {
       mSlotsForSave = false;
       openMenu(Menu::Slots);
@@ -86,7 +101,6 @@ bool Game::tickSelect(Input& in, const Input& raw)
     }
     else if (campaign())
     {
-      mBench.clear(); // a fresh start: every runner plays
       beginCampaignLevel(mPendingLevel, mPendingNewGame);
     }
     else
@@ -354,7 +368,20 @@ void Game::renderSelect()
   }
 
   if (campaign())
+  {
+    // NORMAL or HARD (more enemies in every level), reached with up.
+    const bool focus = mSelectFocus == SelectFocus::Difficulty;
+    r.draw(focus ? mLoadButtonFocus : mLoadButton, 1030, 124);
+    tapTarget(1030, 118, 220, 58, [this](float, float) {
+      mSelectFocus = SelectFocus::Difficulty;
+      tapPress(&Input::confirm);
+    });
+    const Color hardRed = rgb(255, 96, 72);
+    r.drawText(focus ? (mHard ? "<  HARD  >" : "<  NORMAL  >") : (mHard ? "HARD" : "NORMAL"), 1140, 134,
+      {20.0f, mHard ? hardRed : (focus ? t.accentA : t.hudText), kInk, true}, Align::Center);
+    r.drawText("DIFFICULTY", 1140, 102, {14.0f, focus ? t.accentA : rgb(210, 210, 228), kInk, true}, Align::Center);
     return;
+  }
 
   // LOAD GAME button, reached with up.
   const bool load = mSelectFocus == SelectFocus::Load;

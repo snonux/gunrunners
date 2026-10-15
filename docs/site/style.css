@@ -119,6 +119,17 @@ h3 { font: 700 22px/1.25 var(--display); margin: 0 0 6px; }
 .btn-small { padding: 8px 16px; font-size: 16px; }
 .btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
+/* ---------- play strip: the browser version, first thing on the page ---------- */
+.play-strip {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 24px;
+  max-width: 1240px; margin: 0 auto; padding: 18px clamp(16px, 5vw, 64px);
+  background: linear-gradient(90deg, rgba(255, 63, 174, 0.16), rgba(47, 216, 255, 0.10));
+  border-bottom: 1px solid var(--line);
+}
+.play-strip p { margin: 0; max-width: 62ch; color: var(--muted); font-size: 16px; }
+.btn-play { font-size: 22px; padding: 14px 28px; box-shadow: 0 0 24px rgba(255, 63, 174, 0.45); }
+
 /* ---------- hero ---------- */
 .hero { display: grid; grid-template-columns: 1fr minmax(300px, 520px); gap: clamp(24px, 5vw, 64px); align-items: center; min-height: calc(100vh - 60px); }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; min-height: 0; } }

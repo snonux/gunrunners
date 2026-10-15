@@ -16,7 +16,9 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#ifndef GR_NO_CURL
 #include <curl/curl.h>
+#endif
 
 namespace gr
 {
@@ -180,6 +182,7 @@ bool removeS3Config(const std::string& saveDir, std::string* error)
 namespace
 {
 
+#ifndef GR_NO_CURL
 struct Curl
 {
   Curl()
@@ -191,6 +194,7 @@ struct Curl
   ~Curl() { curl_easy_cleanup(handle); }
   CURL* handle = nullptr;
 };
+#endif
 
 std::shared_ptr<std::mutex> pathMutex(const std::string& path)
 {
@@ -206,6 +210,10 @@ std::shared_ptr<std::mutex> pathMutex(const std::string& path)
   return mutex;
 }
 
+#ifdef GR_NO_CURL
+// The browser build has no libcurl (a page cannot open its own sockets).
+constexpr const char* kNoCloud = "cloud saves are not available in the browser";
+#else
 size_t appendBody(char* data, size_t size, size_t count, void* user)
 {
   constexpr std::size_t kMaxResponse = 16 * 1024 * 1024;
@@ -298,12 +306,19 @@ std::string requestError(CURLcode code, long status, const char* curlError,
     message += ": " + body.substr(0, 300);
   return message;
 }
+#endif
 
 } // namespace
 
 bool s3PutFile(const S3Config& config, const std::string& object,
   const std::string& path, std::string* error, const S3Active& active)
 {
+#ifdef GR_NO_CURL
+  (void)config, (void)object, (void)path, (void)active;
+  if (error)
+    *error = kNoCloud;
+  return false;
+#else
   if (active && !active())
     return false;
   std::ifstream input(path, std::ios::binary);
@@ -337,11 +352,18 @@ bool s3PutFile(const S3Config& config, const std::string& object,
   if (error)
     *error = requestError(result, status, curlError, response);
   return false;
+#endif
 }
 
 S3GetResult s3GetFile(const S3Config& config, const std::string& object,
   const std::string& path, std::string* error, const S3Active& active)
 {
+#ifdef GR_NO_CURL
+  (void)config, (void)object, (void)path, (void)active;
+  if (error)
+    *error = kNoCloud;
+  return S3GetResult::Error;
+#else
   if (active && !active())
     return S3GetResult::Error;
   Curl request;
@@ -390,6 +412,7 @@ S3GetResult s3GetFile(const S3Config& config, const std::string& object,
     return S3GetResult::Error;
   }
   return S3GetResult::Downloaded;
+#endif
 }
 
 bool markS3Dirty(const std::string& path, std::string* error)

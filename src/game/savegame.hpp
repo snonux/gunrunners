@@ -45,6 +45,7 @@ struct SaveGame
   // Campaign: which level file, and its number (0 for a stand-alone level).
   std::string levelFile;
   int levelNumber = 0;
+  bool hard = false; // played on HARD: the level has its extra enemies
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
   // A custom runner's look and stats (encodeRunner), so the save still
@@ -170,8 +171,8 @@ struct SaveGame
   std::vector<int> swap;
   // The spare guns (Player::spares): weapon, proto, ammo for each.
   std::vector<int> guns;
-  // SWAP RUNNER ON DEATH: how many levels each runner still sits out, this
-  // one included, by runner index (see World::bench). Empty: nobody.
+  // SWAP RUNNER ON DEATH: 1 for each runner who is out for the rest of the
+  // level, by runner index (see World::bench). Empty: nobody.
   std::vector<int> bench;
 };
 

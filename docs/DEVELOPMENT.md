@@ -45,6 +45,24 @@ together, the touch controls and how releases reach F-Droid are in
 [android/README.md](../android/README.md). `--touch` shows the on-screen
 gamepad on Linux too.
 
+## Browser build
+
+The same code also builds to WebAssembly with Emscripten. With emsdk
+active (`source emsdk_env.sh`) and meson and ninja installed,
+`web/build.sh` compiles FreeType, pixman and Cairo once
+(`web/build-deps.sh`, the same versions as Android; SDL2 is Emscripten's
+port) and makes `gunrunners.js`, `.wasm` and `.data` in `web/build`, next to
+a copy of the play page (`docs/play/index.html`, with its loading screen).
+Serve that directory over HTTP (`python3 -m http.server -d web/build`).
+`.data` holds the levels, cutscenes, fonts and voices, mounted at `/data`;
+saves live in the browser's IndexedDB at `/saves` (`web/pre.js`). What
+differs from the desktop: the browser calls the main loop once per
+animation frame (`WindowedRun::frame` in `src/main.cpp`), music renders when
+it starts instead of on a thread, there are no cloud saves (`GR_NO_CURL`)
+and no QUIT, and phones get the on-screen gamepad. The Pages workflow
+(`web/pages.yml`, moved to `.github/workflows/`) publishes the site with the
+game under `/play/`, always built from the latest release tag.
+
 ## Gamepads
 
 Gamepads use SDL2's GameController API, so any pad SDL knows gets the same
@@ -198,8 +216,9 @@ deterministic, so the same command always produces the same clip. Without
 
 ## The web page
 
-<https://gunrunners.snonux.foo> is `docs/index.html`, served by GitHub Pages
-from `main:/docs` (`docs/CNAME` names the domain, `docs/.nojekyll` serves
+<https://gunrunners.snonux.foo> is `docs/index.html`, published by the Pages
+workflow from `main:/docs` together with the browser version under `/play/`
+(see Browser build; `docs/CNAME` names the domain, `docs/.nojekyll` serves
 the files as they are). Its own styles, script and media live in
 `docs/site/` (the fonts, Exo 2 and Inter under the SIL OFL, are
 self-hosted there too); it reuses the README's pictures in `docs/media/`.

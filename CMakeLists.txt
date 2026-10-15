@@ -9,6 +9,8 @@ endif()
 
 if(ANDROID)
   include(android/android.cmake)
+elseif(EMSCRIPTEN)
+  include(web/web.cmake)
 else()
   find_package(SDL2 REQUIRED)
   find_package(PkgConfig REQUIRED)
@@ -80,6 +82,7 @@ add_library(gunrunners_core STATIC
   src/assets/enemy_art_mother.cpp
   src/assets/vehicle_art.cpp
   src/data/level.cpp
+  src/data/hard_mode.cpp
   src/data/theme.cpp
   src/data/characters.cpp
   src/engine/camera.cpp
@@ -251,6 +254,11 @@ endif()
 if(ANDROID)
   # The APK's libmain.so; no desktop binary, tools or tests.
   gr_add_android_main()
+  return()
+endif()
+if(EMSCRIPTEN)
+  # The page's gunrunners.html; no tools or tests.
+  gr_add_web_main()
   return()
 endif()
 
@@ -520,3 +528,7 @@ add_test(NAME crawl COMMAND crawl_test)
 # The announcer shouts GUNRUNNERS as the title banner lands.
 add_test(NAME title_shout COMMAND gunrunners --headless --voice-log --frames 30)
 set_tests_properties(title_shout PROPERTIES PASS_REGULAR_EXPRESSION "voice: title shout frame [0-9]+ [1-9][.][0-9]+s")
+# HARD: the extra enemies every campaign level gets (data/hard_mode.cpp).
+add_executable(hard_mode_test tests/hard_mode_test.cpp)
+target_link_libraries(hard_mode_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME hard_mode COMMAND hard_mode_test ${CMAKE_SOURCE_DIR}/levels)

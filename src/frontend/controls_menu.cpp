@@ -44,7 +44,7 @@ const AssistRow kAssistRows[] = {
   {"assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
   {"assist.guide", "GUIDE ARROW", "A blinking arrow points to every item and bot left, then the exit (not in bonus levels)."},
   {"opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
-  {"opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies sits out this level and the next; the next one steps in."},
+  {"opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies is out for the level; lose them all and it starts over."},
   {"opt.voices", "RUNNER VOICES", "The runners talk about what they see. SAY A LINE (V) for more."},
   {"opt.subtitles", "VOICE SUBTITLES", "What the runners say, written at the bottom of the screen."},
 };

@@ -8,6 +8,9 @@
 **Website: <https://gunrunners.snonux.foo>** (gameplay videos, the story,
 the runners and their enemies).
 
+**Play it in your browser: <https://gunrunners.snonux.foo/play/>**, or get
+it for [Linux and Android](#get-the-game).
+
 A jump-n-shoot platformer that plays like Duke Nukem II. Pick one of six
 runners (Dash, Rocco, Nova, Jade, Skye or the robot Bolt), or build your
 own in the runner editor, and blast your way to the exit.
@@ -134,7 +137,15 @@ harbour's reef walls). On Vurr you can also ride a Bounder.
 
 ## Get the game
 
-Gunrunners runs on Linux and Android.
+Gunrunners runs in your browser, on Linux and on Android. All three are
+built from the same source, and the browser version is always built from
+the latest release, so it is the same game as the downloads.
+
+**Browser:** play at <https://gunrunners.snonux.foo/play/>, nothing to
+install. About 20 MB loads once; saves stay in the browser. Keyboard,
+gamepad or on-screen touch controls; no cloud saves. The Android and Linux
+versions run smoother and work offline. Building it yourself (Emscripten)
+is described in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#browser-build).
 
 **Android:** install it with [F-Droid](https://f-droid.org) from Paul's
 F-Droid repository, <https://github.com/snonux/fdroid> (one-tap link and QR
@@ -260,7 +271,7 @@ records and bonus stars still count.
 | GAME SPEED 75% | everything runs slower, except in levels that keep time with the music |
 | GUIDE ARROW | a blinking arrow by the runner points the way to the nearest thing still missing for 100% (a gem, a G-U-N letter, a crate of merchandise or a weapon you don't have yet, a gem cache, a bot), along a route the runner you play can really take (their own jump height and arc, ladders, pipes, crawlspaces; in the air it shows which way to steer); once everything is done it points to the exit. Gold for items, red for bots, green for the exit; pointing down while you walk means crawl, and next to a crate or bot it turns to face it (down: crouch and shoot). Not in bonus levels |
 | REDUCED EFFECTS | no screen shake and no flashes of light |
-| SWAP RUNNER ON DEATH | a runner who dies sits out the rest of the level and the whole next one; the next free runner takes over at the checkpoint with full hearts (once nobody is left to swap in, the last runner simply comes back) |
+| SWAP RUNNER ON DEATH | a runner who dies is out for the rest of the level, and the next runner takes over at the checkpoint with full hearts; once every runner is down, the level starts over from the beginning with all of them back |
 
 After a death, Jump or Fire skips ahead to the retry. The game pauses by
 itself when its window loses focus or a gamepad is unplugged.
@@ -284,6 +295,18 @@ have seen) and the TRAINING STAGE, a free-play level for trying the controls.
   its first level, and inside an episode every level you have reached can
   be replayed.
 
+- **Hard mode.** Runner select has a DIFFICULTY button over the cards (up,
+  then left or right, or tap it): NORMAL plays the levels as designed, HARD
+  adds more enemies to every level of the campaign, DEEP SPACE and the
+  EXTRAS (about 200 more, roughly half as many again). An enemy that
+  fights on its own (patrollers, guards, flyers, turrets) gets a twin of
+  the same kind a few blocks along the same floor; where a level's enemies
+  belong to its set pieces, newcomers patrol open floors along the gems.
+  None stands near the start, a checkpoint or the exit, and never more
+  than two share a screen's width of floor. Bonus levels keep their own
+  rules. The game remembers the choice, a save keeps the difficulty it was
+  made on, and the HUD shows HARD over the score. `--hard` starts on HARD
+  from the command line.
 - **Prototypes and the Arsenal.** Each level hides its own prototype weapon
   in a green box. Reach the exit with it and it joins your Arsenal, with
   your best kill count.
@@ -323,7 +346,7 @@ On top of that:
   runner right where you stand, or R (right stick click) for a random one.
   Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the
   pause menu has a RANDOM RUNNER button. With SWAP RUNNER ON DEATH on,
-  runners sitting out after a death are greyed out in CHANGE RUNNER and
+  runners who are out after a death are greyed out in CHANGE RUNNER and
   skipped by C and RANDOM RUNNER.
 - **Carry up to three guns.** A weapon pickup still goes straight into
   your hands, but the gun you held stays with you instead of being thrown

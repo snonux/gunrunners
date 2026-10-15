@@ -1,6 +1,7 @@
 #include "frontend/game.hpp"
 
 #include "data/campaign.hpp"
+#include "data/hard_mode.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -63,7 +64,11 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   mCutsceneVoices.setDir(voicesDir() + "/cutscenes");
   if (!campaign())
   {
-    mLevel = std::make_shared<const Level>(Level::loadFile(options.levelPath));
+    mHard = options.hard;
+    Level level = Level::loadFile(options.levelPath);
+    if (mHard)
+      addHardModeEnemies(level);
+    mLevel = std::make_shared<const Level>(std::move(level));
     mMode = Mode::Select;
     if (mOptions.skipMenu)
     {
@@ -78,6 +83,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   }
   mProfile = Profile::load(saveDir());
   mBindings = Bindings::fromProfile(mProfile.controls);
+  mHard = mOptions.hard || playOption("opt.hard");
   if (!mOptions.cutscene.empty())
   {
     playCutscenes({mOptions.cutscene}, After::Quit);
@@ -162,8 +168,7 @@ void Game::startLevel()
 {
   mWorld = std::make_unique<World>(mLevel, mCursor, theme(), *mArt);
   prepareWorld(*mWorld);
-  mWorld->setBench(std::move(mBench));
-  mBench.clear();
+  mLevelRunner = mCursor;
   if (const auto it = mProfile.scores.find(2); it != mProfile.scores.end())
     mWorld->setHiScore(it->second);
   mBot = Bot{};
@@ -267,6 +272,14 @@ bool Game::tick(const Input& input)
         mVoice.sayRandom(*mWorld, mAudio, voiceVolume());
       mVoice.tick();
       tickPlay(raw);
+      // SWAP RUNNER ON DEATH: every runner is down, so the level starts over
+      // from scratch with all of them.
+      if (mMode == Mode::Play && mWorld && !mMainWorld && mWorld->wipedOut())
+      {
+        mCursor = mLevelRunner;
+        startLevel();
+        mWorld->notify("ALL RUNNERS DOWN - THE LEVEL STARTS OVER");
+      }
       break;
     case Mode::Bonus:
       mVoice.tick();
@@ -299,12 +312,9 @@ void Game::finishTally()
   if (campaign())
   {
     recordClear();
-    // Runners who died sit out one level less; one still sitting out the
-    // next level hands it to the runner who finished this one.
-    mBench.clear();
-    for (int left : mWorld->bench())
-      mBench.push_back(std::max(0, left - 1));
-    if (std::size_t(mCursor) < mBench.size() && mBench[std::size_t(mCursor)] > 0)
+    // SWAP RUNNER ON DEATH: every runner is back for the next level; if the
+    // one picked fell here, the runner who finished carries on.
+    if (mWorld->benched(mCursor))
       mCursor = mWorld->characterIndex();
     mWorld.reset();
     const int n = mLevelNumber;

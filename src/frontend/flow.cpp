@@ -5,6 +5,7 @@
 #include "frontend/game.hpp"
 
 #include "data/campaign.hpp"
+#include "data/hard_mode.hpp"
 #include "data/weapons.hpp"
 #include "audio/voice_clip.hpp"
 
@@ -115,13 +116,18 @@ void Game::goTitle()
   mCutscene.reset();
   mBonusOnly = false;
   mSelectFromList = false;
-  mBench.clear();
   mLevelNumber = 0;
   mTitleCursor = 0;
   setMode(Mode::Title);
   if (mAudio)
     mAudio->playMusic(Music::Menu);
 }
+
+#ifdef __EMSCRIPTEN__
+constexpr const char* kTitleHint = "UP/DOWN choose   ENTER / A select";
+#else
+constexpr const char* kTitleHint = "UP/DOWN choose   ENTER / A select   ESC quit";
+#endif
 
 std::vector<std::string> Game::titleItems() const
 {
@@ -142,8 +148,11 @@ std::vector<std::string> Game::titleItems() const
   if (mOptions.window)
     items.emplace_back(mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
   items.emplace_back("CONTROLS");
+#ifndef __EMSCRIPTEN__
+  // A browser page has no libcurl and nothing to quit to.
   items.emplace_back("CLOUD SAVES");
   items.emplace_back("QUIT");
+#endif
   return items;
 }
 
@@ -187,11 +196,13 @@ void Game::tickTitle(const Input& raw)
     sound(Sfx::MenuMove);
   }
   mTitleCursor = std::clamp(mTitleCursor, 0, n - 1);
+#ifndef __EMSCRIPTEN__
   if (edge(&Input::pause) && !in.confirm)
   {
     mQuit = true;
     return;
   }
+#endif
   if (!(edge(&Input::confirm) || edge(&Input::jump)) || mModeTicks < 20)
     return;
   sound(Sfx::MenuSelect);
@@ -309,7 +320,7 @@ void Game::renderTitle()
     int(mProfile.protos.size()), kProtoCount, int(mProfile.stars.size()), int(mProfile.ducks.size()),
     int(mProfile.cameras.size()));
   r.drawText(buf, cx, 640, {17.0f, t.accentB, kInk}, Align::Center);
-  r.drawText(mOptions.touch ? "TAP to choose" : "UP/DOWN choose   ENTER / A select   ESC quit", cx, 676,
+  r.drawText(mOptions.touch ? "TAP to choose" : kTitleHint, cx, 676,
     {15.0f, rgb(200, 200, 220), kInk}, Align::Center);
 }
 
@@ -430,7 +441,10 @@ bool Game::loadLevel(const std::string& path)
   const std::string full = path.empty() || path[0] == '/' ? path : dataDir() + "/" + path;
   try
   {
-    mLevel = std::make_shared<const Level>(Level::loadFile(full));
+    Level level = Level::loadFile(full);
+    if (mHard)
+      addHardModeEnemies(level);
+    mLevel = std::make_shared<const Level>(std::move(level));
   }
   catch (const std::exception& e)
   {
@@ -440,6 +454,15 @@ bool Game::loadLevel(const std::string& path)
   }
   mLevelPath = path;
   return true;
+}
+
+void Game::setHard(bool hard)
+{
+  if (hard == mHard)
+    return;
+  mHard = hard;
+  mProfile.controls["opt.hard"] = {hard ? 1 : 0};
+  mProfile.save(saveDir());
 }
 
 void Game::applyLevelLook(int ep, const std::string& themeKey)
@@ -966,7 +989,10 @@ void Game::tickList(const Input& in)
       const std::string path = extraFile(dataDir(), std::atoi(id.c_str()));
       try
       {
-        mLevel = std::make_shared<const Level>(Level::loadFile(path));
+        Level level = Level::loadFile(path);
+        if (mHard)
+          addHardModeEnemies(level); // the difficulty last picked on runner select
+        mLevel = std::make_shared<const Level>(std::move(level));
       }
       catch (const std::exception&)
       {

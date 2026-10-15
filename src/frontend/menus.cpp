@@ -53,9 +53,14 @@ const char* const kCheatLabels[int(Cheat::Count)] = {
 
 std::vector<int> Game::pauseItems() const
 {
+#ifdef __EMSCRIPTEN__
+  constexpr bool kCanQuit = false; // a browser tab is closed by the player
+#else
+  constexpr bool kCanQuit = true;
+#endif
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if ((i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
+    if ((i != kQuitGame || kCanQuit) && (i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
       items.push_back(i);
   return items;
 }
@@ -407,7 +412,14 @@ bool Game::quickLoad()
 bool Game::loadSave(SaveGame s, const std::string& message)
 {
   // A copy: loading a level refreshes mSlots, which may hold the original.
-  if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath))
+  // A save of the level being played keeps the runner it started with (for
+  // SWAP RUNNER ON DEATH's start over); one from elsewhere starts with its own.
+  const bool sameLevel = mMode == Mode::Play && mWorld && !mMainWorld && mLevel && mLevel->name == s.levelName;
+  // A save brings its difficulty: the level reloads with (or without) the
+  // HARD enemies, and the levels after it follow.
+  if (campaign())
+    setHard(s.hard);
+  if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath || mLevel->hard != s.hard))
   {
     // Campaign saves bring their level along.
     mWorld.reset();
@@ -437,6 +449,8 @@ bool Game::loadSave(SaveGame s, const std::string& message)
     useTheme(s.theme);
   mWorld = std::move(world);
   mCursor = mWorld->characterIndex();
+  if (!sameLevel)
+    mLevelRunner = mCursor;
   beginVoices();
   mBot = Bot{};
   mSubTick = 0;
@@ -777,7 +791,7 @@ void Game::renderMenu()
       r.draw(mArt->portrait(def), x, 210, o);
       r.drawText(def.name, x, 360, {26.0f, out ? rgb(120, 118, 134) : sel ? t.accentA : t.hudText, kInk, true},
         Align::Center);
-      const std::string under = i == current ? "PLAYING" : out ? "SITTING OUT" : weaponName(def.startWeapon);
+      const std::string under = i == current ? "PLAYING" : out ? "DOWN" : weaponName(def.startWeapon);
       r.drawText(under, x, 396, {15.0f, out ? rgb(220, 110, 110) : rgb(190, 188, 214)}, Align::Center);
     }
     char count[32];

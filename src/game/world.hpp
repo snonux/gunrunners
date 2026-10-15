@@ -1705,12 +1705,13 @@ public:
   bool nextWeapon();
   bool weaponLocked() const;
   int characterIndex() const { return mCharacterIndex; }
-  // SWAP RUNNER ON DEATH (an option): a runner who dies sits out the rest
-  // of this level and all of the next one, and the next runner who isn't
-  // sitting out takes over at the checkpoint. bench()[i] is how many
-  // levels runner i still sits out, this one included (0 or missing: free).
-  // The frontend hands the list from level to level (nextLevelBench).
+  // SWAP RUNNER ON DEATH (an option): a runner who dies is out for the rest
+  // of this level, and the next runner who isn't out takes over at the
+  // checkpoint. bench()[i] is 1 for a runner who is out (0 or missing: in).
+  // Once every runner is down, wipedOut() asks the frontend to start the
+  // level over from scratch with all of them.
   const std::vector<int>& bench() const { return mBench; }
+  bool wipedOut() const { return mWipedOut; }
   void setBench(std::vector<int> bench) { mBench = std::move(bench); }
   bool benched(int index) const
   {
@@ -1827,7 +1828,7 @@ public:
     bool lowDamage = false;      // hits take half the hearts (every other heart of damage)
     bool quickRetry = false;     // jump or fire cuts the death scene short (people, not the bot)
     bool calm = false;           // reduced effects: no screen shake, no flashes of light
-    bool swapOnDeath = false;    // a runner who dies is benched and the next free runner steps in
+    bool swapOnDeath = false;    // a runner who dies is out for the level; all down starts it over
     bool guide = false;          // the guide arrow: the way to every item and bot left, then the exit
   };
   void setPlayOptions(const PlayOptions& o)
@@ -3778,8 +3779,9 @@ private:
   // base) and what the last switch gave, so switching back and forth works
   // out from the base each time instead of rounding up again and again.
   int mSwapBaseHp = 0, mSwapBaseMax = 0, mSwapHp = -1, mSwapMax = 0;
-  std::vector<int> mBench; // SWAP RUNNER ON DEATH: levels each runner still sits out
-  std::string swapAfterDeath(); // the dead runner is benched, the next free one steps in
+  std::vector<int> mBench; // SWAP RUNNER ON DEATH: 1 for each runner who is out
+  bool mWipedOut = false;  // every runner is down: the level starts over
+  std::string swapAfterDeath(); // the dead runner is out, the next free one steps in
   int mDrown = 0;          // frames since the last heart lost to drowning
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
   PlayOptions mPlay;

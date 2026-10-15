@@ -31,6 +31,7 @@ SaveGame World::snapshot() const
 {
   SaveGame s;
   s.levelName = mLevel->name;
+  s.hard = mLevel->hard;
   s.character = mCharacterIndex;
   if (mCharacter.custom)
     s.runner = encodeRunner(mCharacter);
@@ -503,7 +504,7 @@ bool World::switchCharacter(int index)
   }
   if (benched(index))
   {
-    showMessage(characterByIndex(index).name + " SITS THIS ONE OUT");
+    showMessage(characterByIndex(index).name + " IS DOWN FOR THIS LEVEL");
     return false;
   }
   auto& p = mPlayer;
@@ -533,7 +534,7 @@ bool World::switchCharacter(int index)
 
 bool World::restore(const SaveGame& s)
 {
-  if (s.levelName != mLevel->name || s.enemies.size() < mLevelEnemyCount ||
+  if (s.levelName != mLevel->name || s.hard != mLevel->hard || s.enemies.size() < mLevelEnemyCount ||
       (!s.platforms.empty() && s.platforms.size() != mPlatforms.size()) ||
       (!s.hatches.empty() && s.hatches.size() != mHatches.size()) ||
       (!s.breakables.empty() && s.breakables.size() != mBreakables.size()) ||
@@ -654,7 +655,7 @@ bool World::restore(const SaveGame& s)
   }
   mBench.clear();
   for (int left : s.bench)
-    mBench.push_back(std::clamp(left, 0, 2));
+    mBench.push_back(std::clamp(left, 0, 1));
   mBonusStar = s.bonusStar;
   for (std::size_t i = 0; i < s.props.size(); ++i)
     mProps[i].used = s.props[i];

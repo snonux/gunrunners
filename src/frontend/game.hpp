@@ -43,6 +43,7 @@ struct GameOptions
   std::string dataDir;   // holds levels/ and cutscenes/
   int startLevel = 0;    // campaign: start at this level (with skipMenu)
   bool noCutscenes = false;
+  bool hard = false; // HARD: more enemies in every level (data/hard_mode.hpp)
   std::string cutscene; // play just this cutscene, then quit
   bool cheats = false;  // the pause menu's CHEATS item from the start
   bool window = false;  // a real window (not headless): offer FULLSCREEN
@@ -172,6 +173,7 @@ private:
   {
     Cards,
     Load,   // LOAD GAME (stand-alone levels)
+    Difficulty, // NORMAL / HARD over the cards (the campaign)
     Action, // EDIT / REMIX under the card
   };
   int selectCards() const;
@@ -327,6 +329,11 @@ private:
   int mCloudCursor = 0;
   int mPendingLevel = 1;    // runner select leads into this campaign level
   bool mPendingNewGame = false;
+  // HARD: levels load with their extra enemies (data/hard_mode.hpp). Chosen
+  // on runner select and kept in the profile (opt.hard); a save brings its own.
+  bool mHard = false;
+  void setHard(bool hard);
+  void toggleHard(); // runner select: switch it and say what it means
   int mArsenalCursor = 0;
   ListKind mListKind = ListKind::Levels;
   std::vector<std::pair<std::string, std::string>> mListItems; // id, label
@@ -334,9 +341,9 @@ private:
   int mListEpisode = 1;       // whose levels ListKind::Levels shows
   int mWorldCursor = 0;       // WORLD SELECT's card
   bool mSelectFromList = false; // runner select backs out to the level list
-  // SWAP RUNNER ON DEATH: the runners still sitting out, handed from a
-  // cleared campaign level to the next one (see World::bench).
-  std::vector<int> mBench;
+  // SWAP RUNNER ON DEATH: the runner the level started with, who starts it
+  // again once every runner is down (see World::wipedOut).
+  int mLevelRunner = 0;
 
   GameOptions mOptions;
   Renderer& mRenderer;
