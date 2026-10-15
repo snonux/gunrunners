@@ -9,6 +9,7 @@ shot static_snow delay=60 repeat=6
 #   (frame 2, with a 2-frame squash), "COOKING" written in icing left to
 #   right on frames 4-11; 12 frames
 shot ident_ch24 delay=80 repeat=1
+  cue 8 voice=ANNOUNCER "MaxTV, channel twenty-four! Cooking!"
   cue 0 stopsound=tv_static
   cue 0 sound=channel_ident
   cue 11 hold=1200

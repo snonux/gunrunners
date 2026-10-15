@@ -13,6 +13,7 @@ shot master_switch delay=100 repeat=1
 # clip monitors_snow; 10 frames
 shot monitors_snow delay=110 repeat=1
   cue 0 sound=static_burst
+  cue 6 voice=MAXINE "Gunrunners. Independent broadcast."
   cue 9 hold=2000
 
 # Clip gallery: Maxine at the mixing board, pushing faders up.

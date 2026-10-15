@@ -1,0 +1,15 @@
+# maxine: <id> <first sample> <samples> at 22050 Hz in maxine.ogg (tools/voices/cutscene_pack.py)
+brief_36_bf6c489b 0 33074
+brief_36_82ee9f87 36381 29258
+brief_37_34a519e1 68946 18581
+brief_37_9e92e54e 90834 13970
+brief_38_eb72a20b 108111 30106
+brief_38_24add3d2 141524 10578
+brief_39_e6c6aa4c 155409 62543
+brief_39_e66aa46a 221259 29681
+brief_41_dbd65f75 254247 41342
+brief_41_abc89d29 298896 19482
+end_e5_b3acb80d 321685 55759
+end_e5_b1f40357 380751 53851
+finale_9252738d 437909 48338
+finale_20f41bb1 489554 40494

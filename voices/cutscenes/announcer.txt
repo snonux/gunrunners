@@ -1,0 +1,16 @@
+# announcer: <id> <first sample> <samples> at 22050 Hz in announcer.ogg (tools/voices/cutscene_pack.py)
+brief_22_08527ea7 0 51376
+brief_23_cfd880fd 54683 59535
+brief_24_8a90e195 117525 67252
+brief_25_80bf7098 188084 62402
+brief_26_0b33866e 253793 50715
+brief_27_148499cd 307815 52038
+brief_28_ae2f51f8 363160 63284
+end_e4_78fc726d 429751 60196
+end_e4_39511cf6 493254 66591
+opening_f6dd9061 563152 24034
+opening_b155a8d4 590493 29326
+opening_58329574 623126 18581
+opening_9176dd5c 645014 28224
+sting_back_cd650ca5 676545 16934
+sting_break_b66a469a 696786 26240

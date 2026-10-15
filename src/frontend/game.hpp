@@ -6,6 +6,7 @@
 #include "frontend/bindings.hpp"
 #include "frontend/bot.hpp"
 #include "frontend/cutscene.hpp"
+#include "frontend/cutscene_voices.hpp"
 #include "frontend/runner_editor.hpp"
 #include "frontend/voices.hpp"
 #include "game/input.hpp"
@@ -380,6 +381,7 @@ private:
   float voiceVolume() const;
   void beginVoices();
   void renderSubtitle();
+  CutsceneVoices mCutsceneVoices; // the cutscenes' speech (voices/cutscenes)
   int mNoticeTicks = 0;
   std::future<std::string> mCloudRefresh;
   struct CloudUpload

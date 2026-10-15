@@ -9,6 +9,7 @@ shot static_snow delay=60 repeat=6
 #   loop); "CH 1" bounces in on frames 0-5 with a squash, "CARTOONS" in
 #   wobbly letters; 12 frames
 shot ident_ch1 delay=80 repeat=1
+  cue 8 voice=ANNOUNCER "MaxTV, channel one! Cartoons!"
   cue 0 stopsound=tv_static
   cue 0 sound=channel_ident
   cue 2 sound=slide_whistle

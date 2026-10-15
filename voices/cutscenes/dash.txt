@@ -1,0 +1,16 @@
+# dash: <id> <first sample> <samples> at 22050 Hz in dash.ogg (tools/voices/cutscene_pack.py)
+brief_02_73aa42ac 0 13970
+brief_06_59a8716c 17277 12348
+brief_11_e6ae58cb 32932 11878
+brief_39_cbe69ace 48117 28410
+brief_42_f6b7c1df 79834 25229
+brief_43_711eaf73 108370 25229
+brief_45_329b943d 136906 28833
+brief_46_0a0ac99d 169046 40282
+brief_47_81fb1d99 212635 45582
+brief_49_0c6d5dc5 261524 51519
+end_e1_e365ba43 316350 53215
+end_e2_8402ad6c 372872 17287
+end_e3_b4bf0f79 393466 32650
+end_e5_f2a5c588 429423 24170
+finale_684b9256 456900 54275

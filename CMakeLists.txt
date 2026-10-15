@@ -228,6 +228,7 @@ add_library(gunrunners_core STATIC
   src/frontend/controls_menu.cpp
   src/frontend/map_view.cpp
   src/frontend/cutscene.cpp
+  src/frontend/cutscene_voices.cpp
   src/frontend/clips.cpp
   src/frontend/flow.cpp
   src/frontend/worlds.cpp
@@ -293,6 +294,9 @@ set_tests_properties(voices_rooftop_run PROPERTIES PASS_REGULAR_EXPRESSION "voic
 add_test(NAME voices_hotkey COMMAND gunrunners --headless --autoplay --skip-menu --no-cutscenes --voice-log
   --character 3 --frames 700 --press 500:say --level ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
 set_tests_properties(voices_hotkey PROPERTIES PASS_REGULAR_EXPRESSION "voice: say [a-z0-9_]+ \\(jade\\) frame [0-9]+ \\[hotkey\\]")
+add_executable(cutscene_voices_test tests/cutscene_voices_test.cpp)
+target_link_libraries(cutscene_voices_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME cutscene_voices COMMAND cutscene_voices_test ${CMAKE_SOURCE_DIR})
 add_executable(audit_test tests/audit_test.cpp)
 target_link_libraries(audit_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME audit COMMAND audit_test)

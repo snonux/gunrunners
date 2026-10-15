@@ -60,6 +60,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   buildPanels();
   mVoiceBank.load(voicesDir());
   mVoice.setLog(mOptions.voiceLog);
+  mCutsceneVoices.setDir(voicesDir() + "/cutscenes");
   if (!campaign())
   {
     mLevel = std::make_shared<const Level>(Level::loadFile(options.levelPath));

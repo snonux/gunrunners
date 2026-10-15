@@ -1,0 +1,2 @@
+# board: <id> <first sample> <samples> at 22050 Hz in board.ogg (tools/voices/cutscene_pack.py)
+post_credits_445788db 0 42011

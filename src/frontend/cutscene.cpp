@@ -2,6 +2,7 @@
 
 #include "assets/art.hpp"
 #include "audio/audio.hpp"
+#include "frontend/cutscene_voices.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,8 @@ namespace
 
 constexpr float kTickMs = 1000.0f / 60.0f;
 constexpr Color kInk = rgb(10, 8, 20);
+// A beat after a spoken line before the scene moves on.
+constexpr int kSpeakTailTicks = 15;
 
 std::string trim(const std::string& s)
 {
@@ -143,7 +146,7 @@ Cutscene Cutscene::parse(const std::string& text)
         continue;
       c.key = rest.substr(0, eq);
       std::string v = rest.substr(eq + 1);
-      if (c.key == "say")
+      if (c.key == "say" || c.key == "voice")
       {
         const auto sp = v.find(' ');
         c.value = v.substr(0, sp);
@@ -181,6 +184,72 @@ CutscenePlayer::~CutscenePlayer()
 {
   if (mAudio)
     mAudio->stopAllNamed();
+  stopSpeaking();
+}
+
+void CutscenePlayer::setVoices(CutsceneVoices* voices, float volume, bool subtitles)
+{
+  mVoiceVolume = mAudio && voices ? volume : 0.0f;
+  mSubtitles = subtitles;
+  mClips.assign(mCutscene.shots.size(), {});
+  for (std::size_t s = 0; s < mCutscene.shots.size(); ++s)
+  {
+    const auto& cues = mCutscene.shots[s].cues;
+    mClips[s].resize(cues.size());
+    if (mVoiceVolume <= 0.0f)
+      continue;
+    for (std::size_t i = 0; i < cues.size(); ++i)
+      if (cues[i].key == "say" || cues[i].key == "voice")
+        mClips[s][i] = voices->clip(mCutscene.name, cues[i].value, cues[i].text);
+  }
+  // The opening shot's frame 0 has been entered already: say its lines now.
+  if (mShot == 0 && !mDone)
+  {
+    const auto& cues = mCutscene.shots[0].cues;
+    for (std::size_t i = 0; i < cues.size(); ++i)
+      if (mFired[i] && cues[i].frame == mFrame && (cues[i].key == "say" || cues[i].key == "voice"))
+        speak(cues[i]);
+  }
+}
+
+bool CutscenePlayer::frameSpeaks(int frame) const
+{
+  // Another line, or the picture fading out under the one being said.
+  for (const auto& c : mCutscene.shots[std::size_t(mShot)].cues)
+    if (c.frame == frame && (c.key == "say" || c.key == "voice" || (c.key == "fade" && c.value.rfind("out", 0) == 0)))
+      return true;
+  return false;
+}
+
+void CutscenePlayer::speak(const CutsceneCue& c)
+{
+  const auto& cues = mCutscene.shots[std::size_t(mShot)].cues;
+  const std::size_t i = std::size_t(&c - cues.data());
+  const bool talk = c.key == "say";
+  std::shared_ptr<const std::vector<float>> clip;
+  if (mVoiceVolume > 0.0f && std::size_t(mShot) < mClips.size() && i < mClips[std::size_t(mShot)].size())
+    clip = mClips[std::size_t(mShot)][i];
+  if (clip)
+  {
+    mAudio->playVoice(clip, mVoiceVolume);
+    mSpeakTicks = int(clip->size() * 60 / std::size_t(kAudioRate)) + kSpeakTailTicks;
+  }
+  if (talk)
+  {
+    mVoiced = clip != nullptr;
+    // Subtitles off: a spoken line shows no box; an unrecorded one still does.
+    mSpeaker = mVoiced && !mSubtitles ? std::string() : c.value;
+    mLine = mVoiced && !mSubtitles ? std::string() : c.text;
+    mShown = 0;
+    mRevealTicks = 0;
+  }
+}
+
+void CutscenePlayer::stopSpeaking()
+{
+  if (mSpeakTicks > 0 && mAudio)
+    mAudio->stopVoice();
+  mSpeakTicks = 0;
 }
 
 int CutscenePlayer::totalFrames() const
@@ -206,6 +275,7 @@ void CutscenePlayer::nextShot()
   mFired.assign(s.cues.size(), false);
   mSpeaker.clear();
   mLine.clear();
+  mVoiced = false;
   enterFrame();
 }
 
@@ -214,6 +284,7 @@ void CutscenePlayer::finish()
   mDone = true;
   if (mAudio)
     mAudio->stopAllNamed();
+  stopSpeaking();
 }
 
 void CutscenePlayer::enterFrame()
@@ -241,12 +312,9 @@ void CutscenePlayer::enterFrame()
       if (mAudio)
         mAudio->playMusicNamed(c.value);
     }
-    else if (c.key == "say")
+    else if (c.key == "say" || c.key == "voice")
     {
-      mSpeaker = c.value;
-      mLine = c.text;
-      mShown = 0;
-      mRevealTicks = 0;
+      speak(c);
     }
     else if (c.key == "hold")
     {
@@ -307,6 +375,7 @@ bool CutscenePlayer::tick(const Input& in, const Input& prev)
     if (mWaiting)
     {
       mWaiting = false;
+      stopSpeaking(); // the player has read it
       const auto& s = mCutscene.shots[std::size_t(mShot)];
       if (s.repeat == 0)
       {
@@ -327,9 +396,11 @@ bool CutscenePlayer::tick(const Input& in, const Input& prev)
   {
     mRevealTicks = 0;
     mShown = std::min(int(mLine.size()), mShown + 2);
-    if (mAudio && mLine[std::size_t(mShown - 1)] != ' ')
+    if (mAudio && !mVoiced && mLine[std::size_t(mShown - 1)] != ' ')
       mAudio->voiceBlip(mSpeaker);
   }
+  if (mSpeakTicks > 0)
+    --mSpeakTicks;
   if (mFadeLen > 0.0f && mFadeMs < mFadeLen)
     mFadeMs += kTickMs;
   if (mFlashMs > 0.0f)
@@ -351,6 +422,17 @@ bool CutscenePlayer::tick(const Input& in, const Input& prev)
   }
   while (mFrameMs >= mFrameLength && !mDone && !mWaiting)
   {
+    // A spoken line finishes before the next one starts or the shot ends:
+    // the frame holds until then.
+    if (mSpeakTicks > 0)
+    {
+      const int total = totalFrames();
+      if ((total >= 0 && mFrame + 1 >= total) || frameSpeaks(mFrame + 1))
+      {
+        mFrameMs = mFrameLength;
+        break;
+      }
+    }
     mFrameMs -= mFrameLength;
     ++mFrame;
     const int total = totalFrames();

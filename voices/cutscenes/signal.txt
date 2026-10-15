@@ -1,0 +1,15 @@
+# signal: <id> <first sample> <samples> at 22050 Hz in signal.ogg (tools/voices/cutscene_pack.py)
+brief_27_7d4d5104 0 30870
+brief_29_b034bd86 34177 33957
+brief_29_f2e2f6e3 71441 22050
+brief_29_4dc9fb1d 96798 9643
+brief_30_2ba0adf9 109748 37706
+brief_30_a83dc00b 150761 19051
+brief_31_7c934355 173119 27122
+brief_31_6036f9f0 203548 18581
+brief_32_efab0079 225436 26240
+brief_33_4d8aeae3 254983 23152
+brief_33_4bfb9599 281442 14112
+brief_35_7b9ed542 298861 46746
+brief_35_3cb678ab 348914 24476
+end_e5_406bcf16 376697 17405

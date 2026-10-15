@@ -8,6 +8,7 @@ shot static_snow delay=60 repeat=6
 # clip ident_ch13: backdrop black; "CH 13" in dripping green letters drips
 #   down 2 px/frame, "HORROR" flickers in on frames 6-11; 12 frames
 shot ident_ch13 delay=80 repeat=1
+  cue 8 voice=ANNOUNCER "MaxTV, channel thirteen. After dark!"
   cue 0 stopsound=tv_static
   cue 0 sound=channel_ident
   cue 11 hold=1200

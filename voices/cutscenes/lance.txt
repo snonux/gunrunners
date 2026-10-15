@@ -1,0 +1,12 @@
+# lance: <id> <first sample> <samples> at 22050 Hz in lance.ogg (tools/voices/cutscene_pack.py)
+brief_22_0e94c55f 0 15030
+brief_23_fd81f8c0 18337 39858
+brief_24_c09c973f 61502 20754
+brief_26_1d8955e2 85563 35406
+brief_40_dbee0f2c 124276 25653
+brief_40_a0243451 153236 35618
+end_e3_c065124a 192161 74628
+end_e3_22c06f0a 270096 79504
+end_e3_9af27ea6 352907 44523
+end_e3_293e017d 400737 38798
+end_e4_e9384958 442842 49398

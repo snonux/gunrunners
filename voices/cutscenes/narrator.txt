@@ -1,0 +1,2 @@
+# narrator: <id> <first sample> <samples> at 22050 Hz in narrator.ogg (tools/voices/cutscene_pack.py)
+brief_25_ba9fe52c 0 59363
