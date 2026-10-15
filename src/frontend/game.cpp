@@ -612,7 +612,12 @@ void Game::renderSubtitle()
   if (mVoice.subtitle().empty() || !playOption("opt.subtitles", true))
     return;
   const std::string text = mVoice.speaker() + ": " + mVoice.subtitle();
-  mRenderer.drawText(text, 640, 600, {22.0f, rgb(255, 255, 255), kInk, true}, Align::Center);
+  const TextStyle style{22.0f, rgb(255, 255, 255), kInk, true};
+  // A dark band behind the line keeps it readable over signs and sky.
+  const Texture& tex = mRenderer.text(text, style);
+  mRenderer.fillRect(640.0f - float(tex.w()) / 2.0f - 14.0f, 594.0f, float(tex.w()) + 28.0f, float(tex.h()) + 12.0f,
+    rgba(0, 0, 0, 150));
+  mRenderer.drawText(text, 640, 600, style, Align::Center);
 }
 
 void Game::renderBonus()
