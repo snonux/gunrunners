@@ -71,6 +71,7 @@ struct PlayerInput
   bool right = false;
   bool up = false;
   bool down = false;
+  bool run = false; // the way held was double tapped (run_gesture.hpp)
   Button jump;
   Button fire;
   Button use; // get in or out of a vehicle

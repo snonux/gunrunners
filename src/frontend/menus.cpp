@@ -303,6 +303,7 @@ void Game::closeMenu()
     playLevelMusic();
   // Buttons still held from the menu must not fire or jump in the game.
   mLatched = PlayerInput{};
+  mRun.reset();
   mPrevLogicInput = mPrev;
   mPrevLogicInput.jump = mPrevLogicInput.fire = true;
 }

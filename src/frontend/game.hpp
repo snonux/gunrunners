@@ -10,6 +10,7 @@
 #include "frontend/runner_editor.hpp"
 #include "frontend/voices.hpp"
 #include "game/input.hpp"
+#include "game/run_gesture.hpp"
 #include "game/profile.hpp"
 #include "game/s3.hpp"
 #include "game/savegame.hpp"
@@ -430,6 +431,7 @@ private:
   // 15 Hz logic clock and input latching.
   int mSubTick = 0;
   PlayerInput mLatched;
+  RunGesture mRun; // double tap and hold left or right: run
   Input mBotInput;
   Input mPrevLogicInput;
 

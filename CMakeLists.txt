@@ -497,6 +497,10 @@ add_test(NAME finale COMMAND finale_test ${CMAKE_SOURCE_DIR}/levels/42_live_fina
   ${CMAKE_SOURCE_DIR}/levels/42_bonus_bloopers.txt)
 add_test(NAME savegame_live_finale COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/42_live_finale.txt 300)
 
+# Running: double tap and hold left or right runs at twice the walk.
+add_executable(run_test tests/run_test.cpp)
+target_link_libraries(run_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME run COMMAND run_test)
 # Crawlspaces: a crouched runner crawls under a ceiling 4 cells high.
 add_executable(crawl_test tests/crawl_test.cpp)
 target_link_libraries(crawl_test PRIVATE gunrunners_core SDL2::SDL2)
