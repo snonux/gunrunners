@@ -214,7 +214,9 @@ void danglingSymlinkAtTempNotFollowed(const std::string& dir)
 // short of the longest the file system allows (pathconf's NAME_MAX, 255 on
 // the usual ones), so path itself can be written, but with ".tmp.<pid>.<n>"
 // added the temp name is too long. Skipped, with a line saying so, where
-// NAME_MAX is unknown or such a path cannot be written directly.
+// NAME_MAX is unknown or such a path cannot be written directly. A skip
+// still lets the test pass, and ctest hides a passing test's output, so it
+// shows only in a direct run of atomic_file_test or with ctest -V.
 void uncreatableTempKeepsOld(const std::string& dir)
 {
   check(!writeFileAtomic(dir + "/missing/file.txt", "new\n"), "a missing directory reports false");

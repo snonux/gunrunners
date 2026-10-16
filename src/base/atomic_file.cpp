@@ -13,14 +13,18 @@ namespace gr
 namespace
 {
 
-// How many taken temp names a write skips before it gives up. Only stale
-// leftovers whose pid matches ours (pid reuse) or planted files can take a
-// name, so a handful is plenty; the bound keeps a hostile directory from
-// spinning the write forever. Processes that share a pid at the same time
-// (pid namespaces in containers, hosts sharing an NFS directory, the web
-// build, where getpid() is always 42) can pick the same name, but they are
-// still safe: O_EXCL lets only one of them create it, and the others skip
-// to their next counter value.
+// How many taken temp names a write skips before it gives up and fails with
+// EEXIST. A name can be taken by a file planted there, by a leftover of an
+// earlier process with our pid (pid reuse: in a container where the game is
+// always pid 1, every crash leaves its temp file at one of the low counter
+// values the next process tries first), or by a live process that shares
+// our pid (pid namespaces in containers, hosts sharing an NFS directory,
+// the web build, where getpid() is always 42). Processes sharing a pid stay
+// safe: O_EXCL lets only one of them create a name, and the others skip to
+// their next counter value. 64 is plenty for these cases; the bound keeps a
+// hostile directory from spinning the write forever, and it means a write
+// fails only when all 64 names it tries are taken (each attempt also moves
+// the counter on, so the process's next write tries 64 new names).
 constexpr int kTempAttempts = 64;
 
 void fail(std::string* error, const std::string& what, int err)
@@ -122,17 +126,19 @@ bool writeFileAtomic(const std::string& path, const std::string& data, std::stri
   }
   if (!ok)
   {
-    fail(error, "cannot write " + tmp, err);
-    // Best effort, unchecked: if even this fails, the temp file stays
-    // behind, as the header says, and *error still names the first failure.
+    // The cleanup comes first, so that fail(), which builds strings and may
+    // throw (bad_alloc), cannot skip it. Best effort, unchecked: if even
+    // the unlink fails, the temp file stays behind, as the header says, and
+    // *error still names the first failure (err was saved above).
     ::unlink(tmp.c_str());
+    fail(error, "cannot write " + tmp, err);
     return false;
   }
   if (::rename(tmp.c_str(), path.c_str()) != 0)
   {
     err = errno;
+    ::unlink(tmp.c_str()); // first and best effort, as above
     fail(error, "cannot replace " + path, err);
-    ::unlink(tmp.c_str()); // best effort, as above
     return false;
   }
   syncParentDir(path);

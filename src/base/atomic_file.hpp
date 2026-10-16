@@ -34,8 +34,12 @@ namespace gr
 //
 // So a temp file is left behind only by a process killed between creating
 // it and the rename, or by a failed write whose cleanup unlink failed as
-// well. Nothing removes it later, but it never stands in the way of a
-// write: a write that tries its name just skips it, as with any taken name.
+// well (the unlink runs before anything that could throw). Nothing removes
+// it later. A write that tries its name just skips it, as with any taken
+// name, but a write tries at most 64 names: it fails ("cannot write
+// <temp>: File exists") when all of them are taken, e.g. when leftovers of
+// many crashes of a game that always runs as the same pid (pid 1 in a
+// container) pile up at the low counter values a new process starts with.
 bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error = nullptr);
 
 } // namespace gr
