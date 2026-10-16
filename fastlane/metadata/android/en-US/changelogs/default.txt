@@ -1,1 +1,1 @@
-Every runner can double jump: press jump again in mid-air. How high depends on the runner's JUMP stat: Rocco and Bolt 3 more cells, Dash and Jade 4, Skye 5, Nova 6 (custom runners by their JUMP pips, Turbo 6). It comes back when you land, and the Virus takes it away. Double jumps and every running jump are now a somersault. The GUIDE ARROW now sits at the edge of the screen, pointing the way to go.
+The GUIDE ARROW is now on from the start (switch it off under CONTROLS > ASSISTS AND OPTIONS), and it sits a little higher so it stays clear of the subtitles.
