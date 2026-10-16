@@ -146,7 +146,7 @@ void Game::setMenuPad(bool on)
   if (menuPad() == on)
     return;
   mProfile.controls["touch.menupad"] = {on ? 1 : 0};
-  mProfile.save(saveDir());
+  saveProfile();
 }
 
 } // namespace gr

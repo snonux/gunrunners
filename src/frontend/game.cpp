@@ -62,6 +62,8 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   mVoiceBank.load(voicesDir());
   mVoice.setLog(mOptions.voiceLog);
   mCutsceneVoices.setDir(voicesDir() + "/cutscenes");
+  // A stand-alone level plays with a default profile (no assists, bindings
+  // or Arsenal of the player's), which saveProfile never writes to disk.
   if (!campaign())
   {
     mHard = options.hard;

@@ -109,7 +109,7 @@ void Game::setTouchLayout(const std::vector<int>& offsets)
 void Game::saveBindings()
 {
   mBindings.toProfile(mProfile.controls);
-  mProfile.save(saveDir());
+  saveProfile();
 }
 
 void Game::captureKey(int scancode)
@@ -151,7 +151,7 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
     // DONE on the screen reads as a back press, like Esc or B.
     if (cancel)
     {
-      mProfile.save(saveDir());
+      saveProfile();
       mMenu = Menu::Controls;
       mMenuHold = true;
       sound(Sfx::MenuSelect);
@@ -188,7 +188,7 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
       break;
     case RowKind::TouchScheme:
       mProfile.controls["touch.thumbs"] = {touchThumbs() ? 0 : 1};
-      mProfile.save(saveDir());
+      saveProfile();
       break;
     case RowKind::TouchSize:
       cycleTouchSize();
@@ -385,7 +385,7 @@ void Game::tickAssists(bool ok, bool cancel, int dir)
   {
     mProfile.controls[key] = {assistOn(key) ? 0 : 1};
   }
-  mProfile.save(saveDir());
+  saveProfile();
   // The level being played (and one parked behind a bonus level) changes now.
   for (World* w : {mWorld.get(), mMainWorld.get()})
     if (w)

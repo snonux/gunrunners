@@ -384,6 +384,11 @@ add_test(NAME frame_pacing COMMAND frame_pacing_test)
 add_executable(cloud_quit_test tests/cloud_quit_test.cpp)
 target_link_libraries(cloud_quit_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME cloud_quit COMMAND cloud_quit_test)
+# A stand-alone level (--level) never writes the player's profile: its
+# settings last for the run, the campaign's progress stays on disk (task le3).
+add_executable(profile_keep_test tests/profile_keep_test.cpp)
+target_link_libraries(profile_keep_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME profile_keep COMMAND profile_keep_test)
 add_test(NAME savegame_rooftop_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
 # Far enough up the tower for gondolas to have moved and hatches to be open.
 add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/02_glass_canyon.txt 700)

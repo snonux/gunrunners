@@ -68,7 +68,8 @@ public:
   bool tick(const Input& input);
   // Fullscreen is borderless at the desktop's resolution. The window code
   // applies it and reports back with setFullscreen, which saves it in the
-  // profile; the menus ask for a switch through takeFullscreenToggle.
+  // profile (the campaign's; see saveProfile); the menus ask for a switch
+  // through takeFullscreenToggle.
   // showFullscreen only updates the menu label (a command-line flag
   // overrode the saved setting for this run).
   bool fullscreenSetting() const { return mProfile.fullscreen; }
@@ -94,7 +95,8 @@ public:
   bool worldSelect() const { return mMode == Mode::Worlds && mMenu == Menu::None; }
   int touchSize() const { return mProfile.touchSize; }
   // The app is going to the background (Android may close it there): the
-  // pause menu opens over a running level and the profile is saved.
+  // pause menu opens over a running level and the profile is saved (in the
+  // campaign; see saveProfile).
   void suspend();
   // The window lost focus or a gamepad dropped out: a running level pauses.
   void pauseLevel();
@@ -202,6 +204,14 @@ private:
   bool campaign() const { return mCampaign; }
   std::string dataDir() const;
   std::string saveDir() const;
+  // Writes mProfile to saveDir(), the one way every setting and every bit of
+  // progress gets there. A stand-alone level (--level) plays with a default
+  // profile (the constructor does not load one, so the run does not depend on
+  // the player's assists and Arsenal), so it never writes it either: that
+  // would replace the player's real profile.txt (progress, Arsenal, stars,
+  // bindings) with the defaults (task le3). Its settings last for the run.
+  // False when the disk refused the write; nothing to write counts as done.
+  bool saveProfile();
   void goTitle();
   void tickTitle(const Input& in);
   void renderTitle();

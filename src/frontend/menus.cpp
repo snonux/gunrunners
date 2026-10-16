@@ -82,13 +82,13 @@ void Game::setFullscreen(bool on)
   if (mProfile.fullscreen == on)
     return;
   mProfile.fullscreen = on;
-  mProfile.save(saveDir());
+  saveProfile();
 }
 
 void Game::cycleTouchSize()
 {
   mProfile.touchSize = (mProfile.touchSize + 1) % 3;
-  mProfile.save(saveDir());
+  saveProfile();
 }
 
 std::string Game::touchSizeLabel() const
@@ -105,7 +105,7 @@ bool Game::inLevel() const
 void Game::suspend()
 {
   pauseLevel();
-  mProfile.save(saveDir());
+  saveProfile();
 }
 
 void Game::pauseLevel()

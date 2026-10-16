@@ -106,6 +106,13 @@ std::string Game::dataDir() const
 
 std::string Game::saveDir() const { return mOptions.saveDir.empty() ? defaultSaveDir() : mOptions.saveDir; }
 
+bool Game::saveProfile()
+{
+  if (!campaign())
+    return true;
+  return mProfile.save(saveDir());
+}
+
 // --- Title -------------------------------------------------------------------
 
 void Game::goTitle()
@@ -491,7 +498,7 @@ void Game::setHard(bool hard)
     return;
   mHard = hard;
   mProfile.controls["opt.hard"] = {hard ? 1 : 0};
-  mProfile.save(saveDir());
+  saveProfile();
 }
 
 void Game::applyLevelLook(int ep, const std::string& themeKey)
@@ -572,7 +579,7 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
   if (number > reached)
   {
     reached = number;
-    mProfile.save(saveDir());
+    saveProfile();
   }
   playBriefing(number, fromNewGame);
 }
@@ -632,7 +639,7 @@ void Game::recordClear()
   else
     mProfile.reached = std::max(mProfile.reached, std::min(kCampaignLevels, n + 1));
   mProfile.duckMode = mProfile.ducks.size() >= std::size_t(kCampaignLevels);
-  if (!mProfile.save(saveDir()))
+  if (!saveProfile())
   {
     std::fprintf(stderr, "could not save the profile to %s\n", saveDir().c_str());
     notice("PROGRESS NOT SAVED - THE DISK REFUSED IT");
@@ -688,8 +695,8 @@ void Game::nextCutscene()
     mClipKit.reset(new ClipKit{mRenderer, *mArt, theme(), mLevelNumber, {}, {}});
   mClipKit->level = mLevelNumber;
   mClipKit->cameras = mProfile.cameras;
-  if (mProfile.cutscenes.insert(name).second && mCampaign)
-    mProfile.save(saveDir());
+  if (mProfile.cutscenes.insert(name).second)
+    saveProfile();
   setMode(Mode::Cutscene);
 }
 
@@ -828,7 +835,7 @@ void Game::leaveBonus()
   if (mBonusWon && mLevelNumber > 0 && !mBonusCheated)
   {
     mProfile.stars.insert(mLevelNumber);
-    saved = mProfile.save(saveDir());
+    saved = saveProfile();
     if (!saved)
       notice("BONUS STAR NOT SAVED - THE DISK REFUSED IT");
   }

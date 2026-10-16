@@ -76,6 +76,9 @@ Savegames live in `$XDG_DATA_HOME/gunrunners/saves` (usually
 `~/.local/share/gunrunners/saves`), one small text file per slot;
 `--save-dir` overrides that. What a player has unlocked is kept in
 `profile.txt` in the same directory. Campaign saves remember their level.
+A stand-alone level (`--level`) plays with a default profile and never writes
+`profile.txt`: settings changed there (controls, assists, fullscreen) last
+for that run only.
 A save written in a level where cheats were used carries a `cheats` line.
 
 The five slots and quick save can also be backed by any S3-compatible service.
