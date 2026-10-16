@@ -139,8 +139,9 @@ void Game::goTitle()
   }
   // Quit from inside a bonus level: the title keeps the level it was entered
   // from, with that level's file, as after quitting that level itself (a save
-  // loaded on the title tells by them whether to read its level again).
-  restoreMainLevel();
+  // loaded on the title tells by them whether to read its level again). Its
+  // parked world went above with the rest.
+  unparkMainLevel();
 }
 
 #ifdef __EMSCRIPTEN__
@@ -543,7 +544,7 @@ void Game::playLevelMusic()
 
 void Game::beginCampaignLevel(int number, bool fromNewGame)
 {
-  mMainWorld.reset();
+  dropParkedLevel();
   mWorld.reset();
   mBonusOnly = false;
   mLevelNumber = number;
@@ -746,10 +747,7 @@ void Game::afterCutscenes()
       startBonusWorld();
       break;
     case After::LeaveBonus:
-      mWorld = std::move(mMainWorld);
-      restoreMainLevel();
-      mBot = mMainBot;
-      mVoice = mMainVoice;
+      unparkMainLevel();
       mSubTick = 0;
       mLatched = PlayerInput{};
       mRun.reset();
@@ -793,24 +791,43 @@ void Game::enterBonus()
     mWorld->notify("NO SIGNAL");
     return;
   }
-  // The level and its file are parked with its world: no save names the
-  // bonus level, so a save loaded in it always reads its level again.
-  mMainLevel = mLevel;
-  mMainLevelPath = mLevelPath;
+  // The level and its file are parked with its world; the bonus level has
+  // no file, as no save names it, so a save loaded in it always reads its
+  // level again.
+  parkMainLevel();
   useLevel(std::move(level), {});
-  mMainWorld = std::move(mWorld);
-  mMainBot = mBot;
-  mMainVoice = mVoice;
   playCutscenes({"sting_break"}, After::EnterBonus);
 }
 
-void Game::restoreMainLevel()
+void Game::parkMainLevel()
 {
+  mMainWorld = std::move(mWorld);
+  mMainLevel = mLevel;
+  mMainLevelPath = mLevelPath;
+  mMainBot = mBot;
+  mMainVoice = mVoice;
+}
+
+void Game::unparkMainLevel()
+{
+  // By the level, not the world: goTitle has dropped the world by now.
   if (!mMainLevel)
     return;
+  mWorld = std::move(mMainWorld);
   useLevel(std::move(mMainLevel), std::move(mMainLevelPath));
+  mBot = mMainBot;
+  mVoice = mMainVoice;
+  // A moved-from string is left unspecified: dropParkedLevel clears it.
+  dropParkedLevel();
+}
+
+void Game::dropParkedLevel()
+{
+  mMainWorld.reset();
   mMainLevel.reset();
   mMainLevelPath.clear();
+  mMainBot = Bot{};
+  mMainVoice = VoiceDirector{};
 }
 
 void Game::startBonusWorld()
@@ -1123,8 +1140,8 @@ void Game::playBonusChannel(int level)
     notice("THAT CHANNEL IS OFF THE AIR");
     return;
   }
-  // No save names a bonus level (see mLevelPath). The number is the level's
-  // whose bonus level it is: a star won goes to it.
+  // No save names a bonus level (see mLevelPath). The number is that of the
+  // level it is the bonus level of: a star won goes to that level.
   useLevel(std::move(bonus), {});
   mLevelNumber = level;
   applyLevelLook(episodeOfLevel(level), mLevel->themeKey);

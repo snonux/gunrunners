@@ -366,7 +366,9 @@ add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.t
 # save of a numbered level; a stand-alone level (--level) stays without one.
 # A level's own save loads inside its bonus level (and on the title after
 # quitting from there), and in a Bonus Channel or EXTRAS level played after
-# QUIT TO TITLE from the level.
+# QUIT TO TITLE from the level (or on the title after a channel run). A save
+# without a file loads against the level being played: in its bonus level
+# too, and on the title after quitting from there.
 add_executable(refused_load_test tests/refused_load_test.cpp)
 target_link_libraries(refused_load_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME refused_load COMMAND refused_load_test)

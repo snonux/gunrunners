@@ -261,9 +261,22 @@ private:
   void enterBonus();
   void startBonusWorld();
   void leaveBonus();
-  // The level parked behind a bonus level (and its file) is the one played
-  // again: the bonus level is over, or was quit to the title.
-  void restoreMainLevel();
+  // The level a bonus level is entered from is parked behind it as one unit:
+  // its world, level, file, bot and voice lines (mMainWorld ...). These three
+  // are the only ways in and out, so a level is parked exactly when a world
+  // is (goTitle drops the world first, then takes the level back).
+  // parkMainLevel parks the level being played; the caller then makes the
+  // bonus level the one played (useLevel).
+  void parkMainLevel();
+  // What was parked is played again (the bonus level is over), or on the
+  // title the level and its file come back (QUIT TO TITLE from the bonus
+  // level, its world already gone; the bot and voice lines come back too,
+  // idle there until a level starts them anew). Nothing parked, nothing
+  // changes.
+  void unparkMainLevel();
+  // What was parked goes: another level (a loaded save, the next campaign
+  // level) ends the bonus level and the one parked behind it.
+  void dropParkedLevel();
   void recordClear();
   void tickArsenal(const Input& in);
   void renderArsenal();
@@ -349,10 +362,14 @@ private:
   // The world a save restores into, built on level apart from the run in
   // progress; nullptr, after the refusal's notice, if the save is from
   // another level or does not fit it.
+  std::unique_ptr<World> restoreAside(const SaveGame& s, const std::shared_ptr<const Level>& level);
+  // The save fit: level, its level, becomes the one played. reread: it was
+  // read again from file (the old level's preloads turn stale); otherwise
+  // it is the level loaded, or the one parked behind a bonus level.
+  void useSaveLevel(std::shared_ptr<const Level> level, bool reread, const std::string& file);
   // A loaded campaign save's level number and difficulty (the levels after
   // it follow them); a stand-alone level keeps none.
   void takeSaveProgress(const SaveGame& s);
-  std::unique_ptr<World> restoreAside(const SaveGame& s, const std::shared_ptr<const Level>& level);
   // The save fit: its restored world replaces the run in progress, in the
   // save's look (theme index). It ends a bonus level: the world and level
   // parked behind one go, and so does a Bonus Channel or EXTRAS run.
@@ -426,11 +443,14 @@ private:
   std::string mLevelPath;
   bool mCampaign = false;
   bool mBonusOnly = false;    // a Bonus Channel or EXTRAS level, played on its own
-  std::unique_ptr<World> mMainWorld; // parked while its bonus level plays
-  std::shared_ptr<const Level> mMainLevel; // its level and that level's file
+  // The level a bonus level was entered from, parked while the bonus level
+  // plays (parkMainLevel and its two partners keep them together): its
+  // world, its level and that level's file, its bot and its voice lines.
+  std::unique_ptr<World> mMainWorld;
+  std::shared_ptr<const Level> mMainLevel;
   std::string mMainLevelPath;
   Bot mMainBot;
-  VoiceDirector mMainVoice; // the level's lines while its bonus level runs
+  VoiceDirector mMainVoice;
   int mBonusScore = 0, mBonusGems = 0;
   bool mBonusWon = false;
   bool mBonusCheated = false;
