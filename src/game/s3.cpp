@@ -137,8 +137,10 @@ bool saveS3Config(const std::string& saveDir, const S3Config& config,
   // spans the write and the fsync (tens to hundreds of milliseconds on phone
   // flash), and outlives it only when the process is killed inside it or
   // when a failed write's cleanup unlink fails too (see atomic_file.hpp).
-  // Removing such leftovers, and the "cloud.txt.tmp" of older builds, at
-  // startup and in removeS3Config is task cf3's cleanup. Not taken: keeping
+  // Such leftovers, and the "cloud.txt.tmp" of older builds, are removed by
+  // removeCloudLeftovers at game start once at least kCloudLeftoverAge
+  // (10 minutes) old, as a younger one may be another game process's write
+  // in progress, and by removeS3Config at any age. Not taken: keeping
   // cloud.txt and its temps in a folder of their own (saves/private/, say),
   // which the backup rules could exclude as a whole; it would need a
   // migration of existing cloud.txt files.
