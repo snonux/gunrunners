@@ -543,6 +543,9 @@ target_link_libraries(flytower_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME flytower COMMAND flytower_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt
   ${CMAKE_SOURCE_DIR}/levels/40_bonus_trigger.txt)
 add_test(NAME savegame_fly_tower COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt 300)
+add_executable(capture_test tests/capture_test.cpp)
+target_link_libraries(capture_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME capture COMMAND capture_test)
 add_executable(sweeps_test tests/sweeps_test.cpp)
 target_link_libraries(sweeps_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME sweeps COMMAND sweeps_test ${CMAKE_SOURCE_DIR}/levels/41_sweeps_week.txt

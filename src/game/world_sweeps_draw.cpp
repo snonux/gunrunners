@@ -17,8 +17,12 @@
 // their seats, the Cue Card Drones and their cards; party hats, beaks and
 // BIG HEADS (the runner's too); the ??? party poppers; rubber chickens; the
 // Virus's glow. Paintball's splats. On top (drawSweepsTop): LIGHTS OUT,
-// MIRROR MODE. The HUD (drawSweepsHud): the Applause Cannon's meter, the
-// rule in force, the ballot; Paintball's share painted.
+// MIRROR MODE. Under MIRROR MODE or BIG HEADS the scene is drawn into the
+// renderer's offscreen capture (beginSweepsScene): BIG HEADS grabs the
+// runner's head from it, drawSweepsTop puts it back on the screen, mirrored
+// for MIRROR MODE; nothing is read back from the GPU. The HUD
+// (drawSweepsHud): the Applause Cannon's meter, the rule in force, the
+// ballot; Paintball's share painted.
 
 #include "game/world.hpp"
 
@@ -966,71 +970,21 @@ float needleAt(const SweepsState& s)
   return std::clamp(1.0f + (float(s.winner) - 1.0f) * t + wobble, 0.0f, 2.0f);
 }
 
-// The screen grabbed, flipped left to right and put back (MIRROR MODE).
-void mirrorView(Renderer& r)
-{
-  SDL_Renderer* sdl = r.sdl();
-  SDL_Rect vp;
-  SDL_RenderGetViewport(sdl, &vp);
-  float sx = 1.0f, sy = 1.0f;
-  SDL_RenderGetScale(sdl, &sx, &sy);
-  const int w = int(std::lround(float(vp.w) * sx)), h = int(std::lround(float(vp.h) * sy));
-  if (w <= 0 || h <= 0)
-    return;
-  std::vector<Uint32> pixels(std::size_t(w) * std::size_t(h));
-  if (SDL_RenderReadPixels(sdl, nullptr, SDL_PIXELFORMAT_ARGB8888, pixels.data(), w * 4) != 0)
-    return;
-  SDL_Texture* tex = SDL_CreateTexture(sdl, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
-  if (!tex)
-    return;
-  SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_NONE);
-  SDL_UpdateTexture(tex, nullptr, pixels.data(), w * 4);
-  const SDL_Rect dst{0, 0, vp.w, vp.h};
-  SDL_RenderCopyEx(sdl, tex, nullptr, &dst, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
-  SDL_DestroyTexture(tex);
-}
-
-// BIG HEADS on the runner: the picture round their head (already drawn)
-// grabbed, faded out to an oval, and put back `scale` times the size on the
-// same neck: a caricature's head through a fisheye.
+// BIG HEADS on the runner: the picture round their head (already drawn,
+// copied from the scene capture on the GPU) put back `scale` times the size
+// on the same neck, faded out to an oval: a caricature's head through a
+// fisheye. No capture (no render targets), or the head too near the
+// picture's edge: no lens.
 void bigHeadLens(Renderer& r, float cx, float headTop, float scale)
 {
-  SDL_Renderer* sdl = r.sdl();
-  SDL_Rect vp;
-  SDL_RenderGetViewport(sdl, &vp);
-  float sx = 1.0f, sy = 1.0f;
-  SDL_RenderGetScale(sdl, &sx, &sy);
-  int ow = 0, oh = 0;
-  if (SDL_GetRendererOutputSize(sdl, &ow, &oh) != 0)
-    return;
   constexpr float lw = 112.0f, lh = 92.0f;
   const float x0 = cx - lw * 0.5f, y0 = headTop - 14.0f;
-  SDL_Rect src{int(std::lround((float(vp.x) + x0) * sx)), int(std::lround((float(vp.y) + y0) * sy)), int(std::lround(lw * sx)),
-    int(std::lround(lh * sy))};
-  if (src.w <= 4 || src.h <= 4 || src.x < 0 || src.y < 0 || src.x + src.w > ow || src.y + src.h > oh)
+  const Texture* grab = r.grabCaptured(x0, y0, lw, lh);
+  if (!grab)
     return;
-  std::vector<Uint32> px(std::size_t(src.w) * std::size_t(src.h));
-  if (SDL_RenderReadPixels(sdl, &src, SDL_PIXELFORMAT_ARGB8888, px.data(), src.w * 4) != 0)
-    return;
-  for (int y = 0; y < src.h; ++y)
-    for (int x = 0; x < src.w; ++x)
-    {
-      const float u = (float(x) + 0.5f) / float(src.w) * 2.0f - 1.0f, v = (float(y) + 0.5f) / float(src.h) * 2.0f - 1.0f;
-      const float d = u * u + v * v;
-      const float a = std::clamp((1.0f - d) / 0.25f, 0.0f, 1.0f);
-      Uint32& p = px[std::size_t(y) * std::size_t(src.w) + std::size_t(x)];
-      p = (p & 0x00FFFFFFu) | (Uint32(std::lround(a * 255.0f)) << 24);
-    }
-  SDL_Texture* tex = SDL_CreateTexture(sdl, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, src.w, src.h);
-  if (!tex)
-    return;
-  SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
-  SDL_UpdateTexture(tex, nullptr, px.data(), src.w * 4);
   // The neck (the grab's lower middle) stays put.
   const float neckY = y0 + lh * 0.82f;
-  const SDL_FRect dst{cx - lw * scale * 0.5f, neckY - lh * 0.82f * scale, lw * scale, lh * scale};
-  SDL_RenderCopyF(sdl, tex, nullptr, &dst);
-  SDL_DestroyTexture(tex);
+  r.drawFadedOval(*grab, cx - lw * scale * 0.5f, neckY - lh * 0.82f * scale, lw * scale, lh * scale, 0.75f);
 }
 
 // The stands' and the pit's spans (cells) from where the audience sits.
@@ -1619,6 +1573,15 @@ void World::drawSweepsFront(Renderer& r, float camX, float camY, int frame, floa
     }
 }
 
+// Before the scene: MIRROR MODE flips all of it and BIG HEADS magnifies a
+// piece of it, so it is drawn into the renderer's offscreen capture instead
+// of reading the screen back from the GPU (a pipeline stall every frame).
+void World::beginSweepsScene(Renderer& r) const
+{
+  if (sweepsMirrored() || (mSweeps.rules & kSwBigHeads) != 0)
+    r.beginCapture();
+}
+
 void World::drawSweepsTop(Renderer& r, float camX, float camY, int frame) const
 {
   const auto& s = mSweeps;
@@ -1640,8 +1603,9 @@ void World::drawSweepsTop(Renderer& r, float camX, float camY, int frame) const
     r.drawAlphaGrid(a, cols, rows, 0.0f, 0.0f, kCellPx, kCellPx, rgb(0, 0, 0));
     drawGlow(r, mArt, px, py, rad * 0.9f, rgb(255, 220, 160), 0.12f + 0.02f * std::sin(float(frame) * 0.1f));
   }
-  if (sweepsMirrored())
-    mirrorView(r);
+  // The scene back on the screen, flipped left to right for MIRROR MODE; the
+  // HUD goes over it the right way round. (No capture: nothing to do.)
+  r.endCapture(sweepsMirrored());
 }
 
 void World::drawSweepsHud(Renderer& r, int frame) const

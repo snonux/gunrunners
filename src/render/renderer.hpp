@@ -110,6 +110,28 @@ public:
   void drawAlphaGrid(const std::vector<float>& alpha, int cols, int rows, float x, float y, float cellW, float cellH,
     Color c);
 
+  // `t` stretched over the rectangle at (x, y), faded out to the oval inside
+  // it: solid where u² + v² <= `solid` (u, v from -1 to 1 across the
+  // rectangle), fading linearly in u² + v² to nothing at the oval's edge.
+  // Without SDL_RenderGeometry (SDL older than 2.0.18) the plain rectangle.
+  void drawFadedOval(const Texture& t, float x, float y, float w, float h, float solid);
+
+  // Scene capture, for effects on the picture drawn so far (Level 41's
+  // MIRROR MODE and BIG HEADS) without reading pixels back from the GPU,
+  // which stalls its pipeline every frame. beginCapture() sends the draws
+  // that follow to an offscreen texture the size of the picture in output
+  // pixels (made once, made again when the window changes size), cleared to
+  // black. grabCaptured() copies a piece of it (logical units) to a second
+  // offscreen texture to draw from, null when there is no capture or the
+  // piece leaves the picture. endCapture() puts the picture back on the
+  // screen, mirrored left to right if asked; false without a capture. One
+  // capture at a time, begun with the screen as the target; false when the
+  // renderer has no render targets, and the draws then go to the screen.
+  bool beginCapture();
+  bool capturing() const { return mCapturing; }
+  const Texture* grabCaptured(float x, float y, float w, float h);
+  bool endCapture(bool mirrorX);
+
   // The rasterized string, cached per (string, style). The reference stays
   // valid until the next beginFrame (which may evict it).
   const Texture& text(const std::string& s, const TextStyle& style);
@@ -161,6 +183,14 @@ private:
   std::uint64_t mFrame = 0; // beginFrame calls so far: the text cache's clock
   SDL_Texture* mGrid = nullptr; // drawAlphaGrid's streaming texture
   int mGridW = 0, mGridH = 0;
+
+  bool targetOfSize(Texture& t, int w, int h);
+  void viewCapture();
+  Texture mScene;          // the capture's picture, at the output resolution
+  Texture mGrab;           // grabCaptured's piece of it
+  bool mCapturing = false;
+  float mCaptureSx = 1.0f; // logical units to the capture's pixels
+  float mCaptureSy = 1.0f;
 };
 
 } // namespace gr

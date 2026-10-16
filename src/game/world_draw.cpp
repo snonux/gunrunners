@@ -103,6 +103,8 @@ void World::draw(Renderer& r, int frame, float alpha) const
     drawSplit(r, frame, alpha);
     return;
   }
+  if (mSweeps.on && mSplitPass == 0)
+    beginSweepsScene(r); // Level 41: MIRROR MODE and BIG HEADS work on the scene; drawSweepsTop puts it back
   const float camX = (mSplitPass != 0 ? mSplitCamX : mCamera.renderX() * S) + dishWobble(*this, frame); // Heatstroke's wobble
   const float camY = mSplitPass != 0 ? mSplitCamY : mCamera.renderY() * S;
   if (mTrain)
@@ -1426,7 +1428,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   if (mSplitPass != 0)
     return; // Both Sides: the HUD goes over both halves (drawSplit)
   if (mSweeps.on)
-    drawSweepsTop(r, camX, camY, frame); // Level 41: LIGHTS OUT, MIRROR MODE
+    drawSweepsTop(r, camX, camY, frame); // Level 41: LIGHTS OUT, MIRROR MODE, the scene back on the screen
   if (mFinale.on)
     drawFinaleTop(r, camX, camY, frame); // Level 42: the roll-in, the wipe, the commercial, BLOOPER!
   drawGuide(r, camX, camY, frame); // ASSISTS: the guide arrow (world_guide.cpp)

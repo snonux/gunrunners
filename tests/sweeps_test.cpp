@@ -6,8 +6,10 @@
 // the ballot (BIG HEADS, DOUBLE GEMS, LOW GRAVITY, TURBO FOR EVERYONE,
 // MIRROR MODE, ???, SLIPPERY FLOORS, PARTY HATS, VIRUS FOR THE RUNNER), the
 // seat's ladder and the letter G waking the bonus entrance; Paintball's
-// paint. Then the bot clears Sweeps Week under each rule, takes the bonus
-// entrance, and clears Sweeps Week and Paintball with every runner.
+// paint. MIRROR MODE and BIG HEADS as drawn: the scene flipped under an
+// unflipped HUD, the lens round the runner's head, both together. Then the
+// bot clears Sweeps Week under each rule, takes the bonus entrance, and
+// clears Sweeps Week and Paintball with every runner.
 
 #include "assets/art.hpp"
 #include "data/level.hpp"
@@ -21,6 +23,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -159,6 +162,55 @@ int botPlay(World& w, int frames, Bot& bot)
 }
 
 const char* const kVote = "@ vote c1 5 21 virus=15,19\n";
+
+// A 20 x 11 room, all of it in the picture: walls at x 0 and 19, the floor
+// on rows 9 and 10, the runner at (3, 8), a vote at block 5.
+std::string stage()
+{
+  std::vector<std::string> map(11, std::string(20, '.'));
+  for (int x = 0; x < 20; ++x)
+    map[9][std::size_t(x)] = map[10][std::size_t(x)] = '#';
+  for (int y = 0; y < 11; ++y)
+    map[std::size_t(y)][0] = map[std::size_t(y)][19] = '#';
+  map[8][3] = 'P';
+  std::string s = "name=SWEEPS TEST\nepisode=6\ntheme=sweeps_week\nweapon=applause_cannon\n[map]\n";
+  for (const auto& row : map)
+    s += row + "\n";
+  return s + "[entities]\n@ vote c1 5 8 virus=15,8\n";
+}
+
+using Frame = std::vector<Uint32>;
+
+// The picture a world draws on the 1280 x 720 surface.
+Frame frameOf(const World& w, Renderer& r, SDL_Surface* surface)
+{
+  r.beginFrame();
+  r.clear(rgb(0, 0, 0));
+  w.draw(r, 100, 1.0f);
+  SDL_RenderPresent(r.sdl());
+  Frame f(std::size_t(kScreenW) * std::size_t(kScreenH));
+  for (int y = 0; y < kScreenH; ++y)
+    std::memcpy(&f[std::size_t(y) * std::size_t(kScreenW)],
+      static_cast<const unsigned char*>(surface->pixels) + y * surface->pitch, std::size_t(kScreenW) * 4);
+  return f;
+}
+
+Uint32 pixel(const Frame& f, int x, int y)
+{
+  return f[std::size_t(y) * std::size_t(kScreenW) + std::size_t(x)];
+}
+
+// Pixels that differ between a and b (b flipped left to right if asked) in
+// the rows y0..y1 and the columns x0..x1 (a's), under the jumbotron and HUD.
+int differ(const Frame& a, const Frame& b, bool flip, int x0 = 0, int x1 = kScreenW - 1, int y0 = 330,
+  int y1 = kScreenH - 1)
+{
+  int n = 0;
+  for (int y = y0; y <= y1; ++y)
+    for (int x = x0; x <= x1; ++x)
+      n += pixel(a, x, y) != pixel(b, flip ? kScreenW - 1 - x : x, y) ? 1 : 0;
+  return n;
+}
 
 } // namespace
 
@@ -385,6 +437,30 @@ int main(int argc, char** argv)
       hold(w, right, 10, prev);
       check(mirrored, "MIRROR MODE: right walks left");
       check(w.player().x > x1 && !w.sweepsMirrored(), "Turbo puts the mirror back");
+    }
+    {
+      // MIRROR MODE and BIG HEADS draw through the renderer's scene capture,
+      // nothing read back from the GPU. The same moment under four rules:
+      // DOUBLE GEMS draws no differently from a plain segment.
+      auto frame = [&](unsigned rule) {
+        World w = make(stage());
+        vote(w, rule);
+        return frameOf(w, renderer, surface);
+      };
+      const Frame plain = frame(kSwDoubleGems), mirror = frame(kSwMirror), big = frame(kSwBigHeads),
+                  both = frame(kSwMirror | kSwBigHeads);
+      const int flipped = differ(mirror, plain, true), straight = differ(mirror, plain, false);
+      const int lens = differ(big, plain, false, 0, 520), away = differ(big, plain, false, 640);
+      const int bothFlipped = differ(both, big, true);
+      std::printf("     MIRROR MODE vs flipped: %d px (unflipped %d); BIG HEADS lens %d px, away %d; both vs flipped %d\n",
+        flipped, straight, lens, away, bothFlipped);
+      check(flipped == 0 && straight > 10000, "MIRROR MODE: the scene is the plain one flipped left to right");
+      const Uint32 tag = rgb(255, 60, 90); // the red edge of TONIGHT'S RULE's tag (drawSweepsHud)
+      check(pixel(mirror, 18, 160) == tag && pixel(mirror, kScreenW - 19, 160) != tag,
+        "MIRROR MODE: the HUD goes over it the right way round");
+      check(lens > 2000 && away == 0, "BIG HEADS: the lens round the runner's head, the rest as drawn");
+      check(bothFlipped == 0, "MIRROR MODE with BIG HEADS: the lens mirrored with the scene");
+      check(!renderer.capturing(), "the capture is over when the world is drawn");
     }
     {
       // SLIPPERY FLOORS: the runner slides on after letting go.

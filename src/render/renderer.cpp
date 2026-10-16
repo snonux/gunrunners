@@ -3,9 +3,11 @@
 #include "render/vector.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <utility>
+#include <initializer_list>
 #include <vector>
 
 namespace gr
@@ -40,6 +42,85 @@ std::size_t utf8Floor(const std::string& s, std::size_t bytes)
     --bytes;
   return bytes;
 }
+// The current viewport in output pixels, and the scale to them from logical
+// units. SDL2 folds a logical size into the render scale, but sdl2-compat
+// (SDL2 on top of SDL3) reports only the scale set with SDL_RenderSetScale,
+// so with a logical size the scale is worked out from the output size the
+// way SDL2 letterboxes: the largest that fits both ways.
+struct Picture
+{
+  int w = 0, h = 0;
+  float sx = 1.0f, sy = 1.0f;
+};
+
+Picture pictureOf(SDL_Renderer* sdl)
+{
+  Picture p;
+  SDL_Rect vp;
+  SDL_RenderGetViewport(sdl, &vp);
+  int lw = 0, lh = 0, ow = 0, oh = 0;
+  SDL_RenderGetLogicalSize(sdl, &lw, &lh);
+  if (lw > 0 && lh > 0 && SDL_GetRendererOutputSize(sdl, &ow, &oh) == 0)
+    p.sx = p.sy = std::min(float(ow) / float(lw), float(oh) / float(lh));
+  else
+    SDL_RenderGetScale(sdl, &p.sx, &p.sy);
+  p.w = int(std::lround(float(vp.w) * p.sx));
+  p.h = int(std::lround(float(vp.h) * p.sy));
+  return p;
+}
+
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+// drawFadedOval's mesh: a solid middle inside three rings at u² + v² =
+// solid, halfway to 1 and 1, alpha 1, 1/2 and 0. Between rings alpha runs
+// linear in the radius, within a percent or two of linear in u² + v² over
+// such narrow bands.
+constexpr int kOvalSides = 48, kOvalRings = 3;
+using OvalVertices = std::array<SDL_Vertex, 1 + kOvalSides * kOvalRings>;
+using OvalIndices = std::array<int, 3 * kOvalSides + 6 * kOvalSides * (kOvalRings - 1)>;
+
+OvalVertices ovalVertices(float x, float y, float w, float h, float solid)
+{
+  solid = std::clamp(solid, 0.0f, 0.99f);
+  OvalVertices v;
+  v[0] = {{x + w * 0.5f, y + h * 0.5f}, {255, 255, 255, 255}, {0.5f, 0.5f}};
+  for (int k = 0; k < kOvalRings; ++k)
+  {
+    const float share = float(k) / float(kOvalRings - 1);
+    const float radius = std::sqrt(solid + (1.0f - solid) * share);
+    const Uint8 a = Uint8(std::lround((1.0f - share) * 255.0f));
+    for (int i = 0; i < kOvalSides; ++i)
+    {
+      const float angle = float(i) * 6.2831853f / float(kOvalSides);
+      const float tu = 0.5f + 0.5f * radius * std::cos(angle), tv = 0.5f + 0.5f * radius * std::sin(angle);
+      v[std::size_t(1 + k * kOvalSides + i)] = {{x + w * tu, y + h * tv}, {255, 255, 255, a}, {tu, tv}};
+    }
+  }
+  return v;
+}
+
+// The middle as a fan round vertex 0, each band between two rings as quads.
+const OvalIndices& ovalIndices()
+{
+  static const OvalIndices idx = [] {
+    OvalIndices out{};
+    std::size_t n = 0;
+    for (int i = 0; i < kOvalSides; ++i)
+    {
+      const int next = (i + 1) % kOvalSides;
+      for (const int c : {0, 1 + i, 1 + next})
+        out[n++] = c;
+      for (int k = 0; k + 1 < kOvalRings; ++k)
+      {
+        const int a = 1 + k * kOvalSides + i, b = 1 + k * kOvalSides + next;
+        for (const int c : {a, a + kOvalSides, b, b, a + kOvalSides, b + kOvalSides})
+          out[n++] = c;
+      }
+    }
+    return out;
+  }();
+  return idx;
+}
+#endif
 
 } // namespace
 
@@ -153,6 +234,13 @@ void Renderer::drawAlphaGrid(const std::vector<float>& alpha, int cols, int rows
 
 void Renderer::beginFrame()
 {
+  // A capture left open (a draw that returned before ending it) would
+  // swallow this frame: drop it, the screen is the target again.
+  if (mCapturing)
+  {
+    SDL_SetRenderTarget(mRenderer, nullptr);
+    mCapturing = false;
+  }
   // Score and timer strings change constantly; keep the cache bounded. It
   // once cleared wholesale here, and the next frame re-rasterized every
   // visible string at once (100+ ms for a screenful of outlined text).
@@ -257,6 +345,115 @@ void Renderer::drawLine(float x0, float y0, float x1, float y1, float width, Col
     fillRect(x0 + dx * t - width * 0.5f, y0 + dy * t - width * 0.5f, width, width, c, b);
   }
 #endif
+}
+
+void Renderer::drawFadedOval(const Texture& t, float x, float y, float w, float h, float solid)
+{
+  if (!t || w <= 0.0f || h <= 0.0f)
+    return;
+  SDL_SetTextureBlendMode(t.get(), SDL_BLENDMODE_BLEND);
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  const OvalVertices v = ovalVertices(x, y, w, h, solid);
+  const OvalIndices& idx = ovalIndices();
+  SDL_RenderGeometry(mRenderer, t.get(), v.data(), int(v.size()), idx.data(), int(idx.size()));
+#else
+  (void)solid;
+  const SDL_FRect dst{x, y, w, h};
+  SDL_RenderCopyF(mRenderer, t.get(), nullptr, &dst);
+#endif
+}
+
+// Makes `t` a w x h render target unless it already is one.
+bool Renderer::targetOfSize(Texture& t, int w, int h)
+{
+  if (t && t.w() == w && t.h() == h)
+    return true;
+  t = Texture();
+  SDL_Texture* tex = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+  if (!tex)
+    return false;
+  t = Texture(tex, w, h, 0.0f, 0.0f);
+  return true;
+}
+
+// The capture's view: all of the texture, logical units scaled to its
+// pixels. Set after every switch to it: SDL2 resets the view on
+// SDL_SetRenderTarget (SDL3 keeps one per target).
+void Renderer::viewCapture()
+{
+  SDL_RenderSetViewport(mRenderer, nullptr);
+  SDL_RenderSetScale(mRenderer, mCaptureSx, mCaptureSy);
+}
+
+bool Renderer::beginCapture()
+{
+  if (mCapturing || SDL_GetRenderTarget(mRenderer) != nullptr || SDL_RenderTargetSupported(mRenderer) != SDL_TRUE)
+    return false;
+  const Picture p = pictureOf(mRenderer);
+  if (p.w <= 0 || p.h <= 0 || !targetOfSize(mScene, p.w, p.h))
+    return false;
+  // Copied back (and grabbed) pixel for pixel: no filtering, so a pixel's
+  // rounding never blurs it.
+  SDL_SetTextureScaleMode(mScene.get(), SDL_ScaleModeNearest);
+  if (SDL_SetRenderTarget(mRenderer, mScene.get()) != 0)
+    return false;
+  mCapturing = true;
+  mCaptureSx = p.sx;
+  mCaptureSy = p.sy;
+  viewCapture();
+  SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
+  SDL_RenderClear(mRenderer);
+  return true;
+}
+
+const Texture* Renderer::grabCaptured(float x, float y, float w, float h)
+{
+  if (!mCapturing)
+    return nullptr;
+  const SDL_Rect src{int(std::lround(x * mCaptureSx)), int(std::lround(y * mCaptureSy)), int(std::lround(w * mCaptureSx)),
+    int(std::lround(h * mCaptureSy))};
+  if (src.w <= 0 || src.h <= 0 || src.x < 0 || src.y < 0 || src.x + src.w > mScene.w() || src.y + src.h > mScene.h() ||
+    !targetOfSize(mGrab, src.w, src.h))
+    return nullptr;
+  // A texture cannot be drawn into itself: the piece goes through mGrab.
+  // Switching targets drops the clip rectangle (SDL2); it comes back after.
+  SDL_Rect clip{};
+  const bool clipped = SDL_RenderIsClipEnabled(mRenderer) == SDL_TRUE;
+  if (clipped)
+    SDL_RenderGetClipRect(mRenderer, &clip);
+  bool ok = SDL_SetRenderTarget(mRenderer, mGrab.get()) == 0;
+  if (ok)
+  {
+    SDL_SetTextureBlendMode(mScene.get(), SDL_BLENDMODE_NONE);
+    ok = SDL_RenderCopy(mRenderer, mScene.get(), &src, nullptr) == 0;
+  }
+  if (SDL_SetRenderTarget(mRenderer, mScene.get()) != 0)
+  {
+    // The scene is lost: drop the capture rather than draw on into mGrab.
+    SDL_SetRenderTarget(mRenderer, nullptr);
+    mCapturing = false;
+    return nullptr;
+  }
+  viewCapture();
+  SDL_RenderSetClipRect(mRenderer, clipped ? &clip : nullptr);
+  return ok ? &mGrab : nullptr;
+}
+
+bool Renderer::endCapture(bool mirrorX)
+{
+  if (!mCapturing)
+    return false;
+  mCapturing = false;
+  if (SDL_SetRenderTarget(mRenderer, nullptr) != 0)
+    return false;
+  // The screen's own view is back (viewport, scale, clip): the picture over
+  // the whole viewport, replacing what is under it.
+  SDL_Rect vp;
+  SDL_RenderGetViewport(mRenderer, &vp);
+  const SDL_Rect dst{0, 0, vp.w, vp.h};
+  SDL_SetTextureBlendMode(mScene.get(), SDL_BLENDMODE_NONE);
+  return SDL_RenderCopyEx(mRenderer, mScene.get(), nullptr, &dst, 0.0, nullptr,
+           mirrorX ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE) == 0;
 }
 
 const Texture& Renderer::text(const std::string& s, const TextStyle& st)
