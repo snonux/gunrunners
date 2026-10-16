@@ -184,6 +184,10 @@ std::string defaultSaveDir();
 std::string slotPath(const std::string& dir, int slot);
 // The quick save slot (F5 / F9), apart from the five: quick.sav.
 std::string quickSavePath(const std::string& dir);
+// The keys of the int-list lines ("key count values..."), in the order
+// writeSave writes them. savegame_test checks them against its own table,
+// so a list key added without a test fails there.
+std::vector<std::string> intListKeys();
 
 // Writes atomically (temp file + rename), creating the directory if needed.
 bool writeSave(const SaveGame& save, const std::string& path, std::string* error = nullptr);

@@ -13,14 +13,18 @@
 
 #include <SDL.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 using namespace gr;
@@ -53,7 +57,6 @@ std::string withoutTimestamp(std::string s)
     s.erase(at, s.find('\n', at + 1) - at);
   return s;
 }
-
 
 // Writes text as a save file and reads it back.
 std::optional<SaveGame> parse(const std::string& dir, const std::string& text)
@@ -95,7 +98,8 @@ void checkLenientLines(const std::string& dir)
     return;
   check(s->levelName == "Roof Top Run" && s->levelNumber == 7 && s->levelFile == "levels/07 chopper.txt",
     "names keep their spaces");
-  check(s->letters.empty() && s->hp == 5 && s->hasKey == false, "letters '-' read as none");
+  check(s->letters.empty(), "letters '-' read as none");
+  check(s->hp == 5 && !s->hasKey, "full player line read among the odd lines");
   check(s->enemies.size() == 2 && s->enemies[0].def == -1 && s->enemies[0].platform == -1 &&
       s->enemies[1].def == 6 && s->enemies[1].platform == 2 && s->enemies[1].attach == 9 && !s->enemies[1].alive,
     "short enemy line skipped, old and new enemy lines read");
@@ -125,36 +129,163 @@ void checkIntLists(const std::string& dir)
     "int lists land in their own members");
 }
 
-// Every int list survives writeSave and readSave, each in its own member,
-// and the read save writes back byte for byte.
+// The int-list keys and their members, copied from readSave's key chain as
+// it was before kIntLists (commit 56f5fc2), never from kIntLists itself: a
+// kIntLists row that points a key at the wrong member then fails here.
+using List = std::vector<int> SaveGame::*;
+const std::pair<const char*, List> kListKeys[] = {
+  {"floods", &SaveGame::floods},
+  {"valves", &SaveGame::valves},
+  {"ratpipes", &SaveGame::ratPipes},
+  {"train", &SaveGame::train},
+  {"chopper", &SaveGame::chopper},
+  {"jungle", &SaveGame::jungle},
+  {"temple", &SaveGame::temple},
+  {"light", &SaveGame::light},
+  {"mine", &SaveGame::mine},
+  {"boulder", &SaveGame::boulder},
+  {"sanctum", &SaveGame::sanctum},
+  {"station", &SaveGame::station},
+  {"green", &SaveGame::green},
+  {"hull", &SaveGame::hull},
+  {"grav", &SaveGame::grav},
+  {"reactor", &SaveGame::reactor},
+  {"zero", &SaveGame::zero},
+  {"west", &SaveGame::west},
+  {"manor", &SaveGame::manor},
+  {"kitchen", &SaveGame::kitchen},
+  {"garden", &SaveGame::garden},
+  {"city", &SaveGame::city},
+  {"noir", &SaveGame::noir},
+  {"toon", &SaveGame::toon},
+  {"signal", &SaveGame::signal},
+  {"trench", &SaveGame::trench},
+  {"storm", &SaveGame::storm},
+  {"dish", &SaveGame::dish},
+  {"magma", &SaveGame::magma},
+  {"fleet", &SaveGame::fleet},
+  {"tower", &SaveGame::tower},
+  {"warehouse", &SaveGame::warehouse},
+  {"wardrobe", &SaveGame::wardrobe},
+  {"writers", &SaveGame::writers},
+  {"gallery", &SaveGame::gallery},
+  {"flytower", &SaveGame::flytower},
+  {"sweeps", &SaveGame::sweeps},
+  {"finale", &SaveGame::finale},
+  {"explored", &SaveGame::explored},
+  {"vehicles", &SaveGame::vehicles},
+  {"swap", &SaveGame::swap},
+  {"guns", &SaveGame::guns},
+  {"bench", &SaveGame::bench},
+  {"bubbled", &SaveGame::bubbled}, // the old chain's fallback
+};
+
+// How many lines of text start with "key ".
+int linesWithKey(const std::string& text, const std::string& key)
+{
+  std::istringstream in(text);
+  std::string line;
+  int n = 0;
+  while (std::getline(in, line))
+    if (line.compare(0, key.size() + 1, key + " ") == 0)
+      ++n;
+  return n;
+}
+
+// Each list key read as "key 1 N", N its row in kListKeys: every member
+// gets its own N and nothing else. A key mapped to another key's member
+// fails, and so does a list key some earlier reader (door, alllit...)
+// takes first, since its value then never reaches the list.
+void checkListKeysRead(const std::string& dir)
+{
+  std::string text = kHeader + kPlayer;
+  int n = 0;
+  for (const auto& entry : kListKeys)
+    text += std::string(entry.first) + " 1 " + std::to_string(++n) + "\n";
+  const auto s = parse(dir, text + "end\n");
+  bool own = bool(s);
+  n = 0;
+  for (const auto& entry : kListKeys)
+  {
+    const bool ok = s && (*s).*(entry.second) == std::vector<int>{++n};
+    if (!ok)
+      std::printf("     '%s' does not land in its own member\n", entry.first);
+    own = own && ok;
+  }
+  check(own, "each int-list key reads into its own member");
+}
+
+// writeSave writes kListKeys and nothing more: kIntLists has the same keys
+// (so a key added there without a row here fails), a save with every list
+// filled has exactly one line per row and no other extra lines, each list
+// reads back into its own member, and the read save writes back byte for
+// byte.
 void checkAllIntLists(const std::string& dir)
 {
-  using List = std::vector<int> SaveGame::*;
-  const List lists[] = {&SaveGame::floods, &SaveGame::valves, &SaveGame::ratPipes, &SaveGame::bubbled,
-    &SaveGame::train, &SaveGame::chopper, &SaveGame::jungle, &SaveGame::temple, &SaveGame::light, &SaveGame::mine,
-    &SaveGame::boulder, &SaveGame::sanctum, &SaveGame::station, &SaveGame::green, &SaveGame::hull,
-    &SaveGame::grav, &SaveGame::reactor, &SaveGame::zero, &SaveGame::west, &SaveGame::manor, &SaveGame::kitchen,
-    &SaveGame::garden, &SaveGame::city, &SaveGame::noir, &SaveGame::toon, &SaveGame::signal, &SaveGame::trench,
-    &SaveGame::storm, &SaveGame::dish, &SaveGame::magma, &SaveGame::fleet, &SaveGame::tower, &SaveGame::warehouse,
-    &SaveGame::wardrobe, &SaveGame::writers, &SaveGame::gallery, &SaveGame::flytower, &SaveGame::sweeps,
-    &SaveGame::finale, &SaveGame::explored, &SaveGame::vehicles, &SaveGame::swap, &SaveGame::guns, &SaveGame::bench};
+  std::vector<std::string> ours, theirs = intListKeys();
+  for (const auto& entry : kListKeys)
+    ours.push_back(entry.first);
+  std::sort(ours.begin(), ours.end());
+  std::sort(theirs.begin(), theirs.end());
+  check(ours == theirs, "kIntLists has exactly the test's int-list keys");
+
   SaveGame s;
   s.hp = 3;
   s.savedAt = "2026-10-16 12:00";
+  const std::string none = dir + "/nolists.sav", a = dir + "/lists.sav", b = dir + "/lists2.sav";
+  check(writeSave(s, none), "write a save without int lists");
   int k = 0;
-  for (List l : lists)
+  for (const auto& entry : kListKeys)
   {
     ++k;
-    s.*l = {k, -k, k * 100};
+    s.*(entry.second) = {k, -k, k * 100};
   }
-  const std::string a = dir + "/lists.sav", b = dir + "/lists2.sav";
   check(writeSave(s, a), "write every int list");
+  const std::string noLists = slurp(none), lists = slurp(a);
+  bool once = true;
+  for (const auto& entry : kListKeys)
+    once = once && linesWithKey(lists, entry.first) == 1;
+  check(once && std::count(lists.begin(), lists.end(), '\n') - std::count(noLists.begin(), noLists.end(), '\n') ==
+                  std::ptrdiff_t(std::size(kListKeys)),
+    "one line per int list, and no other");
   const auto r = readSave(a);
   bool same = bool(r);
-  for (List l : lists)
-    same = same && (*r).*l == s.*l;
+  for (const auto& entry : kListKeys)
+    same = same && (*r).*(entry.second) == s.*(entry.second);
   check(same, "every int list reads back into its own member");
   check(r && writeSave(*r, b) && slurp(a) == slurp(b), "every int list writes back byte for byte");
+}
+
+// Int lists read at most 100000 values, whatever the count says.
+void checkIntListCap(const std::string& dir)
+{
+  std::string line = "floods 100002";
+  for (int i = 0; i < 100002; ++i)
+    line += " 1";
+  const auto s = parse(dir, kHeader + kPlayer + line + "\nend\n");
+  check(s && s->floods.size() == 100000, "an int list stops at 100000 values");
+}
+
+// Run lines cut short or with a bad value. From a fresh save: a 7-value
+// player line still sets hp (so the save loads) but not the key, "effects
+// 3" sets turbo only, and "hard x", "cheats 1" and "fields x" set no flag
+// (fields stays on, its default).
+void checkPartialRunLines(const std::string& dir)
+{
+  const auto s = parse(dir, kHeader + "player 1 2 1 5 0 0 0\neffects 3\nhard x\ncheats 1\nfields x\nend\n");
+  check(s && s->hp == 5 && !s->hasKey, "7-value player line keeps hp, the save loads without the key");
+  check(s && s->turbo == 3 && s->virus == 0, "'effects 3' sets turbo, leaves virus");
+  check(s && !s->hard && !s->god && !s->cheated && s->forceFieldsOn, "'hard x', 'cheats 1', 'fields x' set no flag");
+
+  // The same lines after full ones: what the full lines set stays.
+  const auto t = parse(dir, kHeader + "player 1 2 1 4 0 0 0 1\neffects 7 8\nhard 1\ncheats 1 1\nfields 0\n" +
+    "player 1 2 1 5 0 0 0\neffects 3\nhard x\ncheats 0\nfields x\nend\n");
+  check(t && t->hp == 5 && t->hasKey && t->turbo == 3 && t->virus == 8, "short lines keep the fields they miss");
+  check(t && t->hard && t->god && t->cheated && !t->forceFieldsOn, "lines that do not parse keep the flags");
+
+  // A word that is not a number stores 0; the fields after it keep theirs.
+  const auto u = parse(dir, kHeader + kPlayer + "player 9 x\nend\n");
+  check(u && u->x == 9 && u->y == 0 && u->facing == 1 && u->hp == 5, "a bad value reads as 0, later ones stay");
 }
 
 } // namespace
@@ -172,6 +303,9 @@ int main(int argc, char** argv)
   checkLenientLines(dir);
   checkIntLists(dir);
   checkAllIntLists(dir);
+  checkListKeysRead(dir);
+  checkIntListCap(dir);
+  checkPartialRunLines(dir);
 
   SDL_Init(0);
   SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);

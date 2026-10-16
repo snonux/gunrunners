@@ -92,7 +92,8 @@ void writeEntities(std::ostream& o, const SaveGame& s)
 
 // The levels' own state as "key count values...", in this order; an empty
 // list writes no line. readIntList reads them back through this same table,
-// so a new key is added here only.
+// so a new key is added here only (and to savegame_test's own key table,
+// which intListKeys lets it compare against).
 const std::pair<const char*, std::vector<int> SaveGame::*> kIntLists[] = {
   {"floods", &SaveGame::floods},
   {"valves", &SaveGame::valves},
@@ -155,9 +156,15 @@ void writeIntLists(std::ostream& o, const SaveGame& s)
 }
 
 // Reading: each line is "key values...". A reader below takes the keys of
-// one part of the save and returns false for any other key. A line whose
-// values do not parse adds nothing, though run fields read before the bad
-// value keep what was read (a failed number reads as 0).
+// one part of the save and returns false for any other key. The values are
+// read left to right and reading stops at the first that does not parse: a
+// word that is not a number stores 0 in the field it was meant for, a value
+// missing at the end of the line leaves its field as it was, and the fields
+// after it keep theirs. So a run line keeps the numbers read before the bad
+// value, but sets its 0/1 flags only once the whole line has parsed. A
+// thing (prop, item, platform...) is added only once all its values have
+// parsed, except an enemy, which needs its first seven (readEnemy), and an
+// int list, which keeps the values read before the bad one (readIntList).
 
 // The rest of the line after the key, leading blanks dropped: the texts
 // that may hold spaces (level name, time, runner, letters, level file).
@@ -390,6 +397,14 @@ std::string slotPath(const std::string& dir, int slot)
 std::string quickSavePath(const std::string& dir)
 {
   return dir + "/quick.sav";
+}
+
+std::vector<std::string> intListKeys()
+{
+  std::vector<std::string> keys;
+  for (const auto& entry : kIntLists)
+    keys.push_back(entry.first);
+  return keys;
 }
 
 bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
