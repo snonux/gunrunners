@@ -965,7 +965,7 @@ void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
   // the TURBO / VIRUS bars, above the message line and a boss's bar, out of
   // the bottom corners (the touch stick and buttons); bobbing outwards.
   constexpr float kLeft = 56.0f, kRight = float(kScreenW) - 56.0f;
-  constexpr float kTop = float(kHudPanelH) + 90.0f, kBottom = float(kScreenH) - 130.0f;
+  constexpr float kTop = float(kHudPanelH) + 90.0f, kBottom = float(kScreenH) - 165.0f;
   constexpr float kCornerW = 330.0f, kCornerTop = 400.0f;
   const float ox = std::clamp(cx, kLeft, kRight), oy = std::clamp(cy, kTop, kBottom);
   float t = 1e9f;

@@ -259,7 +259,7 @@ always answer the arrows, Enter, Esc, the d-pad, A, B and Start, Esc and
 Start always pause, and the left stick always walks.
 
 **Assists and options.** ASSISTS AND OPTIONS at the bottom of CONTROLS
-switches these on or off (all off to start with). None of them is a cheat:
+switches these on or off (all off to start with, except GUIDE ARROW). None of them is a cheat:
 records and bonus stars still count.
 
 | Option | What it does |

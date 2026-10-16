@@ -328,8 +328,9 @@ void Game::renderControls()
 
 bool Game::assistOn(const char* key) const
 {
-  // Subtitles are on until switched off; everything else starts off.
-  return playOption(key, std::string(key) == "opt.subtitles");
+  // Subtitles and the guide arrow are on until switched off; everything
+  // else starts off.
+  return playOption(key, std::string(key) == "opt.subtitles" || std::string(key) == "assist.guide");
 }
 
 bool Game::playOption(const char* key, bool fallback) const
@@ -348,7 +349,7 @@ World::PlayOptions Game::playOptions() const
   o.quickRetry = !mOptions.autoplay;
   o.calm = playOption("opt.calm");
   o.swapOnDeath = playOption("opt.swapdeath");
-  o.guide = playOption("assist.guide");
+  o.guide = assistOn("assist.guide");
   return o;
 }
 
