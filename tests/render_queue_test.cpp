@@ -1,5 +1,6 @@
-// The background renderer behind Audio::preloadMusic (src/audio/render_queue.hpp),
-// with a fake render that can be held at a gate instead of 1-4 s of synthesis.
+// The background renderers behind Audio::preloadMusic (src/audio/render_queue.hpp)
+// and Audio::play (src/audio/sound_bank.hpp), with fake renders that can be
+// held at a gate instead of real synthesis.
 // Checks that:
 //   - a request renders once on the worker and take() hands it over once;
 //   - a repeated request (queued, rendering or finished) is not rendered again;
@@ -27,14 +28,27 @@
 //   - PendingMusic (src/audio/pending_music.hpp), the music switch
 //     Audio::playMusicNamed makes late: a track without a seek starts at
 //     0, one with a seek starts that far in plus the frames played since,
-//     wrapped to its length, and the last seek or want() counts.
+//     wrapped to its length, and the last seek or want() counts;
+//   - SoundBank (src/audio/sound_bank.hpp), the sound effects Audio::play
+//     plays, rendered on their own worker from openDevice on so startup
+//     doesn't wait 3.5 s for them: prerender() renders in the order given,
+//     each once; tryGet() never waits (an effect played before its turn
+//     comes back as nothing and moves to the front of the queue, behind
+//     the render in progress); get() renders a queued or idle one on the
+//     caller's thread (headless recording) and waits only for the worker's
+//     render of the same one; a rendered one keeps its address; without
+//     threads only get() renders; stop() cancels the queue; a render that
+//     throws leaves nothing and is rendered again when asked again;
+//   - Audio::sfxRenderOrder() lists every effect once, the menu's first.
 //
 // No check depends on a pause being long enough: a take() is known to be
-// blocked once RenderQueue::waiting() counts it, and only then is the gate
-// opened. waitUntil only bounds how long a broken queue may hang the test.
+// blocked once RenderQueue::waiting() counts it (a get() once
+// SoundBank::waiting() does), and only then is the gate opened. waitUntil only bounds how long a broken queue may hang the test.
 
+#include "audio/audio.hpp"
 #include "audio/pending_music.hpp"
 #include "audio/render_queue.hpp"
+#include "audio/sound_bank.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -44,6 +58,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -615,6 +630,196 @@ void testPendingMusic()
   check(p.startFrame(9000, 10000) == 0, "nor a seek from before it");
 }
 
+// The sound effects' bank (src/audio/sound_bank.hpp, behind Audio::play),
+// with a fake render: renders of `hold` wait at the gate while it is
+// closed, every other one passes. It records which thread rendered what,
+// so a test tells the worker's renders from the caller's.
+using Bank = SoundBank<std::string>;
+using Order = std::vector<std::size_t>;
+
+struct FakeBank
+{
+  static constexpr std::size_t kNone = std::size_t(-1);
+  std::mutex m;
+  std::condition_variable cv;
+  bool open = true;
+  std::size_t hold = kNone;
+  std::size_t boom = kNone; // throws
+  std::vector<std::pair<std::size_t, std::thread::id>> started; // in order
+
+  std::string render(std::size_t i)
+  {
+    std::unique_lock<std::mutex> lock(m);
+    started.emplace_back(i, std::this_thread::get_id());
+    if (i == hold)
+      cv.wait(lock, [&] { return open; });
+    if (i == boom)
+      throw std::runtime_error("boom");
+    return "pcm" + std::to_string(i);
+  }
+  Bank::Render fn()
+  {
+    return [this](std::size_t i) { return render(i); };
+  }
+  // Holds the renders of `i` at the gate (set before the first request).
+  void holdAt(std::size_t i)
+  {
+    std::lock_guard<std::mutex> lock(m);
+    hold = i;
+    open = false;
+  }
+  void release()
+  {
+    {
+      std::lock_guard<std::mutex> lock(m);
+      open = true;
+    }
+    cv.notify_all();
+  }
+  Order log()
+  {
+    std::lock_guard<std::mutex> lock(m);
+    Order out;
+    for (const auto& s : started)
+      out.push_back(s.first);
+    return out;
+  }
+  // The thread that rendered `i` first (a default id if none did).
+  std::thread::id by(std::size_t i)
+  {
+    std::lock_guard<std::mutex> lock(m);
+    for (const auto& s : started)
+      if (s.first == i)
+        return s.second;
+    return std::thread::id();
+  }
+  bool reached(std::size_t i)
+  {
+    return waitUntil([&] {
+      const auto l = log();
+      return std::find(l.begin(), l.end(), i) != l.end();
+    });
+  }
+};
+
+void testBankOrder()
+{
+  FakeBank fake;
+  fake.holdAt(3);
+  Bank bank(fake.fn(), 6);
+  check(bank.queued().empty() && bank.readyCount() == 0, "a new bank renders nothing");
+  bank.prerender({3, 1});
+  check(fake.reached(3), "the worker is held on the first one asked for");
+  bank.prerender({0, 1, 2, 3, 4, 5, 9});
+  check(bank.queued() == Order({1, 0, 2, 4, 5}),
+    "the rest queue behind, in order, nothing twice, nothing past the end");
+  fake.release();
+  check(waitUntil([&] { return bank.readyCount() == 6; }), "the worker renders them all");
+  check(fake.log() == Order({3, 1, 0, 2, 4, 5}), "in the order asked for, each once");
+  const std::string* two = bank.get(2);
+  check(two && *two == "pcm2" && two == bank.tryGet(2), "a rendered item stays where it was handed out");
+  check(fake.log().size() == 6, "get() of a rendered one renders nothing");
+}
+
+// What Audio::play does in a window: a sound played before its turn.
+void testBankTryGetNeverWaits()
+{
+  FakeBank fake;
+  fake.holdAt(0);
+  Bank bank(fake.fn(), 5);
+  bank.prerender({0, 1, 2, 3, 4});
+  check(fake.reached(0), "the worker is held on 0");
+  // Run on this thread: a tryGet() that waited would hang the test here.
+  check(!bank.tryGet(0), "the one rendering hands back nothing, at once");
+  check(bank.waiting(0) == 0, "without waiting for it");
+  check(!bank.tryGet(3), "a queued one hands back nothing");
+  check(bank.queued() == Order({3, 1, 2, 4}), "and moves to the front, to render next");
+  check(!bank.tryGet(3) && bank.queued() == Order({3, 1, 2, 4}), "asked again, it is not queued twice");
+  check(!bank.tryGet(0) && bank.queued().size() == 4, "nor is the one rendering");
+  check(!bank.tryGet(7), "a number past the end hands back nothing");
+  fake.release();
+  check(waitUntil([&] { return bank.readyCount() == 5; }), "everything finishes");
+  check(fake.log() == Order({0, 3, 1, 2, 4}), "the one played early came right after the render in progress");
+  const std::string* three = bank.tryGet(3);
+  check(three && *three == "pcm3", "and is there for its next play");
+}
+
+// What Audio::play does headless (and in the browser without threads).
+void testBankGet()
+{
+  FakeBank fake;
+  fake.holdAt(0);
+  Bank bank(fake.fn(), 5);
+  bank.prerender({0, 1, 2, 3, 4});
+  check(fake.reached(0), "the worker is held on 0");
+  const std::string* three = bank.get(3);
+  check(three && *three == "pcm3", "get() of a queued one hands it over");
+  check(fake.by(3) == std::this_thread::get_id(), "rendered by the caller, not behind the queue");
+  check(bank.queued() == Order({1, 2, 4}), "and its request withdrawn");
+  const std::string* zero = nullptr;
+  std::thread getter([&] { zero = bank.get(0); });
+  check(waitUntil([&] { return bank.waiting(0) == 1; }), "get() of the one rendering waits for it");
+  fake.release();
+  getter.join();
+  check(zero && *zero == "pcm0", "and gets the worker's render");
+  check(waitUntil([&] { return bank.readyCount() == 5; }), "the rest finish");
+  const Order rendered = fake.log();
+  check(std::count(rendered.begin(), rendered.end(), std::size_t(0)) == 1 &&
+      std::count(rendered.begin(), rendered.end(), std::size_t(3)) == 1,
+    "nothing rendered twice");
+}
+
+void testBankWithoutThreads()
+{
+  FakeBank fake;
+  Bank bank(fake.fn(), 4, false);
+  bank.prerender({0, 1, 2, 3});
+  check(bank.queued().empty(), "without threads prerender() queues nothing");
+  check(!bank.tryGet(1) && bank.queued().empty(), "tryGet() neither renders nor remembers");
+  const std::string* one = bank.get(1);
+  check(one && *one == "pcm1" && fake.by(1) == std::this_thread::get_id(), "get() renders on the spot");
+  check(bank.tryGet(1) == one, "after which tryGet() hands it over");
+  check(!bank.get(4), "a number past the end is nothing");
+  check(fake.log() == Order({1}), "nothing else rendered");
+}
+
+void testBankStopAndFailure()
+{
+  FakeBank fake;
+  fake.holdAt(0);
+  fake.boom = 2;
+  Bank bank(fake.fn(), 4);
+  bank.prerender({0, 1, 2, 3});
+  check(fake.reached(0), "the worker is held on 0");
+  bank.stop();
+  check(bank.queued().empty(), "stop() cancels the queue");
+  fake.release();
+  check(waitUntil([&] { return bank.ready(0); }), "the render in progress is kept");
+  check(!bank.tryGet(1) && bank.queued().empty(), "later misses are not queued");
+  check(!bank.get(2) && !bank.ready(2), "a render that throws leaves nothing");
+  check(fake.by(2) == std::this_thread::get_id(), "(rendered by the caller)");
+  {
+    std::lock_guard<std::mutex> lock(fake.m);
+    fake.boom = FakeBank::kNone;
+  }
+  check(bank.get(2) && *bank.get(2) == "pcm2", "asked again, it is rendered again");
+  check(fake.log() == Order({0, 2, 2}), "nothing else rendered");
+}
+
+void testSfxRenderOrder()
+{
+  const Order order = Audio::sfxRenderOrder();
+  check(order.size() == std::size_t(Sfx::Count), "every effect is in the order");
+  Order sorted = order;
+  std::sort(sorted.begin(), sorted.end());
+  Order all(std::size_t(Sfx::Count));
+  std::iota(all.begin(), all.end(), std::size_t(0));
+  check(sorted == all, "each once");
+  check(order.size() > 3 && order[0] == std::size_t(Sfx::MenuMove) && order[1] == std::size_t(Sfx::MenuSelect),
+    "the title's menu sounds come first");
+  check(order[2] == std::size_t(Sfx::Jump), "then the enum's order, which starts with those every level uses");
+}
+
 } // namespace
 
 int main()
@@ -637,6 +842,12 @@ int main()
   testRequestFirst();
   testTakeReady();
   testPendingMusic();
+  testBankOrder();
+  testBankTryGetNeverWaits();
+  testBankGet();
+  testBankWithoutThreads();
+  testBankStopAndFailure();
+  testSfxRenderOrder();
   std::printf("%s\n", gFailures == 0 ? "all render queue checks passed" : "render queue checks FAILED");
   return gFailures == 0 ? 0 : 1;
 }

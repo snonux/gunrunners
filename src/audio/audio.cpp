@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iterator>
 
 namespace gr
 {
@@ -20,27 +21,40 @@ constexpr float kDuckedMusic = 0.4f;
 // The duck eases over about 80 ms each way, so the music never clicks.
 constexpr float kDuckStep = 1.0f / (0.08f * float(kAudioRate));
 #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-// A browser page without threads renders a track when it starts (no
-// worker would ever finish it, so a music switch can't wait for one).
+// A browser page without threads renders a sound or track when it first
+// plays (no worker would ever finish it, so nothing can wait for one).
 constexpr bool kBackgroundRender = false;
 #else
 constexpr bool kBackgroundRender = true;
 #endif
 
+// The id synth::makeNamedMusic renders each built-in track under.
+const char* musicId(Music m)
+{
+  switch (m)
+  {
+    case Music::Menu:
+      return "menu";
+    case Music::Level:
+      return "theme_synthwave";
+    case Music::Victory:
+      return "victory";
+    case Music::None:
+    case Music::Count:
+      break;
+  }
+  return "stop";
+}
+
 } // namespace
 
+// Renders nothing: the effects wait for openDevice (a window) or their
+// first play (headless, see play), the tracks for theirs. The workers
+// start idle.
 Audio::Audio()
-  : mPreloads(&Audio::synthTrack, kKeepPreloads, kBackgroundRender)
+  : mSfx([](std::size_t i) { return synth::makeSfx(Sfx(i)); }, std::size_t(Sfx::Count), kBackgroundRender)
+  , mPreloads(&Audio::synthTrack, kKeepPreloads, kBackgroundRender)
 {
-  for (int i = 0; i < int(Sfx::Count); ++i)
-    mSfx[std::size_t(i)] = synth::makeSfx(Sfx(i));
-  for (int i = 0; i < int(Music::Count); ++i)
-  {
-    auto t = synth::makeMusic(Music(i));
-    mTracks[std::size_t(i)].left = std::move(t.left);
-    mTracks[std::size_t(i)].right = std::move(t.right);
-    mTracks[std::size_t(i)].loops = t.loops;
-  }
 }
 
 Audio::~Audio()
@@ -71,7 +85,23 @@ bool Audio::openDevice()
     return false;
   }
   SDL_PauseAudioDevice(mDevice, 0);
+  // Only a window plays sounds as they come: a headless recording renders
+  // each on its first play instead, and would only burn a core on these.
+  mSfx.prerender(sfxRenderOrder());
   return true;
+}
+
+std::vector<std::size_t> Audio::sfxRenderOrder()
+{
+  const Sfx first[] = {Sfx::MenuMove, Sfx::MenuSelect};
+  std::vector<std::size_t> order;
+  order.reserve(std::size_t(Sfx::Count));
+  for (const Sfx s : first)
+    order.push_back(std::size_t(s));
+  for (std::size_t i = 0; i < std::size_t(Sfx::Count); ++i)
+    if (std::find(std::begin(first), std::end(first), Sfx(i)) == std::end(first))
+      order.push_back(i);
+  return order;
 }
 
 void Audio::callback(void* user, Uint8* stream, int len)
@@ -82,10 +112,14 @@ void Audio::callback(void* user, Uint8* stream, int len)
 
 void Audio::play(Sfx s, float volume)
 {
-  std::lock_guard<std::mutex> lock(mMutex);
-  const auto& data = mSfx[std::size_t(s)];
-  if (data.empty())
+  // Fetched before the lock: a render on the spot (headless) must not hold
+  // up the mixer, and the bank never takes mMutex, so no lock order issue.
+  const std::size_t i = std::size_t(s);
+  const std::vector<float>* sound = deferRenders() ? mSfx.tryGet(i) : mSfx.get(i);
+  if (!sound || sound->empty())
     return;
+  const auto& data = *sound;
+  std::lock_guard<std::mutex> lock(mMutex);
   // Rapid repeats of the same sound replace the oldest copy instead of
   // piling up.
   int same = 0;
@@ -106,16 +140,13 @@ void Audio::play(Sfx s, float volume)
   mVoices.push_back({&data, 0, volume, s});
 }
 
+// As when these were rendered up front, asking for the track playing
+// changes nothing and another one starts at its beginning; with a sound
+// device a track not rendered yet starts once it is (the title's music a
+// moment after the title, Music::Level ~3 s into a level without music=).
 void Audio::playMusic(Music m)
 {
-  mPending.cancel(); // the last music asked for wins
-  std::lock_guard<std::mutex> lock(mMutex);
-  if (m == mMusic && mTrackName.empty())
-    return;
-  mMusic = m;
-  mTrack = &mTracks[std::size_t(m)];
-  mTrackName.clear();
-  mMusicPos = 0;
+  playMusicNamed(musicId(m));
 }
 
 void Audio::playMusicNamed(const std::string& id)
@@ -124,7 +155,6 @@ void Audio::playMusicNamed(const std::string& id)
   {
     mPending.cancel();
     std::lock_guard<std::mutex> lock(mMutex);
-    mMusic = Music::None;
     mTrack = nullptr;
     mTrackName = "stop";
     return;
@@ -143,8 +173,8 @@ void Audio::playMusicNamed(const std::string& id)
       return;
   }
   // Rendered or collected outside the lock: the audio thread keeps playing
-  // meanwhile. Only without deferSwitches() does that block (1-4 s).
-  Track* track = deferSwitches() ? readyTrack(id) : namedTrack(id);
+  // meanwhile. Only without deferRenders() does that block (1-4 s).
+  Track* track = deferRenders() ? readyTrack(id) : namedTrack(id);
   if (!track)
   {
     // Not rendered yet: the music playing goes on until pollMusic sees it
@@ -182,16 +212,15 @@ void Audio::startTrackLocked(const std::string& id, const Track* track, std::siz
 {
   mTrack = track;
   mTrackName = id;
-  mMusic = Music::None;
   mMusicPos = pos;
 }
 
-// Only with a sound device and the background worker. The browser build
+// Only with a sound device and the background workers. The browser build
 // without threads has no worker that would ever finish the render, so it
 // renders on the spot. Headless recording (no device: the frontend mixes
 // one video frame's worth per tick) does too, so the soundtrack is the
-// same on every run instead of depending on how fast the worker was.
-bool Audio::deferSwitches() const
+// same on every run instead of depending on how fast the workers were.
+bool Audio::deferRenders() const
 {
   return kBackgroundRender && mDevice != 0;
 }

@@ -1,12 +1,15 @@
-// Procedural sound: every effect and the music are synthesized at startup
-// from oscillators, noise, filters and envelopes. Nothing is sampled, so the
-// soundtrack is original and ships under the game's GPL license.
+// Procedural sound: every effect and the music are synthesized at run time
+// (the effects in the background from startup on, each track when first
+// needed, see Audio) from oscillators, noise, filters and envelopes.
+// Nothing is sampled, so the soundtrack is original and ships under the
+// game's GPL license.
 
 #include "audio/synth.hpp"
 
 #include "audio/dsp.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>

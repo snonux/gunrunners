@@ -2,11 +2,12 @@
 
 #include "audio/pending_music.hpp"
 #include "audio/render_queue.hpp"
+#include "audio/sound_bank.hpp"
 #include "game/sound_ids.hpp"
 
 #include <SDL.h>
 
-#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -32,6 +33,11 @@ constexpr int kAudioRate = 48000;
 // In a window it feeds an SDL audio device; when recording headlessly the
 // frontend pulls exactly one video frame's worth of samples per tick, so
 // the soundtrack stays in sync with the video.
+//
+// Nothing is synthesized up front, so the first frame comes at once (all
+// the effects and the built-in tracks took 4-6 s): with a sound device the
+// effects render in the background from openDevice() on, and every track
+// is rendered the first time it is played (see playMusicNamed).
 class Audio
 {
 public:
@@ -40,8 +46,18 @@ public:
   Audio(const Audio&) = delete;
   Audio& operator=(const Audio&) = delete;
 
+  // Opens the sound device and starts rendering the sound effects in the
+  // background, in sfxRenderOrder().
   bool openDevice();
+  // With a sound device and the background worker, an effect not rendered
+  // yet is skipped this once and rendered next, ahead of the rest; it never
+  // blocks the caller. Without them (headless recording, the browser build
+  // without threads) it is rendered here on its first play (a few ms), so
+  // a recording has every sound.
   void play(Sfx s, float volume = 1.0f);
+  // The built-in tracks, played as the named tracks synth::makeNamedMusic
+  // renders the same ("menu", "theme_synthwave", "victory"), so they too
+  // are rendered when first played. Music::None stops the music.
   void playMusic(Music m);
   // Music by the ids level headers and cutscenes use ("theme_synthwave",
   // "stop"); tracks are synthesized the first time they are needed. With
@@ -86,6 +102,11 @@ public:
   bool voicePlaying();
   // Mixes `frames` stereo frames (interleaved L/R floats in -1..1).
   void mix(float* out, int frames);
+  // The order the effects render in the background (each once): the menu's
+  // first, as the title needs them at once, then the enum's order, which
+  // lists those every level uses (jumps, shots, pickups) before each later
+  // level's own. One played before its turn moves up (see play).
+  static std::vector<std::size_t> sfxRenderOrder();
 
 private:
   struct Voice
@@ -105,8 +126,10 @@ private:
   };
 
   static void callback(void* user, Uint8* stream, int len);
-  // Whether playMusicNamed may start a track late instead of blocking.
-  bool deferSwitches() const;
+  // Whether a sound or track not rendered yet may come late (play skips
+  // it once, playMusicNamed starts it late) instead of being rendered on
+  // the spot.
+  bool deferRenders() const;
   // The cached track, collecting a background render or making it now.
   Track* namedTrack(const std::string& id);
   // The cached track or a finished background render; nullptr otherwise
@@ -122,8 +145,8 @@ private:
   void mixVoiceLocked(float* out, int frames);
   void mixSoundsLocked(float* out, int frames);
 
-  std::array<std::vector<float>, std::size_t(Sfx::Count)> mSfx;
-  std::array<Track, std::size_t(Music::Count)> mTracks;
+  // Indexed by Sfx; rendered ones never move, so a Voice plays from them.
+  SoundBank<std::vector<float>> mSfx;
   std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;
   std::vector<std::string> mTrackOrder; // oldest first
   static constexpr std::size_t kKeepTracks = 10;
@@ -142,7 +165,6 @@ private:
   PendingMusic mPending;
   std::uint64_t mPlayedFrames = 0; // every frame mixed so far, the music's clock
   std::vector<Voice> mVoices;
-  Music mMusic = Music::None;
   std::size_t mMusicPos = 0;
   std::shared_ptr<const std::vector<float>> mVoiceClip;
   std::size_t mVoicePos = 0;

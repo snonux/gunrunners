@@ -207,6 +207,15 @@ Sound effects live in `src/audio/synth.cpp`, the cutscenes' named sounds and
 character voice blips in `src/audio/synth_named.cpp`. The mixer
 (`src/audio/audio.cpp`) plays through SDL2's audio device.
 
+Nothing is synthesized before the first frame. The effects (~3.5 s of CPU
+for all of them) render on a thread of their own once the sound device is
+open (`src/audio/sound_bank.hpp`), the menu's first; one played before its
+turn is skipped that once and rendered next. The menu, fallback level and
+victory tracks render when first played, like the levels' own, so the
+title's music follows a moment after the title. Headless recording and the
+browser build without threads render an effect on its first play instead,
+so a recording still has every sound.
+
 ## Recording gameplay without a display
 
 The game can run headless (SDL's software renderer, no display or GPU needed)

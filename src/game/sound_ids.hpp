@@ -4,7 +4,9 @@ namespace gr
 {
 
 // Every sound effect the game can trigger. The audio module synthesizes them
-// at startup; the game logic only emits these ids.
+// in the background from startup on, those every level uses (the first ones
+// here) before the later levels' own (see Audio::sfxRenderOrder); the game
+// logic only emits these ids.
 enum class Sfx
 {
   Jump,
