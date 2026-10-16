@@ -8,35 +8,32 @@ namespace gr
 
 // Frame pacing for the desktop window loop. The game ticks at a fixed 60 Hz
 // and the picture shows nothing but the last tick, so a frame drawn before
-// the next tick is due repeats the previous one. A vsynced present paces the
-// loop by itself; without vsync (a renderer created without it, or a driver
-// or compositor that ignores it) the loop would spin at 100% of a core
-// drawing identical frames, so it sleeps until the next tick instead.
-
-// The shortest frame a working vsync can produce: no display refreshes
-// faster than 500 Hz. A frame that returns quicker than this was not held
-// back by the present, whatever the renderer's flags claim (vblank_mode=0,
-// a driver's sync-to-vblank switched off, a minimized Wayland window).
-constexpr double kMinVsyncFrameSeconds = 1.0 / 500.0;
+// the next tick is due repeats the previous one. The loop therefore always
+// sleeps until the next tick is due, vsync or not:
+//   - Whether a present blocks cannot be told from the renderer's flags. A
+//     vsynced present returns at once while the swap queue has room (Mesa
+//     DRI3, NVIDIA, DXGI, Wayland, Android BufferQueue), and drivers and
+//     settings ignore vsync outright (vblank_mode=0, sync-to-vblank off,
+//     G-Sync), so relying on it would spin a core at 100%.
+//   - Sleeping costs a vsynced loop nothing: the time owed counts the time
+//     spent blocked in the present, so a present that waited for the vblank
+//     only shortens the sleep that follows. The two waits overlap instead
+//     of adding up, and the loop still draws one frame per tick.
 
 // Milliseconds to sleep after a frame before the next one.
-//   vsync        - the renderer reports SDL_RENDERER_PRESENTVSYNC.
-//   frameSeconds - how long the frame (events, ticks, picture, present)
-//                  took, not counting an earlier sleep.
-//   tickSeconds  - the fixed tick length (1/60 s).
-//   dueSeconds   - game time owed so far: the accumulator left after the
-//                  frame's ticks plus the time since it was last advanced.
-// Zero when vsync really paces the loop (sleeping there could miss a
-// vblank and halve the frame rate) or when a tick is already due, e.g.
-// after a frame that overran. The wait is rounded up: waking a fraction of
-// a millisecond late only delays the tick that much, and the excess goes
-// back into the accumulator, while waking early would draw one more
-// identical frame. It never exceeds one tick, even for a negative or
-// stale dueSeconds.
-inline int framePauseMs(bool vsync, double frameSeconds, double tickSeconds, double dueSeconds)
+//   tickSeconds - the fixed tick length (1/60 s).
+//   dueSeconds  - game time owed so far: the accumulator left after the
+//                 frame's ticks plus the time since it was last advanced,
+//                 which includes drawing and presenting the frame.
+// Zero when a tick is already due, e.g. after a frame that overran. The
+// wait is rounded up: waking a fraction of a millisecond late only delays
+// the tick that much, and the excess goes back into the accumulator, while
+// waking early would draw one more identical frame. It never exceeds one
+// tick (rounded up), even for a negative or stale dueSeconds, and is zero
+// for a NaN or a tick length that is not positive.
+inline int framePauseMs(double tickSeconds, double dueSeconds)
 {
-  const bool vsyncPaced = vsync && frameSeconds >= kMinVsyncFrameSeconds;
-  if (vsyncPaced || !(tickSeconds > 0.0))
+  if (!(tickSeconds > 0.0))
     return 0;
   const double untilTick = std::min(tickSeconds - dueSeconds, tickSeconds);
   // The negated test also catches NaN.

@@ -598,7 +598,7 @@ int runHeadless(const CliOptions& o)
 // One windowed game: everything the main loop needs, on the heap, so a
 // browser page can run it one frame per animation frame (the stack of
 // runWindowed is gone by then) and a desktop loop calls frame() and then
-// sleeps for pauseMs() when vsync does not pace it.
+// sleeps for pauseMs().
 struct WindowedRun
 {
   WindowedRun(const CliOptions& options, SDL_Window* w, SDL_Renderer* r, bool startFullscreen)
@@ -662,24 +662,15 @@ struct WindowedRun
   // once the game is over.
   bool frame();
 
-  // Whether the renderer waits for the vblank on present. The fallback
-  // renderer of runWindowed does not, and then the loop paces itself.
-  static bool presentsVsynced(SDL_Renderer* r)
+  // Milliseconds to sleep after a frame: until the next tick is due, with
+  // or without vsync (see framePauseMs). The time since `last` includes the
+  // frame's present, so one that blocked for the vblank shortens the sleep.
+  // Only the desktop loop sleeps; a browser page is paced by
+  // requestAnimationFrame.
+  int pauseMs() const
   {
-    SDL_RendererInfo info;
-    return SDL_GetRendererInfo(r, &info) == 0 && (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
-  }
-
-  // Milliseconds to sleep after the frame that started at frameStart:
-  // until the next tick is due, unless vsync paces the loop (see
-  // framePauseMs). Only the desktop loop sleeps; a browser page is paced
-  // by requestAnimationFrame.
-  int pauseMs(Uint64 frameStart) const
-  {
-    const Uint64 now = SDL_GetPerformanceCounter();
-    const double frameSeconds = double(now - frameStart) / freq;
-    const double dueSeconds = accumulator + double(now - last) / freq;
-    return framePauseMs(vsync, frameSeconds, tickSeconds, dueSeconds);
+    const double dueSeconds = accumulator + double(SDL_GetPerformanceCounter() - last) / freq;
+    return framePauseMs(tickSeconds, dueSeconds);
   }
 
   const CliOptions o;
@@ -692,8 +683,6 @@ struct WindowedRun
   std::unique_ptr<TouchControls> touch;
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
-  // Initialized after sdlRenderer, which is declared before it.
-  const bool vsync = presentsVsynced(sdlRenderer);
   Uint64 last = SDL_GetPerformanceCounter();
   double accumulator = 0.0;
   long frames = 0;
@@ -809,12 +798,14 @@ void runFrames(std::unique_ptr<WindowedRun> run)
     },
     run.release(), 0, true);
 #else
-  // A vsynced present paces the loop. Without vsync it sleeps until the
-  // next tick is due instead of drawing the same picture over and over at
-  // 100% of a core. The frame time starts after the sleep.
-  for (Uint64 start = SDL_GetPerformanceCounter(); run->frame(); start = SDL_GetPerformanceCounter())
+  // Sleep until the next tick is due after every frame instead of drawing
+  // the same picture over and over at 100% of a core. A vsynced present
+  // cannot be trusted to pace the loop (a swap queue with room or a driver
+  // ignoring vsync returns at once), and when it does block, that time
+  // already counts towards the tick, so the sleep only gets shorter.
+  while (run->frame())
   {
-    const int pause = run->pauseMs(start);
+    const int pause = run->pauseMs();
     if (pause > 0)
       SDL_Delay(Uint32(pause));
   }
@@ -856,8 +847,9 @@ int runWindowed(const CliOptions& o)
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (startFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
   SDL_Renderer* sdlRenderer =
     SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  // Without vsync (this fallback, or a driver that ignores it) the loop
-  // paces itself: see runFrames.
+  // Vsync keeps the picture free of tearing; the fallback renderer has
+  // none. Either way the loop paces itself to the 60 Hz ticks: see
+  // runFrames.
   if (!sdlRenderer)
     sdlRenderer = SDL_CreateRenderer(window, -1, 0);
   SDL_RenderSetLogicalSize(sdlRenderer, kScreenW, kScreenH);
