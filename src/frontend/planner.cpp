@@ -3360,8 +3360,8 @@ Planner::Search::Search(const Planner& planner, const World& start, const Goal& 
 
 // Runs the search from the start world (prev: the input before it, for the
 // button edges). Returns the node the plan goes to: one that stopped the
-// search (stopsAt), else, with the budget spent, the best stable node if it
-// is closer than the start; -1 for none.
+// search (stopsAt), else, once the budget is spent or the open list runs
+// dry, the best stable node if it is closer than the start; -1 for none.
 int Planner::Search::run(const Input& prev)
 {
   nodes.push_back({start.cloneForSim(), -1, -1, 0, h0, prev, 0, {}});
@@ -3410,8 +3410,8 @@ bool Planner::Search::stopsAt(int ni)
 
 // The success predicate: in world nw the level ended, or the goal is met
 // (the card or the prototype taken, the bonus asked for, a gem taken, the
-// manor's step done, standing at the crypt's mirror, a fuse lit, or one of
-// targetDone's).
+// manor's step done, standing at the crypt's mirror, the goal's fuse lit or
+// any fuse burning, or one of targetDone's).
 bool Planner::Search::reached(const World& nw) const
 {
   const auto& np = nw.player();
@@ -3530,8 +3530,9 @@ Planner::Goal Planner::pickGoal(const World& world)
     mSkipBonusAt = -1;
   }
   Goal goal = chooseGoal(world);
-  // A prototype the field cannot reach, or one the search keeps failing to
-  // get to, is skipped.
+  // A bonus target (the entrance, a plate, a shelter, an altar: kinds 3, 7,
+  // 9, 10) the search keeps failing to reach is skipped for now (mSkipBonus)
+  // and the goal chosen again.
   if ((goal.kind == 3 || goal.kind == 7 || goal.kind == 9 || goal.kind == 10) && mGoalKind == goal.kind && mFails >= 6)
   {
     mSkipBonus = true;
