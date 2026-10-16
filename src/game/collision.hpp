@@ -2,6 +2,7 @@
 
 #include "data/level.hpp"
 
+#include <cstdint>
 #include <vector>
 
 namespace gr
@@ -59,6 +60,7 @@ public:
   // world every frame.
   void clearPlatforms() { mPlatforms.clear(); }
   void addPlatform(const CellBox& b) { mPlatforms.push_back(b); }
+  const std::vector<CellBox>& platforms() const { return mPlatforms; }
   // Index of the platform whose top row is (cx, cy), -1 if none.
   int platformAt(int cx, int cy) const;
 
@@ -66,11 +68,16 @@ public:
   // tops like platforms, rebuilt by world_sludge.cpp every frame.
   void clearFloats() { mFloats.clear(); }
   void addFloat(const CellBox& b) { mFloats.push_back(b); }
+  const std::vector<CellBox>& floats() const { return mFloats; }
   bool floatTop(int cx, int cy) const;
 
   // Level 38's red strings: one-way slopes, the top row of each cell column
   // (-1: none). Walking along one follows it a cell up or down.
-  void setSlopes(std::vector<int> tops) { mSlopes = std::move(tops); }
+  void setSlopes(std::vector<int> tops)
+  {
+    mSlopes = std::move(tops);
+    touch();
+  }
   bool slope(int cx, int cy) const
   {
     return cx >= 0 && cx < int(mSlopes.size()) && mSlopes[std::size_t(cx)] == cy;
@@ -79,6 +86,7 @@ public:
 
   bool solid(int cx, int cy) const;    // blocks from every side
   bool solidTop(int cx, int cy) const; // can be stood on
+  bool solidTopTiles(int cx, int cy) const; // solidTop by the tiles and slopes alone, not platforms or floats
   bool ladder(int cx, int cy) const;
   bool climbable(int cx, int cy) const; // pipes you can hang from
   bool hazard(int cx, int cy) const;    // spikes
@@ -86,14 +94,31 @@ public:
 
   bool forceFieldsOn() const { return mForceFieldsOn; }
   // Level 29's Wraparound: the edges join up, left to right and top to bottom.
-  void setWrap(bool wrap) { mWrap = wrap; }
+  void setWrap(bool wrap)
+  {
+    mWrap = wrap;
+    touch();
+  }
   bool wraps() const { return mWrap; }
   // Level 35's turning tower: only the left and right edges join, and the
   // world turns the map round the runner (rotateX, in blocks).
-  void setWrapX(bool wrap) { mWrapX = wrap; }
+  void setWrapX(bool wrap)
+  {
+    mWrapX = wrap;
+    touch();
+  }
   bool wrapsX() const { return mWrapX; }
   void rotateX(int blocks);
-  void disableForceFields() { mForceFieldsOn = false; }
+  void disableForceFields()
+  {
+    mForceFieldsOn = false;
+    touch();
+  }
+
+  // Changes whenever the tiles, slopes, wrapping or force fields do (not
+  // the platforms or floats): a copy has its source's, and no two states
+  // of any maps share one. The guide arrow keeps its grids while it holds.
+  std::uint64_t revision() const { return mRevision; }
 
   bool onSolidGround(const CellBox& b) const;
   bool touchingCeiling(const CellBox& b) const;
@@ -116,7 +141,10 @@ public:
   void makeStack(const CollisionMap& src);
 
 private:
+  static std::uint64_t nextRevision();
+  void touch() { mRevision = nextRevision(); }
   Tile tileAt(int cx, int cy) const;
+  bool oneWayTile(int cx, int cy) const; // a slope or a one-way platform tile
   void followSlope(int x, int& bottomY, int w, int h) const;
 
   int mW = 0, mH = 0;
@@ -127,6 +155,7 @@ private:
   bool mForceFieldsOn = true;
   bool mWrap = false;
   bool mWrapX = false;
+  std::uint64_t mRevision = nextRevision();
 };
 
 } // namespace gr

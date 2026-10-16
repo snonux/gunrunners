@@ -20,6 +20,7 @@
 #include "game/reactor.hpp"
 #include "game/west.hpp"
 #include "game/garden.hpp"
+#include "game/guide_fwd.hpp"
 #include "game/city.hpp"
 #include "game/noir.hpp"
 #include "game/toon.hpp"
@@ -1856,14 +1857,9 @@ public:
   // the nearest thing still missing for 100% is (a gem, a letter, a box of
   // merchandise, a weapon not had yet, a gem cache, a bot), along a route
   // the runner can walk, climb and jump; once all of them are done, the
-  // exit. Off in bonus levels. Worked out when drawn, every few frames.
-  enum class GuideKind
-  {
-    None,
-    Item,
-    Enemy,
-    Exit,
-  };
+  // exit. Off in bonus levels. Worked out when drawn: again when the runner
+  // moves or something is taken, else every few logic frames.
+  using GuideKind = gr::GuideKind;
   struct Guide
   {
     GuideKind kind = GuideKind::None;
@@ -1874,9 +1870,14 @@ public:
     bool fire = false;     // in reach of the crate or bot: face that way (dx) and shoot
     int left = 0;          // items and bots still missing
     int fromX = 0, fromY = 0; // where the runner was when it was worked out
+    int frame = 0;            // the logic frame it was worked out on
   };
   bool guideOn() const;
   const Guide& guide() const;
+  // The guide worked out now from scratch: no grids kept from before, no
+  // waiting for the runner to move. What guide() says on the frame it works
+  // its answer out must be the same (guide_test checks).
+  Guide guideFresh() const;
   // Something here keeps time with the music (beat signs, the Pulse
   // Pistol's beat): the game can't run slower than the music plays.
   bool beatTimed() const
@@ -3831,9 +3832,17 @@ private:
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
   bool mDoubleJump = false; // a fresh jump press in mid-air jumps again (not for the bot)
   PlayOptions mPlay;
-  // The guide arrow's last answer and the logic frame it was worked out on.
+  // The guide arrow's last answer and the logic frame it was worked out on;
+  // the grids and the search's scratch it keeps for the next time.
   mutable Guide mGuide;
   mutable int mGuideAt = -1000;
+  mutable GuideCacheSlot mGuideCache;
+  std::vector<GuideTarget> guideTargets(int& left) const;
+  void guideMissing(std::vector<GuideTarget>& targets) const;
+  void guideCard(std::vector<GuideTarget>& targets) const;
+  bool guideWantsWeapon(ItemKind k) const;
+  GuideStatics guideStatics() const;
+  Guide routeGuide(GuideCache& cache, const std::vector<GuideTarget>& targets, int left, bool fresh) const;
   void drawGuide(Renderer& r, float camX, float camY, int frame) const;
   int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
   bool mFireHeld = false; // in the latest logic frame (no weapon switch while firing)

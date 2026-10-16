@@ -6,6 +6,7 @@
 #include "game/collision.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 
 namespace gr
@@ -18,6 +19,12 @@ int floorDiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
 int sgn(int v) { return (v > 0) - (v < 0); }
 
 } // namespace
+
+std::uint64_t CollisionMap::nextRevision()
+{
+  static std::atomic<std::uint64_t> last{0};
+  return ++last;
+}
 
 CollisionMap::CollisionMap(const Level& level) : mW(level.width), mH(level.height), mTiles(level.tiles) {}
 
@@ -41,8 +48,11 @@ void CollisionMap::setBlock(int tx, int ty, Tile t)
 {
   if (mWrapX && mW > 0)
     tx = ((tx % mW) + mW) % mW;
-  if (tx >= 0 && ty >= 0 && tx < mW && ty < mH)
+  if (tx >= 0 && ty >= 0 && tx < mW && ty < mH && mTiles[std::size_t(ty * mW + tx)] != t)
+  {
     mTiles[std::size_t(ty * mW + tx)] = t;
+    touch();
+  }
 }
 
 int CollisionMap::platformAt(int cx, int cy) const
@@ -75,6 +85,7 @@ void CollisionMap::rotateX(int blocks)
       row[std::size_t((((x + blocks) % mW) + mW) % mW)] = mTiles[std::size_t(y * mW + x)];
     std::copy(row.begin(), row.end(), mTiles.begin() + std::ptrdiff_t(y * mW));
   }
+  touch();
 }
 
 Tile CollisionMap::tileAt(int cx, int cy) const
@@ -112,6 +123,13 @@ bool CollisionMap::solidTop(int cx, int cy) const
     return true;
   if (!mFloats.empty() && floatTop(cx, cy))
     return true;
+  return oneWayTile(cx, cy);
+}
+
+bool CollisionMap::solidTopTiles(int cx, int cy) const { return solid(cx, cy) || oneWayTile(cx, cy); }
+
+bool CollisionMap::oneWayTile(int cx, int cy) const
+{
   if (!mSlopes.empty() && slope(cx, cy))
     return true;
   return tileAt(cx, cy) == Tile::Platform && (cy & 1) == 0;
@@ -294,6 +312,7 @@ void CollisionMap::makeView(const CollisionMap& src, int g)
   mFloats.clear();
   for (const auto& b : src.mFloats)
     mFloats.push_back(turn(b));
+  touch();
 }
 
 void CollisionMap::makeStack(const CollisionMap& src)
@@ -318,6 +337,7 @@ void CollisionMap::makeStack(const CollisionMap& src)
     b.y += Hc;
     mFloats.push_back(b);
   }
+  touch();
 }
 
 } // namespace gr

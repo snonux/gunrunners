@@ -190,6 +190,7 @@ add_library(gunrunners_core STATIC
   src/game/world_pinball.cpp
   src/game/world_cheats.cpp
   src/game/world_map.cpp
+  src/game/guide.cpp
   src/game/world_guide.cpp
   src/game/world_vehicle.cpp
   src/game/world_vehicle_draw.cpp
