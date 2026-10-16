@@ -148,6 +148,7 @@ void Game::prepareWorld(World& world) const
   // People can also climb into a vehicle with up; the bot always uses USE,
   // so it never boards one by accident in a campaign level.
   world.setUpBoards(!mOptions.autoplay);
+  world.setDoubleJump(!mOptions.autoplay); // the bot's moves predate it
   const auto& keys = mBindings.keys[std::size_t(Act::Use)];
   std::string label = keyName(keys[0] > 0 ? keys[0] : keys[1]);
   const auto& pad = mBindings.pad[std::size_t(Act::Use)];

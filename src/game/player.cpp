@@ -283,6 +283,7 @@ void World::updatePlayer(const PlayerInput& raw)
   }
   if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
   {
+    p.airJumped = p.airArc = false; // landed (or caught something): the double jump is back
     p.fling = 0; // a vine's swing lasts until you land
     p.vineArc = false;
     p.kick = 0;
@@ -373,6 +374,10 @@ void World::updatePlayerMovement(int mvX, int mvY, const Button& jumpButton, con
       ((p.state == PlayerState::Jumping && p.frames > 0) || p.state == PlayerState::Falling) &&
       !mMap.touchingCeiling(p.box()))
     jump();
+  // Everyone else gets one double jump per flight, as high as the runner's
+  // JUMP stat allows.
+  else if (jumpButton.triggered && canDoubleJump())
+    doubleJump();
   // Level 30: in the water, another swim stroke (world_trench.cpp).
   if (mTrench.water && trenchStroke(jumpButton))
     jump();
@@ -765,6 +770,35 @@ const std::array<int, 8>& World::runnerJumpArc() const
   return mHull.lowgrav ? lowGravityArc(mCharacter.jumpArc, mLowRunnerArc) : mCharacter.jumpArc;
 }
 
+const std::array<int, 8>& World::airJumpArc() const
+{
+  // Turbo maxes the stat, like the first jump.
+  const auto& base = mPlayer.turbo > 0 ? doubleJumpArc(kMaxPips) : doubleJumpArc(mCharacter.jumpPips);
+  return mHull.lowgrav ? lowGravityArc(base, mLowAirArc) : base;
+}
+
+bool World::canDoubleJump() const
+{
+  const auto& p = mPlayer;
+  if (!mDoubleJump || p.airJumped || p.virus > 0 || mAirJump || mAutorun || mTrench.water || p.vehicle >= 0 || p.cart >= 0)
+    return false; // spent, infected, or something else does the jumping
+  const bool inAir = (p.state == PlayerState::Jumping && p.frames > 0) ||
+    (p.state == PlayerState::Falling && p.coyote == 0); // in coyote time a press is still the first jump
+  return inAir && !mMap.touchingCeiling(p.box());
+}
+
+void World::doubleJump()
+{
+  auto& p = mPlayer;
+  jump();
+  p.airJumped = true;
+  p.airArc = true;
+  p.vineArc = p.kickArc = false; // the second arc is the runner's own
+  mJumpBuffer = 0;                // this press was the double jump, not one for the landing
+  const Vec2 feet{(float(p.x) + 1.5f) * kCellSize, float(p.y + 1) * kCellSize};
+  burst(feet, rgba(255, 255, 255, 170), rgba(170, 210, 255, 120), 8, 0.8f, false);
+}
+
 const std::array<int, 8>& World::baseJumpArc() const
 {
   if (mAutorun)
@@ -785,7 +819,7 @@ const std::array<int, 8>& World::baseJumpArc() const
 void World::updateJumpMovement(int mvX, bool jumpPressed)
 {
   auto& p = mPlayer;
-  const auto& arc = jumpArc();
+  const auto& arc = p.airArc ? airJumpArc() : jumpArc();
 
   if (p.frames == 0)
     setVisual(PlayerVisual::Jumping);
@@ -825,17 +859,19 @@ void World::updateJumpMovement(int mvX, bool jumpPressed)
     }
   }
 
-  // Now and then a running jump turns into a somersault.
+  // Now and then a jump with a way held turns into a somersault; a
+  // running jump and a double jump always do.
   if (p.somersault >= 0)
   {
     ++p.somersault;
-    if (p.somersault >= 8 || mvX == 0)
+    if (p.somersault >= 8 || (mvX == 0 && !p.airArc))
     {
       p.somersault = -1;
       setVisual(PlayerVisual::Jumping);
     }
   }
-  if (p.frames == 1 && p.somersault < 0 && mvX != 0 && mLogicRng.next() % 6 == 0)
+  if (p.frames == 1 && p.somersault < 0 &&
+      ((mvX != 0 && (mLogicRng.next() % 6 == 0 || mRunDir != 0)) || p.airArc))
   {
     p.somersault = 0;
     setVisual(PlayerVisual::Somersault);
@@ -1015,6 +1051,9 @@ void World::fireShot()
 void World::jump()
 {
   auto& p = mPlayer;
+  if (p.state != PlayerState::Jumping && p.state != PlayerState::Falling)
+    p.airJumped = false; // off the ground (or out of the water): a fresh flight
+  p.airArc = false;
   p.state = PlayerState::Jumping;
   p.frames = 0;
   p.fromLadder = false;
@@ -1028,6 +1067,7 @@ void World::jump()
 void World::jumpFromLadder(int mvX)
 {
   auto& p = mPlayer;
+  p.airJumped = p.airArc = false;
   p.state = PlayerState::Jumping;
   p.frames = 0;
   p.fromLadder = true;

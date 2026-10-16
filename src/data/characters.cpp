@@ -86,6 +86,17 @@ const std::array<int, 8> kArcs[kMaxPips + 1] = {
   {2, 2, 2, 1, 1, 1, 0, 0}, // 9 cells, Nova
 };
 
+// The double jump per JUMP pip: Rocco and Bolt 3 cells, Dash and Jade 4,
+// Skye 5, Nova 6.
+const std::array<int, 8> kDoubleArcs[kMaxPips + 1] = {
+  {2, 1, 0, 0, 0, 0, 0, 0},
+  {2, 1, 0, 0, 0, 0, 0, 0}, // 3 cells
+  {2, 1, 0, 0, 0, 0, 0, 0}, // 3 cells, Rocco and Bolt
+  {2, 1, 1, 0, 0, 0, 0, 0}, // 4 cells, Dash and Jade
+  {2, 1, 1, 1, 0, 0, 0, 0}, // 5 cells, Skye
+  {2, 2, 1, 1, 0, 0, 0, 0}, // 6 cells, Nova
+};
+
 RunnerParts parts(int body, int build, int hair, int face, int outfit, int sleeves, int skin, int hairColor, int top,
   int pants, int boots, int glow)
 {
@@ -474,6 +485,19 @@ int resolveSavedRunner(int index, const std::string& encoded)
     return found;
   d.transient = true;
   return putCustomRunner(d);
+}
+
+const std::array<int, 8>& doubleJumpArc(int jumpPips)
+{
+  return kDoubleArcs[std::size_t(std::clamp(jumpPips, 0, kMaxPips))];
+}
+
+int doubleJumpCells(int jumpPips)
+{
+  int cells = 0;
+  for (int v : doubleJumpArc(jumpPips))
+    cells += v;
+  return cells;
 }
 
 } // namespace gr

@@ -524,6 +524,10 @@ add_test(NAME run COMMAND run_test)
 add_executable(crawl_test tests/crawl_test.cpp)
 target_link_libraries(crawl_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME crawl COMMAND crawl_test)
+# Double jump: every runner, its height by JUMP pips; running jumps flip.
+add_executable(double_jump_test tests/double_jump_test.cpp)
+target_link_libraries(double_jump_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME double_jump COMMAND double_jump_test)
 
 # The announcer shouts GUNRUNNERS as the title banner lands.
 add_test(NAME title_shout COMMAND gunrunners --headless --voice-log --frames 30)

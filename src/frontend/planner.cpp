@@ -3088,7 +3088,8 @@ void Planner::plan(const World& world)
                      (std::uint64_t(v.pump) << 24));
     if (p.state == PlayerState::Swing)
       k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
-    k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+    k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4) | (std::uint64_t(p.airJumped) << 5) |
+                 (std::uint64_t(p.airArc) << 6));
     // Level 45: in a tube (how far along), the valves, shots in the tubes
     // and the mite pores.
     if (w.hasHive())

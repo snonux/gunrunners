@@ -221,7 +221,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 | Left / Right (A / D) | left stick or d-pad | walk, pick a runner; tap a way, then press it again and hold to run |
 | Up (W) | stick or d-pad up | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
-| X / Ctrl | X (left face button) | jump (tap for a short hop), down+jump drops from a hang bar |
+| X / Ctrl | X (left face button) | jump (tap for a short hop), press again in mid-air to double jump, down+jump drops from a hang bar |
 | Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
 | R | right stick click (RS) | switch to a random runner (never the one you are playing) |
@@ -240,7 +240,7 @@ the defaults; CONTROLS on the title screen or in the pause menu changes them
 **Running.** Every runner can run: tap left or right once, then press the
 same way again and hold it. The runner runs at twice the walking speed for
 as long as you hold it (jumps included, so a running jump goes further but
-no higher) and walks again when you let go or turn. It works the same on
+no higher, with a somersault on the way) and walks again when you let go or turn. It works the same on
 the keyboard, the d-pad, the stick and the touch stick.
 
 Most gamepads work out of the box (Xbox, PlayStation, Switch Pro, 8BitDo,
@@ -342,6 +342,12 @@ Jade a full flamethrower and Skye rapid fire.
 
 On top of that:
 
+- **Double jump.** Every runner can jump once more in mid-air: press jump
+  again on the way up or on the way down. How high it goes depends on the
+  runner's JUMP stat: Rocco and Bolt get 3 more cells, Dash and Jade 4,
+  Skye 5 and Nova 6 (custom runners by their JUMP pips; Turbo gives
+  everyone 6). The double jump comes back when you land, and the Virus
+  takes it away. A double jump, and every running jump, is a somersault.
 - **Switch runners mid-level.** Press C (gamepad Y) to swap to the next
   runner right where you stand, or R (right stick click) for a random one.
   Your weapon, ammo and items carry over. On touch, CHANGE RUNNER in the

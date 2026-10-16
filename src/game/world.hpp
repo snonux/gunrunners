@@ -166,6 +166,8 @@ struct Player
   int wall = 0;         // Cling: the goo wall's side (-1 left, 1 right)
   int kick = 0;         // cells still to be pushed off a goo wall (sign: direction)
   bool kickArc = false; // this jump is a kick off a goo wall (always the full arc)
+  bool airJumped = false; // the double jump is spent until the runner lands
+  bool airArc = false;    // this jump is the double jump (the runner's second arc)
   int tube = -1;        // inside this Gullet Tube (level 45)
   int tubeBranch = 0;
   int tubeS = 0;        // cells along it
@@ -1818,6 +1820,9 @@ public:
   bool canLeaveVehicle() const;
   // Pressing up next to a vehicle boards it too (people; the bot uses USE).
   void setUpBoards(bool on) { mUpBoards = on; }
+  // People get the double jump; the bot plays without it (its searches and
+  // scripted jumps press jump in the air for other reasons).
+  void setDoubleJump(bool on) { mDoubleJump = on; }
   // Player options and assists (the frontend's ASSISTS menu). None of them
   // counts as a cheat.
   struct PlayOptions
@@ -1910,6 +1915,8 @@ public:
   const HullState& hull() const { return mHull; }
   const std::array<int, 8>& jumpArc() const; // this frame's jump (character, Turbo, Virus, low gravity)
   const std::array<int, 8>& runnerJumpArc() const; // the runner's own jump (in low gravity too)
+  const std::array<int, 8>& airJumpArc() const;    // the double jump's arc (runner, Turbo, low gravity)
+  bool canDoubleJump() const;                       // a fresh jump press in the air would double jump now
   const OrbitState& orbit() const { return mOrbit; }
   // Level 19, Gravity Lab: chambers, switches, the vortex.
   const GravState& grav() const { return mGrav; }
@@ -2108,6 +2115,7 @@ private:
   void updateLadderAttachment(int mvX, int mvY);
   bool ladderClearBelow(const CellBox& b) const; // a climber can go down a cell
   void updateJumpMovement(int mvX, bool jumpPressed);
+  void doubleJump();
   void updateHorizontalMovementInAir(int mvX);
   void updateShooting(const Button& fire);
   void updateDeathAnimation();
@@ -3661,7 +3669,7 @@ private:
   CryoState mCryo;
   GreenState mGreen;
   HullState mHull;
-  mutable std::array<int, 8> mLowArc{}, mLowRunnerArc{}; // jumpArc(), runnerJumpArc() in low gravity
+  mutable std::array<int, 8> mLowArc{}, mLowRunnerArc{}, mLowAirArc{}; // jumpArc(), runnerJumpArc(), airJumpArc() in low gravity
   OrbitState mOrbit;
   GravState mGrav;
   std::optional<CollisionMap> mViewMap; // the turned map a turned runner moves on (world_grav.cpp)
@@ -3784,6 +3792,7 @@ private:
   std::string swapAfterDeath(); // the dead runner is out, the next free one steps in
   int mDrown = 0;          // frames since the last heart lost to drowning
   bool mUpBoards = false;  // up next to a vehicle boards it (not for the bot)
+  bool mDoubleJump = false; // a fresh jump press in mid-air jumps again (not for the bot)
   PlayOptions mPlay;
   // The guide arrow's last answer and the logic frame it was worked out on.
   mutable Guide mGuide;

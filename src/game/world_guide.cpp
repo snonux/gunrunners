@@ -671,6 +671,8 @@ const World::Guide& World::guide() const
       ph = kOnLadder;
     else if (mPlayer.state == PlayerState::Pipe)
       ph = kOnPipe;
+    else if (mPlayer.state == PlayerState::Jumping && mPlayer.airArc)
+      ph = kFall; // a double jump is not modelled: plan from a fall (the arrow never asks for one)
     else if (mPlayer.state == PlayerState::Jumping)
       ph = std::clamp(mPlayer.frames, 1, 8);
     else if (mPlayer.state == PlayerState::Falling)

@@ -102,6 +102,11 @@ constexpr int kRunnerBudget = 10;
 constexpr int kMinPips[3] = {1, 2, 1};
 constexpr int kMaxPips = 5;
 
+// The double jump every runner has: one more jump in mid-air, higher the
+// more JUMP pips the runner has (3 cells at 2 pips up to 6 at 5).
+const std::array<int, 8>& doubleJumpArc(int jumpPips);
+int doubleJumpCells(int jumpPips);
+
 // Built-in runners followed by the custom ones. characterByIndex wraps.
 int characterCount();
 const CharacterDef& characterByIndex(int index);
