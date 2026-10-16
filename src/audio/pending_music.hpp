@@ -17,8 +17,9 @@ namespace gr
 // itself runs on: the beat stays on the level's clock however long the
 // render took, without the audio code knowing about levels.
 //
-// Plain state, no locking: Audio guards it (it is touched on the game
-// thread only, the frame count comes from the mixer under Audio's lock).
+// Plain state, no locking: it is used on the game thread only (Audio's
+// playMusicNamed, pollMusic and seekMusic). The frame counts passed in are
+// the mixer's, read under Audio's lock by the caller.
 class PendingMusic
 {
 public:

@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -41,7 +42,22 @@ constexpr int kAudioRate = 48000;
 class Audio
 {
 public:
+  // A music track, stereo at kAudioRate.
+  struct Track
+  {
+    std::vector<float> left;
+    std::vector<float> right;
+    bool loops = true;
+  };
+  // Renders a named track (the synthesizer's, see synthTrack); may throw.
+  using TrackRender = std::function<std::unique_ptr<Track>(const std::string&)>;
+
   Audio();
+  // For tests: tracks come from `renderTrack` instead of the synthesizer
+  // (instant, and held back at will), and with `deferWithoutDevice` a
+  // track not rendered yet starts late, as with a sound device, while the
+  // test calls mix() itself (no device thread races its checks).
+  Audio(TrackRender renderTrack, bool deferWithoutDevice);
   ~Audio();
   Audio(const Audio&) = delete;
   Audio& operator=(const Audio&) = delete;
@@ -69,7 +85,8 @@ public:
   void playMusicNamed(const std::string& id);
   // Called once per tick on the game thread (Game::tick): starts the track
   // a playMusicNamed is waiting for once its render is done, where it
-  // would be had it started on time (see PendingMusic).
+  // would be had it started on time (see PendingMusic). A render that
+  // failed is given up on (logged); the music playing goes on.
   void pollMusic();
   // Queues a named track for the background renderer (one worker thread,
   // oldest request first) so a later playMusicNamed is instant.
@@ -84,10 +101,15 @@ public:
   // Forgets every preload nobody played (back to the title): queued ones
   // are cancelled and finished ones freed. Played tracks stay cached.
   void dropPreloads();
-  // Jumps the music to this many seconds in (keeps the beat in sync with
-  // the level's music clock after a pause). While a playMusicNamed waits
-  // for its render, the seek is meant for that track: it starts this far
-  // in plus whatever played until it arrived.
+  // Jumps the music to this many seconds in. Game::playLevelMusic and a
+  // music override switch in Game::tickPlay call it right after their
+  // playMusicNamed, with the level's clock, so the beat signs and the
+  // music agree. While a playMusicNamed waits for its render, the seek is
+  // meant for that track: it starts this far in plus the frames the mixer
+  // played until it arrived. Those frames are the device's, not the
+  // level's: should the level clock stop or lag meanwhile (a pause menu,
+  // slow frames), the late track lands that much ahead, and nothing
+  // re-syncs it.
   void seekMusic(double seconds);
   // Cutscene sounds by name; names containing "loop" repeat until stopped.
   void playNamed(const std::string& id, float volume = 1.0f);
@@ -102,6 +124,11 @@ public:
   bool voicePlaying();
   // Mixes `frames` stereo frames (interleaved L/R floats in -1..1).
   void mix(float* out, int frames);
+  // The track playing ("stop" for none) and its frame; for tests.
+  std::string musicPlaying();
+  std::size_t musicFrame();
+  // The track a switch waits for, empty for none. Game thread only.
+  const std::string& musicPending() const { return mPending.id(); }
   // The order the effects render in the background (each once): the menu's
   // first, as the title needs them at once, then the enum's order, which
   // lists those every level uses (jumps, shots, pickups) before each later
@@ -118,18 +145,15 @@ private:
     const std::string* name = nullptr; // named sounds
     bool loop = false;
   };
-  struct Track
-  {
-    std::vector<float> left;
-    std::vector<float> right;
-    bool loops = true;
-  };
 
   static void callback(void* user, Uint8* stream, int len);
   // Whether a sound or track not rendered yet may come late (play skips
   // it once, playMusicNamed starts it late) instead of being rendered on
   // the spot.
   bool deferRenders() const;
+  // Calls off the switch waiting for its render (see cancelPending in
+  // audio.cpp).
+  void cancelPending();
   // The cached track, collecting a background render or making it now.
   Track* namedTrack(const std::string& id);
   // The cached track or a finished background render; nullptr otherwise
@@ -145,6 +169,8 @@ private:
   void mixVoiceLocked(float* out, int frames);
   void mixSoundsLocked(float* out, int frames);
 
+  const TrackRender mRenderTrack;
+  const bool mDeferWithoutDevice; // see the test constructor
   // Indexed by Sfx; rendered ones never move, so a Voice plays from them.
   SoundBank<std::vector<float>> mSfx;
   std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;

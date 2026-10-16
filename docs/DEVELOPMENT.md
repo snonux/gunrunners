@@ -193,7 +193,8 @@ preloads that never play are dropped when the next level starts (unless it
 wants them too) or the title comes back, and at most 8 finished ones wait
 at once. A track needed before its render is done never freezes the game:
 it goes to the front of the queue, the music playing goes on, and it
-starts once rendered, where the level's clock is by then (headless
+starts once rendered, where the level's clock is by then (a render that
+fails is logged and given up, not retried every frame; headless
 recording and the browser build without threads still render it on the
 spot). A quick load of another level doesn't mark them stale yet: they
 wait for the next level start or the title, still under the cap.

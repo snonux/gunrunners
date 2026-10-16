@@ -33,6 +33,9 @@ namespace gr
 // One needed before the worker gets to it is rendered by the caller
 // instead (see take()), or, by a caller that must not block, asked for
 // ahead of the rest (requestFirst()) and collected once done (takeReady()).
+// Such a caller learns from takeFailed() that the render threw, so it does
+// not wait (and ask again) forever; when it stops waiting, demote() moves a
+// request still queued behind the rest again.
 //
 // Finished results nobody has taken yet are capped at `keepReady` (a track
 // is ~12 MB): past that stale ones go first, then the oldest, and an evicted
@@ -105,6 +108,36 @@ public:
   // finishes first.
   bool requestFirst(const std::string& id) { return enqueue(id, true); }
 
+  // Moves `id`, if it waits in the queue, to its back: whoever asked for it
+  // first no longer waits for it (a music switch called off), and the
+  // requests behind it, asked for in the order they are needed (a
+  // cutscene's cues), should not wait for it either. It stays queued, as a
+  // preload may have asked for it too. One rendering or finished is left
+  // alone. Returns whether it was queued.
+  bool demote(const std::string& id)
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    const auto q = queuedLocked(id);
+    if (q == mQueue.end())
+      return false;
+    std::rotate(q, std::next(q), mQueue.end());
+    return true;
+  }
+
+  // Whether the background render of `id` failed (threw, see renderSafely)
+  // since `id` was last requested; true once, as the answer is cleared.
+  // A caller that polls with takeReady() and asks again on each miss
+  // checks this first, or it would have the render retried forever.
+  bool takeFailed(const std::string& id)
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    const auto it = std::find(mFailed.begin(), mFailed.end(), id);
+    if (it == mFailed.end())
+      return false;
+    mFailed.erase(it);
+    return true;
+  }
+
   // Claims the result for `id`: a finished one is handed over, one in
   // progress is waited for. A request still in the queue is withdrawn and,
   // as for an id never requested (or dropped, or evicted, or whose render
@@ -158,13 +191,14 @@ public:
       mCurrentKeep = Keep::Drop;
   }
 
-  // Forgets every queued request and finished result. The render in
-  // progress runs to the end and is thrown away, unless it is requested or
-  // taken again meanwhile.
+  // Forgets every queued request, finished result and failure. The render
+  // in progress runs to the end and is thrown away, unless it is requested
+  // or taken again meanwhile.
   void drop()
   {
     std::lock_guard<std::mutex> lock(mMutex);
     mQueue.clear();
+    mFailed.clear();
     eraseLocked([](const Entry&) { return true; });
     mCurrentKeep = Keep::Drop;
   }
@@ -211,10 +245,12 @@ private:
   };
 
   // request() and requestFirst(): queues `id` at the back or the front.
+  // Asking again is a new attempt, so an earlier failure is forgotten.
   bool enqueue(const std::string& id, bool first)
   {
     {
       std::lock_guard<std::mutex> lock(mMutex);
+      mFailed.erase(std::remove(mFailed.begin(), mFailed.end(), id), mFailed.end());
       if (renderingLocked(id))
       {
         mCurrentKeep = Keep::Fresh;
@@ -267,7 +303,8 @@ private:
   // escaping the worker's thread would end the program (std::terminate),
   // so nothing here can throw: the id is swapped (not copied) into
   // mCurrent, the render and the store catch their own failures, and a
-  // failure only costs the preload (the caller renders it when needed).
+  // failure only costs the preload (the caller renders it when needed, or
+  // gives up on it, see takeFailed()).
   void renderNextLocked(std::unique_lock<std::mutex>& lock)
   {
     mCurrent.swap(mQueue.front());
@@ -279,6 +316,8 @@ private:
     std::unique_ptr<T> out = renderSafely(mCurrent);
     lock.lock();
     mBusy = false;
+    if (!out)
+      noteFailedLocked();
     const bool wanted = wantedLocked(mCurrent);
     if (out && (mCurrentKeep != Keep::Drop || wanted))
       storeLocked(std::move(out), mCurrentKeep == Keep::Stale && !wanted);
@@ -304,6 +343,21 @@ private:
       std::fprintf(stderr, "background render of '%s' failed\n", id.c_str());
     }
     return nullptr;
+  }
+
+  // Remembers that the render of mCurrent failed (see takeFailed()). Out of
+  // memory for that too, it is not remembered: a poller then asks again,
+  // as it did before failures were reported.
+  void noteFailedLocked() noexcept
+  {
+    try
+    {
+      if (std::find(mFailed.begin(), mFailed.end(), mCurrent) == mFailed.end())
+        mFailed.push_back(mCurrent);
+    }
+    catch (const std::exception&)
+    {
+    }
   }
 
   // Adds the finished result for mCurrent and trims to the cap. Out of
@@ -379,6 +433,7 @@ private:
   std::deque<std::string> mQueue;   // oldest first
   std::vector<Entry> mReady;        // oldest first
   std::vector<std::string> mWanted; // ids take() is blocked on
+  std::vector<std::string> mFailed; // ids whose render failed, see takeFailed()
   std::string mCurrent;             // what the worker renders, while mBusy
   bool mBusy = false;
   Keep mCurrentKeep = Keep::Fresh;

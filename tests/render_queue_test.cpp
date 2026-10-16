@@ -25,10 +25,24 @@
 //     in progress), and adds nothing for one rendering or finished;
 //   - takeReady() hands over only a finished result: it never waits for a
 //     render in progress and leaves a queued request queued;
+//   - demote() moves a queued id behind the rest (a cancelled music switch),
+//     and leaves one rendering or finished alone;
+//   - takeFailed() reports a render that threw, once; a new request or
+//     drop() forgets it;
 //   - PendingMusic (src/audio/pending_music.hpp), the music switch
 //     Audio::playMusicNamed makes late: a track without a seek starts at
 //     0, one with a seek starts that far in plus the frames played since,
 //     wrapped to its length, and the last seek or want() counts;
+//   - Audio's music switch itself (its test constructor: fake tracks held at
+//     a gate, renders deferred as with a device, the test mixing): the last
+//     request wins and an older one never starts, even when its render ends
+//     first; asking for the track playing or "stop" calls off the pending
+//     one, whose render then never starts; asking for the pending track
+//     again keeps its seek; a seek goes to the pending track, not the one
+//     filling the gap; pollMusic renews a request that markPreloadsStale,
+//     dropStalePreloads or dropPreloads cancelled; a pending track whose
+//     render fails is given up (not retried every tick); a cancelled switch
+//     no longer delays the preloads queued behind it;
 //   - SoundBank (src/audio/sound_bank.hpp), the sound effects Audio::play
 //     plays, rendered on their own worker from openDevice on so startup
 //     doesn't wait 3.5 s for them: prerender() renders in the order given,
@@ -605,6 +619,60 @@ void testTakeReady()
   check(fake.log() == Log{"a", "b"}, "each rendered once");
 }
 
+// What Audio::cancelPending does when a music switch is called off.
+void testDemote()
+{
+  FakeRender fake;
+  fake.close();
+  Queue q(fake.fn(), 8);
+  q.request("a");
+  check(fake.reached("a"), "the worker is held on a");
+  q.requestFirst("p");
+  q.request("c1");
+  q.request("c2");
+  check(q.demote("p"), "a queued id is demoted");
+  check(q.queuedCount() == 3, "moved, not withdrawn");
+  check(!q.demote("a"), "the id rendering is left alone");
+  check(!q.demote("never"), "an id never asked for is nothing to demote");
+  fake.release();
+  check(waitUntil([&] { return q.readyCount() == 4; }), "everything finishes");
+  check(fake.log() == Log{"a", "c1", "c2", "p"}, "the demoted id came after the requests that were behind it");
+  check(!q.demote("p") && q.ready("p"), "a finished id is left alone");
+}
+
+// What Audio::pollMusic asks before it asks for a pending track again.
+void testTakeFailed()
+{
+  FakeRender fake;
+  Queue q(fake.fn(), 8);
+  check(!q.takeFailed("boom"), "nothing failed yet");
+  q.request("boom");
+  q.request("ok");
+  check(waitUntil([&] { return q.ready("ok"); }), "the worker goes on after a render that throws");
+  check(!q.takeFailed("ok"), "a render that worked is no failure");
+  check(q.takeFailed("boom"), "the one that threw is reported");
+  check(!q.takeFailed("boom"), "once");
+
+  q.request("boom2");
+  q.request("ok2");
+  check(waitUntil([&] { return q.ready("ok2"); }), "another render throws");
+  fake.close();
+  q.request("gate");
+  check(fake.reached("gate"), "the worker is held on another id");
+  q.request("boom2");
+  check(!q.takeFailed("boom2"), "a new request forgets the earlier failure");
+  fake.release();
+  q.request("ok3");
+  check(waitUntil([&] { return q.ready("ok3"); }), "the new attempt ends");
+  check(q.takeFailed("boom2"), "and its failure is reported again");
+
+  q.request("boom3");
+  q.request("ok4");
+  check(waitUntil([&] { return q.ready("ok4"); }), "a third render throws");
+  q.drop();
+  check(!q.takeFailed("boom3"), "drop() forgets failures");
+}
+
 void testPendingMusic()
 {
   PendingMusic p;
@@ -628,6 +696,250 @@ void testPendingMusic()
   check(!p.active() && p.id().empty(), "cancel() leaves nothing pending");
   p.want("other");
   check(p.startFrame(9000, 10000) == 0, "nor a seek from before it");
+}
+
+// Stands in for the synthesizer behind Audio's tracks (Audio's test
+// constructor): every track is `frames` long and not silent, renders of the
+// ids held wait at the gate until released, and ids starting with "boom"
+// throw. It must outlive the Audio, with nothing held by then (the Audio's
+// destructor waits for the render in progress).
+struct FakeTracks
+{
+  std::mutex m;
+  std::condition_variable cv;
+  Log held;
+  Log started; // in order
+  std::size_t frames = std::size_t(4 * kAudioRate);
+
+  std::unique_ptr<Audio::Track> render(const std::string& id)
+  {
+    std::unique_lock<std::mutex> lock(m);
+    started.push_back(id);
+    cv.wait(lock, [&] { return std::find(held.begin(), held.end(), id) == held.end(); });
+    if (id.rfind("boom", 0) == 0)
+      throw std::runtime_error("boom");
+    auto track = std::make_unique<Audio::Track>();
+    track->left.assign(frames, 0.25f);
+    track->right.assign(frames, 0.25f);
+    return track;
+  }
+  Audio::TrackRender fn()
+  {
+    return [this](const std::string& id) { return render(id); };
+  }
+  void hold(const std::string& id)
+  {
+    std::lock_guard<std::mutex> lock(m);
+    held.push_back(id);
+  }
+  void release(const std::string& id)
+  {
+    {
+      std::lock_guard<std::mutex> lock(m);
+      held.erase(std::remove(held.begin(), held.end(), id), held.end());
+    }
+    cv.notify_all();
+  }
+  Log log()
+  {
+    std::lock_guard<std::mutex> lock(m);
+    return started;
+  }
+  long count(const std::string& id)
+  {
+    const Log l = log();
+    return long(std::count(l.begin(), l.end(), id));
+  }
+  // Whether a render of `id` started (and, held, waits at the gate).
+  bool reached(const std::string& id)
+  {
+    return waitUntil([&] { return count(id) > 0; });
+  }
+};
+
+// Mixes `frames` frames, as the device's callback would.
+void mixFrames(Audio& a, int frames)
+{
+  std::vector<float> buf(std::size_t(frames) * 2);
+  a.mix(buf.data(), frames);
+}
+
+// Ticks (pollMusic, as Game::tick does) until `id` plays.
+bool playsSoon(Audio& a, const std::string& id)
+{
+  return waitUntil([&] {
+    a.pollMusic();
+    return a.musicPlaying() == id;
+  });
+}
+
+// Waits until the music worker is past everything asked for so far: one
+// worker renders in order, so a preload asked for now starting means every
+// render ahead of it has ended and its result is stored. Each call adds a
+// finished preload, so a test calls it only a few times (the cap is 8).
+bool settle(Audio& a, FakeTracks& fake)
+{
+  static int n = 0;
+  const std::string id = "settle" + std::to_string(++n);
+  a.preloadMusic(id);
+  return fake.reached(id);
+}
+
+void testAudioLastRequestWins()
+{
+  FakeTracks fake;
+  fake.hold("a");
+  fake.hold("b");
+  Audio a(fake.fn(), true);
+  a.playMusicNamed("a");
+  check(fake.reached("a"), "a switch to a track not rendered yet asks for its render");
+  check(a.musicPending() == "a" && a.musicPlaying() == "stop", "and waits for it while the silence goes on");
+  a.playMusicNamed("b");
+  check(a.musicPending() == "b", "a newer request replaces it");
+  fake.release("a");
+  check(fake.reached("b"), "the older render ends (and is stored) before the newer one starts");
+  for (int i = 0; i < 3; ++i)
+    a.pollMusic();
+  check(a.musicPlaying() == "stop" && a.musicPending() == "b", "the older track never starts");
+  fake.release("b");
+  check(playsSoon(a, "b"), "the last one asked for starts once rendered");
+  check(a.musicPending().empty(), "and nothing is pending any more");
+  check(fake.count("a") == 1 && fake.count("b") == 1, "each rendered once");
+}
+
+void testAudioCancelPending()
+{
+  FakeTracks fake;
+  Audio a(fake.fn(), true);
+  a.playMusicNamed("a");
+  check(playsSoon(a, "a"), "a track starts once rendered");
+  fake.hold("b");
+  a.playMusicNamed("b");
+  check(fake.reached("b") && a.musicPending() == "b", "another one is pending");
+  a.playMusicNamed("a");
+  check(a.musicPending().empty() && a.musicPlaying() == "a", "asking for the track playing calls it off");
+  fake.release("b");
+  check(settle(a, fake), "its render ends");
+  a.pollMusic();
+  check(a.musicPlaying() == "a", "and does not start");
+
+  fake.hold("c");
+  a.playMusicNamed("c");
+  check(fake.reached("c") && a.musicPending() == "c", "a third one is pending");
+  a.playMusicNamed("stop");
+  check(a.musicPending().empty() && a.musicPlaying() == "stop", "stop calls it off and silences the music");
+  fake.release("c");
+  check(settle(a, fake), "its render ends");
+  a.pollMusic();
+  check(a.musicPlaying() == "stop", "stop, then the render becomes ready: it does not start");
+}
+
+void testAudioSeek()
+{
+  FakeTracks fake;
+  fake.hold("a");
+  Audio a(fake.fn(), true);
+  a.playMusicNamed("a");
+  check(fake.reached("a"), "a is pending");
+  a.seekMusic(1.0);
+  mixFrames(a, 100);
+  a.playMusicNamed("a");
+  check(a.musicPending() == "a", "asking for the pending track again keeps it pending");
+  fake.release("a");
+  check(settle(a, fake), "its render ends");
+  a.pollMusic();
+  check(a.musicPlaying() == "a" && a.musicFrame() == std::size_t(kAudioRate) + 100,
+    "and keeps its seek: it starts there plus the frames mixed since");
+
+  mixFrames(a, 500);
+  const std::size_t at = a.musicFrame();
+  fake.hold("b");
+  a.playMusicNamed("b");
+  check(fake.reached("b"), "b is pending while a plays");
+  a.seekMusic(2.0);
+  check(a.musicFrame() == at, "a seek meanwhile leaves the track playing alone");
+  mixFrames(a, 300);
+  check(a.musicFrame() == at + 300, "which plays on");
+  fake.release("b");
+  check(settle(a, fake), "b's render ends");
+  a.pollMusic();
+  check(a.musicPlaying() == "b" && a.musicFrame() == std::size_t(2 * kAudioRate) + 300,
+    "the seek went to the pending track");
+}
+
+// A level start's markPreloadsStale (or the title's dropPreloads) while a
+// switch waits: without pollMusic asking again, the track would never come.
+void testAudioPollRenews()
+{
+  FakeTracks fake;
+  fake.hold("x");
+  Audio a(fake.fn(), true);
+  a.preloadMusic("x");
+  check(fake.reached("x"), "the worker is held on a preload");
+  a.playMusicNamed("b");
+  a.markPreloadsStale();
+  a.playMusicNamed("c");
+  a.dropPreloads();
+  check(a.musicPending() == "c", "the switch still waits after its request was cancelled");
+  fake.release("x");
+  check(playsSoon(a, "c"), "pollMusic asks for it again and it starts");
+  check(fake.count("b") == 0, "the track asked for before it never rendered");
+
+  fake.hold("d");
+  a.playMusicNamed("d");
+  check(fake.reached("d"), "another switch waits for its render in progress");
+  a.markPreloadsStale();
+  a.dropStalePreloads();
+  fake.release("d");
+  check(playsSoon(a, "d"), "a render dropped as stale is asked for again and starts");
+  check(fake.count("d") <= 2, "rendered at most once more");
+}
+
+void testAudioFailedRender()
+{
+  FakeTracks fake;
+  Audio a(fake.fn(), true);
+  a.playMusicNamed("a");
+  check(playsSoon(a, "a"), "a track plays");
+  fake.hold("boom");
+  a.playMusicNamed("boom");
+  check(fake.reached("boom"), "a switch waits for a render that will fail");
+  a.pollMusic();
+  check(a.musicPending() == "boom", "still pending while it renders");
+  fake.release("boom");
+  check(settle(a, fake), "the render fails");
+  a.pollMusic();
+  check(a.musicPending().empty(), "the next tick gives it up");
+  check(a.musicPlaying() == "a", "and the music playing goes on");
+  for (int i = 0; i < 5; ++i)
+    a.pollMusic();
+  check(settle(a, fake), "the worker is idle again");
+  check(fake.count("boom") == 1, "the failed render is not retried tick after tick");
+  a.playMusicNamed("boom");
+  check(a.musicPending() == "boom", "asked for again, it is tried again");
+  check(settle(a, fake), "and fails again");
+  a.pollMusic();
+  check(a.musicPending().empty() && fake.count("boom") == 2, "once");
+}
+
+// A switch called off while its request still waits in the queue: the
+// preloads asked for before it (a cutscene's cues) render first again.
+void testAudioCancelDemotes()
+{
+  FakeTracks fake;
+  fake.hold("x");
+  Audio a(fake.fn(), true);
+  a.preloadMusic("x");
+  check(fake.reached("x"), "the worker is held on a preload");
+  a.preloadMusic("cue1");
+  a.preloadMusic("cue2");
+  a.playMusicNamed("p");
+  a.playMusicNamed("stop");
+  fake.release("x");
+  check(settle(a, fake), "everything asked for renders");
+  const Log l = fake.log();
+  check(l.size() >= 4 && Log(l.begin(), l.begin() + 4) == Log({"x", "cue1", "cue2", "p"}),
+    "the called-off track went behind the cues, still queued");
 }
 
 // The sound effects' bank (src/audio/sound_bank.hpp, behind Audio::play),
@@ -841,7 +1153,15 @@ int main()
   testThrowingRender();
   testRequestFirst();
   testTakeReady();
+  testDemote();
+  testTakeFailed();
   testPendingMusic();
+  testAudioLastRequestWins();
+  testAudioCancelPending();
+  testAudioSeek();
+  testAudioPollRenews();
+  testAudioFailedRender();
+  testAudioCancelDemotes();
   testBankOrder();
   testBankTryGetNeverWaits();
   testBankGet();

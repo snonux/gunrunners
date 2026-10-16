@@ -131,10 +131,11 @@ void Game::goTitle()
   setMode(Mode::Title);
   if (mAudio)
   {
-    mAudio->playMusic(Music::Menu);
     // Nothing at the title plays a preload; up to ~100 MB of them would
-    // otherwise wait here for the next level.
+    // otherwise wait here for the next level. Dropped first, as the drop
+    // would cancel the menu track's own request.
     mAudio->dropPreloads();
+    mAudio->playMusic(Music::Menu);
   }
   // Quit from inside a bonus level: the title keeps the level it was entered
   // from, with that level's file, as after quitting that level itself (a save
@@ -567,8 +568,10 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
     setMode(Mode::Continued);
     if (mAudio)
     {
+      // No level follows to play them. Dropped first, as the drop would
+      // cancel the victory track's own request.
+      mAudio->dropPreloads();
       mAudio->playMusic(Music::Victory);
-      mAudio->dropPreloads(); // no level follows to play them
     }
     return;
   }
