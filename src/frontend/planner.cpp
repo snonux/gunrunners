@@ -2637,6 +2637,50 @@ bool Planner::lightGoal(const World& w, Goal& g)
   return true;
 }
 
+// A vine, cap, spear or jump-shot macro: its input helper decides frame by
+// frame (and when it is done), so a plan replays the inputs it recorded.
+static bool selfTimedMacro(int m)
+{
+  return m == kVineRight || m == kVineLeft || capMacro(m) || spearMacro(m) || jumpShotMacro(m);
+}
+
+// Plays search macro m on child, one logic frame at a time, for frames
+// frames (a self-timed macro instead runs until its input helper says
+// done). prev is the input of the frame before (it carries the button edges
+// across) and ends as the macro's last input; ran counts the frames played,
+// and seq collects a self-timed macro's inputs for the plan to replay (the
+// others are rebuilt from kMacros). False: the macro failed or the runner
+// died on the way (or, on level 14's bonus route, a false altar dropped),
+// so the child is no use.
+static bool rollMacro(World& child, int m, int frames, int goalKind, Input& prev, std::vector<Input>& seq, int& ran)
+{
+  const bool vine = selfTimedMacro(m);
+  int launchedAt = -1;
+  for (int f = 0; vine || f < frames; ++f)
+  {
+    bool done = false, fail = false;
+    const Input in = spearMacro(m) ? spearInput(child, m, f, done, fail)
+      : capMacro(m)                ? capInput(child, m, f, done, fail)
+      : jumpShotMacro(m)           ? jumpShotInput(m, f, done)
+      : vine ? vineInput(child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail)
+             : macroInput(kMacros[m], f);
+    if (fail)
+      return false;
+    if (done)
+      break;
+    if (vine)
+      seq.push_back(in);
+    child.update(toPlayerInput(in, prev));
+    prev = in;
+    ++ran;
+    if (child.player().state == PlayerState::Dying || child.bonusFailed() || (goalKind == 10 && dropsFalse(child)))
+      return false;
+    if (child.state() != WorldState::Playing)
+      break;
+  }
+  return true;
+}
+
 Input Planner::next(const World& world)
 {
   if (mQueue.empty())
@@ -2653,6 +2697,7 @@ Input Planner::next(const World& world)
 
 void Planner::plan(const World& world)
 {
+  mLastNodes = 0; // stays 0 when this plan needs no search
   const auto& p0 = world.player();
   if (p0.state == PlayerState::Dying || p0.state == PlayerState::Teleporting || world.state() != WorldState::Playing)
   {
@@ -2887,8 +2932,11 @@ void Planner::plan(const World& world)
     int h;
     Input last;
     int frames;             // how long its macro ran
-    std::vector<Input> seq; // a vine macro's inputs
+    std::vector<Input> seq; // a self-timed macro's inputs
   };
+  // Grows while a node is expanded (its children are pushed back); the
+  // reserve only saves reallocations for the usual plan, so nothing may hold
+  // a reference into it across a push_back.
   std::vector<Node> nodes;
   nodes.reserve(kBudget * 4);
   const int period = clockPeriod(world);
@@ -3224,8 +3272,15 @@ void Planner::plan(const World& world)
   {
     const int ni = open.top();
     open.pop();
-    const Node& n = nodes[std::size_t(ni)];
-    const World& nw = *n.w;
+    // No reference to the node itself: expanding it pushes its children onto
+    // nodes, which can reallocate the vector (the reserve is only a guess) and
+    // leave such a reference dangling. Its World stays put (it lives on the
+    // heap behind the node's unique_ptr), and what else the expansion needs
+    // of the node is copied out here.
+    const World& nw = *nodes[std::size_t(ni)].w;
+    const int ng = nodes[std::size_t(ni)].g;
+    const int nh = nodes[std::size_t(ni)].h;
+    const Input nlast = nodes[std::size_t(ni)].last;
     const auto& np = nw.player();
     const bool gotProto = nw.stats().protoFound &&
       (!world.stats().protoFound || (np.weapon == Weapon::Proto && (p0.weapon != Weapon::Proto || np.ammo > p0.ammo)));
@@ -3264,8 +3319,8 @@ void Planner::plan(const World& world)
     if (ni != 0 && stable(nw) && np.hp >= hp0 - 1 && !nw.trainDanger() &&
         (loud || nw.noir().suspicion == 0 || nw.noir().alarm > 0)) // not stopping where a Flatfoot is looking
     {
-      const bool done = n.h <= h0 - kProgress;
-      const bool better = bestStable < 0 || n.h < nodes[std::size_t(bestStable)].h;
+      const bool done = nh <= h0 - kProgress;
+      const bool better = bestStable < 0 || nh < nodes[std::size_t(bestStable)].h;
       if ((done || better) && safeAhead(nw))
       {
         if (done)
@@ -3284,41 +3339,11 @@ void Planner::plan(const World& world)
       if (frames == 0)
         continue;
       auto child = std::make_unique<World>(nw);
-      Input prev = n.last;
-      bool dead = false;
-      const bool vine = m == kVineRight || m == kVineLeft || capMacro(m) || spearMacro(m) || jumpShotMacro(m);
+      Input prev = nlast;
+      const bool vine = selfTimedMacro(m);
       std::vector<Input> seq;
-      int launchedAt = -1;
       int ran = 0;
-      for (int f = 0; vine || f < frames; ++f)
-      {
-        bool done = false, fail = false;
-        const Input in = spearMacro(m) ? spearInput(*child, m, f, done, fail)
-          : capMacro(m)                ? capInput(*child, m, f, done, fail)
-          : jumpShotMacro(m)           ? jumpShotInput(m, f, done)
-          : vine ? vineInput(*child, m == kVineRight ? 1 : -1, f, launchedAt, done, fail)
-                 : macroInput(kMacros[m], f);
-        if (fail)
-        {
-          dead = true;
-          break;
-        }
-        if (done)
-          break;
-        if (vine)
-          seq.push_back(in);
-        child->update(toPlayerInput(in, prev));
-        prev = in;
-        ++ran;
-        if (child->player().state == PlayerState::Dying || child->bonusFailed() || (goal.kind == 10 && dropsFalse(*child)))
-        {
-          dead = true;
-          break;
-        }
-        if (child->state() != WorldState::Playing)
-          break;
-      }
-      if (dead)
+      if (!rollMacro(*child, m, frames, goal.kind, prev, seq, ran))
         continue;
       const auto key = keyOf(*child);
       const int lost = std::max(0, nw.player().hp - child->player().hp);
@@ -3326,7 +3351,7 @@ void Planner::plan(const World& world)
       // Level 27: an alarm costs as much as a lost heart and a half (a
       // stealthy route is worth waiting for); GR_BOT_LOUD=1 doesn't care.
       const int alarms = loud ? 0 : std::max(0, alarmHeat(*child) - alarmHeat(nw));
-      const int g = n.g + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : (vine ? ran / 2 : frames))) + lost * 60 +
+      const int g = ng + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : (vine ? ran / 2 : frames))) + lost * 60 +
         alarms * 90 +
         (m >= 10 && m <= 12 ? 1 : 0);
       const auto it = seen.find(key);
@@ -3345,6 +3370,7 @@ void Planner::plan(const World& world)
 
   if (found < 0 && bestStable >= 0 && nodes[std::size_t(bestStable)].h < h0)
     found = bestStable;
+  mLastNodes = int(nodes.size());
   static const bool debug = std::getenv("GR_PLANNER_DEBUG") != nullptr;
   if (debug)
     std::fprintf(stderr, "plan f%d at %d,%d goal %d h0 %d expanded %d nodes %zu -> %s (h %d)\n", world.clock(), p0.x,

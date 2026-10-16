@@ -24,6 +24,9 @@ public:
   Input next(const World& world);
   // Frames of input left in the current plan.
   int queued() const { return int(mQueue.size()); }
+  // Search nodes the last plan made (0: it needed no search), for tests and
+  // tuning the node budget.
+  int lastPlanNodes() const { return mLastNodes; }
   // Also visit the bonus entrance on the way (for demos and tests).
   void setTakeBonus(bool take) { mTakeBonus = take; }
   bool wantsBonus() const { return mTakeBonus && !mSkipBonus; }
@@ -93,6 +96,7 @@ private:
   int mGoalIndex = -1;
   int mGoalKeyHash = 0;
   int mFails = 0;
+  int mLastNodes = 0; // see lastPlanNodes()
   bool mSkipProto = false; // the prototype is out of reach: go without it
   int mManorSide = 0;      // Level 23: the side mSkipProto was decided on
   bool mSkipHadKey = false;
