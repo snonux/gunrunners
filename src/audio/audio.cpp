@@ -20,7 +20,8 @@ constexpr float kDuckedMusic = 0.4f;
 // The duck eases over about 80 ms each way, so the music never clicks.
 constexpr float kDuckStep = 1.0f / (0.08f * float(kAudioRate));
 #if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-// A browser page without threads renders a track when it starts.
+// A browser page without threads renders a track when it starts (no
+// worker would ever finish it, so a music switch can't wait for one).
 constexpr bool kBackgroundRender = false;
 #else
 constexpr bool kBackgroundRender = true;
@@ -107,6 +108,7 @@ void Audio::play(Sfx s, float volume)
 
 void Audio::playMusic(Music m)
 {
+  mPending.cancel(); // the last music asked for wins
   std::lock_guard<std::mutex> lock(mMutex);
   if (m == mMusic && mTrackName.empty())
     return;
@@ -120,24 +122,78 @@ void Audio::playMusicNamed(const std::string& id)
 {
   if (id == "stop" || id.empty())
   {
+    mPending.cancel();
     std::lock_guard<std::mutex> lock(mMutex);
     mMusic = Music::None;
     mTrack = nullptr;
     mTrackName = "stop";
     return;
   }
+  // Already on its way: it keeps the seek it was given, and is wanted
+  // again should a level start have marked its render stale since.
+  if (id == mPending.id())
+  {
+    mPreloads.requestFirst(id);
+    return;
+  }
+  mPending.cancel(); // the last music asked for wins, even the one playing
   {
     std::lock_guard<std::mutex> lock(mMutex);
     if (id == mTrackName)
       return;
   }
-  // Synthesize outside the lock: the audio thread keeps playing meanwhile.
-  Track* track = namedTrack(id);
+  // Rendered or collected outside the lock: the audio thread keeps playing
+  // meanwhile. Only without deferSwitches() does that block (1-4 s).
+  Track* track = deferSwitches() ? readyTrack(id) : namedTrack(id);
+  if (!track)
+  {
+    // Not rendered yet: the music playing goes on until pollMusic sees it
+    // done. Ahead of the preloads, which may be a level's worth of tracks.
+    mPending.want(id);
+    mPreloads.requestFirst(id);
+    return;
+  }
   std::lock_guard<std::mutex> lock(mMutex);
+  startTrackLocked(id, track, 0);
+}
+
+void Audio::pollMusic()
+{
+  if (!mPending.active())
+    return;
+  const std::string id = mPending.id();
+  Track* track = readyTrack(id);
+  if (!track)
+  {
+    // Still queued or rendering, which this keeps at the front; or a level
+    // start's markStale (or a drop) cancelled the request, which this
+    // renews, so a pending track is never forgotten.
+    mPreloads.requestFirst(id);
+    return;
+  }
+  // The start frame is taken under the lock that starts it, so no frame
+  // mixes in between and the beat lands where the caller's seek put it.
+  std::lock_guard<std::mutex> lock(mMutex);
+  startTrackLocked(id, track, mPending.startFrame(mPlayedFrames, track->left.size()));
+  mPending.cancel();
+}
+
+void Audio::startTrackLocked(const std::string& id, const Track* track, std::size_t pos)
+{
   mTrack = track;
   mTrackName = id;
   mMusic = Music::None;
-  mMusicPos = 0;
+  mMusicPos = pos;
+}
+
+// Only with a sound device and the background worker. The browser build
+// without threads has no worker that would ever finish the render, so it
+// renders on the spot. Headless recording (no device: the frontend mixes
+// one video frame's worth per tick) does too, so the soundtrack is the
+// same on every run instead of depending on how fast the worker was.
+bool Audio::deferSwitches() const
+{
+  return kBackgroundRender && mDevice != 0;
 }
 
 std::unique_ptr<Audio::Track> Audio::synthTrack(const std::string& id)
@@ -150,15 +206,36 @@ std::unique_ptr<Audio::Track> Audio::synthTrack(const std::string& id)
   return tr;
 }
 
+Audio::Track* Audio::cachedTrack(const std::string& id)
+{
+  const auto it = mNamedTracks.find(id);
+  return it != mNamedTracks.end() ? it->second.get() : nullptr;
+}
+
 Audio::Track* Audio::namedTrack(const std::string& id)
 {
-  if (auto it = mNamedTracks.find(id); it != mNamedTracks.end())
-    return it->second.get();
+  if (Track* track = cachedTrack(id))
+    return track;
   // A preload is collected (waiting for it if the worker is on it now);
   // otherwise, or when it is still queued, it is rendered here and now.
   std::unique_ptr<Track> tr = mPreloads.take(id);
   if (!tr)
     tr = synthTrack(id);
+  return keepTrack(id, std::move(tr));
+}
+
+Audio::Track* Audio::readyTrack(const std::string& id)
+{
+  if (Track* track = cachedTrack(id))
+    return track;
+  std::unique_ptr<Track> tr = mPreloads.takeReady(id);
+  return tr ? keepTrack(id, std::move(tr)) : nullptr;
+}
+
+// `id` is not cached yet (namedTrack and readyTrack look first), so no
+// track the mixer may be playing is replaced.
+Audio::Track* Audio::keepTrack(const std::string& id, std::unique_ptr<Track> tr)
+{
   Track* track = tr.get();
   std::lock_guard<std::mutex> lock(mMutex);
   mNamedTracks[id] = std::move(tr);
@@ -189,6 +266,9 @@ void Audio::preloadMusic(const std::string& id)
   mPreloads.request(id);
 }
 
+// A switch still waiting for its track is left to the level: playing the
+// same track asks for it again (playMusicNamed), other music cancels it
+// and its render goes with the other stale preloads (dropStalePreloads).
 void Audio::markPreloadsStale()
 {
   mPreloads.markStale();
@@ -206,11 +286,18 @@ void Audio::dropPreloads()
 
 void Audio::seekMusic(double seconds)
 {
+  const auto frame = std::uint64_t(std::max(0.0, seconds) * kAudioRate);
   std::lock_guard<std::mutex> lock(mMutex);
+  if (mPending.active())
+  {
+    // Meant for the track on its way; the one playing until then is only
+    // filling the gap.
+    mPending.seek(frame, mPlayedFrames);
+    return;
+  }
   if (!mTrack || mTrack->left.empty())
     return;
-  const std::size_t n = mTrack->left.size();
-  mMusicPos = std::size_t(std::max(0.0, seconds) * kAudioRate) % n;
+  mMusicPos = std::size_t(frame % mTrack->left.size());
 }
 
 void Audio::playNamed(const std::string& id, float volume)
@@ -288,10 +375,21 @@ void Audio::mix(float* out, int frames)
   mixLocked(out, frames);
 }
 
+// Music, the spoken line and the sounds are summed, then soft-clipped.
 void Audio::mixLocked(float* out, int frames)
 {
   std::fill(out, out + frames * 2, 0.0f);
+  mPlayedFrames += std::uint64_t(std::max(0, frames));
+  mixMusicLocked(out, frames);
+  mixVoiceLocked(out, frames);
+  mixSoundsLocked(out, frames);
+  for (int i = 0; i < frames * 2; ++i)
+    out[i] = std::tanh(out[i]);
+}
 
+// The music, ducked (eased towards kDuckedMusic) under a spoken line.
+void Audio::mixMusicLocked(float* out, int frames)
+{
   static const Track kSilence;
   const auto& track = mTrack ? *mTrack : kSilence;
   const float duckTo = mVoiceClip && mVoiceVolume > 0.0f ? kDuckedMusic : 1.0f;
@@ -313,20 +411,26 @@ void Audio::mixLocked(float* out, int frames)
     }
   }
   mDuck = track.left.empty() ? duckTo : duck;
+}
 
-  if (mVoiceClip)
+void Audio::mixVoiceLocked(float* out, int frames)
+{
+  if (!mVoiceClip)
+    return;
+  const auto& d = *mVoiceClip;
+  for (int i = 0; i < frames && mVoicePos < d.size(); ++i, ++mVoicePos)
   {
-    const auto& d = *mVoiceClip;
-    for (int i = 0; i < frames && mVoicePos < d.size(); ++i, ++mVoicePos)
-    {
-      const float s = d[mVoicePos] * mVoiceVolume;
-      out[i * 2] += s;
-      out[i * 2 + 1] += s;
-    }
-    if (mVoicePos >= d.size())
-      mVoiceClip.reset();
+    const float s = d[mVoicePos] * mVoiceVolume;
+    out[i * 2] += s;
+    out[i * 2 + 1] += s;
   }
+  if (mVoicePos >= d.size())
+    mVoiceClip.reset();
+}
 
+// The sound effects and cutscene sounds; finished ones are removed.
+void Audio::mixSoundsLocked(float* out, int frames)
+{
   for (auto& v : mVoices)
   {
     const auto& d = *v.data;
@@ -342,9 +446,6 @@ void Audio::mixLocked(float* out, int frames)
   mVoices.erase(
     std::remove_if(mVoices.begin(), mVoices.end(), [](const Voice& v) { return v.pos >= v.data->size(); }),
     mVoices.end());
-
-  for (int i = 0; i < frames * 2; ++i)
-    out[i] = std::tanh(out[i]);
 }
 
 } // namespace gr

@@ -519,7 +519,8 @@ void Game::playLevelMusic()
     mAudio->dropStalePreloads(); // as below
     return;
   }
-  // The beat signs run on the level's clock; the music follows it.
+  // The beat signs run on the level's clock; the music follows it, also
+  // when its track is still rendering and starts late (Audio::seekMusic).
   mPlayingOverride = mWorld ? mWorld->musicOverride() : std::string();
   const std::string track = !mPlayingOverride.empty() ? mPlayingOverride : mLevel->music;
   mAudio->playMusicNamed(track);
@@ -599,14 +600,18 @@ void Game::playBriefing(int number, bool fromNewGame)
   // tracks makes it the next the worker renders. The level always plays
   // it, while a skipped briefing plays none of its cues; queued behind them
   // it would be cancelled by the level start (startLevel's
-  // markPreloadsStale) and rendered on this thread (1-4 s).
-  // The first scene's music plays at once. Every shipped briefing opens
-  // with its level's track (22-28 open silent, "stop", and cue it later),
-  // so that play waits for the worker's render. The only different first
-  // track is the opening's theme_opening on the new-game path: it is
-  // rendered here while the worker starts on the level's. Without
-  // cutscenes the level starts at once and collects the level's track from
-  // the worker (or renders it itself if the worker has not started it).
+  // markPreloadsStale) and asked for again from there, starting late.
+  // The first scene's music is asked for at once. Every shipped briefing
+  // opens with its level's track (22-28 open silent, "stop", and cue it
+  // later), so it starts as the worker's render is done; the music before
+  // it plays on until then (Audio::playMusicNamed never blocks with a
+  // sound device). The only different first track is the opening's
+  // theme_opening on the new-game path: it goes to the front of the queue
+  // and starts after the level's render in progress and its own. Without
+  // cutscenes the level starts at once and its track as soon as the
+  // worker has it. (Headless recording renders a track on the spot, or
+  // waits for the worker's render in progress, so its clips stay the same
+  // from run to run.)
   if (mAudio)
     mAudio->preloadMusic(mLevel->music);
   playCutscenes(cuts, After::StartLevel);

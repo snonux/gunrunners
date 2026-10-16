@@ -31,7 +31,8 @@ namespace gr
 // markStale() empties the queue, then Game::playBriefing asks for the
 // level's own music before its briefing's, which a skip never plays).
 // One needed before the worker gets to it is rendered by the caller
-// instead (see take()).
+// instead (see take()), or, by a caller that must not block, asked for
+// ahead of the rest (requestFirst()) and collected once done (takeReady()).
 //
 // Finished results nobody has taken yet are capped at `keepReady` (a track
 // is ~12 MB): past that stale ones go first, then the oldest, and an evicted
@@ -95,28 +96,14 @@ public:
   // already rendering or finished is wanted again (no longer stale, and a
   // finished one becomes the newest, the last the cap evicts). Returns
   // whether it was newly queued.
-  bool request(const std::string& id)
-  {
-    {
-      std::lock_guard<std::mutex> lock(mMutex);
-      if (renderingLocked(id))
-      {
-        mCurrentKeep = Keep::Fresh;
-        return false;
-      }
-      if (auto it = readyLocked(id); it != mReady.end())
-      {
-        it->stale = false;
-        std::rotate(it, std::next(it), mReady.end());
-        return false;
-      }
-      if (queuedLocked(id) != mQueue.end())
-        return false;
-      mQueue.push_back(id);
-    }
-    mWake.notify_one();
-    return true;
-  }
+  bool request(const std::string& id) { return enqueue(id, false); }
+
+  // As request(), but `id` goes to the front of the queue (moved there if
+  // it waits further back): something is waiting for it now, a music
+  // switch Audio::playMusicNamed makes once it is done, and should not
+  // wait for the preloads asked for earlier. The render in progress still
+  // finishes first.
+  bool requestFirst(const std::string& id) { return enqueue(id, true); }
 
   // Claims the result for `id`: a finished one is handed over, one in
   // progress is waited for. A request still in the queue is withdrawn and,
@@ -128,15 +115,23 @@ public:
     std::unique_lock<std::mutex> lock(mMutex);
     if (renderingLocked(id))
       waitForLocked(lock, id);
-    if (auto it = readyLocked(id); it != mReady.end())
-    {
-      std::unique_ptr<T> out = std::move(it->out);
-      mReady.erase(it);
+    std::unique_ptr<T> out = takeReadyLocked(id);
+    if (out)
       return out;
-    }
     if (auto q = queuedLocked(id); q != mQueue.end())
       mQueue.erase(q);
     return nullptr;
+  }
+
+  // Hands over the finished result for `id`, or nullptr when there is none
+  // yet. Unlike take() it never waits and leaves a queued request where it
+  // is, so a caller that must not block (the game thread polling for a
+  // music switch) asks again on its next tick. Taken from under a take()
+  // blocked on the same id, that take() gets nullptr, as after an eviction.
+  std::unique_ptr<T> takeReady(const std::string& id)
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    return takeReadyLocked(id);
   }
 
   // A new level starts: cancels every queued request and marks every
@@ -214,6 +209,47 @@ private:
     Stale, // kept, but freed by the next dropStale()
     Drop,  // thrown away (unless a take() waits for it)
   };
+
+  // request() and requestFirst(): queues `id` at the back or the front.
+  bool enqueue(const std::string& id, bool first)
+  {
+    {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (renderingLocked(id))
+      {
+        mCurrentKeep = Keep::Fresh;
+        return false;
+      }
+      if (auto it = readyLocked(id); it != mReady.end())
+      {
+        it->stale = false;
+        std::rotate(it, std::next(it), mReady.end());
+        return false;
+      }
+      if (auto q = queuedLocked(id); q != mQueue.end())
+      {
+        if (first)
+          std::rotate(mQueue.begin(), q, std::next(q));
+        return false;
+      }
+      if (first)
+        mQueue.push_front(id);
+      else
+        mQueue.push_back(id);
+    }
+    mWake.notify_one();
+    return true;
+  }
+
+  std::unique_ptr<T> takeReadyLocked(const std::string& id)
+  {
+    auto it = readyLocked(id);
+    if (it == mReady.end())
+      return nullptr;
+    std::unique_ptr<T> out = std::move(it->out);
+    mReady.erase(it);
+    return out;
+  }
 
   void run()
   {

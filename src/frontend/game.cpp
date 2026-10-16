@@ -241,6 +241,10 @@ bool Game::tick(const Input& input)
   if (mNoticeTicks > 0)
     --mNoticeTicks;
   pollCloud();
+  // A music switch waiting for its background render starts once it is
+  // done, in every mode (a briefing's track, a loaded level's, a layer).
+  if (mAudio)
+    mAudio->pollMusic();
   Input in = raw;
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
 
@@ -469,7 +473,8 @@ void Game::tickPlay(const Input& raw)
     if (mAudio && !mWorld->musicOverride().empty() && mWorld->musicOverride() != mPlayingOverride)
     {
       // A new track (an easter egg, a sector's layer coming back): it picks
-      // up where the level's clock is.
+      // up where the level's clock is, once rendered if it is not yet (the
+      // old one plays on meanwhile).
       mPlayingOverride = mWorld->musicOverride();
       mAudio->playMusicNamed(mPlayingOverride);
       mAudio->seekMusic(double(mWorld->clock()) / 15.0);

@@ -19,12 +19,21 @@
 //   - stop()/the destructor cancel the queue, wait for the render in
 //     progress and let a blocked take() collect it;
 //   - a render that throws leaves no result (a blocked take() gets nullptr)
-//     and the worker keeps going.
+//     and the worker keeps going;
+//   - requestFirst() puts a new or queued id at the front (after the render
+//     in progress), and adds nothing for one rendering or finished;
+//   - takeReady() hands over only a finished result: it never waits for a
+//     render in progress and leaves a queued request queued;
+//   - PendingMusic (src/audio/pending_music.hpp), the music switch
+//     Audio::playMusicNamed makes late: a track without a seek starts at
+//     0, one with a seek starts that far in plus the frames played since,
+//     wrapped to its length, and the last seek or want() counts.
 //
 // No check depends on a pause being long enough: a take() is known to be
 // blocked once RenderQueue::waiting() counts it, and only then is the gate
 // opened. waitUntil only bounds how long a broken queue may hang the test.
 
+#include "audio/pending_music.hpp"
 #include "audio/render_queue.hpp"
 
 #include <algorithm>
@@ -532,6 +541,80 @@ void testThrowingRender()
   check(!taker.result(), "and gets nothing back when it throws (the caller renders it)");
 }
 
+// What Audio::playMusicNamed and pollMusic do when a level's layer is
+// needed while the worker is busy with the level's other preloads.
+void testRequestFirst()
+{
+  FakeRender fake;
+  fake.close();
+  Queue q(fake.fn(), 8);
+  q.request("a");
+  check(fake.reached("a"), "the worker is held on a");
+  q.request("b");
+  q.request("c");
+  check(!q.requestFirst("c"), "a queued id asked for first is not queued twice");
+  check(q.queuedCount() == 2, "but moved, not added");
+  check(q.requestFirst("d"), "a new id asked for first is queued");
+  check(!q.requestFirst("a"), "the id rendering is not queued again");
+  fake.release();
+  check(waitUntil([&] { return q.readyCount() == 4; }), "everything finishes");
+  check(fake.log() == Log{"a", "d", "c", "b"}, "after the render in progress, the last asked for first comes first");
+  check(!q.requestFirst("c"), "a finished id is not rendered again");
+  check(fake.log().size() == 4, "nothing rendered twice");
+
+  FakeRender fake2;
+  Queue q2(fake2.fn(), 4, false);
+  check(q2.requestFirst("x") && q2.queuedCount() == 1, "without threads it is only remembered");
+  check(!q2.takeReady("x"), "and never ready");
+}
+
+void testTakeReady()
+{
+  FakeRender fake;
+  fake.close();
+  Queue q(fake.fn(), 8);
+  q.request("a");
+  check(fake.reached("a"), "the worker is held on a");
+  q.request("b");
+  // Run on this thread: a takeReady() that waited would hang the test here.
+  check(!q.takeReady("a"), "the id rendering hands back nothing, at once");
+  check(q.waiting("a") == 0, "without waiting for it");
+  check(!q.takeReady("b"), "a queued id hands back nothing");
+  check(q.queuedCount() == 1, "and stays queued (unlike take())");
+  check(!q.takeReady("never"), "nor does an id never asked for");
+  fake.release();
+  check(waitUntil([&] { return q.ready("a") && q.ready("b"); }), "both finish");
+  const auto a = q.takeReady("a");
+  check(a && *a == "pcm:a", "a finished result is handed over");
+  check(!q.takeReady("a") && !q.ready("a"), "once");
+  check(fake.log() == Log{"a", "b"}, "each rendered once");
+}
+
+void testPendingMusic()
+{
+  PendingMusic p;
+  check(!p.active() && p.id().empty(), "nothing pending at first");
+  p.want("layer@2");
+  check(p.active() && p.id() == "layer@2", "a track not rendered yet is pending");
+  check(p.startFrame(5000, 1000) == 0, "without a seek it starts at its start, however late");
+  p.seek(300, 1000);
+  check(p.startFrame(1000, 10000) == 300, "arriving at once it starts where the seek put it");
+  check(p.startFrame(1450, 10000) == 750, "arriving late it starts as far on as the frames played since");
+  check(p.startFrame(1000 + 9800, 10000) == 100, "wrapped to the track's length, as seekMusic wraps it");
+  check(p.startFrame(900, 10000) == 300, "a count from before the seek never runs it backwards");
+  check(p.startFrame(2000, 0) == 0, "an empty track starts at 0");
+  p.want("layer@2");
+  check(p.startFrame(1000, 10000) == 300, "asking for the same track again keeps its seek");
+  p.seek(0, 4000);
+  check(p.startFrame(4100, 10000) == 100, "the last seek counts");
+  p.want("other");
+  check(p.id() == "other" && p.startFrame(9000, 10000) == 0, "another track drops the old one's seek");
+  p.cancel();
+  check(!p.active() && p.id().empty(), "cancel() leaves nothing pending");
+  p.want("other");
+  check(p.startFrame(9000, 10000) == 0, "nor a seek from before it");
+}
+
 } // namespace
 
 int main()
@@ -551,6 +634,9 @@ int main()
   testDestructor();
   testDestructorWhileTaking();
   testThrowingRender();
+  testRequestFirst();
+  testTakeReady();
+  testPendingMusic();
   std::printf("%s\n", gFailures == 0 ? "all render queue checks passed" : "render queue checks FAILED");
   return gFailures == 0 ? 0 : 1;
 }
