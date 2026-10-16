@@ -113,7 +113,8 @@ public:
   // `t` stretched over the rectangle at (x, y), faded out to the oval inside
   // it: solid where u² + v² <= `solid` (u, v from -1 to 1 across the
   // rectangle), fading linearly in u² + v² to nothing at the oval's edge.
-  // Without SDL_RenderGeometry (SDL older than 2.0.18) the plain rectangle.
+  // Without SDL_RenderGeometry (SDL older than 2.0.18) the plain rectangle;
+  // drawLens does not use it then.
   void drawFadedOval(const Texture& t, float x, float y, float w, float h, float solid);
 
   // Scene capture, for effects on the picture drawn so far (Level 41's
@@ -126,11 +127,32 @@ public:
   // piece leaves the picture. endCapture() puts the picture back on the
   // screen, mirrored left to right if asked; false without a capture. One
   // capture at a time, begun with the screen as the target; false when the
-  // renderer has no render targets, and the draws then go to the screen.
+  // renderer has no render targets or no texture that big for one, and the
+  // draws then go to the screen (see the read-back fallbacks below).
   bool beginCapture();
   bool capturing() const { return mCapturing; }
   const Texture* grabCaptured(float x, float y, float w, float h);
   bool endCapture(bool mirrorX);
+  // Tests: beginCapture refuses as on a renderer without render targets, to
+  // reach the read-back fallbacks.
+  void refuseCaptures(bool refuse) { mRefuseCaptures = refuse; }
+  // The capture's textures dropped, to be made again by the next capture
+  // (after SDL_RENDER_DEVICE_RESET has lost them); a capture open ends,
+  // unshown. Nothing calls it yet: device resets are not handled at all.
+  void dropCaptureTextures();
+
+  // BIG HEADS' lens: the picture drawn so far in `piece` (logical units)
+  // drawn again over `dst`, faded out to an oval as drawFadedOval's `solid`.
+  // Copied on the GPU from the capture; without one (refused), or without
+  // SDL_RenderGeometry to fade it (SDL older than 2.0.18), read back from
+  // the GPU and faded on the CPU, the slow way. False when the piece leaves
+  // the picture.
+  bool drawLens(const SDL_FRect& piece, const SDL_FRect& dst, float solid);
+  // MIRROR MODE without a capture: the picture on the screen read back from
+  // the GPU and drawn again flipped left to right, the slow way. For when
+  // beginCapture was refused, so the picture is mirrored whenever the
+  // controls are.
+  void mirrorReadBack();
 
   // The rasterized string, cached per (string, style). The reference stays
   // valid until the next beginFrame (which may evict it).
@@ -184,13 +206,18 @@ private:
   SDL_Texture* mGrid = nullptr; // drawAlphaGrid's streaming texture
   int mGridW = 0, mGridH = 0;
 
-  bool targetOfSize(Texture& t, int w, int h);
+  bool textureOfSize(Texture& t, SDL_TextureAccess access, int w, int h);
   void viewCapture();
+  bool pixelRectOf(const SDL_FRect& r, SDL_Rect& out) const;
+  const Texture* readBackOval(const SDL_FRect& piece, float solid);
   Texture mScene;          // the capture's picture, at the output resolution
   Texture mGrab;           // grabCaptured's piece of it
   bool mCapturing = false;
+  bool mRefuseCaptures = false;
   float mCaptureSx = 1.0f; // logical units to the capture's pixels
   float mCaptureSy = 1.0f;
+  Texture mFlipped;        // mirrorReadBack's copy of the picture
+  Texture mLensPiece;      // readBackOval's faded piece of it
 };
 
 } // namespace gr

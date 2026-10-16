@@ -3,8 +3,11 @@
 // left to right if asked; a piece of it can be grabbed (on the GPU, no read
 // back) and drawn again; the faded oval BIG HEADS draws its lens with. With a
 // logical size the capture works at the output resolution, letterbox bars
-// left alone. And the misuse: ending or grabbing without a capture, a second
-// begin, grabs off the picture, a capture left open at the next frame.
+// left alone, and draws after it land in the letterbox again; a clip
+// rectangle survives a grab at a scale of 4/3. The read-back fallbacks for a
+// refused capture: the picture mirrored, the lens. And the misuse: ending or
+// grabbing without a capture, a second begin, a begin with another render
+// target set, grabs off the picture, a capture left open at the next frame.
 
 #include "render/renderer.hpp"
 
@@ -58,6 +61,14 @@ Frame mirrored(const Frame& f)
 int red(Uint32 p)
 {
   return int((p >> 16) & 255u);
+}
+
+// Back to drawing 1:1 on the whole surface after a test with a logical size.
+void noLogicalSize(SDL_Renderer* sdl)
+{
+  SDL_RenderSetLogicalSize(sdl, 0, 0);
+  SDL_RenderSetViewport(sdl, nullptr);
+  SDL_RenderSetScale(sdl, 1.0f, 1.0f);
 }
 
 // Something lopsided: a red block on the left, a green bar on the right, a
@@ -150,6 +161,22 @@ void testMisuse(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
   check(first && !second && ended && !again, "one capture at a time, ended once");
   check(present(sdl, surface) == mirrored(direct), "the refused second begin did not disturb the first");
 
+  // Another render target set: refused, that target kept.
+  SDL_Texture* other = SDL_CreateTexture(sdl, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
+  SDL_SetRenderTarget(sdl, other);
+  const bool refused = !r.beginCapture() && !r.capturing() && SDL_GetRenderTarget(sdl) == other;
+  SDL_SetRenderTarget(sdl, nullptr);
+  SDL_DestroyTexture(other);
+  check(other != nullptr && refused, "no capture while another render target is set");
+
+  // The draw colour is the caller's still.
+  SDL_SetRenderDrawColor(sdl, 12, 34, 56, 78);
+  r.beginCapture();
+  Uint8 c[4] = {};
+  SDL_GetRenderDrawColor(sdl, &c[0], &c[1], &c[2], &c[3]);
+  r.endCapture(false);
+  check(c[0] == 12 && c[1] == 34 && c[2] == 56 && c[3] == 78, "beginCapture leaves the draw colour as it was");
+
   // A capture left open is dropped at the next frame.
   r.beginCapture();
   r.beginFrame();
@@ -160,26 +187,107 @@ void testMisuse(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
 }
 
 // 640 x 480 letterboxed on the 1280 x 720 surface: 1.5x, bars of 160 px on
-// either side. The capture is the 960 x 720 picture, mirrored inside it.
+// either side. The capture is the 960 x 720 picture, mirrored inside it. The
+// surface is cleared to blue-grey first, so the bars are not the capture's
+// black; they are compared with a frame cleared the same way, as SDL may
+// paint letterbox bars itself.
 void testLogicalSize(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
 {
   SDL_RenderSetLogicalSize(sdl, 640, 480);
-  r.clear(rgb(0, 0, 0));
+  r.clear(rgb(30, 60, 90));
+  const Frame bars = present(sdl, surface);
+  r.clear(rgb(30, 60, 90));
   r.beginCapture();
   r.fillRect(0.0f, 0.0f, 100.0f, 100.0f, rgb(255, 0, 0));
   const Texture* g = r.grabCaptured(0.0f, 0.0f, 10.0f, 10.0f);
   const bool scaled = g && g->w() == 15 && g->h() == 15;
   const bool offPicture = r.grabCaptured(600.0f, 0.0f, 50.0f, 10.0f) == nullptr;
   r.endCapture(true);
+  r.fillRect(0.0f, 0.0f, 10.0f, 10.0f, rgb(255, 255, 255)); // after the capture: pixels 160..175
   const Frame f = present(sdl, surface);
-  SDL_RenderSetLogicalSize(sdl, 0, 0);
-  SDL_RenderSetViewport(sdl, nullptr);
-  SDL_RenderSetScale(sdl, 1.0f, 1.0f);
+  noLogicalSize(sdl);
   // The block at logical 0..100 lands at 540..640 mirrored: pixels 970..1120.
   check(scaled && offPicture, "grabs are at the output resolution, within the picture");
   check(red(at(f, 1040, 70)) == 255 && red(at(f, 960, 70)) == 0 && red(at(f, 1125, 70)) == 0 && red(at(f, 200, 70)) == 0,
     "with a logical size the picture is mirrored inside the letterbox");
-  check(at(f, 100, 70) == at(f, 1200, 70) && red(at(f, 1200, 70)) == 0, "the letterbox bars stay as they were");
+  std::printf("     bars: %08X, cleared %08X\n", unsigned(at(f, 100, 70)), unsigned(at(bars, 100, 70)));
+  check(at(f, 100, 70) == at(bars, 100, 70) && at(f, 1200, 70) == at(bars, 1200, 70) && at(f, 155, 5) == at(bars, 155, 5),
+    "the letterbox bars stay as they were");
+  check(at(f, 167, 7) == 0xFFFFFFFFu && at(f, 177, 7) != 0xFFFFFFFFu && at(f, 167, 17) != 0xFFFFFFFFu,
+    "draws after the capture land in the letterboxed picture");
+}
+
+// 960 x 540 on the 1280 x 720 surface: 4/3, where SDL2 rounds a clip
+// rectangle kept in pixels. One set before a grab (which switches render
+// targets) is the same after it and still clips: logical 101..304 x
+// 37..188 is pixels 134..405 x 49..251.
+void testClipAcrossGrab(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  SDL_RenderSetLogicalSize(sdl, 960, 540);
+  r.clear(rgb(0, 0, 0));
+  r.beginCapture();
+  const SDL_Rect clip{101, 37, 203, 151};
+  SDL_RenderSetClipRect(sdl, &clip);
+  SDL_Rect before{}, after{};
+  SDL_RenderGetClipRect(sdl, &before);
+  const bool grabbed = r.grabCaptured(400.0f, 300.0f, 31.0f, 17.0f) != nullptr;
+  SDL_RenderGetClipRect(sdl, &after);
+  const bool on = SDL_RenderIsClipEnabled(sdl) == SDL_TRUE;
+  r.fillRect(0.0f, 0.0f, 960.0f, 540.0f, rgb(255, 255, 255));
+  SDL_RenderSetClipRect(sdl, nullptr);
+  r.endCapture(false);
+  const Frame f = present(sdl, surface);
+  noLogicalSize(sdl);
+  std::printf("     clip before %d,%d %dx%d, after %d,%d %dx%d\n", before.x, before.y, before.w, before.h, after.x, after.y,
+    after.w, after.h);
+  check(grabbed && on && SDL_RectEquals(&before, &after) == SDL_TRUE, "a grab leaves the clip rectangle as it was");
+  check(at(f, 200, 100) == 0xFFFFFFFFu && at(f, 400, 245) == 0xFFFFFFFFu && red(at(f, 130, 100)) == 0 &&
+      red(at(f, 410, 100)) == 0 && red(at(f, 200, 45)) == 0 && red(at(f, 200, 256)) == 0,
+    "the clip rectangle still clips after the grab");
+}
+
+// The pattern with BIG HEADS' lens: a piece of its red block (60, 80, 100 x
+// 100) drawn again over (950, 100), 200 x 200, faded out to an oval.
+Frame lensFrame(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface, bool& drawn)
+{
+  r.clear(rgb(0, 0, 0));
+  r.beginCapture();
+  pattern(r);
+  drawn = r.drawLens({60.0f, 80.0f, 100.0f, 100.0f}, {950.0f, 100.0f, 200.0f, 200.0f}, 0.75f);
+  const bool off = !r.drawLens({-5.0f, 80.0f, 100.0f, 100.0f}, {950.0f, 400.0f, 200.0f, 200.0f}, 0.75f);
+  drawn = drawn && off;
+  r.endCapture(false);
+  return present(sdl, surface);
+}
+
+bool lensLooksRight(const Frame& f)
+{
+  const int centre = red(at(f, 1050, 200)), corner = red(at(f, 953, 103)), beside = red(at(f, 940, 200));
+  std::printf("     lens: centre %d, corner %d, beside %d\n", centre, corner, beside);
+  return centre >= 210 && corner == 0 && beside == 0;
+}
+
+// A renderer that refuses the capture (no render targets, no texture that
+// big): MIRROR MODE's picture and BIG HEADS' lens read back from the screen.
+void testReadBack(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  r.clear(rgb(0, 0, 0));
+  pattern(r);
+  const Frame direct = present(sdl, surface);
+
+  r.refuseCaptures(true);
+  r.clear(rgb(0, 0, 0));
+  const bool refused = !r.beginCapture() && !r.capturing();
+  pattern(r);
+  r.mirrorReadBack();
+  check(refused && present(sdl, surface) == mirrored(direct), "a refused capture: the picture mirrored, read back");
+
+  bool drawn = false;
+  const Frame readBack = lensFrame(r, sdl, surface, drawn);
+  check(drawn && lensLooksRight(readBack), "a refused capture: the lens read back, faded out to an oval");
+  r.refuseCaptures(false);
+  const Frame gpu = lensFrame(r, sdl, surface, drawn);
+  check(drawn && lensLooksRight(gpu), "the lens from the capture, faded out to an oval");
 }
 
 // A white square drawn as BIG HEADS' faded oval over 400 x 200 at (100, 100):
@@ -223,7 +331,9 @@ int main()
     testGrab(r, sdl, surface);
     testMisuse(r, sdl, surface);
     testLogicalSize(r, sdl, surface);
+    testClipAcrossGrab(r, sdl, surface);
     testRoundTrip(r, sdl, surface); // the capture made again at the full size
+    testReadBack(r, sdl, surface);
     testFadedOval(r, sdl, surface);
   }
   SDL_DestroyRenderer(sdl);

@@ -3013,7 +3013,8 @@ private:
   void loadSweeps(const std::vector<int>& v);
   void drawSweepsBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void drawSweepsFront(Renderer& r, float camX, float camY, int frame, float alpha) const;
-  void beginSweepsScene(Renderer& r) const; // MIRROR MODE, BIG HEADS: the scene into the renderer's capture
+  bool sweepsHeadLens() const;               // BIG HEADS' lens goes on the runner this frame
+  void beginSweepsScene(Renderer& r) const; // MIRROR MODE, BIG HEADS' lens: the scene into the renderer's capture
   void drawSweepsTop(Renderer& r, float camX, float camY, int frame) const;
   void drawSweepsHud(Renderer& r, int frame) const;
   // Level 42 (world_finale.cpp, world_finale_boss.cpp, world_finale_draw.cpp).

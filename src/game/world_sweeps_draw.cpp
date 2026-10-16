@@ -17,12 +17,14 @@
 // their seats, the Cue Card Drones and their cards; party hats, beaks and
 // BIG HEADS (the runner's too); the ??? party poppers; rubber chickens; the
 // Virus's glow. Paintball's splats. On top (drawSweepsTop): LIGHTS OUT,
-// MIRROR MODE. Under MIRROR MODE or BIG HEADS the scene is drawn into the
-// renderer's offscreen capture (beginSweepsScene): BIG HEADS grabs the
-// runner's head from it, drawSweepsTop puts it back on the screen, mirrored
-// for MIRROR MODE; nothing is read back from the GPU. The HUD
-// (drawSweepsHud): the Applause Cannon's meter, the rule in force, the
-// ballot; Paintball's share painted.
+// MIRROR MODE. Under MIRROR MODE, or BIG HEADS with the runner's lens on,
+// the scene is drawn into the renderer's offscreen capture
+// (beginSweepsScene): BIG HEADS grabs the runner's head from it,
+// drawSweepsTop puts it back on the screen, mirrored for MIRROR MODE;
+// nothing is read back from the GPU. Only when the renderer refuses the
+// capture are the head and the mirrored picture read back from the screen.
+// The HUD (drawSweepsHud): the Applause Cannon's meter, the rule in force,
+// the ballot; Paintball's share painted.
 
 #include "game/world.hpp"
 
@@ -970,21 +972,19 @@ float needleAt(const SweepsState& s)
   return std::clamp(1.0f + (float(s.winner) - 1.0f) * t + wobble, 0.0f, 2.0f);
 }
 
-// BIG HEADS on the runner: the picture round their head (already drawn,
-// copied from the scene capture on the GPU) put back `scale` times the size
-// on the same neck, faded out to an oval: a caricature's head through a
-// fisheye. No capture (no render targets), or the head too near the
-// picture's edge: no lens.
+// BIG HEADS on the runner: the picture round their head (already drawn) put
+// back `scale` times the size on the same neck, faded out to an oval: a
+// caricature's head through a fisheye. Copied on the GPU from the scene
+// capture, or read back from the screen when the renderer refused the
+// capture (Renderer::drawLens). The head too near the picture's edge: no
+// lens.
 void bigHeadLens(Renderer& r, float cx, float headTop, float scale)
 {
   constexpr float lw = 112.0f, lh = 92.0f;
   const float x0 = cx - lw * 0.5f, y0 = headTop - 14.0f;
-  const Texture* grab = r.grabCaptured(x0, y0, lw, lh);
-  if (!grab)
-    return;
-  // The neck (the grab's lower middle) stays put.
+  // The neck (the piece's lower middle) stays put.
   const float neckY = y0 + lh * 0.82f;
-  r.drawFadedOval(*grab, cx - lw * scale * 0.5f, neckY - lh * 0.82f * scale, lw * scale, lh * scale, 0.75f);
+  r.drawLens({x0, y0, lw, lh}, {cx - lw * scale * 0.5f, neckY - lh * 0.82f * scale, lw * scale, lh * scale}, 0.75f);
 }
 
 // The stands' and the pit's spans (cells) from where the audience sits.
@@ -1541,8 +1541,7 @@ void World::drawSweepsFront(Renderer& r, float camX, float camY, int frame, floa
     }
   }
   // BIG HEADS on the runner too.
-  if (big && !p.hidden && p.state != PlayerState::Dying && p.visual != PlayerVisual::Dying &&
-      p.visual != PlayerVisual::Somersault && p.grav == Grav::Down)
+  if (sweepsHeadLens())
   {
     const float px = lerpCells(p.prevX, p.x, alpha) + 1.5f * kCellPx - camX;
     const float foot = lerpCells(p.prevY + 1, p.y + 1, alpha) - camY;
@@ -1573,12 +1572,26 @@ void World::drawSweepsFront(Renderer& r, float camX, float camY, int frame, floa
     }
 }
 
-// Before the scene: MIRROR MODE flips all of it and BIG HEADS magnifies a
-// piece of it, so it is drawn into the renderer's offscreen capture instead
-// of reading the screen back from the GPU (a pipeline stall every frame).
+// BIG HEADS puts its lens on the runner this frame (drawSweepsFront): alive,
+// in sight, upright and not mid-somersault. Asked again before the scene
+// (beginSweepsScene); nothing it reads changes while the world is drawn.
+bool World::sweepsHeadLens() const
+{
+  const auto& p = mPlayer;
+  return (mSweeps.rules & kSwBigHeads) != 0 && !mSweeps.paint && !p.hidden && p.state != PlayerState::Dying &&
+    p.visual != PlayerVisual::Dying && p.visual != PlayerVisual::Somersault && p.grav == Grav::Down;
+}
+
+// Before the scene: MIRROR MODE flips all of it and BIG HEADS' lens
+// magnifies a piece of it, so it is drawn into the renderer's offscreen
+// capture instead of reading the screen back from the GPU (a pipeline stall
+// every frame). Only on frames that need it: BIG HEADS is Level 41's rule
+// most of the time, and its lens is off while the runner dies, hides,
+// somersaults or walks the ceiling. (A lens refused at the picture's edge
+// still costs the capture: that is known only when the head is placed.)
 void World::beginSweepsScene(Renderer& r) const
 {
-  if (sweepsMirrored() || (mSweeps.rules & kSwBigHeads) != 0)
+  if (sweepsMirrored() || sweepsHeadLens())
     r.beginCapture();
 }
 
@@ -1604,8 +1617,14 @@ void World::drawSweepsTop(Renderer& r, float camX, float camY, int frame) const
     drawGlow(r, mArt, px, py, rad * 0.9f, rgb(255, 220, 160), 0.12f + 0.02f * std::sin(float(frame) * 0.1f));
   }
   // The scene back on the screen, flipped left to right for MIRROR MODE; the
-  // HUD goes over it the right way round. (No capture: nothing to do.)
+  // HUD goes over it the right way round. Without a capture (the renderer
+  // refused it) the scene is on the screen already, and MIRROR MODE flips it
+  // there, read back from the GPU: the controls are swapped, so the picture
+  // must be too.
+  const bool captured = r.capturing();
   r.endCapture(sweepsMirrored());
+  if (!captured && sweepsMirrored())
+    r.mirrorReadBack();
 }
 
 void World::drawSweepsHud(Renderer& r, int frame) const

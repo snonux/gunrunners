@@ -42,14 +42,16 @@ std::size_t utf8Floor(const std::string& s, std::size_t bytes)
     --bytes;
   return bytes;
 }
-// The current viewport in output pixels, and the scale to them from logical
-// units. SDL2 folds a logical size into the render scale, but sdl2-compat
-// (SDL2 on top of SDL3) reports only the scale set with SDL_RenderSetScale,
-// so with a logical size the scale is worked out from the output size the
-// way SDL2 letterboxes: the largest that fits both ways.
+
+// The current viewport in output pixels (x, y: its offset, the letterbox
+// bar), and the scale to them from logical units. SDL2 folds a logical size
+// into the render scale, but sdl2-compat (SDL2 on top of SDL3) reports only
+// the scale set with SDL_RenderSetScale, so with a logical size the scale is
+// worked out from the output size the way SDL2 letterboxes: the largest
+// that fits both ways.
 struct Picture
 {
-  int w = 0, h = 0;
+  int x = 0, y = 0, w = 0, h = 0;
   float sx = 1.0f, sy = 1.0f;
 };
 
@@ -64,9 +66,76 @@ Picture pictureOf(SDL_Renderer* sdl)
     p.sx = p.sy = std::min(float(ow) / float(lw), float(oh) / float(lh));
   else
     SDL_RenderGetScale(sdl, &p.sx, &p.sy);
+  p.x = int(std::lround(float(vp.x) * p.sx));
+  p.y = int(std::lround(float(vp.y) * p.sy));
   p.w = int(std::lround(float(vp.w) * p.sx));
   p.h = int(std::lround(float(vp.h) * p.sy));
   return p;
+}
+
+// The clip rectangle across a switch of render targets: SDL2 drops it (SDL3
+// keeps one per target, and it is left alone). SDL2 keeps it in pixels and
+// converts at the scale of the moment when it is set and read. At the same
+// scale the logical round trip is exact with the double precision of newer
+// SDL2, but older ones keep whole (or float) pixels and an edge can move by
+// a pixel at a scale like 4/3. So the clip is saved in both units and put
+// back in pixels, at scale 1, when the logical one does not come back the
+// same: at scale 1 whole pixels convert exactly.
+struct SavedClip
+{
+  bool on = false;
+  SDL_Rect logical{}, pixels{};
+};
+
+SDL_Rect clipAtScale(SDL_Renderer* sdl, float sx, float sy)
+{
+  SDL_Rect r{};
+  SDL_RenderSetScale(sdl, sx, sy);
+  SDL_RenderGetClipRect(sdl, &r);
+  return r;
+}
+
+// The clip of a target drawn at the scale (sx, sy), left at that scale.
+SavedClip saveClip(SDL_Renderer* sdl, float sx, float sy)
+{
+  SavedClip c;
+  c.on = SDL_RenderIsClipEnabled(sdl) == SDL_TRUE;
+  if (c.on)
+  {
+    c.pixels = clipAtScale(sdl, 1.0f, 1.0f);
+    c.logical = clipAtScale(sdl, sx, sy);
+  }
+  return c;
+}
+
+// Back on the target after the switch, left at the scale (sx, sy).
+void restoreClip(SDL_Renderer* sdl, const SavedClip& c, float sx, float sy)
+{
+  if (c.on && SDL_RenderIsClipEnabled(sdl) != SDL_TRUE)
+  {
+    SDL_RenderSetScale(sdl, sx, sy);
+    SDL_RenderSetClipRect(sdl, &c.logical);
+    const SDL_Rect px = clipAtScale(sdl, 1.0f, 1.0f);
+    if (SDL_RectEquals(&px, &c.pixels) != SDL_TRUE)
+      SDL_RenderSetClipRect(sdl, &c.pixels);
+  }
+  SDL_RenderSetScale(sdl, sx, sy);
+}
+
+// drawLens read back: alpha 1 where u² + v² <= solid (u, v from -1 to 1
+// across the piece), falling linearly in u² + v² to 0 at the oval's edge,
+// as drawFadedOval's mesh does on the GPU.
+void fadeToOval(std::vector<Uint32>& px, int w, int h, float solid)
+{
+  const float band = 1.0f - std::clamp(solid, 0.0f, 0.99f);
+  for (int y = 0; y < h; ++y)
+    for (int x = 0; x < w; ++x)
+    {
+      const float u = (float(x) + 0.5f) / float(w) * 2.0f - 1.0f, v = (float(y) + 0.5f) / float(h) * 2.0f - 1.0f;
+      const float a = std::clamp((1.0f - (u * u + v * v)) / band, 0.0f, 1.0f);
+      Uint32& p = px[std::size_t(y) * std::size_t(w) + std::size_t(x)];
+      p = (p & 0x00FFFFFFu) | (Uint32(std::lround(a * 255.0f)) << 24);
+    }
 }
 
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -363,13 +432,14 @@ void Renderer::drawFadedOval(const Texture& t, float x, float y, float w, float 
 #endif
 }
 
-// Makes `t` a w x h render target unless it already is one.
-bool Renderer::targetOfSize(Texture& t, int w, int h)
+// Makes `t` a w x h texture of the given access unless it already is one
+// (each member keeps to one access, so its size tells).
+bool Renderer::textureOfSize(Texture& t, SDL_TextureAccess access, int w, int h)
 {
   if (t && t.w() == w && t.h() == h)
     return true;
   t = Texture();
-  SDL_Texture* tex = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+  SDL_Texture* tex = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_ARGB8888, access, w, h);
   if (!tex)
     return false;
   t = Texture(tex, w, h, 0.0f, 0.0f);
@@ -385,12 +455,36 @@ void Renderer::viewCapture()
   SDL_RenderSetScale(mRenderer, mCaptureSx, mCaptureSy);
 }
 
+// `r` (logical units) in the current target's pixels: the capture's, or the
+// screen's inside the letterbox. False when it is empty or leaves the
+// picture.
+bool Renderer::pixelRectOf(const SDL_FRect& r, SDL_Rect& out) const
+{
+  Picture p;
+  if (mCapturing)
+  {
+    p.w = mScene.w();
+    p.h = mScene.h();
+    p.sx = mCaptureSx;
+    p.sy = mCaptureSy;
+  }
+  else
+    p = pictureOf(mRenderer);
+  const SDL_Rect in{int(std::lround(r.x * p.sx)), int(std::lround(r.y * p.sy)), int(std::lround(r.w * p.sx)),
+    int(std::lround(r.h * p.sy))};
+  if (in.w <= 0 || in.h <= 0 || in.x < 0 || in.y < 0 || in.x + in.w > p.w || in.y + in.h > p.h)
+    return false;
+  out = {p.x + in.x, p.y + in.y, in.w, in.h};
+  return true;
+}
+
 bool Renderer::beginCapture()
 {
-  if (mCapturing || SDL_GetRenderTarget(mRenderer) != nullptr || SDL_RenderTargetSupported(mRenderer) != SDL_TRUE)
+  if (mCapturing || mRefuseCaptures || SDL_GetRenderTarget(mRenderer) != nullptr ||
+    SDL_RenderTargetSupported(mRenderer) != SDL_TRUE)
     return false;
   const Picture p = pictureOf(mRenderer);
-  if (p.w <= 0 || p.h <= 0 || !targetOfSize(mScene, p.w, p.h))
+  if (p.w <= 0 || p.h <= 0 || !textureOfSize(mScene, SDL_TEXTUREACCESS_TARGET, p.w, p.h))
     return false;
   // Copied back (and grabbed) pixel for pixel: no filtering, so a pixel's
   // rounding never blurs it.
@@ -401,26 +495,24 @@ bool Renderer::beginCapture()
   mCaptureSx = p.sx;
   mCaptureSy = p.sy;
   viewCapture();
+  // Cleared to black, the draw colour left as it was.
+  Uint8 cr = 0, cg = 0, cb = 0, ca = 0;
+  SDL_GetRenderDrawColor(mRenderer, &cr, &cg, &cb, &ca);
   SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
   SDL_RenderClear(mRenderer);
+  SDL_SetRenderDrawColor(mRenderer, cr, cg, cb, ca);
   return true;
 }
 
 const Texture* Renderer::grabCaptured(float x, float y, float w, float h)
 {
-  if (!mCapturing)
-    return nullptr;
-  const SDL_Rect src{int(std::lround(x * mCaptureSx)), int(std::lround(y * mCaptureSy)), int(std::lround(w * mCaptureSx)),
-    int(std::lround(h * mCaptureSy))};
-  if (src.w <= 0 || src.h <= 0 || src.x < 0 || src.y < 0 || src.x + src.w > mScene.w() || src.y + src.h > mScene.h() ||
-    !targetOfSize(mGrab, src.w, src.h))
+  SDL_Rect src{};
+  if (!mCapturing || !pixelRectOf({x, y, w, h}, src) || !textureOfSize(mGrab, SDL_TEXTUREACCESS_TARGET, src.w, src.h))
     return nullptr;
   // A texture cannot be drawn into itself: the piece goes through mGrab.
-  // Switching targets drops the clip rectangle (SDL2); it comes back after.
-  SDL_Rect clip{};
-  const bool clipped = SDL_RenderIsClipEnabled(mRenderer) == SDL_TRUE;
-  if (clipped)
-    SDL_RenderGetClipRect(mRenderer, &clip);
+  // Switching targets drops the clip rectangle (SDL2); it comes back after,
+  // to the pixel (saveClip).
+  const SavedClip clip = saveClip(mRenderer, mCaptureSx, mCaptureSy);
   bool ok = SDL_SetRenderTarget(mRenderer, mGrab.get()) == 0;
   if (ok)
   {
@@ -435,7 +527,7 @@ const Texture* Renderer::grabCaptured(float x, float y, float w, float h)
     return nullptr;
   }
   viewCapture();
-  SDL_RenderSetClipRect(mRenderer, clipped ? &clip : nullptr);
+  restoreClip(mRenderer, clip, mCaptureSx, mCaptureSy);
   return ok ? &mGrab : nullptr;
 }
 
@@ -454,6 +546,74 @@ bool Renderer::endCapture(bool mirrorX)
   SDL_SetTextureBlendMode(mScene.get(), SDL_BLENDMODE_NONE);
   return SDL_RenderCopyEx(mRenderer, mScene.get(), nullptr, &dst, 0.0, nullptr,
            mirrorX ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE) == 0;
+}
+
+void Renderer::dropCaptureTextures()
+{
+  if (mCapturing)
+  {
+    SDL_SetRenderTarget(mRenderer, nullptr);
+    mCapturing = false;
+  }
+  mScene = Texture();
+  mGrab = Texture();
+  mFlipped = Texture();
+  mLensPiece = Texture();
+}
+
+bool Renderer::drawLens(const SDL_FRect& piece, const SDL_FRect& dst, float solid)
+{
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  if (mCapturing)
+  {
+    const Texture* grab = grabCaptured(piece.x, piece.y, piece.w, piece.h);
+    if (grab)
+      drawFadedOval(*grab, dst.x, dst.y, dst.w, dst.h, solid);
+    return grab != nullptr;
+  }
+#endif
+  const Texture* faded = readBackOval(piece, solid);
+  if (faded)
+    SDL_RenderCopyF(mRenderer, faded->get(), nullptr, &dst);
+  return faded != nullptr;
+}
+
+// drawLens the slow way: the piece read back from the current target (the
+// capture, or the screen), faded out to the oval on the CPU, uploaded to a
+// texture kept for the next frame.
+const Texture* Renderer::readBackOval(const SDL_FRect& piece, float solid)
+{
+  SDL_Rect src{};
+  if (!pixelRectOf(piece, src) || !textureOfSize(mLensPiece, SDL_TEXTUREACCESS_STREAMING, src.w, src.h))
+    return nullptr;
+  std::vector<Uint32> px(std::size_t(src.w) * std::size_t(src.h));
+  if (SDL_RenderReadPixels(mRenderer, &src, SDL_PIXELFORMAT_ARGB8888, px.data(), src.w * 4) != 0)
+    return nullptr;
+  fadeToOval(px, src.w, src.h, solid);
+  SDL_UpdateTexture(mLensPiece.get(), nullptr, px.data(), src.w * 4);
+  SDL_SetTextureBlendMode(mLensPiece.get(), SDL_BLENDMODE_BLEND);
+  return &mLensPiece;
+}
+
+void Renderer::mirrorReadBack()
+{
+  if (mCapturing)
+    return; // endCapture mirrors a capture
+  const Picture p = pictureOf(mRenderer);
+  if (p.w <= 0 || p.h <= 0 || !textureOfSize(mFlipped, SDL_TEXTUREACCESS_STREAMING, p.w, p.h))
+    return;
+  // The picture's rectangle rather than null (the viewport): SDL writes no
+  // more than the rectangle, whatever its viewport rounds to.
+  const SDL_Rect src{p.x, p.y, p.w, p.h};
+  std::vector<Uint32> px(std::size_t(p.w) * std::size_t(p.h));
+  if (SDL_RenderReadPixels(mRenderer, &src, SDL_PIXELFORMAT_ARGB8888, px.data(), p.w * 4) != 0)
+    return;
+  SDL_UpdateTexture(mFlipped.get(), nullptr, px.data(), p.w * 4);
+  SDL_SetTextureBlendMode(mFlipped.get(), SDL_BLENDMODE_NONE);
+  SDL_Rect vp;
+  SDL_RenderGetViewport(mRenderer, &vp);
+  const SDL_Rect dst{0, 0, vp.w, vp.h};
+  SDL_RenderCopyEx(mRenderer, mFlipped.get(), nullptr, &dst, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
 }
 
 const Texture& Renderer::text(const std::string& s, const TextStyle& st)

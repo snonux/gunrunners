@@ -7,9 +7,10 @@
 // MIRROR MODE, ???, SLIPPERY FLOORS, PARTY HATS, VIRUS FOR THE RUNNER), the
 // seat's ladder and the letter G waking the bonus entrance; Paintball's
 // paint. MIRROR MODE and BIG HEADS as drawn: the scene flipped under an
-// unflipped HUD, the lens round the runner's head, both together. Then the
-// bot clears Sweeps Week under each rule, takes the bonus entrance, and
-// clears Sweeps Week and Paintball with every runner.
+// unflipped HUD, the lens round the runner's head, both together, and the
+// same read back from the screen when the renderer refuses the capture.
+// Then the bot clears Sweeps Week under each rule, takes the bonus entrance,
+// and clears Sweeps Week and Paintball with every runner.
 
 #include "assets/art.hpp"
 #include "data/level.hpp"
@@ -461,6 +462,21 @@ int main(int argc, char** argv)
       check(lens > 2000 && away == 0, "BIG HEADS: the lens round the runner's head, the rest as drawn");
       check(bothFlipped == 0, "MIRROR MODE with BIG HEADS: the lens mirrored with the scene");
       check(!renderer.capturing(), "the capture is over when the world is drawn");
+
+      // A renderer that refuses the capture (no render targets, or no
+      // texture that big) reads the picture back instead: MIRROR MODE still
+      // mirrors it, as the controls are still swapped; BIG HEADS keeps its
+      // lens.
+      renderer.refuseCaptures(true);
+      const Frame mirrorRead = frame(kSwMirror), bigRead = frame(kSwBigHeads), bothRead = frame(kSwMirror | kSwBigHeads);
+      renderer.refuseCaptures(false);
+      const int flippedRead = differ(mirrorRead, plain, true), lensRead = differ(bigRead, plain, false, 0, 520);
+      const int awayRead = differ(bigRead, plain, false, 640), bothFlippedRead = differ(bothRead, bigRead, true);
+      std::printf("     read back: MIRROR MODE vs flipped %d px; BIG HEADS lens %d px, away %d; both vs flipped %d\n",
+        flippedRead, lensRead, awayRead, bothFlippedRead);
+      check(flippedRead == 0 && pixel(mirrorRead, 18, 160) == tag,
+        "MIRROR MODE, capture refused: the scene read back and flipped, the HUD the right way round");
+      check(lensRead > 2000 && awayRead == 0 && bothFlippedRead == 0, "BIG HEADS, capture refused: the lens read back");
     }
     {
       // SLIPPERY FLOORS: the runner slides on after letting go.
