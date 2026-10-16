@@ -91,7 +91,8 @@ void writeEntities(std::ostream& o, const SaveGame& s)
 }
 
 // The levels' own state as "key count values...", in this order; an empty
-// list writes no line. readSave knows the same keys.
+// list writes no line. readIntList reads them back through this same table,
+// so a new key is added here only.
 const std::pair<const char*, std::vector<int> SaveGame::*> kIntLists[] = {
   {"floods", &SaveGame::floods},
   {"valves", &SaveGame::valves},
@@ -153,6 +154,223 @@ void writeIntLists(std::ostream& o, const SaveGame& s)
   }
 }
 
+// Reading: each line is "key values...". A reader below takes the keys of
+// one part of the save and returns false for any other key. A line whose
+// values do not parse adds nothing, though run fields read before the bad
+// value keep what was read (a failed number reads as 0).
+
+// The rest of the line after the key, leading blanks dropped: the texts
+// that may hold spaces (level name, time, runner, letters, level file).
+std::string restOf(std::istream& in)
+{
+  std::string r;
+  std::getline(in >> std::ws, r);
+  return r;
+}
+
+// The run's names and switches.
+bool readRunInfo(SaveGame& s, const std::string& key, std::istream& in)
+{
+  int a = 0, b = 0;
+  if (key == "level")
+    s.levelName = restOf(in);
+  else if (key == "saved")
+    s.savedAt = restOf(in);
+  else if (key == "character")
+    in >> s.character;
+  else if (key == "runner")
+    s.runner = restOf(in);
+  else if (key == "theme")
+    in >> s.theme;
+  else if (key == "letters")
+  {
+    s.letters = restOf(in);
+    if (s.letters == "-") // writeRun's mark for none
+      s.letters.clear();
+  }
+  else if (key == "campaign")
+  {
+    if (in >> s.levelNumber)
+      s.levelFile = restOf(in);
+  }
+  else if (key == "hard")
+  {
+    if (in >> a)
+      s.hard = a != 0;
+  }
+  else if (key == "cheats")
+  {
+    if (in >> a >> b)
+    {
+      s.god = a != 0;
+      s.cheated = b != 0;
+    }
+  }
+  else
+    return false;
+  return true;
+}
+
+// The player and the run's counters. The numbers go straight into s, the
+// 0/1 flags only once the whole line has parsed.
+bool readRunState(SaveGame& s, const std::string& key, std::istream& in)
+{
+  int a = 0, b = 0, c = 0, d = 0;
+  if (key == "player")
+  {
+    if (in >> s.x >> s.y >> s.facing >> s.hp >> s.weapon >> s.ammo >> s.rapidFire >> a)
+      s.hasKey = a != 0;
+  }
+  else if (key == "effects")
+    in >> s.turbo >> s.virus;
+  else if (key == "respawn")
+    in >> s.respawnX >> s.respawnY;
+  else if (key == "progress")
+  {
+    if (in >> s.score >> s.gems >> s.kills >> s.merch >> s.weaponsCollected >> s.deaths >> s.frames >> a)
+      s.tookDamage = a != 0;
+  }
+  else if (key == "fields")
+  {
+    if (in >> a)
+      s.forceFieldsOn = a != 0;
+  }
+  else if (key == "extras")
+  {
+    if (in >> s.proto >> a >> b >> c >> d >> s.protoKills)
+    {
+      s.protoFound = a != 0;
+      s.duck = b != 0;
+      s.camera = c != 0;
+      s.bonusStar = d != 0;
+    }
+  }
+  else
+    return false;
+  return true;
+}
+
+// The things with a single value each, one line per thing: props, boxes,
+// checkpoints and hatches as 0/1, breakables' hp and doors; and the all-lit
+// moment.
+bool readEntityValue(SaveGame& s, const std::string& key, std::istream& in)
+{
+  if (key == "alllit")
+  {
+    in >> s.allLitAt;
+    return true;
+  }
+  std::vector<bool>* flags = key == "prop"         ? &s.props
+                             : key == "box"        ? &s.boxes
+                             : key == "checkpoint" ? &s.checkpoints
+                             : key == "hatch"      ? &s.hatches
+                                                   : nullptr;
+  std::vector<int>* values = key == "breakable" ? &s.breakables : key == "door" ? &s.doors : nullptr;
+  if (!flags && !values)
+    return false;
+  int a = 0;
+  if (in >> a)
+  {
+    if (flags)
+      flags->push_back(a != 0);
+    else
+      values->push_back(a);
+  }
+  return true;
+}
+
+// alive hp x y dir timer active, then (saves since spawners) the spawned
+// kind, its platform and the attachment; without them the enemy is one of
+// the level's own (def -1).
+void readEnemy(SaveGame& s, std::istream& in)
+{
+  SaveGame::EnemyState e;
+  int alive = 0, active = 0, def = 0;
+  if (!(in >> alive >> e.hp >> e.x >> e.y >> e.dir >> e.timer >> active))
+    return;
+  e.alive = alive != 0;
+  e.active = active != 0;
+  if (in >> def)
+  {
+    e.def = def;
+    in >> e.platform;
+    in >> e.attach;
+  }
+  s.enemies.push_back(e);
+}
+
+void readPlatform(SaveGame& s, std::istream& in)
+{
+  SaveGame::PlatformState p;
+  int braked = 0;
+  if (!(in >> p.x >> p.y >> p.balance >> p.slackLeft >> p.idle >> p.moveTick >> p.target >> p.step >> braked))
+    return;
+  p.braked = braked != 0;
+  s.platforms.push_back(p);
+}
+
+// The things with several values each: enemies, platforms, items, breakers.
+bool readEntityState(SaveGame& s, const std::string& key, std::istream& in)
+{
+  int a = 0, b = 0, c = 0, d = 0, k = 0;
+  if (key == "enemy")
+    readEnemy(s, in);
+  else if (key == "platform")
+    readPlatform(s, in);
+  else if (key == "item")
+  {
+    if (in >> a >> b >> c >> d >> k)
+      s.items.push_back({a, b, c, d, k != 0});
+  }
+  else if (key == "breaker")
+  {
+    // Written as on, thrownAt, leechKilled, leechIn.
+    if (in >> a >> b >> c >> d)
+      s.breakers.push_back({a != 0, c != 0, b, d});
+  }
+  else
+    return false;
+  return true;
+}
+
+// A kIntLists line, "key count values...". The values are added to the list
+// (a key read twice adds to it); a short line keeps the values it has, a
+// count that does not parse or is below 1 adds none, and at most 100000 are
+// read, so a corrupt count cannot run away.
+bool readIntList(SaveGame& s, const std::string& key, std::istream& in)
+{
+  for (const auto& [name, member] : kIntLists)
+  {
+    if (key != name)
+      continue;
+    std::vector<int>& v = s.*member;
+    int n = 0, x = 0;
+    in >> n;
+    for (int i = 0; i < n && i < 100000 && in >> x; ++i)
+      v.push_back(x);
+    return true;
+  }
+  return false;
+}
+
+using LineReader = bool (*)(SaveGame&, const std::string&, std::istream&);
+constexpr LineReader kLineReaders[] = {readRunInfo, readRunState, readEntityValue, readEntityState, readIntList};
+
+// One line into s; true for the closing "end" line. An unknown key (a newer
+// game's line, or junk) is skipped. Lines after "end" are still read.
+bool readLine(SaveGame& s, const std::string& line)
+{
+  std::istringstream in(line);
+  std::string key;
+  in >> key;
+  if (key == "end")
+    return true;
+  for (LineReader reader : kLineReaders)
+    if (reader(s, key, in))
+      break;
+  return false;
+}
+
 } // namespace
 
 std::string defaultSaveDir()
@@ -204,155 +422,10 @@ std::optional<SaveGame> readSave(const std::string& path)
   SaveGame s;
   bool complete = false;
   std::string line;
-  std::getline(f, line);
+  std::getline(f, line); // the rest of the header line
   while (std::getline(f, line))
-  {
-    std::istringstream in(line);
-    std::string key;
-    in >> key;
-    auto rest = [&]() {
-      std::string r;
-      std::getline(in >> std::ws, r);
-      return r;
-    };
-    int a = 0, b = 0, c = 0, d = 0, e = 0, g = 0, h = 0, k = 0;
-    if (key == "level")
-      s.levelName = rest();
-    else if (key == "saved")
-      s.savedAt = rest();
-    else if (key == "character")
-      in >> s.character;
-    else if (key == "runner")
-      s.runner = rest();
-    else if (key == "theme")
-      in >> s.theme;
-    else if (key == "player" && in >> s.x >> s.y >> s.facing >> s.hp >> s.weapon >> s.ammo >> s.rapidFire >> a)
-      s.hasKey = a != 0;
-    else if (key == "effects")
-      in >> s.turbo >> s.virus;
-    else if (key == "respawn")
-      in >> s.respawnX >> s.respawnY;
-    else if (key == "progress" &&
-             in >> s.score >> s.gems >> s.kills >> s.merch >> s.weaponsCollected >> s.deaths >> s.frames >> a)
-      s.tookDamage = a != 0;
-    else if (key == "letters")
-    {
-      s.letters = rest();
-      if (s.letters == "-")
-        s.letters.clear();
-    }
-    else if (key == "fields" && in >> a)
-      s.forceFieldsOn = a != 0;
-    else if (key == "campaign" && in >> s.levelNumber)
-      s.levelFile = rest();
-    else if (key == "hard" && in >> a)
-      s.hard = a != 0;
-    else if (key == "extras" && in >> s.proto >> a >> b >> c >> d >> s.protoKills)
-    {
-      s.protoFound = a != 0;
-      s.duck = b != 0;
-      s.camera = c != 0;
-      s.bonusStar = d != 0;
-    }
-    else if (key == "cheats" && in >> a >> b)
-    {
-      s.god = a != 0;
-      s.cheated = b != 0;
-    }
-    else if (key == "prop" && in >> a)
-      s.props.push_back(a != 0);
-    else if (key == "enemy" && in >> a >> b >> c >> d >> e >> g >> h)
-    {
-      SaveGame::EnemyState es{a != 0, b, c, d, e, g, h != 0};
-      if (in >> k)
-      {
-        es.def = k;
-        in >> es.platform;
-        in >> es.attach;
-      }
-      s.enemies.push_back(es);
-    }
-    else if (key == "platform")
-    {
-      SaveGame::PlatformState p;
-      if (in >> p.x >> p.y >> p.balance >> p.slackLeft >> p.idle >> p.moveTick >> p.target >> p.step >> a)
-      {
-        p.braked = a != 0;
-        s.platforms.push_back(p);
-      }
-    }
-    else if (key == "hatch" && in >> a)
-      s.hatches.push_back(a != 0);
-    else if (key == "breakable" && in >> a)
-      s.breakables.push_back(a);
-    else if (key == "breaker" && in >> a >> b >> c >> d)
-      s.breakers.push_back({a != 0, c != 0, b, d});
-    else if (key == "door" && in >> a)
-      s.doors.push_back(a);
-    else if (key == "alllit")
-      in >> s.allLitAt;
-    else if (key == "floods" || key == "valves" || key == "ratpipes" || key == "bubbled" || key == "train" ||
-             key == "chopper" || key == "jungle" || key == "temple" || key == "light" ||
-             key == "mine" || key == "boulder" || key == "sanctum" || key == "station" || key == "green" || key == "hull" || key == "grav" || key == "reactor" || key == "zero" || key == "west" || key == "manor" || key == "kitchen" || key == "garden" || key == "city" || key == "noir" || key == "toon" || key == "signal" || key == "trench" || key == "storm" || key == "dish" || key == "magma" || key == "fleet" || key == "tower" || key == "warehouse" || key == "wardrobe" || key == "writers" || key == "gallery" || key == "flytower" || key == "sweeps" || key == "finale" || key == "explored" || key == "vehicles" || key == "swap" || key == "guns" || key == "bench")
-    {
-      auto& v = key == "floods" ? s.floods
-              : key == "valves" ? s.valves
-              : key == "ratpipes" ? s.ratPipes
-              : key == "train" ? s.train
-              : key == "chopper" ? s.chopper
-              : key == "jungle" ? s.jungle
-              : key == "temple" ? s.temple
-              : key == "light" ? s.light
-              : key == "mine" ? s.mine
-              : key == "boulder" ? s.boulder
-              : key == "sanctum" ? s.sanctum
-              : key == "station" ? s.station
-              : key == "green" ? s.green
-              : key == "hull" ? s.hull
-              : key == "grav" ? s.grav
-              : key == "reactor" ? s.reactor
-              : key == "zero" ? s.zero
-              : key == "west" ? s.west
-              : key == "manor" ? s.manor
-              : key == "kitchen" ? s.kitchen
-              : key == "garden" ? s.garden
-              : key == "city" ? s.city
-              : key == "noir" ? s.noir
-              : key == "toon" ? s.toon
-              : key == "signal" ? s.signal
-              : key == "trench" ? s.trench
-              : key == "storm"  ? s.storm
-              : key == "dish"   ? s.dish
-              : key == "magma"  ? s.magma
-              : key == "fleet"  ? s.fleet
-              : key == "tower"  ? s.tower
-              : key == "warehouse" ? s.warehouse
-              : key == "wardrobe" ? s.wardrobe
-              : key == "writers" ? s.writers
-              : key == "gallery" ? s.gallery
-              : key == "flytower" ? s.flytower
-              : key == "sweeps" ? s.sweeps
-              : key == "finale" ? s.finale
-              : key == "explored" ? s.explored
-              : key == "vehicles" ? s.vehicles
-              : key == "swap" ? s.swap
-              : key == "guns" ? s.guns
-              : key == "bench" ? s.bench
-                                : s.bubbled;
-      int n = 0;
-      in >> n;
-      for (int i = 0; i < n && i < 100000 && in >> a; ++i)
-        v.push_back(a);
-    }
-    else if (key == "box" && in >> a)
-      s.boxes.push_back(a != 0);
-    else if (key == "item" && in >> a >> b >> c >> d >> k)
-      s.items.push_back({a, b, c, d, k != 0});
-    else if (key == "checkpoint" && in >> a)
-      s.checkpoints.push_back(a != 0);
-    else if (key == "end")
+    if (readLine(s, line))
       complete = true;
-  }
   // A file cut short (full disk, crash mid-write) is treated as no save.
   if (!complete || s.hp <= 0)
     return std::nullopt;
