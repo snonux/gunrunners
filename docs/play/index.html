@@ -26,7 +26,9 @@
     background: linear-gradient(180deg, #fff6b0 0%, var(--sun) 40%, #ff5d6c 70%, var(--hot) 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 22px rgba(255, 63, 174, 0.35));
-    animation: glitch 6s infinite; }
+    /* The site glitches every 6 s; the loading screen is often gone by
+       then, so here it breaks up within the first second and every 2.4 s. */
+    animation: glitch 2.4s -1.6s infinite; }
   @keyframes glitch {
     0%, 90%, 100% { transform: none; filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 22px rgba(255, 63, 174, 0.35)); }
     91% { transform: translate(-4px, 1px) skewX(-10deg); filter: drop-shadow(-5px 0 0 var(--cyan)) drop-shadow(5px 0 0 var(--hot)); }
