@@ -958,8 +958,33 @@ void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
   const float len = std::sqrt(float(g.dx * g.dx + g.dy * g.dy));
   const float ux = float(g.dx) / len, uy = float(g.dy) / len;
   const float bob = 6.0f * std::sin(float(frame) * 0.25f);
-  const float reach = 96.0f + bob;
-  const float ax = cx + ux * reach, ay = cy + uy * reach;
+  // At the screen's border the way it points: where a line from the runner
+  // that way meets a frame inset from the edges: below the HUD panels and
+  // the TURBO / VIRUS bars, above the message line and a boss's bar, out of
+  // the bottom corners (the touch stick and buttons); bobbing outwards.
+  constexpr float kLeft = 56.0f, kRight = float(kScreenW) - 56.0f;
+  constexpr float kTop = float(kHudPanelH) + 90.0f, kBottom = float(kScreenH) - 130.0f;
+  constexpr float kCornerW = 330.0f, kCornerTop = 400.0f;
+  const float ox = std::clamp(cx, kLeft, kRight), oy = std::clamp(cy, kTop, kBottom);
+  float t = 1e9f;
+  if (ux > 0.0f)
+    t = std::min(t, (kRight - ox) / ux);
+  if (ux < 0.0f)
+    t = std::min(t, (kLeft - ox) / ux);
+  if (uy > 0.0f)
+    t = std::min(t, (kBottom - oy) / uy);
+  if (uy < 0.0f)
+    t = std::min(t, (kTop - oy) / uy);
+  float ax = ox + ux * t, ay = oy + uy * t;
+  if (ay > kCornerTop && (ax < kLeft + kCornerW || ax > kRight - kCornerW))
+  {
+    if (std::fabs(uy) < 0.9f && (ax <= kLeft + 1.0f || ax >= kRight - 1.0f))
+      ay = kCornerTop; // on a side: up above the corner
+    else
+      ax = std::clamp(ax, kLeft + kCornerW, kRight - kCornerW); // on the bottom: in from it
+  }
+  ax += ux * bob;
+  ay += uy * bob;
   drawGlow(r, mArt, ax, ay, 46.0f, c, 0.45f * fade);
   DrawOpts o;
   o.tint = c;
@@ -967,7 +992,11 @@ void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
   o.angle = std::atan2(uy, ux) * 57.2958f;
   r.draw(mArt.guideArrow, ax, ay, o);
   if (g.kind == GuideKind::Exit)
-    r.drawText("EXIT", ax, ay + (uy > 0.5f ? 28.0f : -52.0f), {16.0f, c, rgb(10, 8, 20), true}, Align::Center, fade);
+  {
+    // The label on the inside of the arrow.
+    const float lx = ax - ux * 70.0f, ly = ay - uy * 50.0f - 8.0f;
+    r.drawText("EXIT", lx, ly, {16.0f, c, rgb(10, 8, 20), true}, Align::Center, fade);
+  }
 
   // The target itself, when it is on screen: a small arrow over it.
   const float tx = (float(g.tx) + 0.5f) * kCellPx - camX;
