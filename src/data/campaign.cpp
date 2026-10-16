@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <cctype>
 #include <cstdlib>
+#include <mutex>
+#include <unordered_map>
 
 namespace gr
 {
@@ -75,17 +77,37 @@ const std::array<Episode, kEpisodes> kEpisodeList{{
   {7, "DEEP SPACE", "A MISDIALLED BEAM TO AN ALIEN WORLD", 43, 49},
 }};
 
-bool exists(const std::string& path)
+// What the disk said about each data file asked for so far, by path.
+// WORLD SELECT and the title screen ask every frame (dozens of level files
+// a frame once every episode is open), which is wasteful on Android storage
+// and the Emscripten FS. The game never writes into levels/ or cutscenes/,
+// so an answer holds for the run. Only the main thread asks today; the lock
+// costs next to nothing and keeps a future background caller safe.
+std::mutex gFilesMutex;
+std::unordered_map<std::string, bool> gFiles;
+
+} // namespace
+
+bool dataFileExists(const std::string& path)
 {
+  const std::lock_guard<std::mutex> lock(gFilesMutex);
+  if (const auto it = gFiles.find(path); it != gFiles.end())
+    return it->second;
+  bool found = false;
   if (FILE* f = std::fopen(path.c_str(), "r"))
   {
     std::fclose(f);
-    return true;
+    found = true;
   }
-  return false;
+  gFiles.emplace(path, found);
+  return found;
 }
 
-} // namespace
+void forgetDataFiles()
+{
+  const std::lock_guard<std::mutex> lock(gFilesMutex);
+  gFiles.clear();
+}
 
 const CampaignLevel& campaignLevel(int number)
 {
@@ -109,7 +131,7 @@ std::string levelFile(const std::string& dataDir, int number)
   char buf[128];
   std::snprintf(buf, sizeof(buf), "/levels/%02d_%s.txt", number, campaignLevel(number).slug);
   const std::string path = dataDir + buf;
-  return exists(path) ? path : std::string();
+  return dataFileExists(path) ? path : std::string();
 }
 
 std::string bonusFile(const std::string& dataDir, int number)
@@ -120,7 +142,7 @@ std::string bonusFile(const std::string& dataDir, int number)
   char buf[128];
   std::snprintf(buf, sizeof(buf), "/levels/%02d_bonus_%s.txt", number, lv.bonus);
   const std::string path = dataDir + buf;
-  return exists(path) ? path : std::string();
+  return dataFileExists(path) ? path : std::string();
 }
 
 namespace
@@ -140,13 +162,13 @@ std::string extraFile(const std::string& dataDir, int index)
   if (index < 0 || index >= kExtraLevels)
     return {};
   const std::string path = dataDir + "/levels/extra_" + kExtras[index].slug + ".txt";
-  return exists(path) ? path : std::string();
+  return dataFileExists(path) ? path : std::string();
 }
 
 std::string cutsceneFile(const std::string& dataDir, const std::string& name)
 {
   const std::string path = dataDir + "/cutscenes/" + name + ".txt";
-  return exists(path) ? path : std::string();
+  return dataFileExists(path) ? path : std::string();
 }
 
 int levelNumberOfFile(const std::string& path)

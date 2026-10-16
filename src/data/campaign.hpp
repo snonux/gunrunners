@@ -8,7 +8,8 @@ namespace gr
 // The 42-level campaign in six episodes (docs/LEVELS.md), plus Episode 7,
 // DEEP SPACE (levels 43-49), a side episode open from the start in WORLD
 // SELECT (frontend/worlds.cpp). A level is playable once its file exists in
-// levels/; a run stops at the first level that has not been built yet.
+// levels/ when the game first looks for it (see dataFileExists()); a run
+// stops at the first level that has not been built yet.
 struct CampaignLevel
 {
   int number;
@@ -51,5 +52,13 @@ const ExtraLevel& extraLevel(int index); // 0..kExtraLevels-1
 std::string extraFile(const std::string& dataDir, int index); // empty if none
 // The level number a level file belongs to (from its NN_ prefix), 0 if none.
 int levelNumberOfFile(const std::string& path);
+
+// Whether a data file exists. The disk is asked once per path and the answer
+// kept, so the menus can call levelFile() and friends every frame; the
+// *File() functions above all go through it. forgetDataFiles() drops what
+// was kept, for whatever adds or removes files under the data directory
+// while the game runs (nothing in the game does today; tests do).
+bool dataFileExists(const std::string& path);
+void forgetDataFiles();
 
 } // namespace gr

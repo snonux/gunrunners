@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <fstream>
 
 namespace gr
 {
@@ -147,7 +146,8 @@ std::vector<std::string> Game::titleItems() const
     items.emplace_back("BONUS CHANNEL");
   if (!mProfile.cutscenes.empty())
     items.emplace_back("RERUNS");
-  if (std::ifstream(dataDir() + "/levels/level1.txt"))
+  // Called every frame: the existence check is cached (data/campaign.cpp).
+  if (dataFileExists(dataDir() + "/levels/level1.txt"))
     items.emplace_back("TRAINING STAGE");
   // Difficulty, controls, assists, play options and fullscreen.
   items.emplace_back("SETTINGS");
