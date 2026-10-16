@@ -12,6 +12,9 @@
 // along a scripted run through every campaign level. The grids it keeps
 // are built again whenever what they depend on changes (the map's tiles,
 // breakables opened, lava, the card), and would be wrong if they weren't.
+// The router kept between searches routes as a brand-new one over hundreds
+// of searches, round its byte-sized stamp's wrap and back, and would not if
+// the wrap didn't clear what the searches before it saw.
 
 #include "assets/art.hpp"
 #include "data/campaign.hpp"
@@ -35,6 +38,16 @@
 #include <vector>
 
 using namespace gr;
+
+namespace gr
+{
+// The test's way into GuideRouter's search stamp (a friend of the class).
+struct GuideRouterTest
+{
+  static int stamp(const GuideRouter& r) { return r.mStamp; }
+  static void setStamp(GuideRouter& r, std::uint8_t s) { r.mStamp = s; }
+};
+} // namespace gr
 
 namespace
 {
@@ -320,12 +333,134 @@ void checkGridStatics()
   check(kept.blocked(kept.cellAt(41 * k, 13 * k)), "and the lava is as bad as a wall");
 }
 
+// ---- The router kept between searches ----
+
+// A room for the router on its own, 24 blocks by 12 (48 by 24 cells): a
+// wall 5 blocks high the runner can't jump, a ladder up to a one-way
+// shelf. Room for every kind of search, small enough for hundreds of them.
+std::shared_ptr<const Level> routerRoom()
+{
+  return load("name=GUIDE TEST\ntheme=neon_rooftops\nmusic=theme_synthwave\n[map]\n"
+              "########################\n"
+              "#......................#\n"
+              "#......................#\n"
+              "#.............H========#\n"
+              "#.............H........#\n"
+              "#.............H........#\n"
+              "#.....#.......H........#\n"
+              "#.....#.......H........#\n"
+              "#.....#.......H........#\n"
+              "#.....#.......H........#\n"
+              "#P....#.......H.......X#\n"
+              "########################\n"
+              "[entities]\n");
+}
+
+// The router room's grid (the map gone again: the grid keeps no pointer to it).
+GuideGrid routerGrid()
+{
+  const auto level = routerRoom();
+  const CollisionMap map(*level);
+  GuideStatics st;
+  st.mapRevision = map.revision();
+  GuideGrid grid;
+  grid.update(map, st, {});
+  return grid;
+}
+
+bool sameRoute(const GuideRoute& a, const GuideRoute& b)
+{
+  return a.states == b.states && a.perCell == b.perCell && a.target == b.target && a.walkable == b.walkable;
+}
+
+// What the router looks for in turn (in cells): a gem on the floor, one on
+// the shelf, a bot to shoot, a gem behind the wall, two gems at once, and
+// nothing at all (every search runs dry: three searches in one route()).
+std::vector<std::vector<GuideTarget>> routerTargets()
+{
+  const GuideTarget floorGem{{40, 20, 2, 2}, GuideKind::Item, {40, 20, 2, 2}};
+  const GuideTarget shelfGem{{38, 4, 2, 2}, GuideKind::Item, {38, 4, 2, 2}};
+  const GuideTarget bot{{12, 14, 19, 12}, GuideKind::Enemy, {20, 18, 3, 4}, true};
+  const GuideTarget walledGem{{4, 20, 2, 2}, GuideKind::Item, {4, 20, 2, 2}};
+  return {{floorGem}, {shelfGem}, {bot}, {walledGem}, {floorGem, walledGem}, {}};
+}
+
+// One router kept from one route() to the next against a brand-new one for
+// each, over 640 routes: a search or more each, so the byte-sized stamp
+// wraps round (and mSeen is cleared) at least twice. From starts all over
+// the room in every phase and facing, the targets changing every 7 routes,
+// the steer now and then, and some searches through open space only.
+void checkRouterKept()
+{
+  const GuideGrid grid = routerGrid();
+  const auto targets = routerTargets();
+  const int rows[] = {21, 5, 12, 6}; // on the floor, on the shelf, in the air, up high
+  GuideRouter kept;
+  GuideRouter::Moves moves;
+  moves.arc = {2, 2, 1, 1, 1, 0, 0, 0}; // Dash
+  const int routes = 640;
+  int wraps = 0, differ = 0, found = 0;
+  std::string first;
+  for (int i = 0; i < routes; ++i)
+  {
+    const auto& t = targets[std::size_t(i / 7) % targets.size()];
+    const GuideRouter::Start start{grid.cellAt(1 + i * 7 % 46, rows[i % 4]), i * 5 % 15, i % 2 ? 1 : -1};
+    moves.steer = i % 11 == 0 ? 2 : 1;
+    const bool freeOnly = i % 9 == 0;
+    const int stamp0 = GuideRouterTest::stamp(kept);
+    const GuideRoute a = kept.route(grid, t, start, moves, freeOnly);
+    wraps += GuideRouterTest::stamp(kept) < stamp0; // at most 3 searches a route: a drop is a wrap
+    const GuideRoute b = GuideRouter().route(grid, t, start, moves, freeOnly);
+    found += b.target >= 0;
+    if (!sameRoute(a, b) && differ++ == 0)
+      first = ", the first at route " + std::to_string(i);
+  }
+  check(wraps >= 2 && differ == 0, "one router over " + std::to_string(routes) + " routes, round its stamp " +
+    std::to_string(wraps) + " times: as a new router every time (" + std::to_string(differ) + " differ" + first + ")");
+  check(found * 2 >= routes, "and most of them find a way (" + std::to_string(found) + ")");
+}
+
+// The clear at the wrap is needed. Two routers search from beside the gem
+// (stamp 1: the cells round it seen, cheap). One then wraps round as
+// begin() does (stamp 255 to 0: mSeen cleared, stamp 1); the other comes
+// round to stamp 1 with mSeen as it was, as if begin() skipped the clear.
+// From further off, the first routes as a new router; the second takes the
+// cells by the gem for seen already, cheaper, and can't go through them.
+void checkRouterWrapClears()
+{
+  const GuideGrid grid = routerGrid();
+  const std::vector<GuideTarget> gem{{{24, 20, 2, 2}, GuideKind::Item, {24, 20, 2, 2}}};
+  const GuideRouter::Start beside{grid.cellAt(32, 21)}, further{grid.cellAt(42, 21)};
+  const GuideRoute want = GuideRouter().route(grid, gem, further, {}, true);
+  GuideRouter wrapped, skipped;
+  wrapped.route(grid, gem, beside, {}, true);
+  skipped.route(grid, gem, beside, {}, true);
+  GuideRouterTest::setStamp(wrapped, 255);
+  GuideRouterTest::setStamp(skipped, 0);
+  check(want.target == 0 && sameRoute(wrapped.route(grid, gem, further, {}, true), want),
+    "wrapped round, the router clears what it saw and routes as a new one");
+  check(!sameRoute(skipped.route(grid, gem, further, {}, true), want),
+    "without the clear it would take what the search before saw for seen (stale)");
+}
+
 // ---- The guide kept between searches against one from scratch ----
+
+// Kept and fresh agree on at least `least` compared frames (and the kept
+// guide worked its answer out on at least as many).
+bool agrees(const Compare& cmp, int least)
+{
+  return cmp.worked >= least && cmp.checked >= least && cmp.differ == 0;
+}
+
+std::string agreement(const Compare& cmp, const std::string& what)
+{
+  return what + ": kept and fresh agree on " + std::to_string(cmp.checked) + " frames of " + std::to_string(cmp.worked) +
+    " worked out (" + std::to_string(cmp.differ) + " differ) " + cmp.first;
+}
 
 void checkAgree(const Compare& cmp, int least, const std::string& what)
 {
-  check(cmp.checked >= least && cmp.differ == 0, what + ": kept and fresh agree on " + std::to_string(cmp.checked) +
-    " frames (" + std::to_string(cmp.differ) + " differ) " + cmp.first);
+  check(agrees(cmp, least), agreement(cmp, what));
 }
 
 // While the runner moves, takes the gem and walks out.
@@ -387,25 +522,48 @@ void scriptedRun(World& w, int frames, Compare& cmp)
   }
 }
 
+// Campaign level `n`, a scripted run: levels 1-6 run longer and compare
+// every frame worked out; the rest a shorter run, one frame in three, to
+// keep the test quick. Each must compare `least` frames (or the run left
+// Playing too early to show much).
+bool keptLevelAgrees(int n, const Theme& theme, const Art& art, int& compared)
+{
+  const bool longRun = n <= 6;
+  const int least = longRun ? 51 : 10;
+  const auto level = std::make_shared<const Level>(Level::loadFile(levelFile(GR_DATA_DIR, n)));
+  World w(level, n % 3, theme, art);
+  guideOn(w);
+  w.cheat(Cheat::God);
+  Compare cmp;
+  cmp.every = longRun ? 1 : 3;
+  scriptedRun(w, longRun ? 150 : 90, cmp);
+  compared = cmp.checked;
+  if (!agrees(cmp, least))
+    std::printf("     %s (at least %d)\n", agreement(cmp, level->slug).c_str(), least);
+  return agrees(cmp, least);
+}
+
 // Every campaign level, a scripted run each (lifts, bots and crates on the
 // move; wrapping, turning maps, slopes, lava, breakables, beat and timer
 // layers, doors and gravity where the level has them): kept and fresh
-// agree. Levels 1-6 run longer and compare every frame worked out; the
-// rest a shorter run, one frame in three, to keep the test quick.
+// agree. One line for them all; a level that fails says so on its own.
 void checkKeptCampaign(const Theme& theme, const Art& art)
 {
+  int failed = 0, total = 0, fewest = -1, fewestLevel = 0;
   for (int n = 1; n <= kAllLevels; ++n)
   {
-    const bool longRun = n <= 6;
-    const auto level = std::make_shared<const Level>(Level::loadFile(levelFile(GR_DATA_DIR, n)));
-    World w(level, n % 3, theme, art);
-    guideOn(w);
-    w.cheat(Cheat::God);
-    Compare cmp;
-    cmp.every = longRun ? 1 : 3;
-    scriptedRun(w, longRun ? 150 : 60, cmp);
-    checkAgree(cmp, longRun ? 51 : 1, level->slug);
+    int compared = 0;
+    failed += !keptLevelAgrees(n, theme, art, compared);
+    total += compared;
+    if (n > 6 && (fewest < 0 || compared < fewest))
+    {
+      fewest = compared;
+      fewestLevel = n;
+    }
   }
+  check(failed == 0, "every campaign level: kept and fresh agree (" + std::to_string(total) + " frames compared, " +
+    std::to_string(failed) + " levels fail; fewest in a short run " + std::to_string(fewest) + ", level " +
+    std::to_string(fewestLevel) + ")");
 }
 
 } // namespace
@@ -560,6 +718,8 @@ int main()
     checkGridKept();
     checkGridPlatforms();
     checkGridStatics();
+    checkRouterKept();
+    checkRouterWrapClears();
     checkKeptGemRoom(gemRoom, theme, art);
     checkKeptForceField(theme, art);
     checkKeptCampaign(theme, art);

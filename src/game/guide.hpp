@@ -129,10 +129,15 @@ struct GuideRoute
 // Cheapest-first over what the runner can do a logic frame at a time, as
 // player.cpp does it (see guide.cpp). The search's scratch arrays are kept
 // between searches: a state counts as reached only when stamped in this
-// search, so nothing is cleared for the next one.
+// search, so a new search clears nothing, except once every 255th search,
+// when the byte-sized stamp wraps round and mSeen is cleared (begin()).
 class GuideRouter
 {
 public:
+  // tests/guide_test.cpp reads and sets the stamp to drive it round the
+  // wrap (and to show what skipping the clear would do).
+  friend struct GuideRouterTest;
+
   // Phases of a state. 0 standing; 1..8 jumping, that frame of the jump arc
   // next (a 0 in the arc hangs a frame at the top; 8: the arc is over,
   // falling starts); 9..11 falling (a cell a frame, a cell, then two); 12
