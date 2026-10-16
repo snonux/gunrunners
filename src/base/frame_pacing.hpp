@@ -18,7 +18,10 @@ namespace gr
 //   - Sleeping costs a vsynced loop nothing: the time owed counts the time
 //     spent blocked in the present, so a present that waited for the vblank
 //     only shortens the sleep that follows. The two waits overlap instead
-//     of adding up, and the loop still draws one frame per tick.
+//     of adding up, so the sleep never lowers the frame rate below what
+//     the present allows: about one frame per tick on a 60 Hz or faster
+//     display, one per refresh where a blocking present is slower (a 50 Hz
+//     display draws 50 frames a second, still with 60 ticks).
 
 // Milliseconds to sleep after a frame before the next one.
 //   tickSeconds - the fixed tick length (1/60 s).

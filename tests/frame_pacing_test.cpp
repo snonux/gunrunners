@@ -1,7 +1,8 @@
 // Checks how long the desktop window loop sleeps between frames: until the
 // next 60 Hz tick, never a negative or runaway wait, and, on a simulated
 // clock that runs the loop frame by frame, about 60 frames a second without
-// spinning whether or not a vsynced present blocks.
+// spinning whether or not a vsynced present blocks (a 50 Hz display that
+// blocks every present sets 50 frames a second, still with 60 ticks).
 
 #include "base/frame_pacing.hpp"
 
@@ -105,6 +106,8 @@ struct LoopStats
 };
 
 // How late a sleep wakes: 0 to 0.8 ms, from a fixed pseudo-random sequence.
+// Only a frame that sleeps wakes late: runFrames makes no SDL_Delay call
+// when the pause is zero.
 double wakeLateness(std::uint32_t& seed)
 {
   seed = (seed * 1103515245u + 12345u) & 0x7fffffffu;
@@ -113,7 +116,8 @@ double wakeLateness(std::uint32_t& seed)
 
 // Runs the desktop loop for 10 simulated seconds: the accumulator steps of
 // WindowedRun::frame, `work(frame)` seconds of events, ticks and drawing,
-// the present, then the sleep of runFrames, which wakes a little late.
+// the present, then the sleep of runFrames, which wakes a little late (when
+// there is a sleep at all).
 template <typename Work>
 LoopStats simulate(const Display& display, Work work)
 {
@@ -130,7 +134,8 @@ LoopStats simulate(const Display& display, Work work)
       ++ticks;
     t = present(display, pending, t + work(s.frames));
     const int pause = framePauseMs(kTick, accumulator + (t - last));
-    t += pause / 1000.0 + wakeLateness(seed);
+    if (pause > 0)
+      t += pause / 1000.0 + wakeLateness(seed);
     s.ticks += ticks;
     s.maxTicksPerFrame = std::max(s.maxTicksPerFrame, ticks);
     s.unslept += pause == 0;
@@ -142,6 +147,7 @@ LoopStats simulate(const Display& display, Work work)
 }
 
 bool near60(double rate) { return rate > 58.5 && rate < 61.0; }
+bool near50(double rate) { return rate > 48.5 && rate < 51.0; }
 
 // Fixed-length frames that end in a present at the given display.
 LoopStats steady(const Display& display, double frameSeconds)
@@ -181,6 +187,24 @@ void vsyncLoopCases()
   }
   check(rate, "vsync swap queues: about 60 frames and ticks a second");
   check(bounded, "vsync swap queues: no sleep over one tick, at most 2 ticks in a frame");
+  // 12 ms frames, each present waiting for its own 60 Hz vblank: the sleep
+  // after a present never makes the next frame miss its vblank.
+  const LoopStats slow = steady({true, 0, 1.0 / 60.0}, 0.012);
+  check(near60(slow.fps()) && near60(slow.tps()), "60 Hz vsync, depth 0, 12 ms frames: about 60 frames and ticks a second");
+  check(slow.maxPauseMs <= kMaxPauseMs && slow.maxTicksPerFrame <= 2, "...no sleep over one tick, at most 2 ticks in a frame");
+}
+
+// A 50 Hz display that blocks every present (depth 0): the present, not
+// the sleep, sets the frame rate. Each frame lasts a 20 ms refresh, longer
+// than a tick, so a tick is nearly always due after the present: about 50 frames a
+// second with no sleep after nearly any of them, while the game still
+// ticks 60 times a second (2 ticks in every fifth frame or so).
+void vsync50LoopCases()
+{
+  const LoopStats s = steady({true, 0, 1.0 / 50.0}, 0.002);
+  check(near50(s.fps()) && near60(s.tps()), "50 Hz vsync, depth 0: about 50 frames, 60 ticks a second");
+  check(s.unslept >= s.frames * 95 / 100, "50 Hz vsync, depth 0: nearly every frame goes unslept");
+  check(s.maxPauseMs <= kMaxPauseMs && s.maxTicksPerFrame <= 2, "...no sleep over one tick, at most 2 ticks in a frame");
 }
 
 void overrunLoopCases()
@@ -209,6 +233,7 @@ int main()
   edgeCases();
   unpacedLoopCases();
   vsyncLoopCases();
+  vsync50LoopCases();
   overrunLoopCases();
   std::printf("%s\n", gFailures == 0 ? "all frame pacing tests passed" : "SOME FRAME PACING TESTS FAILED");
   return gFailures == 0 ? 0 : 1;

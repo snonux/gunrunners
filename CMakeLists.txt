@@ -374,7 +374,8 @@ add_test(NAME atomic_file COMMAND atomic_file_test)
 add_executable(s3_test tests/s3_test.cpp)
 target_link_libraries(s3_test PRIVATE gunrunners_core)
 add_test(NAME s3 COMMAND s3_test)
-# The window loop's frame limiter: no sleep under vsync, up to the next tick without.
+# The window loop's frame limiter: it always sleeps until the next tick is due,
+# vsync or not, and never lowers the frame rate a blocking present allows.
 add_executable(frame_pacing_test tests/frame_pacing_test.cpp)
 target_link_libraries(frame_pacing_test PRIVATE gunrunners_core)
 add_test(NAME frame_pacing COMMAND frame_pacing_test)
