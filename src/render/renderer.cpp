@@ -67,7 +67,9 @@ std::size_t utf8Next(const std::string& s, std::size_t at)
 // has no ink (spaces). Path extents, not glyph metrics: they include the
 // slant Cairo synthesizes for the bundled font's oblique (Android, web),
 // which its glyph metrics leave out. (Outlines use round joins, so for
-// upright text the glyph box plus half the stroke is the same.)
+// upright text the glyph box plus half the stroke is the same, or up to a
+// pixel wider: with hint metrics on, the default on image surfaces, Cairo
+// and FreeType round glyph boxes outward to whole pixels.)
 bool pathInk(cairo_t* cr, const std::string& str, double x, double stroke, double& left, double& right)
 {
   double y0 = 0.0, y1 = 0.0;
@@ -98,43 +100,79 @@ struct PrefixInk
   double nextLeft = 0.0; // the next character's leftmost fill
 };
 
-// How many characters before the last inked one prefixInk strokes too: a
-// slanted letter leans past a narrow one after it ("f."), by about a fifth
-// of its height, less than three characters' advance.
-constexpr int kInkLookBack = 3;
+// The advance of s's character [from, to). Cairo's toy text API has no
+// kerning, so a run's advance is the sum of its characters'.
+double charAdvance(cairo_t* cr, const std::string& s, std::size_t from, std::size_t to)
+{
+  cairo_text_extents_t ext;
+  cairo_text_extents(cr, s.substr(from, to - from).c_str(), &ext);
+  return ext.x_advance;
+}
 
-// Where the characters prefixInk strokes start in s[0, bytes): back over
-// the blank characters that end it (a reveal step that ends on a space),
-// over the last inked character, and over kInkLookBack more.
+// How much advance prefixInk's window covers, in ems, up to the end of the
+// last inked character: more than a letter before the window can reach past
+// its start, the slant Cairo synthesizes (a letter's top leans right by about
+// a fifth of its height, under 0.2 em) plus a glyph's overhang past its
+// advance (a few hundredths of an em in DejaVu Sans Bold), with room for a
+// last character whose ink stops short of its advance ('.' by 0.1 em). By
+// advance, not by a count of characters: zero-width ones (combining marks,
+// U+200B, U+200D) and hair spaces would fill a count and cover nothing.
+// detail::inkWindow walks back over whole characters until it has this.
+constexpr double kInkLookBackEm = 0.5;
+
+} // namespace
+
+namespace detail
+{
+
 std::size_t inkWindow(cairo_t* cr, const std::string& s, std::size_t bytes)
 {
+  bytes = std::min(bytes, s.size());
   std::size_t at = bytes;
-  double left = 0.0, right = 0.0;
-  while (at > 0)
+  double left = 0.0, right = 0.0, covered = 0.0;
+  bool inked = false;
+  while (at > 0 && !inked)
   {
     const std::size_t from = utf8Back(s, at);
-    const bool inked = pathInk(cr, s.substr(from, at - from), 0.0, 0.0, left, right);
-    at = from;
+    inked = pathInk(cr, s.substr(from, at - from), 0.0, 0.0, left, right);
     if (inked)
-      break;
+      covered = charAdvance(cr, s, from, at);
+    at = from;
   }
-  for (int k = 0; k < kInkLookBack && at > 0; ++k)
-    at = utf8Back(s, at);
+  if (!inked)
+    return 0;
+  cairo_matrix_t font{};
+  cairo_get_font_matrix(cr, &font);
+  const double reach = kInkLookBackEm * std::fabs(font.xx);
+  while (at > 0 && covered < reach)
+  {
+    const std::size_t from = utf8Back(s, at);
+    covered += charAdvance(cr, s, from, at);
+    at = from;
+  }
   return at;
 }
 
+} // namespace detail
+
+namespace
+{
+
 // Strokes the last few characters, up to the last inked one (a constant
-// cost per reveal step but for a run of blanks): their path extents hold a
-// synthesized slant, the last letter's and an earlier one's leaning past
-// it, even when the prefix ends in a space. Earlier characters count by
-// their glyph boxes plus half the stroke, exact for upright text (round
-// joins); a slant that far back cannot reach past the window.
+// cost per reveal step but for a run of blanks; detail::inkWindow): their
+// path extents hold a synthesized slant, the last letter's and an earlier
+// one's leaning past it, even when the prefix ends in a space. Earlier
+// characters count by their glyph boxes plus half the stroke. For upright
+// text that is the path's edge or up to a pixel right of it: with hint
+// metrics on (Cairo's default on image surfaces) Cairo and FreeType round
+// glyph boxes outward to whole pixels (round joins: half the stroke is all
+// an outline adds). A slant that far back cannot reach past the window.
 PrefixInk prefixInk(const std::string& s, std::size_t bytes, const TextStyle& st)
 {
   VectorImage probe(1, 1);
   cairo_t* cr = probe.cr();
   setTextFont(cr, st);
-  const std::size_t windowAt = inkWindow(cr, s, bytes);
+  const std::size_t windowAt = detail::inkWindow(cr, s, bytes);
   cairo_text_extents_t ext;
   cairo_text_extents(cr, s.substr(0, windowAt).c_str(), &ext);
   const double windowOrigin = ext.x_advance;

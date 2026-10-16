@@ -6,7 +6,10 @@
 //   - drawTextPrefix reveals a line from the one texture of the whole line:
 //     a cutscene line typed out two letters at a time caches one texture,
 //     not one per step, and looks like the prefix drawn on its own;
-//   - a prefix never ends inside a UTF-8 character.
+//   - a prefix never ends inside a UTF-8 character;
+//   - the window of characters a cut strokes (detail::inkWindow) reaches
+//     half an em of advance back from the last inked one, whole UTF-8
+//     characters, zero-width ones covering nothing.
 // The bundled game font is loaded as the game loads it, but loadGameFont
 // only does something with GR_BUNDLED_FONT (Android, web). Desktop builds
 // pick the fonts through fontconfig: DejaVu Sans Bold, and for italic the
@@ -16,6 +19,7 @@
 // itself, is only exercised on Android and web.
 
 #include "render/renderer.hpp"
+#include "render/renderer_detail.hpp"
 #include "render/vector.hpp"
 
 #include <SDL.h>
@@ -319,12 +323,13 @@ double nextFillLeft(const TextStyle& st, std::size_t bytes)
 // The cut never shows the next letter's fill: from the column its fill
 // starts in, everything is background (a sliver of its outline, left of
 // that, may show). The texture lands at lround(kX - anchor) and is cut at
-// floor(anchor + fill left), so on screen the cut is at or left of
-// floor(kX + fill left). The whole line is lit there: the cut hid it.
-void checkNextCapped(const Pixels& p, const Pixels& full, int sw, const TextStyle& st, std::size_t bytes,
-  const std::string& what)
+// floor(anchor + fill left), so on screen the cut is at or left of their
+// sum, whatever the anchor's fraction (at 28 px 0.92, at 24 px 0.36). The
+// whole line is lit there: the cut hid it.
+void checkNextCapped(const Pixels& p, const Pixels& full, int sw, const TextStyle& st, float anchor,
+  std::size_t bytes, const std::string& what)
 {
-  const int from = int(std::floor(double(kX) + nextFillLeft(st, bytes)));
+  const int from = int(std::lround(kX - anchor)) + int(std::floor(double(anchor) + nextFillLeft(st, bytes)));
   check(blankFrom(p, sw, from) && litColumn(full, sw, from),
     what + "nothing from the next letter's fill on (column " + std::to_string(from) + ")");
 }
@@ -357,7 +362,7 @@ void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_
   check(sameLeftOf(p, sub, sw, int(kX + w) - kMargin, noise), what + "the same pixels as the part drawn alone");
   check(right <= subRight + kSliver, what + "nothing past the part drawn alone");
   check(right >= subRight - kMargin, what + "ends where the part drawn alone ends");
-  checkNextCapped(p, full, sw, st, bytes, what);
+  checkNextCapped(p, full, sw, st, r.text(kLine, st).anchorX(), bytes, what);
 }
 
 // A part that ends in a space (with 2-byte steps the cutscene ends on one
@@ -426,6 +431,68 @@ void revealUtf8(Renderer& r, SDL_Surface* surface)
   check(p5 == whole && p4 != whole, "the whole last character draws the whole line");
 }
 
+// The window of characters a cut of s's first `bytes` bytes strokes, as
+// the renderer measures it: DejaVu Sans Bold at 28 px, where half an em is
+// 14 px of advance, 'f' 12, 't' 13, 'i' 10, '.' 11, ' ' 10, 'b' 20, 'e' and
+// 'é' 19, '—' 28, combining marks and U+200B nothing.
+std::size_t windowOf(const std::string& s, std::size_t bytes)
+{
+  VectorImage probe(1, 1);
+  cairo_t* cr = probe.cr();
+  selectGameFont(cr, false);
+  cairo_set_font_size(cr, kStyle.size);
+  return detail::inkWindow(cr, s, bytes);
+}
+
+void checkWindow(const std::string& s, std::size_t bytes, std::size_t want, const std::string& what)
+{
+  const std::size_t got = windowOf(s, bytes);
+  check(got == want, what + " (\"" + s.substr(0, bytes) + "\": byte " + std::to_string(got) + ", want " +
+    std::to_string(want) + ")");
+}
+
+// Where the window starts, in bytes: a regression to the last character
+// alone, or to no window, passes the pixel checks on desktop (the real
+// oblique's metrics hold its slant), not these.
+void inkWindowBytes()
+{
+  checkWindow("ab  ", 4, 1, "back over the trailing blanks; a wide last letter covers half an em alone");
+  checkWindow("abcdef  ", 8, 4, "a narrow last letter brings the one before it");
+  checkWindow("    x", 3, 0, "an all-blank prefix: 0");
+  checkWindow("  i", 3, 1, "a leading blank counts toward the half em");
+  checkWindow("i.", 2, 0, "a prefix shorter than the look-back: from its start");
+  checkWindow(".", 1, 0, "one narrow character: from its start");
+  // revealUtf8's line: the dash is bytes 7-9, a space at 10, 't' at 11.
+  const std::string u = std::string("\xC3\x87") + "a va " + "\xE2\x80\x94" + " tr" + "\xC3\xA8" + "s bien";
+  checkWindow(u, 11, 7, "a multi-byte last letter: the window starts at its first byte");
+  checkWindow(u, 12, 10, "a blank inside the window covers its advance");
+  checkWindow(std::string("Caf") + "\xC3\xA9" + ".", 6, 3, "the look-back takes a multi-byte letter whole");
+  const std::string acute = "\xCC\x81", zwsp = "\xE2\x80\x8B";
+  checkWindow("f" + acute + acute + acute + ".", 8, 0, "combining marks cover nothing: the window reaches the f");
+  checkWindow("f" + zwsp + zwsp + zwsp + ".", 11, 0, "zero-width spaces cover nothing: the window reaches the f");
+}
+
+// A cut whose window crosses a multi-byte letter that is not the last one
+// ("Café." before a space strokes "é.") draws the part as it looks alone;
+// a blank prefix draws nothing and still returns its advance.
+void revealWindowEdges(Renderer& r, SDL_Surface* surface)
+{
+  const int sw = surface->w;
+  const std::string cafe = std::string("Caf") + "\xC3\xA9" + ". Oui";
+  const Pixels p = shot(r, surface, [&] { r.drawTextPrefix(cafe, 6, kX, kY, kStyle); });
+  const Pixels sub = shot(r, surface, [&] { r.drawText(cafe.substr(0, 6), kX, kY, kStyle); });
+  const Pixels full = shot(r, surface, [&] { r.drawText(cafe, kX, kY, kStyle); });
+  check(p == sub, "a window across a multi-byte letter: the part as drawn alone");
+  check(rightmostLit(p, sw) >= 0 && rightmostLit(p, sw) < rightmostLit(full, sw), "the rest of that line is hidden");
+  const std::string spaced = "   abc";
+  const Pixels blank = shot(r, surface, [] {});
+  float w1 = 0.0f, w3 = 0.0f;
+  const Pixels one = shot(r, surface, [&] { w1 = r.drawTextPrefix(spaced, 1, kX, kY, kStyle); });
+  const Pixels three = shot(r, surface, [&] { w3 = r.drawTextPrefix(spaced, 3, kX, kY, kStyle); });
+  check(one == blank && three == blank, "a prefix of leading blanks draws nothing");
+  check(w1 > 0.0f && w3 > w1, "a prefix of leading blanks returns its advance");
+}
+
 // drawRegion scaled: the cut columns scale with the texture, from the
 // scaled anchor.
 void drawRegionScaled(Renderer& r, SDL_Surface* surface)
@@ -463,6 +530,7 @@ int main()
   evictsOldestFirst(sdl);
   boundEdges(sdl);
   heldReferenceSurvives(sdl);
+  inkWindowBytes();
   revealCachesOneTexture(sdl);
   {
     Renderer r(sdl);
@@ -473,6 +541,7 @@ int main()
     revealEnds(r, surface);
     revealMatchesSubstring(r, surface);
     revealUtf8(r, surface);
+    revealWindowEdges(r, surface);
     drawRegionScaled(r, surface);
   }
   SDL_DestroyRenderer(sdl);
