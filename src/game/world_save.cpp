@@ -532,6 +532,99 @@ bool World::switchCharacter(int index)
   return true;
 }
 
+SaveGame World::snapshotFor(const World& fresh) const
+{
+  SaveGame s = snapshot();
+  s.hard = fresh.mLevel->hard;
+  const std::size_t from = mEntityEnemyCount, to = fresh.mEntityEnemyCount;
+  const SaveGame f = fresh.snapshot();
+  auto& en = s.enemies;
+  if (to > from && from <= en.size() && to <= f.enemies.size())
+  {
+    // HARD's extras join where they stand at the start of the level.
+    en.insert(en.begin() + std::ptrdiff_t(from), f.enemies.begin() + std::ptrdiff_t(from),
+      f.enemies.begin() + std::ptrdiff_t(to));
+  }
+  else if (to < from && from <= en.size())
+  {
+    for (std::size_t i = to; i < from; ++i)
+      if (!en[i].alive && !(enemyDef(mEnemies[i].def).flags & kEnemyNoTally) && s.kills > 0)
+        --s.kills; // the tally counts the level's enemies only
+    en.erase(en.begin() + std::ptrdiff_t(to), en.begin() + std::ptrdiff_t(from));
+  }
+  // Set pieces that keep a record per enemy (Levels 38-41) put the extras'
+  // records in or take them out too.
+  if (!s.writers.empty() && !f.writers.empty())
+    s.writers = refitSave(s.writers, writersLayout(), fresh, f.writers, fresh.writersLayout());
+  if (!s.gallery.empty() && !f.gallery.empty())
+    s.gallery = refitSave(s.gallery, galleryLayout(), fresh, f.gallery, fresh.galleryLayout());
+  if (!s.flytower.empty() && !f.flytower.empty())
+    s.flytower = refitSave(s.flytower, flyTowerLayout(), fresh, f.flytower, fresh.flyTowerLayout());
+  if (!s.sweeps.empty() && !f.sweeps.empty())
+    s.sweeps = refitSave(s.sweeps, sweepsLayout(), fresh, f.sweeps, fresh.sweepsLayout());
+  return s;
+}
+
+std::vector<int> World::refitSave(const std::vector<int>& v, const SaveLayout& from, const World& fresh,
+  const std::vector<int>& f, const SaveLayout& to) const
+{
+  // Enemy indices: the same up to the first extra; after the extras they
+  // move by how many there are.
+  const std::size_t a = mEntityEnemyCount, b = fresh.mEntityEnemyCount;
+  const std::size_t split = std::min(a, b);
+  const auto oldIndex = [&](int e) -> int { // -1: an extra (or none)
+    if (e < 0)
+      return -1;
+    if (std::size_t(e) < split)
+      return e;
+    if (b > a && std::size_t(e) < b)
+      return -1; // one of the extras being added
+    return int(std::size_t(e) - b + a);
+  };
+  std::vector<int> out;
+  if (v.size() < from.head || f.size() < to.head || from.head != to.head || from.lists.size() != to.lists.size())
+    return v;
+  out.insert(out.end(), v.begin(), v.begin() + std::ptrdiff_t(from.head));
+  std::size_t at = from.head, fat = to.head;
+  for (std::size_t k = 0; k < to.lists.size(); ++k)
+  {
+    const auto& ol = from.lists[k];
+    const auto& nl = to.lists[k];
+    if (ol.stride != nl.stride || at + ol.enemies.size() * ol.stride > v.size() ||
+        fat + nl.enemies.size() * nl.stride > f.size())
+      return v;
+    std::size_t nextFree = 0; // elements tied to no enemy go in order
+    for (std::size_t j = 0; j < nl.enemies.size(); ++j)
+    {
+      const int want = nl.enemies[j];
+      std::size_t src = ol.enemies.size();
+      if (want >= 0)
+      {
+        const int old = oldIndex(want);
+        for (std::size_t i = 0; old >= 0 && i < ol.enemies.size(); ++i)
+          if (ol.enemies[i] == old)
+          {
+            src = i;
+            break;
+          }
+      }
+      else
+      {
+        while (nextFree < ol.enemies.size() && ol.enemies[nextFree] >= 0)
+          ++nextFree;
+        src = nextFree++;
+      }
+      const auto* p = src < ol.enemies.size() ? &v[at + src * ol.stride] : &f[fat + j * nl.stride];
+      out.insert(out.end(), p, p + nl.stride);
+    }
+    at += ol.enemies.size() * ol.stride;
+    fat += nl.enemies.size() * nl.stride;
+  }
+  if (from.tail)
+    out.insert(out.end(), v.begin() + std::ptrdiff_t(at), v.end());
+  return out;
+}
+
 bool World::restore(const SaveGame& s)
 {
   if (s.levelName != mLevel->name || s.hard != mLevel->hard || s.enemies.size() < mLevelEnemyCount ||

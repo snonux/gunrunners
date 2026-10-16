@@ -271,6 +271,13 @@ bool Game::tick(const Input& input)
         mWorld->nextWeapon();
       if (edge(&Input::say) && mWorld->state() == WorldState::Playing)
         mVoice.sayRandom(*mWorld, mAudio, voiceVolume());
+      // DIFFICULTY switched in a fight or a ride: the level changes the
+      // moment it could be saved again.
+      if (mRefitHard && refitDifficulty())
+      {
+        mRefitHard = false;
+        notice(mHard ? "HARD - THE EXTRA ENEMIES ARE IN" : "NORMAL - THE EXTRA ENEMIES ARE GONE");
+      }
       mVoice.tick();
       tickPlay(raw);
       // SWAP RUNNER ON DEATH: every runner is down, so the level starts over

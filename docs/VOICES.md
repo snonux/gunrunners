@@ -12,7 +12,7 @@ voice; custom runners pick one of the six in the runner editor (VOICE).
   spelled, boarding a vehicle, back from a checkpoint after dying, down to
   the last heart.
 - **Catchphrases** (`[runner <voice>]`): the SAY A LINE hotkey (V, rebindable
-  in CONTROLS) picks one of the runner's own or one of the level's lines.
+  in SETTINGS > CONTROLS) picks one of the runner's own or one of the level's lines.
 
 ## Triggers
 
@@ -36,7 +36,7 @@ the level's lines wait while its bonus level plays.
   once every 45 s, none in the first 8 s of a level.
 - The hotkey speaks at once when nobody is talking (2 s between presses).
 - The music ducks to 40% under a line.
-- ASSISTS AND OPTIONS: RUNNER VOICES (OFF, QUIET, NORMAL, LOUD) and VOICE
+- SETTINGS > PLAY OPTIONS: RUNNER VOICES (OFF, QUIET, NORMAL, LOUD) and VOICE
   SUBTITLES (the line written at the bottom of the screen, on by default).
 - `--voice-log` prints every trigger and every line said, with the logic
   frame: the bot runs check that lines fire where they should.

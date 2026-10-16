@@ -612,6 +612,16 @@ std::vector<int> World::gallerySave() const
   return v;
 }
 
+World::SaveLayout World::galleryLayout() const
+{
+  SaveLayout l;
+  l.head = 2;
+  l.lists.push_back({3, {}});
+  for (const auto& a : mGallery.actors)
+    l.lists.back().enemies.push_back(a.enemy);
+  return l;
+}
+
 bool World::validGallerySave(const std::vector<int>& v) const
 {
   return v.size() == 2 + mGallery.actors.size() * 3;

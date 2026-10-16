@@ -248,9 +248,10 @@ private:
     Slots,
     Runner,
     Cheats,
+    Settings, // SETTINGS: difficulty, controls, assists, play options, fullscreen
     Controls,
     TouchEdit,
-    Assists, // ASSISTS AND OPTIONS, from CONTROLS
+    Assists, // ASSISTS or PLAY OPTIONS (mAssistPage), from SETTINGS
     Map,
   };
   bool tickMenu(const Input& in);
@@ -291,13 +292,30 @@ private:
   void renderControls();
   void saveBindings();
   std::string keysHint() const;
-  // The ASSISTS AND OPTIONS rows (kept in the profile; none is a cheat).
+  // The ASSISTS and PLAY OPTIONS rows (kept in the profile; none is a cheat).
   bool playOption(const char* key, bool fallback = false) const;
   bool assistOn(const char* key) const;
   World::PlayOptions playOptions() const;
   void tickAssists(bool ok, bool cancel, int dir);
   void renderAssists();
   int mAssistCursor = 0;
+  int mAssistPage = 0; // 0 ASSISTS, 1 PLAY OPTIONS
+  // settings_menu.cpp: SETTINGS, from the title screen and the pause menu.
+  // Everything in it takes effect at once, mid-level too.
+  std::vector<int> settingsItems() const;
+  void openSettings(Menu back);
+  void tickSettings(bool ok, bool cancel, int dir, int side);
+  void renderSettings();
+  int mSettingsCursor = 0;
+  // DIFFICULTY in SETTINGS: switches it and refits the level being played.
+  void switchDifficulty();
+  // The level being played (or parked behind a bonus level) takes the
+  // difficulty now: rebuilt with or without HARD's extras through a save of
+  // itself. False while it can't be saved (a fight or a ride): mRefitHard
+  // then tries again every frame until it can.
+  bool refitDifficulty();
+  bool refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level>& level);
+  bool mRefitHard = false;
   int mSlowCount = 0;       // GAME SPEED 75%: every fourth logic frame is skipped
   bool mHeldFrame = false;  // the last logic frame was skipped: draw the newest state
   // The palette in use. Worlds, panels and cutscene clips hold references to
@@ -436,7 +454,7 @@ private:
   bool mListening = false;
   int mListenTicks = 0;
   bool mMenuHold = false;  // ignore the menu until every button is let go
-  Menu mControlsReturn = Menu::None;
+  Menu mControlsReturn = Menu::None; // where SETTINGS goes back to
 
   // 15 Hz logic clock and input latching.
   int mSubTick = 0;

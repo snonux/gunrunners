@@ -16,7 +16,8 @@ namespace gr
 //
 // - In a level: a floating stick on the left half (it centres wherever the
 //   thumb lands) and Jump, Fire, Switch runner, Pause and Map on the
-//   right, mapped like a pad's A, B, Y, Start and Back.
+//   right, laid out and mapped like a pad's A (Jump, the corner), X (Fire,
+//   left of it), Y (Switch runner, above it), Start and Back.
 // - In menus, cutscenes and tallies: direct touch. A tap on an item picks
 //   it and a drag scrolls (the game gets them from takeTaps / takeDrag);
 //   a small BACK sits in the top left corner. The pad button in the bottom
@@ -139,7 +140,7 @@ private:
   enum ButtonId
   {
     kJump, // A; OK in menus
-    kFire, // B; BACK in menus
+    kFire, // X; BACK in menus
     kSwap, // Y
     kPause,
     kMap, // left of pause

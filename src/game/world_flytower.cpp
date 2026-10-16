@@ -1090,6 +1090,23 @@ std::vector<int> World::flyTowerSave() const
   return v;
 }
 
+World::SaveLayout World::flyTowerLayout() const
+{
+  const auto& s = mFly;
+  SaveLayout l;
+  l.head = 8;
+  l.lists.push_back({2, std::vector<int>(s.lists.size(), -1)});
+  l.lists.push_back({1, std::vector<int>(s.cues.size(), -1)});
+  l.lists.push_back({2, std::vector<int>(s.trusses.size(), -1)});
+  l.lists.push_back({3, std::vector<int>(s.pyros.size(), -1)});
+  l.lists.push_back({10, {}});
+  for (const auto& a : s.actors)
+    l.lists.back().enemies.push_back(a.enemy);
+  l.lists.push_back({1, std::vector<int>(s.targets.size(), -1)});
+  l.tail = true; // the gaps
+  return l;
+}
+
 bool World::validFlyTowerSave(const std::vector<int>& v) const
 {
   const auto& s = mFly;

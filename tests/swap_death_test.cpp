@@ -1,4 +1,4 @@
-// SWAP RUNNER ON DEATH (an ASSISTS AND OPTIONS row): a runner who dies is
+// SWAP RUNNER ON DEATH (an ASSISTS row): a runner who dies is
 // out for the rest of the level, and the next free runner takes over at the
 // checkpoint; once every runner is down the level starts over with all of
 // them. Checks, in a test room with a pit:

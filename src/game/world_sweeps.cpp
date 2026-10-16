@@ -1052,6 +1052,18 @@ std::vector<int> World::sweepsSave() const
   return v;
 }
 
+World::SaveLayout World::sweepsLayout() const
+{
+  const auto& s = mSweeps;
+  SaveLayout l;
+  l.head = 19 + 12;
+  l.lists.push_back({1, std::vector<int>(s.votes.size(), -1)});
+  l.lists.push_back({9, {}});
+  for (const auto& a : s.actors)
+    l.lists.back().enemies.push_back(a.enemy);
+  return l;
+}
+
 bool World::validSweepsSave(const std::vector<int>& v) const
 {
   const auto& s = mSweeps;

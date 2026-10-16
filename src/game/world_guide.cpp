@@ -1,4 +1,4 @@
-// The guide arrow (GUIDE ARROW in ASSISTS AND OPTIONS): a blinking arrow by
+// The guide arrow (GUIDE ARROW in SETTINGS > ASSISTS): a blinking arrow by
 // the runner that points the way to the nearest thing still missing for a
 // 100% level (a gem, a G-U-N letter, a box of merchandise, a weapon not had
 // yet, a gem cache, a bot), then to the exit. Off in bonus levels.

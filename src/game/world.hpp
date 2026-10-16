@@ -1659,6 +1659,9 @@ public:
   // One 60 Hz render tick: particles, shake, flashes.
   // 60 Hz effects and camera easing; alpha is the next render's alpha.
   void tickEffects(float alpha);
+  // The view jumps straight to where the camera is (a world restored under
+  // a menu draws before its first tick).
+  void settleView() { mCamera.tick(1.0f); }
   // alpha: 0..1 progress between the previous and the current logic frame.
   void draw(Renderer& r, int frame, float alpha) const;
 
@@ -1693,6 +1696,13 @@ public:
   // Savegames (world_save.cpp). Saving is refused while dying or leaving.
   bool canSave() const;
   SaveGame snapshot() const;
+  // How many enemies the level's entities made (HARD's extras are the last
+  // of them): a save changes difficulty by adding or taking out the extras there.
+  std::size_t entityEnemyCount() const { return mEntityEnemyCount; }
+  // This world's save made to fit `fresh`, a new world of the same level at
+  // the other difficulty: HARD's extras go in as `fresh` has them, or come
+  // out (their kills with them); everything else keeps its place.
+  SaveGame snapshotFor(const World& fresh) const;
   // Puts a fresh world for the same level into the saved state. Returns
   // false (and changes nothing) if the save does not fit this level.
   bool restore(const SaveGame& save);
@@ -2921,6 +2931,29 @@ private:
   void resetGallery();
   bool galleryCanSave() const;
   std::vector<int> gallerySave() const;
+  // How a set piece's save is laid out, for a difficulty change: a head, then
+  // lists of elements, each element `stride` ints and tied to an enemy (or
+  // -1), then (tail) whatever follows, kept as it is.
+  struct SaveLayout
+  {
+    std::size_t head = 0;
+    struct List
+    {
+      std::size_t stride = 1;
+      std::vector<int> enemies; // one per element
+    };
+    std::vector<List> lists;
+    bool tail = false;
+  };
+  SaveLayout galleryLayout() const;
+  SaveLayout flyTowerLayout() const;
+  SaveLayout sweepsLayout() const;
+  SaveLayout writersLayout() const;
+  // `v`, laid out as `from` in this world, laid out as `to` in `fresh`
+  // (whose own save is `f`): each element goes with its enemy, HARD's
+  // extras come from `f` or drop out.
+  std::vector<int> refitSave(const std::vector<int>& v, const SaveLayout& from, const World& fresh,
+    const std::vector<int>& f, const SaveLayout& to) const;
   bool validGallerySave(const std::vector<int>& v) const;
   void loadGallery(const std::vector<int>& v);
   void drawGalleryBack(Renderer& r, float camX, float camY, int frame, float alpha) const;
@@ -3525,6 +3558,9 @@ private:
   std::vector<Breakable> mBreakables;
   std::vector<Spawner> mSpawners;
   std::size_t mLevelEnemyCount = 0; // the level's own; spawned ones follow
+  // Made by the level's entities (HARD's extras are the last of them); the
+  // set pieces' own follow, up to mLevelEnemyCount.
+  std::size_t mEntityEnemyCount = 0;
   // Level 3: subwoofers, laser fans, the Bass Cannon, beat-step rules.
   std::vector<Pad> mPads;
   std::vector<LaserFan> mFans;

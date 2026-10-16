@@ -53,6 +53,10 @@ float titleItem(int i)
   return 252.0f + 44.0f * float(i);
 }
 
+// CONTROLS, the second row of SETTINGS (DIFFICULTY, CONTROLS, ASSISTS, PLAY
+// OPTIONS, BACK), at its middle.
+constexpr float kSettingsControls = 243.0f + 46.0f + 15.0f;
+
 } // namespace
 
 int main()
@@ -94,15 +98,19 @@ int main()
     run(g, 20);
     check(!g.worldSelect(), "world select: BACK goes to the title screen");
 
-    // CONTROLS: one tap picks a cell, a second listens, any tap gives up.
+    // SETTINGS, then CONTROLS: one tap picks a cell, a second listens, any
+    // tap gives up.
     tap(g, 640.0f, titleItem(5));
+    tap(g, 640.0f, kSettingsControls);
     tap(g, 770.0f, 205.0f);
     check(!g.listening(), "controls: a first tap on a cell only picks it");
     tap(g, 770.0f, 205.0f);
     check(g.listening(), "controls: a second tap listens for a key");
     tap(g, 300.0f, 650.0f);
     check(!g.listening(), "controls: a tap while listening gives up");
-    run(g, 2, pressed(&Input::back));
+    run(g, 2, pressed(&Input::back)); // to SETTINGS
+    run(g, 2);
+    run(g, 2, pressed(&Input::back)); // to the title screen
     run(g, 2);
 
     // NEW GAME, then REMIX under the card, then the name keyboard.
@@ -142,18 +150,21 @@ int main()
     check(std::filesystem::exists(saves + "/slot2.sav"), "slots: a second tap saves there");
     check(g.inLevel(), "slots: saving goes back to the level");
 
-    // A drag down the pause menu: six rows to CONTROLS, then OK.
+    // A drag down the pause menu: six rows to SETTINGS, then OK, then CONTROLS.
     run(g, 2, pressed(&Input::pause));
     run(g, 2);
     g.dragBy(0.0f, -46.0f * 6.0f);
     run(g, 8);
     run(g, 2, pressed(&Input::confirm));
     run(g, 2);
+    tap(g, 640.0f, kSettingsControls);
     tap(g, 600.0f, 205.0f);
     tap(g, 600.0f, 205.0f);
-    check(g.listening(), "pause: a drag up six rows reaches CONTROLS");
+    check(g.listening(), "pause: a drag up six rows reaches SETTINGS, then CONTROLS");
     tap(g, 300.0f, 650.0f);
-    run(g, 2, pressed(&Input::back));
+    run(g, 2, pressed(&Input::back)); // to SETTINGS
+    run(g, 2);
+    run(g, 2, pressed(&Input::back)); // to the pause menu
     run(g, 2);
     tap(g, 640.0f, 206.0f + 15.0f);
     check(g.inLevel(), "pause: a tap on RESUME goes back to the level");

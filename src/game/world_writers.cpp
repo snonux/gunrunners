@@ -1311,6 +1311,23 @@ std::vector<int> World::writersSave() const
   return v;
 }
 
+World::SaveLayout World::writersLayout() const
+{
+  const auto& s = mWriters;
+  SaveLayout l;
+  l.head = 4;
+  l.lists.push_back({2, {}});
+  for (const auto& w : s.words)
+    l.lists.back().enemies.push_back(w.target == WordTarget::Enemy ? w.enemy : -1);
+  l.lists.push_back({2, std::vector<int>(s.crushers.size(), -1)});
+  l.lists.push_back({2, {}});
+  for (const auto& b : s.blocks)
+    l.lists.back().enemies.push_back(b.enemy);
+  l.lists.push_back({1, std::vector<int>(s.inkwells.size(), -1)});
+  l.lists.push_back({1, std::vector<int>(s.penTimers.size(), -1)});
+  return l;
+}
+
 bool World::validWritersSave(const std::vector<int>& v) const
 {
   const auto& s = mWriters;

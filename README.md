@@ -194,9 +194,9 @@ from a hang bar or the jetpack). The fire mark in the bottom right corner
 shoots the way the runner faces; hold a finger down to keep firing, and a
 quick flick while it is down re-aims (up, down, left or right). Next weapon (the pistol), Switch runner, Use (get in or out of a vehicle),
 the Map and Pause sit in a row along the top, out of both thumbs' way. If
-you'd rather have the classic buttons, TOUCH in CONTROLS (THUMB ZONES or
-CLASSIC BUTTONS) switches to Fire (the big corner
-button) and Jump left of it, with swipes on the right half (up jumps, down
+you'd rather have the classic buttons, TOUCH in SETTINGS > CONTROLS (THUMB ZONES or
+CLASSIC BUTTONS) switches to Jump (the big corner
+button) and Fire left of it, laid out like a gamepad's A and X, with swipes on the right half (up jumps, down
 switches runner) and a tap on an empty spot there shooting at it; a touch near a button presses the nearest one, a thumb
 that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb
 in, and Use to climb out. Menus take your finger directly: tap
@@ -204,7 +204,7 @@ an item to pick it, drag to scroll a list, tap a card on runner select to
 turn to it and tap it again to run, drag the map to pan it and tap it to
 zoom. BACK is the small arrow in the top left corner. If you'd rather steer
 menus like a gamepad, the pad button in the bottom left corner brings back
-a d-pad with OK and BACK. CONTROLS on the title screen and in the pause menu sets the size
+a d-pad with OK and BACK. SETTINGS > CONTROLS (from the title screen or the pause menu) sets the size
 (TOUCH PAD: small, medium or large) and has EDIT TOUCH LAYOUT, where you
 drag the stick and each button to where your thumbs want them. The back
 key pauses. Leaving the app pauses the
@@ -213,21 +213,21 @@ game.
 ## Controls
 
 Play with the keyboard or a gamepad (both work at the same time). These are
-the defaults; CONTROLS on the title screen or in the pause menu changes them
-(see below):
+the defaults; SETTINGS > CONTROLS on the title screen or in the pause menu
+changes them (see below):
 
 | Keyboard | Gamepad | Action |
 |----------|---------|--------|
 | Left / Right (A / D) | left stick or d-pad | walk, pick a runner; tap a way, then press it again and hold to run |
 | Up (W) | stick or d-pad up | climb a ladder, aim up, pull your legs in on a hang bar; hold to look up |
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
-| X / Ctrl | X (left face button) | jump (tap for a short hop), press again in mid-air to double jump, down+jump drops from a hang bar |
-| Z / Space | A (bottom face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
+| X / Ctrl | A (bottom face button) | jump (tap for a short hop), press again in mid-air to double jump, down+jump drops from a hang bar |
+| Z / Space | X (left face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
 | C | Y | switch to the next runner, right where you stand |
 | R | right stick click (RS) | switch to a random runner (never the one you are playing) |
 | Q | left trigger (left stick click on Android) | switch to the next gun you carry |
 | E | LB (left trigger on Android) | get in or out of a vehicle (up beside one gets in too) |
-| Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, quit |
+| Esc / P | Start | pause menu: resume, save, load, quick save and load, change runner, settings, quit |
 | F5 | (bind one in CONTROLS) | quick save: no slot to pick, it goes to its own quick save slot |
 | F9 | (bind one in CONTROLS) | quick load, mid-level or straight from the title screen |
 | M | Back / Select (LB on Android) | the level map: what you have explored so far |
@@ -248,8 +248,12 @@ Steam Deck and generic USB or Bluetooth pads), and you can plug them in
 while playing. Button names above are Xbox style; on PlayStation, A is
 Cross and X is Square.
 
-**Changing the controls.** Pick CONTROLS on the title screen or in the
-pause menu. Each action has two keyboard keys and a gamepad button: choose
+**Settings.** SETTINGS on the title screen and in the pause menu holds
+everything you can set: DIFFICULTY (NORMAL or HARD, see Hard mode below),
+CONTROLS, ASSISTS, PLAY OPTIONS and (in a window) FULLSCREEN. Every one of
+them takes effect at once, mid-level too, without restarting anything.
+
+**Changing the controls.** Pick SETTINGS, then CONTROLS. Each action has two keyboard keys and a gamepad button: choose
 a cell with the arrows (or the d-pad), press Enter (or A), then press the
 new key or button. Esc cancels. A key or button can only do one thing, so
 taking it for one action frees it from the other. RESET TO DEFAULTS brings
@@ -258,9 +262,12 @@ Linux and Android alike. So that no setting can lock you out, the menus
 always answer the arrows, Enter, Esc, the d-pad, A, B and Start, Esc and
 Start always pause, and the left stick always walks.
 
-**Assists and options.** ASSISTS AND OPTIONS at the bottom of CONTROLS
-switches these on or off (all off to start with, except GUIDE ARROW). None of them is a cheat:
-records and bonus stars still count.
+**Assists and play options.** ASSISTS and PLAY OPTIONS in SETTINGS
+switch these on or off (all off to start with, except GUIDE ARROW and VOICE
+SUBTITLES). None of them is a cheat: records and bonus stars still count.
+ASSISTS has JUMP HELP, HALF DAMAGE, GAME SPEED 75%, GUIDE ARROW and SWAP
+RUNNER ON DEATH; PLAY OPTIONS has HOLD TO FIRE, DOWN + JUMP LEAVES A RIDE,
+REDUCED EFFECTS, RUNNER VOICES and VOICE SUBTITLES.
 
 | Option | What it does |
 |---|---|
@@ -295,8 +302,9 @@ have seen) and the TRAINING STAGE, a free-play level for trying the controls.
   its first level, and inside an episode every level you have reached can
   be replayed.
 
-- **Hard mode.** Runner select has a DIFFICULTY button over the cards (up,
-  then left or right, or tap it): NORMAL plays the levels as designed, HARD
+- **Hard mode.** DIFFICULTY in SETTINGS, and the DIFFICULTY button over
+  the runner select cards (up, then left or right, or tap it), switch
+  between NORMAL and HARD. NORMAL plays the levels as designed, HARD
   adds more enemies to every level of the campaign, DEEP SPACE and the
   EXTRAS (about 200 more, roughly half as many again). An enemy that
   fights on its own (patrollers, guards, flyers, turrets) gets a twin of
@@ -305,8 +313,12 @@ have seen) and the TRAINING STAGE, a free-play level for trying the controls.
   None stands near the start, a checkpoint or the exit, and never more
   than two share a screen's width of floor. Bonus levels keep their own
   rules. The game remembers the choice, a save keeps the difficulty it was
-  made on, and the HUD shows HARD over the score. `--hard` starts on HARD
-  from the command line.
+  made on, and the HUD shows HARD over the score. Switched in the middle of
+  a level, the level carries on where it is: HARD's extra enemies step in
+  where they stand at the level's start, or the ones still about leave
+  (and kills of them leave the tally). In a boss fight or on a ride, where
+  the game can't save, the switch waits until it could. `--hard` starts on
+  HARD from the command line.
 - **Prototypes and the Arsenal.** Each level hides its own prototype weapon
   in a green box. Reach the exit with it and it joins your Arsenal, with
   your best kill count.
@@ -319,7 +331,7 @@ have seen) and the TRAINING STAGE, a free-play level for trying the controls.
 - **Runners who talk.** Every runner has their own voice and comments on
   what they see: three lines in every level, one or two in every bonus
   level, a bark now and then when something big happens, and a random
-  line on V. RUNNER VOICES and VOICE SUBTITLES in ASSISTS AND OPTIONS set
+  line on V. RUNNER VOICES and VOICE SUBTITLES in SETTINGS > PLAY OPTIONS set
   the volume (or switch them off) and the subtitles; custom runners pick a
   voice in the runner editor.
 - **Savegames.** Five slots, from the pause menu or LOAD GAME on the title

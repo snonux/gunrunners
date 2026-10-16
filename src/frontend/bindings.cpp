@@ -40,8 +40,9 @@ Bindings Bindings::defaults()
   pad(Act::Right, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT});
   pad(Act::Up, {SDL_CONTROLLER_BUTTON_DPAD_UP});
   pad(Act::Down, {SDL_CONTROLLER_BUTTON_DPAD_DOWN});
-  pad(Act::Jump, {SDL_CONTROLLER_BUTTON_X});
-  pad(Act::Fire, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+  // A jumps, X fires (as do B, RB and RT), like the on-screen gamepad.
+  pad(Act::Jump, {SDL_CONTROLLER_BUTTON_A});
+  pad(Act::Fire, {SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
                    kPadRightTrigger});
   pad(Act::Swap, {SDL_CONTROLLER_BUTTON_Y});
   pad(Act::RandomRunner, {SDL_CONTROLLER_BUTTON_RIGHTSTICK});
@@ -84,6 +85,18 @@ Bindings Bindings::fromProfile(const std::map<std::string, std::vector<int>>& co
         if ((c >= 0 && c < SDL_CONTROLLER_BUTTON_MAX) || c == kPadLeftTrigger || c == kPadRightTrigger)
           b.pad[std::size_t(a)].push_back(c);
     }
+  }
+  // Profiles saved before v0.10.0 hold the old defaults (X jumps, A fires):
+  // left exactly so, they were never changed, so they take the new ones.
+  auto& jump = b.pad[std::size_t(Act::Jump)];
+  auto& fire = b.pad[std::size_t(Act::Fire)];
+  if (jump == std::vector<int>{SDL_CONTROLLER_BUTTON_X} &&
+      fire == std::vector<int>{SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+                                kPadRightTrigger})
+  {
+    const Bindings d = defaults();
+    jump = d.pad[std::size_t(Act::Jump)];
+    fire = d.pad[std::size_t(Act::Fire)];
   }
   return b;
 }

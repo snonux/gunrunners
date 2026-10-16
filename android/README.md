@@ -51,7 +51,7 @@ app's private storage and the keys are not drawn back to the screen.
   centres wherever the thumb lands and keeps steering if the thumb slides
   across, its centre following a thumb that goes far out so turning round
   is quick), and on the right the shooting zone (thumbs, below) or, in the
-  buttons scheme, Fire in the corner and Jump left of it with Switch runner
+  buttons scheme, Jump in the corner and Fire left of it (like a pad's A and X) with Switch runner
   above; Use, Map and Pause at the top. Drawn
   faintly so the level shows through.
 - **Made to hit without looking:** the controls hug the physical screen's
@@ -82,7 +82,7 @@ app's private storage and the keys are not drawn back to the screen.
   that direction for the one logic frame a turn on the spot takes, unless
   the stick is steering. Switch runner, Use, Map and Pause sit in a row
   along the top. `TouchControls::advance` gets the time every tick. TOUCH
-  in CONTROLS (THUMB ZONES / CLASSIC BUTTONS) switches to the buttons scheme below (`touch.thumbs` 0;
+  in SETTINGS > CONTROLS (THUMB ZONES / CLASSIC BUTTONS) switches to the buttons scheme below (`touch.thumbs` 0;
   RESET TO DEFAULTS goes back to thumbs).
 - **Swipes, on the right half in a level (buttons scheme):** a quick swipe up (80 units in
   under 220 ms) jumps and holds jump until the finger lifts, so a thumb on
@@ -111,7 +111,7 @@ app's private storage and the keys are not drawn back to the screen.
   saved in the profile as `touch.menupad`. `tests/menu_taps_test.cpp`
   drives the whole game by taps; `--tap 120:640x300` and
   `--drag 200:0x-120` script them headlessly.
-- **CONTROLS** on the title screen and in the pause menu has TOUCH PAD:
+- **CONTROLS** (in SETTINGS, on the title screen and in the pause menu) has TOUCH PAD:
   SMALL / MEDIUM / LARGE and EDIT TOUCH LAYOUT. The layout editor shows the
   play controls over the dimmed screen: drag the stick, Jump, Fire, Switch
   and Pause anywhere (they stay on screen), RESET puts them back, DONE

@@ -161,6 +161,7 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
     }
   }
   setupEntities();
+  mEntityEnemyCount = mEnemies.size();
   linkPlatforms();
   linkMine();
   linkLava();

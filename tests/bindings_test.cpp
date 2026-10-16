@@ -39,8 +39,10 @@ void model()
   b.bindKey(Act::Jump, 0, SDL_SCANCODE_Z);
   check(b.keys[std::size_t(Act::Jump)][0] == SDL_SCANCODE_Z, "Z bound to jump");
   check(b.keys[std::size_t(Act::Fire)][0] == 0, "...and taken from fire");
-  b.bindPad(Act::Swap, SDL_CONTROLLER_BUTTON_A);
-  check(b.pad[std::size_t(Act::Swap)] == std::vector<int>{SDL_CONTROLLER_BUTTON_A}, "pad A bound to switch");
+  check(b.pad[std::size_t(Act::Jump)] == std::vector<int>{SDL_CONTROLLER_BUTTON_A}, "default: pad A jumps");
+  check(b.pad[std::size_t(Act::Fire)][0] == SDL_CONTROLLER_BUTTON_X, "default: pad X fires");
+  b.bindPad(Act::Swap, SDL_CONTROLLER_BUTTON_X);
+  check(b.pad[std::size_t(Act::Swap)] == std::vector<int>{SDL_CONTROLLER_BUTTON_X}, "pad X bound to switch");
   check(!b.pad[std::size_t(Act::Fire)].empty() && b.pad[std::size_t(Act::Fire)][0] == SDL_CONTROLLER_BUTTON_B,
     "...and taken from fire, which keeps B");
 
@@ -48,6 +50,17 @@ void model()
   b.toProfile(controls);
   check(Bindings::fromProfile(controls) == b, "bindings survive the profile");
   check(Bindings::fromProfile({}) == Bindings::defaults(), "an old profile gets the defaults");
+  // A profile with the old pad defaults (X jumps, A fires) takes the new ones;
+  // one that was changed keeps its own.
+  std::map<std::string, std::vector<int>> old;
+  Bindings::defaults().toProfile(old);
+  old["pad.jump"] = {SDL_CONTROLLER_BUTTON_X};
+  old["pad.fire"] = {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+    kPadRightTrigger};
+  check(Bindings::fromProfile(old) == Bindings::defaults(), "the old pad defaults move to A jumps, X fires");
+  old["pad.fire"] = {SDL_CONTROLLER_BUTTON_A};
+  check(Bindings::fromProfile(old).pad[std::size_t(Act::Jump)] == std::vector<int>{SDL_CONTROLLER_BUTTON_X},
+    "a changed pad layout stays as it was");
 
   // Through the profile file itself.
   const std::string dir = "bindings_test_profile";
@@ -127,10 +140,10 @@ void pad()
   pump();
   check(c.read().jump, "pad: LB jumps after rebinding");
   SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 0);
-  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_X, 1);
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_A, 1);
   pump();
-  check(!c.read().jump, "pad: X no longer jumps");
-  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_X, 0);
+  check(!c.read().jump, "pad: A no longer jumps");
+  SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_A, 0);
   SDL_JoystickSetVirtualButton(joy, SDL_CONTROLLER_BUTTON_BACK, 1);
   pump();
   check(c.read().map, "pad: Back opens the map by default");
@@ -151,10 +164,10 @@ void touchLayout(Renderer& r)
   TouchControls t(r, true);
   t.configure(TouchControls::Layout::Play, 1);
   t.setThumbs(false); // the Jump and Fire buttons
-  // Jump sits left of the corner (see touch_test.cpp): drag it 300 left.
+  // Jump sits in the corner (see touch_test.cpp): drag it 300 left.
   t.setEditing(true);
-  t.touch(1, 988.0f, 628.0f);
-  t.slide(1, 688.0f, 628.0f);
+  t.touch(1, 1160.0f, 580.0f);
+  t.slide(1, 860.0f, 580.0f);
   t.release(1);
   check(t.takeLayoutChange(), "editor: dragging reports a change");
   const std::vector<int> layout = t.layout();
@@ -169,7 +182,7 @@ void touchLayout(Renderer& r)
   u.configure(TouchControls::Layout::Play, 1);
   u.setThumbs(false); // the Jump and Fire buttons
   u.setLayout(layout);
-  u.touch(3, 688.0f, 628.0f);
+  u.touch(3, 860.0f, 580.0f);
   check(u.read().jump, "play: jump answers at its new spot");
   u.release(3);
   u.touch(4, 520.0f, 300.0f);

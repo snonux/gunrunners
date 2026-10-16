@@ -2,7 +2,8 @@
 // level file: the extras stand in open blocks inside the map, away from the
 // start and the checkpoints; the same file always gets the same twins; the level's own
 // entities keep their order. Then each level is built and run for a while
-// in a World with the twins in it, saved and loaded back.
+// in a World with the twins in it, saved and loaded back, and switched
+// between NORMAL and HARD mid-run both ways (SETTINGS > DIFFICULTY).
 
 #include "assets/art.hpp"
 #include "data/enemies.hpp"
@@ -146,6 +147,52 @@ int main(int argc, char** argv)
       World back(lvHard, 0, theme, art);
       check(back.restore(s), name + ": a hard save loads into the hard level");
       check(back.enemies().size() == w.enemies().size(), name + ": with all its enemies");
+
+      // DIFFICULTY switched mid-level (SETTINGS): a normal run takes on the
+      // extras where they stand at the start; everything else keeps its place.
+      for (int f = 0; f < 300; ++f)
+        n.update(PlayerInput{});
+      World up(lvHard, 0, theme, art);
+      const std::size_t ne = n.entityEnemyCount();
+      check(up.entityEnemyCount() == ne + std::size_t(added), name + ": the extras are the last of the entities' enemies");
+      check(up.restore(n.snapshotFor(up)), name + ": a normal run switches to HARD");
+      bool kept = up.enemies().size() >= n.enemies().size();
+      for (std::size_t i = 0; kept && i < n.enemies().size(); ++i)
+      {
+        const std::size_t j = i < ne ? i : i + std::size_t(added);
+        kept = j < up.enemies().size() && up.enemies()[j].def == n.enemies()[i].def &&
+          up.enemies()[j].alive == n.enemies()[i].alive && up.enemies()[j].x == n.enemies()[i].x;
+      }
+      check(kept, name + ": ...every enemy where it was");
+      bool fresh = true;
+      for (std::size_t i = ne; i < ne + std::size_t(added); ++i)
+        fresh = fresh && up.enemies()[i].alive;
+      check(fresh, name + ": ...and the extras alive");
+      check(up.stats().kills == n.stats().kills && up.stats().score == n.stats().score, name + ": ...the tally kept");
+
+      // A hard run switched back: the extras go, and so do their kills.
+      SaveGame hs = w.snapshot();
+      const std::size_t first = w.entityEnemyCount() - std::size_t(added);
+      int killed = 0;
+      if (added > 0 && hs.enemies[first].alive && !(enemyDef(w.enemies()[first].def).flags & kEnemyNoTally))
+      {
+        hs.enemies[first].alive = false;
+        ++hs.kills;
+        killed = 1;
+      }
+      World hw(lvHard, 0, theme, art);
+      check(hw.restore(hs), name + ": a hard run with a fallen extra");
+      World down(lvNormal, 0, theme, art);
+      check(down.restore(hw.snapshotFor(down)), name + ": a hard run switches to NORMAL");
+      check(down.stats().kills == hs.kills - killed, name + ": ...without the fallen extra's kill");
+      bool back2 = down.enemies().size() + std::size_t(added) >= hw.enemies().size();
+      for (std::size_t i = 0; back2 && i < down.enemies().size(); ++i)
+      {
+        const std::size_t j = i < first ? i : i + std::size_t(added);
+        back2 = j < hw.enemies().size() && down.enemies()[i].def == hw.enemies()[j].def &&
+          down.enemies()[i].alive == hw.enemies()[j].alive;
+      }
+      check(back2, name + ": ...every other enemy where it was");
     }
   }
   SDL_DestroyRenderer(sdl);

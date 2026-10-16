@@ -231,6 +231,7 @@ add_library(gunrunners_core STATIC
   src/frontend/select.cpp
   src/frontend/runner_editor.cpp
   src/frontend/controls_menu.cpp
+  src/frontend/settings_menu.cpp
   src/frontend/map_view.cpp
   src/frontend/cutscene.cpp
   src/frontend/cutscene_voices.cpp

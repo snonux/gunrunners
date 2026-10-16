@@ -145,9 +145,8 @@ std::vector<std::string> Game::titleItems() const
     items.emplace_back("RERUNS");
   if (std::ifstream(dataDir() + "/levels/level1.txt"))
     items.emplace_back("TRAINING STAGE");
-  if (mOptions.window)
-    items.emplace_back(mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
-  items.emplace_back("CONTROLS");
+  // Difficulty, controls, assists, play options and fullscreen.
+  items.emplace_back("SETTINGS");
 #ifndef __EMSCRIPTEN__
   // A browser page has no libcurl and nothing to quit to.
   items.emplace_back("CLOUD SAVES");
@@ -236,14 +235,9 @@ void Game::tickTitle(const Input& raw)
   {
     openList(ListKind::Reruns);
   }
-  else if (item.rfind("FULLSCREEN", 0) == 0)
+  else if (item == "SETTINGS")
   {
-    mFullscreenToggle = true;
-  }
-  else if (item == "CONTROLS")
-  {
-    mControlsReturn = Menu::None;
-    openControls();
+    openSettings(Menu::None);
   }
   else if (item == "CLOUD SAVES")
   {

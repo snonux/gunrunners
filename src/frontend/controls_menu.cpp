@@ -1,6 +1,7 @@
 // The CONTROLS menu: rebinding the keyboard and gamepad, the on-screen
-// gamepad's size and layout, and a way back to the defaults. Reached from
-// the title screen and the pause menu; everything is saved in the profile.
+// gamepad's size and layout, and a way back to the defaults. Also the
+// ASSISTS and PLAY OPTIONS pages. All three are in SETTINGS (from the title
+// screen and the pause menu); everything is saved in the profile.
 
 #include "frontend/game.hpp"
 
@@ -25,32 +26,42 @@ enum class RowKind
   TouchScheme,
   TouchSize,
   TouchLayout,
-  Assists,
   Reset,
 };
 
-// ASSISTS AND OPTIONS: profile key, label, and what each one does.
+// ASSISTS (page 0) and PLAY OPTIONS (page 1): profile key, label, and what
+// each one does.
 struct AssistRow
 {
+  int page;
   const char* key;
   const char* label;
   const char* help;
 };
 const AssistRow kAssistRows[] = {
-  {"opt.holdfire", "HOLD TO FIRE", "Holding fire keeps shooting (rapid fire is still faster)."},
-  {"opt.downjump", "DOWN + JUMP LEAVES A RIDE", "Off: only USE gets you out of a vehicle."},
-  {"assist.jump", "JUMP HELP", "A jump pressed just before landing still jumps; more time at ledges."},
-  {"assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
-  {"assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
-  {"assist.guide", "GUIDE ARROW", "A blinking arrow points to every item and bot left, then the exit (not in bonus levels)."},
-  {"opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
-  {"opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies is out for the level; lose them all and it starts over."},
-  {"opt.voices", "RUNNER VOICES", "The runners talk about what they see. SAY A LINE (V) for more."},
-  {"opt.subtitles", "VOICE SUBTITLES", "What the runners say, written at the bottom of the screen."},
+  {0, "assist.jump", "JUMP HELP", "A jump pressed just before landing still jumps; more time at ledges."},
+  {0, "assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
+  {0, "assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
+  {0, "assist.guide", "GUIDE ARROW", "A blinking arrow points to every item and bot left, then the exit (not in bonus levels)."},
+  {0, "opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies is out for the level; lose them all and it starts over."},
+  {1, "opt.holdfire", "HOLD TO FIRE", "Holding fire keeps shooting (rapid fire is still faster)."},
+  {1, "opt.downjump", "DOWN + JUMP LEAVES A RIDE", "Off: only USE gets you out of a vehicle."},
+  {1, "opt.calm", "REDUCED EFFECTS", "No screen shake and no flashes of light."},
+  {1, "opt.voices", "RUNNER VOICES", "The runners talk about what they see. SAY A LINE (V) for more."},
+  {1, "opt.subtitles", "VOICE SUBTITLES", "What the runners say, written at the bottom of the screen."},
 };
 const char* const kVoiceLevels[] = {"OFF", "QUIET", "NORMAL", "LOUD"};
 constexpr int kVoiceDefault = 2;
-constexpr int kAssistCount = int(sizeof(kAssistRows) / sizeof(kAssistRows[0]));
+
+// The rows of one page.
+std::vector<const AssistRow*> assistPage(int page)
+{
+  std::vector<const AssistRow*> rows;
+  for (const auto& row : kAssistRows)
+    if (row.page == page)
+      rows.push_back(&row);
+  return rows;
+}
 
 } // namespace
 
@@ -71,7 +82,6 @@ std::vector<Game::ControlRow> Game::controlRows() const
     rows.push_back({RowKind::TouchSize, Act::Count});
     rows.push_back({RowKind::TouchLayout, Act::Count});
   }
-  rows.push_back({RowKind::Assists, Act::Count});
   rows.push_back({RowKind::Reset, Act::Count});
   return rows;
 }
@@ -164,10 +174,7 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
   const ControlRow& row = rows[std::size_t(mControlsCursor)];
   if (cancel)
   {
-    if (mControlsReturn == Menu::Pause)
-      openMenu(Menu::Pause);
-    else
-      closeMenu();
+    mMenu = Menu::Settings;
     return;
   }
   if (!ok)
@@ -188,10 +195,6 @@ void Game::tickControls(const Input& in, bool ok, bool cancel, int dir, int side
       break;
     case RowKind::TouchLayout:
       mMenu = Menu::TouchEdit;
-      break;
-    case RowKind::Assists:
-      mMenu = Menu::Assists;
-      mAssistCursor = 0;
       break;
     case RowKind::Reset:
       mBindings = Bindings::defaults();
@@ -293,7 +296,6 @@ void Game::renderControls()
         ? (touchThumbs() ? "TOUCH: THUMB ZONES" : "TOUCH: CLASSIC BUTTONS")
         : row.kind == RowKind::TouchSize                      ? touchSizeLabel()
         : row.kind == RowKind::TouchLayout                    ? "EDIT TOUCH LAYOUT"
-        : row.kind == RowKind::Assists                        ? "ASSISTS AND OPTIONS"
                                                               : "RESET TO DEFAULTS";
       r.drawText(label, 640, y, sel ? chosen : plain, Align::Center);
       continue;
@@ -355,11 +357,13 @@ World::PlayOptions Game::playOptions() const
 
 void Game::tickAssists(bool ok, bool cancel, int dir)
 {
-  const int n = kAssistCount + 1; // the rows, then BACK
+  const auto rows = assistPage(mAssistPage);
+  const int count = int(rows.size());
+  const int n = count + 1; // the rows, then BACK
   mAssistCursor = (mAssistCursor + dir + n) % n;
-  if (cancel || (ok && mAssistCursor == kAssistCount))
+  if (cancel || (ok && mAssistCursor == count))
   {
-    mMenu = Menu::Controls;
+    mMenu = Menu::Settings;
     mMenuHold = true;
     sound(Sfx::MenuSelect);
     return;
@@ -367,7 +371,7 @@ void Game::tickAssists(bool ok, bool cancel, int dir)
   if (!ok)
     return;
   sound(Sfx::MenuSelect);
-  const char* key = kAssistRows[mAssistCursor].key;
+  const char* key = rows[std::size_t(mAssistCursor)]->key;
   if (std::string(key) == "opt.voices")
   {
     // NORMAL, LOUD, OFF, QUIET, NORMAL...
@@ -394,15 +398,18 @@ void Game::renderAssists()
   const auto& t = theme();
   r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(0, 0, 0, 150));
   r.draw(mSlotPanel, 140, 100);
-  r.drawText("ASSISTS AND OPTIONS", 640, 116, {40.0f, t.accentA, kInk, true}, Align::Center);
-  r.drawText("They keep records and bonus stars: none of them is a cheat.", 640, 168, {16.0f, t.accentB, kInk},
-    Align::Center);
+  const auto rows = assistPage(mAssistPage);
+  const int count = int(rows.size());
+  r.drawText(mAssistPage == 0 ? "ASSISTS" : "PLAY OPTIONS", 640, 116, {40.0f, t.accentA, kInk, true}, Align::Center);
+  r.drawText(mAssistPage == 0 ? "They keep records and bonus stars: none of them is a cheat."
+                                : "How the game plays, sounds and looks.",
+    640, 168, {16.0f, t.accentB, kInk}, Align::Center);
   // The rows close up as more options join, so BACK stays above the help line.
-  const float step = std::min(42.0f, 360.0f / float(kAssistCount));
-  for (int i = 0; i <= kAssistCount; ++i)
+  const float step = std::min(56.0f, 360.0f / float(count));
+  for (int i = 0; i <= count; ++i)
   {
     const bool sel = i == mAssistCursor;
-    const float y = 196.0f + float(i) * step + (i == kAssistCount ? 6.0f : 0.0f);
+    const float y = 196.0f + float(i) * step + (i == count ? 6.0f : 0.0f);
     tapTarget(300, y - 6, 680, step - 6, [this, i](float, float) {
       if (mAssistCursor != i)
       {
@@ -416,12 +423,12 @@ void Game::renderAssists()
       r.fillRect(300, y - 2, 680, step - 1, withAlpha(t.accentA, 60)); // the row and its help line
     const TextStyle plain{22.0f, t.hudText, kInk};
     const TextStyle chosen{22.0f, t.accentA, kInk, true};
-    if (i == kAssistCount)
+    if (i == count)
     {
       r.drawText("BACK", 640, y, sel ? chosen : plain, Align::Center);
       continue;
     }
-    const AssistRow& row = kAssistRows[i];
+    const AssistRow& row = *rows[std::size_t(i)];
     std::string value = assistOn(row.key) ? ": ON" : ": OFF";
     if (std::string(row.key) == "opt.voices")
     {
@@ -436,7 +443,7 @@ void Game::renderAssists()
   }
   r.drawText(mOptions.touch ? "TAP a row to pick it, TAP it again to switch it   BACK to leave"
                             : "UP/DOWN choose   ENTER / A switch   ESC / B back",
-    640, kAssistCount > 8 ? 596.0f : 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
+    640, count > 8 ? 596.0f : 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
 }
 
 } // namespace gr

@@ -41,8 +41,9 @@ struct ButtonSpec
   float fromRight, fromBottom, r;
 };
 // The corner button, the one left of it, and the one above the corner (bottom
-// right); pause hugs the top right instead. In a level Fire takes the corner
-// and Jump the inner spot; in menus OK takes the corner and BACK the inner.
+// right); pause hugs the top right instead. Jump takes the corner and Fire
+// the inner spot, like a pad's A and X; in menus OK takes the corner and
+// BACK the inner.
 constexpr int kCorner = 0, kInner = 1;
 constexpr ButtonSpec kSpecs[3] = {
   {120.0f, 140.0f, 82.0f},
@@ -258,8 +259,8 @@ TouchControls::TouchControls(Renderer& renderer, bool visible)
   , mBack(bakeIcon(renderer, kSpecs[kInner].r, kPink, 5))
   , mPadIcon(bakeIcon(renderer, kPauseR, kNeon, 7))
 {
-  mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[kInner].r, kNeon, 0);
-  mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kCorner].r, kPink, 1);
+  mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[kCorner].r, kNeon, 0);
+  mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kInner].r, kPink, 1);
   mPlayIcons[kSwap] = bakeIcon(renderer, kSpecs[2].r, kNeon, 2);
   mPlayIcons[kPause] = bakeIcon(renderer, kPauseR, kNeon, 3);
   mPlayIcons[kMap] = bakeIcon(renderer, kPauseR, kGold, 6);
@@ -351,7 +352,7 @@ TouchControls::Circle TouchControls::button(int b) const
   }
   int slot = b;
   if (b == kJump || b == kFire)
-    slot = (b == kJump) == (mLayout == Layout::Menu && !mEditing) ? kCorner : kInner;
+    slot = b == kJump ? kCorner : kInner;
   const ButtonSpec& s = kSpecs[slot];
   return place({mRight - s.fromRight * mScale, mBottom - s.fromBottom * mScale, s.r * mScale}, 1 + b);
 }
@@ -986,7 +987,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     const float baked = !play ? kSpecs[b == kJump ? kCorner : kInner].r
       : b == kPause || b == kMap || b == kUse || b == kWeapon ? kPauseR
       : b == kSwap             ? kSpecs[2].r
-                               : kSpecs[b == kFire ? kCorner : kInner].r;
+                               : kSpecs[b == kJump ? kCorner : kInner].r;
     DrawOpts o;
     o.alpha = held ? 0.95f : idle;
     o.scale = scale * c.r / (mScale * baked) * (held ? 0.92f : 1.0f);
@@ -1006,7 +1007,8 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     const float mx = mRight - spec.fromRight * mScale, my = mBottom - spec.fromBottom * mScale;
     DrawOpts o;
     o.alpha = firing ? 0.9f : idle;
-    o.scale = scale * (firing ? 0.92f : 1.0f);
+    // The Fire icon is baked for the inner spot; the mark fills the corner.
+    o.scale = scale * spec.r / kSpecs[kInner].r * (firing ? 0.92f : 1.0f);
     o.cull = false;
     renderer.draw(mPlayIcons[kFire], sx + mx, sy + my, o);
     if (!mThumbsUsed)

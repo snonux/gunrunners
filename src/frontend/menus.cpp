@@ -29,15 +29,14 @@ enum PauseItem
   kQuickLoad,
   kChangeRunner,
   kCheats,
-  kFullscreen,
-  kControls,
+  kSettings,
   kQuitToTitle,
   kQuitGame,
   kPauseItemCount,
 };
 
 const char* const kPauseLabels[kPauseItemCount] = {
-  "RESUME", "SAVE GAME", "LOAD GAME", "QUICK SAVE", "QUICK LOAD", "CHANGE RUNNER", "CHEATS", "FULLSCREEN", "CONTROLS", "QUIT TO TITLE",
+  "RESUME", "SAVE GAME", "LOAD GAME", "QUICK SAVE", "QUICK LOAD", "CHANGE RUNNER", "CHEATS", "SETTINGS", "QUIT TO TITLE",
   "QUIT GAME"};
 
 // Entered on the pause menu, Konami style: up, up, down, down, left, right,
@@ -60,7 +59,7 @@ std::vector<int> Game::pauseItems() const
 #endif
   std::vector<int> items;
   for (int i = 0; i < kPauseItemCount; ++i)
-    if ((i != kQuitGame || kCanQuit) && (i != kCheats || mCheatsUnlocked || mOptions.cheats) && (i != kFullscreen || mOptions.window))
+    if ((i != kQuitGame || kCanQuit) && (i != kCheats || mCheatsUnlocked || mOptions.cheats))
       items.push_back(i);
   return items;
 }
@@ -271,6 +270,7 @@ void Game::openMenu(Menu m)
       mCodeStep = 0;
       break;
     case Menu::Cheats:
+    case Menu::Settings:
     case Menu::Controls:
     case Menu::TouchEdit:
     case Menu::Assists:
@@ -521,12 +521,8 @@ bool Game::tickMenu(const Input& in)
           case kCheats:
             openMenu(Menu::Cheats);
             break;
-          case kFullscreen:
-            mFullscreenToggle = true;
-            break;
-          case kControls:
-            mControlsReturn = Menu::Pause;
-            openControls();
+          case kSettings:
+            openSettings(Menu::Pause);
             break;
           case kSave:
             mSlotsForSave = true;
@@ -632,6 +628,10 @@ bool Game::tickMenu(const Input& in)
       }
       break;
 
+    case Menu::Settings:
+      tickSettings(ok, cancel, dir, side);
+      break;
+
     case Menu::Controls:
     case Menu::TouchEdit:
       tickControls(in, ok, cancel, dir, side);
@@ -691,6 +691,12 @@ void Game::renderMenu()
     return;
   }
 
+  if (mMenu == Menu::Settings)
+  {
+    renderSettings();
+    return;
+  }
+
   if (mMenu == Menu::Cheats)
   {
     r.draw(mMenuPanel, 380, 120);
@@ -739,10 +745,7 @@ void Game::renderMenu()
         drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
       }
       const int item = items[std::size_t(i)];
-      const std::string label =
-        item == kFullscreen ? (mFullscreenNow ? "FULLSCREEN: ON" : "FULLSCREEN: OFF")
-                             : kPauseLabels[item];
-      r.drawText(label, 640, y, {size, sel ? t.accentA : t.hudText, kInk, sel},
+      r.drawText(kPauseLabels[item], 640, y, {size, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);
     }
     r.drawText(touch ? "TAP to choose   BACK to resume" : "UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 566,

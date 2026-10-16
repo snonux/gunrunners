@@ -177,9 +177,10 @@ void printUsage()
     "      C switch runner, E get in or out of a vehicle, Esc/P pause menu\n"
     "      (save, load, quit), T cycle theme, F5 quick save, F9 quick load,\n"
     "      F11 or Alt+Enter fullscreen\n"
-    "Gamepad: stick/d-pad move, X jump, A/B/RB/RT fire, Y switch runner, LB vehicle,\n"
-    "      Start pause menu, Back cycle theme\n"
-    "CONTROLS on the title screen or in the pause menu rebinds keys and buttons");
+    "Gamepad: stick/d-pad move, A jump, X/B/RB/RT fire, Y switch runner, LB vehicle,\n"
+    "      Start pause menu, Back map\n"
+    "SETTINGS on the title screen or in the pause menu: difficulty, controls\n"
+    "(rebind keys and buttons), assists and play options");
 }
 
 // The on-screen gamepad follows the game: its layout for the moment, its
