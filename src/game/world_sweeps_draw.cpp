@@ -264,7 +264,7 @@ void blit(Renderer& r, const Texture& t, float x, float y, float w, float h, flo
   SDL_SetTextureBlendMode(t.get(), b == Blend::Add ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_BLEND);
   SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)));
   SDL_SetTextureColorMod(t.get(), Uint8(redOf(tint)), Uint8(greenOf(tint)), Uint8(blueOf(tint)));
-  SDL_RenderCopyExF(r.sdl(), t.get(), nullptr, &dst, double(angle), &pivot, SDL_FLIP_NONE);
+  SDL_RenderCopyExF(r.sdl(), r.use(t), nullptr, &dst, double(angle), &pivot, SDL_FLIP_NONE);
   SDL_SetTextureColorMod(t.get(), 255, 255, 255);
   SDL_SetTextureAlphaMod(t.get(), 255);
 }

@@ -4212,7 +4212,7 @@ void stretchTex(ClipKit& k, const Texture& t, float x, float y, float w, float h
   SDL_SetTextureBlendMode(t.get(), SDL_BLENDMODE_BLEND);
   SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)));
   SDL_SetTextureColorMod(t.get(), Uint8(redOf(tint)), Uint8(greenOf(tint)), Uint8(blueOf(tint)));
-  SDL_RenderCopyF(k.r.sdl(), t.get(), nullptr, &dst);
+  SDL_RenderCopyF(k.r.sdl(), k.r.use(t), nullptr, &dst);
   SDL_SetTextureColorMod(t.get(), 255, 255, 255);
   SDL_SetTextureAlphaMod(t.get(), 255);
 }
@@ -14585,7 +14585,7 @@ void brief39Wall(ClipKit& k, int frame, int ticks, float ox, float oy)
         k.r.draw(g, cx - kIn[f], fy, o);
         // The right one faces left: the same guard, flipped.
         const SDL_FRect dst{cx + kIn[f] - 60.0f * s, fy - 196.0f * s, 120.0f * s, 200.0f * s};
-        SDL_RenderCopyExF(k.r.sdl(), g.get(), nullptr, &dst, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
+        SDL_RenderCopyExF(k.r.sdl(), k.r.use(g), nullptr, &dst, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
       }
       if (phase == 3)
         staticNoise(k, ticks / 2 + i * 7, 0.35f, x, y + float(h % 60u), mw, 24.0f); // a tear of interference

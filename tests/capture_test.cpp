@@ -16,9 +16,16 @@
 // SDL_LEGACY_VERSION hint makes both report the old 2.0.x numbering.
 // And render resets (af3): SDL_RENDER_TARGETS_RESET drops the capture's
 // textures, SDL_RENDER_DEVICE_RESET those, the text cache and the alpha
-// grid's texture too, and the game bakes its art and panels again; a frame
-// drawn after either matches one drawn before. Other events do nothing, and
-// a reset with nothing held, or with a capture open, is harmless.
+// grid's texture too; a frame drawn after either matches one drawn before.
+// Other events do nothing, and a reset with nothing held, or with a capture
+// open, is harmless. Which backends keep their SDL_Renderer through a device
+// reset (Direct3D 11 and 12) and which have it made again; recoverRender's
+// order (owners drop, the renderer drops, a new SDL_Renderer, owners bake),
+// also when no renderer can be made. The stale-draw count that catches an
+// owner left out. And the game through both paths on the software renderer
+// (made again on its surface for the recreate path): a level, its pause
+// menu and map, the title, runner select, the runner editor and a cutscene
+// look as before, with no texture from before the reset drawn.
 
 #include "frontend/game.hpp"
 #include "render/renderer.hpp"
@@ -26,10 +33,13 @@
 
 #include <SDL.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace gr;
@@ -546,6 +556,34 @@ Frame resetScene(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
   return present(sdl, surface);
 }
 
+// A software renderer on its own surface that a Recreate can replace, as
+// the window code's remake does: the old one destroyed, a new one made the
+// same way (on the same surface, no logical size).
+struct Screen
+{
+  SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
+  int remade = 0;
+  bool failRemake = false; // remake destroys the old one and makes none
+
+  Screen() = default;
+  Screen(const Screen&) = delete;
+  Screen& operator=(const Screen&) = delete;
+  ~Screen()
+  {
+    if (sdl)
+      SDL_DestroyRenderer(sdl);
+    SDL_FreeSurface(surface);
+  }
+  SDL_Renderer* remake()
+  {
+    SDL_DestroyRenderer(sdl);
+    sdl = failRemake ? nullptr : SDL_CreateSoftwareRenderer(surface);
+    ++remade;
+    return sdl;
+  }
+};
+
 // Renderer::recover: what each reset drops, and that the picture comes back.
 void testRecover(SDL_Renderer* sdl, SDL_Surface* surface)
 {
@@ -574,9 +612,15 @@ void testRecover(SDL_Renderer* sdl, SDL_Surface* surface)
   check(resetScene(r, sdl, surface) == want, "after a device reset the picture is as before");
   check(r.holdsCaptureTextures() && r.holdsGridTexture() && r.textCacheSize() == 1,
     "after a device reset all of it is made again");
+  check(r.staleDraws() == 0, "...and none of it is a texture from before the reset");
+}
 
+// Resets around the read-back fallbacks and an open capture.
+void testRecoverFallbacks(SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  noLogicalSize(sdl);
+  Renderer r(sdl);
   // The read-back fallbacks' textures go too.
-  r.recover(RenderReset::Targets);
   r.refuseCaptures(true);
   r.clear(rgb(0, 0, 0));
   pattern(r);
@@ -598,43 +642,218 @@ void testRecover(SDL_Renderer* sdl, SDL_Surface* surface)
     "a reset ends an open capture unshown, the draws after it reach the screen");
 }
 
-// Game::recoverTextures in a level: a device reset bakes the art again and
-// the frame drawn after it is the frame drawn before; a targets reset and
-// no reset leave the art and the strings alone.
-void testGameRecovers(SDL_Renderer* sdl, SDL_Surface* surface)
+// The decision the window code takes (resetActionOf): which backends keep
+// their SDL_Renderer through a device reset.
+void testResetActions()
 {
-  noLogicalSize(sdl);
+  SDL_Event ev{};
+  ev.type = SDL_RENDER_DEVICE_RESET;
+  check(resetActionOf(ev, "direct3d11") == ResetAction::InPlace &&
+      resetActionOf(ev, "direct3d12") == ResetAction::InPlace,
+    "Direct3D 11 and 12 survive a device reset: the textures are made again in place");
+  bool lost = true;
+  for (const char* backend : {"opengles2", "opengl", "opengles", "direct3d", "metal", "software", ""})
+    lost = lost && resetActionOf(ev, backend) == ResetAction::Recreate && !deviceSurvivesReset(backend);
+  check(lost, "OpenGL ES 2 (Android) and every other backend: the renderer is made again");
+  ev.type = SDL_RENDER_TARGETS_RESET;
+  check(resetActionOf(ev, "direct3d") == ResetAction::Targets && resetActionOf(ev, "opengles2") == ResetAction::Targets,
+    "a targets reset drops the targets on every backend");
+  ev.type = SDL_WINDOWEVENT;
+  check(resetActionOf(ev, "opengles2") == ResetAction::None, "other events are no reset on any backend");
+}
+
+// The stale-draw count that catches a texture owner left out of a recovery.
+void testStaleDraws(SDL_Renderer* sdl)
+{
+  Renderer r(sdl);
+  const Uint32 white = 0xFFFFFFFFu;
+  const auto pixel = [&r, &white] {
+    return r.createTexture(1, 1, reinterpret_cast<const unsigned char*>(&white), 4, 0.0f, 0.0f);
+  };
+  Texture kept = pixel();
+  const std::uint32_t gen = r.generation();
+  r.draw(kept, 10.0f, 10.0f);
+  r.recover(RenderReset::Targets);
+  r.draw(kept, 10.0f, 10.0f);
+  check(kept.generation() == gen && r.generation() == gen && r.staleDraws() == 0,
+    "a texture of the current generation is no stale draw, also after a targets reset");
+  r.recover(RenderReset::Device);
+  check(r.generation() == gen + 1, "a device reset starts a new generation");
+  // An owner that forgot to drop it: every kind of draw counts, culled too.
+  r.draw(kept, 10.0f, 10.0f);
+  r.draw(kept, -500.0f, -500.0f);
+  r.drawFadedOval(kept, 0.0f, 0.0f, 20.0f, 20.0f, 0.5f);
+  check(r.use(kept) == kept.get(), "use hands over the texture's handle");
+  check(r.staleDraws() == 4, "draws of a texture from before a device reset are counted");
+  Texture fresh = pixel();
+  r.draw(fresh, 10.0f, 10.0f);
+  r.draw(Texture(), 10.0f, 10.0f);
+  check(fresh.generation() == gen + 1 && r.staleDraws() == 4, "one made after it, or none at all, is not");
+  Texture moved = std::move(kept);
+  r.draw(moved, 10.0f, 10.0f);
+  check(r.staleDraws() == 5, "a moved texture keeps its generation");
+}
+
+// recoverRender's order: the owners drop while the renderer still holds its
+// own textures and the old SDL_Renderer lives, the renderer drops its own,
+// the SDL_Renderer is made again (Recreate only), the owners bake again.
+void testRecoverOrder()
+{
+  Screen s;
+  Renderer r(s.sdl);
+  std::vector<std::string> steps;
+  const Uint32 white = 0xFFFFFFFFu;
+  Texture owned;
+  const TextureOwners owners{
+    [&] {
+      steps.push_back(r.textCacheSize() > 0 && r.holdsGridTexture() ? "drop" : "drop late");
+      owned = Texture();
+    },
+    [&] {
+      steps.push_back(r.textCacheSize() == 0 && !r.holdsGridTexture() ? "rebake" : "rebake early");
+      owned = r.createTexture(1, 1, reinterpret_cast<const unsigned char*>(&white), 4, 0.0f, 0.0f);
+    }};
+  const auto remake = [&] {
+    steps.push_back(owned ? "remake early" : "remake");
+    return s.remake();
+  };
+  using Steps = std::vector<std::string>;
+  const Frame want = resetScene(r, s.sdl, s.surface);
+  check(recoverRender(r, ResetAction::Recreate, owners, remake) && steps == Steps{"drop", "remake", "rebake"},
+    "Recreate: the owners drop, then the renderer its own, the renderer is made again, the owners bake");
+  check(r.sdl() == s.sdl && s.remade == 1 && owned && owned.generation() == r.generation(),
+    "...the renderer draws with the new SDL_Renderer, the owner's texture made with it");
+  check(resetScene(r, s.sdl, s.surface) == want, "with a new SDL_Renderer the picture is as before");
+  steps.clear();
+  check(recoverRender(r, ResetAction::InPlace, owners, remake) && steps == Steps{"drop", "rebake"} && s.remade == 1,
+    "InPlace: the same without a new SDL_Renderer");
+  check(resetScene(r, s.sdl, s.surface) == want, "...the picture again as before");
+  steps.clear();
+  check(recoverRender(r, ResetAction::Targets, owners, remake) && recoverRender(r, ResetAction::None, owners, remake) &&
+      steps.empty() && r.textCacheSize() == 1 && !r.holdsCaptureTextures(),
+    "Targets drops the capture's textures only, None nothing; the owners keep theirs");
+  check(!recoverRender(r, ResetAction::Recreate, owners, nullptr) && r.sdl() == s.sdl && owned,
+    "Recreate without a way to make a renderer fails, the renderer kept, the owners baked");
+  steps.clear();
+  resetScene(r, s.sdl, s.surface);
+  s.failRemake = true;
+  check(!recoverRender(r, ResetAction::Recreate, owners, remake) && r.sdl() == nullptr && !owned &&
+      steps == Steps{"drop", "remake", "rebake"},
+    "a renderer that cannot be made again fails, the owners baked all the same (empty)");
+}
+
+// One screen of the game across both kinds of device reset: drawn twice the
+// same, then after the textures were made again in place and after the
+// renderer itself was made again, the same picture with no texture from
+// before the reset drawn.
+void checkRecovers(Game& g, Renderer& r, Screen& s, const std::string& what)
+{
+  g.render();
+  const Frame before = present(r.sdl(), s.surface);
+  g.render();
+  check(present(r.sdl(), s.surface) == before, (what + ": drawn twice is the same frame").c_str());
+  const TextureOwners owners{[&g] { g.dropTextures(); }, [&g] { g.rebakeTextures(); }};
+  const auto remake = [&s] { return s.remake(); };
+  for (const ResetAction action : {ResetAction::InPlace, ResetAction::Recreate})
+  {
+    const char* how = action == ResetAction::InPlace ? "in place" : "with a new renderer";
+    const std::size_t stale = r.staleDraws();
+    recoverRender(r, action, owners, remake);
+    g.render();
+    const Frame after = present(r.sdl(), s.surface);
+    check(r.staleDraws() == stale, (what + " (" + how + "): no texture from before the reset is drawn").c_str());
+    check(g.art().vignette.generation() == r.generation(), (what + " (" + how + "): the art is baked again").c_str());
+    check(after == before, (what + " (" + how + "): it looks as before").c_str());
+    // A stale texture would be a freed one with a new renderer.
+    if (r.staleDraws() != stale)
+      return;
+  }
+}
+
+GameOptions resetOptions(const std::string& saves)
+{
+  GameOptions o;
+  o.saveDir = saves;
+  o.noCutscenes = true;
+  return o;
+}
+
+// A level, its pause menu and its map, a recovery on each.
+void testLevelRecovers(Screen& s, Renderer& r, const std::string& saves)
+{
+  GameOptions o = resetOptions(saves);
+  o.skipMenu = true;
+  o.startLevel = 1;
+  Game g(o, r, nullptr);
+  for (int i = 0; i < 90; ++i)
+    g.tick(Input{});
+  check(g.world() != nullptr && g.inLevel(), "a level is being played");
+  checkRecovers(g, r, s, "a level");
+  g.pauseLevel();
+  check(!g.inLevel(), "the pause menu is open");
+  checkRecovers(g, r, s, "the pause menu");
+  Input key;
+  key.pause = true;
+  g.tick(key);
+  g.tick(Input{});
+  key = Input{};
+  key.map = true;
+  g.tick(key);
+  g.tick(Input{});
+  check(!g.inLevel(), "the map is open");
+  checkRecovers(g, r, s, "the map");
+}
+
+// The title screen, runner select, the runner editor and a cutscene.
+void testMenusRecover(Screen& s, Renderer& r, const std::string& saves)
+{
+  {
+    Game g(resetOptions(saves), r, nullptr);
+    checkRecovers(g, r, s, "the title screen");
+  }
+  {
+    GameOptions o = resetOptions(saves);
+    o.levelPath = std::string(GR_DATA_DIR) + "/levels/01_rooftop_run.txt"; // runner select first
+    Game g(o, r, nullptr);
+    checkRecovers(g, r, s, "runner select");
+    g.render();
+    const Frame cards = present(r.sdl(), s.surface);
+    for (int i = 0; i < 25; ++i)
+      g.tick(Input{});
+    Input key;
+    key.down = true; // EDIT / REMIX under the card
+    g.tick(key);
+    g.tick(Input{});
+    key = Input{};
+    key.confirm = true;
+    g.tick(key);
+    g.tick(Input{});
+    g.render();
+    check(present(r.sdl(), s.surface) != cards, "the runner editor is open");
+    checkRecovers(g, r, s, "the runner editor");
+  }
+  {
+    GameOptions o = resetOptions(saves);
+    o.cutscene = "brief_01";
+    Game g(o, r, nullptr);
+    for (int i = 0; i < 120; ++i)
+      g.tick(Input{});
+    checkRecovers(g, r, s, "a cutscene");
+  }
+}
+
+// Game::dropTextures and rebakeTextures through recoverRender on every kind
+// of screen, with the software renderer taken through both paths.
+void testGameRecovers()
+{
   const std::string saves = "capture_test_saves";
   std::filesystem::remove_all(saves);
   {
-    Renderer r(sdl);
-    GameOptions o;
-    o.saveDir = saves;
-    o.skipMenu = true;
-    o.startLevel = 1;
-    o.noCutscenes = true;
-    Game g(o, r, nullptr);
-    for (int i = 0; i < 90; ++i)
-      g.tick(Input{});
-    g.render();
-    const Frame before = present(sdl, surface);
-    g.render();
-    check(g.world() != nullptr && present(sdl, surface) == before, "a level drawn twice is the same frame");
-    const SDL_Texture* vignette = g.art().vignette.get();
-    const std::size_t strings = r.textCacheSize();
-
-    g.recoverTextures(RenderReset::None);
-    g.recoverTextures(RenderReset::Targets);
-    check(g.art().vignette.get() == vignette && r.textCacheSize() == strings,
-      "a targets reset (or none) leaves the art and the strings alone");
-
-    g.recoverTextures(RenderReset::Device);
-    // Baked while the old textures still lived, so new ones are new handles.
-    check(g.art().vignette.get() != vignette && g.art().vignette, "a device reset bakes the art again");
-    check(r.textCacheSize() == 0, "a device reset empties the text cache");
-    g.render();
-    check(present(sdl, surface) == before, "after a device reset the level looks as before");
-    check(strings > 0 && r.textCacheSize() > 0, "the strings are rasterized again as drawn");
+    Screen s; // outlives the renderer and the games
+    Renderer r(s.sdl);
+    testLevelRecovers(s, r, saves);
+    testMenusRecover(s, r, saves);
+    check(s.remade == 7, "every screen went through a new renderer too");
   }
   std::filesystem::remove_all(saves);
 }
@@ -665,14 +884,15 @@ int main()
   testOddLetterbox(1367, 768, {1, 0, 1365, 768});   // 16/15, side bars of 1 column
   testOddLetterbox(1680, 1049, {0, 52, 1680, 945}); // 1.3125, bars of 52 rows
   testResetEvents();
+  testResetActions();
   {
-    SDL_Surface* resetSurface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
-    SDL_Renderer* resetSdl = SDL_CreateSoftwareRenderer(resetSurface);
-    testRecover(resetSdl, resetSurface);
-    testGameRecovers(resetSdl, resetSurface);
-    SDL_DestroyRenderer(resetSdl);
-    SDL_FreeSurface(resetSurface);
+    Screen s;
+    testRecover(s.sdl, s.surface);
+    testRecoverFallbacks(s.sdl, s.surface);
+    testStaleDraws(s.sdl);
   }
+  testRecoverOrder();
+  testGameRecovers();
   SDL_Quit();
   std::printf(gFailures == 0 ? "all capture tests passed\n" : "%d capture test(s) failed\n", gFailures);
   return gFailures == 0 ? 0 : 1;

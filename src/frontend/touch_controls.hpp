@@ -70,8 +70,11 @@ public:
   // Draws the overlay in the game's 1280x720 logical coordinates.
   void draw(Renderer& renderer) const;
   // Bakes the overlay's textures (again): the constructor does, and the
-  // window code after SDL_RENDER_DEVICE_RESET, which leaves them dead.
+  // window code after a device reset, which leaves them dead. dropTextures
+  // lets go of them first, while the SDL_Renderer that made them still
+  // exists (recoverRender); nothing may draw the overlay in between.
   void bakeTextures(Renderer& renderer);
+  void dropTextures();
 
   // The thumbs scheme (see above) or the Jump and Fire buttons.
   void setThumbs(bool on) { mThumbs = on; }

@@ -1,6 +1,8 @@
 // Drives the on-screen gamepad with fingers at known spots and checks the
-// Input it produces, in both layouts and at every size. And its textures
-// baked again (after SDL_RENDER_DEVICE_RESET) draw it as before.
+// Input it produces, in both layouts and at every size. And after
+// SDL_RENDER_DEVICE_RESET (recoverRender, in place and with a new renderer)
+// its textures made again draw it as before, aim arrows included, none from
+// before the reset; left out of the recovery, it is caught drawing those.
 
 #include "frontend/touch_controls.hpp"
 #include "render/renderer.hpp"
@@ -8,6 +10,7 @@
 #include <SDL.h>
 
 #include <cstdio>
+#include <initializer_list>
 #include <vector>
 
 using namespace gr;
@@ -541,7 +544,20 @@ void visibility(Renderer& r)
   check(t.visible(), "Android's back key keeps it");
 }
 
-// Both layouts drawn, the surface's pixels once they reach it.
+// The surface's pixels once the draws reach it, added to px.
+void grabPixels(Renderer& r, SDL_Surface* surface, std::vector<Uint32>& px)
+{
+  SDL_RenderPresent(r.sdl());
+  for (int y = 0; y < surface->h; ++y)
+  {
+    const auto* bytes = static_cast<const unsigned char*>(surface->pixels) + y * surface->pitch;
+    const auto* row = reinterpret_cast<const Uint32*>(bytes);
+    px.insert(px.end(), row, row + surface->w);
+  }
+}
+
+// Both layouts drawn, then in a level a shooting thumb aimed up, down to the
+// left and down to the right, which shows all four aim arrows.
 std::vector<Uint32> overlayPixels(TouchControls& t, Renderer& r, SDL_Surface* surface)
 {
   std::vector<Uint32> px;
@@ -550,29 +566,68 @@ std::vector<Uint32> overlayPixels(TouchControls& t, Renderer& r, SDL_Surface* su
     t.configure(l, 1);
     r.clear(rgb(0, 0, 0));
     t.draw(r);
-    SDL_RenderPresent(r.sdl());
-    for (int y = 0; y < surface->h; ++y)
-    {
-      const auto* bytes = static_cast<const unsigned char*>(surface->pixels) + y * surface->pitch;
-      const auto* row = reinterpret_cast<const Uint32*>(bytes);
-      px.insert(px.end(), row, row + surface->w);
-    }
+    grabPixels(r, surface, px);
+  }
+  t.setRunner(640.0f, 400.0f, true);
+  Uint32 ms = 0;
+  for (const SDL_FPoint at : {SDL_FPoint{640.0f, 150.0f}, SDL_FPoint{560.0f, 690.0f}, SDL_FPoint{800.0f, 660.0f}})
+  {
+    t.touch(1, at.x, at.y, ms);
+    t.advance(ms + 60);
+    t.read();
+    r.clear(rgb(0, 0, 0));
+    t.draw(r);
+    grabPixels(r, surface, px);
+    t.release(1);
+    t.read();
+    ms += 1000;
   }
   return px;
 }
 
-// bakeTextures (the window code's answer to SDL_RENDER_DEVICE_RESET) makes
-// the overlay's textures again, and it looks as it did.
-void rebaked(Renderer& r, SDL_Surface* surface)
+// recoverRender with the overlay (the window code's answer to
+// SDL_RENDER_DEVICE_RESET): its textures made again in place, and with a
+// new SDL_Renderer (on the same surface, as the window code makes one
+// again), draw it as before, none of them from before the reset. Left out
+// of a recovery, it is caught drawing textures from before it.
+void rebaked()
 {
-  TouchControls t(r, true);
-  const std::vector<Uint32> before = overlayPixels(t, r, surface);
-  t.bakeTextures(r);
-  const std::vector<Uint32> after = overlayPixels(t, r, surface);
-  bool lit = false;
-  for (Uint32 p : before)
-    lit = lit || (p & 0xFFFFFFu) != 0;
-  check(lit && after == before, "the overlay baked again draws as before");
+  SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
+  {
+    Renderer r(sdl);
+    TouchControls t(r, true);
+    overlayPixels(t, r, surface); // the first touch in a level hides its hint for good
+    const std::vector<Uint32> before = overlayPixels(t, r, surface);
+    bool lit = false;
+    for (Uint32 p : before)
+      lit = lit || (p & 0xFFFFFFu) != 0;
+    check(lit && overlayPixels(t, r, surface) == before, "the overlay draws the same twice");
+
+    recoverRender(r, ResetAction::InPlace, TextureOwners{}, nullptr);
+    overlayPixels(t, r, surface);
+    check(r.staleDraws() > 0, "an overlay left out of a recovery draws textures from before it");
+
+    const TextureOwners owners{[&t] { t.dropTextures(); }, [&t, &r] { t.bakeTextures(r); }};
+    const auto remake = [&sdl, surface] {
+      SDL_DestroyRenderer(sdl);
+      sdl = SDL_CreateSoftwareRenderer(surface);
+      return sdl;
+    };
+    for (const ResetAction action : {ResetAction::InPlace, ResetAction::Recreate})
+    {
+      const std::size_t stale = r.staleDraws();
+      recoverRender(r, action, owners, remake);
+      const std::vector<Uint32> after = overlayPixels(t, r, surface);
+      const bool inPlace = action == ResetAction::InPlace;
+      check(r.staleDraws() == stale && r.sdl() == sdl,
+        inPlace ? "made again in place, no texture from before is drawn" : "...and with a new renderer");
+      check(after == before,
+        inPlace ? "the overlay made again in place draws as before" : "...and with a new renderer");
+    }
+  }
+  SDL_DestroyRenderer(sdl);
+  SDL_FreeSurface(surface);
 }
 
 } // namespace
@@ -594,7 +649,6 @@ int main()
     thumbs(r);
     tapToAim(r);
     visibility(r);
-    rebaked(r, surface);
     // Drawing both layouts at every size must not trip anything.
     TouchControls t(r, true);
     t.touch(1, 300.0f, 500.0f);
@@ -607,6 +661,7 @@ int main()
   }
   SDL_DestroyRenderer(sdl);
   SDL_FreeSurface(surface);
+  rebaked();
   SDL_Quit();
   std::printf("%s\n", gFailures ? "FAILED" : "all passed");
   return gFailures ? 1 : 0;

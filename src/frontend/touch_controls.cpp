@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <initializer_list>
 #include <tuple>
 
 namespace gr
@@ -278,6 +279,16 @@ void TouchControls::bakeTextures(Renderer& renderer)
       setColor(cr, kPink);
       triangle(cr, c, c, r * 0.9, a);
     });
+}
+
+void TouchControls::dropTextures()
+{
+  for (Texture* t : {&mStick, &mDpad, &mNub, &mOk, &mBack, &mPadIcon})
+    *t = Texture();
+  for (Texture& t : mPlayIcons)
+    t = Texture();
+  for (Texture& t : mAimArrows)
+    t = Texture();
 }
 
 void TouchControls::configure(Layout layout, int size)

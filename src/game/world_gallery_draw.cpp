@@ -292,7 +292,7 @@ void snow(Renderer& r, const Art& art, float x, float y, float w, float h, int s
   SDL_SetTextureBlendMode(t.get(), SDL_BLENDMODE_BLEND);
   SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)));
   SDL_SetTextureColorMod(t.get(), Uint8(redOf(tint)), Uint8(greenOf(tint)), Uint8(blueOf(tint)));
-  SDL_RenderCopyF(r.sdl(), t.get(), &src, &dst);
+  SDL_RenderCopyF(r.sdl(), r.use(t), &src, &dst);
   SDL_SetTextureColorMod(t.get(), 255, 255, 255);
   SDL_SetTextureAlphaMod(t.get(), 255);
 }

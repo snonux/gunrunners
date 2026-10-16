@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 
 namespace gr
 {
@@ -158,23 +159,29 @@ void Game::useTheme(int index)
   buildPanels();
 }
 
-void Game::recoverTextures(RenderReset lost)
+void Game::dropTextures()
 {
-  mRenderer.recover(lost);
-  if (lost != RenderReset::Device)
-    return;
-  // Every texture is dead. The art is baked again in place, as on a theme
-  // switch: worlds, the cutscene's clip kit and the runner editor keep
-  // their references to it. Its lazily baked runners and styled enemies
-  // start over empty and are baked again as they are drawn.
+  // Emptied in place: worlds, the clip kit and the runner editor keep their
+  // references to the art. Its lazily baked runners and styled enemies go
+  // with it.
+  if (mArt)
+    *mArt = Art();
+  dropPanels();
+  freeMap(); // an open map bakes itself again on its next render
+  if (mClipKit)
+    mClipKit->cache.clear(); // the clips bake theirs again on first use
+  if (mEditor)
+    mEditor->dropTextures();
+}
+
+void Game::rebakeTextures()
+{
+  // In place, as on a theme switch.
   if (mArt)
     *mArt = Art::build(mLook, mRenderer);
   else
     mArt = std::make_unique<Art>(Art::build(mLook, mRenderer));
   buildPanels();
-  freeMap(); // an open map bakes itself again on its next render
-  if (mClipKit)
-    mClipKit->cache.clear(); // the clips bake theirs again on first use
   if (mEditor)
     mEditor->bakeTextures();
 }
@@ -570,6 +577,13 @@ void Game::buildPanels()
   mSlotPanel = makePanel(mRenderer, 1000, 520, rgba(8, 6, 22, 235), t.accentA, 26);
   mLoadButton = makePanel(mRenderer, 220, 46, rgba(10, 8, 26, 170), rgba(255, 255, 255, 80), 14);
   mLoadButtonFocus = makePanel(mRenderer, 220, 46, rgba(14, 10, 34, 225), t.accentA, 14);
+}
+
+void Game::dropPanels()
+{
+  for (Texture* t : {&mCardPanel, &mCardPanelSelected, &mActionButton, &mActionButtonFocus, &mBannerPanel,
+         &mBonusPanel, &mMenuPanel, &mSlotPanel, &mLoadButton, &mLoadButtonFocus})
+    *t = Texture();
 }
 
 float Game::renderAlpha() const

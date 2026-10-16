@@ -83,13 +83,17 @@ public:
   }
   void render();
   void cycleTheme();
-  // After an SDL render reset event (renderResetOf): the renderer drops
-  // what it lost (Renderer::recover), and on a Device reset, which leaves
-  // every texture dead, the art, the menu panels, the map's textures, the
-  // cutscene clips' and the runner editor's are made again (some at once,
-  // some as they are next drawn). The window code feeds the event through
-  // here, and bakes its touch controls again itself. None does nothing.
-  void recoverTextures(RenderReset lost);
+  // A device reset (recoverRender) leaves every texture dead. dropTextures
+  // lets go of the game's, in this order: the art (emptied in place, as
+  // worlds, the cutscene's clip kit and the runner editor keep references to
+  // it), the menu panels, the map's textures, the cutscene clips' cache and
+  // the runner editor's. Nothing may draw until rebakeTextures, which bakes
+  // the art, the panels and the editor's panels again; the map, the clips
+  // and the art's lazily baked runners and styled enemies are baked again
+  // as they are next drawn. The window code runs both through
+  // recoverRender, around its touch controls' and the renderer's own.
+  void dropTextures();
+  void rebakeTextures();
 
   // For the on-screen gamepad: a level is being played (its layout) rather
   // than a menu, cutscene or tally, and the TOUCH PAD size setting.
@@ -284,6 +288,7 @@ private:
   void renderCloud();
   float renderAlpha() const;
   void buildPanels();
+  void dropPanels(); // every texture buildPanels makes
   void sound(Sfx s);
 
   // taps.cpp: what the last frame drew that a tap can hit, newest on top.

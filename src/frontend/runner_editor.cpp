@@ -68,6 +68,15 @@ void RunnerEditor::bakeTextures()
   mPreviewKey.clear();
 }
 
+void RunnerEditor::dropTextures()
+{
+  mPanel = Texture();
+  mListPanel = Texture();
+  mKeysPanel = Texture();
+  mPreview.clear();
+  mPreviewKey.clear();
+}
+
 CharacterDef RunnerEditor::runner() const
 {
   CharacterDef d = makeCustomRunner(mId, mName, mParts, mGun, mPips[0], mPips[1], mPips[2]);

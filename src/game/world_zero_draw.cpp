@@ -222,7 +222,7 @@ void stretch(Renderer& r, const Texture& t, float x, float y, float w, float h, 
   SDL_SetTextureBlendMode(t.get(), SDL_BLENDMODE_BLEND);
   SDL_SetTextureAlphaMod(t.get(), Uint8(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)));
   SDL_SetTextureColorMod(t.get(), Uint8(redOf(tint)), Uint8(greenOf(tint)), Uint8(blueOf(tint)));
-  SDL_RenderCopyF(r.sdl(), t.get(), nullptr, &dst);
+  SDL_RenderCopyF(r.sdl(), r.use(t), nullptr, &dst);
 }
 
 // --- Painters ----------------------------------------------------------------------------

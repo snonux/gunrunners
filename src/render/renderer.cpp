@@ -479,8 +479,8 @@ bool sdl2Compat(const SDL_version& version, const char* revision)
 
 } // namespace detail
 
-Texture::Texture(SDL_Texture* tex, int w, int h, float anchorX, float anchorY)
-  : mTex(tex), mW(w), mH(h), mAnchorX(anchorX), mAnchorY(anchorY)
+Texture::Texture(SDL_Texture* tex, int w, int h, float anchorX, float anchorY, std::uint32_t generation)
+  : mTex(tex), mW(w), mH(h), mAnchorX(anchorX), mAnchorY(anchorY), mGeneration(generation)
 {
 }
 
@@ -491,7 +491,7 @@ Texture::~Texture()
 }
 
 Texture::Texture(Texture&& o) noexcept
-  : mTex(o.mTex), mW(o.mW), mH(o.mH), mAnchorX(o.mAnchorX), mAnchorY(o.mAnchorY)
+  : mTex(o.mTex), mW(o.mW), mH(o.mH), mAnchorX(o.mAnchorX), mAnchorY(o.mAnchorY), mGeneration(o.mGeneration)
 {
   o.mTex = nullptr;
 }
@@ -507,6 +507,7 @@ Texture& Texture::operator=(Texture&& o) noexcept
     mH = o.mH;
     mAnchorX = o.mAnchorX;
     mAnchorY = o.mAnchorY;
+    mGeneration = o.mGeneration;
     o.mTex = nullptr;
   }
   return *this;
@@ -547,7 +548,7 @@ Texture Renderer::createTexture(
     mRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
   SDL_UpdateTexture(tex, nullptr, px.data(), w * 4);
   SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
-  return Texture(tex, w, h, mirrorX ? float(w) - anchorX : anchorX, anchorY);
+  return Texture(tex, w, h, mirrorX ? float(w) - anchorX : anchorX, anchorY, mGeneration);
 }
 
 void Renderer::drawAlphaGrid(const std::vector<float>& alpha, int cols, int rows, float x, float y, float cellW,
@@ -639,6 +640,7 @@ void Renderer::drawRegion(const Texture& t, float x, float y, int srcW, const Dr
 {
   if (!t || srcW <= 0)
     return;
+  noteDraw(t); // culled or not: a stale texture is a forgotten owner either way
   srcW = std::min(srcW, t.w());
   // The whole texture copies with no source rect, as it always did.
   const SDL_Rect part{0, 0, srcW, t.h()};
@@ -707,6 +709,7 @@ void Renderer::drawFadedOval(const Texture& t, float x, float y, float w, float 
 {
   if (!t || w <= 0.0f || h <= 0.0f)
     return;
+  noteDraw(t);
   SDL_SetTextureBlendMode(t.get(), SDL_BLENDMODE_BLEND);
 #if SDL_VERSION_ATLEAST(2, 0, 18)
   const OvalVertices v = ovalVertices(x, y, w, h, solid);
@@ -729,7 +732,7 @@ bool Renderer::textureOfSize(Texture& t, SDL_TextureAccess access, int w, int h)
   SDL_Texture* tex = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_ARGB8888, access, w, h);
   if (!tex)
     return false;
-  t = Texture(tex, w, h, 0.0f, 0.0f);
+  t = Texture(tex, w, h, 0.0f, 0.0f, mGeneration);
   return true;
 }
 
@@ -886,25 +889,84 @@ RenderReset renderResetOf(const SDL_Event& ev)
   return RenderReset::None;
 }
 
-void Renderer::recover(RenderReset lost)
+bool deviceSurvivesReset(const std::string& backend)
 {
-  if (lost == RenderReset::None)
-    return;
-  // Targets: the capture's targets came back empty, which costs nothing (a
-  // capture clears its target and draws the picture anew every frame), but
-  // they are dropped and made again all the same, in case SDL could not
-  // remake one. The read-back fallbacks' streaming textures go with them;
-  // they are refilled on every use.
+  // Both recreate their device inside the SDL_Renderer before sending the
+  // event (D3D11_HandleDeviceLost, D3D12_HandleDeviceLost).
+  return backend == "direct3d11" || backend == "direct3d12";
+}
+
+ResetAction resetActionOf(const SDL_Event& ev, const std::string& backend)
+{
+  switch (renderResetOf(ev))
+  {
+    case RenderReset::None:
+      return ResetAction::None;
+    case RenderReset::Targets:
+      return ResetAction::Targets;
+    case RenderReset::Device:
+      return deviceSurvivesReset(backend) ? ResetAction::InPlace : ResetAction::Recreate;
+  }
+  return ResetAction::None;
+}
+
+std::string Renderer::backend() const
+{
+  SDL_RendererInfo info{};
+  if (!mRenderer || SDL_GetRendererInfo(mRenderer, &info) != 0 || !info.name)
+    return {};
+  return info.name;
+}
+
+void Renderer::dropTextures()
+{
   dropCaptureTextures();
-  if (lost != RenderReset::Device)
-    return;
-  // Every texture is dead: the strings are rasterized again when next
-  // drawn, the alpha grid's texture made again at the next drawAlphaGrid.
   mTextCache.clear();
   if (mGrid)
     SDL_DestroyTexture(mGrid);
   mGrid = nullptr;
   mGridW = mGridH = 0;
+  ++mGeneration;
+}
+
+void Renderer::recover(RenderReset lost)
+{
+  // Targets: the capture's targets came back empty, which costs nothing (a
+  // capture clears its target and draws the picture anew every frame), but
+  // they are dropped and made again all the same, in case SDL could not
+  // remake one. The read-back fallbacks' streaming textures go with them;
+  // they are refilled on every use.
+  if (lost == RenderReset::Targets)
+    dropCaptureTextures();
+  else if (lost == RenderReset::Device)
+    dropTextures();
+}
+
+bool recoverRender(Renderer& r, ResetAction action, const TextureOwners& owners,
+  const std::function<SDL_Renderer*()>& remake)
+{
+  if (action == ResetAction::None)
+    return true;
+  if (action == ResetAction::Targets)
+  {
+    r.recover(RenderReset::Targets);
+    return true;
+  }
+  // Every texture let go while the SDL_Renderer that made it still exists.
+  if (owners.drop)
+    owners.drop();
+  r.dropTextures();
+  bool ok = true;
+  if (action == ResetAction::Recreate)
+  {
+    SDL_Renderer* fresh = remake ? remake() : nullptr;
+    ok = fresh != nullptr;
+    if (remake)
+      r.rebind(fresh);
+  }
+  if (owners.rebake)
+    owners.rebake();
+  return ok;
 }
 
 bool Renderer::drawLens(const SDL_FRect& piece, const SDL_FRect& dst, float solid)
