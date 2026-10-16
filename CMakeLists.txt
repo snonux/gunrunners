@@ -336,6 +336,12 @@ add_test(NAME site_links_self_test COMMAND bash ${CMAKE_SOURCE_DIR}/tests/site/l
 add_executable(savegame_test tests/savegame_test.cpp)
 target_link_libraries(savegame_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.txt)
+# A refused load (the save does not fit, its level is gone), by F9 or from the
+# slots, in a level, in its bonus level or on the title, leaves the running
+# level (and the one parked behind a bonus), its number and HARD as they were.
+add_executable(refused_load_test tests/refused_load_test.cpp)
+target_link_libraries(refused_load_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME refused_load COMMAND refused_load_test)
 add_executable(s3_test tests/s3_test.cpp)
 target_link_libraries(s3_test PRIVATE gunrunners_core)
 add_test(NAME s3 COMMAND s3_test)

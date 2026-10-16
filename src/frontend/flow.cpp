@@ -430,22 +430,34 @@ void Game::renderCloud()
 
 // --- Levels ------------------------------------------------------------------
 
-bool Game::loadLevel(const std::string& path)
+std::shared_ptr<const Level> Game::readLevelFile(const std::string& file, bool hard)
 {
-  const std::string full = path.empty() || path[0] == '/' ? path : dataDir() + "/" + path;
   try
   {
-    Level level = Level::loadFile(full);
-    if (mHard)
+    Level level = Level::loadFile(file);
+    if (hard)
       addHardModeEnemies(level);
-    mLevel = std::make_shared<const Level>(std::move(level));
+    return std::make_shared<const Level>(std::move(level));
   }
   catch (const std::exception& e)
   {
-    std::fprintf(stderr, "cannot load %s: %s\n", full.c_str(), e.what());
+    std::fprintf(stderr, "cannot load %s: %s\n", file.c_str(), e.what());
     notice("THAT LEVEL WOULD NOT LOAD");
-    return false;
+    return nullptr;
   }
+}
+
+std::shared_ptr<const Level> Game::readLevel(const std::string& path, bool hard)
+{
+  return readLevelFile(path.empty() || path[0] == '/' ? path : dataDir() + "/" + path, hard);
+}
+
+bool Game::loadLevel(const std::string& path)
+{
+  auto level = readLevel(path, mHard);
+  if (!level)
+    return false;
+  mLevel = std::move(level);
   mLevelPath = path;
   return true;
 }
@@ -955,51 +967,48 @@ void Game::tickList(const Input& in)
       setMode(Mode::Select);
       break;
     case ListKind::BonusChannel:
-    {
-      const int lv = std::atoi(id.c_str());
-      const std::string path = bonusFile(dataDir(), lv);
-      mLevelNumber = lv;
-      try
-      {
-        mLevel = std::make_shared<const Level>(Level::loadFile(path));
-      }
-      catch (const std::exception&)
-      {
-        notice("THAT CHANNEL IS OFF THE AIR");
-        return;
-      }
-      applyLevelLook(episodeOfLevel(lv), mLevel->themeKey);
-      mBonusOnly = true;
-      playCutscenes({"sting_break"}, After::EnterBonus);
+      playBonusChannel(std::atoi(id.c_str()));
       break;
-    }
     case ListKind::Reruns:
       playCutscenes({id}, After::List);
       break;
     case ListKind::Extras:
-    {
-      // Played like a bonus level from the Bonus Channel: on its own, and
-      // back to this list after.
-      const std::string path = extraFile(dataDir(), std::atoi(id.c_str()));
-      try
-      {
-        Level level = Level::loadFile(path);
-        if (mHard)
-          addHardModeEnemies(level); // the difficulty last picked on runner select
-        mLevel = std::make_shared<const Level>(std::move(level));
-      }
-      catch (const std::exception&)
-      {
-        notice("THAT LEVEL WOULD NOT LOAD");
-        return;
-      }
-      mLevelNumber = 0;
-      applyLevelLook(0, mLevel->themeKey);
-      mBonusOnly = true;
-      playCutscenes({}, After::EnterBonus);
+      playExtra(std::atoi(id.c_str()));
       break;
-    }
   }
+}
+
+void Game::playBonusChannel(int level)
+{
+  const std::string path = bonusFile(dataDir(), level);
+  mLevelNumber = level;
+  try
+  {
+    mLevel = std::make_shared<const Level>(Level::loadFile(path));
+  }
+  catch (const std::exception&)
+  {
+    notice("THAT CHANNEL IS OFF THE AIR");
+    return;
+  }
+  applyLevelLook(episodeOfLevel(level), mLevel->themeKey);
+  mBonusOnly = true;
+  playCutscenes({"sting_break"}, After::EnterBonus);
+}
+
+void Game::playExtra(int index)
+{
+  // readLevelFile, not readLevel: extraFile's path already starts with the
+  // data dir, which can be relative (".."). HARD is the current setting
+  // (runner select's toggle, --hard, or the difficulty a loaded save brought).
+  auto level = readLevelFile(extraFile(dataDir(), index), mHard);
+  if (!level)
+    return;
+  mLevel = std::move(level);
+  mLevelNumber = 0;
+  applyLevelLook(0, mLevel->themeKey);
+  mBonusOnly = true;
+  playCutscenes({}, After::EnterBonus);
 }
 
 void Game::renderList()

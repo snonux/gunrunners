@@ -196,6 +196,15 @@ private:
   void renderTitle();
   std::vector<std::string> titleItems() const;
   void beginCampaignLevel(int number, bool fromNewGame);
+  // A level file, with the HARD enemies when hard is set. It only reads
+  // (mLevel stays), so a save being loaded can try its level aside. nullptr,
+  // after a notice, if it won't load. readLevelFile takes the file as it is
+  // (one that already has the data dir in front); readLevel's path is
+  // relative to the data dir unless absolute.
+  std::shared_ptr<const Level> readLevelFile(const std::string& file, bool hard);
+  std::shared_ptr<const Level> readLevel(const std::string& path, bool hard);
+  // readLevel at the HARD setting, made the level being played (mLevel,
+  // mLevelPath); false, with the old level kept, if it won't load.
   bool loadLevel(const std::string& path);
   void applyLevelLook(int episode, const std::string& themeKey);
   void playLevelMusic();
@@ -220,6 +229,10 @@ private:
   // Why a WORLD SELECT card is shut, empty when it is open.
   std::string worldLock(int card) const;
   void tickList(const Input& in);
+  // From the lists, played on their own and back to the list after: a
+  // level's bonus level (the Bonus Channel) and an EXTRAS level.
+  void playBonusChannel(int level);
+  void playExtra(int index);
   void renderList();
   void renderContinued();
   void tickCloud(const Input& in);
@@ -269,7 +282,19 @@ private:
   void beginCloudRefresh();
   void queueCloudUpload(const std::string& path);
   void pollCloud();
+  // Builds the save's world aside and swaps it in only once it fits; a
+  // refused save (another level, a level that won't load, one that does
+  // not fit) leaves the run in progress, its level and HARD as they were.
   bool loadSave(SaveGame s, const std::string& message);
+  // The world a save restores into, built on level apart from the run in
+  // progress; nullptr, after the refusal's notice, if the save is from
+  // another level or does not fit it.
+  std::unique_ptr<World> restoreAside(const SaveGame& s, const std::shared_ptr<const Level>& level);
+  // The save fit: its restored world replaces the run in progress, in the
+  // save's look (theme index). It ends a bonus level: the world and level
+  // parked behind one go, and so does a Bonus Channel or EXTRAS run.
+  // mLevel must already be the world's level: the voices and music read it.
+  void startLoadedWorld(std::unique_ptr<World> world, int themeIndex, const std::string& message);
   void switchRunner(int index);
   void switchRandomRunner(); // any runner but the current one
   void setTheme(int index);

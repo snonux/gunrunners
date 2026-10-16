@@ -411,50 +411,76 @@ bool Game::quickLoad()
 
 bool Game::loadSave(SaveGame s, const std::string& message)
 {
-  // A copy: loading a level refreshes mSlots, which may hold the original.
+  // A copy, to be safe: the caller's save may be one of mSlots. Nothing in
+  // here refreshes them (only opening the slot menu and pollCloud do).
   // A save of the level being played keeps the runner it started with (for
   // SWAP RUNNER ON DEATH's start over); one from elsewhere starts with its own.
   const bool sameLevel = mMode == Mode::Play && mWorld && !mMainWorld && mLevel && mLevel->name == s.levelName;
-  // A save brings its difficulty: the level reloads with (or without) the
-  // HARD enemies, and the levels after it follow.
-  if (campaign())
-    setHard(s.hard);
-  if (campaign() && !s.levelFile.empty() && (!mLevel || s.levelFile != mLevelPath || mLevel->hard != s.hard))
+  // Campaign saves bring their level along, with (or without) the HARD
+  // enemies they were played with: it is read again unless it is the one
+  // loaded, at the same difficulty. It is read aside, and the world is built
+  // aside too: until the save is known to fit, the run in progress (its
+  // world, level, number and file, the HARD setting, the level parked behind
+  // a bonus level) stays as it is, so a refused load carries on with it.
+  const bool rereadLevel = campaign() && !s.levelFile.empty() &&
+    (!mLevel || s.levelFile != mLevelPath || mLevel->hard != s.hard);
+  std::shared_ptr<const Level> level = rereadLevel ? readLevel(s.levelFile, s.hard) : mLevel;
+  if (rereadLevel && !level)
   {
-    // Campaign saves bring their level along.
-    mWorld.reset();
-    mMainWorld.reset();
-    mBonusOnly = false;
-    if (!loadLevel(s.levelFile))
-      return false;
+    sound(Sfx::Hurt); // readLevel said THAT LEVEL WOULD NOT LOAD
+    return false;
+  }
+  auto world = restoreAside(s, level);
+  if (!world)
+    return false;
+  if (rereadLevel)
+  {
+    mLevel = std::move(level);
+    mLevelPath = s.levelFile;
     mLevelNumber = s.levelNumber;
   }
-  if (!mLevel || s.levelName != mLevel->name)
+  // A save brings its difficulty: the levels after it follow.
+  if (campaign())
+    setHard(s.hard);
+  if (!sameLevel)
+    mLevelRunner = world->characterIndex();
+  startLoadedWorld(std::move(world), s.theme, message);
+  return true;
+}
+
+std::unique_ptr<World> Game::restoreAside(const SaveGame& s, const std::shared_ptr<const Level>& level)
+{
+  if (!level || s.levelName != level->name)
   {
     sound(Sfx::Hurt);
     notice("THAT SAVE IS FROM ANOTHER LEVEL");
-    return false;
+    return nullptr;
   }
-  auto world = std::make_unique<World>(mLevel, std::clamp(s.character, 0, characterCount() - 1), theme(), *mArt);
+  auto world = std::make_unique<World>(level, std::clamp(s.character, 0, characterCount() - 1), theme(), *mArt);
   prepareWorld(*world);
   if (!world->restore(s))
   {
-    // The run in progress (if any) carries on.
     sound(Sfx::Hurt);
     notice("THAT SAVE DOES NOT FIT THIS LEVEL");
-    return false;
+    return nullptr;
   }
+  return world;
+}
+
+void Game::startLoadedWorld(std::unique_ptr<World> world, int themeIndex, const std::string& message)
+{
   // The save's look: the art changes in place under the new world.
-  if (s.theme >= 0 && s.theme < themeTotal() && s.theme != mThemeIndex)
-    useTheme(s.theme);
+  if (themeIndex >= 0 && themeIndex < themeTotal() && themeIndex != mThemeIndex)
+    useTheme(themeIndex);
   mWorld = std::move(world);
   mCursor = mWorld->characterIndex();
-  if (!sameLevel)
-    mLevelRunner = mCursor;
   beginVoices();
   mBot = Bot{};
   mSubTick = 0;
+  // A load mid-bonus ends the bonus level: what was parked behind it goes,
+  // and a Bonus Channel or EXTRAS run is over.
   mMainWorld.reset();
+  mMainLevel.reset();
   mBonusOnly = false;
   if (mMode != Mode::Play)
     setMode(Mode::Play);
@@ -462,7 +488,6 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   closeMenu();
   playLevelMusic();
   mWorld->notify(message);
-  return true;
 }
 
 bool Game::tickMenu(const Input& in)
