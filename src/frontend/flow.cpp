@@ -365,6 +365,7 @@ void Game::tickCloud(const Input& in)
     std::string error;
     if (!removeS3Config(saveDir(), &error))
     {
+      std::fprintf(stderr, "could not remove cloud settings: %s\n", error.c_str());
       notice("COULD NOT REMOVE CLOUD SETTINGS");
       return;
     }

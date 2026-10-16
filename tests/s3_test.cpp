@@ -7,6 +7,8 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -391,6 +393,42 @@ void failedSnapshotLeavesNoTemp(const fs::path& dir)
   check(filesStartingWith(dir, "snap.sav.cloud-") == 0,
     "...and neither the download nor a partial snapshot is left");
 }
+
+// A sync that uploads after comparing removes its download before the
+// upload starts, not only when the upload returns (up to a request timeout
+// later), so a kill during the upload leaves one file fewer. The upload's
+// first active check, at s3PutFile's start, is the first one after the
+// snapshot exists: there it counts the downloads left and cancels, so the
+// one-request server is enough.
+void downloadGoneBeforeUpload(const fs::path& dir)
+{
+  SaveGame remote;
+  remote.levelName = "Remote";
+  remote.savedAt = "2026-01-01 10:00";
+  remote.hp = 3;
+  const std::string body = (dir / "remote.body").string();
+  check(writeSave(remote, body), "the cloud's older save is written");
+  const std::string cloudCopy = read(body);
+  fs::remove(body);
+  SaveGame local = remote;
+  local.savedAt = "2026-01-02 10:00";
+  const std::string save = (dir / "up.sav").string();
+  check(writeSave(local, save), "a newer local save, to upload");
+  OneShotServer server(cloudCopy);
+  check(server.port() > 0, "the local server for an upload after a compare listens");
+  int downloadsAtUpload = -1;
+  const S3Active watch{[&dir, &downloadsAtUpload]() {
+    if (filesStartingWith(dir, "up.sav.cloud-upload-") == 0)
+      return true;
+    downloadsAtUpload = filesStartingWith(dir, "up.sav.cloud-incoming-");
+    return false;
+  }, nullptr};
+  std::string error;
+  const S3SyncResult result = syncS3File(localConfig(server.port()), "up.sav", save, &error, watch);
+  check(result == S3SyncResult::Error && downloadsAtUpload == 0,
+    "a sync that uploads after comparing has removed its download when the upload starts");
+  check(filesStartingWith(dir, "up.sav.cloud-") == 0, "...and leaves no file of its own");
+}
 #endif
 
 // A file of name in dir holding text, last written an hour ago when old
@@ -413,6 +451,10 @@ const char* const kLeftovers[] = {
   "slot5.sav.tmp.77.2",
   "cloud.txt.tmp.123.0",
   "cloud.txt.tmp",
+  // The fixed temp names of older builds: a save's write temp and a
+  // download's (s3GetFile wrote through "<path>.s3.tmp").
+  "slot4.sav.tmp",
+  "quick.sav.cloud-incoming-456.s3.tmp",
 };
 
 // Saves, their state, and files merely named like a save or a leftover:
@@ -436,6 +478,13 @@ const char* const kKeepers[] = {
   "cloud.txt.tmp.x.0",
   "cloud.txt.bak",
   "xslot1.sav.cloud-upload-123",
+  "slot1.sav.tmpx",
+  "slot1.sav.s3.tmp",
+  "slot1.sav.cloud-upload-123.s3.tmp",
+  "slot1.sav.cloud-incoming-.s3.tmp",
+  "slot1.sav.cloud-incoming-4x6.s3.tmp",
+  "slot1.sav.cloud-incoming-456.s3.tmp.1",
+  "slot1.sav.cloud-incoming-456.s3",
 };
 
 // The start's sweep: old leftovers go; the saves, cloud.txt, look-alikes, a
@@ -485,21 +534,86 @@ void removeConfigSweepsTemps(const fs::path& dir)
     "...and nothing else");
 }
 
+// Sets the times of the symlink at path itself, not of its target, to an
+// hour ago (older than kCloudLeftoverAge). fs::last_write_time follows
+// symlinks, so this takes utimensat with AT_SYMLINK_NOFOLLOW.
+bool makeLinkOld(const fs::path& path)
+{
+  timespec times[2] = {};
+  times[0].tv_sec = times[1].tv_sec = std::time(nullptr) - 3600;
+  return ::utimensat(AT_FDCWD, path.c_str(), times, AT_SYMLINK_NOFOLLOW) == 0;
+}
+
+// Symlinks named like leftovers, as old as stale ones, are no leftovers:
+// neither sweep removes the link or its target (here a real save), so a
+// planted link cannot make the game delete what it points to.
+void symlinkedLeftoversStay(const fs::path& dir)
+{
+  plant(dir, "slot2.sav", "real slot2\n");
+  const fs::path upload = dir / "slot1.sav.cloud-upload-1";
+  const fs::path temp = dir / "cloud.txt.tmp.1.0";
+  fs::create_symlink("slot2.sav", upload);
+  fs::create_symlink("slot2.sav", temp);
+  check(makeLinkOld(upload) && makeLinkOld(temp), "symlinks named like leftovers are an hour old");
+  check(removeCloudLeftovers(dir.string()) == 0 && removeCloudLeftovers(dir.string(), std::chrono::seconds(0)) == 0,
+    "the start's sweep removes no symlink, however old");
+  std::string error;
+  check(removeS3Config(dir.string(), &error), "turning the cloud off past a symlinked cloud.txt temp works");
+  check(fs::is_symlink(upload) && fs::is_symlink(temp), "...and both symlinks stay");
+  check(read((dir / "slot2.sav").string()) == "real slot2\n", "...and so does their target, the save");
+}
+
+// Turning the cloud off fails, keeping cloud.txt, when a temp of it with
+// the secret may stay behind: the save dir cannot be listed (no read
+// permission, so its temps cannot be found, while cloud.txt itself could
+// still be removed), or a temp cannot be removed (no write permission).
+// Root ignores these permissions, so the test is skipped as root.
+void blockedConfigRemovalFails(const fs::path& dir)
+{
+  if (::geteuid() == 0)
+  {
+    std::puts("skip  blocked cloud config removal (root ignores directory permissions)");
+    return;
+  }
+  check(saveS3Config(dir.string(), configWithSecret("kept")), "a config to fail to remove is saved");
+  plant(dir, "cloud.txt.tmp.1.0", "secret_key=leaked\n");
+  std::string error;
+  fs::permissions(dir, fs::perms::owner_write | fs::perms::owner_exec);
+  const bool unlisted = removeS3Config(dir.string(), &error);
+  fs::permissions(dir, fs::perms::owner_all);
+  check(!unlisted && error.find("cannot list") == 0, "a save dir that cannot be listed fails the removal");
+  check(loadS3Config(dir.string()).secretKey == "kept" && fs::exists(dir / "cloud.txt.tmp.1.0"),
+    "...and cloud.txt stays, as does the temp");
+  error.clear();
+  fs::permissions(dir, fs::perms::owner_read | fs::perms::owner_exec);
+  const bool unremoved = removeS3Config(dir.string(), &error);
+  const int swept = removeCloudLeftovers(dir.string(), std::chrono::seconds(0));
+  fs::permissions(dir, fs::perms::owner_all);
+  check(!unremoved && error.find("cannot remove") == 0, "a temp that cannot be removed fails the removal");
+  check(swept == 0, "...and the start's sweep skips it");
+  check(loadS3Config(dir.string()).secretKey == "kept" && fs::exists(dir / "cloud.txt.tmp.1.0"),
+    "...and cloud.txt stays, as does the temp");
+}
+
 // Leftovers of killed syncs and writes are removed, never anything else;
 // a failed snapshot leaves nothing behind in the first place.
 void leftoverTests()
 {
   const fs::path dir = fs::temp_directory_path() / ("gunrunners_s3_leftover_test_" + std::to_string(::getpid()));
   fs::remove_all(dir);
-  fs::create_directories(dir / "sweep");
-  fs::create_directories(dir / "remove");
+  for (const char* sub : {"sweep", "remove", "symlink", "blocked"})
+    fs::create_directories(dir / sub);
   staleLeftoversRemoved(dir / "sweep");
   removeConfigSweepsTemps(dir / "remove");
+  symlinkedLeftoversStay(dir / "symlink");
+  blockedConfigRemovalFails(dir / "blocked");
 #ifndef GR_NO_CURL
   ::setenv("no_proxy", "127.0.0.1", 1);
   ::setenv("NO_PROXY", "127.0.0.1", 1);
   fs::create_directories(dir / "snapshot");
   failedSnapshotLeavesNoTemp(dir / "snapshot");
+  fs::create_directories(dir / "upload");
+  downloadGoneBeforeUpload(dir / "upload");
 #endif
   fs::remove_all(dir);
 }

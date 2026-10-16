@@ -180,8 +180,9 @@ bool isAtomicTempSuffix(const std::string& rest)
 }
 
 // rest is kind followed by a sync's nonce (a steady clock count; see
-// syncS3File) and, where withTemp, maybe by writeFileAtomic's suffix too:
-// the download goes through it, the upload snapshot (copyFile) does not.
+// syncS3File) and, where withTemp, maybe by the download's write temp
+// suffix too: writeFileAtomic's, or the fixed ".s3.tmp" s3GetFile wrote
+// through in older builds. The upload snapshot (copyFile) has no temp.
 bool isSyncFileSuffix(const std::string& rest, const std::string& kind,
   bool withTemp)
 {
@@ -191,15 +192,23 @@ bool isSyncFileSuffix(const std::string& rest, const std::string& kind,
   const std::size_t end = dot == std::string::npos ? rest.size() : dot;
   if (!digitsOnly(rest, kind.size(), end))
     return false;
-  return end == rest.size() || (withTemp && isAtomicTempSuffix(rest.substr(end)));
+  if (end == rest.size())
+    return true;
+  const std::string temp = rest.substr(end);
+  return withTemp && (temp == ".s3.tmp" || isAtomicTempSuffix(temp));
 }
 
-// What follows a save's file name in the name of one of its leftovers. The
-// dirty marker itself (".cloud-dirty") is none: it is real state.
+// What follows a save's file name in the name of one of its leftovers:
+// the write temps of the save and of its dirty marker, writeFileAtomic's
+// (".tmp.<pid>.<n>") and the fixed ".tmp" older builds wrote both through,
+// and a sync's files. The dirty marker itself (".cloud-dirty") is none: it
+// is real state.
 bool isSaveLeftoverSuffix(const std::string& rest)
 {
   const std::string dirty = ".cloud-dirty";
-  return isAtomicTempSuffix(rest) || rest == dirty + ".tmp" ||
+  const std::string legacyTemp = ".tmp";
+  return rest == legacyTemp || isAtomicTempSuffix(rest) ||
+    rest == dirty + legacyTemp ||
     (startsWith(rest, dirty) && isAtomicTempSuffix(rest.substr(dirty.size()))) ||
     isSyncFileSuffix(rest, ".cloud-upload-", false) ||
     isSyncFileSuffix(rest, ".cloud-incoming-", true);
@@ -256,10 +265,11 @@ bool oldEnough(const std::filesystem::path& path,
 
 // Removes the files in dir whose names isLeftover picks and that are
 // oldEnough. The names are collected first, so the removals do not run
-// under the directory iteration. Returns how many were removed; the first
-// removal that failed goes to error, if that is still empty (a dir that
-// cannot be listed is none: then there is nothing to remove, or the next
-// start tries again).
+// under the directory iteration. Returns how many were removed. The first
+// failure goes to error, if that is still empty: a dir that cannot be
+// listed in full (EACCES, EIO; its leftovers may be among the names not
+// seen), then a removal that failed. A dir that is not there is no
+// failure, as it holds nothing to remove.
 int sweepLeftovers(const std::string& dir,
   const std::function<bool(const std::string&)>& isLeftover,
   std::chrono::seconds minAge, std::string& error)
@@ -270,6 +280,8 @@ int sweepLeftovers(const std::string& dir,
   for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
     if (isLeftover(it->path().filename().string()))
       found.push_back(it->path());
+  if (ec && ec != std::errc::no_such_file_or_directory && error.empty())
+    error = "cannot list " + dir + ": " + ec.message();
   const fs::file_time_type now = fs::file_time_type::clock::now();
   int removed = 0;
   for (const fs::path& path : found)
@@ -293,7 +305,10 @@ bool removeS3Config(const std::string& saveDir, std::string* error)
   // cleanup unlink, see atomic_file.hpp) holds the secret key, and the
   // Android backup rules cannot exclude its name. A saveS3Config running in
   // another game process right now loses its temp file and fails; the
-  // player is turning the cloud off anyway.
+  // player is turning the cloud off anyway. A failed sweep (a temp that
+  // cannot be removed, or a save dir that cannot be listed, as temps may
+  // hide in it) fails the call with cloud.txt still in place, so the
+  // player sees the error and the secret is not left behind unnoticed.
   std::string why;
   sweepLeftovers(saveDir, isConfigLeftover, std::chrono::seconds::zero(), why);
   if (why.empty())
@@ -312,7 +327,7 @@ bool removeS3Config(const std::string& saveDir, std::string* error)
 int removeCloudLeftovers(const std::string& saveDir, std::chrono::seconds minAge)
 {
   const std::vector<std::string> saves = saveFileNames(saveDir);
-  std::string ignored; // best effort: the next start tries again
+  std::string ignored; // best effort, listing included: the next start tries again
   return sweepLeftovers(saveDir,
     [&saves](const std::string& name) { return isCloudLeftover(name, saves); },
     minAge, ignored);
@@ -661,121 +676,177 @@ private:
   std::string mPath;
 };
 
+// One syncS3File call: its request, the save it syncs, that save's mutex
+// (held by syncS3File's pathMutex pointer for the whole call) and the name
+// of its upload snapshot.
+struct SyncJob
+{
+  const S3Config& config;
+  const std::string& object;
+  const std::string& path;
+  std::string* error;
+  const S3Active& active;
+  std::mutex& saveMutex;
+  std::string upload;
+};
+
+// The commit lock of active, if it has one. Whoever turns active false
+// (the game, cancelling or replacing its cloud sync) does so under this
+// lock too, so a sync that checks active under it commits nothing after
+// that.
+std::unique_lock<std::mutex> lockCommit(const S3Active& active)
+{
+  if (!active.commitMutex)
+    return {};
+  return std::unique_lock<std::mutex>(*active.commitMutex);
+}
+
+// Uploads the job's snapshot, then clears the save's dirty marker if it
+// still holds token: a save marked dirty again during the upload stays
+// dirty for the next sync. A sync cancelled during the upload clears
+// nothing.
+S3SyncResult putSnapshot(const SyncJob& job, const std::string& token)
+{
+  if (!s3PutFile(job.config, job.object, job.upload, job.error, job.active))
+    return S3SyncResult::Error;
+  const auto commitLock = lockCommit(job.active);
+  if (job.active && !job.active())
+    return S3SyncResult::Error;
+  std::lock_guard<std::mutex> lock(job.saveMutex);
+  clearDirtyIf(job.path, token);
+  return S3SyncResult::Uploaded;
+}
+
+// What reconcile decided: upload the local save (a snapshot of it), or
+// leave it at result (Unchanged; Downloaded, the cloud save installed;
+// Error).
+struct SyncPlan
+{
+  bool upload = false;
+  S3SyncResult result = S3SyncResult::Unchanged;
+};
+
+// Saved at the same time as the cloud save: equal bytes are Unchanged,
+// else the greater bytes win, so two devices settle on the same save.
+SyncPlan compareSameTime(const std::string& path, const std::string& incoming)
+{
+  const std::string localBytes = fileContents(path);
+  const std::string remoteBytes = fileContents(incoming);
+  SyncPlan plan;
+  if (localBytes > remoteBytes)
+    plan.upload = true;
+  else if (localBytes < remoteBytes)
+    plan.result = S3SyncResult::Downloaded;
+  return plan;
+}
+
+// Picks the newer of the local save at path and the downloaded cloud save
+// at incoming (fetched says whether there was one), and installs the
+// download over path when it wins. A dirty local save (offline progress)
+// always goes up, as does any local save when the cloud has none; a
+// missing local save never does. Runs under the save's mutex and the
+// commit lock.
+SyncPlan reconcile(const std::string& path, const std::string& incoming,
+  S3GetResult fetched, bool dirty, std::string* error)
+{
+  SyncPlan plan;
+  const auto local = readSave(path);
+  if (dirty || fetched == S3GetResult::NotFound)
+  {
+    plan.upload = bool(local);
+    return plan;
+  }
+  const auto remote = readSave(incoming);
+  if (!remote)
+  {
+    if (error)
+      *error = "cloud object is not a valid Gunrunners save";
+    plan.result = S3SyncResult::Error;
+    return plan;
+  }
+  if (local && local->savedAt > remote->savedAt)
+    plan.upload = true;
+  else if (local && local->savedAt == remote->savedAt)
+    plan = compareSameTime(path, incoming);
+  else
+    plan.result = S3SyncResult::Downloaded;
+  if (plan.result != S3SyncResult::Downloaded)
+    return plan;
+  std::error_code ec;
+  std::filesystem::rename(incoming, path, ec);
+  if (ec)
+  {
+    if (error)
+      *error = "cannot install cloud save: " + ec.message();
+    plan.result = S3SyncResult::Error;
+  }
+  return plan;
+}
+
+// A clean local save: downloads the cloud save, reconciles the two and
+// uploads the local one if it wins.
+S3SyncResult downloadAndReconcile(const SyncJob& job, const std::string& nonce)
+{
+  const std::string incoming = job.path + ".cloud-incoming-" + nonce;
+  // Removed on every return, the failed snapshot below included (it used
+  // to leak the download); a download installed by the rename is gone from
+  // this name already.
+  const RemoveOnReturn incomingCleanup(incoming);
+  const S3GetResult fetched = s3GetFile(job.config, job.object, incoming,
+    job.error, job.active);
+  if (fetched == S3GetResult::Error)
+    return S3SyncResult::Error;
+  std::string token;
+  SyncPlan plan;
+  {
+    const auto commitLock = lockCommit(job.active);
+    std::lock_guard<std::mutex> lock(job.saveMutex);
+    if (job.active && !job.active())
+      return S3SyncResult::Error;
+    token = dirtyToken(job.path);
+    plan = reconcile(job.path, incoming, fetched, !token.empty(), job.error);
+    if (plan.result == S3SyncResult::Error)
+      return S3SyncResult::Error;
+    if (plan.upload && !copyFile(job.path, job.upload, job.error))
+      return S3SyncResult::Error;
+  }
+  // The download is done with: remove it now rather than when the upload
+  // below returns, which can be up to a request timeout later (30 s), so a
+  // kill during the upload does not leave it behind as well.
+  std::error_code ec;
+  std::filesystem::remove(incoming, ec);
+  if (!plan.upload)
+    return plan.result;
+  return putSnapshot(job, token);
+}
+
 } // namespace
 
+// A dirty local save is snapshotted (under the save's mutex, so a game
+// save cannot tear it) and uploaded as is; a clean one is reconciled with
+// the cloud's (downloadAndReconcile). The sync's files carry a nonce of
+// their own and are removed on every return.
 S3SyncResult syncS3File(const S3Config& config, const std::string& object,
   const std::string& path, std::string* error, const S3Active& active)
 {
-  namespace fs = std::filesystem;
   const auto mutex = pathMutex(path);
   const std::string nonce = std::to_string(
     std::chrono::steady_clock::now().time_since_epoch().count());
-  const std::string upload = path + ".cloud-upload-" + nonce;
-  const RemoveOnReturn uploadCleanup(upload);
+  const SyncJob job{config, object, path, error, active, *mutex,
+    path + ".cloud-upload-" + nonce};
+  const RemoveOnReturn uploadCleanup(job.upload);
   std::string initialToken;
   bool uploadDirty = false;
   {
     std::lock_guard<std::mutex> lock(*mutex);
     initialToken = dirtyToken(path);
     uploadDirty = !initialToken.empty() && bool(readSave(path));
-    if (uploadDirty && !copyFile(path, upload, error))
+    if (uploadDirty && !copyFile(path, job.upload, error))
       return S3SyncResult::Error;
   }
   if (uploadDirty)
-  {
-    if (!s3PutFile(config, object, upload, error, active))
-      return S3SyncResult::Error;
-    {
-      std::unique_lock<std::mutex> commitLock;
-      if (active.commitMutex)
-        commitLock = std::unique_lock<std::mutex>(*active.commitMutex);
-      if (active && !active())
-        return S3SyncResult::Error;
-      std::lock_guard<std::mutex> lock(*mutex);
-      clearDirtyIf(path, initialToken);
-    }
-    return S3SyncResult::Uploaded;
-  }
-
-  const std::string incoming = path + ".cloud-incoming-" + nonce;
-  // Removed on every return, the failed snapshot below included (it used
-  // to leak the download); a download installed by the rename is gone from
-  // this name already.
-  const RemoveOnReturn incomingCleanup(incoming);
-  const S3GetResult fetched = s3GetFile(config, object, incoming, error, active);
-  if (fetched == S3GetResult::Error)
-    return S3SyncResult::Error;
-
-  std::string currentToken;
-  bool shouldUpload = false;
-  S3SyncResult localResult = S3SyncResult::Unchanged;
-  {
-    std::unique_lock<std::mutex> commitLock;
-    if (active.commitMutex)
-      commitLock = std::unique_lock<std::mutex>(*active.commitMutex);
-    std::lock_guard<std::mutex> lock(*mutex);
-    if (active && !active())
-      return S3SyncResult::Error;
-    currentToken = dirtyToken(path);
-    const auto local = readSave(path);
-    if (!currentToken.empty())
-      shouldUpload = bool(local);
-    else if (fetched == S3GetResult::NotFound)
-      shouldUpload = bool(local);
-    else
-    {
-      const auto remote = readSave(incoming);
-      if (!remote)
-      {
-        if (error)
-          *error = "cloud object is not a valid Gunrunners save";
-        return S3SyncResult::Error;
-      }
-      if (local && local->savedAt > remote->savedAt)
-        shouldUpload = true;
-      else if (local && local->savedAt == remote->savedAt)
-      {
-        const std::string localBytes = fileContents(path);
-        const std::string remoteBytes = fileContents(incoming);
-        if (localBytes == remoteBytes)
-          localResult = S3SyncResult::Unchanged;
-        else if (localBytes > remoteBytes)
-          shouldUpload = true;
-        else
-          localResult = S3SyncResult::Downloaded;
-      }
-      else
-        localResult = S3SyncResult::Downloaded;
-
-      if (localResult == S3SyncResult::Downloaded)
-      {
-        std::error_code ec;
-        fs::rename(incoming, path, ec);
-        if (ec)
-        {
-          if (error)
-            *error = "cannot install cloud save: " + ec.message();
-          return S3SyncResult::Error;
-        }
-      }
-    }
-    if (shouldUpload && !copyFile(path, upload, error))
-      return S3SyncResult::Error;
-  }
-  if (!shouldUpload)
-    return localResult;
-  if (!s3PutFile(config, object, upload, error, active))
-    return S3SyncResult::Error;
-  {
-    std::unique_lock<std::mutex> commitLock;
-    if (active.commitMutex)
-      commitLock = std::unique_lock<std::mutex>(*active.commitMutex);
-    if (active && !active())
-      return S3SyncResult::Error;
-    std::lock_guard<std::mutex> lock(*mutex);
-    clearDirtyIf(path, currentToken);
-  }
-  return S3SyncResult::Uploaded;
+    return putSnapshot(job, initialToken);
+  return downloadAndReconcile(job, nonce);
 }
 
 } // namespace gr
