@@ -19,6 +19,7 @@ else()
 endif()
 
 add_library(gunrunners_core STATIC
+  src/base/atomic_file.cpp
   src/render/color.cpp
   src/render/renderer.cpp
   src/render/vector.cpp
@@ -348,6 +349,10 @@ add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.t
 add_executable(refused_load_test tests/refused_load_test.cpp)
 target_link_libraries(refused_load_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME refused_load COMMAND refused_load_test)
+# A failed profile, runners or savegame write keeps the old file.
+add_executable(atomic_file_test tests/atomic_file_test.cpp)
+target_link_libraries(atomic_file_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME atomic_file COMMAND atomic_file_test)
 add_executable(s3_test tests/s3_test.cpp)
 target_link_libraries(s3_test PRIVATE gunrunners_core)
 add_test(NAME s3 COMMAND s3_test)

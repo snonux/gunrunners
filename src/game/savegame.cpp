@@ -1,5 +1,7 @@
 #include "game/savegame.hpp"
 
+#include "base/atomic_file.hpp"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -158,25 +160,8 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
   list("bench", s.bench);
   o << "end\n";
 
-  const std::string tmp = path + ".tmp";
-  {
-    std::ofstream f(tmp, std::ios::trunc);
-    if (!f || !(f << o.str()) || !f.flush())
-    {
-      if (error)
-        *error = "cannot write " + tmp;
-      return false;
-    }
-  }
-  fs::rename(tmp, target, ec);
-  if (ec)
-  {
-    if (error)
-      *error = ec.message();
-    fs::remove(tmp, ec);
-    return false;
-  }
-  return true;
+  // All or nothing: a failed write leaves the old savegame in place.
+  return writeFileAtomic(path, o.str(), error);
 }
 
 std::optional<SaveGame> readSave(const std::string& path)

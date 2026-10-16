@@ -1,5 +1,7 @@
 #include "data/characters.hpp"
 
+#include "base/atomic_file.hpp"
+
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
@@ -451,19 +453,13 @@ void loadCustomRunners(const std::string& dir)
 bool saveCustomRunners(const std::string& dir)
 {
   makeDirs(dir);
-  const std::string path = dir + "/runners.txt";
-  {
-    std::ofstream o(path + ".tmp");
-    if (!o)
-      return false;
-    o << "gunrunners-runners 1\n";
-    for (const auto& d : customs())
-      if (!d.transient)
-        o << "runner " << encodeRunner(d) << '\n';
-    if (!o)
-      return false;
-  }
-  return std::rename((path + ".tmp").c_str(), path.c_str()) == 0;
+  // All or nothing, so a failed write keeps the old runners.txt.
+  std::ostringstream o;
+  o << "gunrunners-runners 1\n";
+  for (const auto& d : customs())
+    if (!d.transient)
+      o << "runner " << encodeRunner(d) << '\n';
+  return writeFileAtomic(dir + "/runners.txt", o.str());
 }
 
 CharacterDef savedRunner(int index, const std::string& encoded)

@@ -1,6 +1,7 @@
 #include "game/profile.hpp"
 
-#include <cstdio>
+#include "base/atomic_file.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
@@ -103,43 +104,38 @@ Profile Profile::load(const std::string& dir)
 bool Profile::save(const std::string& dir) const
 {
   makeDirs(dir);
-  const std::string path = dir + "/profile.txt";
+  // Built in memory and written all or nothing: a failed write (disk full,
+  // quota) must leave the old profile.txt and all its progress intact.
+  std::ostringstream o;
+  o << "gunrunners-profile 1\n";
+  writeSet(o, "protos", protos);
+  o << "kills";
+  for (const auto& [k, n] : protoKills)
+    o << ' ' << k << ' ' << n;
+  o << '\n';
+  writeSet(o, "stars", stars);
+  writeSet(o, "ducks", ducks);
+  writeSet(o, "cameras", cameras);
+  writeSet(o, "secrets", secrets);
+  writeSet(o, "cutscenes", cutscenes);
+  o << "scores";
+  for (const auto& [n, v] : scores)
+    o << ' ' << n << ' ' << v;
+  o << '\n';
+  o << "reached " << reached << '\n';
+  if (spaceReached > 0)
+    o << "space_reached " << spaceReached << '\n';
+  o << "duckmode " << duckMode << '\n';
+  o << "fullscreen " << fullscreen << '\n';
+  o << "touchsize " << touchSize << '\n';
+  for (const auto& [name, values] : controls)
   {
-    std::ofstream o(path + ".tmp");
-    if (!o)
-      return false;
-    o << "gunrunners-profile 1\n";
-    writeSet(o, "protos", protos);
-    o << "kills";
-    for (const auto& [k, n] : protoKills)
-      o << ' ' << k << ' ' << n;
+    o << "control " << name;
+    for (int v : values)
+      o << ' ' << v;
     o << '\n';
-    writeSet(o, "stars", stars);
-    writeSet(o, "ducks", ducks);
-    writeSet(o, "cameras", cameras);
-    writeSet(o, "secrets", secrets);
-    writeSet(o, "cutscenes", cutscenes);
-    o << "scores";
-    for (const auto& [n, v] : scores)
-      o << ' ' << n << ' ' << v;
-    o << '\n';
-    o << "reached " << reached << '\n';
-    if (spaceReached > 0)
-      o << "space_reached " << spaceReached << '\n';
-    o << "duckmode " << duckMode << '\n';
-    o << "fullscreen " << fullscreen << '\n';
-    o << "touchsize " << touchSize << '\n';
-    for (const auto& [name, values] : controls)
-    {
-      o << "control " << name;
-      for (int v : values)
-        o << ' ' << v;
-      o << '\n';
-    }
-    if (!o)
-      return false;
   }
-  return std::rename((path + ".tmp").c_str(), path.c_str()) == 0;
+  return writeFileAtomic(dir + "/profile.txt", o.str());
 }
 
 } // namespace gr
