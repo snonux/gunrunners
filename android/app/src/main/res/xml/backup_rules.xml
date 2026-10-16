@@ -4,12 +4,21 @@
     backed up or moved to a new device. The game writes it through a temp
     file named cloud.txt.tmp.<pid>.<n> (writeFileAtomic, created 0600 with
     O_EXCL), and these rules take exact paths only, no wildcards, so no rule
-    can list those names. That is accepted: such a temp file lives only
-    between its creation and the rename over cloud.txt, a few system calls
-    apart, and is left behind only when the process is killed right there or
-    a failed write cannot unlink it. cloud.txt.tmp, the fixed temp name of
-    older builds, stays excluded for the leftovers those builds may have
-    left. Keep the same paths in data_extraction_rules.xml.
+    can list those names. That is accepted: a temp file holds the secret from
+    its creation until the rename over cloud.txt, a window that spans the
+    write and the fsync, which on phone flash can take tens to hundreds of
+    milliseconds. It is left behind only when the process is killed inside
+    that window or a failed write cannot unlink it; task cf3 removes such
+    leftovers (cloud.txt.tmp.*) at startup and when the cloud config is
+    removed. cloud.txt.tmp, the fixed temp name of older builds, stays
+    excluded for the leftovers those builds may have left (task cf3 removes
+    it too).
+
+    Considered and not taken: keeping cloud.txt and its temp files in a
+    folder of their own, such as saves/private/, which one rule here could
+    exclude as a whole (a folder path covers everything below it, temp names
+    included). That would need a migration of the cloud.txt of existing
+    installs into the new folder. Keep the same paths in data_extraction_rules.xml.
 -->
 <full-backup-content>
     <exclude domain="file" path="saves/cloud.txt" />

@@ -269,7 +269,9 @@ void configIsOwnerOnly(const fs::path& dir)
 // with O_CREAT|O_TRUNC, so a symlink planted there received the secret key
 // (and its target was chmodded). Now the symlink is not a temp name the
 // write uses: it and its target stay as they were, and with a dangling one
-// nothing is created at its target.
+// nothing is created at its target. Each save also leaves no temp file of
+// its own: the count takes the prefix "cloud.txt.tmp." with the dot, so it
+// sees the "cloud.txt.tmp.<pid>.<n>" temp names but not the symlink itself.
 void legacyTempSymlinkIgnored(const fs::path& dir)
 {
   const std::string legacy = (dir / "cloud.txt.tmp").string();
@@ -283,12 +285,16 @@ void legacyTempSymlinkIgnored(const fs::path& dir)
   check(fs::is_symlink(legacy) && !fs::is_symlink(dir / "cloud.txt") &&
       loadS3Config(dir.string()).secretKey == "linked",
     "...and it stays a symlink, with cloud.txt a file of its own");
+  check(filesStartingWith(dir, "cloud.txt.tmp.") == 0,
+    "...and the save leaves no temp file next to it");
   fs::remove(legacy);
   const fs::path nowhere = dir / "nowhere.txt";
   fs::create_symlink(nowhere, legacy);
   check(saveS3Config(dir.string(), configWithSecret("dangling")) &&
       !fs::exists(fs::symlink_status(nowhere)),
     "a dangling symlink at cloud.txt.tmp: nothing is created at its target");
+  check(filesStartingWith(dir, "cloud.txt.tmp.") == 0,
+    "...and the save leaves no temp file next to it");
   fs::remove(legacy);
 }
 

@@ -131,10 +131,15 @@ bool saveS3Config(const std::string& saveDir, const S3Config& config,
   // The temp names are "cloud.txt.tmp.<pid>.<n>", which the exact paths of
   // the Android backup rules cannot list (they take no wildcards; see
   // android/app/src/main/res/xml/backup_rules.xml). That is accepted: a temp
-  // file exists only between its creation and the rename, a few system
-  // calls apart, and outlives them only when the process is killed right
-  // there or when a failed write's cleanup unlink fails too (see
-  // atomic_file.hpp).
+  // file holds the secret from its creation until the rename, a window that
+  // spans the write and the fsync (tens to hundreds of milliseconds on phone
+  // flash), and outlives it only when the process is killed inside it or
+  // when a failed write's cleanup unlink fails too (see atomic_file.hpp).
+  // Removing such leftovers, and the "cloud.txt.tmp" of older builds, at
+  // startup and in removeS3Config is task cf3's cleanup. Not taken: keeping
+  // cloud.txt and its temps in a folder of their own (saves/private/, say),
+  // which the backup rules could exclude as a whole; it would need a
+  // migration of existing cloud.txt files.
   return writeFileAtomic(saveDir + "/cloud.txt", contents.str(), error, 0600);
 }
 
