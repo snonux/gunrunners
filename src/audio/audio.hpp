@@ -47,10 +47,6 @@ public:
   // Queues a named track for the background renderer (one worker thread,
   // oldest request first) so a later playMusicNamed is instant.
   void preloadMusic(const std::string& id);
-  // As preloadMusic, but ahead of every queued preload (the next the worker
-  // starts): for the level's own music, which its briefing's tracks must
-  // not hold up (Game::playBriefing).
-  void preloadMusicFirst(const std::string& id);
   // A new level starts: cancels the queued preloads and marks the finished
   // ones stale; a preloadMusic of one before dropStalePreloads keeps it
   // (a track two levels share is not rendered twice).
@@ -99,8 +95,6 @@ private:
   // The cached track, collecting a background render or making it now.
   Track* namedTrack(const std::string& id);
   static std::unique_ptr<Track> synthTrack(const std::string& id);
-  // Whether a preload of `id` is worth queueing: a track not cached yet.
-  bool preloadable(const std::string& id) const;
   void mixLocked(float* out, int frames);
 
   std::array<std::vector<float>, std::size_t(Sfx::Count)> mSfx;

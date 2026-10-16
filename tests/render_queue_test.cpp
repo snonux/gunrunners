@@ -4,8 +4,9 @@
 //   - a request renders once on the worker and take() hands it over once;
 //   - a repeated request (queued, rendering or finished) is not rendered again;
 //   - one worker renders one thing at a time, oldest request first;
-//   - requestFirst() goes ahead of the queue (moving a queued id), so a
-//     level's music queued before its briefing's survives a skip;
+//   - markStale() empties the queue, so a level's music requested right
+//     after it renders next, ahead of the last level's leftovers and of
+//     its briefing's tracks, and survives a skipped briefing;
 //   - take() on a request still queued withdraws it (the caller renders it),
 //     and on one rendering blocks until it is done;
 //   - finished results past the cap are thrown away, stale ones first, then
@@ -201,47 +202,45 @@ void testOneWorkerInOrder()
   check(fake.count(&FakeRender::maxActive) == 1, "one render at a time");
 }
 
-void testRequestFirst()
-{
-  FakeRender fake;
-  fake.close();
-  Queue q(fake.fn(), 8);
-  q.request("a");
-  check(fake.reached("a"), "the worker is held on a");
-  q.request("b");
-  q.request("c");
-  check(q.requestFirst("first"), "requestFirst() queues a new id");
-  check(!q.requestFirst("c"), "and moves one already queued instead of queueing it twice");
-  check(!q.requestFirst("a"), "the id rendering now is not queued again");
-  check(q.queuedCount() == 3, "nothing was queued twice");
-  fake.release();
-  check(waitUntil([&] { return q.readyCount() == 4; }), "all four finish");
-  check(fake.log() == Log{"a", "c", "first", "b"}, "front requests next (the latest first), then the rest in order");
-  check(!q.requestFirst("b") && q.queuedCount() == 0, "a finished id is not queued again");
-}
-
-// What Game::playBriefing does: the level's music first, then the scenes'
-// tracks; the first scene's track is taken at once, and the briefing is
-// skipped before any cue plays (the level start: markStale, take, dropStale).
+// What Game::beginCampaignLevel and playBriefing do, the queue's part of
+// it: the level start's markStale() cancels the last level's queued
+// preloads, so the level's music, asked for before the scenes' tracks, is
+// the next to render. That it is asked for first is the caller's doing
+// (playBriefing), not the queue's: requests render in order. The opening's
+// track is taken at once, and the briefing is skipped before any cue plays
+// (startLevel: markStale, take, dropStale).
 void testLevelTrackFirst()
 {
   FakeRender fake;
+  // Holds the worker again as the level's track starts, so the test can
+  // see what it rendered right after the last level's.
+  fake.onStart = [&fake](const std::string& id) {
+    if (id == "level")
+      fake.close();
+  };
   fake.close();
   Queue q(fake.fn(), 8);
-  q.requestFirst("level");
-  check(fake.reached("level"), "the level's track renders first");
-  q.request("scene");
+  q.request("old");
+  check(fake.reached("old"), "the worker is held on the last level's preload");
+  q.request("oldvariant");
+  q.markStale();
+  check(q.queuedCount() == 0, "the level start cancels the last level's queue");
+  q.request("level");
+  q.request("opening");
   q.request("cue");
-  check(!q.take("scene"), "the first scene's track, still queued, is rendered by the caller");
+  check(!q.take("opening"), "the opening's track, still queued, is rendered by the caller");
+  fake.release();
+  check(fake.reached("level"), "the worker gets to the level's track");
+  check(fake.log() == Log{"old", "level"}, "right after the render in progress, before anything else");
   q.markStale();
   Taker taker(q, "level");
-  check(blockedIn(q, "level"), "the level start waits for its track in progress");
+  check(blockedIn(q, "level"), "the skip's level start waits for its track in progress");
   fake.release();
   const auto level = taker.result();
   check(level && *level == "pcm:level", "and gets it, not cancelled by markStale()");
   q.dropStale();
-  check(q.queuedCount() == 0 && q.readyCount() == 0, "the skipped cue was cancelled");
-  check(fake.log() == Log{"level"}, "only the level's track rendered");
+  check(q.queuedCount() == 0 && q.readyCount() == 0, "the skipped cue was cancelled, the last level's track freed");
+  check(fake.log() == Log{"old", "level"}, "neither the cancelled variant nor the cue rendered");
 }
 
 void testTakeQueuedAndRendering()
@@ -539,7 +538,6 @@ int main()
 {
   testRequestAndTake();
   testOneWorkerInOrder();
-  testRequestFirst();
   testLevelTrackFirst();
   testTakeQueuedAndRendering();
   testCap();

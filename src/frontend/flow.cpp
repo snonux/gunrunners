@@ -586,18 +586,22 @@ void Game::playBriefing(int number, bool fromNewGame)
   char brief[32];
   std::snprintf(brief, sizeof(brief), "brief_%02d", number);
   cuts.emplace_back(brief);
-  // The single preload worker renders in request order. The level's music
-  // goes first, ahead of the scenes' tracks (playCutscenes): the level
-  // always plays it, while a skipped briefing plays none of its cues, and
-  // queued behind them it would be cancelled by the level start
-  // (markPreloadsStale) and rendered on this thread (1-4 s). The first
-  // scene's music plays at once, so, unless it is the level's own (the
-  // shipped briefings' usual case: then it is waited for), it is rendered
-  // here while the worker starts on the level's. Without cutscenes the
-  // level starts at once and collects the level's track from the worker
-  // (or renders it itself if the worker has not started it yet).
+  // The single preload worker renders in request order, and
+  // beginCampaignLevel's markPreloadsStale has just emptied its queue, so
+  // asking for the level's music before playCutscenes queues the scenes'
+  // tracks makes it the next the worker renders. The level always plays
+  // it, while a skipped briefing plays none of its cues; queued behind them
+  // it would be cancelled by the level start (startLevel's
+  // markPreloadsStale) and rendered on this thread (1-4 s).
+  // The first scene's music plays at once. Every shipped briefing opens
+  // with its level's track (22-28 open silent, "stop", and cue it later),
+  // so that play waits for the worker's render. The only different first
+  // track is the opening's theme_opening on the new-game path: it is
+  // rendered here while the worker starts on the level's. Without
+  // cutscenes the level starts at once and collects the level's track from
+  // the worker (or renders it itself if the worker has not started it).
   if (mAudio)
-    mAudio->preloadMusicFirst(mLevel->music);
+    mAudio->preloadMusic(mLevel->music);
   playCutscenes(cuts, After::StartLevel);
 }
 
