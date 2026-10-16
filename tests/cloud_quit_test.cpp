@@ -12,7 +12,6 @@
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <thread>
 #include <unistd.h>
 
 using namespace gr;
@@ -29,23 +28,11 @@ void check(bool ok, const char* what)
     ++gFailures;
 }
 
-// No .cloud-upload-* snapshot or .cloud-incoming-* download left in dir.
-bool noCloudTemporaries(const std::filesystem::path& dir)
-{
-  for (const auto& entry : std::filesystem::directory_iterator(dir))
-  {
-    const std::string name = entry.path().filename().string();
-    if (name.find(".cloud-upload-") != std::string::npos ||
-        name.find(".cloud-incoming-") != std::string::npos)
-      return false;
-  }
-  return true;
-}
-
 // Starts a Game whose cloud refresh is stuck on the server, then times its
-// destruction. Slot 1 holds a save not yet uploaded (dirty), so the refresh
-// has an upload stalling next to the downloads of the other slots.
-double quitDuringSync(const grtest::StallServer& server, const std::string& saves,
+// destruction. The first slot (slotPath index 0) holds a save not yet
+// uploaded (dirty), so the refresh has an upload stalling next to the
+// downloads of the other slots and the quick save.
+double quitDuringSync(grtest::StallServer& server, const std::string& saves,
   SDL_Renderer* sdl)
 {
   Renderer renderer(sdl);
@@ -57,12 +44,19 @@ double quitDuringSync(const grtest::StallServer& server, const std::string& save
   o.s3.accessKey = "key";
   o.s3.secretKey = "secret";
   auto game = std::make_unique<Game>(o, renderer, nullptr); // starts the refresh
-  check(server.waitForClient(5000), "the cloud refresh reaches the server");
-  // Let all six slot requests go out and settle into waiting.
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  // One request per slot and one for the quick save, all in parallel.
+  const int requests = kSaveSlots + 1;
+  check(server.acceptClients(requests, 5000) == requests,
+    "every request of the cloud refresh reaches the server");
+  // So the quit below really cuts off live requests, rather than finding
+  // them already failed.
+  check(server.openClients() == requests, "the requests still wait when the game quits");
   const auto start = std::chrono::steady_clock::now();
   game.reset();
-  return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  const double seconds =
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  check(server.clientsClosed(2000), "quitting ends every stalled request");
+  return seconds;
 }
 
 } // namespace
@@ -95,7 +89,7 @@ int main()
     check(after && after->savedAt == save.savedAt, "the local save is untouched");
     check(std::filesystem::exists(slot + ".cloud-dirty"),
       "the interrupted upload stays marked for the next start");
-    check(noCloudTemporaries(dir), "no temporary cloud files are left behind");
+    check(grtest::noCloudTemporaries(dir), "no temporary cloud files are left behind");
   }
 
   std::filesystem::remove_all(dir);

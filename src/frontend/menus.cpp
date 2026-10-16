@@ -142,12 +142,14 @@ void Game::beginCloudRefresh()
   const std::string dir = saveDir();
   const auto generation = mCloudGeneration;
   const auto commitMutex = mCloudCommitMutex;
+  const auto quitting = mCloudQuitting;
   const std::uint64_t expected = generation->load();
   mCloudRefreshGeneration = expected;
   mCloudRefreshPending = false;
-  mCloudRefresh = std::async(std::launch::async, [config, dir, generation, commitMutex, expected]() {
-    const S3Active active{[generation, expected]() {
-      return generation->load() == expected;
+  mCloudRefresh = std::async(std::launch::async, [config, dir, generation, commitMutex, quitting, expected]() {
+    // Unlike an upload, a refresh is also stopped at once by quitting.
+    const S3Active active{[generation, quitting, expected]() {
+      return generation->load() == expected && !quitting->load();
     }, commitMutex};
     std::vector<std::future<std::string>> slots;
     slots.reserve(kSaveSlots + 1);
@@ -272,20 +274,55 @@ void Game::pollCloud()
   }
 }
 
+namespace
+{
+
+// How long quitting lets cloud uploads still running finish. A SAVE right
+// before quitting then still reaches the cloud, so another device does not
+// get an older copy, and the next start does not re-upload it over a newer
+// save made elsewhere in the meantime.
+constexpr auto kQuitUploadGrace = std::chrono::seconds(2);
+
+// Makes every cloud request started so far stale. Under the commit
+// mutex, like the CLOUD menu's bumps: a worker that is committing a download
+// or clearing a dirty marker finishes that step first, and every later
+// S3Active check sees the new generation.
+void staleCloudRequests(std::atomic<std::uint64_t>& generation, std::mutex& commitMutex)
+{
+  std::lock_guard<std::mutex> lock(commitMutex);
+  generation.fetch_add(1);
+}
+
+} // namespace
+
+Game::CloudCancel::~CloudCancel()
+{
+  staleCloudRequests(*generation, *commitMutex);
+}
+
+// Quitting waits about 3 s at most: the refresh is cancelled at once and
+// aborts within about a second, alongside the uploads' grace of
+// kQuitUploadGrace, after which the uploads left abort within about a
+// second too. With libcurl older than 7.87 (no CURLOPT_QUICK_EXIT, see
+// s3.cpp), a request cancelled during its DNS lookup adds the wait for
+// getaddrinfo to return.
 void Game::cancelCloudSync()
 {
-  // Under the commit mutex, like the CLOUD menu's bumps: a worker that is
-  // committing a download or clearing a dirty marker finishes that step
-  // first, and every later S3Active check sees the new generation. libcurl
-  // calls transferProgress about once a second even while connecting or
-  // waiting on a silent server, so each request aborts within about that.
+  // The refresh stops at once (under the commit mutex, as above): it mostly
+  // downloads, and the next start runs it again. A dirty save it was
+  // uploading keeps its marker.
   {
     std::lock_guard<std::mutex> lock(*mCloudCommitMutex);
-    mCloudGeneration->fetch_add(1);
+    mCloudQuitting->store(true);
   }
   mCloudRefreshPending = false;
-  // An aborted upload keeps its .cloud-dirty marker, so the next start
+  // No pollCloud runs any more, so no new upload starts meanwhile.
+  const auto deadline = std::chrono::steady_clock::now() + kQuitUploadGrace;
+  for (auto& upload : mCloudUploads)
+    upload.result.wait_until(deadline);
+  // An upload cut off here keeps its .cloud-dirty marker, so the next start
   // uploads that save again. The results are stale and are dropped.
+  staleCloudRequests(*mCloudGeneration, *mCloudCommitMutex);
   if (mCloudRefresh.valid())
     mCloudRefresh.wait();
   for (auto& upload : mCloudUploads)

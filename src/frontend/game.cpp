@@ -103,6 +103,7 @@ Game::~Game()
 {
   // Without this, the cloud futures' destructors would hold up quitting until
   // the requests time out (10-40 s on an unreachable or stalling server).
+  // Uploads still get a short grace period to finish (cancelCloudSync).
   cancelCloudSync();
 }
 

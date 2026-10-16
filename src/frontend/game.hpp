@@ -60,8 +60,8 @@ class Game
 {
 public:
   Game(const GameOptions& options, Renderer& renderer, Audio* audio);
-  // Cancels any cloud save sync still running (cancelCloudSync) so quitting
-  // does not wait out the S3 timeouts.
+  // Ends any cloud save sync still running (cancelCloudSync) so quitting
+  // does not wait out the S3 timeouts: about 3 s at most (see there).
   ~Game();
 
   // Advances one fixed 60 Hz tick. Returns false once the game wants to quit.
@@ -299,8 +299,12 @@ private:
   void beginCloudRefresh();
   void queueCloudUpload(const std::string& path);
   void pollCloud();
-  // Makes every running cloud request stale, which aborts its transfer
-  // within about a second, and waits for the workers to finish.
+  // For quitting: cancels the cloud refresh at once, gives uploads still
+  // running a short grace period to finish, then cancels them too and waits
+  // for every worker. A cancelled request aborts within about a second
+  // (libcurl's progress callback), except that with libcurl older than 7.87
+  // (no CURLOPT_QUICK_EXIT) one cancelled in its DNS lookup waits for
+  // getaddrinfo to return.
   void cancelCloudSync();
   // Builds the save's world aside and swaps it in only once it fits; a
   // refused save (another level, a level that won't load, one that does
@@ -470,10 +474,12 @@ private:
   CutsceneVoices mCutsceneVoices; // the cutscenes' speech (voices/cutscenes)
   int mNoticeTicks = 0;
   // Cloud save workers. A std::async future blocks in its destructor until
-  // the task ends, so ~Game bumps mCloudGeneration first: the workers' S3Active
-  // check then fails and libcurl aborts the request instead of running into
-  // its 10 s connect / 30 s transfer timeouts. Bumps happen under
-  // mCloudCommitMutex so a worker never commits a file for a stale generation.
+  // the task ends, so ~Game (cancelCloudSync) makes the requests stale first:
+  // the workers' S3Active check then fails and libcurl aborts the request
+  // instead of running into its 10 s connect / 30 s transfer timeouts.
+  // mCloudGeneration bumps make every request stale, mCloudQuitting only
+  // the refresh's. Both change under mCloudCommitMutex so a worker never
+  // commits a file for a stale request.
   std::future<std::string> mCloudRefresh;
   struct CloudUpload
   {
@@ -484,8 +490,22 @@ private:
   std::shared_ptr<std::atomic<std::uint64_t>> mCloudGeneration =
     std::make_shared<std::atomic<std::uint64_t>>(0);
   std::shared_ptr<std::mutex> mCloudCommitMutex = std::make_shared<std::mutex>();
+  std::shared_ptr<std::atomic<bool>> mCloudQuitting =
+    std::make_shared<std::atomic<bool>>(false);
   std::uint64_t mCloudRefreshGeneration = 0;
   bool mCloudRefreshPending = false;
+  // Makes every cloud request stale when destroyed. Declared after the cloud
+  // futures, so it is destroyed before them: if the constructor throws after
+  // beginCloudRefresh, ~Game never runs, and without this the futures'
+  // destructors would wait out the S3 timeouts. (After ~Game nothing is
+  // left for it to cancel.)
+  struct CloudCancel
+  {
+    std::shared_ptr<std::atomic<std::uint64_t>> generation;
+    std::shared_ptr<std::mutex> commitMutex;
+    ~CloudCancel();
+  };
+  CloudCancel mCloudCancel{mCloudGeneration, mCloudCommitMutex};
   bool mQuit = false;
   bool mFullscreenToggle = false;
   bool mFullscreenNow = false;

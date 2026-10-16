@@ -290,9 +290,21 @@ bool configure(CURL* curl, const S3Config& config, const std::string& object,
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
   if (active)
   {
+    // libcurl calls transferProgress about once a second even while it
+    // resolves, connects or waits on a silent server, so a cancel (S3Active
+    // turning false) aborts the request within about that.
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, transferProgress);
     curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &active);
+#if LIBCURL_VERSION_NUM >= 0x075700
+    // Without this, cleaning up a request aborted during its DNS lookup
+    // joins the threaded resolver, i.e. waits for getaddrinfo to give up
+    // (up to the system resolver's timeouts), which would hold up quitting.
+    // The cost: each such aborted lookup leaks its resolver thread until
+    // getaddrinfo returns. libcurl older than 7.87 lacks the option and
+    // keeps that wait.
+    curl_easy_setopt(curl, CURLOPT_QUICK_EXIT, 1L);
+#endif
   }
   return true;
 }

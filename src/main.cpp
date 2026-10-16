@@ -809,6 +809,12 @@ void runFrames(std::unique_ptr<WindowedRun> run)
     if (pause > 0)
       SDL_Delay(Uint32(pause));
   }
+#ifndef __ANDROID__
+  // Destroying the Game can wait a few seconds for cloud uploads to finish
+  // or abort (Game::cancelCloudSync); the window is gone meanwhile instead of
+  // sitting there frozen. (Android shows its activity until it finishes.)
+  SDL_HideWindow(run->window);
+#endif
 #endif
 }
 
