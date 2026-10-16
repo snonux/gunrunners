@@ -342,10 +342,11 @@ foreach(extra motor_pool deep_dive)
   set_tests_properties(bot_extra_${extra} PROPERTIES PASS_REGULAR_EXPRESSION "cleared:")
 endforeach()
 # The planner plans the same every time, also a big plan (over 4 * its node
-# budget, task ne3); a runner out of play makes it skip the search. Run it in
-# a -fsanitize=address build too, with ASAN_OPTIONS=detect_leaks=0: Art::build
-# leaks through fontconfig/cairo (pre-existing), which LeakSanitizer would
-# report as a failure.
+# budget, task ne3); a runner out of play makes it skip the search; the goal
+# key wraps instead of overflowing int (task oe3). Run it in a
+# -fsanitize=address,undefined build too (-fno-sanitize-recover=undefined),
+# with ASAN_OPTIONS=detect_leaks=0: Art::build leaks through fontconfig/cairo
+# (pre-existing), which LeakSanitizer would report as a failure.
 add_executable(planner_test tests/planner_test.cpp)
 target_link_libraries(planner_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME planner COMMAND planner_test ${CMAKE_SOURCE_DIR}/levels/49_hive_mother.txt 3000)

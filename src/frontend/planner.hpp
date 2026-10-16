@@ -97,7 +97,7 @@ private:
   int fieldRow(const World& world) const;
   int mGoalKind = -1;
   int mGoalIndex = -1;
-  int mGoalKeyHash = 0;
+  std::uint32_t mGoalKeyHash = 0; // goalKeyHash() of the goal the field was built for
   int mFails = 0;
   int mLastNodes = 0; // see lastPlanNodes()
   bool mSkipProto = false; // the prototype is out of reach: go without it
@@ -125,6 +125,13 @@ private:
   std::uint64_t mLampKey = 0;
   int mLampWanted = -1;
 };
+
+// The key Planner::plan rebuilds the distance field on when it changes: the
+// goal (kind, x, y), the access card, walls broken (counted up to 15), the
+// Bass Cannon in hand, and powered, a hash of the rest of the world's state
+// that the field depends on. Computed in unsigned arithmetic, so any inputs
+// (extreme ones too) wrap rather than overflow; public for tests.
+std::uint32_t goalKeyHash(int kind, int x, int y, bool hasKey, int broken, bool sound, std::uint32_t powered);
 
 // Level 36: the first step on the warehouse route not done yet, -1 if none.
 int warehouseStep(const World& w);

@@ -2698,6 +2698,18 @@ Input Planner::next(const World& world)
   return in;
 }
 
+// Every term goes through std::uint32_t, so the sum wraps modulo 2^32
+// instead of overflowing int (task oe3). The fields keep the weights the
+// int version had (kind 1000000, x 1000, the card 500000000, walls and the
+// Bass Cannon 10000000, powered 7919), so the bits match what that version
+// gave on a wrapping build.
+std::uint32_t goalKeyHash(int kind, int x, int y, bool hasKey, int broken, bool sound, std::uint32_t powered)
+{
+  const auto u = [](int v) { return std::uint32_t(v); }; // negative values wrap too, well defined
+  return u(kind) * 1000000u + u(x) * 1000u + u(y) + (hasKey ? 500000000u : 0u) +
+    (u(std::min(broken, 15)) * 2u + (sound ? 1u : 0u)) * 10000000u + powered * 7919u;
+}
+
 void Planner::plan(const World& world)
 {
   mLastNodes = 0; // stays 0 when this plan needs no search
@@ -2782,7 +2794,12 @@ void Planner::plan(const World& world)
     for (const auto& b : world.breakables())
       broken += b.broken;
     const bool sound = world.player().weapon == Weapon::Proto && world.player().proto == int(ProtoId::BassCannon);
-    int powered = 0;
+    // Everything else the field depends on, folded into one number. It is
+    // unsigned so it wraps modulo 2^32 (an int would overflow, undefined
+    // behaviour that UBSan aborts on, task oe3); the bits are the same as
+    // the old int arithmetic gave on a wrapping build, so the hashes and the
+    // plans did not change.
+    std::uint32_t powered = 0;
     for (const auto& b : world.breakers())
       powered = powered * 2 + b.on;
     // Level 8: rope bridges that fell, logs that landed.
@@ -2821,27 +2838,27 @@ void Planner::plan(const World& world)
       powered = powered * 2 + world.manor().side;
       powered = powered * 17 + world.manor().step;
       for (const auto& pl : world.manor().platforms)
-        powered = int(unsigned(powered) * 131u + unsigned(pl.bx * 97 + pl.by));
+        powered = powered * 131u + unsigned(pl.bx * 97 + pl.by);
     }
     // Level 26: buildings broken, towers fallen.
     for (const auto& b : world.city().buildings)
-      powered = int(unsigned(powered) * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u)));
+      powered = powered * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u));
     powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
     powered = powered * 2 + world.fleet().hatchOpen; // Level 34: the bomb bay's hatch
-    powered = int(unsigned(powered) * 131u + unsigned(world.tower().rot)); // Level 35: how far the tower has turned
+    powered = powered * 131u + unsigned(world.tower().rot); // Level 35: how far the tower has turned
     // Level 36: where the metal crates rest (they are solid map blocks).
     for (const auto& c : world.warehouse().crates)
-      powered = int(unsigned(powered) * 131u + unsigned(c.stamped ? c.x * 997 + c.y : 7));
+      powered = powered * 131u + unsigned(c.stamped ? c.x * 997 + c.y : 7);
     // Level 37: who the runner is, shutters, cutting tables, the push rack.
     {
       const auto& wr = world.wardrobe();
-      powered = int(unsigned(powered) * 131u + unsigned(world.characterIndex() * 7 + (world.player().turbo > 0)));
+      powered = powered * 131u + unsigned(world.characterIndex() * 7 + (world.player().turbo > 0));
       for (const auto& sh : wr.shutters)
         powered = powered * 2 + sh.open;
       for (const auto& t : wr.tables)
-        powered = int(unsigned(powered) * 131u + unsigned(t.row));
+        powered = powered * 131u + unsigned(t.row);
       for (const auto& k : wr.pushRacks)
-        powered = int(unsigned(powered) * 131u + unsigned(k.x));
+        powered = powered * 131u + unsigned(k.x);
     }
     // Level 38: words struck (walls and doors gone), the bridge, Writer's Blocks sitting.
     {
@@ -2849,16 +2866,16 @@ void Planner::plan(const World& world)
       for (const auto& wd : ws.words)
         if (wd.target == WordTarget::Rect)
           powered = powered * 2 + (wd.gone() ? 1 : 0);
-      powered = int(unsigned(powered) * 131u + unsigned(ws.bridge.typed));
+      powered = powered * 131u + unsigned(ws.bridge.typed);
       for (const auto& b : ws.blocks)
-        powered = int(unsigned(powered) * 131u + unsigned(b.stampX * 97 + b.stampY + 1));
+        powered = powered * 131u + unsigned(b.stampX * 97 + b.stampY + 1);
     }
     // Level 40: catwalk blocks a sandbag broke.
     for (const auto& g : world.flyTower().gaps)
-      powered = int(unsigned(powered) * 131u + unsigned(g.bx * 97 + g.by + 1));
+      powered = powered * 131u + unsigned(g.bx * 97 + g.by + 1);
     // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
     for (const auto& [lx, ly] : world.warehouse().loose)
-      powered = int(unsigned(powered) * 131u + unsigned(lx * 97 + ly));
+      powered = powered * 131u + unsigned(lx * 97 + ly);
     // Level 31: machines powered (the generator's hatch, the lift).
     for (const auto& m : world.storm().machines)
       powered = powered * 2 + m.powered;
@@ -2876,9 +2893,9 @@ void Planner::plan(const World& world)
     // Level 46: where the Swap Crystals are (a drifting one is anywhere on
     // its path until swapped).
     for (const auto& c : world.swapCrystals())
-      powered = int(unsigned(powered) * 131u + (c.gone ? 1u : (c.drifting ? 2u : unsigned(c.x * 977 + c.y + 3))));
-    const int keyHash = goal.kind * 1000000 + goal.x * 1000 + goal.y + (world.player().hasKey ? 500000000 : 0) +
-      (std::min(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + powered * 7919;
+      powered = powered * 131u + (c.gone ? 1u : (c.drifting ? 2u : unsigned(c.x * 977 + c.y + 3)));
+    const std::uint32_t keyHash =
+      goalKeyHash(goal.kind, goal.x, goal.y, world.player().hasKey, broken, sound, powered);
     if (mDist.empty() || keyHash != mGoalKeyHash)
     {
       buildField(world, goal);

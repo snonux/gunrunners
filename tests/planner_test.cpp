@@ -11,6 +11,14 @@
 // -fsanitize=address it also guards the memory safety directly. It also
 // checks that a runner out of play gets a single idle input without any
 // search, on a planner that has searched before.
+// Task oe3: the goal key (goalKeyHash) and the state hash it folds in were
+// int arithmetic that overflowed, undefined behaviour UBSan aborts on. They
+// are unsigned now; the test checks the key against a 64-bit reference
+// taken modulo 2^32 (normal and extreme inputs, which a wrapping int build
+// gave too) and that the inputs it should see change it. The real check is
+// a -fsanitize=address,undefined build with -fno-sanitize-recover=undefined
+// (and ASAN_OPTIONS=detect_leaks=0): there the big plan below also runs the
+// state hash, and any overflow left would abort the test.
 
 #include "assets/art.hpp"
 #include "data/level.hpp"
@@ -21,8 +29,11 @@
 
 #include <SDL.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -157,12 +168,48 @@ void checkNoSearch(const std::shared_ptr<const Level>& level, const Theme& theme
   check(planner.queued() == 0, "and nothing more queued");
 }
 
+// The goal key as the int version computed it, in 64 bits without
+// overflow, then taken modulo 2^32 (what a wrapping int build gave).
+std::uint32_t referenceKeyHash(std::int64_t kind, std::int64_t x, std::int64_t y, bool hasKey, std::int64_t broken,
+  bool sound, std::uint32_t powered)
+{
+  const std::int64_t sum = kind * 1000000 + x * 1000 + y + (hasKey ? 500000000 : 0) +
+    (std::min<std::int64_t>(broken, 15) * 2 + (sound ? 1 : 0)) * 10000000 + std::int64_t(powered) * 7919;
+  return std::uint32_t(std::uint64_t(sum));
+}
+
+void checkKeyHash()
+{
+  check(goalKeyHash(2, 1234, 567, true, 3, true, 98765) == referenceKeyHash(2, 1234, 567, true, 3, true, 98765),
+    "the goal key matches the int formula on everyday inputs");
+  check(goalKeyHash(0, 0, 0, false, 0, false, 0) == 0, "an empty key is 0 (a new planner's mGoalKeyHash)");
+  constexpr int kMax = std::numeric_limits<int>::max();
+  constexpr int kMin = std::numeric_limits<int>::min();
+  constexpr std::uint32_t kAll = std::numeric_limits<std::uint32_t>::max();
+  check(goalKeyHash(kMax, kMax, kMax, true, kMax, true, kAll) ==
+      referenceKeyHash(kMax, kMax, kMax, true, kMax, true, kAll),
+    "the goal key wraps on the largest inputs");
+  check(goalKeyHash(kMin, kMin, -1, false, kMin, false, kAll / 2 + 1) ==
+      referenceKeyHash(kMin, kMin, -1, false, kMin, false, kAll / 2 + 1),
+    "the goal key wraps on negative inputs");
+  // What should change the key does; walls past 15 do not count.
+  const std::uint32_t base = goalKeyHash(18, 40, 7, false, 3, false, 2024606576u);
+  check(goalKeyHash(18, 40, 7, true, 3, false, 2024606576u) != base, "the access card changes the key");
+  check(goalKeyHash(18, 40, 7, false, 4, false, 2024606576u) != base, "a wall breaking changes the key");
+  check(goalKeyHash(18, 40, 7, false, 3, true, 2024606576u) != base, "the Bass Cannon changes the key");
+  check(goalKeyHash(18, 40, 7, false, 3, false, 2024606577u) != base, "the world's state hash changes the key");
+  check(goalKeyHash(17, 40, 7, false, 3, false, 2024606576u) != base, "another goal kind changes the key");
+  check(goalKeyHash(18, 40, 7, false, 15, false, 1u) == goalKeyHash(18, 40, 7, false, 99, false, 1u),
+    "walls past 15 leave the key alone");
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
   const std::string levelPath = argc > 1 ? argv[1] : "levels/49_hive_mother.txt";
   const int maxFrames = argc > 2 ? std::atoi(argv[2]) : 3000;
+  checkKeyHash();
   SDL_Init(0);
   SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
   SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
