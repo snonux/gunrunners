@@ -60,8 +60,10 @@ std::size_t utf8Next(const std::string& s, std::size_t at)
 
 // The horizontal ink of `str` set at (x, 0) as rasterizeText sets it: its
 // stroke `stroke` wide (outline included), or its fill for 0. False when it
-// has no ink (spaces). Path extents, not glyph metrics: they include mitred
-// outline corners and a slant Cairo synthesizes.
+// has no ink (spaces). Path extents, not glyph metrics: they include the
+// slant Cairo synthesizes for the bundled font's oblique (Android, web),
+// which its glyph metrics leave out. (Outlines use round joins, so for
+// upright text the glyph box plus half the stroke is the same.)
 bool pathInk(cairo_t* cr, const std::string& str, double x, double stroke, double& left, double& right)
 {
   double y0 = 0.0, y1 = 0.0;
@@ -92,24 +94,52 @@ struct PrefixInk
   double nextLeft = 0.0; // the next character's leftmost fill
 };
 
-// Strokes only the last character (a constant cost per reveal step); the
-// earlier ones count by their glyph boxes, which miss a mitred corner but
-// rarely reach past the last letter.
+// How many characters before the last inked one prefixInk strokes too: a
+// slanted letter leans past a narrow one after it ("f."), by about a fifth
+// of its height, less than three characters' advance.
+constexpr int kInkLookBack = 3;
+
+// Where the characters prefixInk strokes start in s[0, bytes): back over
+// the blank characters that end it (a reveal step that ends on a space),
+// over the last inked character, and over kInkLookBack more.
+std::size_t inkWindow(cairo_t* cr, const std::string& s, std::size_t bytes)
+{
+  std::size_t at = bytes;
+  double left = 0.0, right = 0.0;
+  while (at > 0)
+  {
+    const std::size_t from = utf8Back(s, at);
+    const bool inked = pathInk(cr, s.substr(from, at - from), 0.0, 0.0, left, right);
+    at = from;
+    if (inked)
+      break;
+  }
+  for (int k = 0; k < kInkLookBack && at > 0; ++k)
+    at = utf8Back(s, at);
+  return at;
+}
+
+// Strokes the last few characters, up to the last inked one (a constant
+// cost per reveal step but for a run of blanks): their path extents hold a
+// synthesized slant, the last letter's and an earlier one's leaning past
+// it, even when the prefix ends in a space. Earlier characters count by
+// their glyph boxes plus half the stroke, exact for upright text (round
+// joins); a slant that far back cannot reach past the window.
 PrefixInk prefixInk(const std::string& s, std::size_t bytes, const TextStyle& st)
 {
   VectorImage probe(1, 1);
   cairo_t* cr = probe.cr();
   setTextFont(cr, st);
-  const std::size_t lastAt = utf8Back(s, bytes);
+  const std::size_t windowAt = inkWindow(cr, s, bytes);
   cairo_text_extents_t ext;
-  cairo_text_extents(cr, s.substr(0, lastAt).c_str(), &ext);
-  const double lastOrigin = ext.x_advance;
+  cairo_text_extents(cr, s.substr(0, windowAt).c_str(), &ext);
+  const double windowOrigin = ext.x_advance;
   cairo_text_extents(cr, s.substr(0, bytes).c_str(), &ext);
   PrefixInk ink;
   ink.advance = std::max(0.0, ext.x_advance);
   const double stroke = st.outline ? outlineWidth(st) : 0.0;
   double left = 0.0, right = 0.0;
-  if (pathInk(cr, s.substr(lastAt, bytes - lastAt), lastOrigin, stroke, left, right))
+  if (pathInk(cr, s.substr(windowAt, bytes - windowAt), windowOrigin, stroke, left, right))
   {
     ink.inked = true;
     ink.right = right;
@@ -778,7 +808,7 @@ Renderer::PrefixCut Renderer::prefixCut(CachedText& e, const std::string& s, std
   c.srcW = 0;
   if (ink.inked)
   {
-    // Right of the last letter's ink, outline included (and a hair for the
+    // Right of the prefix's ink, outline included (and a hair for the
     // path's fixed-point rounding at the texture's origin), but never into
     // the next letter's fill: where the two overlap in x (italic, a tight
     // pair) the last letter loses that part instead.

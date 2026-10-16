@@ -171,8 +171,9 @@ public:
     float alpha = 1.0f);
   // Left aligned, the first `bytes` bytes of s (rounded down to a whole
   // UTF-8 character): the cached texture of the WHOLE string clipped right
-  // of the prefix's last letter, its outline included, but never into the
-  // next letter's fill. A typewriter reveal thus rasterizes the line once
+  // of the prefix's ink, its outline and slant included (the last letter's,
+  // also before a space, and an earlier letter leaning past it), but never
+  // into the next letter's fill. A typewriter reveal thus rasterizes the line once
   // instead of once per step. Where the last letter's ink and the next
   // one's overlap in x (an italic lean, a tight pair) the cut, being
   // vertical, takes that part off the last letter; and of an outlined next

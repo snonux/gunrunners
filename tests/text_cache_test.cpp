@@ -7,8 +7,13 @@
 //     a cutscene line typed out two letters at a time caches one texture,
 //     not one per step, and looks like the prefix drawn on its own;
 //   - a prefix never ends inside a UTF-8 character.
-// The bundled game font is loaded as the game loads it; desktop builds (no
-// GR_BUNDLED_FONT) find the same DejaVu Sans Bold through fontconfig.
+// The bundled game font is loaded as the game loads it, but loadGameFont
+// only does something with GR_BUNDLED_FONT (Android, web). Desktop builds
+// pick the fonts through fontconfig: DejaVu Sans Bold, and for italic the
+// real DejaVu Sans Bold Oblique, whose glyph metrics hold its slant. The
+// bundled font's synthesized oblique (CAIRO_FT_SYNTHESIZE_OBLIQUE: metrics
+// not slanted, only the glyph paths), where a cut must stroke the slant
+// itself, is only exercised on Android and web.
 
 #include "render/renderer.hpp"
 #include "render/vector.hpp"
@@ -16,6 +21,7 @@
 #include <SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -273,13 +279,64 @@ void revealEnds(Renderer& r, SDL_Surface* surface)
   check(past == full, "a prefix past the end is the whole line");
 }
 
+// Whether every column from `from` on is background (black).
+bool blankFrom(const Pixels& px, int w, int from)
+{
+  for (std::size_t i = 0; i < px.size(); ++i)
+    if (int(i % std::size_t(w)) >= from && (px[i] & 0xFFFFFFu))
+      return false;
+  return true;
+}
+
+// Whether column `x` has a lit pixel.
+bool litColumn(const Pixels& px, int w, int x)
+{
+  for (std::size_t i = std::size_t(x); i < px.size(); i += std::size_t(w))
+    if (px[i] & 0xFFFFFFu)
+      return true;
+  return false;
+}
+
+// Where the fill of kLine's character at byte `bytes` starts, from the
+// line's origin, measured as the renderer measures it: the prefix's
+// advance, then that character's glyph path alone.
+double nextFillLeft(const TextStyle& st, std::size_t bytes)
+{
+  VectorImage probe(1, 1);
+  cairo_t* cr = probe.cr();
+  selectGameFont(cr, st.italic);
+  cairo_set_font_size(cr, st.size);
+  cairo_text_extents_t ext;
+  cairo_text_extents(cr, kLine.substr(0, bytes).c_str(), &ext);
+  cairo_new_path(cr);
+  cairo_move_to(cr, ext.x_advance, 0.0);
+  cairo_text_path(cr, kLine.substr(bytes, 1).c_str());
+  double x0 = 0.0, y0 = 0.0, x1 = 0.0, y1 = 0.0;
+  cairo_fill_extents(cr, &x0, &y0, &x1, &y1);
+  return x0;
+}
+
+// The cut never shows the next letter's fill: from the column its fill
+// starts in, everything is background (a sliver of its outline, left of
+// that, may show). The texture lands at lround(kX - anchor) and is cut at
+// floor(anchor + fill left), so on screen the cut is at or left of
+// floor(kX + fill left). The whole line is lit there: the cut hid it.
+void checkNextCapped(const Pixels& p, const Pixels& full, int sw, const TextStyle& st, std::size_t bytes,
+  const std::string& what)
+{
+  const int from = int(std::floor(double(kX) + nextFillLeft(st, bytes)));
+  check(blankFrom(p, sw, from) && litColumn(full, sw, from),
+    what + "nothing from the next letter's fill on (column " + std::to_string(from) + ")");
+}
+
 // A part of the line looks like that part drawn on its own (italic within
 // kItalicNoise). Before a space: all of it, ending in the same column, the
 // last letter's outline and slant whole (a cut at the advance took half
 // the outline and the lean). Between letters: the same left of the next
 // letter's outline, and ending where the part ends, give or take the last
 // letter's outline where the next letter's fill is close (italic: where it
-// leans over the next letter) and a sliver of the next letter's outline.
+// leans over the next letter) and a sliver of the next letter's outline,
+// but nothing from the next letter's fill on (checkNextCapped).
 void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_t bytes, const Pixels& full)
 {
   const int sw = surface->w;
@@ -300,6 +357,30 @@ void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_
   check(sameLeftOf(p, sub, sw, int(kX + w) - kMargin, noise), what + "the same pixels as the part drawn alone");
   check(right <= subRight + kSliver, what + "nothing past the part drawn alone");
   check(right >= subRight - kMargin, what + "ends where the part drawn alone ends");
+  checkNextCapped(p, full, sw, st, bytes, what);
+}
+
+// A part that ends in a space (with 2-byte steps the cutscene ends on one
+// every few words) keeps the letter before it whole, outline and slant
+// included: the same cut as before the space (where a synthesized slant
+// once went missing, the space having no ink to stroke), the same pixels
+// as the part drawn alone, and an advance a space further on.
+void checkSpaceCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_t bytes, const Pixels& full)
+{
+  const int sw = surface->w;
+  const int noise = st.italic ? kItalicNoise : 0;
+  const std::string part = kLine.substr(0, bytes);
+  const std::string what = std::string(st.italic ? "italic " : "") + "\"" + part + "\": ";
+  check(kLine[bytes - 1] == ' ' && kLine[bytes - 2] != ' ', what + "a cut after a letter and a space");
+  float w = 0.0f, letterW = 0.0f;
+  const Pixels p = shot(r, surface, [&] { w = r.drawTextPrefix(kLine, bytes, kX, kY, st); });
+  const Pixels letter = shot(r, surface, [&] { letterW = r.drawTextPrefix(kLine, bytes - 1, kX, kY, st); });
+  const Pixels sub = shot(r, surface, [&] { r.drawText(part, kX, kY, st); });
+  const int right = rightmostLit(p, sw);
+  check(p == letter && w > letterW, what + "the cut before the space, a space further on");
+  check(sameLeftOf(p, sub, sw, sw, noise) && right == rightmostLit(sub, sw),
+    what + "the same pixels as the part drawn alone");
+  check(right >= 0 && right < rightmostLit(full, sw), what + "the rest of the line is hidden");
 }
 
 void revealMatchesSubstring(Renderer& r, SDL_Surface* surface)
@@ -310,6 +391,11 @@ void revealMatchesSubstring(Renderer& r, SDL_Surface* surface)
   const Pixels fullItalic = shot(r, surface, [&] { r.drawText(kLine, kX, kY, kItalic); });
   for (const std::size_t bytes : {4, 9, 5, 15})
     checkCut(r, surface, kItalic, bytes, fullItalic);
+  for (const std::size_t bytes : {6, 16, 26, 32})
+  {
+    checkSpaceCut(r, surface, kStyle, bytes, full);
+    checkSpaceCut(r, surface, kItalic, bytes, fullItalic);
+  }
 }
 
 // A prefix that would end inside a UTF-8 character stops before it.
