@@ -242,11 +242,14 @@ private:
   std::vector<int> worldLevels(int episode) const;
   // Why a WORLD SELECT card is shut, empty when it is open.
   std::string worldLock(int card) const;
+  // A Bonus Channel or EXTRAS pick into mLevel; false (with a notice) if it would not load.
+  bool loadListedLevel(const std::string& path, bool hard, const char* failNotice);
   void tickList(const Input& in);
   // From the lists, played on their own and back to the list after: a
   // level's bonus level (the Bonus Channel) and an EXTRAS level.
   void playBonusChannel(int level);
   void playExtra(int index);
+  void pickListItem(std::string id);
   void renderList();
   void renderContinued();
   void tickCloud(const Input& in);

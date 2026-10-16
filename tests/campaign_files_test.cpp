@@ -2,14 +2,21 @@
 // the title screen call levelFile() and friends every frame, so the disk is
 // asked once per path and the answer kept until forgetDataFiles(). Checks a
 // scratch data directory with files that are missing, appear and disappear,
-// and the real one under GR_DATA_DIR.
+// a directory named like a level file, and the real one under GR_DATA_DIR;
+// then the title screen over the scratch directory: TRAINING STAGE only
+// with levels/level1.txt, and a level1.txt added while the game runs shows
+// up once the title opens again.
 
 #include "data/campaign.hpp"
+#include "frontend/game.hpp"
+
+#include <SDL.h>
 
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unistd.h>
 
 using namespace gr;
 
@@ -69,11 +76,120 @@ void appearAndDisappear(const std::string& dir)
   check(levelFile(dir + "/nowhere", 44).empty(), "another data dir: its own answer");
 }
 
+// Only regular files count: a directory named like a level file (an
+// unpack or a tool gone wrong) is not a level, though fopen() opens it.
+void directoryIsNoLevel(const std::string& dir)
+{
+  const std::string fake = dir + "/levels/03_club_laserdisc.txt";
+  std::filesystem::create_directories(fake);
+  std::filesystem::create_directories(dir + "/cutscenes/outro.txt");
+  forgetDataFiles();
+  check(levelFile(dir, 3).empty(), "a directory named like a level file is not a level");
+  check(!dataFileExists(fake), "dataFileExists: a directory is not a data file");
+  check(cutsceneFile(dir, "outro").empty(), "a directory named like a cutscene is not one");
+  std::filesystem::remove_all(fake);
+  std::filesystem::remove_all(dir + "/cutscenes/outro.txt");
+  forgetDataFiles();
+}
+
+// Ticks and draws like the game's loop (taps hit what was drawn last), as
+// in menu_taps_test.cpp.
+void run(Game& g, int ticks, Input in = {})
+{
+  for (int i = 0; i < ticks; ++i)
+    g.tick(in);
+  g.render();
+}
+
+void tap(Game& g, float x, float y)
+{
+  g.tapAt(x, y);
+  run(g, 2);
+}
+
+Input pressed(bool Input::*button)
+{
+  Input in;
+  in.*button = true;
+  return in;
+}
+
+// The title screen's items for a fresh profile, 44 apart from NEW GAME:
+// NEW GAME, WORLD SELECT, LOAD GAME, ARSENAL, then TRAINING STAGE if
+// levels/level1.txt is there, else CONTROLS.
+float titleItem(int i)
+{
+  return 252.0f + 44.0f * float(i);
+}
+
+// Game::titleItems() over a data directory without levels/level1.txt: the
+// fifth item is CONTROLS (a second tap on a cell listens for a key).
+void titleWithoutTraining(Game& g)
+{
+  run(g, 30);
+  tap(g, 640.0f, titleItem(4));
+  tap(g, 770.0f, 205.0f);
+  tap(g, 770.0f, 205.0f);
+  check(g.listening(), "title: no level1.txt, no TRAINING STAGE (the fifth item is CONTROLS)");
+  tap(g, 300.0f, 650.0f); // stop listening
+  run(g, 2, pressed(&Input::back));
+  run(g, 30);
+  check(!g.listening() && !g.inLevel(), "title: back from CONTROLS");
+}
+
+// A level1.txt copied in while the title is open is not asked about again
+// until the title opens anew (there and back from WORLD SELECT); then the
+// fifth item is TRAINING STAGE: runner select, and a tap on the card plays.
+void trainingAppears(Game& g, const std::string& dir)
+{
+  const std::string level1 = dir + "/levels/level1.txt";
+  std::filesystem::copy_file(std::string(GR_DATA_DIR) + "/levels/level1.txt", level1);
+  check(!dataFileExists(level1), "title: a level1.txt copied in is not seen while the title stays open");
+  tap(g, 640.0f, titleItem(1));
+  run(g, 30);
+  check(g.worldSelect(), "title: WORLD SELECT opens");
+  run(g, 2, pressed(&Input::back));
+  run(g, 30);
+  check(!g.worldSelect(), "title: back from WORLD SELECT (the title opens anew)");
+  check(dataFileExists(level1), "title: reopened, it asked the disk again");
+  tap(g, 640.0f, titleItem(4));
+  run(g, 30);
+  tap(g, 640.0f, 400.0f);
+  run(g, 5);
+  check(g.inLevel(), "title: TRAINING STAGE offered and played from the copied level1.txt");
+}
+
+// Game::titleItems() offers TRAINING STAGE by dataFileExists(), through a
+// whole headless Game (software renderer, no audio) over the scratch dir.
+void titleScreen(const std::string& dir)
+{
+  SDL_Init(0);
+  SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
+  const std::string saves = dir + "/saves";
+  {
+    Renderer renderer(sdl);
+    GameOptions o;
+    o.saveDir = saves;
+    o.dataDir = dir;
+    o.touch = true;
+    o.noCutscenes = true;
+    Game g(o, renderer, nullptr);
+    titleWithoutTraining(g);
+    trainingAppears(g, dir);
+  }
+  SDL_DestroyRenderer(sdl);
+  SDL_FreeSurface(surface);
+  SDL_Quit();
+}
+
 } // namespace
 
 int main()
 {
-  const std::string dir = (std::filesystem::temp_directory_path() / "gunrunners_campaign_files_test").string();
+  // The pid keeps two build trees running ctest at once apart.
+  const std::string dir = (std::filesystem::temp_directory_path() /
+    ("gunrunners_campaign_files_test_" + std::to_string(::getpid()))).string();
   std::filesystem::remove_all(dir);
   std::filesystem::create_directories(dir + "/levels");
   std::filesystem::create_directories(dir + "/cutscenes");
@@ -81,12 +197,15 @@ int main()
 
   emptyDir(dir);
   appearAndDisappear(dir);
+  directoryIsNoLevel(dir);
 
   // The shipped data: level 1 and the training stage are there.
   const std::string data = GR_DATA_DIR;
   check(levelFile(data, 1) == data + "/levels/01_rooftop_run.txt", "shipped: level 1");
   check(levelFile(data, 1) == levelFile(data, 1), "shipped: asking twice gives the same answer");
   check(dataFileExists(data + "/levels/level1.txt"), "shipped: the training stage");
+
+  titleScreen(dir);
 
   std::filesystem::remove_all(dir);
   std::printf("%s\n", gFailures == 0 ? "all ok" : "FAILED");

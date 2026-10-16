@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <mutex>
 #include <unordered_map>
 
@@ -80,9 +81,13 @@ const std::array<Episode, kEpisodes> kEpisodeList{{
 // What the disk said about each data file asked for so far, by path.
 // WORLD SELECT and the title screen ask every frame (dozens of level files
 // a frame once every episode is open), which is wasteful on Android storage
-// and the Emscripten FS. The game never writes into levels/ or cutscenes/,
-// so an answer holds for the run. Only the main thread asks today; the lock
-// costs next to nothing and keeps a future background caller safe.
+// and the Emscripten FS. The game never writes into levels/ or cutscenes/
+// after the Android unpack at startup (prepareAndroidData), which runs
+// before the first lookup, so an answer holds until something calls
+// forgetDataFiles(): the title screen does each time it opens, and a level
+// that would not load does (frontend/flow.cpp). Only the main thread asks
+// today; the lock costs next to nothing and keeps a future background
+// caller safe.
 std::mutex gFilesMutex;
 std::unordered_map<std::string, bool> gFiles;
 
@@ -93,12 +98,12 @@ bool dataFileExists(const std::string& path)
   const std::lock_guard<std::mutex> lock(gFilesMutex);
   if (const auto it = gFiles.find(path); it != gFiles.end())
     return it->second;
-  bool found = false;
-  if (FILE* f = std::fopen(path.c_str(), "r"))
-  {
-    std::fclose(f);
-    found = true;
-  }
+  // A regular file (or a link to one): a directory named like a level file
+  // is not a level, though fopen() would open it on Linux. The error_code
+  // overload never throws; a path it cannot reach is "no". A file that is
+  // there but unreadable counts, and its load fails gracefully later.
+  std::error_code ec;
+  const bool found = std::filesystem::is_regular_file(path, ec);
   gFiles.emplace(path, found);
   return found;
 }

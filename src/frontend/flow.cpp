@@ -110,6 +110,10 @@ std::string Game::saveDir() const { return mOptions.saveDir.empty() ? defaultSav
 
 void Game::goTitle()
 {
+  // The menus keep what the disk said about each level file (data/campaign.hpp);
+  // opening the title asks again, so level files added (or removed) while the
+  // game runs show up here. Not every frame: a few dozen lookups once.
+  forgetDataFiles();
   mWorld.reset();
   mMainWorld.reset();
   mCutscene.reset();
@@ -446,6 +450,8 @@ std::shared_ptr<const Level> Game::readLevelFile(const std::string& file, bool h
   catch (const std::exception& e)
   {
     std::fprintf(stderr, "cannot load %s: %s\n", file.c_str(), e.what());
+    // It may have been deleted since its lookup was kept: ask the disk again.
+    forgetDataFiles();
     notice("THAT LEVEL WOULD NOT LOAD");
     return nullptr;
   }
@@ -720,7 +726,20 @@ void Game::enterBonus()
       mWorld->notify("NO SIGNAL");
     return;
   }
-  auto level = std::make_shared<const Level>(Level::loadFile(path));
+  std::shared_ptr<const Level> level;
+  try
+  {
+    level = std::make_shared<const Level>(Level::loadFile(path));
+  }
+  catch (const std::exception& e)
+  {
+    // Deleted since its lookup was kept (data/campaign.hpp), or broken: no
+    // bonus level, as if it had never been built, and ask the disk again.
+    std::fprintf(stderr, "cannot load %s: %s\n", path.c_str(), e.what());
+    forgetDataFiles();
+    mWorld->notify("NO SIGNAL");
+    return;
+  }
   // The level and its file are parked with its world: no save names the
   // bonus level, so a save loaded in it always reads its level again.
   mMainLevel = mLevel;
@@ -958,6 +977,29 @@ void Game::openList(ListKind kind)
     mAudio->playMusic(Music::Menu);
 }
 
+// Loads a level picked from a list (the Bonus Channel, the EXTRAS) into
+// mLevel, with HARD's extra enemies if hard. A file that would not load puts
+// up failNotice and makes the menus ask the disk again (data/campaign.hpp),
+// so they stop offering a level file deleted while the game runs.
+bool Game::loadListedLevel(const std::string& path, bool hard, const char* failNotice)
+{
+  try
+  {
+    Level level = Level::loadFile(path);
+    if (hard)
+      addHardModeEnemies(level);
+    mLevel = std::make_shared<const Level>(std::move(level));
+    return true;
+  }
+  catch (const std::exception& e)
+  {
+    std::fprintf(stderr, "cannot load %s: %s\n", path.c_str(), e.what());
+    forgetDataFiles();
+    notice(failNotice);
+    return false;
+  }
+}
+
 void Game::tickList(const Input& in)
 {
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
@@ -982,7 +1024,14 @@ void Game::tickList(const Input& in)
   if (!(edge(&Input::confirm) || edge(&Input::jump)) || mModeTicks < 15)
     return;
   sound(Sfx::MenuSelect);
-  const std::string& id = mListItems[std::size_t(mListCursor)].first;
+  pickListItem(mListItems[std::size_t(mListCursor)].first);
+}
+
+// What the list screen's confirm does with the item under the cursor (its
+// id: a level number, a cutscene name or an extra's index). Takes a copy:
+// what it opens may refill mListItems.
+void Game::pickListItem(std::string id)
+{
   switch (mListKind)
   {
     case ListKind::Levels:

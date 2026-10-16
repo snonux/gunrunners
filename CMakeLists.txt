@@ -286,7 +286,8 @@ add_test(NAME touch_controls COMMAND touch_test)
 add_executable(menu_taps_test tests/menu_taps_test.cpp)
 target_link_libraries(menu_taps_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME menu_taps COMMAND menu_taps_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-# The menus' level-file lookups ask the disk once per path (data/campaign.cpp).
+# The menus' level-file lookups ask the disk once per path (data/campaign.cpp),
+# and the title screen's TRAINING STAGE goes by them.
 add_executable(campaign_files_test tests/campaign_files_test.cpp)
 target_link_libraries(campaign_files_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME campaign_files COMMAND campaign_files_test)

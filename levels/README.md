@@ -9,7 +9,9 @@ campaign levels `NN_slug.txt` and bonus levels `NN_bonus_slug.txt` by
 numbering (`extra_slug.txt`, listed in `src/data/campaign.cpp` and played
 from EXTRAS on the title screen) by `tools/levels/extra_*.py`; they share
 helpers in `tools/levels/lib.py`. Edit
-the script and re-run it rather than editing the text file by hand.
+the script and re-run it rather than editing the text file by hand. A
+level file added while the game runs shows up once you go back to the
+title screen (or restart the game).
 
 A campaign level has a header, a `[map]` and an `[entities]` section:
 
