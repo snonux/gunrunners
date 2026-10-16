@@ -181,12 +181,22 @@ Audio::Track* Audio::namedTrack(const std::string& id)
   return track;
 }
 
+// The queue itself skips ids it already has queued, rendering or finished.
+bool Audio::preloadable(const std::string& id) const
+{
+  return !id.empty() && id != "stop" && !mNamedTracks.count(id);
+}
+
 void Audio::preloadMusic(const std::string& id)
 {
-  // The queue skips ids it already has queued, rendering or finished.
-  if (id.empty() || id == "stop" || mNamedTracks.count(id))
-    return;
-  mPreloads.request(id);
+  if (preloadable(id))
+    mPreloads.request(id);
+}
+
+void Audio::preloadMusicFirst(const std::string& id)
+{
+  if (preloadable(id))
+    mPreloads.requestFirst(id);
 }
 
 void Audio::markPreloadsStale()

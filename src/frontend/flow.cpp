@@ -586,14 +586,19 @@ void Game::playBriefing(int number, bool fromNewGame)
   char brief[32];
   std::snprintf(brief, sizeof(brief), "brief_%02d", number);
   cuts.emplace_back(brief);
-  // The single preload worker renders in request order, and the first
-  // scene's music plays at once, so the scenes' tracks are queued first
-  // (playCutscenes) and the level's after them, to render during the
-  // briefing. Without cutscenes the level has started (and taken its
-  // music) by now, so there is nothing to queue.
+  // The single preload worker renders in request order. The level's music
+  // goes first, ahead of the scenes' tracks (playCutscenes): the level
+  // always plays it, while a skipped briefing plays none of its cues, and
+  // queued behind them it would be cancelled by the level start
+  // (markPreloadsStale) and rendered on this thread (1-4 s). The first
+  // scene's music plays at once, so, unless it is the level's own (the
+  // shipped briefings' usual case: then it is waited for), it is rendered
+  // here while the worker starts on the level's. Without cutscenes the
+  // level starts at once and collects the level's track from the worker
+  // (or renders it itself if the worker has not started it yet).
+  if (mAudio)
+    mAudio->preloadMusicFirst(mLevel->music);
   playCutscenes(cuts, After::StartLevel);
-  if (mAudio && mMode == Mode::Cutscene)
-    mAudio->preloadMusic(mLevel->music);
 }
 
 void Game::recordClear()

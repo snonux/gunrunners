@@ -27,9 +27,11 @@ namespace gr
 // ~8 tracks at once (its variants and layers), and each takes 1-4 s of CPU,
 // so a thread apiece had them all fighting the game thread. The price is
 // readiness: a track waits for every request ahead of it, so callers
-// request in the order the tracks are needed (Game::beginCampaignLevel
-// queues the briefing's music before the level's), and one needed before
-// the worker gets to it is rendered by the caller instead (see take()).
+// request in the order the tracks are needed, and requestFirst() puts the
+// one surely needed ahead of those that only may be (Game::playBriefing:
+// the level's own music before the briefing's, which a skip never plays).
+// One needed before the worker gets to it is rendered by the caller
+// instead (see take()).
 //
 // Finished results nobody has taken yet are capped at `keepReady` (a track
 // is ~12 MB): past that stale ones go first, then the oldest, and an evicted
@@ -93,28 +95,14 @@ public:
   // already rendering or finished is wanted again (no longer stale, and a
   // finished one becomes the newest, the last the cap evicts). Returns
   // whether it was newly queued.
-  bool request(const std::string& id)
-  {
-    {
-      std::lock_guard<std::mutex> lock(mMutex);
-      if (renderingLocked(id))
-      {
-        mCurrentKeep = Keep::Fresh;
-        return false;
-      }
-      if (auto it = readyLocked(id); it != mReady.end())
-      {
-        it->stale = false;
-        std::rotate(it, std::next(it), mReady.end());
-        return false;
-      }
-      if (queuedLocked(id) != mQueue.end())
-        return false;
-      mQueue.push_back(id);
-    }
-    mWake.notify_one();
-    return true;
-  }
+  bool request(const std::string& id) { return add(id, false); }
+
+  // As request(), but ahead of every queued request, so the worker starts
+  // it as soon as the render in progress ends; one already queued moves to
+  // the front. For the result certain to be wanted when those queued only
+  // may be: a level's own music goes before its briefing's tracks, so the
+  // level has it even if the briefing is skipped at once.
+  bool requestFirst(const std::string& id) { return add(id, true); }
 
   // Claims the result for `id`: a finished one is handed over, one in
   // progress is waited for. A request still in the queue is withdrawn and,
@@ -212,6 +200,37 @@ private:
     Stale, // kept, but freed by the next dropStale()
     Drop,  // thrown away (unless a take() waits for it)
   };
+
+  // request() and requestFirst(): queues `id` at the back or the front.
+  bool add(const std::string& id, bool first)
+  {
+    {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (renderingLocked(id))
+      {
+        mCurrentKeep = Keep::Fresh;
+        return false;
+      }
+      if (auto it = readyLocked(id); it != mReady.end())
+      {
+        it->stale = false;
+        std::rotate(it, std::next(it), mReady.end());
+        return false;
+      }
+      if (auto q = queuedLocked(id); q != mQueue.end())
+      {
+        if (first)
+          std::rotate(mQueue.begin(), q, std::next(q));
+        return false;
+      }
+      if (first)
+        mQueue.push_front(id);
+      else
+        mQueue.push_back(id);
+    }
+    mWake.notify_one();
+    return true;
+  }
 
   void run()
   {

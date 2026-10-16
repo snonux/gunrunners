@@ -4,6 +4,8 @@
 //   - a request renders once on the worker and take() hands it over once;
 //   - a repeated request (queued, rendering or finished) is not rendered again;
 //   - one worker renders one thing at a time, oldest request first;
+//   - requestFirst() goes ahead of the queue (moving a queued id), so a
+//     level's music queued before its briefing's survives a skip;
 //   - take() on a request still queued withdraws it (the caller renders it),
 //     and on one rendering blocks until it is done;
 //   - finished results past the cap are thrown away, stale ones first, then
@@ -197,6 +199,49 @@ void testOneWorkerInOrder()
   check(waitUntil([&] { return q.readyCount() == 3; }), "all three finish");
   check(fake.log() == Log{"a", "b", "c"}, "oldest request first, each once");
   check(fake.count(&FakeRender::maxActive) == 1, "one render at a time");
+}
+
+void testRequestFirst()
+{
+  FakeRender fake;
+  fake.close();
+  Queue q(fake.fn(), 8);
+  q.request("a");
+  check(fake.reached("a"), "the worker is held on a");
+  q.request("b");
+  q.request("c");
+  check(q.requestFirst("first"), "requestFirst() queues a new id");
+  check(!q.requestFirst("c"), "and moves one already queued instead of queueing it twice");
+  check(!q.requestFirst("a"), "the id rendering now is not queued again");
+  check(q.queuedCount() == 3, "nothing was queued twice");
+  fake.release();
+  check(waitUntil([&] { return q.readyCount() == 4; }), "all four finish");
+  check(fake.log() == Log{"a", "c", "first", "b"}, "front requests next (the latest first), then the rest in order");
+  check(!q.requestFirst("b") && q.queuedCount() == 0, "a finished id is not queued again");
+}
+
+// What Game::playBriefing does: the level's music first, then the scenes'
+// tracks; the first scene's track is taken at once, and the briefing is
+// skipped before any cue plays (the level start: markStale, take, dropStale).
+void testLevelTrackFirst()
+{
+  FakeRender fake;
+  fake.close();
+  Queue q(fake.fn(), 8);
+  q.requestFirst("level");
+  check(fake.reached("level"), "the level's track renders first");
+  q.request("scene");
+  q.request("cue");
+  check(!q.take("scene"), "the first scene's track, still queued, is rendered by the caller");
+  q.markStale();
+  Taker taker(q, "level");
+  check(blockedIn(q, "level"), "the level start waits for its track in progress");
+  fake.release();
+  const auto level = taker.result();
+  check(level && *level == "pcm:level", "and gets it, not cancelled by markStale()");
+  q.dropStale();
+  check(q.queuedCount() == 0 && q.readyCount() == 0, "the skipped cue was cancelled");
+  check(fake.log() == Log{"level"}, "only the level's track rendered");
 }
 
 void testTakeQueuedAndRendering()
@@ -453,8 +498,15 @@ void testDestructorWhileTaking()
   check(fake.reached("a"), "the worker is held on a");
   Taker taker(owned->q, "a");
   check(blockedIn(owned->q, "a"), "a take() blocks on a");
-  // The gate opens only once the destruction is under way, so the taker
-  // wakes while ~RenderQueue runs, which has to wait for it.
+  // The gate opens only once ~Owned has begun, so the render ends while
+  // ~RenderQueue stops or joins the worker. Whether the taker is still
+  // listed as waiting when the destructor gets to its final wait is up to
+  // the scheduler: often it has collected its render and left by then. So
+  // this proves the take() gets its result and nothing hangs; a destructor
+  // that forgot to wait fails only when the race goes the other way, which
+  // the ASan/TSan builds report (a use-after-free or a race on the freed
+  // queue) and a plain build may not notice. A deterministic version would
+  // need test-only hooks inside both take() and the destructor.
   std::thread killer([&] { owned.reset(); });
   check(waitUntil([&] { return dying.load(); }), "the destruction starts");
   fake.release();
@@ -487,6 +539,8 @@ int main()
 {
   testRequestAndTake();
   testOneWorkerInOrder();
+  testRequestFirst();
+  testLevelTrackFirst();
   testTakeQueuedAndRendering();
   testCap();
   testCapEvictsStaleFirst();
