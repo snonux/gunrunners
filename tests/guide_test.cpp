@@ -502,12 +502,16 @@ void checkKeptForceField(const Theme& theme, const Art& art)
   checkAgree(cmp, 11, "the force field");
 }
 
-// A scripted run of `frames` logic frames (walking right, then left;
+// A scripted run of `frames` live frames (walking right, then left;
 // climbing a while in the middle; jumping and shooting all along), the
-// kept guide compared with `cmp` on every frame.
+// kept guide compared with `cmp` on every frame. A frame the world holds
+// still (level 42's roll-ins, wipes and commercial breaks, a title card)
+// does not count: no logic runs, so the guide has nothing new to work out,
+// and a long hold would leave a short run next to nothing to compare. At
+// most four calls per live frame, so a world that never lets go still ends.
 void scriptedRun(World& w, int frames, Compare& cmp)
 {
-  for (int f = 0; f < frames && w.state() == WorldState::Playing; ++f)
+  for (int f = 0, calls = 0; f < frames && calls < frames * 4 && w.state() == WorldState::Playing; ++calls)
   {
     cmp(w);
     PlayerInput in;
@@ -517,15 +521,17 @@ void scriptedRun(World& w, int frames, Compare& cmp)
     in.jump.pressed = in.jump.triggered = f % 17 == 0;
     in.fire.pressed = true;
     in.fire.triggered = f % 6 == 0;
+    const int before = w.stats().frames;
     w.update(in);
     (void)w.takeSounds();
+    f += w.stats().frames != before;
   }
 }
 
 // Campaign level `n`, a scripted run: levels 1-6 run longer and compare
 // every frame worked out; the rest a shorter run, one frame in three, to
-// keep the test quick. Each must compare `least` frames (or the run left
-// Playing too early to show much).
+// keep the test quick. Each must compare `least` frames: a run that left
+// Playing too early (or held still) would show too little to trust.
 bool keptLevelAgrees(int n, const Theme& theme, const Art& art, int& compared)
 {
   const bool longRun = n <= 6;
