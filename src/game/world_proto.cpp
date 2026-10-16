@@ -23,6 +23,19 @@ bool World::onTheBeat() const
   return framesIntoBeat(mStats.frames) < 3;
 }
 
+bool World::beatGunInHand() const
+{
+  const auto& p = mPlayer;
+  if (p.weapon != Weapon::Proto)
+    return false;
+  if (p.proto == int(ProtoId::PulsePistol))
+    return true;
+  if (p.proto != int(ProtoId::Encore) || !mFinale.on || mFinale.wheel.empty())
+    return false;
+  return mFinale.wheel[std::size_t(std::clamp(mFinale.sel, 0, int(mFinale.wheel.size()) - 1))] ==
+    int(ProtoId::PulsePistol);
+}
+
 void World::takeProto(const Vec2& at)
 {
   auto& p = mPlayer;

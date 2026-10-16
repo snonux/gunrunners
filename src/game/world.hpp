@@ -2146,7 +2146,6 @@ private:
   void updateBonusRules(const PlayerInput& input);
   void drawLayers(Renderer& r, float camX, float camY, int frame) const;
   void drawProps(Renderer& r, float camX, float camY, int frame, bool foreground) const;
-  void drawBeatHud(Renderer& r, int frame) const;
 
   // world_platforms.cpp: moving platforms, hatches, breakables, spawners
   void setupPlatform(const EntityDef& e);
@@ -3456,6 +3455,7 @@ private:
   void stowGun();
   void updateProtoShooting(const Button& fire);
   bool onTheBeat() const;
+  bool beatGunInHand() const; // the Pulse Pistol (or the Encore's Pulse Pistol chamber) is out
 
   // world.cpp
   void updateEnemies();
@@ -3763,7 +3763,7 @@ private:
   std::vector<CellBox> mRopes; // free fall: window-cleaner ropes that bounce you
   int mStall = 0;         // free fall: frames the fall is stalled after a bounce
   int mLevelProto = -1; // the header's weapon=
-  bool mHasBeat = false; // level uses the music clock: show the equalizer
+  bool mHasBeat = false; // level keeps time with the music (the Pulse Pistol, pads, Step on the Beat)
   bool mBonusRequested = false;
   bool mBonusLevel = false;
   int mBonusFramesLeft = 0;

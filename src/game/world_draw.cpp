@@ -1434,7 +1434,6 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawHud(r, frame);
   drawVehicleHud(r, frame);
   drawAirHud(r, frame);
-  drawBeatHud(r, frame);
   drawClubHud(r, frame);
   drawTideHud(r, frame);
 }
@@ -1799,6 +1798,22 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     o.tint = rgb(150, 255, 120);
     drawGlow(r, mArt, x + ux * 80.0f, y + uy * 80.0f, 90, rgb(110, 255, 60), 0.25f + 0.1f * pulse);
   }
+  if (mBeatStep)
+  {
+    // Step on the Beat: a pulse at your feet on every beat, when your step
+    // lands; brighter while a step is waiting for it.
+    // A ring that bursts out from your feet as the beat lands and fades.
+    const float t = std::min(1.0f, float(framesIntoBeat(mStats.frames)) / 6.0f);
+    const float rx = 34.0f + 56.0f * t, ry = 10.0f + 12.0f * t;
+    const Color ring = withAlpha(rgb(255, 80, 210), int(255.0f * (1.0f - t)));
+    for (int k = 0; k < 24; ++k)
+    {
+      const float a0 = float(k) * 0.2618f, a1 = a0 + 0.2618f;
+      r.drawLine(x + rx * std::cos(a0), y - 4.0f + ry * std::sin(a0), x + rx * std::cos(a1), y - 4.0f + ry * std::sin(a1),
+        4.0f, ring, Blend::Add);
+    }
+    drawGlow(r, mArt, x, y - 6.0f, 90, rgb(255, 60, 200), (mQueued ? 0.45f : 0.2f) + 0.5f * (1.0f - t));
+  }
   if (mWardrobe.on && drawWardrobeRunner(r, *this, mArt, tex, x, y, o, frame))
     return; // in the suit, at the mirror, as a cartoon (world_wardrobe_draw.cpp)
   r.draw(tex, x, y, o);
@@ -1810,14 +1825,14 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     r.draw(tex, x, y, w);
   }
 
-  if (p.muzzleTicks > 0)
-  {
+  // Where the gun's muzzle is in this stance, on screen.
+  auto muzzleAt = [&](Stance stance, float& mx, float& my) {
     static constexpr float kMuzzle[5][2] = {{1.95f, 2.75f}, {1.95f, 1.75f}, {0.45f, 5.6f}, {-0.1f, -0.6f}, {0.0f, -0.6f}};
-    const auto& m = kMuzzle[int(p.muzzleStance)];
-    float mx = x + float(p.facing) * m[0] * kCellPx;
-    if (p.muzzleStance == Stance::Down)
+    const auto& m = kMuzzle[int(stance)];
+    mx = x + float(p.facing) * m[0] * kCellPx;
+    if (stance == Stance::Down)
       mx = x - float(p.facing) * 0.3f * kCellPx;
-    float my = y - m[1] * kCellPx;
+    my = y - m[1] * kCellPx;
     if (uy != -1.0f)
     {
       // Turned (level 19): the same point on the turned sprite, the muzzle's
@@ -1834,6 +1849,23 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
         my = y + ux * fwd;
       }
     }
+  };
+
+  // The Pulse Pistol keeps time with the music: the gun flashes pink on
+  // every beat, and a shot fired during the flash does double damage.
+  if (beatGunInHand() && onTheBeat())
+  {
+    float mx = 0.0f, my = 0.0f;
+    muzzleAt(p.stance, mx, my);
+    const float a = 1.0f - float(framesIntoBeat(mStats.frames)) / 3.0f;
+    drawGlow(r, mArt, mx, my, 70, rgb(255, 60, 200), 0.55f + 0.45f * a);
+    drawGlow(r, mArt, mx, my, 24, rgb(255, 255, 255), 0.5f * a);
+  }
+
+  if (p.muzzleTicks > 0)
+  {
+    float mx = 0.0f, my = 0.0f;
+    muzzleAt(p.muzzleStance, mx, my);
     Color c = rgb(255, 220, 120);
     if (p.weapon == Weapon::Laser)
       c = rgb(120, 240, 255);

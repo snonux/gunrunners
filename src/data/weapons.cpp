@@ -13,7 +13,7 @@ using M = FireMode;
 // Numbers from SPEC.md section 10, one row per level.
 const std::array<ProtoDef, kProtoCount> kProtos{{
   {ProtoId::PulsePistol, "pulse_pistol", "PULSE PISTOL", 1, M::Tap, 0, 3, 2, 20, 40, rgb(255, 60, 200),
-   "SHOOT ON THE BEAT FOR DOUBLE DAMAGE"},
+   "FIRE WHEN THE GUN FLASHES PINK: DOUBLE DAMAGE"},
   {ProtoId::SparkDisc, "spark_disc", "SPARK DISC", 2, M::Tap, 0, 2, 2, 12, 24, rgb(120, 230, 255),
    "DISCS RIDE WALLS AND CEILINGS"},
   {ProtoId::BassCannon, "bass_cannon", "BASS CANNON", 3, M::Tap, 10, 0, 2, 12, 24, rgb(190, 90, 255),

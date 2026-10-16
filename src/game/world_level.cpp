@@ -118,8 +118,10 @@ void World::setupEntities()
       mGoldGoal = std::clamp(std::atoi(lv.goal.c_str() + 6), 1, 100);
   }
   mBonusFramesLeft = lv.timer * 15;
-  // The equalizer: the Pulse Pistol's beat, and when the next step lands.
+  // Keeps time with the music: the game never runs slower than the music plays.
   mHasBeat = mLevelProto == int(ProtoId::PulsePistol) || mBeatStep;
+  if (mBeatStep)
+    showMessage("YOU MOVE ON THE BEAT - HOLD A DIRECTION OR JUMP");
 
   for (const auto& e : lv.entities)
   {
@@ -1163,29 +1165,6 @@ void World::drawProps(Renderer& r, float camX, float camY, int frame, bool foreg
         break;
     }
   }
-}
-
-void World::drawBeatHud(Renderer& r, int frame) const
-{
-  if (!mHasBeat)
-    return;
-  (void)frame;
-  const int f = mStats.frames % 30;
-  const int beat = beatOfFrame(f);
-  const bool flash = mPlayer.weapon == Weapon::Proto && mPlayer.proto == int(ProtoId::PulsePistol) && onTheBeat();
-  const float x0 = 20.0f, y0 = float(kScreenH) - 24.0f;
-  r.fillRect(x0 - 8, y0 - 76, 4 * 26 + 12, 86, rgba(8, 6, 22, 170));
-  for (int i = 0; i < 4; ++i)
-  {
-    const bool on = i <= beat;
-    const float bh = 18.0f + float(i) * 14.0f;
-    Color c = on ? kSignColors[i % 3] : rgba(255, 255, 255, 40);
-    if (flash && i == beat)
-      c = rgb(255, 255, 255);
-    r.fillRect(x0 + float(i) * 26.0f, y0 - bh, 18, bh, c);
-  }
-  if (flash)
-    drawGlow(r, mArt, x0 + 50, y0 - 30, 80, rgb(255, 255, 255), 0.3f);
 }
 
 } // namespace gr
