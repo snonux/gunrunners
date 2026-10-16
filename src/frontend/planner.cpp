@@ -2647,13 +2647,15 @@ static bool selfTimedMacro(int m)
 
 // Plays search macro m on child, one logic frame at a time, for frames
 // frames (a self-timed macro instead runs until its input helper says
-// done). prev is the input of the frame before (it carries the button edges
-// across) and ends as the macro's last input. seq collects a self-timed
-// macro's inputs for the plan to replay, one per frame played, so its size
-// is how long that macro ran (the others run their frames and are rebuilt
-// from kMacros). False: the macro failed, the runner died on the way, the
-// bonus run failed (child.bonusFailed()), or, with falseAltarFails (level
-// 14's bonus route), a false altar dropped; the child is no use then.
+// done); any macro stops early once the level ends (child.state() !=
+// Playing). prev is the input of the frame before (it carries the button
+// edges across) and ends as the macro's last input. seq collects a
+// self-timed macro's inputs for the plan to replay, one per frame played,
+// so its size is how long that macro ran (the others are rebuilt from
+// kMacros for their set frame count, see Node::frames). False: the macro
+// failed, the runner died on the way, the bonus run failed
+// (child.bonusFailed()), or, with falseAltarFails (level 14's bonus route),
+// a false altar dropped; the child is no use then.
 static bool rollMacro(World& child, int m, int frames, bool falseAltarFails, Input& prev, std::vector<Input>& seq)
 {
   const bool selfTimed = selfTimedMacro(m);
@@ -2932,7 +2934,11 @@ void Planner::plan(const World& world)
     int g;
     int h;
     Input last;
-    int frames;             // how long its macro ran
+    // How long its macro ran: a self-timed macro's frames played (seq's
+    // size); for any other macro its set frame count, which it also holds
+    // when the macro stopped early because the level ended (the plan then
+    // replays all of those frames).
+    int frames;
     std::vector<Input> seq; // a self-timed macro's inputs
   };
   // Grows while a node is expanded (its children are pushed back). A deque,
