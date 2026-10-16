@@ -61,7 +61,7 @@ constexpr int kWaitLaunch = 16;
 constexpr int kWaitVerse = 17;
 // Swing vines (level 8): pump the vine you hold, then launch at the top of
 // a swing to the right or to the left. Their inputs are worked out as they
-// run (see Planner::plan), not taken from kMacros.
+// run (see rollMacro), not taken from kMacros.
 constexpr int kVineRight = kMacroCountBase;
 constexpr int kVineLeft = kMacroCountBase + 1;
 // Blasting Caps (level 11): throw one at a cracked rock wall (or set one
@@ -2834,16 +2834,694 @@ std::uint32_t goalKeyHash(int kind, int x, int y, bool hasKey, int broken, bool 
     (u(std::min(broken, 15)) * 2u + (sound ? 1u : 0u)) * 10000000u + powered * 7919u;
 }
 
-void Planner::plan(const World& world)
+namespace
 {
-  mLastNodes = 0; // stays 0 when this plan needs no search
-  const auto& p0 = world.player();
-  if (p0.state == PlayerState::Dying || p0.state == PlayerState::Teleporting || world.state() != WorldState::Playing)
-  {
-    mQueue.push_back(Input{});
-    return;
-  }
 
+// One node of a plan's search: a simulated world after a macro, linked to
+// the node it was played from.
+struct Node
+{
+  std::unique_ptr<World> w; // reset once the node is expanded (keeps memory flat)
+  int parent;               // the node it was played from (-1: the start)
+  int macro;                // the macro played to get here (-1: the start)
+  int g;                    // cost so far
+  int h;                    // the heuristic here (0 once the level ended)
+  Input last;               // the macro's last input (carries the button edges on)
+  // How long its macro ran: a self-timed macro's frames played (seq's
+  // size); for any other macro its set frame count, which it also holds
+  // when the macro stopped early because the level ended (the plan then
+  // replays all of those frames).
+  int frames;
+  std::vector<Input> seq; // a self-timed macro's inputs
+};
+
+// Orders the search's open list: the lowest g + h on top.
+struct ByScore
+{
+  const std::deque<Node>* nodes;
+  bool operator()(int a, int b) const
+  {
+    const Node& na = (*nodes)[std::size_t(a)];
+    const Node& nb = (*nodes)[std::size_t(b)];
+    return na.g + na.h > nb.g + nb.h;
+  }
+};
+
+// GR_BOT_LOUD=1: the bot does not mind Level 27's alarms.
+bool botLoud()
+{
+  static const bool loud = std::getenv("GR_BOT_LOUD") != nullptr;
+  return loud;
+}
+
+// The cost of a child node: its parent's g plus the macro's frames (a wait
+// for the drop counts as a short one: it is the way up; a self-timed macro
+// half its frames), 60 per heart lost, 90 per Level 27 alarm (as much as a
+// lost heart and a half: a stealthy route is worth waiting for; loud:
+// GR_BOT_LOUD=1 doesn't care) and 1 for a shot (macros 10-12).
+int childCost(int g, const World& from, const World& to, int m, int frames, int length, bool loud)
+{
+  const bool selfTimed = selfTimedMacro(m);
+  const int lost = std::max(0, from.player().hp - to.player().hp);
+  const int alarms = loud ? 0 : std::max(0, alarmHeat(to) - alarmHeat(from));
+  return g + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : (selfTimed ? length / 2 : length))) + lost * 60 +
+    alarms * 90 + (m >= 10 && m <= 12 ? 1 : 0);
+}
+
+// searchKey's parts, folded in the order the inline key always took them
+// (changing the order would change every key, and with it which states the
+// search merges). Each one carries on the running key k through mix().
+
+// The runner (where, how, which way, the clock's phase, HP, weapon, card),
+// level 19's downs, what is alive and the items out.
+std::uint64_t keyRunner(const World& w, int period)
+{
+  const auto& p = w.player();
+  std::uint64_t k = 1469598103934665603ull;
+  k = mix(k, std::uint64_t(p.x) | (std::uint64_t(p.y) << 16));
+  k = mix(k, std::uint64_t(int(p.state)) | (std::uint64_t(std::min(p.frames, 12)) << 8) |
+               (std::uint64_t(p.facing > 0) << 16) | (std::uint64_t(w.clock() % period) << 20));
+  k = mix(k, std::uint64_t(p.hp) | (std::uint64_t(int(p.weapon)) << 8) | (std::uint64_t(p.hasKey) << 12));
+  // Level 19: the runner's down, and the chambers'.
+  if (w.grav().on)
+  {
+    std::uint64_t gk = std::uint64_t(int(p.grav)) + 1;
+    for (const auto& z : w.grav().zones)
+      gk = gk * 2 + (z.dir == Grav::Up);
+    k = mix(k, gk);
+  }
+  int alive = 0;
+  for (const auto& e : w.enemies())
+    alive += e.alive;
+  for (const auto& b : w.boxes())
+    alive += b.alive * 64;
+  return mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
+}
+
+// Levels 29, 30 and 31: the signal, the trench, the storm.
+std::uint64_t keySignalTrenchStorm(std::uint64_t k, const World& w)
+{
+  // Level 29: the signal (and a change on its way), the pips, the tint.
+  if (w.signal().on)
+  {
+    const auto& sg = w.signal();
+    k = mix(k, std::uint64_t(sg.color) | (std::uint64_t(sg.pending + 1) << 2) | (std::uint64_t(sg.flash) << 4) |
+                 (std::uint64_t(sg.tint) << 8) | (std::uint64_t(sg.pips[0] > 0) << 10) |
+                 (std::uint64_t(sg.pips[1] > 0) << 11) | (std::uint64_t(sg.pips[2] > 0) << 12) |
+                 (std::uint64_t(sg.wallShut) << 13));
+  }
+  // Level 30: strokes used, the sinking's beat, the line.
+  if (w.trench().on)
+  {
+    const auto& t = w.trench();
+    k = mix(k, std::uint64_t(t.strokes) | (std::uint64_t(t.sinkTick % 3) << 4) | (std::uint64_t(t.line) << 6) |
+                 (std::uint64_t(t.lineX0) << 8) | (std::uint64_t(t.lineY) << 20) |
+                 (std::uint64_t(t.harpoons.size()) << 32) | (std::uint64_t(t.fade) << 36));
+  }
+  // Level 31: each zone's clock (its glow and strike), rods, powered
+  // machines, a Foghorn's blast.
+  if (w.storm().on)
+  {
+    const auto& s = w.storm();
+    std::uint64_t sk = 7;
+    for (const auto& z : s.zones)
+      sk = sk * 131 + std::uint64_t(z.t);
+    for (const auto& m : s.machines)
+      sk = sk * 2 + std::uint64_t(m.powered);
+    sk = sk * 3 + s.rods.size();
+    for (const auto& e : w.enemies())
+      if (e.alive && e.kind == EnemyKind::Foghorn)
+        sk = sk * 64 + std::uint64_t(e.dive + e.tell * 9 + (e.cool > 0 ? 1 : 0) * 37);
+    k = mix(k, sk);
+  }
+  return k;
+}
+
+// Level 32: the teaching dish's clock, the sharks', drones' and mechs'
+// attacks on their way, a mech's HP, scrap falling.
+std::uint64_t keyDish(std::uint64_t k, const World& w)
+{
+  if (!w.dish().on)
+    return k;
+  const auto& d = w.dish();
+  std::uint64_t dk = 11;
+  for (const auto& sd : d.small)
+    dk = dk * 181 + std::uint64_t(sd.t);
+  for (const auto& sh : d.sharks)
+    dk = dk * 64 + std::uint64_t(sh.state * 21 + std::min(sh.t, 20));
+  for (const auto& r : d.robots)
+  {
+    const Enemy& e = w.enemies()[std::size_t(r.enemy)];
+    dk = dk * 97 + std::uint64_t(r.aimState * 31 + std::min(r.aimT, 30)) + (r.jam > 0 ? 3000u : 0u) +
+      (e.cool > 0 ? 6000u : 0u);
+    if (e.kind == EnemyKind::ScorpionMech)
+      dk = dk * 16 + std::uint64_t(std::max(0, e.hp));
+  }
+  for (const auto& sc : d.scraps)
+    dk = dk * 131 + std::uint64_t(sc.y);
+  return mix(k, dk);
+}
+
+// Levels 21, 23 and 22: the zero-g script, the manor, the fuses.
+std::uint64_t keyZeroManorWest(std::uint64_t k, const World& w)
+{
+  // Level 21: where the script's shifts and bulkheads are.
+  if (!w.zero().shifts.empty())
+  {
+    std::uint64_t zk = 5;
+    for (const auto& sh : w.zero().shifts)
+      zk = zk * 131 + std::uint64_t(sh.done ? 130 : std::min(129, sh.t + 1));
+    for (const auto& d : w.zero().doors)
+      zk = zk * 11 + std::uint64_t(d.pos * 10.0f);
+    k = mix(k, zk);
+  }
+  // Level 23: the side, the shimmer of a step through, the route's step,
+  // the levers and the ghosts pinned as platforms.
+  if (w.manor().on)
+  {
+    const auto& m = w.manor();
+    std::uint64_t mk = std::uint64_t(m.side) | (std::uint64_t(m.flip) << 1) | (std::uint64_t(m.step) << 6);
+    for (const auto& l : m.levers)
+      mk = mk * 2 + std::uint64_t(l.state);
+    for (const auto& pl : m.platforms)
+      mk = mk * 131 + std::uint64_t(pl.bx * 97 + pl.by);
+    k = mix(k, mk);
+  }
+  // Level 22: fuse cells burning or burnt, barrels hissing or blown.
+  if (w.west().on)
+  {
+    std::uint64_t wk = 9;
+    for (const auto& f : w.west().fuses)
+      for (const auto& c : f.cells)
+        wk = wk * 3 + std::uint64_t(c.state);
+    for (const auto& b : w.west().barrels)
+      wk = wk * 3 + (b.blown ? 2u : b.t >= 0 ? 1u : 0u);
+    k = mix(k, wk);
+  }
+  return k;
+}
+
+// Growth Spurt and level 17, Bouncers and Keepers close by, a launch, the
+// cracks, the film's gag.
+std::uint64_t keyGreenAndNear(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  // Growth Spurt: the runner's size.
+  if (w.green().grow)
+    k = mix(k, std::uint64_t(w.green().size) + 77);
+  // Level 17: lamps lit and plants grown.
+  if (!w.green().plants.empty())
+  {
+    std::uint64_t gk = 0;
+    for (const auto& l : w.green().lamps)
+      gk = gk * 2 + l.lit;
+    for (const auto& pl : w.green().plants)
+      gk = gk * 61 + std::uint64_t(pl.shown);
+    k = mix(k, gk);
+  }
+  // Bouncers and Keepers close by: shoving one away, or wearing a Keeper
+  // down, is progress too.
+  for (const auto& e : w.enemies())
+    if (e.alive && (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Stepper || e.kind == EnemyKind::Keeper) &&
+        std::abs(e.x - p.x) < 24 && std::abs(e.y - p.y) < 16)
+      k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 16) |
+                   (e.kind == EnemyKind::Keeper ? std::uint64_t(e.hp) << 32 : 0));
+  k = mix(k, std::uint64_t(w.launching()));
+  int cracks = 0;
+  for (const auto& b : w.breakables())
+    cracks = cracks * 7 + b.hp;
+  k = mix(k, std::uint64_t(cracks));
+  if (w.film().on)
+    k = mix(k, std::uint64_t(w.film().gagState) | (std::uint64_t(w.film().slide) << 2) |
+                 (std::uint64_t(w.film().pratfall) << 8));
+  return k;
+}
+
+// Levels 27, 26 and 15: the noir alarm, the city, the station.
+std::uint64_t keyNoirCityStation(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  // Level 27: the alarm, the "?" and where the Flatfeet and Goons are.
+  if (w.noir().on)
+  {
+    const auto& nr = w.noir();
+    std::uint64_t nk = std::uint64_t(nr.alarm > 0) | (std::uint64_t(nr.suspicion) << 1) |
+      (std::uint64_t(nr.alarms) << 5);
+    for (const auto& e : w.enemies())
+      if (e.alive && !e.hidden && (e.kind == EnemyKind::Flatfoot || e.kind == EnemyKind::Goon) &&
+          std::abs(e.x - p.x) < 48)
+        nk = nk * 131 + std::uint64_t(e.x * 2 + (e.dir > 0)) + (std::uint64_t(e.hp) << 20);
+    k = mix(k, nk);
+  }
+  // Level 26: which buildings stand, how cracked the roof under the runner is.
+  if (w.city().on)
+  {
+    std::uint64_t c = 0;
+    for (const auto& b : w.city().buildings)
+      c = c * 7 + std::uint64_t(int(b.state)) + std::uint64_t(std::min(b.cracks, 1));
+    k = mix(k, c);
+  }
+  // Level 15: crates (shot, thrown, sucked out), charges out, open panels.
+  if (w.station().on())
+  {
+    const auto& st = w.station();
+    std::uint64_t c = 0;
+    for (const auto& cr : st.crates)
+      c = c * 3 + (cr.alive ? 1 + cr.loose : 0);
+    k = mix(k, c);
+    k = mix(k, std::uint64_t(st.charges.size()) | (std::uint64_t(st.caught + 1) << 8) |
+                 (std::uint64_t(st.detonate) << 16));
+    for (const auto& pn : st.panels)
+      k = mix(k, std::uint64_t(pn.open) | (std::uint64_t(pn.cool) << 16));
+  }
+  return k;
+}
+
+// The bonus asked for and the prototype found; platforms, breakers, doors,
+// Leeches and Totems, fluids, bubbles, the trail; level 8's vines.
+std::uint64_t keyProps(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
+  for (const auto& pl : w.platforms())
+    k = mix(k, std::uint64_t(pl.y) | (std::uint64_t(pl.x) << 16) | (std::uint64_t(pl.braked) << 32));
+  for (const auto& b : w.breakers())
+    k = mix(k, std::uint64_t(b.on) | (std::uint64_t(b.throwing) << 1));
+  for (const auto& d : w.doors())
+    k = mix(k, std::uint64_t(d.open) | (std::uint64_t(d.solid) << 16));
+  for (const auto& e : w.enemies())
+    if (e.alive && (e.kind == EnemyKind::Leech || e.kind == EnemyKind::Totem))
+      k = mix(k, std::uint64_t(e.aimX) | (std::uint64_t(e.hp) << 16));
+  for (const auto& f : w.fluids())
+    k = mix(k, std::uint64_t(f.surface) | (std::uint64_t(std::uint32_t(f.floodAt)) << 16));
+  for (const auto& b : w.bubbles())
+    k = mix(k, std::uint64_t(b.x) | (std::uint64_t(b.y) << 16) | (std::uint64_t(b.stood) << 32));
+  for (const auto& t : w.trail())
+    k = mix(k, std::uint64_t(t.x) | (std::uint64_t(t.y) << 16));
+  // Level 8: the vines close by (where they are in their swing, how high
+  // they go), and the runner's swing and fling. (The bridges, the ropes and
+  // what hangs from them follow in keySilkGooJungle.)
+  for (const auto& v : w.vines())
+    if (std::abs(v.ax - p.x) < 48)
+      k = mix(k, std::uint64_t(v.t) | (std::uint64_t(v.amp) << 8) | (std::uint64_t(v.cool) << 16) |
+                   (std::uint64_t(v.pump) << 24));
+  if (p.state == PlayerState::Swing)
+    k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
+  return mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+}
+
+// Levels 45 and 46: the hive's tubes, the Swap Crystals.
+std::uint64_t keyHiveCrystals(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  // Level 45: in a tube (how far along), the valves, shots in the tubes
+  // and the mite pores.
+  if (w.hasHive())
+  {
+    k = mix(k, std::uint64_t(p.tube + 1) | (std::uint64_t(p.tubeBranch) << 8) | (std::uint64_t(p.tubeS) << 16));
+    for (const auto& t : w.gulletTubes())
+      k = mix(k, std::uint64_t(t.set));
+    for (const auto& e : w.enemies())
+      if (e.alive && (e.kind == EnemyKind::Mite || e.kind == EnemyKind::Polyp || e.kind == EnemyKind::Warden) &&
+          std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                     (std::uint64_t(e.attach + e.tell * 4) << 32));
+  }
+  // Level 46: the Swap Crystals close by, and your shots on their way to
+  // one (a shot up takes longer than a macro to get there).
+  if (w.hasCrystals())
+  {
+    for (const auto& c : w.swapCrystals())
+      if (std::abs(c.x - p.x) < 48 && std::abs(c.y - p.y) < 30)
+        k = mix(k, std::uint64_t(c.x) | (std::uint64_t(c.y) << 16) | (std::uint64_t(c.cool) << 32) |
+                     (std::uint64_t(c.gone) << 40));
+    for (const auto& pr : w.projectiles())
+      if (pr.alive && pr.kind != ShotKind::Enemy)
+        k = mix(k, std::uint64_t(pr.x) | (std::uint64_t(pr.y) << 16) | (std::uint64_t(pr.dy + 2) << 32));
+  }
+  return k;
+}
+
+// Levels 47 and 44: Silk Lines, goo walls; level 8's bridges, ropes and loads.
+std::uint64_t keySilkGooJungle(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  // Level 47: on a Silk Line (how far, how fast), and the lines close by
+  // (spun how far, shivering before a cut).
+  if (w.hasSilk())
+  {
+    k = mix(k, std::uint64_t(p.silk + 1) | (std::uint64_t(int(p.silkS * 2.0f)) << 8) |
+                 (std::uint64_t(int(p.silkV * 10.0f)) << 24));
+    for (const auto& l : w.silkLines())
+      if (std::abs(l.ax - float(p.x)) < 90.0f && std::abs(l.ay - float(p.y)) < 60.0f)
+        k = mix(k, std::uint64_t(int(l.spun)) | (std::uint64_t(l.twang) << 12) | (std::uint64_t(l.cool) << 20) |
+                     (std::uint64_t(l.regrow + 1) << 28));
+    for (const auto& e : w.enemies())
+      if (e.alive && (e.kind == EnemyKind::LoomSpider || e.kind == EnemyKind::Dropling) && std::abs(e.x - p.x) < 48 &&
+          std::abs(e.y - p.y) < 30)
+        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                     (std::uint64_t(e.attach + e.tell * 8) << 32));
+  }
+  // Level 44: on a goo wall, or kicked off one.
+  if (w.hasGoo())
+    k = mix(k, std::uint64_t(p.wall + 2) | (std::uint64_t(p.kick + 8) << 4) | (std::uint64_t(p.kickArc) << 8) |
+                 (std::uint64_t(w.gooPatches().size()) << 12));
+  // Level 8: the bridges, the ropes and what hangs from them.
+  for (const auto& b : w.bridges())
+    k = mix(k, std::uint64_t(b.down) | (std::uint64_t(b.chops) << 1) | (std::uint64_t(std::min(b.heavy, 63)) << 4) |
+                 (std::uint64_t(b.left + 1) << 12) | (std::uint64_t(b.creak) << 24));
+  for (const auto& rope : w.jungleRopes())
+    k = mix(k, std::uint64_t(rope.hp) | (std::uint64_t(rope.cut) << 8));
+  for (const auto& l : w.loads())
+    k = mix(k, std::uint64_t(l.state) | (std::uint64_t(l.fall) << 4));
+  return k;
+}
+
+// Level 9: traps close by, the floor cracking, keys and plates, and the
+// Guardians and beetles near you.
+std::uint64_t keyTomb(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  for (const auto& t : w.traps())
+  {
+    const CellBox r = t.reach();
+    if (std::abs(r.x - p.x) < 80 || (t.kind == TrapKind::Stone && p.x > t.x0 - 40 && p.x < t.x1 + 40))
+      k = mix(k, std::uint64_t(t.state) | (std::uint64_t(t.t) << 4) | (std::uint64_t(t.sx) << 16));
+  }
+  for (const auto& c : w.collapseTiles())
+    if (c.state != 0 && std::abs(c.tx * kCellsPerTile - p.x) < 40)
+      k = mix(k, std::uint64_t(c.tx) | (std::uint64_t(c.state) << 12) | (std::uint64_t(c.t) << 16));
+  if (!w.plates().empty() || !w.stoneKeys().empty())
+  {
+    std::uint64_t pk = std::uint64_t(w.stoneKeysHeld());
+    for (const auto& pl : w.plates())
+      pk = pk * 7 + std::uint64_t(std::min(pl.presses, 3) * 2 + pl.down);
+    for (const auto& d : w.keyDoors())
+      pk = pk * 31 + std::uint64_t(d.sink + 1);
+    k = mix(k, pk);
+  }
+  for (const auto& e : w.enemies())
+    if (e.alive && (e.kind == EnemyKind::Guardian || e.kind == EnemyKind::Scarabs) && std::abs(e.x - p.x) < 40 &&
+        std::abs(e.y - p.y) < 16)
+      k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.hp) << 16) | (std::uint64_t(e.tell + e.dive * 32) << 24) |
+                   (std::uint64_t(e.tangle) << 40) | (std::uint64_t(e.dir > 0) << 48));
+  return k;
+}
+
+// Level 10: mirrors (where they are turning to), sun doors (how long lit),
+// and the Monks, Wraiths and moths close by.
+std::uint64_t keyTemple(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  for (const auto& m : w.mirrors())
+    k = mix(k, std::uint64_t(m.to) | (std::uint64_t(m.turn) << 4));
+  for (const auto& d : w.sunDoors())
+    k = mix(k, std::uint64_t(d.open) | (std::uint64_t(std::min(d.lit, 15)) << 1) | (std::uint64_t(d.hold) << 8));
+  for (const auto& e : w.enemies())
+    if (e.alive && (e.kind == EnemyKind::Monk || e.kind == EnemyKind::Wraith || e.kind == EnemyKind::Moth) &&
+        std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
+      k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                   (std::uint64_t(e.tell + e.dive * 16 + e.attach * 256) << 32) | (std::uint64_t(e.aimX) << 48) |
+                   (std::uint64_t(e.dir > 0) << 60));
+  return k;
+}
+
+// Level 11: the carts (where on their rails, how fast, in the air or not),
+// caps on their fuses, the levers, and the moles, bats and bandits close by.
+std::uint64_t keyMine(std::uint64_t k, const World& w)
+{
+  const auto& p = w.player();
+  k = mix(k, std::uint64_t(p.cart + 1) | (std::uint64_t(p.cartDuck) << 8));
+  for (const auto& c : w.carts())
+    if (std::abs(int(c.fx) - p.x) < 64)
+      k = mix(k, std::uint64_t(c.rail + 1) | (std::uint64_t(std::uint32_t(c.s)) << 8) | (std::uint64_t(c.speed) << 32) |
+                   (std::uint64_t(c.dir > 0) << 40) | (std::uint64_t(c.hop) << 41) | (std::uint64_t(c.falling) << 48) |
+                   (std::uint64_t(c.lost) << 49) | (std::uint64_t(int(c.fy) & 0xff) << 56));
+  for (const auto& c : w.caps())
+    k = mix(k, std::uint64_t(c.fuse) | (std::uint64_t(int(c.fx)) << 8) | (std::uint64_t(int(c.fy)) << 24));
+  for (const auto& l : w.levers())
+    k = mix(k, std::uint64_t(l.state));
+  for (const auto& e : w.enemies())
+    if (e.alive && (e.kind == EnemyKind::Mole || e.kind == EnemyKind::Bat || e.kind == EnemyKind::Bandit) &&
+        std::abs(e.x - p.x) < 48 && std::abs(e.y - p.y) < 24)
+      k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
+                   (std::uint64_t(e.attach + e.tell * 4) << 32) | (std::uint64_t(e.hidden) << 48));
+  return k;
+}
+
+// The hunter: where its spot is and how far along a lock or salvo is, and
+// its strikes.
+std::uint64_t keyHunter(std::uint64_t k, const World& w)
+{
+  const auto& h = w.hunter();
+  if (!h.on)
+    return k;
+  k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
+               (std::uint64_t(std::min(h.locking, h.lock)) << 32) | (std::uint64_t(h.beep) << 40) |
+               (std::uint64_t(h.left) << 48) | (std::uint64_t(h.cool > 0) << 56));
+  for (const auto& st : w.strikes())
+    k = mix(k, std::uint64_t(st.x) | (std::uint64_t(st.y) << 16) | (std::uint64_t(st.t) << 32));
+  return k;
+}
+
+// The search's state key: two simulated worlds with the same key count as
+// the same state, so the search keeps only the cheaper one. It holds what
+// the plan's progress can depend on: the runner, the clock's phase within
+// period (clockPeriod), and each level's moving parts and those close by.
+std::uint64_t searchKey(const World& w, int period)
+{
+  std::uint64_t k = keyRunner(w, period);
+  k = keySignalTrenchStorm(k, w);
+  k = keyDish(k, w);
+  k = keyZeroManorWest(k, w);
+  k = keyGreenAndNear(k, w);
+  k = keyNoirCityStation(k, w);
+  k = keyProps(k, w);
+  k = keyHiveCrystals(k, w);
+  k = keySilkGooJungle(k, w);
+  k = keyTomb(k, w);
+  k = keyTemple(k, w);
+  k = keyMine(k, w);
+  return keyHunter(k, w);
+}
+
+} // namespace
+
+// One plan's best-first search: from the start world, it plays every macro
+// on the most promising node (lowest cost so far plus heuristic) until it
+// reaches the goal, makes enough progress to a stable spot, or runs out of
+// its node budget.
+struct Planner::Search
+{
+  Search(const Planner& planner, const World& start, const Goal& goal);
+  Search(const Search&) = delete; // open points into nodes
+  Search& operator=(const Search&) = delete;
+
+  int run(const Input& prev);
+  bool stopsAt(int ni);
+  bool reached(const World& nw) const;
+  bool targetDone(const World& nw) const;
+  // What expanding a node needs of it, copied out (see expand).
+  struct Parent
+  {
+    int index;
+    const World& w;
+    int g;
+    Input last;
+  };
+  void expand(int ni);
+  void addChild(const Parent& parent, int m);
+  void queueChain(int found, std::deque<Input>& queue) const;
+
+  const Planner& planner; // its distance field gives the heuristic
+  const World& start;
+  const Goal& goal;
+  const int period; // clockPeriod(start), for searchKey
+  const int h0;     // the heuristic at the start
+  const int hp0;    // the runner's HP at the start
+  const bool loud;  // botLoud()
+  // Grows while a node is expanded (its children are pushed back). A deque,
+  // not a vector: push_back never moves the nodes already in it, so a
+  // reference to one stays valid however large a plan's search grows (a
+  // vector outgrowing its reserve once freed the node being expanded, task
+  // ne3). Only push_back, index access and size() are used on it.
+  std::deque<Node> nodes;
+  std::priority_queue<int, std::vector<int>, ByScore> open; // indices into nodes
+  std::unordered_map<std::uint64_t, int> seen;              // searchKey -> the lowest g reached there
+  int bestStable = -1; // the stable node closest to the goal so far
+  int expanded = 0;
+};
+
+Planner::Search::Search(const Planner& planner, const World& start, const Goal& goal)
+  : planner(planner), start(start), goal(goal), period(clockPeriod(start)), h0(planner.heuristic(start)),
+    hp0(start.player().hp), loud(botLoud()), open(ByScore{&nodes})
+{
+}
+
+// Runs the search from the start world (prev: the input before it, for the
+// button edges). Returns the node the plan goes to: one that stopped the
+// search (stopsAt), else, with the budget spent, the best stable node if it
+// is closer than the start; -1 for none.
+int Planner::Search::run(const Input& prev)
+{
+  nodes.push_back({start.cloneForSim(), -1, -1, 0, h0, prev, 0, {}});
+  open.push(0);
+  while (!open.empty() && expanded < kBudget)
+  {
+    const int ni = open.top();
+    open.pop();
+    if (stopsAt(ni))
+      return ni;
+    ++expanded;
+    expand(ni);
+    // Free worlds we will not expand again (keeps memory flat).
+    nodes[std::size_t(ni)].w.reset();
+  }
+  if (bestStable >= 0 && nodes[std::size_t(bestStable)].h < h0)
+    return bestStable;
+  return -1;
+}
+
+// Whether the search stops at node ni (never the start): it reached the
+// goal, or it is a stable, safe spot (no more than a heart lost, no train
+// coming, no Flatfoot looking) at least kProgress closer to the goal.
+// Short of that, a stable, safe node closer than any before is kept as
+// bestStable.
+bool Planner::Search::stopsAt(int ni)
+{
+  if (ni == 0)
+    return false;
+  const Node& n = nodes[std::size_t(ni)];
+  const World& nw = *n.w;
+  if (reached(nw))
+    return true;
+  if (!stable(nw) || nw.player().hp < hp0 - 1 || nw.trainDanger() ||
+      !(loud || nw.noir().suspicion == 0 || nw.noir().alarm > 0)) // not stopping where a Flatfoot is looking
+    return false;
+  const bool done = n.h <= h0 - kProgress;
+  const bool better = bestStable < 0 || n.h < nodes[std::size_t(bestStable)].h;
+  if (!(done || better) || !safeAhead(nw))
+    return false;
+  if (done)
+    return true;
+  bestStable = ni;
+  return false;
+}
+
+// The success predicate: in world nw the level ended, or the goal is met
+// (the card or the prototype taken, the bonus asked for, a gem taken, the
+// manor's step done, standing at the crypt's mirror, a fuse lit, or one of
+// targetDone's).
+bool Planner::Search::reached(const World& nw) const
+{
+  const auto& np = nw.player();
+  const auto& p0 = start.player();
+  const bool gotProto = nw.stats().protoFound &&
+    (!start.stats().protoFound || (np.weapon == Weapon::Proto && (p0.weapon != Weapon::Proto || np.ammo > p0.ammo)));
+  return nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || targetDone(nw) ||
+    (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) ||
+    (goal.kind == 15 && nw.stats().gems > start.stats().gems) ||
+    (goal.kind == 17 && nw.manor().step > start.manor().step) ||
+    (goal.kind == 18 && np.state == PlayerState::OnGround && np.x + 1 >= goal.x && np.x + 1 < goal.x + goal.w &&
+      np.y == goal.y + goal.h - 1) ||
+    (goal.kind == 16 && std::size_t(goal.index) < nw.west().fuses.size() &&
+      (nw.west().fuses[std::size_t(goal.index)].lit() || nw.west().anyBurning()));
+}
+
+// Goal kinds 4-14 met in world nw: the breaker thrown, the Leech gone, a
+// stone key taken, the plate pressed, the mirror turned, in the shelter or
+// beside the altar or at the valve, the block gilded or painted, the lamp lit
+// (or lit longer).
+bool Planner::Search::targetDone(const World& nw) const
+{
+  const std::size_t i = std::size_t(goal.index);
+  const bool thrown =
+    goal.kind == 4 && i < nw.breakers().size() && (nw.breakers()[i].on || nw.breakers()[i].throwing > 0);
+  const bool leechGone = goal.kind == 5 && i < nw.enemies().size() && !nw.enemies()[i].alive;
+  const bool keyTaken = goal.kind == 6 && nw.stoneKeysHeld() > start.stoneKeysHeld();
+  const bool pressed = goal.kind == 7 && i < nw.plates().size() && nw.plates()[i].presses > start.plates()[i].presses;
+  const bool turned = goal.kind == 8 && i < nw.mirrors().size() && nw.mirrors()[i].to == goal.h;
+  const bool sheltered = (goal.kind == 9 && nw.inShelter(goal.index)) ||
+    ((goal.kind == 10 || goal.kind == 11) && nw.besideAltar(goal.index)) ||
+    (goal.kind == 12 && !nw.sweeps().paint &&
+      nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1) ||
+    (goal.kind == 12 && nw.sweeps().paint && nw.sweeps().paints[i] != 1) || // Level 41
+    (goal.kind == 14 && nw.atValve(goal.index));
+  const bool lit = goal.kind == 13 && i < nw.green().lamps.size() && nw.green().lamps[i].lit &&
+    (!start.green().lamps[i].lit || nw.green().lamps[i].left > start.green().lamps[i].left);
+  return thrown || leechGone || keyTaken || pressed || turned || sheltered || lit;
+}
+
+// Expands node ni: a child for every macro that can be played there.
+// Expanding pushes the children onto nodes. Two guards keep that from
+// reading freed memory (task ne3): nodes is a deque, whose push_back leaves
+// existing elements in place, and what the expansion needs of the node is
+// copied out here (Parent) rather than read through a reference to it (so a
+// change back to a vector stays safe). Its World lives on the heap behind
+// the node's unique_ptr and stays put either way.
+void Planner::Search::expand(int ni)
+{
+  const Node& n = nodes[std::size_t(ni)];
+  const Parent parent{ni, *n.w, n.g, n.last};
+  for (int m = 0; m < kMacroCount; ++m)
+    addChild(parent, m);
+}
+
+// Plays macro m from parent's world and keeps the child unless the macro
+// failed, an equal state (searchKey) was reached as cheaply already, or the
+// goal is out of reach from it.
+void Planner::Search::addChild(const Parent& parent, int m)
+{
+  // Waiting only matters while something moves on its own.
+  const int frames = macroFrames(m, parent.w);
+  if (frames == 0)
+    return;
+  auto child = std::make_unique<World>(parent.w);
+  Input prev = parent.last;
+  std::vector<Input> seq;
+  if (!rollMacro(*child, m, frames, goal.kind == 10, prev, seq))
+    return;
+  // The macro's length: a self-timed one's frames played (one recorded
+  // input each), else its set frames (also when the level ended early).
+  const int length = selfTimedMacro(m) ? int(seq.size()) : frames;
+  const auto key = searchKey(*child, period);
+  const int g = childCost(parent.g, parent.w, *child, m, frames, length, loud);
+  const auto it = seen.find(key);
+  if (it != seen.end() && it->second <= g)
+    return;
+  seen[key] = g;
+  const int h = child->state() != WorldState::Playing ? 0 : planner.heuristic(*child);
+  if (h >= kInf)
+    return;
+  nodes.push_back({std::move(child), parent.index, m, g, h, prev, length, std::move(seq)});
+  open.push(int(nodes.size()) - 1);
+}
+
+// Queues the inputs from the start to node found: each node's macro in
+// order, a self-timed one's recorded inputs, any other rebuilt from kMacros
+// for its frames.
+void Planner::Search::queueChain(int found, std::deque<Input>& queue) const
+{
+  std::vector<int> chain;
+  for (int i = found; i > 0; i = nodes[std::size_t(i)].parent)
+    chain.push_back(i);
+  std::reverse(chain.begin(), chain.end());
+  for (int i : chain)
+  {
+    const Node& n = nodes[std::size_t(i)];
+    if (!n.seq.empty())
+      queue.insert(queue.end(), n.seq.begin(), n.seq.end());
+    else
+      for (int f = 0; f < n.frames; ++f)
+        queue.push_back(macroInput(kMacros[n.macro], f));
+  }
+}
+
+// The goal for this plan: chooseGoal's, after the skip rules for targets
+// the search keeps failing to reach (skipStuckTargets).
+Planner::Goal Planner::pickGoal(const World& world)
+{
+  const auto& p0 = world.player();
   // A bonus the search gave up on gets another try further on: the way
   // there can be easier from the next room.
   if (mSkipBonus && mSkipBonusAt >= 0 && p0.x > mSkipBonusAt + 40)
@@ -2867,6 +3545,15 @@ void Planner::plan(const World& world)
     mGemSkip.clear();
     mGemSkipCount = world.stats().gems;
   }
+  skipStuckTargets(world, goal);
+  return goal;
+}
+
+// Gems, marked blocks and prototypes the search keeps failing to reach are
+// skipped (goal chosen again); a prototype skipped gets another chance on
+// level 23's other side, or once the card is in hand.
+void Planner::skipStuckTargets(const World& world, Goal& goal)
+{
   while (goal.kind == 15 && mGoalKind == 15 && mGoalIndex == goal.index && mFails >= 4)
   {
     mGemSkip.push_back(goal.index);
@@ -2898,38 +3585,19 @@ void Planner::plan(const World& world)
     mSkipProto = false;
     goal = chooseGoal(world);
   }
+}
+
+// Up to three tries at a goal the distance field reaches: the field is
+// brought up to date for it (updateField), and a gem, a marked block, a
+// bonus target or a prototype the field cannot reach is skipped for the
+// next goal.
+void Planner::settleGoal(const World& world, Goal& goal)
+{
   for (int attempt = 0; attempt < 3; ++attempt)
   {
     if (mSkipProto && goal.kind == 2)
       goal = chooseGoal(world);
-    // Level 10: a sun door in the way: turn a mirror, clear moths off the
-    // beam, or go and wait for it.
-    mPendingDoor = -1;
-    if (!world.sunDoors().empty() && (goal.kind == 0 || goal.kind == 3))
-      lightGoal(world, goal);
-    mDoorOpen.assign(world.sunDoors().size(), 0);
-    if (mPendingDoor >= 0)
-      mDoorOpen = mRouteOpen;
-    // Level 17: a grow lamp the way needs.
-    if (!world.green().plants.empty() && (goal.kind == 0 || goal.kind == 3))
-      lampGoal(world, goal);
-    // The field also changes when a wall breaks or the Bass Cannon arrives.
-    int broken = 0;
-    for (const auto& b : world.breakables())
-      broken += b.broken;
-    const bool sound = world.player().weapon == Weapon::Proto && world.player().proto == int(ProtoId::BassCannon);
-    // Everything else the field depends on (switches, doors, set pieces),
-    // folded into one unsigned number by worldStateHash.
-    const std::uint32_t powered = worldStateHash(world, mPendingDoor);
-    const std::uint32_t keyHash =
-      goalKeyHash(goal.kind, goal.x, goal.y, world.player().hasKey, broken, sound, powered);
-    if (mDist.empty() || keyHash != mGoalKeyHash)
-    {
-      buildField(world, goal);
-      mGoalKeyHash = keyHash;
-      mGoalKind = goal.kind;
-      mGoalIndex = goal.index;
-    }
+    updateField(world, goal);
     if (goal.kind == 15 && heuristic(world) >= kInf)
     {
       mGemSkip.push_back(goal.index);
@@ -2955,482 +3623,81 @@ void Planner::plan(const World& world)
     mSkipProto = true;
     mSkipHadKey = world.player().hasKey;
   }
-  // Level 10: at a door that is about to open (or that a Monk will open),
-  // stand and wait.
-  if (mPendingDoor >= 0 && std::size_t(mPendingDoor) < world.sunDoors().size())
+}
+
+// Fits the goal to level 10's sun doors and level 17's lamps, then rebuilds
+// the distance field when its key (goalKeyHash) changed.
+void Planner::updateField(const World& world, Goal& goal)
+{
+  // Level 10: a sun door in the way: turn a mirror, clear moths off the
+  // beam, or go and wait for it.
+  mPendingDoor = -1;
+  if (!world.sunDoors().empty() && (goal.kind == 0 || goal.kind == 3))
+    lightGoal(world, goal);
+  mDoorOpen.assign(world.sunDoors().size(), 0);
+  if (mPendingDoor >= 0)
+    mDoorOpen = mRouteOpen;
+  // Level 17: a grow lamp the way needs.
+  if (!world.green().plants.empty() && (goal.kind == 0 || goal.kind == 3))
+    lampGoal(world, goal);
+  // The field also changes when a wall breaks or the Bass Cannon arrives.
+  int broken = 0;
+  for (const auto& b : world.breakables())
+    broken += b.broken;
+  const bool sound = world.player().weapon == Weapon::Proto && world.player().proto == int(ProtoId::BassCannon);
+  // Everything else the field depends on (switches, doors, set pieces),
+  // folded into one unsigned number by worldStateHash.
+  const std::uint32_t powered = worldStateHash(world, mPendingDoor);
+  const std::uint32_t keyHash = goalKeyHash(goal.kind, goal.x, goal.y, world.player().hasKey, broken, sound, powered);
+  if (mDist.empty() || keyHash != mGoalKeyHash)
   {
-    const SunDoor& d = world.sunDoors()[std::size_t(mPendingDoor)];
-    const CellBox near{d.x * kCellsPerTile - 8, d.y * kCellsPerTile - 8, d.w * kCellsPerTile + 16,
-      d.h * kCellsPerTile + 16};
-    if (!d.open && near.intersects(p0.box()) && stable(world))
-    {
-      for (int f = 0; f < 8; ++f)
-        mQueue.push_back(Input{});
-      return;
-    }
+    buildField(world, goal);
+    mGoalKeyHash = keyHash;
+    mGoalKind = goal.kind;
+    mGoalIndex = goal.index;
   }
+}
 
-  struct Node
+// Level 10: at a door that is about to open (or that a Monk will open),
+// stand and wait: queues 8 idle frames and returns true.
+bool Planner::waitAtPendingDoor(const World& world)
+{
+  if (mPendingDoor < 0 || std::size_t(mPendingDoor) >= world.sunDoors().size())
+    return false;
+  const SunDoor& d = world.sunDoors()[std::size_t(mPendingDoor)];
+  const CellBox near{d.x * kCellsPerTile - 8, d.y * kCellsPerTile - 8, d.w * kCellsPerTile + 16,
+    d.h * kCellsPerTile + 16};
+  if (d.open || !near.intersects(world.player().box()) || !stable(world))
+    return false;
+  for (int f = 0; f < 8; ++f)
+    mQueue.push_back(Input{});
+  return true;
+}
+
+// Plans the next stretch of input into mQueue: picks and settles the goal,
+// then searches toward it (Search). Without progress found it queues a
+// wiggle so the next plan starts somewhere else.
+void Planner::plan(const World& world)
+{
+  mLastNodes = 0; // stays 0 when this plan needs no search
+  const auto& p0 = world.player();
+  if (p0.state == PlayerState::Dying || p0.state == PlayerState::Teleporting || world.state() != WorldState::Playing)
   {
-    std::unique_ptr<World> w;
-    int parent;
-    int macro;
-    int g;
-    int h;
-    Input last;
-    // How long its macro ran: a self-timed macro's frames played (seq's
-    // size); for any other macro its set frame count, which it also holds
-    // when the macro stopped early because the level ended (the plan then
-    // replays all of those frames).
-    int frames;
-    std::vector<Input> seq; // a self-timed macro's inputs
-  };
-  // Grows while a node is expanded (its children are pushed back). A deque,
-  // not a vector: push_back never moves the nodes already in it, so a
-  // reference to one stays valid however large a plan's search grows (a
-  // vector outgrowing its reserve once freed the node being expanded, task
-  // ne3). Only push_back, index access and size() are used on it.
-  std::deque<Node> nodes;
-  const int period = clockPeriod(world);
-  auto keyOf = [&](const World& w) {
-    const auto& p = w.player();
-    std::uint64_t k = 1469598103934665603ull;
-    k = mix(k, std::uint64_t(p.x) | (std::uint64_t(p.y) << 16));
-    k = mix(k, std::uint64_t(int(p.state)) | (std::uint64_t(std::min(p.frames, 12)) << 8) |
-                 (std::uint64_t(p.facing > 0) << 16) | (std::uint64_t(w.clock() % period) << 20));
-    k = mix(k, std::uint64_t(p.hp) | (std::uint64_t(int(p.weapon)) << 8) | (std::uint64_t(p.hasKey) << 12));
-    // Level 19: the runner's down, and the chambers'.
-    if (w.grav().on)
-    {
-      std::uint64_t gk = std::uint64_t(int(p.grav)) + 1;
-      for (const auto& z : w.grav().zones)
-        gk = gk * 2 + (z.dir == Grav::Up);
-      k = mix(k, gk);
-    }
-    int alive = 0;
-    for (const auto& e : w.enemies())
-      alive += e.alive;
-    for (const auto& b : w.boxes())
-      alive += b.alive * 64;
-    k = mix(k, std::uint64_t(alive) | (std::uint64_t(w.items().size()) << 20));
-    // Level 29: the signal (and a change on its way), the pips, the tint.
-    if (w.signal().on)
-    {
-      const auto& sg = w.signal();
-      k = mix(k, std::uint64_t(sg.color) | (std::uint64_t(sg.pending + 1) << 2) | (std::uint64_t(sg.flash) << 4) |
-                   (std::uint64_t(sg.tint) << 8) | (std::uint64_t(sg.pips[0] > 0) << 10) |
-                   (std::uint64_t(sg.pips[1] > 0) << 11) | (std::uint64_t(sg.pips[2] > 0) << 12) |
-                   (std::uint64_t(sg.wallShut) << 13));
-    }
-    // Level 30: strokes used, the sinking's beat, the line.
-    if (w.trench().on)
-    {
-      const auto& t = w.trench();
-      k = mix(k, std::uint64_t(t.strokes) | (std::uint64_t(t.sinkTick % 3) << 4) | (std::uint64_t(t.line) << 6) |
-                   (std::uint64_t(t.lineX0) << 8) | (std::uint64_t(t.lineY) << 20) |
-                   (std::uint64_t(t.harpoons.size()) << 32) | (std::uint64_t(t.fade) << 36));
-    }
-    // Level 31: each zone's clock (its glow and strike), rods, powered
-    // machines, a Foghorn's blast.
-    if (w.storm().on)
-    {
-      const auto& s = w.storm();
-      std::uint64_t sk = 7;
-      for (const auto& z : s.zones)
-        sk = sk * 131 + std::uint64_t(z.t);
-      for (const auto& m : s.machines)
-        sk = sk * 2 + std::uint64_t(m.powered);
-      sk = sk * 3 + s.rods.size();
-      for (const auto& e : w.enemies())
-        if (e.alive && e.kind == EnemyKind::Foghorn)
-          sk = sk * 64 + std::uint64_t(e.dive + e.tell * 9 + (e.cool > 0 ? 1 : 0) * 37);
-      k = mix(k, sk);
-    }
-    // Level 32: the teaching dish's clock, the sharks', drones' and mechs'
-    // attacks on their way, a mech's HP, scrap falling.
-    if (w.dish().on)
-    {
-      const auto& d = w.dish();
-      std::uint64_t dk = 11;
-      for (const auto& sd : d.small)
-        dk = dk * 181 + std::uint64_t(sd.t);
-      for (const auto& sh : d.sharks)
-        dk = dk * 64 + std::uint64_t(sh.state * 21 + std::min(sh.t, 20));
-      for (const auto& r : d.robots)
-      {
-        const Enemy& e = w.enemies()[std::size_t(r.enemy)];
-        dk = dk * 97 + std::uint64_t(r.aimState * 31 + std::min(r.aimT, 30)) + (r.jam > 0 ? 3000u : 0u) +
-          (e.cool > 0 ? 6000u : 0u);
-        if (e.kind == EnemyKind::ScorpionMech)
-          dk = dk * 16 + std::uint64_t(std::max(0, e.hp));
-      }
-      for (const auto& sc : d.scraps)
-        dk = dk * 131 + std::uint64_t(sc.y);
-      k = mix(k, dk);
-    }
-    // Level 21: where the script's shifts and bulkheads are.
-    if (!w.zero().shifts.empty())
-    {
-      std::uint64_t zk = 5;
-      for (const auto& sh : w.zero().shifts)
-        zk = zk * 131 + std::uint64_t(sh.done ? 130 : std::min(129, sh.t + 1));
-      for (const auto& d : w.zero().doors)
-        zk = zk * 11 + std::uint64_t(d.pos * 10.0f);
-      k = mix(k, zk);
-    }
-    // Level 23: the side, the shimmer of a step through, the route's step,
-    // the levers and the ghosts pinned as platforms.
-    if (w.manor().on)
-    {
-      const auto& m = w.manor();
-      std::uint64_t mk = std::uint64_t(m.side) | (std::uint64_t(m.flip) << 1) | (std::uint64_t(m.step) << 6);
-      for (const auto& l : m.levers)
-        mk = mk * 2 + std::uint64_t(l.state);
-      for (const auto& pl : m.platforms)
-        mk = mk * 131 + std::uint64_t(pl.bx * 97 + pl.by);
-      k = mix(k, mk);
-    }
-    // Level 22: fuse cells burning or burnt, barrels hissing or blown.
-    if (w.west().on)
-    {
-      std::uint64_t wk = 9;
-      for (const auto& f : w.west().fuses)
-        for (const auto& c : f.cells)
-          wk = wk * 3 + std::uint64_t(c.state);
-      for (const auto& b : w.west().barrels)
-        wk = wk * 3 + (b.blown ? 2u : b.t >= 0 ? 1u : 0u);
-      k = mix(k, wk);
-    }
-    // Growth Spurt: the runner's size.
-    if (w.green().grow)
-      k = mix(k, std::uint64_t(w.green().size) + 77);
-    // Level 17: lamps lit and plants grown.
-    if (!w.green().plants.empty())
-    {
-      std::uint64_t gk = 0;
-      for (const auto& l : w.green().lamps)
-        gk = gk * 2 + l.lit;
-      for (const auto& pl : w.green().plants)
-        gk = gk * 61 + std::uint64_t(pl.shown);
-      k = mix(k, gk);
-    }
-    // Bouncers and Keepers close by: shoving one away, or wearing a Keeper
-    // down, is progress too.
-    for (const auto& e : w.enemies())
-      if (e.alive &&
-          (e.kind == EnemyKind::Bouncer || e.kind == EnemyKind::Stepper || e.kind == EnemyKind::Keeper) &&
-          std::abs(e.x - p.x) < 24 && std::abs(e.y - p.y) < 16)
-        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 16) |
-                     (e.kind == EnemyKind::Keeper ? std::uint64_t(e.hp) << 32 : 0));
-    k = mix(k, std::uint64_t(w.launching()));
-    int cracks = 0;
-    for (const auto& b : w.breakables())
-      cracks = cracks * 7 + b.hp;
-    k = mix(k, std::uint64_t(cracks));
-    if (w.film().on)
-      k = mix(k, std::uint64_t(w.film().gagState) | (std::uint64_t(w.film().slide) << 2) |
-                   (std::uint64_t(w.film().pratfall) << 8));
-    // Level 27: the alarm, the "?" and where the Flatfeet and Goons are.
-    if (w.noir().on)
-    {
-      const auto& nr = w.noir();
-      std::uint64_t nk = std::uint64_t(nr.alarm > 0) | (std::uint64_t(nr.suspicion) << 1) |
-        (std::uint64_t(nr.alarms) << 5);
-      for (const auto& e : w.enemies())
-        if (e.alive && !e.hidden && (e.kind == EnemyKind::Flatfoot || e.kind == EnemyKind::Goon) &&
-            std::abs(e.x - p.x) < 48)
-          nk = nk * 131 + std::uint64_t(e.x * 2 + (e.dir > 0)) + (std::uint64_t(e.hp) << 20);
-      k = mix(k, nk);
-    }
-    // Level 26: which buildings stand, how cracked the roof under the runner is.
-    if (w.city().on)
-    {
-      std::uint64_t c = 0;
-      for (const auto& b : w.city().buildings)
-        c = c * 7 + std::uint64_t(int(b.state)) + std::uint64_t(std::min(b.cracks, 1));
-      k = mix(k, c);
-    }
-    // Level 15: crates (shot, thrown, sucked out), charges out, open panels.
-    if (w.station().on())
-    {
-      const auto& st = w.station();
-      std::uint64_t c = 0;
-      for (const auto& cr : st.crates)
-        c = c * 3 + (cr.alive ? 1 + cr.loose : 0);
-      k = mix(k, c);
-      k = mix(k, std::uint64_t(st.charges.size()) | (std::uint64_t(st.caught + 1) << 8) |
-                   (std::uint64_t(st.detonate) << 16));
-      for (const auto& pn : st.panels)
-        k = mix(k, std::uint64_t(pn.open) | (std::uint64_t(pn.cool) << 16));
-    }
-    k = mix(k, std::uint64_t(w.bonusRequested()) | (std::uint64_t(w.stats().protoFound) << 1));
-    for (const auto& pl : w.platforms())
-      k = mix(k, std::uint64_t(pl.y) | (std::uint64_t(pl.x) << 16) | (std::uint64_t(pl.braked) << 32));
-    for (const auto& b : w.breakers())
-      k = mix(k, std::uint64_t(b.on) | (std::uint64_t(b.throwing) << 1));
-    for (const auto& d : w.doors())
-      k = mix(k, std::uint64_t(d.open) | (std::uint64_t(d.solid) << 16));
-    for (const auto& e : w.enemies())
-      if (e.alive && (e.kind == EnemyKind::Leech || e.kind == EnemyKind::Totem))
-        k = mix(k, std::uint64_t(e.aimX) | (std::uint64_t(e.hp) << 16));
-    for (const auto& f : w.fluids())
-      k = mix(k, std::uint64_t(f.surface) | (std::uint64_t(std::uint32_t(f.floodAt)) << 16));
-    for (const auto& b : w.bubbles())
-      k = mix(k, std::uint64_t(b.x) | (std::uint64_t(b.y) << 16) | (std::uint64_t(b.stood) << 32));
-    for (const auto& t : w.trail())
-      k = mix(k, std::uint64_t(t.x) | (std::uint64_t(t.y) << 16));
-    // The hunter: where its spot is and how far along a lock or salvo is.
-    // Level 8: the vines close by (where they are in their swing, how high
-    // they go), the bridges, the ropes and what hangs from them.
-    for (const auto& v : w.vines())
-      if (std::abs(v.ax - p.x) < 48)
-        k = mix(k, std::uint64_t(v.t) | (std::uint64_t(v.amp) << 8) | (std::uint64_t(v.cool) << 16) |
-                     (std::uint64_t(v.pump) << 24));
-    if (p.state == PlayerState::Swing)
-      k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
-    k = mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4) | (std::uint64_t(p.airJumped) << 5) |
-                 (std::uint64_t(p.airArc) << 6));
-    // Level 45: in a tube (how far along), the valves, shots in the tubes
-    // and the mite pores.
-    if (w.hasHive())
-    {
-      k = mix(k, std::uint64_t(p.tube + 1) | (std::uint64_t(p.tubeBranch) << 8) | (std::uint64_t(p.tubeS) << 16));
-      for (const auto& t : w.gulletTubes())
-        k = mix(k, std::uint64_t(t.set));
-      for (const auto& e : w.enemies())
-        if (e.alive && (e.kind == EnemyKind::Mite || e.kind == EnemyKind::Polyp || e.kind == EnemyKind::Warden) &&
-            std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
-          k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
-                       (std::uint64_t(e.attach + e.tell * 4) << 32));
-    }
-    // Level 46: the Swap Crystals close by, and your shots on their way to
-    // one (a shot up takes longer than a macro to get there).
-    if (w.hasCrystals())
-    {
-      for (const auto& c : w.swapCrystals())
-        if (std::abs(c.x - p.x) < 48 && std::abs(c.y - p.y) < 30)
-          k = mix(k, std::uint64_t(c.x) | (std::uint64_t(c.y) << 16) | (std::uint64_t(c.cool) << 32) |
-                       (std::uint64_t(c.gone) << 40));
-      for (const auto& pr : w.projectiles())
-        if (pr.alive && pr.kind != ShotKind::Enemy)
-          k = mix(k, std::uint64_t(pr.x) | (std::uint64_t(pr.y) << 16) | (std::uint64_t(pr.dy + 2) << 32));
-    }
-    // Level 47: on a Silk Line (how far, how fast), and the lines close by
-    // (spun how far, shivering before a cut).
-    if (w.hasSilk())
-    {
-      k = mix(k, std::uint64_t(p.silk + 1) | (std::uint64_t(int(p.silkS * 2.0f)) << 8) |
-                   (std::uint64_t(int(p.silkV * 10.0f)) << 24));
-      for (const auto& l : w.silkLines())
-        if (std::abs(l.ax - float(p.x)) < 90.0f && std::abs(l.ay - float(p.y)) < 60.0f)
-          k = mix(k, std::uint64_t(int(l.spun)) | (std::uint64_t(l.twang) << 12) | (std::uint64_t(l.cool) << 20) |
-                       (std::uint64_t(l.regrow + 1) << 28));
-      for (const auto& e : w.enemies())
-        if (e.alive && (e.kind == EnemyKind::LoomSpider || e.kind == EnemyKind::Dropling) &&
-            std::abs(e.x - p.x) < 48 && std::abs(e.y - p.y) < 30)
-          k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
-                       (std::uint64_t(e.attach + e.tell * 8) << 32));
-    }
-    // Level 44: on a goo wall, or kicked off one.
-    if (w.hasGoo())
-      k = mix(k, std::uint64_t(p.wall + 2) | (std::uint64_t(p.kick + 8) << 4) | (std::uint64_t(p.kickArc) << 8) |
-                   (std::uint64_t(w.gooPatches().size()) << 12));
-    for (const auto& b : w.bridges())
-      k = mix(k, std::uint64_t(b.down) | (std::uint64_t(b.chops) << 1) | (std::uint64_t(std::min(b.heavy, 63)) << 4) |
-                   (std::uint64_t(b.left + 1) << 12) | (std::uint64_t(b.creak) << 24));
-    for (const auto& rope : w.jungleRopes())
-      k = mix(k, std::uint64_t(rope.hp) | (std::uint64_t(rope.cut) << 8));
-    for (const auto& l : w.loads())
-      k = mix(k, std::uint64_t(l.state) | (std::uint64_t(l.fall) << 4));
-    // Level 9: traps close by, the floor cracking, keys and plates, and the
-    // Guardians and beetles near you.
-    for (const auto& t : w.traps())
-    {
-      const CellBox r = t.reach();
-      if (std::abs(r.x - p.x) < 80 || (t.kind == TrapKind::Stone && p.x > t.x0 - 40 && p.x < t.x1 + 40))
-        k = mix(k, std::uint64_t(t.state) | (std::uint64_t(t.t) << 4) | (std::uint64_t(t.sx) << 16));
-    }
-    for (const auto& c : w.collapseTiles())
-      if (c.state != 0 && std::abs(c.tx * kCellsPerTile - p.x) < 40)
-        k = mix(k, std::uint64_t(c.tx) | (std::uint64_t(c.state) << 12) | (std::uint64_t(c.t) << 16));
-    if (!w.plates().empty() || !w.stoneKeys().empty())
-    {
-      std::uint64_t pk = std::uint64_t(w.stoneKeysHeld());
-      for (const auto& pl : w.plates())
-        pk = pk * 7 + std::uint64_t(std::min(pl.presses, 3) * 2 + pl.down);
-      for (const auto& d : w.keyDoors())
-        pk = pk * 31 + std::uint64_t(d.sink + 1);
-      k = mix(k, pk);
-    }
-    for (const auto& e : w.enemies())
-      if (e.alive && (e.kind == EnemyKind::Guardian || e.kind == EnemyKind::Scarabs) && std::abs(e.x - p.x) < 40 &&
-          std::abs(e.y - p.y) < 16)
-        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.hp) << 16) | (std::uint64_t(e.tell + e.dive * 32) << 24) |
-                     (std::uint64_t(e.tangle) << 40) | (std::uint64_t(e.dir > 0) << 48));
-    // Level 10: mirrors (where they are turning to), sun doors (how long
-    // lit), and the Monks, Wraiths and moths close by.
-    for (const auto& m : w.mirrors())
-      k = mix(k, std::uint64_t(m.to) | (std::uint64_t(m.turn) << 4));
-    for (const auto& d : w.sunDoors())
-      k = mix(k, std::uint64_t(d.open) | (std::uint64_t(std::min(d.lit, 15)) << 1) | (std::uint64_t(d.hold) << 8));
-    for (const auto& e : w.enemies())
-      if (e.alive && (e.kind == EnemyKind::Monk || e.kind == EnemyKind::Wraith || e.kind == EnemyKind::Moth) &&
-          std::abs(e.x - p.x) < 40 && std::abs(e.y - p.y) < 24)
-        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
-                     (std::uint64_t(e.tell + e.dive * 16 + e.attach * 256) << 32) | (std::uint64_t(e.aimX) << 48) |
-                     (std::uint64_t(e.dir > 0) << 60));
-    // Level 11: the carts (where on their rails, how fast, in the air or
-    // not), caps on their fuses, the levers, and the moles, bats and bandits
-    // close by.
-    k = mix(k, std::uint64_t(p.cart + 1) | (std::uint64_t(p.cartDuck) << 8));
-    for (const auto& c : w.carts())
-      if (std::abs(int(c.fx) - p.x) < 64)
-        k = mix(k, std::uint64_t(c.rail + 1) | (std::uint64_t(std::uint32_t(c.s)) << 8) |
-                     (std::uint64_t(c.speed) << 32) | (std::uint64_t(c.dir > 0) << 40) | (std::uint64_t(c.hop) << 41) |
-                     (std::uint64_t(c.falling) << 48) | (std::uint64_t(c.lost) << 49) |
-                     (std::uint64_t(int(c.fy) & 0xff) << 56));
-    for (const auto& c : w.caps())
-      k = mix(k, std::uint64_t(c.fuse) | (std::uint64_t(int(c.fx)) << 8) | (std::uint64_t(int(c.fy)) << 24));
-    for (const auto& l : w.levers())
-      k = mix(k, std::uint64_t(l.state));
-    for (const auto& e : w.enemies())
-      if (e.alive && (e.kind == EnemyKind::Mole || e.kind == EnemyKind::Bat || e.kind == EnemyKind::Bandit) &&
-          std::abs(e.x - p.x) < 48 && std::abs(e.y - p.y) < 24)
-        k = mix(k, std::uint64_t(e.x) | (std::uint64_t(e.y) << 12) | (std::uint64_t(e.hp) << 24) |
-                     (std::uint64_t(e.attach + e.tell * 4) << 32) | (std::uint64_t(e.hidden) << 48));
-    if (const auto& h = w.hunter(); h.on)
-    {
-      k = mix(k, std::uint64_t(int(h.sx)) | (std::uint64_t(int(h.sy)) << 16) |
-                   (std::uint64_t(std::min(h.locking, h.lock)) << 32) | (std::uint64_t(h.beep) << 40) |
-                   (std::uint64_t(h.left) << 48) | (std::uint64_t(h.cool > 0) << 56));
-      for (const auto& st : w.strikes())
-        k = mix(k, std::uint64_t(st.x) | (std::uint64_t(st.y) << 16) | (std::uint64_t(st.t) << 32));
-    }
-    return k;
-  };
-  const int h0 = heuristic(world);
-  const int hp0 = p0.hp;
-  static const bool loud = std::getenv("GR_BOT_LOUD") != nullptr;
-  auto score = [&](const Node& n) { return n.g + n.h; };
-  auto cmp = [&](int a, int b) { return score(nodes[std::size_t(a)]) > score(nodes[std::size_t(b)]); };
-  std::priority_queue<int, std::vector<int>, decltype(cmp)> open(cmp);
-  std::unordered_map<std::uint64_t, int> seen;
-
-  nodes.push_back({world.cloneForSim(), -1, -1, 0, h0, mPrev, 0, {}});
-  open.push(0);
-  int found = -1, bestStable = -1;
-  int expanded = 0;
-  while (!open.empty() && expanded < kBudget)
-  {
-    const int ni = open.top();
-    open.pop();
-    // Expanding the node pushes its children onto nodes. Two guards keep
-    // that from reading freed memory (task ne3): nodes is a deque, whose
-    // push_back leaves existing elements in place, and what the expansion
-    // needs of the node is copied out here rather than read through a
-    // reference to it (so a change back to a vector stays safe). Its World
-    // lives on the heap behind the node's unique_ptr and stays put either way.
-    const World& nw = *nodes[std::size_t(ni)].w;
-    const int ng = nodes[std::size_t(ni)].g;
-    const int nh = nodes[std::size_t(ni)].h;
-    const Input nlast = nodes[std::size_t(ni)].last;
-    const auto& np = nw.player();
-    const bool gotProto = nw.stats().protoFound &&
-      (!world.stats().protoFound || (np.weapon == Weapon::Proto && (p0.weapon != Weapon::Proto || np.ammo > p0.ammo)));
-    const bool thrown = goal.kind == 4 && std::size_t(goal.index) < nw.breakers().size() &&
-      (nw.breakers()[std::size_t(goal.index)].on || nw.breakers()[std::size_t(goal.index)].throwing > 0);
-    const bool leechGone = goal.kind == 5 && std::size_t(goal.index) < nw.enemies().size() &&
-      !nw.enemies()[std::size_t(goal.index)].alive;
-    const bool keyTaken = goal.kind == 6 && nw.stoneKeysHeld() > world.stoneKeysHeld();
-    const bool pressed = goal.kind == 7 && std::size_t(goal.index) < nw.plates().size() &&
-      nw.plates()[std::size_t(goal.index)].presses > world.plates()[std::size_t(goal.index)].presses;
-    const bool turned = goal.kind == 8 && std::size_t(goal.index) < nw.mirrors().size() &&
-      nw.mirrors()[std::size_t(goal.index)].to == goal.h;
-    const bool sheltered = (goal.kind == 9 && nw.inShelter(goal.index)) ||
-      ((goal.kind == 10 || goal.kind == 11) && nw.besideAltar(goal.index)) ||
-      (goal.kind == 12 && !nw.sweeps().paint && nw.goldAt(goal.index % nw.level().width, goal.index / nw.level().width) != 1) ||
-      (goal.kind == 12 && nw.sweeps().paint && nw.sweeps().paints[std::size_t(goal.index)] != 1) || // Level 41
-
-      (goal.kind == 14 && nw.atValve(goal.index));
-    const bool lit = goal.kind == 13 && std::size_t(goal.index) < nw.green().lamps.size() &&
-      nw.green().lamps[std::size_t(goal.index)].lit &&
-      (!world.green().lamps[std::size_t(goal.index)].lit || nw.green().lamps[std::size_t(goal.index)].left >
-         world.green().lamps[std::size_t(goal.index)].left);
-    const bool success = nw.state() != WorldState::Playing || (goal.kind == 1 && np.hasKey) || keyTaken || pressed || turned || sheltered || lit ||
-      (goal.kind == 2 && gotProto) || (goal.kind == 3 && nw.bonusRequested()) || thrown || leechGone ||
-      (goal.kind == 15 && nw.stats().gems > world.stats().gems) ||
-      (goal.kind == 17 && nw.manor().step > world.manor().step) ||
-      (goal.kind == 18 && np.state == PlayerState::OnGround && np.x + 1 >= goal.x && np.x + 1 < goal.x + goal.w &&
-        np.y == goal.y + goal.h - 1) ||
-      (goal.kind == 16 && std::size_t(goal.index) < nw.west().fuses.size() &&
-        (nw.west().fuses[std::size_t(goal.index)].lit() || nw.west().anyBurning()));
-    if (ni != 0 && success)
-    {
-      found = ni;
-      break;
-    }
-    if (ni != 0 && stable(nw) && np.hp >= hp0 - 1 && !nw.trainDanger() &&
-        (loud || nw.noir().suspicion == 0 || nw.noir().alarm > 0)) // not stopping where a Flatfoot is looking
-    {
-      const bool done = nh <= h0 - kProgress;
-      const bool better = bestStable < 0 || nh < nodes[std::size_t(bestStable)].h;
-      if ((done || better) && safeAhead(nw))
-      {
-        if (done)
-        {
-          found = ni;
-          break;
-        }
-        bestStable = ni;
-      }
-    }
-    ++expanded;
-    for (int m = 0; m < kMacroCount; ++m)
-    {
-      // Waiting only matters while something moves on its own.
-      const int frames = macroFrames(m, nw);
-      if (frames == 0)
-        continue;
-      auto child = std::make_unique<World>(nw);
-      Input prev = nlast;
-      const bool selfTimed = selfTimedMacro(m);
-      std::vector<Input> seq;
-      if (!rollMacro(*child, m, frames, goal.kind == 10, prev, seq))
-        continue;
-      // The macro's length: a self-timed one's frames played (one recorded
-      // input each), else its set frames (also when the level ended early).
-      const int length = selfTimed ? int(seq.size()) : frames;
-      const auto key = keyOf(*child);
-      const int lost = std::max(0, nw.player().hp - child->player().hp);
-      // Waiting for the drop counts as a short wait: it is the way up.
-      // Level 27: an alarm costs as much as a lost heart and a half (a
-      // stealthy route is worth waiting for); GR_BOT_LOUD=1 doesn't care.
-      const int alarms = loud ? 0 : std::max(0, alarmHeat(*child) - alarmHeat(nw));
-      const int g = ng + (m == kWaitLaunch ? 8 : (m == kWaitVerse ? frames / 2 : (selfTimed ? length / 2 : length))) + lost * 60 +
-        alarms * 90 +
-        (m >= 10 && m <= 12 ? 1 : 0);
-      const auto it = seen.find(key);
-      if (it != seen.end() && it->second <= g)
-        continue;
-      seen[key] = g;
-      const int h = child->state() != WorldState::Playing ? 0 : heuristic(*child);
-      if (h >= kInf)
-        continue;
-      nodes.push_back({std::move(child), ni, m, g, h, prev, length, std::move(seq)});
-      open.push(int(nodes.size()) - 1);
-    }
-    // Free worlds we will not expand again (keeps memory flat).
-    nodes[std::size_t(ni)].w.reset();
+    mQueue.push_back(Input{});
+    return;
   }
-
-  if (found < 0 && bestStable >= 0 && nodes[std::size_t(bestStable)].h < h0)
-    found = bestStable;
-  mLastNodes = int(nodes.size());
+  Goal goal = pickGoal(world);
+  settleGoal(world, goal);
+  if (waitAtPendingDoor(world))
+    return;
+  Search search(*this, world, goal);
+  const int found = search.run(mPrev);
+  mLastNodes = int(search.nodes.size());
   static const bool debug = std::getenv("GR_PLANNER_DEBUG") != nullptr;
   if (debug)
     std::fprintf(stderr, "plan f%d at %d,%d goal %d h0 %d expanded %d nodes %zu -> %s (h %d)\n", world.clock(), p0.x,
-      p0.y, goal.kind, h0, expanded, nodes.size(), found < 0 ? "none" : "ok",
-      found < 0 ? -1 : nodes[std::size_t(found)].h);
+      p0.y, goal.kind, search.h0, search.expanded, search.nodes.size(), found < 0 ? "none" : "ok",
+      found < 0 ? -1 : search.nodes[std::size_t(found)].h);
   if (found < 0)
   {
     // No progress found: wiggle so the next plan starts somewhere else.
@@ -3441,19 +3708,7 @@ void Planner::plan(const World& world)
     return;
   }
   mFails = 0;
-  std::vector<int> chain;
-  for (int i = found; i > 0; i = nodes[std::size_t(i)].parent)
-    chain.push_back(i);
-  std::reverse(chain.begin(), chain.end());
-  for (int i : chain)
-  {
-    const Node& n = nodes[std::size_t(i)];
-    if (!n.seq.empty())
-      mQueue.insert(mQueue.end(), n.seq.begin(), n.seq.end());
-    else
-      for (int f = 0; f < n.frames; ++f)
-        mQueue.push_back(macroInput(kMacros[n.macro], f));
-  }
+  search.queueChain(found, mQueue);
 }
 
 } // namespace gr

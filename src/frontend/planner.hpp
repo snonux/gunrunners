@@ -61,7 +61,17 @@ private:
                       // shot's direction, h the angle wanted
     int index = -1;   // kind 4: the breaker, kind 5: the Leech (enemy index), kind 7: the plate, kind 8: the mirror
   };
+  // One plan's best-first search over macro sequences (planner.cpp).
+  struct Search;
   void plan(const World& world);
+  // plan's steps: the goal with the skip rules applied, fitted until the
+  // field reaches it (the field kept up to date), and level 10's wait at a
+  // door about to open (true: the wait is queued).
+  Goal pickGoal(const World& world);
+  void skipStuckTargets(const World& world, Goal& goal);
+  void settleGoal(const World& world, Goal& goal);
+  void updateField(const World& world, Goal& goal);
+  bool waitAtPendingDoor(const World& world);
   Goal chooseGoal(const World& world) const;
   Goal towerGoal(const World& world) const; // Level 35's route up the turning tower
   Goal warehouseGoal(const World& world) const; // Level 36's route: levers, cranes, crates
@@ -126,10 +136,10 @@ private:
   int mLampWanted = -1;
 };
 
-// The key Planner::plan rebuilds the distance field on when it changes: the
-// goal (kind, x, y), the access card, walls broken (counted up to 15), the
-// Bass Cannon in hand, and powered (worldStateHash below), a hash of the
-// rest of the world's state that the field depends on. Computed in
+// The key Planner::updateField rebuilds the distance field on when it
+// changes: the goal (kind, x, y), the access card, walls broken (counted up
+// to 15), the Bass Cannon in hand, and powered (worldStateHash below), a
+// hash of the rest of the world's state that the field depends on. Computed in
 // unsigned arithmetic, so any inputs (extreme ones too) wrap rather than
 // overflow; public for tests.
 std::uint32_t goalKeyHash(int kind, int x, int y, bool hasKey, int broken, bool sound, std::uint32_t powered);
