@@ -123,7 +123,12 @@ void Game::goTitle()
   mTitleCursor = 0;
   setMode(Mode::Title);
   if (mAudio)
+  {
     mAudio->playMusic(Music::Menu);
+    // Nothing at the title plays a preload; up to ~100 MB of them would
+    // otherwise wait here for the next level.
+    mAudio->dropPreloads();
+  }
   // Quit from inside a bonus level: the title keeps the level it was entered
   // from, with that level's file, as after quitting that level itself (a save
   // loaded on the title tells by them whether to read its level again).
@@ -501,6 +506,7 @@ void Game::playLevelMusic()
   if (!mLevel || mLevel->music.empty())
   {
     mAudio->playMusic(Music::Level);
+    mAudio->dropStalePreloads(); // as below
     return;
   }
   // The beat signs run on the level's clock; the music follows it.
@@ -516,6 +522,10 @@ void Game::playLevelMusic()
   if (const auto at = track.find('@'); at != std::string::npos)
     for (int k = 0; k <= 4; ++k)
       mAudio->preloadMusic(track.substr(0, at + 1) + std::to_string(k));
+  // The level has asked for everything it plays: the preloads a level
+  // start marked stale (startLevel, beginCampaignLevel) and nobody asked
+  // for again go now. Without a level start in between nothing is stale.
+  mAudio->dropStalePreloads();
 }
 
 void Game::beginCampaignLevel(int number, bool fromNewGame)
@@ -525,10 +535,11 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
   mBonusOnly = false;
   mLevelNumber = number;
   // The last level's preloads that never played (a variant nobody
-  // triggered, a cutscene skipped) would hold ~12 MB each; this level
-  // queues its own below and in playLevelMusic.
+  // triggered, a cutscene skipped) would hold ~12 MB each: they turn stale
+  // and their queue stops, and playLevelMusic frees those this level did
+  // not ask for again (theme_chiptune, say, stays for the next club).
   if (mAudio)
-    mAudio->dropPreloads();
+    mAudio->markPreloadsStale();
   if (number <= 0)
   {
     // The PoC's training stage.
@@ -543,15 +554,16 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
   {
     setMode(Mode::Continued);
     if (mAudio)
+    {
       mAudio->playMusic(Music::Victory);
+      mAudio->dropPreloads(); // no level follows to play them
+    }
     return;
   }
   char rel[96];
   std::snprintf(rel, sizeof(rel), "levels/%02d_%s.txt", number, campaignLevel(number).slug);
   if (!loadLevel(rel))
     return goTitle();
-  if (mAudio)
-    mAudio->preloadMusic(mLevel->music);
   applyLevelLook(episodeOfLevel(number), mLevel->themeKey);
   int& reached = spaceLevel(number) ? mProfile.spaceReached : mProfile.reached;
   if (number > reached)
@@ -559,13 +571,26 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
     reached = number;
     mProfile.save(saveDir());
   }
+  playBriefing(number, fromNewGame);
+}
+
+// The level's briefing (after the opening on a new game), then the level.
+void Game::playBriefing(int number, bool fromNewGame)
+{
   std::vector<std::string> cuts;
   if (fromNewGame && number == 1)
     cuts.emplace_back("opening");
   char brief[32];
   std::snprintf(brief, sizeof(brief), "brief_%02d", number);
   cuts.emplace_back(brief);
+  // The single preload worker renders in request order, and the first
+  // scene's music plays at once, so the scenes' tracks are queued first
+  // (playCutscenes) and the level's after them, to render during the
+  // briefing. Without cutscenes the level has started (and taken its
+  // music) by now, so there is nothing to queue.
   playCutscenes(cuts, After::StartLevel);
+  if (mAudio && mMode == Mode::Cutscene)
+    mAudio->preloadMusic(mLevel->music);
 }
 
 void Game::recordClear()

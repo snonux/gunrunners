@@ -189,6 +189,16 @@ void Audio::preloadMusic(const std::string& id)
   mPreloads.request(id);
 }
 
+void Audio::markPreloadsStale()
+{
+  mPreloads.markStale();
+}
+
+void Audio::dropStalePreloads()
+{
+  mPreloads.dropStale();
+}
+
 void Audio::dropPreloads()
 {
   mPreloads.drop();

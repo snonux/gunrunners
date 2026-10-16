@@ -203,6 +203,7 @@ private:
   void renderTitle();
   std::vector<std::string> titleItems() const;
   void beginCampaignLevel(int number, bool fromNewGame);
+  void playBriefing(int number, bool fromNewGame);
   // A level file, with the HARD enemies when hard is set. It only reads
   // (mLevel stays), so a save being loaded can try its level aside. nullptr,
   // after a notice, if it won't load. readLevelFile takes the file as it is

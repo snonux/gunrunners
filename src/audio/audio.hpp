@@ -47,7 +47,14 @@ public:
   // Queues a named track for the background renderer (one worker thread,
   // oldest request first) so a later playMusicNamed is instant.
   void preloadMusic(const std::string& id);
-  // Forgets the preloads nobody played (a new level starts): queued ones
+  // A new level starts: cancels the queued preloads and marks the finished
+  // ones stale; a preloadMusic of one before dropStalePreloads keeps it
+  // (a track two levels share is not rendered twice).
+  void markPreloadsStale();
+  // Frees the finished preloads still stale (the level has asked for all
+  // it wants by then).
+  void dropStalePreloads();
+  // Forgets every preload nobody played (back to the title): queued ones
   // are cancelled and finished ones freed. Played tracks stay cached.
   void dropPreloads();
   // Jumps the music to this many seconds in (keeps the beat in sync with
@@ -95,8 +102,12 @@ private:
   std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;
   std::vector<std::string> mTrackOrder; // oldest first
   static constexpr std::size_t kKeepTracks = 10;
-  // Finished preloads not played yet, at ~12 MB each: room for one level's
-  // worth (its music, variants, the five '@' layers); older ones go first.
+  // Finished preloads not played yet, at ~12 MB each (~100 MB at most).
+  // A level's own track is claimed as it starts; what it preloads beyond
+  // that is at most its 3 variants (the club's chiptune, the cab's cover,
+  // Level 35's waltz) and 4 '@' layers (the fifth plays from the start),
+  // 7 even if one level had both, so 8 holds a level's whole set. Stale
+  // ones go first, then the oldest.
   static constexpr std::size_t kKeepPreloads = 8;
   RenderQueue<Track> mPreloads;
   std::unordered_map<std::string, std::vector<float>> mNamed;

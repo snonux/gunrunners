@@ -187,6 +187,11 @@ void Game::startLevel()
   mRun.reset();
   mPrevLogicInput = Input{};
   setMode(Mode::Play);
+  // A level (re)starts, campaign or arcade: the preloads it does not ask
+  // for again in playLevelMusic (a skipped scene's tracks, another level's
+  // variants) are freed there.
+  if (mAudio)
+    mAudio->markPreloadsStale();
   playLevelMusic();
   beginVoices();
 }
