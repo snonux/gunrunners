@@ -98,9 +98,10 @@ public:
   bool forceFieldsOn() const { return mForceFieldsOn; }
   // A force field is up somewhere: the fields are on and the map has a
   // force field tile (switching them off leaves the tiles, see solid()).
-  // What makes the access card worth fetching (the guide arrow, the
-  // autopilot's planner).
-  bool hasForceFields() const;
+  // What makes the access card worth fetching (the guide arrow, every
+  // logic frame, and the autopilot's planner, per goal it chooses). The
+  // tile scan is cached on the revision, so a call is cheap.
+  bool hasForceFields() const { return mForceFieldsOn && hasForceFieldTiles(); }
   // Level 29's Wraparound: the edges join up, left to right and top to bottom.
   void setWrap(bool wrap)
   {
@@ -125,7 +126,8 @@ public:
 
   // Changes whenever the tiles, slopes, wrapping or force fields do (not
   // the platforms or floats): a copy has its source's, and no two states
-  // of any maps share one. The guide arrow keeps its grids while it holds.
+  // of any maps share one. The guide arrow keeps its grids while it holds,
+  // and hasForceFields its tile scan.
   std::uint64_t revision() const { return mRevision; }
 
   bool onSolidGround(const CellBox& b) const;
@@ -151,6 +153,10 @@ public:
 private:
   static std::uint64_t nextRevision();
   void touch() { mRevision = nextRevision(); }
+  // Any ForceField tile in mTiles, the switch aside. Scanned again only
+  // after the revision changed: every mutator of mTiles (setBlock,
+  // rotateX, makeView, makeStack) calls touch().
+  bool hasForceFieldTiles() const;
   Tile tileAt(int cx, int cy) const;
   bool oneWayTile(int cx, int cy) const; // a slope or a one-way platform tile
   void followSlope(int x, int& bottomY, int w, int h) const;
@@ -164,6 +170,15 @@ private:
   bool mWrap = false;
   bool mWrapX = false;
   std::uint64_t mRevision = nextRevision();
+  // hasForceFieldTiles' answer and the revision it holds for (0, never a
+  // revision: not scanned yet). Copied with the map, so a copy's cache
+  // matches its copied tiles and revision. Plain mutable members, no lock:
+  // a CollisionMap is only ever used by one thread (the game loop's; the
+  // planner works on its own World copies, on that thread too, and the
+  // only other threads are the audio workers and the cloud saves, which
+  // never see a map).
+  mutable std::uint64_t mFieldTilesRevision = 0;
+  mutable bool mFieldTiles = false;
 };
 
 } // namespace gr

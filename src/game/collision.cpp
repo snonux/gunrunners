@@ -158,11 +158,17 @@ bool CollisionMap::forceField(int cx, int cy) const
   return mForceFieldsOn && tileAt(cx, cy) == Tile::ForceField;
 }
 
-// A scan of the tiles (a byte each), cheap next to a guide search; the
-// tiles hold every block once, wrapped or turned as the map may be.
-bool CollisionMap::hasForceFields() const
+// A scan of the tiles (a byte each, every block once, wrapped or turned as
+// the map may be), done once per revision: the guide asks every logic
+// frame and the planner per goal, and the tiles rarely change.
+bool CollisionMap::hasForceFieldTiles() const
 {
-  return mForceFieldsOn && std::find(mTiles.begin(), mTiles.end(), Tile::ForceField) != mTiles.end();
+  if (mFieldTilesRevision != mRevision)
+  {
+    mFieldTiles = std::find(mTiles.begin(), mTiles.end(), Tile::ForceField) != mTiles.end();
+    mFieldTilesRevision = mRevision;
+  }
+  return mFieldTiles;
 }
 
 bool CollisionMap::onSolidGround(const CellBox& b) const

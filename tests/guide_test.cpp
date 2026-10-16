@@ -270,6 +270,35 @@ void checkRevision()
   check(map.revision() != r1, "wrapping the map round changes the revision");
 }
 
+// hasForceFields scans the tiles once per revision: its answer follows a
+// field tile set and cleared with setBlock and the fields switched off,
+// and a copy carries the cached answer for its own tiles, apart from the
+// map it was copied from. Each map is asked before it changes, so a cache
+// not refreshed would show as a stale answer.
+void checkFieldCache()
+{
+  const auto level = wallRoom();
+  CollisionMap map(*level);
+  check(map.forceFieldsOn() && !map.hasForceFields(), "the walled room: no field tile, none up");
+  map.setBlock(30, 12, Tile::ForceField);
+  check(map.hasForceFields(), "a field tile set after the first answer: a field is up");
+  const CollisionMap copy = map;
+  check(copy.hasForceFields(), "a copy has the field too");
+  map.setBlock(30, 12, Tile::Empty);
+  check(!map.hasForceFields(), "the field tile cleared again: none up");
+  check(copy.hasForceFields(), "the copy keeps its own field, the source's change aside");
+  CollisionMap copy2 = copy;
+  copy2.setBlock(30, 12, Tile::Empty);
+  check(!copy2.hasForceFields() && copy.hasForceFields(), "a copy of the copy clears its field alone");
+  CollisionMap off = copy;
+  off.disableForceFields();
+  check(!off.hasForceFields() && copy.hasForceFields(), "the fields switched off: none up, though the tile stays");
+  CollisionMap stack(*level);
+  check(!stack.hasForceFields(), "a map asked before it is stacked: none up");
+  stack.makeStack(copy);
+  check(stack.hasForceFields(), "stacked from the copy with the field: a field is up");
+}
+
 // `kept0` was built for `then`; the world is now as `now` says. Told
 // nothing changed (`then` again) the grid keeps what it had and is wrong:
 // what the key is for. With `now` it is built again and matches a grid
@@ -1033,6 +1062,7 @@ int main()
 
     // The grids and the guide kept between searches.
     checkRevision();
+    checkFieldCache();
     checkGridKept();
     checkGridPlatforms();
     checkGridStatics();
