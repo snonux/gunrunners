@@ -33,6 +33,100 @@ void setTextFont(cairo_t* cr, const TextStyle& st)
   cairo_set_font_size(cr, st.size);
 }
 
+// The width of an outlined string's stroke (half of it reaches outside the
+// glyphs).
+double outlineWidth(const TextStyle& st)
+{
+  return double(st.size) * 0.16;
+}
+
+// The start of the UTF-8 character that ends at byte `end` (> 0).
+std::size_t utf8Back(const std::string& s, std::size_t end)
+{
+  std::size_t i = end - 1;
+  while (i > 0 && (static_cast<unsigned char>(s[i]) & 0xC0) == 0x80)
+    --i;
+  return i;
+}
+
+// The end of the UTF-8 character that starts at byte `at` (< s.size()).
+std::size_t utf8Next(const std::string& s, std::size_t at)
+{
+  std::size_t i = at + 1;
+  while (i < s.size() && (static_cast<unsigned char>(s[i]) & 0xC0) == 0x80)
+    ++i;
+  return i;
+}
+
+// The horizontal ink of `str` set at (x, 0) as rasterizeText sets it: its
+// stroke `stroke` wide (outline included), or its fill for 0. False when it
+// has no ink (spaces). Path extents, not glyph metrics: they include mitred
+// outline corners and a slant Cairo synthesizes.
+bool pathInk(cairo_t* cr, const std::string& str, double x, double stroke, double& left, double& right)
+{
+  double y0 = 0.0, y1 = 0.0;
+  cairo_new_path(cr);
+  cairo_move_to(cr, x, 0.0);
+  cairo_text_path(cr, str.c_str());
+  if (stroke > 0.0)
+  {
+    cairo_set_line_width(cr, stroke);
+    cairo_stroke_extents(cr, &left, &y0, &right, &y1);
+  }
+  else
+    cairo_fill_extents(cr, &left, &y0, &right, &y1);
+  cairo_new_path(cr);
+  return right > left;
+}
+
+// Where a prefix of whole characters lies in its whole string's texture,
+// from the string's origin. Cairo's toy text API sets glyph after glyph one
+// advance apart, without kerning, so substrings measured on their own line
+// up with the whole string.
+struct PrefixInk
+{
+  double advance = 0.0; // where the rest of the string starts
+  bool inked = false;   // false: the prefix is blank
+  double right = 0.0;   // its rightmost ink, outline included
+  bool nextInked = false;
+  double nextLeft = 0.0; // the next character's leftmost fill
+};
+
+// Strokes only the last character (a constant cost per reveal step); the
+// earlier ones count by their glyph boxes, which miss a mitred corner but
+// rarely reach past the last letter.
+PrefixInk prefixInk(const std::string& s, std::size_t bytes, const TextStyle& st)
+{
+  VectorImage probe(1, 1);
+  cairo_t* cr = probe.cr();
+  setTextFont(cr, st);
+  const std::size_t lastAt = utf8Back(s, bytes);
+  cairo_text_extents_t ext;
+  cairo_text_extents(cr, s.substr(0, lastAt).c_str(), &ext);
+  const double lastOrigin = ext.x_advance;
+  cairo_text_extents(cr, s.substr(0, bytes).c_str(), &ext);
+  PrefixInk ink;
+  ink.advance = std::max(0.0, ext.x_advance);
+  const double stroke = st.outline ? outlineWidth(st) : 0.0;
+  double left = 0.0, right = 0.0;
+  if (pathInk(cr, s.substr(lastAt, bytes - lastAt), lastOrigin, stroke, left, right))
+  {
+    ink.inked = true;
+    ink.right = right;
+  }
+  if (ext.width > 0.0)
+  {
+    ink.inked = true;
+    ink.right = std::max(ink.right, ext.x_bearing + ext.width + stroke * 0.5);
+  }
+  // The next character alone: a blank one (a space) leaves the following
+  // letter a space's width away, far enough not to matter.
+  double nextRight = 0.0;
+  if (bytes < s.size())
+    ink.nextInked = pathInk(cr, s.substr(bytes, utf8Next(s, bytes) - bytes), ink.advance, 0.0, ink.nextLeft, nextRight);
+  return ink;
+}
+
 // Rounds a byte count down to a whole UTF-8 character of s (and to its
 // length), so a prefix never ends inside a multi-byte character.
 std::size_t utf8Floor(const std::string& s, std::size_t bytes)
@@ -320,9 +414,10 @@ void Renderer::beginFrame()
 
 void Renderer::evictText()
 {
-  // Candidates: strings not drawn in the previous frame (lastUse + 1 ==
-  // mFrame). Of those, the least recently drawn go first, until the cache is
-  // down to kTextCacheKeep; if the last frame alone drew more, it keeps them.
+  // Candidates: the strings the previous frame did not draw (it drew those
+  // with lastUse + 1 == mFrame). Of the candidates, the least recently drawn
+  // go first, until the cache is down to kTextCacheKeep; if the last frame
+  // alone drew more, it keeps them.
   using Entry = std::pair<std::uint64_t, decltype(mTextCache)::iterator>;
   std::vector<Entry> stale;
   for (auto it = mTextCache.begin(); it != mTextCache.end(); ++it)
@@ -659,7 +754,7 @@ Texture Renderer::rasterizeText(const std::string& s, const TextStyle& st) const
   if (st.outline)
   {
     setColor(cr, st.outline);
-    cairo_set_line_width(cr, st.size * 0.16);
+    cairo_set_line_width(cr, outlineWidth(st));
     cairo_stroke_preserve(cr);
   }
   setColor(cr, st.color);
@@ -667,24 +762,33 @@ Texture Renderer::rasterizeText(const std::string& s, const TextStyle& st) const
   return img.toTexture(*this, float(pad), float(pad));
 }
 
-// The advance of s's first `bytes` bytes (a whole-character prefix): where
-// the next glyph starts in the whole string's texture, since Cairo's text
-// API places glyphs one advance after another, without kerning. Measured
-// once per prefix (no rasterizing) and kept with the cached texture.
-float Renderer::prefixWidth(CachedText& e, const std::string& s, std::size_t bytes, const TextStyle& st) const
+// Where to cut the whole string's texture to show its first `bytes` bytes
+// (a whole-character prefix): measured once per prefix (no rasterizing) and
+// kept with the cached texture.
+Renderer::PrefixCut Renderer::prefixCut(CachedText& e, const std::string& s, std::size_t bytes,
+  const TextStyle& st) const
 {
-  if (e.prefixAdvance.size() != s.size() + 1)
-    e.prefixAdvance.assign(s.size() + 1, -1.0f);
-  float& w = e.prefixAdvance[bytes];
-  if (w < 0.0f)
+  if (e.prefixCuts.size() != s.size() + 1)
+    e.prefixCuts.assign(s.size() + 1, PrefixCut{});
+  PrefixCut& c = e.prefixCuts[bytes];
+  if (c.advance >= 0.0f)
+    return c;
+  const PrefixInk ink = prefixInk(s, bytes, st);
+  c.advance = float(ink.advance);
+  c.srcW = 0;
+  if (ink.inked)
   {
-    VectorImage probe(1, 1);
-    setTextFont(probe.cr(), st);
-    cairo_text_extents_t ext;
-    cairo_text_extents(probe.cr(), s.substr(0, bytes).c_str(), &ext);
-    w = std::max(0.0f, float(ext.x_advance));
+    // Right of the last letter's ink, outline included (and a hair for the
+    // path's fixed-point rounding at the texture's origin), but never into
+    // the next letter's fill: where the two overlap in x (italic, a tight
+    // pair) the last letter loses that part instead.
+    const double a = double(e.tex.anchorX());
+    double cut = std::ceil(a + ink.right + 1.0 / 64.0);
+    if (ink.nextInked)
+      cut = std::min(cut, std::floor(a + ink.nextLeft));
+    c.srcW = int(std::max(0.0, cut));
   }
-  return w;
+  return c;
 }
 
 float Renderer::drawText(
@@ -718,17 +822,16 @@ float Renderer::drawTextPrefix(
   bytes = utf8Floor(s, bytes);
   if (bytes == 0)
     return 0.0f;
-  if (bytes == s.size())
-    return drawText(s, x, y, style, Align::Left, alpha);
   CachedText& e = cachedText(s, style);
-  const float w = prefixWidth(e, s, bytes, style);
-  // The clip falls at the next glyph's origin: the last shown letter keeps
-  // its body, and of an outlined next letter at most a sliver of its left
-  // outline shows (less than the outline's half width).
+  const PrefixCut cut = prefixCut(e, s, bytes, style);
+  // A vertical cut (see prefixCut): of an outlined next letter at most a
+  // sliver of its left outline shows, in the outline's colour. With linear
+  // filtering at a fractional output scale (the game's window) the GPU
+  // also blends in under an output pixel of the texel column past the cut.
   DrawOpts o;
   o.alpha = alpha;
-  drawRegion(e.tex, x, y, int(std::lround(e.tex.anchorX() + w)), o);
-  return w;
+  drawRegion(e.tex, x, y, bytes == s.size() ? e.tex.w() : cut.srcW, o);
+  return cut.advance;
 }
 
 } // namespace gr

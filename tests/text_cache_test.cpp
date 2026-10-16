@@ -7,8 +7,11 @@
 //     a cutscene line typed out two letters at a time caches one texture,
 //     not one per step, and looks like the prefix drawn on its own;
 //   - a prefix never ends inside a UTF-8 character.
+// The bundled game font is loaded as the game loads it; desktop builds (no
+// GR_BUNDLED_FONT) find the same DejaVu Sans Bold through fontconfig.
 
 #include "render/renderer.hpp"
+#include "render/vector.hpp"
 
 #include <SDL.h>
 
@@ -114,6 +117,31 @@ void boundEdges(SDL_Renderer* sdl)
   check(r.textCacheSize() == 500, "a frame drawing 500 strings keeps all 500");
 }
 
+// flow.cpp's title holds one text() reference while it adds the next
+// string; neither that nor the map growing may move or drop the first.
+void heldReferenceSurvives(SDL_Renderer* sdl)
+{
+  Renderer r(sdl);
+  const TextStyle shadowSt{120.0f, rgb(40, 40, 60), 0, true};
+  const TextStyle bannerSt{120.0f, rgb(255, 200, 0), rgb(0, 0, 0), true};
+  r.beginFrame();
+  for (int i = 0; i < 450; ++i)
+    r.text(name("old", i), {24.0f});
+  r.beginFrame();
+  r.beginFrame(); // the old strings are stale now: down to kTextCacheKeep
+  const Texture& shadow = r.text("GUNRUNNERS", shadowSt);
+  SDL_Texture* const tex = shadow.get();
+  const int w = shadow.w(), h = shadow.h();
+  const Texture& banner = r.text("GUNRUNNERS", bannerSt);
+  for (int i = 0; i < 500; ++i) // enough to rehash the map
+    r.text(name("new", i), {24.0f});
+  check(shadow.get() == tex && shadow.w() == w && shadow.h() == h,
+    "a held text() reference survives the strings added after it in the frame");
+  check(&r.text("GUNRUNNERS", shadowSt) == &shadow, "the held reference is still the cached texture");
+  check(banner && banner.get() != tex, "the second style is a texture of its own");
+  check(r.textCacheSize() == Renderer::kTextCacheKeep + 502, "nothing is evicted inside a frame");
+}
+
 using Pixels = std::vector<Uint32>;
 
 // The frame after a clear to black and `draw`.
@@ -150,9 +178,43 @@ bool sameLeftOf(const Pixels& a, const Pixels& b, int w, int limit)
   return true;
 }
 
+// The lit pixels' bounding box: left, top, right, bottom (inclusive).
+std::vector<int> litBox(const Pixels& px, int w)
+{
+  std::vector<int> box{w, int(px.size()), -1, -1};
+  for (std::size_t i = 0; i < px.size(); ++i)
+    if (px[i] & 0xFFFFFFu)
+    {
+      const int x = int(i % std::size_t(w)), y = int(i / std::size_t(w));
+      box = {std::min(box[0], x), std::min(box[1], y), std::max(box[2], x), std::max(box[3], y)};
+    }
+  return box;
+}
+
 const std::string kLine = "Three couriers. Forty-two jobs. One city that never sleeps and never pays on time.";
 const TextStyle kStyle{28.0f, rgb(255, 255, 255), rgb(255, 0, 0)};
+const TextStyle kItalic{28.0f, rgb(255, 255, 255), rgb(255, 0, 0), true};
 constexpr float kX = 100.0f, kY = 300.0f;
+// The pixel checks' slack: the outline's width at 28 px (4.5) plus 2, and
+// the columns an outlined next letter's outline (or an antialiased edge
+// too faint to light a pixel) may add past the part drawn alone.
+constexpr int kMargin = 7;
+constexpr int kSliver = 2;
+
+// An evicted string drawn again is rasterized again, to the same pixels.
+void evictedStringReturns(Renderer& r, SDL_Surface* surface)
+{
+  r.beginFrame();
+  const Pixels before = shot(r, surface, [&] { r.drawText("Evicted", kX, kY, kStyle); });
+  r.beginFrame();
+  for (int i = 0; i < 450; ++i)
+    r.text(name("cold", i), {24.0f});
+  r.beginFrame(); // "Evicted" is the one stale string
+  check(!r.textCached("Evicted", kStyle) && r.textCacheSize() == 450, "the stale string is evicted");
+  const Pixels after = shot(r, surface, [&] { r.drawText("Evicted", kX, kY, kStyle); });
+  check(r.textCached("Evicted", kStyle) && r.textCacheSize() == 451, "drawn again, it is cached again");
+  check(after == before, "an evicted string comes back with the same pixels");
+}
 
 // Typing a line out two letters a step caches one texture and only grows.
 void revealCachesOneTexture(SDL_Renderer* sdl)
@@ -171,6 +233,9 @@ void revealCachesOneTexture(SDL_Renderer* sdl)
   check(widths.front() == 0.0f, "nothing revealed: width 0");
   check(std::is_sorted(widths.begin(), widths.end()), "the revealed width only grows");
   check(widths.back() > 0.0f, "the whole line has a width");
+  const float textW = r.drawText(kLine, kX, kY, kStyle);
+  check(widths.back() <= textW + 0.01f && textW - widths.back() < 1.0f,
+    "the whole line returns its advance too, within a pixel of drawText's width");
   const std::size_t before = r.textCacheSize();
   check(r.drawTextPrefix("", 5, kX, kY, kStyle) == 0.0f, "an empty line reveals nothing");
   check(r.textCacheSize() == before, "an empty line caches nothing");
@@ -189,26 +254,41 @@ void revealEnds(Renderer& r, SDL_Surface* surface)
   check(past == full, "a prefix past the end is the whole line");
 }
 
-// A part of the line looks like that part drawn on its own: identical left
-// of the next glyph's outline, and ending where it ends (the clip cuts at
-// most the last letter's outline or adds a sliver of the next one's).
+// A part of the line looks like that part drawn on its own. Before a
+// space: exactly, the last letter's outline and slant whole (a cut at the
+// advance took half the outline and the lean). Between letters: the same
+// left of the next letter's outline, and ending where the part ends, give
+// or take the last letter's outline where the next letter's fill is close
+// and a sliver of the next letter's outline.
+void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_t bytes, const Pixels& full)
+{
+  const int sw = surface->w;
+  const std::string part = kLine.substr(0, bytes);
+  const std::string what = std::string(st.italic ? "italic " : "") + "\"" + part + "\": ";
+  check(kLine[bytes - 1] != ' ', what + "a cut after a letter");
+  float w = 0.0f;
+  const Pixels p = shot(r, surface, [&] { w = r.drawTextPrefix(kLine, bytes, kX, kY, st); });
+  const Pixels sub = shot(r, surface, [&] { r.drawText(part, kX, kY, st); });
+  const int right = rightmostLit(p, sw), subRight = rightmostLit(sub, sw);
+  check(right >= 0 && right < rightmostLit(full, sw), what + "the rest of the line is hidden");
+  if (kLine[bytes] == ' ')
+  {
+    check(p == sub, what + "the same pixels as the part drawn alone");
+    return;
+  }
+  check(sameLeftOf(p, sub, sw, int(kX + w) - kMargin), what + "the same pixels as the part drawn alone");
+  check(right <= subRight + kSliver, what + "nothing past the part drawn alone");
+  check(right >= subRight - kMargin, what + "ends where the part drawn alone ends");
+}
+
 void revealMatchesSubstring(Renderer& r, SDL_Surface* surface)
 {
   const Pixels full = shot(r, surface, [&] { r.drawText(kLine, kX, kY, kStyle); });
-  for (const std::size_t bytes : {4, 9, 12, 20})
-  {
-    const std::string part = kLine.substr(0, bytes);
-    const std::string what = "\"" + part + "\": ";
-    check(kLine[bytes - 1] != ' ' && kLine[bytes] != ' ', what + "a cut between letters");
-    float w = 0.0f;
-    const Pixels p = shot(r, surface, [&] { w = r.drawTextPrefix(kLine, bytes, kX, kY, kStyle); });
-    const Pixels sub = shot(r, surface, [&] { r.drawText(part, kX, kY, kStyle); });
-    const int right = rightmostLit(p, surface->w);
-    check(sameLeftOf(p, sub, surface->w, int(kX + w) - 4), what + "the same pixels as the part drawn alone");
-    check(right >= 0 && right <= int(kX + w) + 1, what + "nothing right of the clip");
-    check(std::abs(right - rightmostLit(sub, surface->w)) <= 6, what + "ends where the part drawn alone ends");
-    check(right < rightmostLit(full, surface->w), what + "the rest of the line is hidden");
-  }
+  for (const std::size_t bytes : {4, 9, 12, 20, 5, 15})
+    checkCut(r, surface, kStyle, bytes, full);
+  const Pixels fullItalic = shot(r, surface, [&] { r.drawText(kLine, kX, kY, kItalic); });
+  for (const std::size_t bytes : {4, 9, 5, 15})
+    checkCut(r, surface, kItalic, bytes, fullItalic);
 }
 
 // A prefix that would end inside a UTF-8 character stops before it.
@@ -228,6 +308,40 @@ void revealUtf8(Renderer& r, SDL_Surface* surface)
   check(w8 == w7 && w9 == w7, "a cut inside the dash measures as before it");
   check(p8 == p7 && p9 == p7, "a cut inside the dash draws as before it");
   check(r.drawTextPrefix(u, 10, kX, kY, kStyle) > w7, "the whole dash draws");
+  // A cut inside the line's last character: "Café", é is bytes 3-4.
+  const std::string cafe = std::string("Caf") + "\xC3\xA9";
+  float w3 = 0.0f, w4 = 0.0f;
+  const Pixels p3 = shot(r, surface, [&] { w3 = r.drawTextPrefix(cafe, 3, kX, kY, kStyle); });
+  const Pixels p4 = shot(r, surface, [&] { w4 = r.drawTextPrefix(cafe, 4, kX, kY, kStyle); });
+  const Pixels p5 = shot(r, surface, [&] { r.drawTextPrefix(cafe, 5, kX, kY, kStyle); });
+  const Pixels whole = shot(r, surface, [&] { r.drawText(cafe, kX, kY, kStyle); });
+  check(w4 == w3 && p4 == p3, "a cut inside the last character draws as before it");
+  check(p5 == whole && p4 != whole, "the whole last character draws the whole line");
+}
+
+// drawRegion scaled: the cut columns scale with the texture, from the
+// scaled anchor.
+void drawRegionScaled(Renderer& r, SDL_Surface* surface)
+{
+  constexpr int tw = 8, th = 4;
+  const auto colour = [](int x) {
+    return 0xFF000000u | (Uint32(30 * (x + 1)) << 16) | (Uint32(200 - 20 * x) << 8) | 0x40u;
+  };
+  std::vector<Uint32> px(std::size_t(tw * th));
+  for (int y = 0; y < th; ++y)
+    for (int x = 0; x < tw; ++x)
+      px[std::size_t(y * tw + x)] = colour(x);
+  Texture t = r.createTexture(tw, th, reinterpret_cast<const unsigned char*>(px.data()), tw * 4, 2.0f, 1.0f);
+  SDL_SetTextureScaleMode(t.get(), SDL_ScaleModeNearest);
+  DrawOpts o;
+  o.scale = 3.0f;
+  const Pixels p = shot(r, surface, [&] { r.drawRegion(t, 200.0f, 200.0f, 5, o); });
+  check(litBox(p, surface->w) == std::vector<int>{194, 197, 208, 208},
+    "scaled 3x, 5 of 8 columns cover 15 x 12 px from the scaled anchor");
+  bool inOrder = true;
+  for (int k = 0; k < 5; ++k) // the middle of each column's 3 px
+    inOrder = inOrder && (p[std::size_t(203 * surface->w + 194 + 3 * k + 1)] & 0xFFFFFFu) == (colour(k) & 0xFFFFFFu);
+  check(inOrder, "the shown columns keep their order and colours");
 }
 
 } // namespace
@@ -235,17 +349,24 @@ void revealUtf8(Renderer& r, SDL_Surface* surface)
 int main()
 {
   SDL_Init(0);
+  loadGameFont(GR_DATA_DIR "/fonts/DejaVuSans-Bold.ttf");
   SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
   SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
   evictsButKeepsTheHotString(sdl);
   evictsOldestFirst(sdl);
   boundEdges(sdl);
+  heldReferenceSurvives(sdl);
   revealCachesOneTexture(sdl);
+  {
+    Renderer r(sdl);
+    evictedStringReturns(r, surface);
+  }
   {
     Renderer r(sdl);
     revealEnds(r, surface);
     revealMatchesSubstring(r, surface);
     revealUtf8(r, surface);
+    drawRegionScaled(r, surface);
   }
   SDL_DestroyRenderer(sdl);
   SDL_FreeSurface(surface);
