@@ -512,8 +512,24 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   auto world = restoreAside(s, level);
   if (!world)
     return false;
+  // Only now that the save fits: the old level's music preloads turn stale
+  // and their queue stops (a refused load leaves them be), so the new
+  // level's tracks don't wait behind them; playLevelMusic frees the rest.
   if (rereadLevel)
+  {
+    if (mAudio)
+      mAudio->markPreloadsStale();
     useLevel(std::move(level), s.levelFile);
+  }
+  takeSaveProgress(s);
+  if (!sameLevel)
+    mLevelRunner = world->characterIndex();
+  startLoadedWorld(std::move(world), s.theme, message);
+  return true;
+}
+
+void Game::takeSaveProgress(const SaveGame& s)
+{
   // A campaign save brings its level's number, also when its level is the
   // one loaded (its file too, then) and not read again: every way to the
   // title (QUIT TO TITLE, the end of the story or of DEEP SPACE) keeps the
@@ -525,10 +541,6 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   // A save brings its difficulty: the levels after it follow.
   if (campaign())
     setHard(s.hard);
-  if (!sameLevel)
-    mLevelRunner = world->characterIndex();
-  startLoadedWorld(std::move(world), s.theme, message);
-  return true;
 }
 
 std::unique_ptr<World> Game::restoreAside(const SaveGame& s, const std::shared_ptr<const Level>& level)

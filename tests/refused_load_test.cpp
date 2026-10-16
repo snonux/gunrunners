@@ -40,8 +40,10 @@
 // SWAP RUNNER ON DEATH: after a load, a wiped-out level starts over with the
 // runner it started with (a save of the level played, also loaded in its
 // bonus level), with the save's runner (a save from another level), and a
-// refused load changes neither.
+// refused load changes neither. And the music preloads: a load of another
+// level frees the old level's preloads, a refused load keeps them.
 
+#include "audio/audio.hpp"
 #include "frontend/game.hpp"
 #include "game/profile.hpp"
 #include "game/savegame.hpp"
@@ -495,6 +497,45 @@ void quickLoadOf(Game& g, const std::string& dir, const SaveGame& s)
   press(g, &Input::quickLoad);
 }
 
+// Any track at once, short and not silent: the game's music without the
+// seconds of synthesis per track.
+std::unique_ptr<Audio::Track> quickTrack(const std::string&)
+{
+  auto track = std::make_unique<Audio::Track>();
+  track->left.assign(std::size_t(kAudioRate / 10), 0.1f);
+  track->right.assign(std::size_t(kAudioRate / 10), 0.1f);
+  return track;
+}
+
+// Whether the background render of a preload finishes (bounded wait).
+bool preloadArrives(Audio& audio, const std::string& id)
+{
+  for (int i = 0; i < 500 && !audio.preloadReady(id); ++i)
+    SDL_Delay(10);
+  return audio.preloadReady(id);
+}
+
+// A load of another level turns the old level's music preloads stale, and
+// its playLevelMusic frees those the new level does not ask for; a refused
+// load leaves the running level's preloads alone (task ff3).
+void checkPreloadsOnLoad(Renderer& renderer, const std::string& dir, const SaveGame& two)
+{
+  Audio audio(&quickTrack, true); // renders in the background, as with a device
+  Game g(campaignAt(dir, 1, false), renderer, &audio);
+  settle(g);
+  const std::string extra = "zz_level_one_preload";
+  audio.preloadMusic(extra);
+  if (!check(preloadArrives(audio, extra), "preloads: Level 1's preload renders"))
+    return;
+  checkRefused(g, dir, withExtraBox(two), "preloads: a save that does not fit");
+  check(audio.preloadReady(extra), "preloads: a refused load keeps Level 1's preload");
+  quickLoadOf(g, dir, two);
+  run(g, 5);
+  const World* w = g.world();
+  check(w && w->level().name == "STAGE 2 - GLASS CANYON", "preloads: the Level 2 save loads");
+  check(!audio.preloadReady(extra), "preloads: loading Level 2 frees Level 1's preload");
+}
+
 void loadGameOnTitle(Game& g, const std::string& dir, const SaveGame& s)
 {
   writeSave(s, slotPath(dir, 0));
@@ -886,6 +927,7 @@ int main()
       checkStartOverOtherLevel(renderer, saves + "/swap_other", doomed);
       checkStartOverAfterRefusal(renderer, saves + "/swap_refused", doomed, *two);
       checkStartOverFromBonus(renderer, saves + "/swap_bonus", doomed);
+      checkPreloadsOnLoad(renderer, saves + "/preloads", *two);
     }
   }
   std::filesystem::remove_all(saves);

@@ -349,6 +349,9 @@ private:
   // The world a save restores into, built on level apart from the run in
   // progress; nullptr, after the refusal's notice, if the save is from
   // another level or does not fit it.
+  // A loaded campaign save's level number and difficulty (the levels after
+  // it follow them); a stand-alone level keeps none.
+  void takeSaveProgress(const SaveGame& s);
   std::unique_ptr<World> restoreAside(const SaveGame& s, const std::shared_ptr<const Level>& level);
   // The save fit: its restored world replaces the run in progress, in the
   // save's look (theme index). It ends a bonus level: the world and level

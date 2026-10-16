@@ -134,6 +134,9 @@ public:
   // The track playing ("stop" for none) and its frame; for tests.
   std::string musicPlaying();
   std::size_t musicFrame();
+  // Whether a preload of id has finished rendering and is still held (not
+  // yet played, freed or evicted); for tests.
+  bool preloadReady(const std::string& id) const { return mPreloads.ready(id); }
   // The track a switch waits for, empty for none. Game thread only.
   const std::string& musicPending() const { return mPending.id(); }
   // The order the effects render in the background (each once): the menu's
