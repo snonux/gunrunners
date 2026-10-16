@@ -96,8 +96,10 @@ public:
   int touchSize() const { return mProfile.touchSize; }
   // The app is going to the background (Android may close it there): the
   // pause menu opens over a running level and the profile is saved (in the
-  // campaign; see saveProfile).
-  void suspend();
+  // campaign; see saveProfile). False when the disk refused that write (the
+  // window code has no one to tell; the tests check it); a stand-alone level
+  // has nothing to write, which counts as saved.
+  bool suspend();
   // The window lost focus or a gamepad dropped out: a running level pauses.
   void pauseLevel();
 

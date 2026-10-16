@@ -102,10 +102,10 @@ bool Game::inLevel() const
   return mMenu == Menu::None && mMode == Mode::Play;
 }
 
-void Game::suspend()
+bool Game::suspend()
 {
   pauseLevel();
-  saveProfile();
+  return saveProfile();
 }
 
 void Game::pauseLevel()

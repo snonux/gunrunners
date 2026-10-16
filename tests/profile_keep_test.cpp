@@ -7,12 +7,19 @@
 //   - ASSISTS AND OPTIONS (pause > CONTROLS > ASSISTS, the first row toggled),
 //     FULLSCREEN, the menu pad and going to the background (suspend) leave
 //     profile.txt byte for byte as it was;
-//   - those settings still apply for the run (fullscreen, menu pad);
+//   - those settings still apply for the run: the toggle reaches the level
+//     being played (HOLD TO FIRE in its play options, off before; this also
+//     proves the presses hit the row, so the unchanged file is no accident),
+//     fullscreen and the menu pad;
+//   - suspend reports the unwritten profile as saved (nothing to write);
 // and, the control, that in the campaign the same changes do reach the
-// profile, next to the progress already in it.
+// profile, next to the progress already in it. Last, the campaign still
+// reports a refused write through saveProfile: with the save directory
+// replaced by a regular file, suspend returns false (a writable one, true).
 
 #include "frontend/game.hpp"
 #include "game/profile.hpp"
+#include "game/world.hpp"
 #include "render/renderer.hpp"
 
 #include <SDL.h>
@@ -106,6 +113,13 @@ bool holdFireOn(const Profile& p)
   return it != p.controls.end() && !it->second.empty() && it->second[0] != 0;
 }
 
+// HOLD TO FIRE as the level being played has it (the menu sets the world's
+// play options right away, saved or not).
+bool worldHoldsFire(const Game& g)
+{
+  return g.world() && g.world()->playOptions().holdFire;
+}
+
 GameOptions standAlone(const std::string& dir)
 {
   GameOptions o;
@@ -134,13 +148,15 @@ void checkStandAlone(Renderer& renderer, const std::string& dir)
   Game g(standAlone(dir), renderer, nullptr);
   settle(g);
   check(g.inLevel(), "stand-alone: Level 1 runs on its own");
+  check(g.world() && !worldHoldsFire(g), "stand-alone: HOLD TO FIRE starts off (a default profile)");
   toggleFirstAssist(g);
+  check(worldHoldsFire(g), "stand-alone: the toggle took effect in the level being played");
   check(readFile(dir + "/profile.txt") == before, "stand-alone: an ASSISTS AND OPTIONS toggle leaves profile.txt alone");
   g.setFullscreen(true);
   check(g.fullscreenSetting(), "stand-alone: FULLSCREEN applies for the run");
   g.setMenuPad(true);
   check(g.menuPad(), "stand-alone: the menu pad applies for the run");
-  g.suspend();
+  check(g.suspend(), "stand-alone: suspend counts the profile it does not write as saved");
   check(readFile(dir + "/profile.txt") == before,
     "stand-alone: FULLSCREEN, the menu pad and suspend leave profile.txt alone");
   const Profile p = Profile::load(dir);
@@ -156,12 +172,33 @@ void checkCampaign(Renderer& renderer, const std::string& dir)
   settle(g);
   check(g.inLevel(), "campaign: Level 1 runs");
   toggleFirstAssist(g);
+  check(worldHoldsFire(g), "campaign: the toggle took effect in the level being played");
   check(holdFireOn(Profile::load(dir)), "campaign: the ASSISTS AND OPTIONS toggle is saved");
   g.setFullscreen(true);
   g.setMenuPad(true);
   const Profile p = Profile::load(dir);
   check(p.fullscreen, "campaign: FULLSCREEN is saved");
   check(progressKept(p), "campaign: ...next to the progress already there");
+}
+
+// A campaign save the disk refuses still comes back from saveProfile (only a
+// stand-alone level skips the write): suspend, which saves the profile,
+// returns true into a writable directory and false once the save directory
+// has become a regular file (profile.txt cannot go below it, root or not).
+void checkCampaignRefused(Renderer& renderer, const std::string& dir)
+{
+  writeProgress(dir);
+  Game g(campaignLevelOne(dir), renderer, nullptr);
+  settle(g);
+  check(g.inLevel(), "refused: Level 1 runs");
+  check(g.suspend(), "refused: the control, suspend saves the profile to a writable directory");
+  std::filesystem::remove_all(dir);
+  {
+    std::ofstream file(dir);
+    file << "not a directory\n";
+  }
+  check(std::filesystem::is_regular_file(dir), "refused: the save directory is now a regular file");
+  check(!g.suspend(), "refused: suspend reports the profile write the disk refused");
 }
 
 } // namespace
@@ -181,6 +218,7 @@ int main()
     Renderer renderer(sdl);
     checkStandAlone(renderer, saves + "/stand_alone");
     checkCampaign(renderer, saves + "/campaign");
+    checkCampaignRefused(renderer, saves + "/refused");
   }
   std::filesystem::remove_all(saves);
   SDL_DestroyRenderer(sdl);
