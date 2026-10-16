@@ -1,5 +1,6 @@
 #include "game/s3.hpp"
 
+#include "base/atomic_file.hpp"
 #include "game/savegame.hpp"
 
 #include <atomic>
@@ -392,25 +393,12 @@ S3GetResult s3GetFile(const S3Config& config, const std::string& object,
   std::error_code ec;
   if (target.has_parent_path())
     fs::create_directories(target.parent_path(), ec);
-  const std::string temporary = path + ".s3.tmp";
-  {
-    std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
-    if (!output || !(output << body) || !output.flush())
-    {
-      if (error)
-        *error = "cannot write " + temporary;
-      return S3GetResult::Error;
-    }
-  }
-  fs::rename(temporary, target, ec);
-  if (ec)
-  {
-    const std::string message = ec.message();
-    fs::remove(temporary, ec);
-    if (error)
-      *error = "cannot replace " + path + ": " + message;
+  // Same discipline as every save: path + ".tmp", every byte written and
+  // synced before the rename, the temp file removed on any failure, so a
+  // full disk does not collect half-downloaded temp files. The caller still
+  // validates path before installing it anywhere.
+  if (!writeFileAtomic(path, body, error))
     return S3GetResult::Error;
-  }
   return S3GetResult::Downloaded;
 #endif
 }

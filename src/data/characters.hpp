@@ -131,6 +131,10 @@ void removeCustomRunner(const std::string& id);
 void clearCustomRunners();
 // dir/runners.txt (the savegame directory).
 void loadCustomRunners(const std::string& dir);
+// Writes the custom runners (not the transient ones) to dir/runners.txt,
+// making dir if needed, all or nothing. False when it could not be written:
+// the old runners.txt is kept as it was, so the roster in memory and the one
+// the next start loads differ until a save succeeds.
 bool saveCustomRunners(const std::string& dir);
 // One line, as runners.txt and savegames store a custom runner.
 std::string encodeRunner(const CharacterDef& def);

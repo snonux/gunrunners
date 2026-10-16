@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 namespace gr
 {
@@ -27,6 +29,128 @@ std::string now()
   char buf[32];
   std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm);
   return buf;
+}
+
+// The run itself: which level and runner, the player, the score so far and
+// the level-wide switches. The runner, campaign, hard and cheats lines are
+// only written when set.
+void writeRun(std::ostream& o, const SaveGame& s)
+{
+  o << kMagic << ' ' << kVersion << '\n';
+  o << "level " << s.levelName << '\n';
+  o << "saved " << (s.savedAt.empty() ? now() : s.savedAt) << '\n';
+  o << "character " << s.character << '\n';
+  if (!s.runner.empty())
+    o << "runner " << s.runner << '\n';
+  o << "theme " << s.theme << '\n';
+  o << "player " << s.x << ' ' << s.y << ' ' << s.facing << ' ' << s.hp << ' ' << s.weapon << ' ' << s.ammo << ' '
+    << s.rapidFire << ' ' << int(s.hasKey) << '\n';
+  o << "effects " << s.turbo << ' ' << s.virus << '\n';
+  o << "respawn " << s.respawnX << ' ' << s.respawnY << '\n';
+  o << "progress " << s.score << ' ' << s.gems << ' ' << s.kills << ' ' << s.merch << ' ' << s.weaponsCollected << ' '
+    << s.deaths << ' ' << s.frames << ' ' << int(s.tookDamage) << '\n';
+  o << "letters " << (s.letters.empty() ? "-" : s.letters) << '\n';
+  o << "fields " << int(s.forceFieldsOn) << '\n';
+  if (!s.levelFile.empty())
+    o << "campaign " << s.levelNumber << ' ' << s.levelFile << '\n';
+  if (s.hard)
+    o << "hard 1\n";
+  o << "extras " << s.proto << ' ' << int(s.protoFound) << ' ' << int(s.duck) << ' ' << int(s.camera) << ' '
+    << int(s.bonusStar) << ' ' << s.protoKills << '\n';
+  if (s.god || s.cheated)
+    o << "cheats " << int(s.god) << ' ' << int(s.cheated) << '\n';
+}
+
+// The level's things, one line each, in the level's own order.
+void writeEntities(std::ostream& o, const SaveGame& s)
+{
+  for (bool p : s.props)
+    o << "prop " << int(p) << '\n';
+  for (const auto& e : s.enemies)
+    o << "enemy " << int(e.alive) << ' ' << e.hp << ' ' << e.x << ' ' << e.y << ' ' << e.dir << ' ' << e.timer << ' '
+      << int(e.active) << ' ' << e.def << ' ' << e.platform << ' ' << e.attach << '\n';
+  for (bool b : s.boxes)
+    o << "box " << int(b) << '\n';
+  for (const auto& it : s.items)
+    o << "item " << it.kind << ' ' << it.variant << ' ' << it.x << ' ' << it.y << ' ' << int(it.floating) << '\n';
+  for (bool c : s.checkpoints)
+    o << "checkpoint " << int(c) << '\n';
+  for (const auto& p : s.platforms)
+    o << "platform " << p.x << ' ' << p.y << ' ' << p.balance << ' ' << p.slackLeft << ' ' << p.idle << ' '
+      << p.moveTick << ' ' << p.target << ' ' << p.step << ' ' << int(p.braked) << '\n';
+  for (bool h : s.hatches)
+    o << "hatch " << int(h) << '\n';
+  for (int b : s.breakables)
+    o << "breakable " << b << '\n';
+  for (const auto& b : s.breakers)
+    o << "breaker " << int(b.on) << ' ' << b.thrownAt << ' ' << int(b.leechKilled) << ' ' << b.leechIn << '\n';
+  for (int d : s.doors)
+    o << "door " << d << '\n';
+  if (s.allLitAt >= 0)
+    o << "alllit " << s.allLitAt << '\n';
+}
+
+// The levels' own state as "key count values...", in this order; an empty
+// list writes no line. readSave knows the same keys.
+const std::pair<const char*, std::vector<int> SaveGame::*> kIntLists[] = {
+  {"floods", &SaveGame::floods},
+  {"valves", &SaveGame::valves},
+  {"ratpipes", &SaveGame::ratPipes},
+  {"bubbled", &SaveGame::bubbled},
+  {"train", &SaveGame::train},
+  {"chopper", &SaveGame::chopper},
+  {"jungle", &SaveGame::jungle},
+  {"temple", &SaveGame::temple},
+  {"light", &SaveGame::light},
+  {"mine", &SaveGame::mine},
+  {"boulder", &SaveGame::boulder},
+  {"sanctum", &SaveGame::sanctum},
+  {"station", &SaveGame::station},
+  {"green", &SaveGame::green},
+  {"hull", &SaveGame::hull},
+  {"grav", &SaveGame::grav},
+  {"reactor", &SaveGame::reactor},
+  {"zero", &SaveGame::zero},
+  {"west", &SaveGame::west},
+  {"manor", &SaveGame::manor},
+  {"kitchen", &SaveGame::kitchen},
+  {"garden", &SaveGame::garden},
+  {"city", &SaveGame::city},
+  {"noir", &SaveGame::noir},
+  {"toon", &SaveGame::toon},
+  {"signal", &SaveGame::signal},
+  {"trench", &SaveGame::trench},
+  {"storm", &SaveGame::storm},
+  {"dish", &SaveGame::dish},
+  {"magma", &SaveGame::magma},
+  {"fleet", &SaveGame::fleet},
+  {"tower", &SaveGame::tower},
+  {"warehouse", &SaveGame::warehouse},
+  {"wardrobe", &SaveGame::wardrobe},
+  {"writers", &SaveGame::writers},
+  {"gallery", &SaveGame::gallery},
+  {"flytower", &SaveGame::flytower},
+  {"sweeps", &SaveGame::sweeps},
+  {"finale", &SaveGame::finale},
+  {"explored", &SaveGame::explored},
+  {"vehicles", &SaveGame::vehicles},
+  {"swap", &SaveGame::swap},
+  {"guns", &SaveGame::guns},
+  {"bench", &SaveGame::bench},
+};
+
+void writeIntLists(std::ostream& o, const SaveGame& s)
+{
+  for (const auto& [key, member] : kIntLists)
+  {
+    const std::vector<int>& v = s.*member;
+    if (v.empty())
+      continue;
+    o << key << ' ' << v.size();
+    for (int x : v)
+      o << ' ' << x;
+    o << '\n';
+  }
 }
 
 } // namespace
@@ -59,107 +183,10 @@ bool writeSave(const SaveGame& s, const std::string& path, std::string* error)
     fs::create_directories(target.parent_path(), ec);
 
   std::ostringstream o;
-  o << kMagic << ' ' << kVersion << '\n';
-  o << "level " << s.levelName << '\n';
-  o << "saved " << (s.savedAt.empty() ? now() : s.savedAt) << '\n';
-  o << "character " << s.character << '\n';
-  if (!s.runner.empty())
-    o << "runner " << s.runner << '\n';
-  o << "theme " << s.theme << '\n';
-  o << "player " << s.x << ' ' << s.y << ' ' << s.facing << ' ' << s.hp << ' ' << s.weapon << ' ' << s.ammo << ' '
-    << s.rapidFire << ' ' << int(s.hasKey) << '\n';
-  o << "effects " << s.turbo << ' ' << s.virus << '\n';
-  o << "respawn " << s.respawnX << ' ' << s.respawnY << '\n';
-  o << "progress " << s.score << ' ' << s.gems << ' ' << s.kills << ' ' << s.merch << ' ' << s.weaponsCollected << ' '
-    << s.deaths << ' ' << s.frames << ' ' << int(s.tookDamage) << '\n';
-  o << "letters " << (s.letters.empty() ? "-" : s.letters) << '\n';
-  o << "fields " << int(s.forceFieldsOn) << '\n';
-  if (!s.levelFile.empty())
-    o << "campaign " << s.levelNumber << ' ' << s.levelFile << '\n';
-  if (s.hard)
-    o << "hard 1\n";
-  o << "extras " << s.proto << ' ' << int(s.protoFound) << ' ' << int(s.duck) << ' ' << int(s.camera) << ' '
-    << int(s.bonusStar) << ' ' << s.protoKills << '\n';
-  if (s.god || s.cheated)
-    o << "cheats " << int(s.god) << ' ' << int(s.cheated) << '\n';
-  for (bool p : s.props)
-    o << "prop " << int(p) << '\n';
-  for (const auto& e : s.enemies)
-    o << "enemy " << int(e.alive) << ' ' << e.hp << ' ' << e.x << ' ' << e.y << ' ' << e.dir << ' ' << e.timer << ' '
-      << int(e.active) << ' ' << e.def << ' ' << e.platform << ' ' << e.attach << '\n';
-  for (bool b : s.boxes)
-    o << "box " << int(b) << '\n';
-  for (const auto& it : s.items)
-    o << "item " << it.kind << ' ' << it.variant << ' ' << it.x << ' ' << it.y << ' ' << int(it.floating) << '\n';
-  for (bool c : s.checkpoints)
-    o << "checkpoint " << int(c) << '\n';
-  for (const auto& p : s.platforms)
-    o << "platform " << p.x << ' ' << p.y << ' ' << p.balance << ' ' << p.slackLeft << ' ' << p.idle << ' '
-      << p.moveTick << ' ' << p.target << ' ' << p.step << ' ' << int(p.braked) << '\n';
-  for (bool h : s.hatches)
-    o << "hatch " << int(h) << '\n';
-  for (int b : s.breakables)
-    o << "breakable " << b << '\n';
-  for (const auto& b : s.breakers)
-    o << "breaker " << int(b.on) << ' ' << b.thrownAt << ' ' << int(b.leechKilled) << ' ' << b.leechIn << '\n';
-  for (int d : s.doors)
-    o << "door " << d << '\n';
-  if (s.allLitAt >= 0)
-    o << "alllit " << s.allLitAt << '\n';
-  auto list = [&](const char* key, const std::vector<int>& v) {
-    if (v.empty())
-      return;
-    o << key << ' ' << v.size();
-    for (int x : v)
-      o << ' ' << x;
-    o << '\n';
-  };
-  list("floods", s.floods);
-  list("valves", s.valves);
-  list("ratpipes", s.ratPipes);
-  list("bubbled", s.bubbled);
-  list("train", s.train);
-  list("chopper", s.chopper);
-  list("jungle", s.jungle);
-  list("temple", s.temple);
-  list("light", s.light);
-  list("mine", s.mine);
-  list("boulder", s.boulder);
-  list("sanctum", s.sanctum);
-  list("station", s.station);
-  list("green", s.green);
-  list("hull", s.hull);
-  list("grav", s.grav);
-  list("reactor", s.reactor);
-  list("zero", s.zero);
-  list("west", s.west);
-  list("manor", s.manor);
-  list("kitchen", s.kitchen);
-  list("garden", s.garden);
-  list("city", s.city);
-  list("noir", s.noir);
-  list("toon", s.toon);
-  list("signal", s.signal);
-  list("trench", s.trench);
-  list("storm", s.storm);
-  list("dish", s.dish);
-  list("magma", s.magma);
-  list("fleet", s.fleet);
-  list("tower", s.tower);
-  list("warehouse", s.warehouse);
-  list("wardrobe", s.wardrobe);
-  list("writers", s.writers);
-  list("gallery", s.gallery);
-  list("flytower", s.flytower);
-  list("sweeps", s.sweeps);
-  list("finale", s.finale);
-  list("explored", s.explored);
-  list("vehicles", s.vehicles);
-  list("swap", s.swap);
-  list("guns", s.guns);
-  list("bench", s.bench);
+  writeRun(o, s);
+  writeEntities(o, s);
+  writeIntLists(o, s);
   o << "end\n";
-
   // All or nothing: a failed write leaves the old savegame in place.
   return writeFileAtomic(path, o.str(), error);
 }

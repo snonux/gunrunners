@@ -1,8 +1,10 @@
 // profile.txt, runners.txt and the savegames are replaced all or nothing:
-// a write that fails (disk full, file size limit, the temp file or the
-// rename refused) must keep the old file, leave no temp file behind and
-// report false. Before the fix a failed flush went unnoticed and an empty
-// temp file was renamed over profile.txt, wiping all campaign progress.
+// a write that fails (file size limit, the temp file or the rename refused)
+// must keep the old file, leave no temp file behind and report false.
+// Before the fix a failed flush went unnoticed and an empty temp file was
+// renamed over profile.txt, wiping all campaign progress. Whatever sits at
+// the temp file's name (a leftover, a symlink) is replaced, never written
+// through.
 
 #include "base/atomic_file.hpp"
 #include "data/characters.hpp"
@@ -10,6 +12,7 @@
 #include "game/savegame.hpp"
 
 #include <csignal>
+#include <exception>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -102,20 +105,37 @@ void failedWriteKeepsOld(const std::string& dir)
   check(error.find("cannot write") == 0, "a failed write says why: " + error);
 }
 
-// /dev/full takes the open but fails every write with ENOSPC: a full disk.
-void diskFullKeepsOld(const std::string& dir)
+// A temp file left by a crash, longer than the new data, and hard-linked
+// elsewhere: the new file holds only the new data, and the other name keeps
+// the leftover's content (the leftover is replaced, not truncated).
+void leftoverTempReplaced(const std::string& dir)
 {
-  if (!fs::exists("/dev/full"))
-  {
-    std::printf("skip no /dev/full\n");
-    return;
-  }
-  const std::string path = dir + "/devfull.txt";
-  put(path, "old\n");
-  fs::create_symlink("/dev/full", path + ".tmp");
-  check(!writeFileAtomic(path, "new\n"), "a full disk reports false");
-  check(slurp(path) == "old\n", "a full disk keeps the old file");
-  check(!fs::exists(fs::symlink_status(path + ".tmp")), "a full disk leaves no temp file");
+  const std::string path = dir + "/leftover.txt";
+  const std::string longer = "a much longer leftover from an earlier crash\nwith a second line\n";
+  put(path + ".tmp", longer);
+  fs::create_hard_link(path + ".tmp", dir + "/leftover-link.txt");
+  check(writeFileAtomic(path, "short\n") && slurp(path) == "short\n", "a longer leftover temp file is not kept");
+  check(slurp(dir + "/leftover-link.txt") == longer, "...and a hard link to it is left alone");
+  check(!fs::exists(path + ".tmp"), "...and no temp file is left");
+}
+
+// A symlink at the temp name must not redirect the write onto its target:
+// the target keeps its content, and the symlink is gone after the write.
+void symlinkAtTempNotFollowed(const std::string& dir)
+{
+  const std::string path = dir + "/linked.txt";
+  const std::string victim = dir + "/victim.txt";
+  put(victim, "victim\n");
+  fs::create_symlink(victim, path + ".tmp");
+  check(writeFileAtomic(path, "new\n") && slurp(path) == "new\n", "a symlink at the temp name: the write works");
+  check(slurp(victim) == "victim\n", "a symlink at the temp name does not clobber its target");
+  check(!fs::exists(fs::symlink_status(path + ".tmp")), "...and is gone afterwards");
+  check(!fs::is_symlink(path), "...and does not become the file");
+
+  const std::string dangling = dir + "/dangling.txt";
+  fs::create_symlink(dir + "/nowhere.txt", dangling + ".tmp");
+  check(writeFileAtomic(dangling, "new\n"), "a dangling symlink at the temp name: the write works");
+  check(!fs::exists(fs::symlink_status(dir + "/nowhere.txt")), "...and creates nothing at its target");
 }
 
 void unopenableTempKeepsOld(const std::string& dir)
@@ -139,8 +159,17 @@ void refusedRenameCleansUp(const std::string& dir)
   check(!writeFileAtomic(path, "new\n", &error), "a refused rename reports false");
   check(fs::is_directory(path + "/inside"), "a refused rename keeps what was there");
   check(!fs::exists(path + ".tmp"), "a refused rename removes the temp file");
-  check(!error.empty(), "a refused rename says why: " + error);
+  check(error.find("cannot replace") == 0, "a refused rename says why: " + error);
   check(!writeFileAtomic(dir + "/missing/file.txt", "new\n"), "a missing directory reports false");
+}
+
+void makeDirsMakesParents(const std::string& dir)
+{
+  const std::string deep = dir + "/made/by/makedirs";
+  makeDirs(deep);
+  check(fs::is_directory(deep), "makeDirs makes the missing parents");
+  makeDirs(deep);
+  check(fs::is_directory(deep), "makeDirs is fine with what already exists");
 }
 
 Profile progress()
@@ -213,25 +242,66 @@ void savegameSurvivesFailedSave(const std::string& dir)
   check(!ok && !error.empty(), "a failed savegame write reports false and why");
   check(slurp(path) == before, "a failed savegame write keeps the old save");
   check(!fs::exists(path + ".tmp"), "a failed savegame write leaves no temp file");
+
+  // A non-empty directory where the savegame should go: the rename fails.
+  const std::string occupied = dir + "/slot2.sav";
+  fs::create_directories(occupied + "/inside");
+  error.clear();
+  check(!writeSave(s, occupied, &error) && !error.empty(), "a refused savegame rename reports false and why");
+  check(fs::is_directory(occupied + "/inside"), "a refused savegame rename keeps what was there");
+  check(!fs::exists(occupied + ".tmp"), "a refused savegame rename leaves no temp file");
+}
+
+// Removes the test's directory however main is left, a throwing check
+// included (main catches, so the stack unwinds and this runs).
+class TempDir
+{
+public:
+  explicit TempDir(fs::path path) : mPath(std::move(path))
+  {
+    fs::remove_all(mPath);
+    fs::create_directories(mPath);
+  }
+  ~TempDir()
+  {
+    std::error_code ec;
+    fs::remove_all(mPath, ec);
+  }
+  std::string str() const { return mPath.string(); }
+
+private:
+  fs::path mPath;
+};
+
+void runAll(const std::string& d)
+{
+  writesAndReplaces(d);
+  failedWriteKeepsOld(d);
+  leftoverTempReplaced(d);
+  symlinkAtTempNotFollowed(d);
+  unopenableTempKeepsOld(d);
+  refusedRenameCleansUp(d);
+  makeDirsMakesParents(d);
+  profileSurvivesFailedSave(d + "/profile");
+  runnersSurviveFailedSave(d + "/runners");
+  savegameSurvivesFailedSave(d + "/saves");
 }
 
 } // namespace
 
 int main()
 {
-  const fs::path dir = fs::temp_directory_path() / ("gunrunners_atomic_file_test_" + std::to_string(getpid()));
-  fs::remove_all(dir);
-  fs::create_directories(dir);
-  const std::string d = dir.string();
-  writesAndReplaces(d);
-  failedWriteKeepsOld(d);
-  diskFullKeepsOld(d);
-  unopenableTempKeepsOld(d);
-  refusedRenameCleansUp(d);
-  profileSurvivesFailedSave(d + "/profile");
-  runnersSurviveFailedSave(d + "/runners");
-  savegameSurvivesFailedSave(d + "/saves");
-  fs::remove_all(dir);
+  {
+    const TempDir dir(fs::temp_directory_path() / ("gunrunners_atomic_file_test_" + std::to_string(getpid())));
+    try
+    {
+      runAll(dir.str());
+    }
+    catch (const std::exception& e)
+    {
+      check(false, std::string("no exception: ") + e.what());
+    }
+  }
   std::printf("%s\n", gFailures ? "FAILED" : "all ok");
   return gFailures ? 1 : 0;
 }

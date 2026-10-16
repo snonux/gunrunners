@@ -1,11 +1,15 @@
 #include "game/s3.hpp"
 #include "game/savegame.hpp"
 
+#include <arpa/inet.h>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <netinet/in.h>
 #include <string>
+#include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 
 using namespace gr;
@@ -34,10 +38,114 @@ std::string read(const std::string& path)
   return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 }
 
+// A one-request HTTP server on 127.0.0.1 that answers any request with
+// 200 and body: enough for s3GetFile, which only signs the request.
+class OneShotServer
+{
+public:
+  explicit OneShotServer(std::string body) : mBody(std::move(body))
+  {
+    mListen = ::socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t len = sizeof(addr);
+    if (mListen < 0 || ::bind(mListen, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0 ||
+        ::listen(mListen, 1) != 0 || ::getsockname(mListen, reinterpret_cast<sockaddr*>(&addr), &len) != 0)
+      return;
+    mPort = ntohs(addr.sin_port);
+    mThread = std::thread([this] { serve(); });
+  }
+  ~OneShotServer()
+  {
+    if (mThread.joinable())
+    {
+      ::shutdown(mListen, SHUT_RDWR);
+      mThread.join();
+    }
+    if (mListen >= 0)
+      ::close(mListen);
+  }
+  int port() const { return mPort; }
+
+private:
+  void serve()
+  {
+    const int fd = ::accept(mListen, nullptr, nullptr);
+    if (fd < 0)
+      return;
+    std::string request;
+    char buf[1024];
+    ssize_t n;
+    while (request.find("\r\n\r\n") == std::string::npos && (n = ::read(fd, buf, sizeof(buf))) > 0)
+      request.append(buf, std::size_t(n));
+    const std::string reply = "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(mBody.size()) +
+      "\r\nConnection: close\r\n\r\n" + mBody;
+    for (std::size_t sent = 0; sent < reply.size() && (n = ::write(fd, reply.data() + sent, reply.size() - sent)) > 0;)
+      sent += std::size_t(n);
+    ::close(fd);
+  }
+
+  std::string mBody;
+  int mListen = -1;
+  int mPort = 0;
+  std::thread mThread;
+};
+
+S3Config localConfig(int port)
+{
+  S3Config config;
+  config.endpoint = "http://127.0.0.1:" + std::to_string(port);
+  config.bucket = "saves";
+  config.region = "local";
+  config.accessKey = "key";
+  config.secretKey = "secret";
+  return config;
+}
+
+// A download goes through the same all-or-nothing write as the saves: the
+// body lands in full, and a download that cannot be installed (here a
+// directory in the way) reports an error and leaves no temp file behind.
+void downloadsInstallAllOrNothing()
+{
+#ifndef GR_NO_CURL
+  ::setenv("no_proxy", "127.0.0.1", 1);
+  ::setenv("NO_PROXY", "127.0.0.1", 1);
+  namespace fs = std::filesystem;
+  const fs::path dir = fs::temp_directory_path() / ("gunrunners_s3_get_test_" + std::to_string(::getpid()));
+  fs::remove_all(dir);
+  fs::create_directories(dir);
+  const std::string body = "gunrunners-save 1\nlevel LOCAL\nend\n";
+  std::string error;
+  const std::string good = (dir / "good.sav").string();
+  {
+    OneShotServer server(body);
+    check(server.port() > 0 && s3GetFile(localConfig(server.port()), "good.sav", good, &error) ==
+        S3GetResult::Downloaded && read(good) == body,
+      "a download lands in full");
+  }
+  const std::string blocked = (dir / "blocked.sav").string();
+  fs::create_directories(blocked + "/inside");
+  {
+    OneShotServer server(body);
+    check(s3GetFile(localConfig(server.port()), "blocked.sav", blocked, &error) == S3GetResult::Error &&
+        !error.empty(),
+      "a download that cannot be installed is an error");
+  }
+  check(fs::is_directory(blocked + "/inside"), "a refused download keeps what was there");
+  int entries = 0;
+  for (const auto& entry : fs::directory_iterator(dir))
+    entries += entry.path().filename() == "good.sav" || entry.path().filename() == "blocked.sav" ? 0 : 1;
+  check(entries == 0, "a refused download leaves no temp file behind");
+  fs::remove_all(dir);
+#endif
+}
+
 } // namespace
 
 int main()
 {
+  downloadsInstallAllOrNothing();
   S3Config invalid;
   std::string error;
   check(!invalid.valid(&error) && !error.empty(), "empty S3 configuration is rejected");

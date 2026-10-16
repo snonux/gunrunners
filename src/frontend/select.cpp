@@ -24,6 +24,15 @@ constexpr float kCardY = 180.0f;
 
 int customCount() { return characterCount() - kDefaultRunners; }
 
+// Writes runners.txt; a failure is logged, and the caller warns the player.
+bool storeRunners(const std::string& dir)
+{
+  if (saveCustomRunners(dir))
+    return true;
+  std::fprintf(stderr, "could not save the runners to %s\n", dir.c_str());
+  return false;
+}
+
 } // namespace
 
 int Game::selectCards() const
@@ -158,6 +167,25 @@ void Game::openEditor(int index)
   setMode(Mode::Editor);
 }
 
+void Game::saveEditedRunner()
+{
+  const CharacterDef def = mEditor->runner();
+  mCursor = putCustomRunner(def);
+  notice(storeRunners(saveDir()) ? def.name + " IS READY TO RUN" : "COULD NOT SAVE THE RUNNERS");
+  sound(Sfx::Checkpoint);
+}
+
+// A failed write keeps the runner in the old runners.txt, so it comes back
+// at the next start: the notice says the save failed, not that it left.
+void Game::deleteEditedRunner()
+{
+  const CharacterDef def = mEditor->runner();
+  removeCustomRunner(def.id);
+  notice(storeRunners(saveDir()) ? def.name + " HAS LEFT THE TEAM" : "COULD NOT SAVE THE RUNNERS");
+  mCursor = std::min(mEditorReturn, characterCount() - 1);
+  sound(Sfx::Hurt);
+}
+
 void Game::tickEditor(const Input& in)
 {
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
@@ -178,31 +206,11 @@ void Game::tickEditor(const Input& in)
     case RunnerEditor::Result::None:
       return;
     case RunnerEditor::Result::Save:
-    {
-      const CharacterDef def = mEditor->runner();
-      mCursor = putCustomRunner(def);
-      if (!saveCustomRunners(saveDir()))
-      {
-        std::fprintf(stderr, "could not save the runners to %s\n", saveDir().c_str());
-        notice("COULD NOT SAVE THE RUNNERS");
-      }
-      else
-      {
-        notice(def.name + " IS READY TO RUN");
-      }
-      sound(Sfx::Checkpoint);
+      saveEditedRunner();
       break;
-    }
     case RunnerEditor::Result::Delete:
-    {
-      const CharacterDef def = mEditor->runner();
-      removeCustomRunner(def.id);
-      saveCustomRunners(saveDir());
-      notice(def.name + " HAS LEFT THE TEAM");
-      mCursor = std::min(mEditorReturn, characterCount() - 1);
-      sound(Sfx::Hurt);
+      deleteEditedRunner();
       break;
-    }
     case RunnerEditor::Result::Cancel:
       mCursor = mEditorReturn;
       sound(Sfx::MenuMove);

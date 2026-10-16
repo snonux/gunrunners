@@ -7,7 +7,6 @@
 #include <fstream>
 #include <random>
 #include <sstream>
-#include <sys/stat.h>
 
 namespace gr
 {
@@ -203,18 +202,6 @@ std::string cleanName(const std::string& in)
   while (!out.empty() && out.front() == ' ')
     out.erase(out.begin());
   return out.empty() ? "RUNNER" : out;
-}
-
-void makeDirs(const std::string& dir)
-{
-  std::string cur;
-  for (std::size_t i = 0; i < dir.size(); ++i)
-  {
-    cur += dir[i];
-    if (dir[i] == '/' && i > 0)
-      ::mkdir(cur.c_str(), 0755);
-  }
-  ::mkdir(dir.c_str(), 0755);
 }
 
 } // namespace

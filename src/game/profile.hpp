@@ -31,6 +31,10 @@ struct Profile
   std::map<std::string, std::vector<int>> controls;
 
   static Profile load(const std::string& dir);
+  // Writes dir/profile.txt (making dir if needed), all or nothing. False
+  // when it could not be written (disk full, quota, file size limit, no
+  // permission): the old profile.txt is kept as it was, so a later save can
+  // still succeed and no progress already on disk is lost.
   bool save(const std::string& dir) const;
 };
 

@@ -182,6 +182,10 @@ private:
   // index: the runner to edit or remix; -1 a new one.
   void openEditor(int index);
   void tickEditor(const Input& in);
+  // The editor's SAVE and DELETE: change the roster, write runners.txt and
+  // tell the player how that went (a failed write says so, not the usual).
+  void saveEditedRunner();
+  void deleteEditedRunner();
   void renderEditor();
   void renderPlayOverlay();
   void renderBonus();
