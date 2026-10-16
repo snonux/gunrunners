@@ -25,9 +25,9 @@ struct GuideTarget
   bool shoot = false;
   bool crate = false; // on the floor: shot crouched, from the same floor
   // The access card (listed while a force field is up and the card isn't
-  // held). Skipped for now: no goal cells (GuideRouter::markGoals) and not
-  // pointed at as the crow flies, so the card is never routed to (a known
-  // open issue).
+  // held): routed to only when nothing else can be reached without it
+  // (GuideRouter::search goes on past it), and pointed at as the crow flies
+  // like any other target when nothing can be reached at all.
   bool key = false;
 };
 
@@ -164,18 +164,22 @@ public:
 
   // The route to the cheapest target from `start`: the runner's own moves
   // first, then floating where it must (a lift, a pulley, a door still
-  // shut), then (or at once with `freeOnly`) through any open space.
-  // `grid` and `targets` are only used during the call (not kept).
+  // shut), then (or at once with `freeOnly`) through any open space. Each
+  // way goes for the access card (GuideTarget::key) only when it reaches
+  // no other target. `grid` and `targets` are only used during the call
+  // (not kept).
   GuideRoute route(const GuideGrid& grid, const std::vector<GuideTarget>& targets, const Start& start, const Moves& moves,
     bool freeOnly);
 
 private:
   GuideRoute routeFrom(const Start& start, bool freeOnly);
   void markGoals(const std::vector<GuideTarget>& targets);
+  void markGoal(const GuideTarget& t, int goal);
   int searchArcs(int s0, bool hybrid);
   int searchFree(int s0);
   template <class Expand> int search(int P, int s0, const Expand& expand);
   bool arrived(int s, int P) const;
+  bool atCard(int s, int P) const;
   void visit(int ns, int from, int c);
   void walkBack(int found, int P, GuideRoute& r) const;
   void begin(std::size_t states);

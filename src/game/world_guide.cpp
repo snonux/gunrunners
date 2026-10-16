@@ -1,7 +1,9 @@
 // The guide arrow (GUIDE ARROW in SETTINGS > ASSISTS): a blinking arrow by
 // the runner that points the way to the nearest thing still missing for a
 // 100% level (a gem, a G-U-N letter, a box of merchandise, a weapon not had
-// yet, a gem cache, a bot), then to the exit. Off in bonus levels.
+// yet, a gem cache, a bot), then to the exit. Off in bonus levels. With a
+// force field up and the access card still to fetch, to the card when
+// nothing else can be reached without it.
 //
 // "Nearest" and "the way" come from a cheapest-first search over what the
 // runner can do a logic frame at a time, as player.cpp does it (guide.cpp):
@@ -292,8 +294,9 @@ void guideAlong(const Arrow& a, const GuideRoute& r, const GuideTarget& t)
     a.toward(float(a.g.tx) + 0.5f, float(a.g.ty) + 0.5f);
 }
 
-// Nothing found a way: the nearest target as the crow flies (not the
-// access card's: it is skipped here as in the search, a known open issue).
+// Nothing found a way: the nearest target as the crow flies, the access
+// card's among them (no search reached it either, so it is no nearer to
+// the runner's moves than the rest).
 void guideCrowFlies(const Arrow& a, const std::vector<GuideTarget>& targets)
 {
   const int W = a.grid.width(), H = a.grid.height();
@@ -301,8 +304,6 @@ void guideCrowFlies(const Arrow& a, const std::vector<GuideTarget>& targets)
   float bestD = 0.0f;
   for (std::size_t t = 0; t < targets.size(); ++t)
   {
-    if (targets[t].key)
-      continue;
     const CellBox& b = targets[t].box;
     float vx = float(b.left()) + float(b.w) * 0.5f - a.px, vy = float(b.top()) + float(b.h) * 0.5f - a.py;
     if (a.grid.wrapX() && std::fabs(vx) > float(W) * 0.5f)
@@ -355,7 +356,7 @@ void debugTargets(const std::vector<GuideTarget>& targets, bool fields, bool key
 {
   std::fprintf(stderr, "guide targets (fields %d key %d):", int(fields), int(key));
   for (const auto& t : targets)
-    std::fprintf(stderr, " %d,%d%s", t.thing.x, t.thing.y, t.shoot ? "s" : "");
+    std::fprintf(stderr, " %d,%d%s%s", t.thing.x, t.thing.y, t.shoot ? "s" : "", t.key ? "k" : "");
   std::fprintf(stderr, "\n");
 }
 
@@ -417,8 +418,7 @@ World::Guide World::guideFresh() const
 }
 
 // What is still missing for 100% (`left` of them), then the exit, and the
-// access card when a force field is up (listed, but skipped by the search
-// and by guideCrowFlies: see guideCard).
+// access card when a force field is up (see guideCard).
 std::vector<GuideTarget> World::guideTargets(int& left) const
 {
   std::vector<GuideTarget> targets;
@@ -482,12 +482,12 @@ void World::guideMissing(std::vector<GuideTarget>& targets) const
   }
 }
 
-// A force field up and no card held: the card's targets (GuideTarget::key).
-// The arrow does not go for the card yet: GuideRouter::markGoals gives
-// them no goal cells and guideCrowFlies passes over them, so with the card
-// still to fetch it routes only to what is on this side of the field, else
-// points at the nearest other target as the crow flies. A known open issue;
-// the targets are kept for when the card is routed to.
+// A force field up and no card held: the card's targets (GuideTarget::key),
+// the card itself or the crate it is in, after all the others. The route
+// goes for the card only when it reaches nothing else without it
+// (GuideRouter::search), so what is on this side of the field comes first,
+// even when the card is nearer; with nothing found at all the arrow points
+// at the nearest target as the crow flies, the card included.
 void World::guideCard(std::vector<GuideTarget>& targets) const
 {
   if (!mMap.forceFieldsOn() || mPlayer.hasKey || targets.empty())

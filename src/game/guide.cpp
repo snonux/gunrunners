@@ -19,11 +19,15 @@
 // (the standing box, ladders, pipes) are read from them, and a state counts
 // as reached only when stamped by this search.
 //
-// The access card (GuideTarget::key) is not routed to: markGoals skips its
-// targets, so no search ever ends at it, and with a force field up and no
-// card the arrow only routes to what is on this side of the field (or
-// points as the crow flies, which skips the card too). A known open issue,
-// kept as it was when the search was moved here.
+// The access card (GuideTarget::key, listed while a force field is up and
+// the card isn't held) is routed to only when nothing else can be reached
+// without it: a search goes on past the card's goal states, remembering the
+// cheapest, and ends there only once it has run dry of the others. So each
+// way of moving (own moves, floating, open space) prefers anything on this
+// side of the field, however far, to the card, and goes for the card before
+// the next, dearer way is tried. (A second search with the card allowed,
+// after one without it found nothing, would give the same answer at twice
+// the cost.)
 
 #include "game/guide.hpp"
 
@@ -242,40 +246,45 @@ GuideRoute GuideRouter::routeFrom(const Start& start, bool freeOnly)
 
 // Goal cells: where the box touches a target (a bot or a crate: close
 // enough to shoot it, beside it rather than in it, so the shot hits).
-// The first target over a cell has it. The access card's targets get no
-// goal cells (a known open issue: the card is never routed to).
+// The first target over a cell has it, the access card's targets after
+// all the others (a cell of both is the other target's).
 void GuideRouter::markGoals(const std::vector<GuideTarget>& targets)
 {
   const GuideGrid& g = *mGrid;
-  const int W = g.width(), H = g.height();
-  mGoal.assign(std::size_t(W) * std::size_t(H), 0);
-  for (std::size_t t = 0; t < targets.size(); ++t)
-  {
-    if (targets[t].key)
-      continue;
-    const CellBox& b = targets[t].box;
-    const CellBox& th = targets[t].thing;
-    for (int y = b.top(); y <= b.bottom() + kStandH - 1; ++y) // the standing box (crouched only to crawl)
-      for (int x = b.left() - kBoxW + 1; x <= b.right(); ++x)
+  mGoal.assign(std::size_t(g.width()) * std::size_t(g.height()), 0);
+  for (const bool card : {false, true})
+    for (std::size_t t = 0; t < targets.size(); ++t)
+      if (targets[t].key == card)
+        markGoal(targets[t], int(t) + 1);
+}
+
+// Target t's goal cells, those no target has yet, set to `goal` (1 + its index).
+void GuideRouter::markGoal(const GuideTarget& t, int goal)
+{
+  const GuideGrid& g = *mGrid;
+  const int W = g.width();
+  const CellBox& b = t.box;
+  const CellBox& th = t.thing;
+  for (int y = b.top(); y <= b.bottom() + kStandH - 1; ++y) // the standing box (crouched only to crawl)
+    for (int x = b.left() - kBoxW + 1; x <= b.right(); ++x)
+    {
+      if (t.shoot && x <= th.right() + kShootGap && x + kBoxW - 1 >= th.left() - kShootGap)
+        continue;
+      if (t.crate && y != th.bottom())
+        continue;
+      if (t.crate)
       {
-        if (targets[t].shoot && x <= th.right() + kShootGap && x + kBoxW - 1 >= th.left() - kShootGap)
+        // Crouching over the top of a ladder climbs down it instead.
+        bool ladderBelow = false;
+        for (int dx = 0; dx < kBoxW && !ladderBelow; ++dx)
+          ladderBelow = g.ladderBelow(g.wrapX() ? GuideGrid::wrapIndex(x + dx, W) : x + dx, y + 1);
+        if (ladderBelow)
           continue;
-        if (targets[t].crate && y != th.bottom())
-          continue;
-        if (targets[t].crate)
-        {
-          // Crouching over the top of a ladder climbs down it instead.
-          bool ladderBelow = false;
-          for (int dx = 0; dx < kBoxW && !ladderBelow; ++dx)
-            ladderBelow = g.ladderBelow(g.wrapX() ? GuideGrid::wrapIndex(x + dx, W) : x + dx, y + 1);
-          if (ladderBelow)
-            continue;
-        }
-        const int c = g.cellAt(x, y);
-        if (c >= 0 && mGoal[std::size_t(c)] == 0)
-          mGoal[std::size_t(c)] = int(t) + 1;
       }
-  }
+      const int c = g.cellAt(x, y);
+      if (c >= 0 && mGoal[std::size_t(c)] == 0)
+        mGoal[std::size_t(c)] = goal;
+    }
 }
 
 // In the runner's own moves (with floating where it must when `hybrid`).
@@ -298,6 +307,12 @@ bool GuideRouter::arrived(int s, int P) const
   return P == 1 || !t.shoot || ((s % P) / 2 == 0 && supportAt(s / P));
 }
 
+// A goal state of the access card's (arrived() first).
+bool GuideRouter::atCard(int s, int P) const
+{
+  return (*mTargets)[std::size_t(mGoal[std::size_t(s / P)] - 1)].key;
+}
+
 // Reached `ns` for `c` from `from`.
 void GuideRouter::visit(int ns, int from, int c)
 {
@@ -309,15 +324,20 @@ void GuideRouter::visit(int ns, int from, int c)
 }
 
 // Cheapest first, a state at a time: P states per cell, expand(s, push)
-// offers the next ones. Returns the first goal state reached (markGoals: a
-// cell of any target but the access card's), -1 for none; mPrev links each
-// state to the one before it.
+// offers the next ones. Returns the first goal state reached of any target
+// but the access card's, else the first of the card's (`card`: a search
+// goes on past it, in case another target can be reached), -1 for none;
+// mPrev links each state to the one before it. A state taken out of a
+// bucket is never reached cheaper again (every step costs 1 or more), so
+// the card's state and the route to it stay as they were while the search
+// goes on.
 template <class Expand> int GuideRouter::search(int P, int s0, const Expand& expand)
 {
   begin(std::size_t(mGrid->width()) * std::size_t(mGrid->height()) * std::size_t(P));
   if (s0 < 0)
     return -1;
   visit(s0, s0, 0);
+  int card = -1;
   for (int c = 0; mPending > 0; ++c)
   {
     auto& bucket = mBuckets[std::size_t(c & 31)];
@@ -328,7 +348,12 @@ template <class Expand> int GuideRouter::search(int P, int s0, const Expand& exp
       if (mCost[std::size_t(s)] != c)
         continue; // reached cheaper since
       if (mGoal[std::size_t(s / P)] != 0 && arrived(s, P))
-        return s;
+      {
+        if (!atCard(s, P))
+          return s;
+        if (card < 0)
+          card = s;
+      }
       // P states per cell: two facings of each phase (P == 1: just cells).
       expand(s, [&](int cell, int phase, int step, int face = 1) {
         if (cell < 0)
@@ -341,7 +366,7 @@ template <class Expand> int GuideRouter::search(int P, int s0, const Expand& exp
     }
     bucket.clear();
   }
-  return -1;
+  return card;
 }
 
 // A new search over `states` states: a new stamp, so nothing reached before

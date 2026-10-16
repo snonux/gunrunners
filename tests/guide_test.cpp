@@ -3,7 +3,9 @@
 // along a route (round a ceiling to a ladder, not straight up into it) to
 // the nearest gem, box or bot still missing, then to the exit; a runner who
 // only follows the arrow collects what it points at. On the real levels it
-// finds something to point at from the start, quickly.
+// finds something to point at from the start, quickly. With a force field
+// up and the access card still to fetch, it leads to the card first only
+// when nothing else can be reached without it.
 //
 // The guide keeps its grids and search scratch between logic frames: what
 // it says when it works its answer out must be what a search from scratch
@@ -517,6 +519,85 @@ void checkKeptForceField(const Theme& theme, const Art& art)
   checkAgree(cmp, 11, "the force field");
 }
 
+// ---- The access card ----
+
+// A walled room with a force field (block 30) between the runner (block 20)
+// and a gem (block 40), and the access card in a crate at block `card` of
+// the corridor; `more` changes it further.
+std::shared_ptr<const Level> cardRoom(int card, const std::function<void(int, std::string&)>& more = {})
+{
+  return load(room("", [&](int y, std::string& row) {
+    if (y >= 1 && y <= 13)
+      row[30] = 'D';
+    if (y == 13)
+    {
+      row[40] = 'g';
+      row[std::size_t(card)] = 'k';
+    }
+    if (more)
+      more(y, row);
+  }, 20));
+}
+
+// The gem behind the field and the card in a crate behind the runner (block
+// 14): the arrow routes back to the crate, away from the gem, and a runner
+// who follows it (shooting) opens the crate, takes the card, walks through
+// the field and takes the gem, the kept guide agreeing with a fresh one
+// all the way. (When the card was never a goal, the arrow pointed straight
+// at the gem, with no route.)
+void checkCardFirst(const Theme& theme, const Art& art)
+{
+  const int k = kCellsPerTile;
+  World w(cardRoom(14), 0, theme, art);
+  guideOn(w);
+  const World::Guide& g = w.guide();
+  check(g.kind == World::GuideKind::Item && g.routed && g.walkable && g.dx == -1 && g.tx < 20 * k && g.left == 1,
+    "a gem behind a force field, the card in a crate behind: routes back to the card (" + describe(g) + ")");
+  Compare cmp;
+  bool card = false;
+  const int f = followArrow(w, [&] {
+    card = card || w.player().hasKey;
+    return w.stats().gems == 1;
+  }, 900, true, &cmp);
+  check(f >= 0 && card && !w.map().forceFieldsOn(),
+    "following it takes the card, then the field down and the gem (frames " + std::to_string(f) + ")");
+  checkAgree(cmp, 11, "the card first");
+}
+
+// A gem on this side of the field too (block 26), further off than the
+// crate with the card (block 14, close enough to shoot after a step or
+// two): reached without the card, it comes first.
+void checkCardNotFirst(const Theme& theme, const Art& art)
+{
+  const int k = kCellsPerTile;
+  World w(cardRoom(14, [](int y, std::string& row) {
+    if (y == 13)
+      row[26] = 'g';
+  }), 0, theme, art);
+  guideOn(w);
+  const World::Guide g = w.guide();
+  check(g.kind == World::GuideKind::Item && g.routed && g.walkable && g.dx == 1 && g.tx >= 26 * k && g.tx < 30 * k &&
+      g.left == 2,
+    "a gem this side of the field, further than the card: the gem first (" + describe(g) + ")");
+  check(same(g, w.guideFresh()), "and so says a guide from scratch");
+}
+
+// The card shut in too, behind a second field (block 10): nothing can be
+// reached, so the arrow points as the crow flies at the nearest target,
+// the card's crate (block 4) rather than the gem (block 40).
+void checkCardCrowFlies(const Theme& theme, const Art& art)
+{
+  const int k = kCellsPerTile;
+  World w(cardRoom(4, [](int y, std::string& row) {
+    if (y >= 1 && y <= 13)
+      row[10] = 'D';
+  }), 0, theme, art);
+  guideOn(w);
+  const World::Guide& g = w.guide();
+  check(g.kind == World::GuideKind::Item && !g.routed && g.dx == -1 && g.tx < 10 * k,
+    "the card shut in too: straight at it, the nearest, no route (" + describe(g) + ")");
+}
+
 // A scripted run of `frames` live frames (walking right, then left;
 // climbing a while in the middle; jumping and shooting all along), the
 // kept guide compared with `cmp` on every frame. A frame the world holds
@@ -744,6 +825,9 @@ int main()
     checkRouterWrapClears();
     checkKeptGemRoom(gemRoom, theme, art);
     checkKeptForceField(theme, art);
+    checkCardFirst(theme, art);
+    checkCardNotFirst(theme, art);
+    checkCardCrowFlies(theme, art);
     checkKeptCampaign(theme, art);
 
     // Every campaign level and extra: something to point at from the start.
