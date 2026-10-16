@@ -701,6 +701,17 @@ bool WindowedRun::frame()
     if (touch)
       touch->handleEvent(ev, window);
     // Android may close a backgrounded app without warning.
+    //
+    // Cloud syncs keep running here, on purpose. Going to the background is
+    // no quit, and an upload still running had better reach the cloud
+    // before Android may kill the process (a kill leaves the sync's temp
+    // files to the next start's removeCloudLeftovers). SDL_APP_TERMINATING
+    // comes from SDLActivity.onDestroy (nativeSendQuit) right behind an
+    // SDL_QUIT, which ends this loop after this very frame, so ~Game cancels
+    // them (cancelCloudSync, about 3 s at most) just as early. The onDestroy
+    // of SDL 2.32.10 (pinned in android/build-deps.sh) waits for the SDL
+    // thread with a plain Thread.join(), no time limit, so that wait is
+    // never cut short.
     if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
       game.suspend();
     if (captureBinding(game, ev) || captureText(game, ev))

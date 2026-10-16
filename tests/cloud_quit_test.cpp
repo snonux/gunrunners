@@ -9,6 +9,8 @@
 //     allows up to 5 s);
 //   - the constructor throws after starting the refresh (a level file that
 //     is not there): Game::CloudCancel cancels it as the members unwind.
+// And the other end of a quit that never ran ~Game (Android kills a
+// backgrounded app): the next start removes the temp files it left.
 
 #include "frontend/game.hpp"
 #include "stall_server.hpp"
@@ -19,6 +21,7 @@
 #include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <thread>
@@ -249,6 +252,45 @@ void throwingConstructor(const std::filesystem::path& dir, SDL_Renderer* sdl)
   check(seconds < 5.0, "the throw does not wait for the stalled cloud refresh");
 }
 
+// A game killed mid-sync left an upload snapshot, a download and a
+// cloud.txt write temp holding the secret key, all older than
+// kCloudLeftoverAge. Starting a Game (no cloud configured) removes them and
+// keeps the save beside them and a file merely named like a leftover.
+void startupRemovesLeftovers(const std::filesystem::path& dir, SDL_Renderer* sdl)
+{
+  namespace fs = std::filesystem;
+  fs::create_directories(dir);
+  const auto old = fs::file_time_type::clock::now() - std::chrono::hours(1);
+  const std::string slot = slotPath(dir.string(), 0);
+  const SaveGame save = seedSave();
+  check(writeSave(save, slot), "seed a save beside the leftovers");
+  fs::last_write_time(slot, old);
+  const char* const leftovers[] = {
+    "slot1.sav.cloud-upload-123", "quick.sav.cloud-incoming-456", "cloud.txt.tmp.123.0"};
+  for (const char* name : leftovers)
+  {
+    std::ofstream(dir / name) << "secret_key=leaked\n";
+    fs::last_write_time(dir / name, old);
+  }
+  const fs::path lookalike = dir / "slot9.sav.cloud-upload-123";
+  std::ofstream(lookalike) << "not a leftover\n";
+  fs::last_write_time(lookalike, old);
+  {
+    Renderer renderer(sdl);
+    GameOptions o;
+    o.saveDir = dir.string();
+    o.noCutscenes = true;
+    Game game(o, renderer, nullptr);
+  }
+  bool gone = true;
+  for (const char* name : leftovers)
+    gone = gone && !fs::exists(dir / name);
+  check(gone, "the start removes what a killed game left");
+  const auto after = readSave(slot);
+  check(after && after->savedAt == save.savedAt, "...and keeps the save");
+  check(fs::exists(lookalike), "...and a file merely named like a leftover");
+}
+
 } // namespace
 
 int main()
@@ -263,6 +305,7 @@ int main()
   quitDuringRefresh(dir / "refresh", sdl);
   quitDuringUpload(dir / "upload", sdl);
   throwingConstructor(dir / "throw", sdl);
+  startupRemovesLeftovers(dir / "start", sdl);
 
   std::filesystem::remove_all(dir);
   SDL_DestroyRenderer(sdl);

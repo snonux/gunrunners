@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <netinet/in.h>
 #include <string>
 #include <sys/resource.h>
@@ -108,19 +109,20 @@ S3Config localConfig(int port)
   return config;
 }
 
-// While alive, no file of this process may grow past 0 bytes: every write
-// fails with EFBIG (SIGXFSZ is ignored so it does not kill the test), as in
-// tests/atomic_file_test.cpp. Sockets are not files, so the local server and
-// curl still talk. Nothing may print in its scope, in case stdout is a file.
+// While alive, no file of this process may grow past limit bytes (0 by
+// default): a write beyond fails with EFBIG (SIGXFSZ is ignored so it does
+// not kill the test), as in tests/atomic_file_test.cpp. Sockets are not
+// files, so the local server and curl still talk. Nothing may print in its
+// scope, in case stdout is a file.
 class NoFileGrowth
 {
 public:
-  NoFileGrowth()
+  explicit NoFileGrowth(rlim_t limit = 0)
   {
     getrlimit(RLIMIT_FSIZE, &mOld);
     mOldHandler = std::signal(SIGXFSZ, SIG_IGN);
     rlimit none = mOld;
-    none.rlim_cur = 0;
+    none.rlim_cur = limit;
     mActive = setrlimit(RLIMIT_FSIZE, &none) == 0;
   }
   ~NoFileGrowth()
@@ -349,6 +351,159 @@ void configWritesAreSafe()
   fs::remove_all(dir);
 }
 
+#ifndef GR_NO_CURL
+// The old leak: a sync whose local save is newer than the cloud's downloads
+// the cloud's copy to compare, then snapshots the local save to upload it.
+// When that snapshot failed (a full disk), the download stayed behind, and
+// so did the part of the snapshot written. The file size limit lets the
+// small download through and stops the big save's snapshot.
+void failedSnapshotLeavesNoTemp(const fs::path& dir)
+{
+  SaveGame remote;
+  remote.levelName = "Remote";
+  remote.savedAt = "2026-01-01 10:00";
+  remote.hp = 3;
+  const std::string body = (dir / "remote.body").string();
+  check(writeSave(remote, body), "the cloud's older save is written");
+  const std::string cloudCopy = read(body);
+  fs::remove(body);
+  SaveGame local = remote;
+  local.levelName = std::string(16384, 'L');
+  local.savedAt = "2026-01-02 10:00";
+  const std::string save = (dir / "snap.sav").string();
+  check(writeSave(local, save), "a newer local save, too big to snapshot under the limit");
+  const std::string before = read(save);
+  OneShotServer server(cloudCopy);
+  check(server.port() > 0, "the local server for a failing snapshot listens");
+  std::string error;
+  S3SyncResult result = S3SyncResult::Uploaded;
+  bool limited = false;
+  {
+    NoFileGrowth guard(4096);
+    limited = guard.active();
+    result = syncS3File(localConfig(server.port()), "snap.sav", save, &error);
+  }
+  check(limited, "file size limit set");
+  check(cloudCopy.size() < 4096 && before.size() > 4096, "the download fits the limit, the snapshot does not");
+  check(result == S3SyncResult::Error && error.find("cannot snapshot local save") == 0,
+    "a snapshot that cannot be written is a \"cannot snapshot\" error");
+  check(read(save) == before, "...and the local save is untouched");
+  check(filesStartingWith(dir, "snap.sav.cloud-") == 0,
+    "...and neither the download nor a partial snapshot is left");
+}
+#endif
+
+// A file of name in dir holding text, last written an hour ago when old
+// (older than kCloudLeftoverAge), else just now.
+void plant(const fs::path& dir, const std::string& name, const std::string& text, bool old = true)
+{
+  std::ofstream(dir / name) << text;
+  if (old)
+    fs::last_write_time(dir / name, fs::file_time_type::clock::now() - std::chrono::hours(1));
+}
+
+// What killed syncs and writes leave behind, one of each kind (see
+// removeCloudLeftovers): all of it is removed once old enough.
+const char* const kLeftovers[] = {
+  "slot1.sav.cloud-upload-123",
+  "slot2.sav.cloud-incoming-456",
+  "slot2.sav.cloud-incoming-456.tmp.77.0",
+  "quick.sav.cloud-dirty.tmp.77.1",
+  "slot3.sav.cloud-dirty.tmp",
+  "slot5.sav.tmp.77.2",
+  "cloud.txt.tmp.123.0",
+  "cloud.txt.tmp",
+};
+
+// Saves, their state, and files merely named like a save or a leftover:
+// none of them is ever removed, however old.
+const char* const kKeepers[] = {
+  "slot1.sav",
+  "quick.sav",
+  "slot1.sav.cloud-dirty",
+  "cloud.txt",
+  "profile.txt",
+  "slot6.sav",
+  "slot6.sav.cloud-upload-123",
+  "notes.sav.cloud-incoming-456",
+  "slot1.sav.cloud-upload-",
+  "slot1.sav.cloud-upload-12x",
+  "slot1.sav.cloud-upload-123.tmp.77.0",
+  "slot1.sav.cloud-incoming-456.tmp.77",
+  "slot1.sav.tmp.77",
+  "slot1.sav.bak",
+  "cloud.txt.tmp.123",
+  "cloud.txt.tmp.x.0",
+  "cloud.txt.bak",
+  "xslot1.sav.cloud-upload-123",
+};
+
+// The start's sweep: old leftovers go; the saves, cloud.txt, look-alikes, a
+// directory with a leftover's name and a leftover still new (another game
+// process may be syncing with it) stay, the saves with their contents.
+void staleLeftoversRemoved(const fs::path& dir)
+{
+  for (const char* name : kLeftovers)
+    plant(dir, name, "secret_key=leaked\n");
+  for (const char* name : kKeepers)
+    plant(dir, name, std::string("real ") + name + "\n");
+  fs::create_directories(dir / "slot4.sav.cloud-upload-999");
+  plant(dir, "slot4.sav.cloud-upload-777", "in use\n", false);
+  check(removeCloudLeftovers(dir.string()) == int(std::size(kLeftovers)),
+    "the start removes every old cloud leftover");
+  bool gone = true;
+  for (const char* name : kLeftovers)
+    gone = gone && !fs::exists(fs::symlink_status(dir / name));
+  check(gone, "...none of them is left, the secret-holding cloud.txt temps included");
+  bool kept = true;
+  for (const char* name : kKeepers)
+    kept = kept && read((dir / name).string()) == std::string("real ") + name + "\n";
+  check(kept, "...and every save, cloud.txt and look-alike stays as it was");
+  check(fs::is_directory(dir / "slot4.sav.cloud-upload-999"), "...and a directory named like a leftover stays");
+  check(fs::exists(dir / "slot4.sav.cloud-upload-777"), "...and a leftover still new stays");
+  check(removeCloudLeftovers(dir.string(), std::chrono::seconds(0)) == 1 &&
+      !fs::exists(dir / "slot4.sav.cloud-upload-777"),
+    "with no minimum age, the new one goes too");
+  check(removeCloudLeftovers((dir / "missing").string()) == 0, "a save dir that is not there is no error");
+}
+
+// Turning the cloud off removes cloud.txt's write temps too, however new,
+// as they may hold the secret key; nothing else goes.
+void removeConfigSweepsTemps(const fs::path& dir)
+{
+  check(saveS3Config(dir.string(), configWithSecret("removed")), "a config to remove is saved");
+  plant(dir, "cloud.txt.tmp.123.0", "secret_key=leaked\n", false);
+  plant(dir, "cloud.txt.tmp", "secret_key=legacy\n", false);
+  plant(dir, "cloud.txt.tmp.x.0", "kept\n", false);
+  plant(dir, "slot1.sav", "kept\n", false);
+  std::string error;
+  check(removeS3Config(dir.string(), &error), "the cloud config is removed");
+  check(!fs::exists(dir / "cloud.txt") && filesStartingWith(dir, "cloud.txt.tmp.1") == 0 &&
+      !fs::exists(dir / "cloud.txt.tmp"),
+    "...with its write temps, the legacy cloud.txt.tmp included");
+  check(read((dir / "cloud.txt.tmp.x.0").string()) == "kept\n" && read((dir / "slot1.sav").string()) == "kept\n",
+    "...and nothing else");
+}
+
+// Leftovers of killed syncs and writes are removed, never anything else;
+// a failed snapshot leaves nothing behind in the first place.
+void leftoverTests()
+{
+  const fs::path dir = fs::temp_directory_path() / ("gunrunners_s3_leftover_test_" + std::to_string(::getpid()));
+  fs::remove_all(dir);
+  fs::create_directories(dir / "sweep");
+  fs::create_directories(dir / "remove");
+  staleLeftoversRemoved(dir / "sweep");
+  removeConfigSweepsTemps(dir / "remove");
+#ifndef GR_NO_CURL
+  ::setenv("no_proxy", "127.0.0.1", 1);
+  ::setenv("NO_PROXY", "127.0.0.1", 1);
+  fs::create_directories(dir / "snapshot");
+  failedSnapshotLeavesNoTemp(dir / "snapshot");
+#endif
+  fs::remove_all(dir);
+}
+
 // What quitting the game does to a running sync: the S3Active check turns
 // false after ms milliseconds.
 S3Active cancelAfter(int ms)
@@ -560,6 +715,7 @@ int main()
     "cloud configuration can be disabled");
   std::filesystem::remove_all(configDir);
   configWritesAreSafe();
+  leftoverTests();
   cancelTests();
 
   S3Config config;

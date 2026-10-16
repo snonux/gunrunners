@@ -36,6 +36,25 @@ const char* stateName(PlayerState s)
   return "?";
 }
 
+// The cloud settings a run starts with: the command line's, or else
+// cloud.txt's, with the command line's CA bundle (Android's bundled roots).
+//
+// First it removes what an earlier run killed mid-sync or mid-write left
+// (Android kills a backgrounded app without running ~Game): sync snapshots
+// and downloads, write temps, cloud.txt temps holding the secret key. That
+// runs before this run's first sync, and whether or not the cloud is on
+// now; the age limit spares the files of another game process syncing the
+// same saves right now (see removeCloudLeftovers).
+S3Config startupCloud(const std::string& saveDir, const S3Config& given)
+{
+  removeCloudLeftovers(saveDir);
+  if (given.enabled())
+    return given;
+  S3Config persisted = loadS3Config(saveDir);
+  persisted.caBundle = given.caBundle;
+  return persisted;
+}
+
 } // namespace
 
 Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
@@ -48,12 +67,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   , mCursor(options.autoplay ? 0 : options.character)
 {
   mCampaign = options.levelPath.empty();
-  if (!mOptions.s3.enabled())
-  {
-    S3Config persisted = loadS3Config(saveDir());
-    persisted.caBundle = mOptions.s3.caBundle;
-    mOptions.s3 = std::move(persisted);
-  }
+  mOptions.s3 = startupCloud(saveDir(), mOptions.s3);
   beginCloudRefresh();
   loadCustomRunners(saveDir());
   mCursor = std::clamp(mCursor, 0, characterCount() - 1);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -41,7 +42,34 @@ bool parseS3Config(const std::string& text, S3Config& config,
 S3Config loadS3Config(const std::string& saveDir);
 bool saveS3Config(const std::string& saveDir, const S3Config& config,
   std::string* error = nullptr);
+// Removes cloud.txt, and first every write temp of it ("cloud.txt.tmp.<pid>.<n>"
+// and the fixed "cloud.txt.tmp" of older builds; regular files only, as
+// for removeCloudLeftovers) at any age, as they may hold the secret key. A
+// temp file that cannot be removed fails the call before cloud.txt is
+// touched, so the settings stay as they were.
 bool removeS3Config(const std::string& saveDir, std::string* error = nullptr);
+
+// What a game process killed (or crashed) during a cloud sync or a write
+// leaves in saveDir, and nothing else ever removes: the sync's upload
+// snapshots ("<save>.cloud-upload-<nonce>") and downloads
+// ("<save>.cloud-incoming-<nonce>", and its write temp), the write temps of
+// the saves and of their dirty markers ("<save>.tmp.<pid>.<n>",
+// "<save>.cloud-dirty.tmp.<pid>.<n>", the fixed "<save>.cloud-dirty.tmp" of
+// older builds) and of cloud.txt (see removeS3Config). <save> is one of the
+// five slots or the quick save, and every number is decimal digits only, so
+// a save, its dirty marker, cloud.txt or any other file (even one merely
+// named like a save's leftover) is never touched. Only regular files go,
+// never a directory or a symlink.
+//
+// Only those written at least minAge ago go (0: all of them): a second game
+// process on the same saves may be syncing right now, and a sync's file
+// lives through one request at most (30 s, see configure in s3.cpp), so
+// kCloudLeftoverAge spares it by a wide margin. The game runs this once at start, before its own
+// first sync. Returns how many files were removed; a file that cannot be
+// removed is skipped, as the next start tries again.
+constexpr std::chrono::minutes kCloudLeftoverAge{10};
+int removeCloudLeftovers(const std::string& saveDir,
+  std::chrono::seconds minAge = kCloudLeftoverAge);
 
 enum class S3GetResult
 {
