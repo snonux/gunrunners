@@ -2,9 +2,10 @@
 // is drawn while capturing comes back on the screen pixel for pixel, mirrored
 // left to right if asked; a piece of it can be grabbed (on the GPU, no read
 // back) and drawn again; the faded oval BIG HEADS draws its lens with. With a
-// logical size the capture works at the output resolution, letterbox bars
-// left alone, and draws after it land in the letterbox again; a clip
-// rectangle survives a grab at a scale of 4/3. The read-back fallbacks for a
+// logical size the capture works at the output resolution, is mirrored
+// inside the letterbox (against a frame drawn directly and flipped by hand),
+// letterbox bars left alone, and draws after it land in the letterbox again;
+// a clip rectangle survives a grab at a scale of 4/3. The read-back fallbacks for a
 // refused capture: the picture mirrored, the lens. And the misuse: ending or
 // grabbing without a capture, a second begin, a begin with another render
 // target set, grabs off the picture, a capture left open at the next frame.
@@ -186,11 +187,83 @@ void testMisuse(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
   check(dropped && at(present(sdl, surface), 5, 5) == 0xFFFFFFFFu, "beginFrame drops a capture left open");
 }
 
+// `f` with output columns x0..x1 - 1 flipped left to right among
+// themselves, the rest as it is.
+Frame mirroredWithin(const Frame& f, int x0, int x1)
+{
+  Frame m = f;
+  for (int y = 0; y < kScreenH; ++y)
+    for (int x = x0; x < x1; ++x)
+      m[std::size_t(y) * std::size_t(kScreenW) + std::size_t(x)] = at(f, x0 + x1 - 1 - x, y);
+  return m;
+}
+
+// `got` is `want` moved `d` columns left, over columns x0 + 1..x1 - 2 (the
+// outermost column on either side is left out: a move brings in one from
+// outside).
+bool movedBy(const Frame& got, const Frame& want, int x0, int x1, int d)
+{
+  for (int y = 0; y < kScreenH; ++y)
+    for (int x = x0 + 1; x < x1 - 1; ++x)
+      if (at(got, x, y) != at(want, x + d, y))
+        return false;
+  return true;
+}
+
+// What testLogicalMirror draws: the capture's black over the picture, a
+// red block at its top left and a green bar lower down, right of centre.
+void letterboxScene(Renderer& r)
+{
+  r.fillRect(0.0f, 0.0f, 640.0f, 480.0f, rgb(0, 0, 0));
+  r.fillRect(0.0f, 0.0f, 100.0f, 100.0f, rgb(255, 0, 0));
+  r.fillRect(400.0f, 300.0f, 120.0f, 40.0f, rgb(0, 255, 0));
+}
+
+// The scene captured with the logical size of testLogicalSize, put back on
+// the blue-grey surface.
+Frame capturedScene(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface, bool mirrorX)
+{
+  r.clear(rgb(30, 60, 90));
+  r.beginCapture();
+  letterboxScene(r);
+  r.endCapture(mirrorX);
+  return present(sdl, surface);
+}
+
+// The capture against the scene drawn directly, inside the letterbox (the
+// picture is output columns 160..1119). Put back unmirrored it is that
+// frame exactly: the copy lands on the picture to the pixel. Mirrored it is
+// that frame flipped by hand within the picture. SDL3's software renderer
+// (under sdl2-compat) lands a copy it scales and flips at once one column
+// left, so the mirrored one may be off by that column; one not mirrored, or
+// at the wrong scale or offset, is off by far more.
+void testLogicalMirror(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  SDL_RenderSetLogicalSize(sdl, 640, 480);
+  r.clear(rgb(30, 60, 90));
+  letterboxScene(r);
+  const Frame direct = present(sdl, surface);
+  const Frame plain = capturedScene(r, sdl, surface, false);
+  const Frame flipped = capturedScene(r, sdl, surface, true);
+  noLogicalSize(sdl);
+  const Frame want = mirroredWithin(direct, 160, 1120);
+  int moved = 2;
+  for (int d = 1; d >= -1 && moved == 2; --d)
+    if (movedBy(flipped, want, 160, 1120, d))
+      moved = d;
+  if (moved == 2)
+    std::printf("     mirrored: no match within a column\n");
+  else
+    std::printf("     mirrored: off by %d column(s)\n", moved);
+  check(plain == direct, "with a logical size an unmirrored capture is the picture as drawn");
+  check(want != direct && moved != 2, "with a logical size the picture is mirrored inside the letterbox");
+}
+
 // 640 x 480 letterboxed on the 1280 x 720 surface: 1.5x, bars of 160 px on
-// either side. The capture is the 960 x 720 picture, mirrored inside it. The
-// surface is cleared to blue-grey first, so the bars are not the capture's
-// black; they are compared with a frame cleared the same way, as SDL may
-// paint letterbox bars itself.
+// either side. The capture is the 960 x 720 picture (testLogicalMirror
+// checks it mirrored inside it). The surface is cleared to blue-grey first,
+// so the bars are not the capture's black; they are compared with a frame
+// cleared the same way, as SDL may paint letterbox bars itself.
 void testLogicalSize(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
 {
   SDL_RenderSetLogicalSize(sdl, 640, 480);
@@ -206,10 +279,7 @@ void testLogicalSize(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
   r.fillRect(0.0f, 0.0f, 10.0f, 10.0f, rgb(255, 255, 255)); // after the capture: pixels 160..175
   const Frame f = present(sdl, surface);
   noLogicalSize(sdl);
-  // The block at logical 0..100 lands at 540..640 mirrored: pixels 970..1120.
   check(scaled && offPicture, "grabs are at the output resolution, within the picture");
-  check(red(at(f, 1040, 70)) == 255 && red(at(f, 960, 70)) == 0 && red(at(f, 1125, 70)) == 0 && red(at(f, 200, 70)) == 0,
-    "with a logical size the picture is mirrored inside the letterbox");
   std::printf("     bars: %08X, cleared %08X\n", unsigned(at(f, 100, 70)), unsigned(at(bars, 100, 70)));
   check(at(f, 100, 70) == at(bars, 100, 70) && at(f, 1200, 70) == at(bars, 1200, 70) && at(f, 155, 5) == at(bars, 155, 5),
     "the letterbox bars stay as they were");
@@ -331,6 +401,7 @@ int main()
     testGrab(r, sdl, surface);
     testMisuse(r, sdl, surface);
     testLogicalSize(r, sdl, surface);
+    testLogicalMirror(r, sdl, surface);
     testClipAcrossGrab(r, sdl, surface);
     testRoundTrip(r, sdl, surface); // the capture made again at the full size
     testReadBack(r, sdl, surface);
