@@ -11,9 +11,12 @@
 // read-back fallbacks for a refused capture: the picture mirrored, the lens.
 // And the misuse: ending or grabbing without a capture, a second begin, a
 // begin with another render target set, grabs off the picture, a capture
-// left open at the next frame.
+// left open at the next frame. And telling sdl2-compat (SDL2's API on top of
+// SDL3, which letterboxes differently) from SDL2, also when the
+// SDL_LEGACY_VERSION hint makes both report the old 2.0.x numbering.
 
 #include "render/renderer.hpp"
+#include "render/renderer_detail.hpp"
 
 #include <SDL.h>
 
@@ -461,11 +464,39 @@ void testOddLetterbox(int ow, int oh, const SDL_Rect& pic)
   SDL_FreeSurface(surface);
 }
 
+// sdl2-compat from its version (2.x.50 and up) or, when SDL_LEGACY_VERSION
+// turns that into 2.0.<minor>, from its revision; SDL2 from neither.
+void testSdl2Compat()
+{
+  using detail::sdl2Compat;
+  check(sdl2Compat({2, 32, 72}, "SDL-2.32.72-gfb5d9a5"), "sdl2-compat by its version");
+  check(sdl2Compat({2, 0, 32}, "SDL-2.32.72-gfb5d9a5 (Fedora)"), "sdl2-compat under the legacy hint, by its revision");
+  check(sdl2Compat({2, 0, 30}, "SDL-2.30.50-no-vcs"), "sdl2-compat built without git, under the legacy hint");
+  check(!sdl2Compat({2, 30, 9}, "SDL-release-2.30.9-0-gc98c4fbff"), "SDL2 is not sdl2-compat");
+  check(!sdl2Compat({2, 0, 32}, "SDL-release-2.32.10-0-g5d24957"), "SDL2 under the legacy hint is not sdl2-compat");
+  check(!sdl2Compat({2, 0, 32}, "SDL-2.32.10-no-vcs"), "SDL2 built without git is not sdl2-compat");
+  check(!sdl2Compat({2, 0, 14}, "hg-14525:e52d96ea04fc"), "an old SDL2's Mercurial revision is not sdl2-compat");
+  check(!sdl2Compat({2, 0, 32}, "") && !sdl2Compat({2, 0, 32}, nullptr), "no revision: the version alone decides");
+  // The SDL linked here answers the same with the hint as without.
+  SDL_version v{};
+  SDL_GetVersion(&v);
+  const bool plain = sdl2Compat(v, SDL_GetRevision());
+  SDL_SetHint("SDL_LEGACY_VERSION", "1");
+  SDL_version legacy{};
+  SDL_GetVersion(&legacy);
+  const bool hinted = sdl2Compat(legacy, SDL_GetRevision());
+  SDL_SetHint("SDL_LEGACY_VERSION", "0");
+  std::printf("     SDL %d.%d.%d (legacy %d.%d.%d), %s: %s\n", v.major, v.minor, v.patch, legacy.major, legacy.minor,
+    legacy.patch, SDL_GetRevision(), plain ? "sdl2-compat" : "SDL2");
+  check(plain == hinted, "the SDL linked here is told apart the same under the legacy hint");
+}
+
 } // namespace
 
 int main()
 {
   SDL_Init(0);
+  testSdl2Compat();
   SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
   SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
   {

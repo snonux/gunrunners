@@ -1,13 +1,17 @@
 #include "render/renderer.hpp"
 
+#include "render/renderer_detail.hpp"
 #include "render/vector.hpp"
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
-#include <utility>
+#include <cstdio>
+#include <cstring>
 #include <initializer_list>
+#include <utility>
 #include <vector>
 
 namespace gr
@@ -167,15 +171,27 @@ std::size_t utf8Floor(const std::string& s, std::size_t bytes)
   return bytes;
 }
 
-// SDL2's API on top of SDL3 (sdl2-compat), which numbers its releases 2.x.50
-// and up; SDL2's own patch levels stay far below that. The two keep the
-// viewport and a logical size differently (see pictureOf).
+// The patch level of an SDL_GetRevision string, "SDL-" then the version
+// (after a tag's "release-" or the like) then anything; -1 for another form.
+int revisionPatch(const char* revision)
+{
+  if (!revision || std::strncmp(revision, "SDL-", 4) != 0)
+    return -1;
+  const char* p = revision + 4;
+  while (*p && !std::isdigit(static_cast<unsigned char>(*p)))
+    ++p;
+  int major = 0, minor = 0, patch = 0;
+  return std::sscanf(p, "%d.%d.%d", &major, &minor, &patch) == 3 && major == 2 ? patch : -1;
+}
+
+// SDL2's API on top of SDL3 (sdl2-compat; detail::sdl2Compat tells). The
+// two keep the viewport and a logical size differently (see pictureOf).
 bool underSdl3()
 {
   static const bool sdl3 = [] {
     SDL_version v{};
     SDL_GetVersion(&v);
-    return v.major == 2 && v.patch >= 50;
+    return detail::sdl2Compat(v, SDL_GetRevision());
   }();
   return sdl3;
 }
@@ -400,6 +416,30 @@ const OvalIndices& ovalIndices()
 #endif
 
 } // namespace
+
+namespace detail
+{
+
+// sdl2-compat numbers its releases 2.x.50 and up; SDL2's own patch levels
+// stay far below that. SDL_GetVersion says so, unless the SDL_LEGACY_VERSION
+// hint is set (by the app, or the user through the environment): then SDL2
+// 2.24 and up and sdl2-compat alike report the numbering from before 2.24,
+// 2.0.<minor>, so 2.0.32 is SDL2 2.32.x as well as sdl2-compat 2.32.50 and
+// up. SDL_GetRevision ignores the hint and holds the real version:
+// sdl2-compat's reads "SDL-2.32.72-gfb5d9a5" (or "SDL-2.32.72-no-vcs"),
+// SDL2's "SDL-release-2.32.10-0-g..." or "SDL-2.32.10-no-vcs" (older
+// releases a Mercurial or git URL form, with no version). So a patch of 50
+// or more in either means sdl2-compat. Not caught: the hint set on an
+// sdl2-compat whose revision string was replaced at build time by one of
+// another form; it is taken for SDL2.
+bool sdl2Compat(const SDL_version& version, const char* revision)
+{
+  if (version.major == 2 && version.patch >= 50)
+    return true;
+  return revisionPatch(revision) >= 50;
+}
+
+} // namespace detail
 
 Texture::Texture(SDL_Texture* tex, int w, int h, float anchorX, float anchorY)
   : mTex(tex), mW(w), mH(h), mAnchorX(anchorX), mAnchorY(anchorY)
@@ -757,6 +797,8 @@ const Texture* Renderer::flippedScene()
   SDL_SetTextureScaleMode(mMirrored.get(), SDL_ScaleModeNearest);
   if (SDL_SetRenderTarget(mRenderer, mMirrored.get()) != 0)
     return nullptr;
+  // The whole target at scale 1. SDL2 resets the view on the switch
+  // already; SDL3 keeps a view per target, so it is set for SDL3.
   SDL_RenderSetViewport(mRenderer, nullptr);
   SDL_RenderSetScale(mRenderer, 1.0f, 1.0f);
   SDL_SetTextureBlendMode(mScene.get(), SDL_BLENDMODE_NONE);
