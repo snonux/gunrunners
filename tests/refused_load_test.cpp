@@ -596,6 +596,9 @@ void checkPreloadsOnLoad(Renderer& renderer, const std::string& dir, const SaveG
   if (!check(preloadArrives(audio, extra), "preloads: Level 1's preload renders"))
     return;
   checkRefused(g, dir, withExtraBox(two), "preloads: a save that does not fit");
+  // A stale preload stays ready until it is dropped: sweep now, so one the
+  // refused load wrongly turned stale would be gone here.
+  audio.dropStalePreloads();
   check(audio.preloadReady(extra), "preloads: a refused load keeps Level 1's preload");
   quickLoadOf(g, dir, two);
   run(g, 5);
