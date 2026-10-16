@@ -360,6 +360,10 @@ add_test(NAME atomic_file COMMAND atomic_file_test)
 add_executable(s3_test tests/s3_test.cpp)
 target_link_libraries(s3_test PRIVATE gunrunners_core)
 add_test(NAME s3 COMMAND s3_test)
+# The window loop's frame limiter: no sleep under vsync, up to the next tick without.
+add_executable(frame_pacing_test tests/frame_pacing_test.cpp)
+target_link_libraries(frame_pacing_test PRIVATE gunrunners_core)
+add_test(NAME frame_pacing COMMAND frame_pacing_test)
 add_test(NAME savegame_rooftop_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
 # Far enough up the tower for gondolas to have moved and hatches to be open.
 add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/02_glass_canyon.txt 700)

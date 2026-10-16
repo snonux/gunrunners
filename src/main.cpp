@@ -5,6 +5,7 @@
 // raw BGRA pixels to a file or stdout (e.g. into ffmpeg) to record gameplay
 // clips without a display.
 
+#include "base/frame_pacing.hpp"
 #include "frontend/game.hpp"
 #include "frontend/controls.hpp"
 #include "frontend/touch_controls.hpp"
@@ -596,7 +597,8 @@ int runHeadless(const CliOptions& o)
 
 // One windowed game: everything the main loop needs, on the heap, so a
 // browser page can run it one frame per animation frame (the stack of
-// runWindowed is gone by then) and a desktop loop simply calls frame().
+// runWindowed is gone by then) and a desktop loop calls frame() and then
+// sleeps for pauseMs() when vsync does not pace it.
 struct WindowedRun
 {
   WindowedRun(const CliOptions& options, SDL_Window* w, SDL_Renderer* r, bool startFullscreen)
@@ -660,6 +662,26 @@ struct WindowedRun
   // once the game is over.
   bool frame();
 
+  // Whether the renderer waits for the vblank on present. The fallback
+  // renderer of runWindowed does not, and then the loop paces itself.
+  static bool presentsVsynced(SDL_Renderer* r)
+  {
+    SDL_RendererInfo info;
+    return SDL_GetRendererInfo(r, &info) == 0 && (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
+  }
+
+  // Milliseconds to sleep after the frame that started at frameStart:
+  // until the next tick is due, unless vsync paces the loop (see
+  // framePauseMs). Only the desktop loop sleeps; a browser page is paced
+  // by requestAnimationFrame.
+  int pauseMs(Uint64 frameStart) const
+  {
+    const Uint64 now = SDL_GetPerformanceCounter();
+    const double frameSeconds = double(now - frameStart) / freq;
+    const double dueSeconds = accumulator + double(now - last) / freq;
+    return framePauseMs(vsync, frameSeconds, tickSeconds, dueSeconds);
+  }
+
   const CliOptions o;
   SDL_Window* window;
   SDL_Renderer* sdlRenderer;
@@ -670,6 +692,8 @@ struct WindowedRun
   std::unique_ptr<TouchControls> touch;
   const double tickSeconds = 1.0 / 60.0;
   const double freq = double(SDL_GetPerformanceFrequency());
+  // Initialized after sdlRenderer, which is declared before it.
+  const bool vsync = presentsVsynced(sdlRenderer);
   Uint64 last = SDL_GetPerformanceCounter();
   double accumulator = 0.0;
   long frames = 0;
@@ -762,6 +786,41 @@ bool WindowedRun::frame()
   return running;
 }
 
+// Runs frames until the game is over; the run is gone when this returns.
+void runFrames(std::unique_ptr<WindowedRun> run)
+{
+#ifdef __EMSCRIPTEN__
+  // The browser owns the loop: one frame per animation frame, which also
+  // paces it. The run lives as long as the page, and nothing after this
+  // line is reached.
+  emscripten_set_main_loop_arg(
+    [](void* run) {
+      // The page drops its loading screen once there is a picture.
+      static bool first = true;
+      if (first)
+        EM_ASM({ if (Module.onFirstFrame) Module.onFirstFrame(); });
+      first = false;
+      // A page has nothing to quit to: back to a fresh title screen.
+      if (!static_cast<WindowedRun*>(run)->frame())
+      {
+        emscripten_cancel_main_loop();
+        EM_ASM({ location.reload(); });
+      }
+    },
+    run.release(), 0, true);
+#else
+  // A vsynced present paces the loop. Without vsync it sleeps until the
+  // next tick is due instead of drawing the same picture over and over at
+  // 100% of a core. The frame time starts after the sleep.
+  for (Uint64 start = SDL_GetPerformanceCounter(); run->frame(); start = SDL_GetPerformanceCounter())
+  {
+    const int pause = run->pauseMs(start);
+    if (pause > 0)
+      SDL_Delay(Uint32(pause));
+  }
+#endif
+}
+
 int runWindowed(const CliOptions& o)
 {
   if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -797,35 +856,13 @@ int runWindowed(const CliOptions& o)
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (startFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
   SDL_Renderer* sdlRenderer =
     SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  // Without vsync (this fallback, or a driver that ignores it) the loop
+  // paces itself: see runFrames.
   if (!sdlRenderer)
     sdlRenderer = SDL_CreateRenderer(window, -1, 0);
   SDL_RenderSetLogicalSize(sdlRenderer, kScreenW, kScreenH);
 
-  auto run = std::make_unique<WindowedRun>(o, window, sdlRenderer, startFullscreen);
-#ifdef __EMSCRIPTEN__
-  // The browser owns the loop: one frame per animation frame. The run lives
-  // as long as the page, and nothing after this line is reached.
-  emscripten_set_main_loop_arg(
-    [](void* run) {
-      // The page drops its loading screen once there is a picture.
-      static bool first = true;
-      if (first)
-        EM_ASM({ if (Module.onFirstFrame) Module.onFirstFrame(); });
-      first = false;
-      // A page has nothing to quit to: back to a fresh title screen.
-      if (!static_cast<WindowedRun*>(run)->frame())
-      {
-        emscripten_cancel_main_loop();
-        EM_ASM({ location.reload(); });
-      }
-    },
-    run.release(), 0, true);
-#else
-  while (run->frame())
-  {
-  }
-  run.reset();
-#endif
+  runFrames(std::make_unique<WindowedRun>(o, window, sdlRenderer, startFullscreen));
 
   SDL_DestroyRenderer(sdlRenderer);
   SDL_DestroyWindow(window);
