@@ -113,7 +113,7 @@ RenderReset renderResetOf(const SDL_Event& ev);
 
 // What the window code does about an event (see recoverRender):
 //   - None: nothing, it is no render reset.
-//   - Targets: the renderer drops its capture textures (Renderer::recover).
+//   - Targets: the renderer drops its capture textures (dropCaptureTextures).
 //   - InPlace: a device reset the SDL_Renderer survives; every texture is
 //     dropped and made again with the same SDL_Renderer.
 //   - Recreate: a device reset it does not survive; every texture is
@@ -191,7 +191,7 @@ public:
   // which stalls its pipeline every frame. beginCapture() sends the draws
   // that follow to an offscreen texture the size of the picture in output
   // pixels (made once, made again when the window changes size or after a
-  // render reset, see recover), cleared to black. grabCaptured() copies a
+  // render reset, see recoverRender), cleared to black. grabCaptured() copies a
   // piece of it (logical units) to a second offscreen texture to draw from,
   // null when there is no capture or the piece leaves the picture.
   // endCapture() puts the picture back on the screen with a plain copy,
@@ -229,10 +229,6 @@ public:
   // (Art, the menus' panels, the touch controls ...), who drop and make
   // them again themselves (recoverRender).
   void dropTextures();
-  // The renderer's own part of a reset event (renderResetOf): Targets drops
-  // the capture's textures, Device all of its textures (dropTextures). None
-  // does nothing.
-  void recover(RenderReset lost);
   // Draws with `sdl` from now on, after dropTextures and after the old
   // SDL_Renderer was destroyed (which freed every texture made with it):
   // for recoverRender, when a device reset left the old one dead.
@@ -247,7 +243,12 @@ public:
   // texture from an older generation, one that should have been dropped
   // and made again after a device reset. Each would draw nothing on a GPU
   // that lost its textures (or a freed texture, after a recreate); the
-  // software renderer still draws it, so only this count tells.
+  // software renderer still draws it, so only this count tells. It only
+  // catches a texture that is drawn after the reset: a holder left out of
+  // recoverRender's TextureOwners whose textures the tests do not draw (a
+  // screen they do not visit, a texture only some states draw) goes
+  // unnoticed, so the callers' list of holders (Game::dropTextures,
+  // windowOwners) must be kept complete by hand.
   std::size_t staleDraws() const { return mStaleDraws; }
   // A texture's SDL handle for drawing with SDL directly (a stretched or
   // flipped copy), counted as a draw by staleDraws.
@@ -364,7 +365,9 @@ private:
 
 // The texture owners besides the renderer itself (Art, the game's panels,
 // map, cutscene clip cache and runner editor, the touch controls), for
-// recoverRender.
+// recoverRender. Every holder of a texture made with createTexture must take
+// part: Renderer::staleDraws catches one left out only if a test draws its
+// textures after a reset.
 struct TextureOwners
 {
   std::function<void()> drop;   // every texture they hold let go
@@ -385,8 +388,10 @@ struct TextureOwners
 // can share a name with one deleted late. On InPlace (Direct3D) no names are
 // shared, and dropping first is just as safe.
 // False when Recreate got no new SDL_Renderer (or had no `remake`): the
-// owners are baked all the same, their textures empty and drawing nothing,
-// so nothing is left half dropped; the caller should give up the window.
+// owners are not baked again (there is nothing to bake with, and the SDL
+// errors of trying would replace the one that says why no renderer could be
+// made), so their textures stay dropped and nothing may draw any more; the
+// caller gives up the window.
 bool recoverRender(Renderer& r, ResetAction action, const TextureOwners& owners,
   const std::function<SDL_Renderer*()>& remake);
 

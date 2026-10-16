@@ -91,7 +91,10 @@ public:
   // the art, the panels and the editor's panels again; the map, the clips
   // and the art's lazily baked runners and styled enemies are baked again
   // as they are next drawn. The window code runs both through
-  // recoverRender, around its touch controls' and the renderer's own.
+  // recoverRender (windowOwners), around its touch controls' and the
+  // renderer's own. A new holder of textures in the game must be added to
+  // both: Renderer::staleDraws only catches one left out if a test draws
+  // its textures after a reset.
   void dropTextures();
   void rebakeTextures();
 

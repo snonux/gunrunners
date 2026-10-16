@@ -25,9 +25,17 @@
 // owner left out. And the game through both paths on the software renderer
 // (made again on its surface for the recreate path): a level, its pause
 // menu and map, the title, runner select, the runner editor and a cutscene
-// look as before, with no texture from before the reset drawn.
+// look as before, with no texture from before the reset drawn. And the
+// window code's renderer (frontend/window_renderer) on a window of SDL's
+// dummy video driver: made with the game's logical size and made again with
+// it on a recreate, the new SDL_Renderer the one drawn with, the game's and
+// the touch controls' textures made again (touch controls left out draw
+// stale ones); a remake that fails drops the textures, bakes none against no
+// renderer and keeps SDL's own error. Which backends own a GL context.
 
 #include "frontend/game.hpp"
+#include "frontend/touch_controls.hpp"
+#include "frontend/window_renderer.hpp"
 #include "render/renderer.hpp"
 #include "render/renderer_detail.hpp"
 
@@ -584,29 +592,37 @@ struct Screen
   }
 };
 
-// Renderer::recover: what each reset drops, and that the picture comes back.
+// The renderer's own part of a reset, the way the window code answers one
+// (recoverRender) with no other texture owners: Targets drops the capture's
+// textures, InPlace (a device reset) all of the renderer's, None nothing.
+void resetRenderer(Renderer& r, ResetAction action)
+{
+  recoverRender(r, action, TextureOwners{}, nullptr);
+}
+
+// What each reset drops, and that the picture comes back.
 void testRecover(SDL_Renderer* sdl, SDL_Surface* surface)
 {
   noLogicalSize(sdl);
   Renderer r(sdl);
   // Nothing held yet: harmless.
-  r.recover(RenderReset::Targets);
-  r.recover(RenderReset::Device);
+  resetRenderer(r, ResetAction::Targets);
+  resetRenderer(r, ResetAction::InPlace);
   check(!r.holdsCaptureTextures() && r.textCacheSize() == 0, "a reset with nothing held is harmless");
   const Frame want = resetScene(r, sdl, surface);
   check(r.holdsCaptureTextures() && r.holdsGridTexture() && r.textCacheSize() == 1, "the scene holds every kind");
 
-  r.recover(RenderReset::None);
+  resetRenderer(r, ResetAction::None);
   check(r.holdsCaptureTextures() && r.holdsGridTexture() && r.textCacheSize() == 1, "no reset drops nothing");
 
-  r.recover(RenderReset::Targets);
+  resetRenderer(r, ResetAction::Targets);
   check(!r.holdsCaptureTextures(), "a targets reset drops the capture's textures");
   check(r.holdsGridTexture() && r.textCacheSize() == 1, "a targets reset keeps the strings and the grid");
   const std::size_t begun = r.capturesBegun();
   check(resetScene(r, sdl, surface) == want && r.capturesBegun() == begun + 1,
     "after a targets reset the capture is made again, the picture as before");
 
-  r.recover(RenderReset::Device);
+  resetRenderer(r, ResetAction::InPlace);
   check(!r.holdsCaptureTextures() && !r.holdsGridTexture() && r.textCacheSize() == 0,
     "a device reset drops the capture's textures, the strings and the grid");
   check(resetScene(r, sdl, surface) == want, "after a device reset the picture is as before");
@@ -626,7 +642,7 @@ void testRecoverFallbacks(SDL_Renderer* sdl, SDL_Surface* surface)
   pattern(r);
   r.mirrorReadBack();
   const bool readBackHeld = r.holdsCaptureTextures();
-  r.recover(RenderReset::Targets);
+  resetRenderer(r, ResetAction::Targets);
   check(readBackHeld && !r.holdsCaptureTextures(), "a reset drops the read-back fallbacks' textures");
   r.refuseCaptures(false);
 
@@ -634,7 +650,7 @@ void testRecoverFallbacks(SDL_Renderer* sdl, SDL_Surface* surface)
   r.clear(rgb(0, 0, 0));
   r.beginCapture();
   pattern(r);
-  r.recover(RenderReset::Device);
+  resetRenderer(r, ResetAction::InPlace);
   const bool ended = !r.capturing() && SDL_GetRenderTarget(sdl) == nullptr;
   r.fillRect(0.0f, 0.0f, 10.0f, 10.0f, rgb(255, 255, 255));
   const Frame after = present(sdl, surface);
@@ -673,11 +689,11 @@ void testStaleDraws(SDL_Renderer* sdl)
   Texture kept = pixel();
   const std::uint32_t gen = r.generation();
   r.draw(kept, 10.0f, 10.0f);
-  r.recover(RenderReset::Targets);
+  resetRenderer(r, ResetAction::Targets);
   r.draw(kept, 10.0f, 10.0f);
   check(kept.generation() == gen && r.generation() == gen && r.staleDraws() == 0,
     "a texture of the current generation is no stale draw, also after a targets reset");
-  r.recover(RenderReset::Device);
+  resetRenderer(r, ResetAction::InPlace);
   check(r.generation() == gen + 1, "a device reset starts a new generation");
   // An owner that forgot to drop it: every kind of draw counts, culled too.
   r.draw(kept, 10.0f, 10.0f);
@@ -732,14 +748,17 @@ void testRecoverOrder()
   check(recoverRender(r, ResetAction::Targets, owners, remake) && recoverRender(r, ResetAction::None, owners, remake) &&
       steps.empty() && r.textCacheSize() == 1 && !r.holdsCaptureTextures(),
     "Targets drops the capture's textures only, None nothing; the owners keep theirs");
-  check(!recoverRender(r, ResetAction::Recreate, owners, nullptr) && r.sdl() == s.sdl && owned,
-    "Recreate without a way to make a renderer fails, the renderer kept, the owners baked");
+  check(!recoverRender(r, ResetAction::Recreate, owners, nullptr) && r.sdl() == s.sdl && !owned &&
+      steps == Steps{"drop"},
+    "Recreate without a way to make a renderer fails, the renderer kept, nothing baked again with it");
+  // Bake the owner again for the next case (as an InPlace does).
+  check(recoverRender(r, ResetAction::InPlace, owners, remake) && owned, "...and an InPlace bakes again");
   steps.clear();
   resetScene(r, s.sdl, s.surface);
   s.failRemake = true;
   check(!recoverRender(r, ResetAction::Recreate, owners, remake) && r.sdl() == nullptr && !owned &&
-      steps == Steps{"drop", "remake", "rebake"},
-    "a renderer that cannot be made again fails, the owners baked all the same (empty)");
+      steps == Steps{"drop", "remake"},
+    "a renderer that cannot be made again fails, the owners dropped and not baked against no renderer");
 }
 
 // One screen of the game across both kinds of device reset: drawn twice the
@@ -858,6 +877,132 @@ void testGameRecovers()
   std::filesystem::remove_all(saves);
 }
 
+// The window's SDL_Renderer has the game's 1280x720 logical size.
+bool gameLogicalSize(SDL_Renderer* sdl)
+{
+  int w = 0, h = 0;
+  SDL_RenderGetLogicalSize(sdl, &w, &h);
+  return w == kScreenW && h == kScreenH;
+}
+
+// A frame of the game with the touch overlay over it, in both layouts.
+void drawWindow(Game& g, TouchControls& t, Renderer& r)
+{
+  for (const TouchControls::Layout layout : {TouchControls::Layout::Menu, TouchControls::Layout::Play})
+  {
+    r.beginFrame();
+    g.render();
+    t.configure(layout, 1);
+    t.draw(r);
+  }
+}
+
+// A recreate through the window renderer: a new SDL_Renderer with the
+// logical size, stored where the renderer draws, every owner's textures
+// made again with it. Then the touch controls left out of the owners (in
+// place, so their old textures are still SDL's to draw): caught drawing
+// textures from before the reset.
+void testWindowRemake(WindowRenderer& w, Renderer& r, Game& g, TouchControls& t, const int& made)
+{
+  drawWindow(g, t, r);
+  // Undone on the old renderer: only one made again by makeWindowRenderer
+  // has it.
+  SDL_RenderSetLogicalSize(w.sdl(), 0, 0);
+  std::size_t stale = r.staleDraws();
+  check(w.answerReset(r, ResetAction::Recreate, windowOwners(g, &t, r)) && made == 2 && w.error().empty(),
+    "window: a recreate makes the window's SDL_Renderer again");
+  check(w.sdl() != nullptr && r.sdl() == w.sdl() && gameLogicalSize(w.sdl()),
+    "window: ...the renderer draws with the new one, which has the logical size again");
+  drawWindow(g, t, r);
+  check(r.staleDraws() == stale && g.art().vignette.generation() == r.generation(),
+    "window: ...the game's and the touch controls' textures are made again with it");
+  stale = r.staleDraws();
+  check(w.answerReset(r, ResetAction::InPlace, windowOwners(g, nullptr, r)) && made == 2,
+    "window: an in-place reset keeps the SDL_Renderer");
+  drawWindow(g, t, r);
+  check(r.staleDraws() > stale, "window: touch controls left out of the owners draw textures from before the reset");
+  t.dropTextures();
+  t.bakeTextures(r);
+}
+
+// A remake that fails: no renderer left, the textures dropped and none baked
+// against no renderer, and SDL's error from the failed make kept, whatever
+// SDL says after it.
+void testWindowRemakeFails(WindowRenderer& w, Renderer& r, Game& g, TouchControls& t, bool& failMake)
+{
+  int drops = 0, rebakes = 0;
+  const TextureOwners owners = windowOwners(g, &t, r);
+  TextureOwners counted;
+  counted.drop = [&] {
+    ++drops;
+    owners.drop();
+  };
+  counted.rebake = [&] {
+    ++rebakes;
+    owners.rebake();
+  };
+  failMake = true;
+  check(!w.answerReset(r, ResetAction::Recreate, counted) && w.sdl() == nullptr && r.sdl() == nullptr,
+    "window: a renderer that cannot be made again fails the reset, none is left");
+  check(drops == 1 && rebakes == 0, "window: ...the textures dropped, none baked against no renderer");
+  // What a rebake against no renderer used to leave behind to be logged.
+  SDL_SetError("Parameter 'renderer' is invalid");
+  check(w.error() == "capture_test: no renderer this time", "window: ...the error kept is SDL's own from the make");
+}
+
+// The window renderer on `window`, made by makeWindowRenderer until told to
+// fail, with a game and touch controls drawing with it.
+void testWindowRenderer(SDL_Window* window, const std::string& saves)
+{
+  bool failMake = false;
+  int made = 0;
+  WindowRenderer w(window, [&failMake, &made](SDL_Window* win) -> SDL_Renderer* {
+    ++made;
+    if (!failMake)
+      return makeWindowRenderer(win);
+    SDL_SetError("capture_test: no renderer this time");
+    return nullptr;
+  });
+  check(w.sdl() != nullptr && w.error().empty() && gameLogicalSize(w.sdl()),
+    "window: the window's renderer is made with the game's logical size");
+  if (!w.sdl())
+    return;
+  Renderer r(w.sdl()); // after w: gone before the SDL_Renderer
+  Game g(resetOptions(saves), r, nullptr);
+  TouchControls t(r, true);
+  testWindowRemake(w, r, g, t, made);
+  testWindowRemakeFails(w, r, g, t, failMake);
+}
+
+// A window without a screen: SDL's dummy video driver, which draws with its
+// software renderer (asked for by name, so no GL driver is tried first).
+// Last of the tests, as the hints stay set until SDL_Quit.
+void testWindow()
+{
+  check(backendUsesGl("opengl") && backendUsesGl("opengles2") && backendUsesGl("opengles") &&
+      !backendUsesGl("software") && !backendUsesGl("direct3d11") && !backendUsesGl("metal") && !backendUsesGl(""),
+    "only the OpenGL backends own a GL context");
+  SDL_SetHintWithPriority(SDL_HINT_VIDEODRIVER, "dummy", SDL_HINT_OVERRIDE);
+  SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "software", SDL_HINT_OVERRIDE);
+  const bool video = SDL_InitSubSystem(SDL_INIT_VIDEO) == 0;
+  SDL_Window* window = video
+    ? SDL_CreateWindow("capture_test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, kScreenW, kScreenH, 0)
+    : nullptr;
+  check(window != nullptr, "a window on SDL's dummy video driver");
+  if (!window)
+    std::printf("     (%s)\n", SDL_GetError());
+  if (window)
+  {
+    const std::string saves = "capture_test_window_saves";
+    std::filesystem::remove_all(saves);
+    testWindowRenderer(window, saves);
+    std::filesystem::remove_all(saves);
+    SDL_DestroyWindow(window);
+  }
+  if (video)
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+}
+
 } // namespace
 
 int main()
@@ -893,6 +1038,7 @@ int main()
   }
   testRecoverOrder();
   testGameRecovers();
+  testWindow();
   SDL_Quit();
   std::printf(gFailures == 0 ? "all capture tests passed\n" : "%d capture test(s) failed\n", gFailures);
   return gFailures == 0 ? 0 : 1;

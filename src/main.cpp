@@ -9,6 +9,7 @@
 #include "frontend/game.hpp"
 #include "frontend/controls.hpp"
 #include "frontend/touch_controls.hpp"
+#include "frontend/window_renderer.hpp"
 #include "game/profile.hpp"
 #include "game/savegame.hpp"
 #include "render/vector.hpp"
@@ -595,53 +596,18 @@ int runHeadless(const CliOptions& o)
   return result;
 }
 
-// The window's renderer: accelerated with vsync, else whatever SDL has,
-// drawing the 1280x720 picture letterboxed (the logical size). The rest of
-// its setup is global (SDL_HINT_RENDER_SCALE_QUALITY, set before the first
-// one) or set per draw (blend modes, scale), so this is all of it: made at
-// startup and made again the same way after a device reset the backend does
-// not survive (WindowedRun::answerReset). Null if SDL has no renderer.
-SDL_Renderer* makeWindowRenderer(SDL_Window* window)
-{
-  SDL_Renderer* r = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  // Vsync keeps the picture free of tearing; the fallback renderer has
-  // none. Either way the loop paces itself to the 60 Hz ticks: see
-  // runFrames.
-  if (!r)
-    r = SDL_CreateRenderer(window, -1, 0);
-  if (r)
-    SDL_RenderSetLogicalSize(r, kScreenW, kScreenH);
-  return r;
-}
-
-// The window's SDL_Renderer, owned by the run: destroyed after every texture
-// made with it (the run's members that hold textures come after it, so they
-// are destroyed first), and swapped for a new one by answerReset.
-struct WindowRenderer
-{
-  explicit WindowRenderer(SDL_Renderer* r) : sdl(r) {}
-  ~WindowRenderer()
-  {
-    if (sdl)
-      SDL_DestroyRenderer(sdl);
-  }
-  WindowRenderer(const WindowRenderer&) = delete;
-  WindowRenderer& operator=(const WindowRenderer&) = delete;
-  SDL_Renderer* sdl;
-};
-
 // One windowed game: everything the main loop needs, on the heap, so a
 // browser page can run it one frame per animation frame (the stack of
 // runWindowed is gone by then) and a desktop loop calls frame() and then
 // sleeps for pauseMs(). It owns the window's SDL_Renderer (see
-// WindowRenderer), not the window.
+// WindowRenderer, frontend/window_renderer.hpp), not the window.
 struct WindowedRun
 {
-  WindowedRun(const CliOptions& options, SDL_Window* w, SDL_Renderer* r, bool startFullscreen)
+  WindowedRun(const CliOptions& options, SDL_Window* w, bool startFullscreen)
     : o(options)
     , window(w)
-    , sdlRenderer(r)
-    , renderer(r)
+    , sdlRenderer(w)
+    , renderer(sdlRenderer.sdl())
     , audio(openAudio(options))
     , game(windowOptions(options), renderer, audio.get())
   {
@@ -699,10 +665,10 @@ struct WindowedRun
   bool frame();
   // One SDL event: render resets, touch, keys, pads and window events.
   void handleEvent(const SDL_Event& ev);
-  // A render reset (resetActionOf) answered through recoverRender, with the
-  // game's and the touch controls' textures and, when the backend does not
-  // survive a device reset, a new SDL_Renderer; the run ends if none can
-  // be made.
+  // A render reset (resetActionOf) answered by WindowRenderer::answerReset,
+  // with the game's and the touch controls' textures (windowOwners) and,
+  // when the backend does not survive a device reset, a new SDL_Renderer;
+  // the run ends if none can be made.
   void answerReset(ResetAction action);
   // Once per frame before the ticks: the touch controls learn the output
   // size, the game's state, and hand over their taps and drags.
@@ -777,38 +743,21 @@ void WindowedRun::handleEvent(const SDL_Event& ev)
 
 void WindowedRun::answerReset(ResetAction action)
 {
-  // The game's textures, then the touch controls' (the order TextureOwners
-  // lists); recoverRender drops the renderer's own after them.
-  const TextureOwners owners{
-    [this] {
-      game.dropTextures();
-      if (touch)
-        touch->dropTextures();
-    },
-    [this] {
-      game.rebakeTextures();
-      if (touch)
-        touch->bakeTextures(renderer);
-    }};
-  const auto remake = [this] {
-    SDL_DestroyRenderer(sdlRenderer.sdl);
-    sdlRenderer.sdl = makeWindowRenderer(window);
-    return sdlRenderer.sdl;
-  };
-  if (!recoverRender(renderer, action, owners, remake))
-  {
-    // Nothing can be drawn any more: better to quit than to sit there
-    // black. On Android, where such a reset follows a return from the
-    // background, the profile was saved on the way there (Game::suspend).
-    SDL_LogError(SDL_LOG_CATEGORY_RENDER, "no renderer after a device reset: %s", SDL_GetError());
-    running = false;
-  }
+  if (sdlRenderer.answerReset(renderer, action, windowOwners(game, touch.get(), renderer)))
+    return;
+  // Nothing can be drawn any more: better to quit than to sit there black
+  // (frame() draws no more once running is false). On Android, where such a
+  // reset follows a return from the background, the profile was saved on
+  // the way there (Game::suspend). The error is SDL's own from the failed
+  // make, kept by the WindowRenderer before anything else could replace it.
+  SDL_LogError(SDL_LOG_CATEGORY_RENDER, "no renderer after a device reset: %s", sdlRenderer.error().c_str());
+  running = false;
 }
 
 void WindowedRun::prepareTouch()
 {
   int pw = 0, ph = 0;
-  SDL_GetRendererOutputSize(sdlRenderer.sdl, &pw, &ph);
+  SDL_GetRendererOutputSize(sdlRenderer.sdl(), &pw, &ph);
   touch->setScreen(pw, ph);
   syncTouch(*touch, game);
   forwardTouch(*touch, game);
@@ -857,6 +806,11 @@ bool WindowedRun::frame()
   SDL_Event ev;
   while (SDL_PollEvent(&ev))
     handleEvent(ev);
+  // Quit, or a device reset that left no renderer (answerReset): no ticks,
+  // and above all no picture, as there may be no renderer to draw with and
+  // the textures are gone.
+  if (!running)
+    return false;
 
   const Uint64 now = SDL_GetPerformanceCounter();
   accumulator += double(now - last) / freq;
@@ -871,7 +825,7 @@ bool WindowedRun::frame()
   game.render();
   if (touch)
     touch->draw(renderer);
-  SDL_RenderPresent(sdlRenderer.sdl);
+  SDL_RenderPresent(sdlRenderer.sdl());
 #ifdef __ANDROID__
   logFps();
 #endif
@@ -967,8 +921,8 @@ int runWindowed(const CliOptions& o)
     kScreenW,
     kScreenH,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (startFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
-  // The run owns the renderer and destroys it last of all it holds.
-  runFrames(std::make_unique<WindowedRun>(o, window, makeWindowRenderer(window), startFullscreen));
+  // The run makes the renderer, owns it and destroys it last of all it holds.
+  runFrames(std::make_unique<WindowedRun>(o, window, startFullscreen));
 
   SDL_DestroyWindow(window);
   SDL_Quit();

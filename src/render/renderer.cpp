@@ -929,19 +929,6 @@ void Renderer::dropTextures()
   ++mGeneration;
 }
 
-void Renderer::recover(RenderReset lost)
-{
-  // Targets: the capture's targets came back empty, which costs nothing (a
-  // capture clears its target and draws the picture anew every frame), but
-  // they are dropped and made again all the same, in case SDL could not
-  // remake one. The read-back fallbacks' streaming textures go with them;
-  // they are refilled on every use.
-  if (lost == RenderReset::Targets)
-    dropCaptureTextures();
-  else if (lost == RenderReset::Device)
-    dropTextures();
-}
-
 bool recoverRender(Renderer& r, ResetAction action, const TextureOwners& owners,
   const std::function<SDL_Renderer*()>& remake)
 {
@@ -949,24 +936,33 @@ bool recoverRender(Renderer& r, ResetAction action, const TextureOwners& owners,
     return true;
   if (action == ResetAction::Targets)
   {
-    r.recover(RenderReset::Targets);
+    // The capture's targets came back empty, which costs nothing (a capture
+    // clears its target and draws the picture anew every frame), but they
+    // are dropped and made again all the same, in case SDL could not remake
+    // one. The read-back fallbacks' streaming textures go with them; they
+    // are refilled on every use.
+    r.dropCaptureTextures();
     return true;
   }
   // Every texture let go while the SDL_Renderer that made it still exists.
   if (owners.drop)
     owners.drop();
   r.dropTextures();
-  bool ok = true;
   if (action == ResetAction::Recreate)
   {
     SDL_Renderer* fresh = remake ? remake() : nullptr;
-    ok = fresh != nullptr;
     if (remake)
       r.rebind(fresh);
+    // Nothing to bake with: baking against no (or a dead) SDL_Renderer
+    // would only fail, and its SDL errors would hide the one that says why
+    // no renderer could be made. The owners stay dropped; nothing may draw
+    // them any more, and the caller gives up the window.
+    if (!fresh)
+      return false;
   }
   if (owners.rebake)
     owners.rebake();
-  return ok;
+  return true;
 }
 
 bool Renderer::drawLens(const SDL_FRect& piece, const SDL_FRect& dst, float solid)

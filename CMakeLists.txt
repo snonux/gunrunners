@@ -241,6 +241,7 @@ add_library(gunrunners_core STATIC
   src/frontend/flow.cpp
   src/frontend/worlds.cpp
   src/frontend/voices.cpp
+  src/frontend/window_renderer.cpp
   src/data/campaign.cpp
   src/game/profile.cpp
 )
@@ -561,7 +562,9 @@ target_link_libraries(flytower_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME flytower COMMAND flytower_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt
   ${CMAKE_SOURCE_DIR}/levels/40_bonus_trigger.txt)
 add_test(NAME savegame_fly_tower COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/40_fly_tower.txt 300)
-add_executable(capture_test tests/capture_test.cpp)
+# With the touch controls, whose textures the window renderer's reset
+# answer (frontend/window_renderer) makes again.
+add_executable(capture_test tests/capture_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(capture_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME capture COMMAND capture_test)
 add_executable(sweeps_test tests/sweeps_test.cpp)
