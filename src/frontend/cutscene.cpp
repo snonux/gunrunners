@@ -477,7 +477,9 @@ void CutscenePlayer::render(ClipKit& kit)
     r.fillRect(bx, by, float(kScreenW) - 320.0f, 112, rgba(6, 4, 18, 215));
     r.fillRect(bx, by, float(kScreenW) - 320.0f, 4, kit.theme.accentA);
     r.drawText(mSpeaker, bx + 24, by + 14, {22.0f, kit.theme.accentA, kInk, true});
-    r.drawText(mLine.substr(0, std::size_t(mShown)), bx + 24, by + 48, {28.0f, rgb(255, 255, 255), kInk});
+    // The revealed part of the line: the whole line's one texture, clipped
+    // (drawing each prefix rasterized a new texture every two letters).
+    r.drawTextPrefix(mLine, std::size_t(mShown), bx + 24, by + 48, {28.0f, rgb(255, 255, 255), kInk});
   }
   if (mWaiting && (mTicks / 20) % 2 == 0)
     r.drawText("PRESS A BUTTON", float(kScreenW) - 40.0f, float(kScreenH) - 34.0f, {16.0f, rgb(200, 200, 220)}, Align::Right);

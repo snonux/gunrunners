@@ -404,6 +404,10 @@ add_test(NAME ladders COMMAND ladder_test ${CMAKE_SOURCE_DIR}/levels)
 add_executable(reflection_test tests/reflection_test.cpp)
 target_link_libraries(reflection_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME reflections COMMAND reflection_test)
+# The text cache's eviction and the cutscene's typewriter reveal.
+add_executable(text_cache_test tests/text_cache_test.cpp)
+target_link_libraries(text_cache_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME text_cache COMMAND text_cache_test)
 # Level 43: in the ship, through the asteroids.
 add_test(NAME savegame_starfall COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/43_starfall.txt 500)
 add_executable(starfall_test tests/starfall_test.cpp)
