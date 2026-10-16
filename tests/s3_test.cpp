@@ -351,14 +351,22 @@ S3Config stalledConfig(const grtest::StallServer& server)
 
 // A request whose TCP connect never completes (the server's accept queue is
 // full, so its SYNs are dropped) also ends soon after the cancel, not after
-// the 10 s CURLOPT_CONNECTTIMEOUT. Linux only (StallServer::Stall::Connect).
+// the 10 s CURLOPT_CONNECTTIMEOUT. Skipped where the accept queue can't be
+// filled that way (not Linux, or a kernel like gVisor or WSL1 that queues
+// differently or keeps the queue out of tcp_info); once it is full, a
+// misbehaving abort still fails.
 void stalledConnectAborts(const std::filesystem::path& dir)
 {
   grtest::StallServer server(grtest::StallServer::Stall::Connect);
-#ifdef __linux__
+  if (server.connectStallUnsupported())
+  {
+    std::puts("connect-phase cancel test skipped (the accept queue does not fill here)");
+    return;
+  }
   check(server.ok(), "a full accept queue stalls new connections");
   if (!server.ok())
     return;
+#ifdef __linux__
   const S3Config stalled = stalledConfig(server);
   const int queued = server.queuedConnections();
   std::string error;
@@ -369,8 +377,7 @@ void stalledConnectAborts(const std::filesystem::path& dir)
   check(server.queuedConnections() == queued,
     "the aborted request never got past connecting");
 #else
-  (void)dir;
-  std::puts("connect-phase cancel test skipped (needs Linux's accept queue)");
+  (void)dir; // not reached: Stall::Connect is Linux only (skipped above)
 #endif
 }
 

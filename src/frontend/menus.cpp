@@ -278,9 +278,12 @@ namespace
 {
 
 // How long quitting lets cloud uploads still running finish. A SAVE right
-// before quitting then still reaches the cloud, so another device does not
-// get an older copy, and the next start does not re-upload it over a newer
-// save made elsewhere in the meantime.
+// before quitting can then still reach the cloud, so another device does
+// not get an older copy, and the next start does not re-upload it over a
+// newer save made elsewhere in the meantime. That only holds when the SAVE
+// queued its own upload, though: while a refresh or another upload runs,
+// queueCloudUpload leaves the save to its .cloud-dirty marker, quitting
+// does not wait for it, and the next start uploads it.
 constexpr auto kQuitUploadGrace = std::chrono::seconds(2);
 
 // Makes every cloud request started so far stale. Under the commit

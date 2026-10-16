@@ -815,6 +815,19 @@ void runFrames(std::unique_ptr<WindowedRun> run)
   // sitting there frozen. (Android shows its activity until it finishes.)
   SDL_HideWindow(run->window);
 #endif
+  // The audio device outlives the Game (run's members go in reverse order),
+  // so without this the music plays on through that wait, for a game the
+  // player has already quit. Audio's own calls, as the device ID is Audio's
+  // (SDL_PauseAudio would only reach the legacy device 1): music, cutscene
+  // loops and the voice stop at once; a sound effect already playing ends
+  // on its own.
+  if (run->audio)
+  {
+    run->audio->playMusicNamed("stop");
+    run->audio->stopAllNamed();
+    run->audio->stopVoice();
+  }
+  run.reset();
 #endif
 }
 

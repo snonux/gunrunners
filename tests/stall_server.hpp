@@ -1,7 +1,7 @@
 #pragma once
 
-// A local "S3 server" that never answers, for the cloud cancel tests, and
-// the helpers those tests share.
+// A local "S3 server" that never answers (or only finds nothing), for the
+// cloud cancel tests, and the helpers those tests share.
 //
 // Stall::Response (the default) listens on a free loopback port but never
 // answers: the kernel completes the TCP handshakes into the listen backlog,
@@ -10,10 +10,16 @@
 // every request runs into its 30 s CURLOPT_TIMEOUT. Keep the server alive
 // until the requests are done: closing it (or a connection taken with
 // acceptClients) resets the connections, which would end them early.
+// serveRequest answers a GET after all, with an empty 404 (the cloud has no
+// such save), so a sync's download ends at once while an upload (a PUT)
+// still stalls.
 //
 // Stall::Connect (Linux only) fills the accept queue with its own
 // connections first, so the kernel drops every further SYN and a client
 // sits in its SYN retransmits: the request never gets past connecting.
+// Where the kernel does not queue them that way or does not report the
+// queue in tcp_info (gVisor, WSL1, some sandboxes, any other system), the
+// server is not ok() and connectStallUnsupported() says why.
 //
 // The constructor sets no_proxy for 127.0.0.1, so the requests reach this
 // server even when the environment configures an HTTP proxy.
@@ -66,13 +72,19 @@ public:
     if (!listenOnLoopback(stall == Stall::Connect ? 1 : 64))
       return;
     if (stall == Stall::Connect && !fillAcceptQueue())
+    {
+      mConnectStallUnsupported = true;
       closeAll();
+    }
   }
   ~StallServer() { closeAll(); }
   StallServer(const StallServer&) = delete;
   StallServer& operator=(const StallServer&) = delete;
 
   bool ok() const { return mFd >= 0; }
+  // Stall::Connect listened but could not fill the accept queue here: a
+  // test of the connect phase skips rather than fails.
+  bool connectStallUnsupported() const { return mConnectStallUnsupported; }
   std::string endpoint() const { return "http://127.0.0.1:" + std::to_string(mPort); }
   // True once a client has connected, waiting up to timeoutMs. Connections
   // stay queued, so this stays true afterwards (unless acceptClients takes
@@ -100,6 +112,45 @@ public:
         mClients.push_back(client);
     }
     return int(mClients.size());
+  }
+
+  // Takes the next queued connection, waiting up to timeoutMs for it, and
+  // reads its request head. A GET gets an empty 404 (see answeredClosed);
+  // any other request is kept like acceptClients' connections, never
+  // answered. Returns the request's method, or "" if none came in time.
+  std::string serveRequest(int timeoutMs)
+  {
+    if (!waitForClient(timeoutMs))
+      return {};
+    const int client = ::accept(mFd, nullptr, nullptr);
+    if (client < 0)
+      return {};
+    const std::string head = readHead(client, timeoutMs);
+    const std::string method = head.substr(0, head.find(' '));
+    if (method != "GET")
+    {
+      mClients.push_back(client);
+      return method;
+    }
+    // Only the sending side closes: the connection stays readable here, so
+    // answeredClosed can see the client close it once it is done.
+    static const char notFound[] =
+      "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    ::send(client, notFound, sizeof(notFound) - 1, kSendFlags);
+    ::shutdown(client, SHUT_WR);
+    mAnswered.push_back(client);
+    return method;
+  }
+
+  // True once the client closed every connection serveRequest answered,
+  // waiting up to timeoutMs for each: libcurl has read the 404 and the
+  // request is over.
+  bool answeredClosed(int timeoutMs) const
+  {
+    for (int client : mAnswered)
+      if (!clientClosed(client, timeoutMs))
+        return false;
+    return true;
   }
 
   // How many taken connections the client has not closed: it sent its
@@ -161,13 +212,16 @@ private:
 
   // Connects (never accepted) clients of its own until the accept queue is
   // full: Linux then drops every new SYN (the queue holds backlog + 1).
-  // Elsewhere, or if the queue does not fill, the server is not ok().
+  // Elsewhere, or if the queue does not fill (or tcp_info does not show
+  // it), this fails and the constructor marks the stall unsupported.
   bool fillAcceptQueue()
   {
 #ifdef __linux__
     for (int i = 0; i < 4 && !acceptQueueFull(); ++i)
     {
       const int before = queuedConnections();
+      if (before < 0)
+        return false; // no tcp_info for a listening socket
       const int filler = ::socket(AF_INET, SOCK_STREAM, 0);
       if (filler < 0)
         return false;
@@ -202,6 +256,34 @@ private:
   }
 #endif
 
+#ifdef MSG_NOSIGNAL
+  static constexpr int kSendFlags = MSG_NOSIGNAL; // a gone client is no SIGPIPE
+#else
+  static constexpr int kSendFlags = 0;
+#endif
+
+  // The client's request head (up to the blank line), waiting up to
+  // timeoutMs for it; whatever came by then if it does not complete.
+  static std::string readHead(int client, int timeoutMs)
+  {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    std::string head;
+    char buffer[1024];
+    while (head.find("\r\n\r\n") == std::string::npos)
+    {
+      const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
+        deadline - std::chrono::steady_clock::now()).count();
+      pollfd waiting{client, POLLIN, 0};
+      if (left <= 0 || ::poll(&waiting, 1, int(left)) != 1)
+        break;
+      const ssize_t got = ::recv(client, buffer, sizeof(buffer), 0);
+      if (got <= 0)
+        break;
+      head.append(buffer, std::size_t(got));
+    }
+    return head;
+  }
+
   // Reads and drops whatever the client sent; true once it closed the
   // connection (end of stream or a reset), waiting up to timeoutMs for it.
   static bool clientClosed(int client, int timeoutMs)
@@ -229,8 +311,11 @@ private:
       ::close(fd);
     for (int fd : mFillers)
       ::close(fd);
+    for (int fd : mAnswered)
+      ::close(fd);
     mClients.clear();
     mFillers.clear();
+    mAnswered.clear();
     if (mFd >= 0)
       ::close(mFd);
     mFd = -1;
@@ -239,8 +324,10 @@ private:
   int mFd = -1;
   int mPort = 0;
   sockaddr_in mAddress{};
-  std::vector<int> mClients; // taken by acceptClients, never answered
+  std::vector<int> mClients; // taken by acceptClients or serveRequest, never answered
   std::vector<int> mFillers; // Stall::Connect's own queued connections
+  std::vector<int> mAnswered; // GETs serveRequest answered with a 404
+  bool mConnectStallUnsupported = false;
 };
 
 } // namespace grtest
