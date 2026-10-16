@@ -146,6 +146,12 @@ bool sameGrid(const GuideGrid& a, const GuideGrid& b)
 // With `every` above 1 only one in that many of those frames is compared
 // (a search from scratch costs the whole map; the kept guide is still
 // asked every frame, so it changes as it would in play).
+// A call that sees the same answer it counted last (same frame, place and
+// count left) is skipped: while the world holds still (no logic frame),
+// guide() keeps its answer and g.frame still equals stats().frames, so
+// without this the repeats of one frame would count again toward a test's
+// bar. A runner moved without a new frame (a monitor wipe's teleport) gives
+// a new place, so that answer still counts.
 struct Compare
 {
   int every = 1;
@@ -153,11 +159,15 @@ struct Compare
   int checked = 0;
   int differ = 0;
   std::string first;
+  bool counted = false; // `last` holds the answer counted last
+  World::Guide last;
   void operator()(const World& w)
   {
     const World::Guide& g = w.guide();
-    if (g.frame != w.stats().frames || g.kind == World::GuideKind::None)
+    if (g.frame != w.stats().frames || g.kind == World::GuideKind::None || repeat(g))
       return;
+    counted = true;
+    last = g;
     if (worked++ % every != 0)
       return;
     const World::Guide fresh = w.guideFresh();
@@ -167,6 +177,11 @@ struct Compare
       if (differ++ == 0)
         first = "frame " + std::to_string(g.frame) + ": kept " + describe(g) + ", fresh " + describe(fresh);
     }
+  }
+  // The same answer as the one counted last: a held frame asked again.
+  bool repeat(const World::Guide& g) const
+  {
+    return counted && g.frame == last.frame && g.fromX == last.fromX && g.fromY == last.fromY && g.left == last.left;
   }
 };
 
@@ -507,8 +522,9 @@ void checkKeptForceField(const Theme& theme, const Art& art)
 // kept guide compared with `cmp` on every frame. A frame the world holds
 // still (level 42's roll-ins, wipes and commercial breaks, a title card)
 // does not count: no logic runs, so the guide has nothing new to work out,
-// and a long hold would leave a short run next to nothing to compare. At
-// most four calls per live frame, so a world that never lets go still ends.
+// and a long hold would leave a short run next to nothing to compare (and
+// `cmp` skips the repeats of one held frame). At most four times as many
+// calls as live frames asked for, so a world that never lets go still ends.
 void scriptedRun(World& w, int frames, Compare& cmp)
 {
   for (int f = 0, calls = 0; f < frames && calls < frames * 4 && w.state() == WorldState::Playing; ++calls)
