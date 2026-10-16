@@ -86,6 +86,10 @@ public:
   // For the on-screen gamepad: a level is being played (its layout) rather
   // than a menu, cutscene or tally, and the TOUCH PAD size setting.
   bool inLevel() const;
+  // A cloud refresh or upload is still running or not yet collected by
+  // tick (pollCloud). Once a refresh's future is ready, every one of its
+  // workers has returned, each having checked its file's dirty marker.
+  bool cloudSyncing() const { return mCloudRefresh.valid() || !mCloudUploads.empty(); }
   // WORLD SELECT is on screen.
   bool worldSelect() const { return mMode == Mode::Worlds && mMenu == Menu::None; }
   int touchSize() const { return mProfile.touchSize; }

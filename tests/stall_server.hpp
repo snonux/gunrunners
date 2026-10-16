@@ -17,9 +17,11 @@
 // Stall::Connect (Linux only) fills the accept queue with its own
 // connections first, so the kernel drops every further SYN and a client
 // sits in its SYN retransmits: the request never gets past connecting.
-// Where the kernel does not queue them that way or does not report the
-// queue in tcp_info (gVisor, WSL1, some sandboxes, any other system), the
-// server is not ok() and connectStallUnsupported() says why.
+// The queue is watched through tcp_info. Where the listening socket has
+// none (some sandboxes) or on any other system, the server is not ok() and
+// connectStallUnsupported() is true, so a connect-phase test skips. Where
+// tcp_info is there but the queue still does not fill, the server is only
+// not ok(), and such a test fails: that is not a known limitation.
 //
 // The constructor sets no_proxy for 127.0.0.1, so the requests reach this
 // server even when the environment configures an HTTP proxy.
@@ -71,9 +73,13 @@ public:
     ::setenv("NO_PROXY", "127.0.0.1", 1);
     if (!listenOnLoopback(stall == Stall::Connect ? 1 : 64))
       return;
-    if (stall == Stall::Connect && !fillAcceptQueue())
+    if (stall == Stall::Connect && !connectStallSupported())
     {
       mConnectStallUnsupported = true;
+      closeAll();
+    }
+    else if (stall == Stall::Connect && !fillAcceptQueue())
+    {
       closeAll();
     }
   }
@@ -82,8 +88,8 @@ public:
   StallServer& operator=(const StallServer&) = delete;
 
   bool ok() const { return mFd >= 0; }
-  // Stall::Connect listened but could not fill the accept queue here: a
-  // test of the connect phase skips rather than fails.
+  // Stall::Connect can't work here (not Linux, or no tcp_info for the
+  // listening socket): a test of the connect phase skips rather than fails.
   bool connectStallUnsupported() const { return mConnectStallUnsupported; }
   std::string endpoint() const { return "http://127.0.0.1:" + std::to_string(mPort); }
   // True once a client has connected, waiting up to timeoutMs. Connections
@@ -117,7 +123,10 @@ public:
   // Takes the next queued connection, waiting up to timeoutMs for it, and
   // reads its request head. A GET gets an empty 404 (see answeredClosed);
   // any other request is kept like acceptClients' connections, never
-  // answered. Returns the request's method, or "" if none came in time.
+  // answered. A connection whose request head never arrived in time is
+  // kept that way too (returning ""): it counts in openClients() until the
+  // client closes it. Returns the request's method, or "" if no connection
+  // or no request came in time.
   std::string serveRequest(int timeoutMs)
   {
     if (!waitForClient(timeoutMs))
@@ -210,10 +219,21 @@ private:
     return true;
   }
 
+  // Whether Stall::Connect can watch the accept queue: Linux, with
+  // tcp_info for the listening socket.
+  bool connectStallSupported() const
+  {
+#ifdef __linux__
+    return queuedConnections() >= 0;
+#else
+    return false;
+#endif
+  }
+
   // Connects (never accepted) clients of its own until the accept queue is
   // full: Linux then drops every new SYN (the queue holds backlog + 1).
-  // Elsewhere, or if the queue does not fill (or tcp_info does not show
-  // it), this fails and the constructor marks the stall unsupported.
+  // False if the queue does not fill (connectStallSupported() checked that
+  // tcp_info shows it).
   bool fillAcceptQueue()
   {
 #ifdef __linux__

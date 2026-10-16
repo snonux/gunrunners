@@ -5,7 +5,8 @@
 //   - the start-up refresh stalls: quitting cancels it at once;
 //   - a quick save's upload stalls: quitting gives it its 2 s grace
 //     (kQuitUploadGrace in menus.cpp) and then cancels it, so it takes
-//     about 2-3 s, neither less (no grace) nor the 30 s timeout;
+//     about 2-3 s, neither less (no grace) nor the 30 s timeout (the check
+//     allows up to 5 s);
 //   - the constructor throws after starting the refresh (a level file that
 //     is not there): Game::CloudCancel cancels it as the members unwind.
 
@@ -20,6 +21,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unistd.h>
 
 using namespace gr;
@@ -148,6 +150,20 @@ bool uploadReachesServer(Game& g, grtest::StallServer& server)
   return connected && server.serveRequest(1000) == "PUT";
 }
 
+// Ticks until the game has collected every cloud request (pollCloud runs
+// on tick), for up to 5 s; true if it did.
+bool cloudSettled(Game& g)
+{
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (g.cloudSyncing() && std::chrono::steady_clock::now() < deadline)
+  {
+    g.tick({});
+    if (g.cloudSyncing())
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return !g.cloudSyncing();
+}
+
 // A Game in Level 1 whose start-up refresh found nothing in the cloud, with
 // a quick save's upload stuck on the server; nullptr if the setup failed.
 std::unique_ptr<Game> uploadStalled(grtest::StallServer& server,
@@ -163,10 +179,12 @@ std::unique_ptr<Game> uploadStalled(grtest::StallServer& server,
   check(gets == kSaveSlots + 1, "the start-up refresh finds no saves in the cloud");
   // The quick save must come after the refresh looked at the quick save's
   // dirty marker, or the refresh would upload it (and quitting cancels a
-  // refresh at once, with no grace). Each worker's check follows right
-  // after its request is over, and settling into Level 1 (180 ticks) lies
-  // between that and the save.
+  // refresh at once, with no grace). The requests being over is not
+  // enough: a worker checks the marker after its request. The game
+  // collecting the refresh is: its future is ready only once every worker
+  // has returned, so every check is done (Game::cloudSyncing).
   check(server.answeredClosed(5000), "the refresh's requests are over");
+  check(cloudSettled(*game), "the game collects the finished refresh");
   settle(*game);
   check(game->inLevel(), "Level 1 runs");
   quickSave(*game);
@@ -193,7 +211,9 @@ void quitDuringUpload(const std::filesystem::path& dir, SDL_Renderer* sdl)
   const double seconds = timeQuit(game);
   std::printf("quitting during the upload took %.2f s\n", seconds);
   check(seconds >= 1.5, "quitting gives the upload its grace period");
-  check(seconds < 3.5, "quitting cuts the upload off after the grace period");
+  // Well under the 10 s connect and 30 s transfer timeouts, with slack
+  // for a slow (sanitizer) build.
+  check(seconds < 5.0, "quitting cuts the upload off after the grace period");
   check(server.clientsClosed(2000), "quitting ends the stalled upload");
   check(std::filesystem::exists(quickSavePath(dir.string()) + ".cloud-dirty"),
     "the cut-off upload stays marked for the next start");
