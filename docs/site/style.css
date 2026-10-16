@@ -129,6 +129,9 @@ h3 { font: 700 22px/1.25 var(--display); margin: 0 0 6px; }
 }
 .play-strip p { margin: 0; max-width: 62ch; color: var(--muted); font-size: 16px; }
 .btn-play { font-size: 22px; padding: 14px 28px; box-shadow: 0 0 24px rgba(255, 63, 174, 0.45); }
+/* The trailers follow the strip closely: the hero starts at the top
+   instead of centring its rows in a full screen's height. */
+.play-strip + .hero { padding-top: clamp(20px, 3vw, 32px); align-content: start; }
 
 /* ---------- hero ---------- */
 .hero { display: grid; grid-template-columns: 1fr minmax(300px, 520px); gap: clamp(24px, 5vw, 64px); align-items: center; min-height: calc(100vh - 60px); }
