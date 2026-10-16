@@ -20,6 +20,9 @@ class World;
 class Planner
 {
 public:
+  // Search nodes one plan expands at most (each makes up to a child per
+  // macro); tests use it to size a big plan.
+  static constexpr int kNodeBudget = 2600;
   // Next logic frame's input. Plans when the queue runs dry.
   Input next(const World& world);
   // Frames of input left in the current plan.

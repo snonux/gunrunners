@@ -1,12 +1,16 @@
-// The bot's planner (task ne3): a plan whose search outgrows the node
-// vector's reserve must still come out the same every time. Expanding a node
-// pushes its children onto that vector; the planner used to keep reading the
-// node through a reference the reallocation had freed (only an ASan build
-// sees that for sure, a plain build just plans nondeterministically). So the
-// test drives the planner on a level until one plan makes more nodes than the
-// reserve, twice from the start, and compares the inputs. Run it under
-// -fsanitize=address as well. Also checks that a runner out of play gets a
-// single idle input without any search.
+// The bot's planner (task ne3): plans come out the same every time, also a
+// big one. Expanding a search node pushes its children onto the node list;
+// the planner used to keep reading the node through a reference into a
+// vector whose reallocation (past its kNodeBudget * 4 reserve) had freed it.
+// A plain build then reads stale memory that usually still holds the old
+// values, so the plans looked fine and only ASan caught the bug reliably.
+// The node list is a deque now, whose push_back never moves existing nodes,
+// which rules that out structurally. The test drives the planner on a level
+// until one plan makes more than kBigPlan nodes, twice from the start, and
+// compares the inputs (determinism, through the big plan). Under
+// -fsanitize=address it also guards the memory safety directly. It also
+// checks that a runner out of play gets a single idle input without any
+// search, on a planner that has searched before.
 
 #include "assets/art.hpp"
 #include "data/level.hpp"
@@ -37,8 +41,10 @@ void check(bool ok, const char* what)
     ++gFailures;
 }
 
-// The node vector's reserve in Planner::plan (kBudget * 4).
-constexpr int kReserve = 2600 * 4;
+// A big plan: more nodes than four children per expanded node (the size the
+// node vector's reserve used to hold, past which the old bug read freed
+// memory). Derived from the planner's budget so it follows any retuning.
+constexpr int kBigPlan = Planner::kNodeBudget * 4;
 
 // The same edges the planner's own simulation uses.
 PlayerInput toPlayer(const Input& in, const Input& prev)
@@ -62,13 +68,13 @@ bool sameInput(const Input& a, const Input& b)
 struct Run
 {
   std::vector<Input> inputs;
-  int bigPlanAt = -1; // the frame the first plan over the reserve was made on
+  int bigPlanAt = -1; // the frame the first plan over kBigPlan nodes was made on
   int bigPlanNodes = 0;
   int plans = 0;
 };
 
-// Plays the level with a fresh planner until a plan makes more nodes than
-// the reserve and its inputs have been played out (or maxFrames pass).
+// Plays the level with a fresh planner until a plan makes more than
+// kBigPlan nodes and its inputs have been played out (or maxFrames pass).
 Run play(const std::shared_ptr<const Level>& level, const Theme& theme, const Art& art, int maxFrames)
 {
   Run r;
@@ -82,7 +88,7 @@ Run play(const std::shared_ptr<const Level>& level, const Theme& theme, const Ar
     if (planning)
     {
       ++r.plans;
-      if (r.bigPlanAt < 0 && planner.lastPlanNodes() > kReserve)
+      if (r.bigPlanAt < 0 && planner.lastPlanNodes() > kBigPlan)
       {
         r.bigPlanAt = f;
         r.bigPlanNodes = planner.lastPlanNodes();
@@ -100,8 +106,9 @@ Run play(const std::shared_ptr<const Level>& level, const Theme& theme, const Ar
 void checkBigPlan(const std::shared_ptr<const Level>& level, const Theme& theme, const Art& art, int maxFrames)
 {
   const Run a = play(level, theme, art, maxFrames);
-  std::printf("     %d plans; first over the reserve at frame %d (%d nodes)\n", a.plans, a.bigPlanAt, a.bigPlanNodes);
-  check(a.bigPlanAt >= 0, "a plan outgrows the node reserve");
+  std::printf("     %d plans; first big plan at frame %d (%d nodes, over %d)\n", a.plans, a.bigPlanAt, a.bigPlanNodes,
+    kBigPlan);
+  check(a.bigPlanAt >= 0, "a big plan completes");
   const Run b = play(level, theme, art, maxFrames);
   check(b.bigPlanAt == a.bigPlanAt && b.bigPlanNodes == a.bigPlanNodes, "the big plan comes at the same frame, same size");
   bool same = a.inputs.size() == b.inputs.size();
@@ -110,18 +117,44 @@ void checkBigPlan(const std::shared_ptr<const Level>& level, const Theme& theme,
   check(same, "the same inputs both times, through the big plan");
 }
 
+// Plays the level until a plan searches (makes nodes), then drains that
+// plan's queue without moving the world on. False: no plan searched within
+// maxFrames.
+bool searchOnce(World& world, Planner& planner, int maxFrames)
+{
+  Input prev;
+  for (int f = 0; f < maxFrames && world.state() == WorldState::Playing; ++f)
+  {
+    const bool planning = planner.queued() == 0;
+    const Input in = planner.next(world);
+    if (planning && planner.lastPlanNodes() > 0)
+    {
+      while (planner.queued() > 0) // next() only plans on an empty queue
+        planner.next(world);
+      return true;
+    }
+    world.update(toPlayer(in, prev));
+    prev = in;
+  }
+  return false;
+}
+
 // A runner beaming out through the exit (the Exit cheat) gets one idle
-// input and no search.
-void checkNoSearch(const std::shared_ptr<const Level>& level, const Theme& theme, const Art& art)
+// input and no search. The planner searched once before, so a node count
+// left over from that plan would show.
+void checkNoSearch(const std::shared_ptr<const Level>& level, const Theme& theme, const Art& art, int maxFrames)
 {
   World world(level, 0, theme, art);
+  Planner planner;
+  check(searchOnce(world, planner, maxFrames) && planner.lastPlanNodes() > 0 && planner.queued() == 0,
+    "a plan searches first, and its queue drains");
   world.cheat(Cheat::Exit);
   check(world.state() != WorldState::Playing || world.player().state == PlayerState::Teleporting,
     "the Exit cheat takes the runner out of play");
-  Planner planner;
   const Input in = planner.next(world);
   check(sameInput(in, Input{}), "a runner out of play gets an idle input");
-  check(planner.lastPlanNodes() == 0 && planner.queued() == 0, "and no search");
+  check(planner.lastPlanNodes() == 0, "and no search (the earlier plan's nodes are gone)");
+  check(planner.queued() == 0, "and nothing more queued");
 }
 
 } // namespace
@@ -139,7 +172,7 @@ int main(int argc, char** argv)
     const Art art = Art::build(theme, renderer);
     const auto level = std::make_shared<const Level>(Level::loadFile(levelPath));
     checkBigPlan(level, theme, art, maxFrames);
-    checkNoSearch(level, theme, art);
+    checkNoSearch(level, theme, art, maxFrames);
   }
   SDL_DestroyRenderer(sdl);
   SDL_FreeSurface(surface);

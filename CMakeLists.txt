@@ -340,8 +340,11 @@ foreach(extra motor_pool deep_dive)
     --quit-after-clear --frames 20000 --level ${CMAKE_SOURCE_DIR}/levels/extra_${extra}.txt)
   set_tests_properties(bot_extra_${extra} PROPERTIES PASS_REGULAR_EXPRESSION "cleared:")
 endforeach()
-# The planner keeps planning the same when a plan's search outgrows its node
-# reserve (task ne3; run it in a -fsanitize=address build too).
+# The planner plans the same every time, also a big plan (over 4 * its node
+# budget, task ne3); a runner out of play makes it skip the search. Run it in
+# a -fsanitize=address build too, with ASAN_OPTIONS=detect_leaks=0: Art::build
+# leaks through fontconfig/cairo (pre-existing), which LeakSanitizer would
+# report as a failure.
 add_executable(planner_test tests/planner_test.cpp)
 target_link_libraries(planner_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME planner COMMAND planner_test ${CMAKE_SOURCE_DIR}/levels/49_hive_mother.txt 3000)
