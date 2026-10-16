@@ -272,6 +272,28 @@ void Game::pollCloud()
   }
 }
 
+void Game::cancelCloudSync()
+{
+  // Under the commit mutex, like the CLOUD menu's bumps: a worker that is
+  // committing a download or clearing a dirty marker finishes that step
+  // first, and every later S3Active check sees the new generation. libcurl
+  // calls transferProgress about once a second even while connecting or
+  // waiting on a silent server, so each request aborts within about that.
+  {
+    std::lock_guard<std::mutex> lock(*mCloudCommitMutex);
+    mCloudGeneration->fetch_add(1);
+  }
+  mCloudRefreshPending = false;
+  // An aborted upload keeps its .cloud-dirty marker, so the next start
+  // uploads that save again. The results are stale and are dropped.
+  if (mCloudRefresh.valid())
+    mCloudRefresh.wait();
+  for (auto& upload : mCloudUploads)
+    upload.result.wait();
+  mCloudRefresh = std::future<std::string>();
+  mCloudUploads.clear();
+}
+
 void Game::openMenu(Menu m)
 {
   mMenu = m;

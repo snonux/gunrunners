@@ -60,6 +60,9 @@ class Game
 {
 public:
   Game(const GameOptions& options, Renderer& renderer, Audio* audio);
+  // Cancels any cloud save sync still running (cancelCloudSync) so quitting
+  // does not wait out the S3 timeouts.
+  ~Game();
 
   // Advances one fixed 60 Hz tick. Returns false once the game wants to quit.
   bool tick(const Input& input);
@@ -293,6 +296,9 @@ private:
   void beginCloudRefresh();
   void queueCloudUpload(const std::string& path);
   void pollCloud();
+  // Makes every running cloud request stale, which aborts its transfer
+  // within about a second, and waits for the workers to finish.
+  void cancelCloudSync();
   // Builds the save's world aside and swaps it in only once it fits; a
   // refused save (another level, a level that won't load, one that does
   // not fit) leaves the run in progress, its level and HARD as they were.
@@ -460,6 +466,11 @@ private:
   void renderSubtitle();
   CutsceneVoices mCutsceneVoices; // the cutscenes' speech (voices/cutscenes)
   int mNoticeTicks = 0;
+  // Cloud save workers. A std::async future blocks in its destructor until
+  // the task ends, so ~Game bumps mCloudGeneration first: the workers' S3Active
+  // check then fails and libcurl aborts the request instead of running into
+  // its 10 s connect / 30 s transfer timeouts. Bumps happen under
+  // mCloudCommitMutex so a worker never commits a file for a stale generation.
   std::future<std::string> mCloudRefresh;
   struct CloudUpload
   {

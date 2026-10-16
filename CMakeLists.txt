@@ -364,6 +364,10 @@ add_test(NAME s3 COMMAND s3_test)
 add_executable(frame_pacing_test tests/frame_pacing_test.cpp)
 target_link_libraries(frame_pacing_test PRIVATE gunrunners_core)
 add_test(NAME frame_pacing COMMAND frame_pacing_test)
+# Quitting while a cloud sync is stuck on a silent server (stall_server.hpp).
+add_executable(cloud_quit_test tests/cloud_quit_test.cpp)
+target_link_libraries(cloud_quit_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME cloud_quit COMMAND cloud_quit_test)
 add_test(NAME savegame_rooftop_run COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/01_rooftop_run.txt)
 # Far enough up the tower for gondolas to have moved and hatches to be open.
 add_test(NAME savegame_glass_canyon COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/02_glass_canyon.txt 700)

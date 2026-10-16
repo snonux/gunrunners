@@ -1,8 +1,10 @@
 #include "game/s3.hpp"
 #include "game/savegame.hpp"
+#include "stall_server.hpp"
 
 #include <arpa/inet.h>
 #include <csignal>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -222,6 +224,128 @@ void downloadsInstallAllOrNothing()
 }
 
 } // namespace
+// What quitting the game does to a running sync: the S3Active check turns
+// false after ms milliseconds.
+S3Active cancelAfter(int ms)
+{
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+  return S3Active{[deadline]() { return std::chrono::steady_clock::now() < deadline; }, nullptr};
+}
+
+double secondsSince(std::chrono::steady_clock::time_point start)
+{
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
+
+// No .cloud-upload-* snapshot or .cloud-incoming-* download left in dir.
+bool noCloudTemporaries(const std::filesystem::path& dir)
+{
+  for (const auto& entry : std::filesystem::directory_iterator(dir))
+  {
+    const std::string name = entry.path().filename().string();
+    if (name.find(".cloud-upload-") != std::string::npos ||
+        name.find(".cloud-incoming-") != std::string::npos)
+      return false;
+  }
+  return true;
+}
+
+// A request that is cancelled before it starts never opens a connection.
+// Runs first: the stalling server never accepts, so a connection would
+// stay queued and waitForClient would see it from then on.
+void cancelledRequestsDoNotConnect(const grtest::StallServer& server,
+  const S3Config& stalled, const std::filesystem::path& dir)
+{
+  const S3Active cancelled{[]() { return false; }, nullptr};
+  const std::string path = (dir / "cancelled.sav").string();
+  check(s3GetFile(stalled, stalled.object("cancelled.sav"), path, nullptr, cancelled) ==
+      S3GetResult::Error && !std::filesystem::exists(path),
+    "a cancelled download fails without writing a file");
+  check(!s3PutFile(stalled, stalled.object("cancelled.sav"), path, nullptr, cancelled),
+    "a cancelled upload fails");
+  check(!server.waitForClient(200), "cancelled requests never reach the server");
+}
+
+// Requests stuck on a server that never answers end within about a second
+// of the cancel (libcurl's progress callback runs about once a second while
+// it waits), not after the 30 s CURLOPT_TIMEOUT.
+void stalledTransfersAbort(const grtest::StallServer& server,
+  const S3Config& stalled, const std::filesystem::path& dir)
+{
+  const std::string fresh = (dir / "fresh.sav").string();
+  auto start = std::chrono::steady_clock::now();
+  const S3GetResult got = s3GetFile(stalled, stalled.object("fresh.sav"), fresh,
+    nullptr, cancelAfter(300));
+  check(got == S3GetResult::Error && secondsSince(start) < 5.0,
+    "a stalled download aborts soon after the cancel");
+  check(server.waitForClient(0), "the aborted download had reached the server");
+  check(!std::filesystem::exists(fresh), "an aborted download writes no file");
+
+  const std::string source = (dir / "source.sav").string();
+  {
+    std::ofstream file(source, std::ios::binary);
+    file << "gunrunners-save test\n";
+  }
+  start = std::chrono::steady_clock::now();
+  check(!s3PutFile(stalled, stalled.object("source.sav"), source, nullptr, cancelAfter(300)) &&
+      secondsSince(start) < 5.0,
+    "a stalled upload aborts soon after the cancel");
+}
+
+// syncS3File cancelled mid-request: the local save stays as it was, a
+// dirty save keeps its marker for the next sync, and no temporary files
+// are left behind.
+void stalledSyncsAbort(const S3Config& stalled, const std::filesystem::path& dir)
+{
+  SaveGame save;
+  save.levelName = "S3 Stall Test";
+  save.savedAt = "2026-01-01 10:00";
+  save.hp = 3;
+  const std::string dirty = (dir / "dirty.sav").string();
+  const std::string clean = (dir / "clean.sav").string();
+  check(writeS3Save(save, dirty) && writeSave(save, clean), "seed a dirty and a clean save");
+
+  auto start = std::chrono::steady_clock::now();
+  check(syncS3File(stalled, stalled.object("dirty.sav"), dirty, nullptr, cancelAfter(300)) ==
+      S3SyncResult::Error && secondsSince(start) < 5.0,
+    "a stalled sync upload aborts soon after the cancel");
+  const auto afterUpload = readSave(dirty);
+  check(afterUpload && afterUpload->savedAt == save.savedAt &&
+      std::filesystem::exists(dirty + ".cloud-dirty"),
+    "an aborted upload keeps the save and its dirty marker");
+
+  start = std::chrono::steady_clock::now();
+  check(syncS3File(stalled, stalled.object("clean.sav"), clean, nullptr, cancelAfter(300)) ==
+      S3SyncResult::Error && secondsSince(start) < 5.0,
+    "a stalled sync download aborts soon after the cancel");
+  const auto afterDownload = readSave(clean);
+  check(afterDownload && afterDownload->savedAt == save.savedAt,
+    "an aborted download keeps the local save");
+  check(noCloudTemporaries(dir), "aborted syncs leave no temporary files");
+}
+
+void cancelTests()
+{
+  grtest::StallServer server;
+  check(server.ok(), "a local stalling server listens");
+  if (!server.ok())
+    return;
+  S3Config stalled;
+  stalled.endpoint = server.endpoint();
+  stalled.bucket = "saves";
+  stalled.accessKey = "key";
+  stalled.secretKey = "secret";
+  const std::filesystem::path dir = std::filesystem::temp_directory_path() /
+    ("gunrunners_s3_stall_test_" + std::to_string(::getpid()));
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  cancelledRequestsDoNotConnect(server, stalled, dir);
+  stalledTransfersAbort(server, stalled, dir);
+  stalledSyncsAbort(stalled, dir);
+  std::filesystem::remove_all(dir);
+}
+
+} // namespace
 
 int main()
 {
@@ -255,6 +379,7 @@ int main()
       !loadS3Config(configDir.string()).enabled(),
     "cloud configuration can be disabled");
   std::filesystem::remove_all(configDir);
+  cancelTests();
 
   S3Config config;
   config.endpoint = env("GUNRUNNERS_TEST_S3_ENDPOINT");
