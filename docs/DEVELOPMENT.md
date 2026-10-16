@@ -210,12 +210,14 @@ character voice blips in `src/audio/synth_named.cpp`. The mixer
 
 Nothing is synthesized before the first frame. The effects (~3.5 s of CPU
 for all of them) render on a thread of their own once the sound device is
-open (`src/audio/sound_bank.hpp`), the menu's first; one played before its
-turn is skipped that once and rendered next. The menu, fallback level and
-victory tracks render when first played, like the levels' own, so the
-title's music follows a moment after the title. Headless recording and the
-browser build without threads render an effect on its first play instead,
-so a recording still has every sound.
+open (`src/audio/sound_bank.hpp`), the menu's first, at low priority; one
+played before its turn is rendered by that play (a few ms, once), so a
+level's one-off warnings play even right after launch. The menu, fallback
+level and victory tracks render when first played, like the levels' own,
+so the title's music follows a moment after the title. Headless recording
+and the browser build without threads render every effect on its first
+play (nothing renders them in the background there), so a recording still
+has every sound.
 
 ## Recording gameplay without a display
 

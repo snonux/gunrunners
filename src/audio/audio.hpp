@@ -37,8 +37,10 @@ constexpr int kAudioRate = 48000;
 //
 // Nothing is synthesized up front, so the first frame comes at once (all
 // the effects and the built-in tracks took 4-6 s): with a sound device the
-// effects render in the background from openDevice() on, and every track
-// is rendered the first time it is played (see playMusicNamed).
+// effects render in the background from openDevice() on, at low priority
+// (one played before its turn is rendered by that play, see play), and
+// every track is rendered the first time it is played (see
+// playMusicNamed).
 class Audio
 {
 public:
@@ -65,15 +67,18 @@ public:
   // Opens the sound device and starts rendering the sound effects in the
   // background, in sfxRenderOrder().
   bool openDevice();
-  // With a sound device and the background worker, an effect not rendered
-  // yet is skipped this once and rendered next, ahead of the rest; it never
-  // blocks the caller. Without them (headless recording, the browser build
-  // without threads) it is rendered here on its first play (a few ms), so
-  // a recording has every sound.
+  // An effect the background worker has not rendered yet is rendered here
+  // on its first play (a few ms, once). With a sound device and the
+  // worker, the one the worker is rendering right now is skipped this
+  // once instead of waited for, so it never blocks on the worker. Without
+  // them (headless recording, the browser build without threads) that
+  // wait happens, so a recording has every sound.
   void play(Sfx s, float volume = 1.0f);
   // The built-in tracks, played as the named tracks synth::makeNamedMusic
   // renders the same ("menu", "theme_synthwave", "victory"), so they too
-  // are rendered when first played. Music::None stops the music.
+  // are rendered when first played and share the named tracks' cache
+  // (Music::Level while theme_synthwave plays goes on with it). Music::None
+  // stops the music.
   void playMusic(Music m);
   // Music by the ids level headers and cutscenes use ("theme_synthwave",
   // "stop"); tracks are synthesized the first time they are needed. With
@@ -132,7 +137,7 @@ public:
   // The order the effects render in the background (each once): the menu's
   // first, as the title needs them at once, then the enum's order, which
   // lists those every level uses (jumps, shots, pickups) before each later
-  // level's own. One played before its turn moves up (see play).
+  // level's own. One played before its turn is rendered by that play.
   static std::vector<std::size_t> sfxRenderOrder();
 
 private:
@@ -147,9 +152,9 @@ private:
   };
 
   static void callback(void* user, Uint8* stream, int len);
-  // Whether a sound or track not rendered yet may come late (play skips
-  // it once, playMusicNamed starts it late) instead of being rendered on
-  // the spot.
+  // Whether a sound or track may come late instead of being waited for or
+  // rendered on the spot: play skips the effect the worker is rendering
+  // right now, playMusicNamed starts a track not rendered yet late.
   bool deferRenders() const;
   // Calls off the switch waiting for its render (see cancelPending in
   // audio.cpp).
@@ -160,7 +165,8 @@ private:
   // (never blocks).
   Track* readyTrack(const std::string& id);
   Track* cachedTrack(const std::string& id);
-  // Caches a new track, evicting the oldest past kKeepTracks.
+  // Caches a new track, evicting the least recently used past kKeepTracks
+  // (never the one playing).
   Track* keepTrack(const std::string& id, std::unique_ptr<Track> tr);
   void startTrackLocked(const std::string& id, const Track* track, std::size_t pos);
   static std::unique_ptr<Track> synthTrack(const std::string& id);
@@ -174,7 +180,7 @@ private:
   // Indexed by Sfx; rendered ones never move, so a Voice plays from them.
   SoundBank<std::vector<float>> mSfx;
   std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;
-  std::vector<std::string> mTrackOrder; // oldest first
+  std::vector<std::string> mTrackOrder; // least recently used first
   static constexpr std::size_t kKeepTracks = 10;
   // Finished preloads not played yet, at ~12 MB each (~100 MB at most).
   // A level's own track is claimed as it starts; what it preloads beyond

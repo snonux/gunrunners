@@ -7,7 +7,6 @@
 #include <deque>
 #include <exception>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -27,41 +26,50 @@ namespace gr
 // lifetime at a fixed address, so a pointer handed out stays valid (the
 // mixer plays straight from it) and the item never changes again.
 //
-// Two ways to ask for one:
-//   - tryGet() never waits: one not rendered yet comes back as nullptr and
-//     moves to the front of the queue (behind the render in progress), so
-//     a sound played before its turn is skipped once and is there a few
-//     milliseconds later, for its next play;
-//   - get() always hands it over: one queued or never asked for is rendered
-//     by the caller, one the worker is on is waited for (one item, a few
-//     milliseconds, never the whole set). Headless recording uses it, so a
-//     clip has every sound whatever the worker's speed, and so does the
-//     browser build without threads, where nothing renders in the
-//     background.
+// Two ways to ask for one; both render one queued or never asked for on
+// the caller's thread (a few milliseconds, once per item, and only while
+// the worker is behind), so a sound played before its turn still plays:
+//   - tryGet() never waits for another thread: only the one the worker (or
+//     another caller) is rendering right now comes back as nullptr, so that
+//     one sound is skipped once; it is there a few milliseconds later. A
+//     window plays through it (Audio::play on the game thread), where a
+//     wait would stall the frame. Its first play of an effect used to be
+//     dropped while the bank was behind, which lost a level's one-off
+//     warnings (a siren, a mine's fuse) on a slow phone;
+//   - get() always hands it over, waiting for the render in progress of
+//     that one item. Headless recording uses it, so a clip has every sound
+//     whatever the worker's speed, and so does the browser build without
+//     threads, where nothing renders in the background.
 //
-// Without threads (threaded = false) requests are not even remembered:
-// tryGet() only hands over what get() rendered.
+// Without threads (threaded = false) nothing is queued: prerender() does
+// nothing, and every item renders on its first tryGet() or get().
 //
 // All members may be called from any thread; the render runs without the
-// lock held, on the worker or on get()'s caller.
+// lock held, on the worker or on the caller.
 template <class T>
 class SoundBank
 {
 public:
   using Render = std::function<T(std::size_t)>;
 
-  SoundBank(Render render, std::size_t count, bool threaded = true)
+  // `onWorker`, if set, runs once on the worker thread as it starts (Audio
+  // lowers its priority there); it must not throw.
+  SoundBank(Render render, std::size_t count, bool threaded = true, std::function<void()> onWorker = {})
     : mRender(std::move(render))
     , mThreaded(threaded)
     , mItems(count)
     , mState(count, State::Idle)
   {
     if (threaded)
-      mWorker = std::thread([this] { run(); });
+      mWorker = std::thread([this, onWorker = std::move(onWorker)] {
+        if (onWorker)
+          onWorker();
+        run();
+      });
   }
 
   // Cancels the queue, then waits for the render in progress (it can't be
-  // interrupted). Nobody may be inside get() any more.
+  // interrupted). Nobody may be inside tryGet() or get() any more.
   ~SoundBank()
   {
     stop();
@@ -73,8 +81,8 @@ public:
   SoundBank& operator=(const SoundBank&) = delete;
 
   // Cancels the queue and has the worker end after the render in progress.
-  // Later requests are not remembered, as without threads; get() still
-  // renders on the spot.
+  // Later requests are not remembered, as without threads; tryGet() and
+  // get() still render on the spot.
   void stop()
   {
     {
@@ -96,28 +104,23 @@ public:
       std::lock_guard<std::mutex> lock(mMutex);
       for (const std::size_t i : order)
         if (i < mState.size() && mState[i] == State::Idle)
-          enqueueLocked(i, false);
+          enqueueLocked(i);
     }
     mWake.notify_one();
   }
 
-  // The item if it is rendered; nullptr otherwise, never waiting. A miss
-  // asks for it ahead of the rest of the queue (one being rendered stays
-  // where it is), so the worker renders it next.
+  // The item, rendered here if nobody has (a queued request is withdrawn);
+  // nullptr, at once, while the worker or another caller renders it, and
+  // for a number past the end or a render that failed (logged; asked for
+  // again, it is rendered again). Never waits for another thread.
   const T* tryGet(std::size_t i)
   {
-    {
-      std::lock_guard<std::mutex> lock(mMutex);
-      if (i >= mState.size())
-        return nullptr;
-      if (mState[i] == State::Done)
-        return mItems[i].get();
-      if (mState[i] == State::Rendering)
-        return nullptr;
-      enqueueLocked(i, true);
-    }
-    mWake.notify_one();
-    return nullptr;
+    std::unique_lock<std::mutex> lock(mMutex);
+    if (i >= mState.size() || mState[i] == State::Rendering)
+      return nullptr;
+    if (mState[i] == State::Done)
+      return mItems[i].get();
+    return renderHereLocked(lock, i);
   }
 
   // The item, rendered here if nobody has (a queued request is withdrawn),
@@ -133,15 +136,8 @@ public:
       waitForLocked(lock, i);
     if (mState[i] == State::Done)
       return mItems[i].get();
-    // Queued or idle (or the worker's render just failed): rendered here.
-    if (mState[i] == State::Queued)
-      mQueue.erase(std::find(mQueue.begin(), mQueue.end(), i));
-    mState[i] = State::Rendering;
-    lock.unlock();
-    std::unique_ptr<const T> out = renderSafely(i);
-    lock.lock();
-    finishLocked(i, std::move(out));
-    return mItems[i].get();
+    // Queued or idle (or the render waited for failed): rendered here.
+    return renderHereLocked(lock, i);
   }
 
   // Whether item `i` is rendered.
@@ -180,27 +176,29 @@ private:
     Done,      // in mItems for good
   };
 
-  // Puts idle or queued item `i` in the queue, at the front or the back
-  // (a queued one only moves, and only to the front). Nothing without a
-  // worker to render it.
-  void enqueueLocked(std::size_t i, bool first)
+  // Puts idle item `i` at the back of the queue. Nothing without a worker
+  // to render it.
+  void enqueueLocked(std::size_t i)
   {
     if (!mThreaded || mStop)
       return;
-    if (mState[i] == State::Queued)
-    {
-      if (first)
-      {
-        const auto q = std::find(mQueue.begin(), mQueue.end(), i);
-        std::rotate(mQueue.begin(), q, std::next(q));
-      }
-      return;
-    }
-    if (first)
-      mQueue.push_front(i);
-    else
-      mQueue.push_back(i);
+    mQueue.push_back(i);
     mState[i] = State::Queued; // after the push, which may throw
+  }
+
+  // Renders queued or idle item `i` on the caller's thread, with the lock
+  // released meanwhile (marked Rendering, so neither the worker nor
+  // another caller starts it too); its request, if queued, is withdrawn.
+  const T* renderHereLocked(std::unique_lock<std::mutex>& lock, std::size_t i)
+  {
+    if (mState[i] == State::Queued)
+      mQueue.erase(std::find(mQueue.begin(), mQueue.end(), i));
+    mState[i] = State::Rendering;
+    lock.unlock();
+    std::unique_ptr<const T> out = renderSafely(i);
+    lock.lock();
+    finishLocked(i, std::move(out));
+    return mItems[i].get();
   }
 
   void run()
@@ -222,8 +220,8 @@ private:
   }
 
   // Stores a finished render (nothing here throws) and wakes the get()s
-  // waiting for it. A failed one leaves the item idle: a later get()
-  // renders it on the spot, a later tryGet() asks the worker again.
+  // waiting for it. A failed one leaves the item idle: a later tryGet() or
+  // get() renders it on the spot.
   void finishLocked(std::size_t i, std::unique_ptr<const T> out)
   {
     mItems[i] = std::move(out);
@@ -252,7 +250,7 @@ private:
   }
 
   // Blocks until the render of `i` in progress (the worker's, or another
-  // get()'s) is over, counted in mWaiting meanwhile (see waiting()).
+  // caller's) is over, counted in mWaiting meanwhile (see waiting()).
   void waitForLocked(std::unique_lock<std::mutex>& lock, std::size_t i)
   {
     mWaiting.push_back(i);

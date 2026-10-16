@@ -29,6 +29,16 @@ constexpr bool kBackgroundRender = false;
 constexpr bool kBackgroundRender = true;
 #endif
 
+// Runs on the effects' worker as it starts. At startup it would otherwise
+// compete with the first frames for a core (a phone may have few to spare),
+// and an effect it has not got to yet is rendered by its first play
+// anyway (see Audio::play). Failing to lower it (no permission) changes
+// nothing else.
+void lowerThreadPriority()
+{
+  SDL_SetThreadPriority(SDL_THREAD_PRIORITY_LOW);
+}
+
 // The id synth::makeNamedMusic renders each built-in track under.
 const char* musicId(Music m)
 {
@@ -57,7 +67,8 @@ Audio::Audio() : Audio(&Audio::synthTrack, false) {}
 Audio::Audio(TrackRender renderTrack, bool deferWithoutDevice)
   : mRenderTrack(std::move(renderTrack))
   , mDeferWithoutDevice(deferWithoutDevice)
-  , mSfx([](std::size_t i) { return synth::makeSfx(Sfx(i)); }, std::size_t(Sfx::Count), kBackgroundRender)
+  , mSfx([](std::size_t i) { return synth::makeSfx(Sfx(i)); }, std::size_t(Sfx::Count), kBackgroundRender,
+      &lowerThreadPriority)
   , mPreloads(mRenderTrack, kKeepPreloads, kBackgroundRender)
 {
 }
@@ -115,10 +126,15 @@ void Audio::callback(void* user, Uint8* stream, int len)
   self->mix(reinterpret_cast<float*>(stream), len / int(sizeof(float) * 2));
 }
 
+// Called on the game thread. An effect the bank has not rendered yet is
+// rendered here (a few ms, once per effect, only while the worker is still
+// behind), so a level's one-off warnings play even right after launch;
+// with a device only the one the worker is rendering at this very moment
+// is skipped (tryGet never waits for another thread).
 void Audio::play(Sfx s, float volume)
 {
-  // Fetched before the lock: a render on the spot (headless) must not hold
-  // up the mixer, and the bank never takes mMutex, so no lock order issue.
+  // Fetched before the lock: a render here must not hold up the mixer, and
+  // the bank never takes mMutex, so no lock order issue.
   const std::size_t i = std::size_t(s);
   const std::vector<float>* sound = deferRenders() ? mSfx.tryGet(i) : mSfx.get(i);
   if (!sound || sound->empty())
@@ -145,10 +161,14 @@ void Audio::play(Sfx s, float volume)
   mVoices.push_back({&data, 0, volume, s});
 }
 
-// As when these were rendered up front, asking for the track playing
-// changes nothing and another one starts at its beginning; with a sound
-// device a track not rendered yet starts once it is (the title's music a
-// moment after the title, Music::Level ~3 s into a level without music=).
+// Played by the named tracks' ids, so asking for the track playing changes
+// nothing even when it was started by its id: Music::Level while a level's
+// music=theme_synthwave plays goes on with it (the two used to be separate
+// tracks, and that restarted it; the one caller, Game::playLevelMusic for
+// a level without music=, needs no restart). Another track starts at its
+// beginning; with a sound device one not rendered yet starts once it is
+// (the title's music a moment after the title, Music::Level ~3 s into a
+// level without music=).
 void Audio::playMusic(Music m)
 {
   playMusicNamed(musicId(m));
@@ -263,10 +283,17 @@ std::unique_ptr<Audio::Track> Audio::synthTrack(const std::string& id)
   return tr;
 }
 
+// A hit makes the track the most recently used, the last keepTrack evicts:
+// the menu's and the victory's come back again and again.
 Audio::Track* Audio::cachedTrack(const std::string& id)
 {
   const auto it = mNamedTracks.find(id);
-  return it != mNamedTracks.end() ? it->second.get() : nullptr;
+  if (it == mNamedTracks.end())
+    return nullptr;
+  const auto at = std::find(mTrackOrder.begin(), mTrackOrder.end(), id);
+  if (at != mTrackOrder.end())
+    std::rotate(at, std::next(at), mTrackOrder.end());
+  return it->second.get();
 }
 
 Audio::Track* Audio::namedTrack(const std::string& id)
@@ -297,7 +324,8 @@ Audio::Track* Audio::keepTrack(const std::string& id, std::unique_ptr<Track> tr)
   std::lock_guard<std::mutex> lock(mMutex);
   mNamedTracks[id] = std::move(tr);
   mTrackOrder.push_back(id);
-  // A track is ~15 MB: keep the most recent few, never the one playing.
+  // A track is ~15 MB: keep the few used last (played, or asked for while
+  // cached, see cachedTrack), never the one playing.
   for (std::size_t i = 0; mNamedTracks.size() > kKeepTracks && i < mTrackOrder.size();)
   {
     auto it = mNamedTracks.find(mTrackOrder[i]);
