@@ -169,11 +169,21 @@ int rightmostLit(const Pixels& px, int w)
   return right;
 }
 
-// Whether a and b agree in every column left of `limit`.
-bool sameLeftOf(const Pixels& a, const Pixels& b, int w, int limit)
+// The largest difference between two pixels in any colour channel.
+int channelDiff(Uint32 a, Uint32 b)
+{
+  int most = 0;
+  for (int shift = 0; shift < 32; shift += 8)
+    most = std::max(most, std::abs(int((a >> shift) & 255u) - int((b >> shift) & 255u)));
+  return most;
+}
+
+// Whether a and b agree in every column left of `limit`, each channel
+// within `noise` (0: exactly).
+bool sameLeftOf(const Pixels& a, const Pixels& b, int w, int limit, int noise)
 {
   for (std::size_t i = 0; i < a.size(); ++i)
-    if (int(i % std::size_t(w)) < limit && a[i] != b[i])
+    if (int(i % std::size_t(w)) < limit && channelDiff(a[i], b[i]) > noise)
       return false;
   return true;
 }
@@ -200,6 +210,15 @@ constexpr float kX = 100.0f, kY = 300.0f;
 // too faint to light a pixel) may add past the part drawn alone.
 constexpr int kMargin = 7;
 constexpr int kSliver = 2;
+// How far an italic part may be from the part drawn alone, per channel.
+// Cairo antialiases a slanted edge a little differently in a longer path
+// (whether its scan converter covers a pixel row in one go depends on every
+// edge in that row), so the whole line's texture and the part's own differ
+// by a level or two along the tops of the letters, wherever the cut is.
+// Upright edges come out the same: plain text is compared exactly. A lost
+// or extra column of ink is far more than this, and the ink's last column
+// is compared on its own.
+constexpr int kItalicNoise = 4;
 
 // An evicted string drawn again is rasterized again, to the same pixels.
 void evictedStringReturns(Renderer& r, SDL_Surface* surface)
@@ -254,15 +273,17 @@ void revealEnds(Renderer& r, SDL_Surface* surface)
   check(past == full, "a prefix past the end is the whole line");
 }
 
-// A part of the line looks like that part drawn on its own. Before a
-// space: exactly, the last letter's outline and slant whole (a cut at the
-// advance took half the outline and the lean). Between letters: the same
-// left of the next letter's outline, and ending where the part ends, give
-// or take the last letter's outline where the next letter's fill is close
-// and a sliver of the next letter's outline.
+// A part of the line looks like that part drawn on its own (italic within
+// kItalicNoise). Before a space: all of it, ending in the same column, the
+// last letter's outline and slant whole (a cut at the advance took half
+// the outline and the lean). Between letters: the same left of the next
+// letter's outline, and ending where the part ends, give or take the last
+// letter's outline where the next letter's fill is close (italic: where it
+// leans over the next letter) and a sliver of the next letter's outline.
 void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_t bytes, const Pixels& full)
 {
   const int sw = surface->w;
+  const int noise = st.italic ? kItalicNoise : 0;
   const std::string part = kLine.substr(0, bytes);
   const std::string what = std::string(st.italic ? "italic " : "") + "\"" + part + "\": ";
   check(kLine[bytes - 1] != ' ', what + "a cut after a letter");
@@ -273,10 +294,10 @@ void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_
   check(right >= 0 && right < rightmostLit(full, sw), what + "the rest of the line is hidden");
   if (kLine[bytes] == ' ')
   {
-    check(p == sub, what + "the same pixels as the part drawn alone");
+    check(sameLeftOf(p, sub, sw, sw, noise) && right == subRight, what + "the same pixels as the part drawn alone");
     return;
   }
-  check(sameLeftOf(p, sub, sw, int(kX + w) - kMargin), what + "the same pixels as the part drawn alone");
+  check(sameLeftOf(p, sub, sw, int(kX + w) - kMargin, noise), what + "the same pixels as the part drawn alone");
   check(right <= subRight + kSliver, what + "nothing past the part drawn alone");
   check(right >= subRight - kMargin, what + "ends where the part drawn alone ends");
 }
