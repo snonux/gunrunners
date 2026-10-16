@@ -1013,13 +1013,8 @@ Planner::Goal Planner::chooseGoal(const World& w) const
     if (best.kind == 2)
       return best;
   }
-  // A force field still on and no card: fetch the card first.
-  bool fields = false;
-  if (w.map().forceFieldsOn())
-    for (int ty = 0; ty < lv.height && !fields; ++ty)
-      for (int tx = 0; tx < lv.width && !fields; ++tx)
-        fields = w.map().block(tx, ty) == Tile::ForceField;
-  if (fields && !w.player().hasKey)
+  // A force field still up and no card: fetch the card first.
+  if (w.map().hasForceFields() && !w.player().hasKey)
   {
     for (const auto& it : w.items())
       if (it.kind == ItemKind::Key)

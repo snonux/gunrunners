@@ -3,7 +3,8 @@
 // 100% level (a gem, a G-U-N letter, a box of merchandise, a weapon not had
 // yet, a gem cache, a bot), then to the exit. Off in bonus levels. With a
 // force field up and the access card still to fetch, to the card when
-// nothing else can be reached without it.
+// nothing else can be reached without it in the same way of moving (a card
+// on foot comes before a gem that needs a lift: see guideCard).
 //
 // "Nearest" and "the way" come from a cheapest-first search over what the
 // runner can do a logic frame at a time, as player.cpp does it (guide.cpp):
@@ -367,9 +368,10 @@ void debugRoute(const GuideRoute& r, const std::vector<GuideTarget>& targets, in
     std::fprintf(stderr, "guide: no route\n");
     return;
   }
+  // The access card's targets marked k, as in debugTargets.
   const GuideTarget& t = targets[std::size_t(r.target)];
-  std::fprintf(stderr, "guide: to %d,%d %dx%d%s%s%s:", t.thing.x, t.thing.y, t.thing.w, t.thing.h, t.shoot ? " shoot" : "",
-    t.crate ? " crate" : "", r.perCell == 1 ? " (free)" : r.walkable ? "" : " (floating)");
+  std::fprintf(stderr, "guide: to %d,%d %dx%d%s%s%s%s:", t.thing.x, t.thing.y, t.thing.w, t.thing.h, t.shoot ? " shoot" : "",
+    t.crate ? " crate" : "", t.key ? " k" : "", r.perCell == 1 ? " (free)" : r.walkable ? "" : " (floating)");
   for (std::size_t j = 0; j < r.states.size(); ++j)
     std::fprintf(stderr, " %d,%d/%d", r.cell(j) % W, r.cell(j) / W, r.phase(j));
   std::fprintf(stderr, "\n");
@@ -483,14 +485,24 @@ void World::guideMissing(std::vector<GuideTarget>& targets) const
 }
 
 // A force field up and no card held: the card's targets (GuideTarget::key),
-// the card itself or the crate it is in, after all the others. The route
-// goes for the card only when it reaches nothing else without it
-// (GuideRouter::search), so what is on this side of the field comes first,
-// even when the card is nearer; with nothing found at all the arrow points
-// at the nearest target as the crow flies, the card included.
+// the card itself or the crate it is in, after all the others. "Up" means a
+// force field tile in the map (hasForceFields): forceFieldsOn() alone is
+// true in every level until a field is switched off, fields or not, and a
+// card in a level without them would only lead the arrow astray. Once the
+// field is down, a card left over is not listed either.
+//
+// The route goes for the card only when it reaches nothing else without it
+// in the same way of moving (GuideRouter::search), so what is on this side
+// of the field comes first, even when the card is nearer. The ways are
+// tried in turn, own moves before floating, so a card reached on foot beats
+// a target that needs a float (a lift, a pulley, a door still shut). That
+// is by design, the intent the arrow's comments stated already at 7006131:
+// the walk to the card is sure, the float only a guess at a way. With
+// nothing found at all the arrow points at the nearest target as the crow
+// flies, the card included.
 void World::guideCard(std::vector<GuideTarget>& targets) const
 {
-  if (!mMap.forceFieldsOn() || mPlayer.hasKey || targets.empty())
+  if (mPlayer.hasKey || targets.empty() || !mMap.hasForceFields())
     return;
   for (const auto& it : mItems)
     if (it.kind == ItemKind::Key && !it.taken && !it.parked && it.heldBy < 0)
@@ -537,7 +549,7 @@ World::Guide World::routeGuide(GuideCache& cache, const std::vector<GuideTarget>
   if (targets.empty())
     return g;
   if (guideDebug())
-    debugTargets(targets, mMap.forceFieldsOn(), mPlayer.hasKey);
+    debugTargets(targets, mMap.hasForceFields(), mPlayer.hasKey);
 
   // The world's platforms where they are now (lifts, pulleys, decks).
   std::vector<std::array<int, 3>> decks;

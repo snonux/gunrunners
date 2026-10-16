@@ -25,9 +25,10 @@
 // cheapest, and ends there only once it has run dry of the others. So each
 // way of moving (own moves, floating, open space) prefers anything on this
 // side of the field, however far, to the card, and goes for the card before
-// the next, dearer way is tried. (A second search with the card allowed,
-// after one without it found nothing, would give the same answer at twice
-// the cost.)
+// the next, dearer way is tried: a card reached on foot beats a gem that
+// needs a float (a lift, a pulley), as intended (see World::guideCard).
+// (A second search with the card allowed, after one without it found
+// nothing, would give the same answer at twice the cost.)
 
 #include "game/guide.hpp"
 

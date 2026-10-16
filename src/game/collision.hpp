@@ -92,7 +92,15 @@ public:
   bool hazard(int cx, int cy) const;    // spikes
   bool forceField(int cx, int cy) const;
 
+  // The access card's switch: on until the runner walks up to a field with
+  // the card, on even in a map with no force field at all (so it alone
+  // doesn't say a field is in the way: see hasForceFields).
   bool forceFieldsOn() const { return mForceFieldsOn; }
+  // A force field is up somewhere: the fields are on and the map has a
+  // force field tile (switching them off leaves the tiles, see solid()).
+  // What makes the access card worth fetching (the guide arrow, the
+  // autopilot's planner).
+  bool hasForceFields() const;
   // Level 29's Wraparound: the edges join up, left to right and top to bottom.
   void setWrap(bool wrap)
   {

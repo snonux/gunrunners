@@ -5,7 +5,10 @@
 // only follows the arrow collects what it points at. On the real levels it
 // finds something to point at from the start, quickly. With a force field
 // up and the access card still to fetch, it leads to the card first only
-// when nothing else can be reached without it.
+// when nothing else can be reached without it in the same way of moving (a
+// card on foot beats a gem that needs a float, on purpose), the cheapest
+// card of two; a card in a level without a field, or left over once the
+// field is down, it never leads to.
 //
 // The guide keeps its grids and search scratch between logic frames: what
 // it says when it works its answer out must be what a search from scratch
@@ -373,16 +376,29 @@ std::shared_ptr<const Level> routerRoom()
               "[entities]\n");
 }
 
-// The router room's grid (the map gone again: the grid keeps no pointer to it).
-GuideGrid routerGrid()
+// A level's grid (the map gone again: the grid keeps no pointer to it).
+GuideGrid gridOf(const std::shared_ptr<const Level>& level)
 {
-  const auto level = routerRoom();
   const CollisionMap map(*level);
   GuideStatics st;
   st.mapRevision = map.revision();
   GuideGrid grid;
   grid.update(map, st, {});
   return grid;
+}
+
+GuideGrid routerGrid() { return gridOf(routerRoom()); }
+
+// An open room for the router, 24 blocks by 12 (48 by 24 cells), nothing
+// in it: the floor's top is cell row 22, the ceiling's bottom row 1, far
+// higher than the runner's jump.
+GuideGrid openGrid()
+{
+  std::string map = "########################\n";
+  for (int y = 1; y <= 10; ++y)
+    map += y == 10 ? "#P....................X#\n" : "#......................#\n";
+  map += "########################\n";
+  return gridOf(load("name=GUIDE TEST\ntheme=neon_rooftops\nmusic=theme_synthwave\n[map]\n" + map + "[entities]\n"));
 }
 
 bool sameRoute(const GuideRoute& a, const GuideRoute& b)
@@ -435,6 +451,47 @@ void checkRouterKept()
   check(wraps >= 2 && differ == 0, "one router over " + std::to_string(routes) + " routes, round its stamp " +
     std::to_string(wraps) + " times: as a new router every time (" + std::to_string(differ) + " differ" + first + ")");
   check(found * 2 >= routes, "and most of them find a way (" + std::to_string(found) + ")");
+}
+
+// The access card on the open room's floor (cells x to x+1).
+GuideTarget floorCard(int x)
+{
+  GuideTarget t{{x, 20, 2, 2}, GuideKind::Item, {x, 20, 2, 2}};
+  t.key = true;
+  return t;
+}
+
+std::string routeSays(const GuideRoute& r)
+{
+  return "target " + std::to_string(r.target) + (r.walkable ? ", on foot" : r.perCell == 1 ? ", free" : ", floating");
+}
+
+// The ways of moving come in turn, each going for the card only when it
+// reaches nothing else: a gem up by the ceiling of the open room (cells
+// 2-3; Dash's jump rises 7 cells of the 14) is reached only by floating;
+// with the card on the floor as well, far off as it is, the card comes
+// first, on foot. Intended (World::guideCard): the walk to the card is
+// sure, the float only a guess at a way. And of two cards the cheaper to
+// reach wins, whichever is listed first.
+void checkRouterCardOnFoot()
+{
+  const GuideGrid grid = openGrid();
+  const GuideTarget highGem{{22, 2, 2, 2}, GuideKind::Item, {22, 2, 2, 2}};
+  const GuideTarget nearCard = floorCard(14), farCard = floorCard(36);
+  GuideRouter::Moves moves;
+  moves.arc = {2, 2, 1, 1, 1, 0, 0, 0}; // Dash
+  const GuideRouter::Start start{grid.cellAt(8, 21)};
+  const std::vector<GuideTarget> gemOnly{highGem}, gemAndCard{highGem, farCard};
+  const GuideRoute up = GuideRouter().route(grid, gemOnly, start, moves, false);
+  check(up.target == 0 && !up.walkable && up.perCell == GuideRouter::kStates,
+    "router: a gem by the ceiling is reached only by floating (" + routeSays(up) + ")");
+  const GuideRoute card = GuideRouter().route(grid, gemAndCard, start, moves, false);
+  check(card.target == 1 && card.walkable, "router: a card on foot beats the gem that needs a float (" + routeSays(card) + ")");
+  const std::vector<GuideTarget> farFirst{highGem, farCard, nearCard}, nearFirst{highGem, nearCard, farCard};
+  const GuideRoute a = GuideRouter().route(grid, farFirst, start, moves, false);
+  const GuideRoute b = GuideRouter().route(grid, nearFirst, start, moves, false);
+  check(a.target == 2 && a.walkable && b.target == 1 && b.walkable,
+    "router: of two cards the nearer wins, listed last (" + routeSays(a) + ") or first (" + routeSays(b) + ")");
 }
 
 // The clear at the wrap is needed. Two routers search from beside the gem
@@ -539,12 +596,85 @@ std::shared_ptr<const Level> cardRoom(int card, const std::function<void(int, st
   }, 20));
 }
 
+// Guide::tx of a crate or item at block `block` of the corridor (2 cells
+// wide: its middle cell).
+int midCell(int block) { return block * kCellsPerTile + 1; }
+
+// Crates still shut with an access card in them.
+int cardCrates(const World& w)
+{
+  int n = 0;
+  for (const auto& b : w.boxes())
+    n += b.alive && b.content == ItemKind::Key;
+  return n;
+}
+
+// Access cards out of their crates and not taken.
+int looseCards(const World& w)
+{
+  int n = 0;
+  for (const auto& it : w.items())
+    n += it.kind == ItemKind::Key && !it.taken;
+  return n;
+}
+
+// Counts the frames the arrow goes astray (`ok` false) and keeps the first.
+struct Astray
+{
+  int frames = 0;
+  std::string first;
+  void operator()(const World& w, bool ok)
+  {
+    if (!ok && frames++ == 0)
+      first = ", first at runner " + std::to_string(w.player().x) + "," + std::to_string(w.player().y) + ": " +
+        describe(w.guide());
+  }
+  std::string says(int f) const
+  {
+    return "frames " + std::to_string(f) + ", astray " + std::to_string(frames) + first;
+  }
+};
+
+// checkCardFirst's runner (below) follows the arrow (shooting) a step at a
+// time, each with its own budget of frames, generous (a step takes a
+// fraction of it).
+// followArrow shoots every other frame whatever the arrow says, so a crate
+// opened shows nothing on its own: on every frame of the first two steps
+// the arrow must be on the card, and leading to it. The kept guide is
+// compared with a fresh one (`cmp`) all the way.
+void cardFirstSteps(World& w, Compare& cmp)
+{
+  constexpr int kToCrate = 300, kToCard = 300, kToGem = 900;
+  const int crate = midCell(14);
+  Astray astray;
+  const int toCrate = followArrow(w, [&] {
+    if (cardCrates(w) == 0)
+      return true;
+    const World::Guide& g = w.guide();
+    astray(w, g.kind == World::GuideKind::Item && g.tx == crate && g.dx < 0);
+    return false;
+  }, kToCrate, true, &cmp);
+  check(toCrate >= 0 && astray.frames == 0,
+    "card step 1: the arrow on the crate and pointing left until the runner opens it (" + astray.says(toCrate) + ")");
+  astray = Astray{};
+  const int toCard = toCrate < 0 ? -1 : followArrow(w, [&] {
+    if (w.player().hasKey)
+      return true;
+    const World::Guide& g = w.guide();
+    astray(w, g.kind == World::GuideKind::Item && std::abs(g.tx - crate) <= 2);
+    return false;
+  }, kToCard, true, &cmp);
+  check(toCard >= 0 && astray.frames == 0,
+    "card step 2: the arrow on the card out of the crate until the runner takes it (" + astray.says(toCard) + ")");
+  const int toGem = toCard < 0 ? -1 : followArrow(w, [&] { return w.stats().gems == 1; }, kToGem, true, &cmp);
+  check(toGem >= 0 && !w.map().forceFieldsOn() && !w.player().hasKey,
+    "card step 3: through the field (down, the card used up) to the gem (frames " + std::to_string(toGem) + ")");
+}
+
 // The gem behind the field and the card in a crate behind the runner (block
-// 14): the arrow routes back to the crate, away from the gem, and a runner
-// who follows it (shooting) opens the crate, takes the card, walks through
-// the field and takes the gem, the kept guide agreeing with a fresh one
-// all the way. (When the card was never a goal, the arrow pointed straight
-// at the gem, with no route.)
+// 14): the arrow routes back to the crate, away from the gem. (When the
+// card was never a goal, the arrow pointed straight at the gem, with no
+// route.) Then cardFirstSteps (above) follows it.
 void checkCardFirst(const Theme& theme, const Art& art)
 {
   const int k = kCellsPerTile;
@@ -554,21 +684,19 @@ void checkCardFirst(const Theme& theme, const Art& art)
   check(g.kind == World::GuideKind::Item && g.routed && g.walkable && g.dx == -1 && g.tx < 20 * k && g.left == 1,
     "a gem behind a force field, the card in a crate behind: routes back to the card (" + describe(g) + ")");
   Compare cmp;
-  bool card = false;
-  const int f = followArrow(w, [&] {
-    card = card || w.player().hasKey;
-    return w.stats().gems == 1;
-  }, 900, true, &cmp);
-  check(f >= 0 && card && !w.map().forceFieldsOn(),
-    "following it takes the card, then the field down and the gem (frames " + std::to_string(f) + ")");
+  cardFirstSteps(w, cmp);
   checkAgree(cmp, 11, "the card first");
 }
 
 // A gem on this side of the field too (block 26), further off than the
 // crate with the card (block 14, close enough to shoot after a step or
-// two): reached without the card, it comes first.
+// two): reached without the card, it comes first, the arrow on it on every
+// frame until the runner following it takes it. Then, with only the gem
+// behind the field left, the arrow turns back to the card's crate until
+// the runner opens it. The kept guide against a fresh one all the way.
 void checkCardNotFirst(const Theme& theme, const Art& art)
 {
+  constexpr int kToGem = 300, kToCrate = 300;
   const int k = kCellsPerTile;
   World w(cardRoom(14, [](int y, std::string& row) {
     if (y == 13)
@@ -579,7 +707,94 @@ void checkCardNotFirst(const Theme& theme, const Art& art)
   check(g.kind == World::GuideKind::Item && g.routed && g.walkable && g.dx == 1 && g.tx >= 26 * k && g.tx < 30 * k &&
       g.left == 2,
     "a gem this side of the field, further than the card: the gem first (" + describe(g) + ")");
-  check(same(g, w.guideFresh()), "and so says a guide from scratch");
+  Compare cmp;
+  Astray astray;
+  const int toGem = followArrow(w, [&] {
+    if (w.stats().gems == 1)
+      return true;
+    astray(w, w.guide().tx == midCell(26));
+    return false;
+  }, kToGem, false, &cmp);
+  check(toGem >= 0 && astray.frames == 0, "followed, the arrow stays on that gem until it is taken (" + astray.says(toGem) + ")");
+  astray = Astray{};
+  const int toCrate = toGem < 0 ? -1 : followArrow(w, [&] {
+    if (cardCrates(w) == 0)
+      return true;
+    astray(w, w.guide().tx == midCell(14));
+    return false;
+  }, kToCrate, true, &cmp);
+  check(toCrate >= 0 && astray.frames == 0,
+    "then back to the card's crate, opened by following it (" + astray.says(toCrate) + ")");
+  checkAgree(cmp, 11, "the gem before the card");
+}
+
+// A card in a crate behind the runner (block 14) and no force field in the
+// room: the card is no use, so the arrow never leads to it. The gem is
+// walled in (blocks 38 and 42, floor to ceiling), out of every search's
+// reach, so a card listed would be the one target a route reaches and
+// would take the arrow, as it did while guideCard asked forceFieldsOn()
+// alone (on in every level until a field goes down). Instead the arrow
+// points straight at the gem, on every frame of a run by it.
+void checkCardNoField(const Theme& theme, const Art& art)
+{
+  constexpr int kFrames = 120;
+  World w(load(room("", [](int y, std::string& row) {
+    if (y >= 1 && y <= 13)
+      row[38] = row[42] = '#';
+    if (y == 13)
+    {
+      row[40] = 'g';
+      row[14] = 'k';
+    }
+  }, 20)), 0, theme, art);
+  guideOn(w);
+  check(w.map().forceFieldsOn() && !w.map().hasForceFields(), "no force field in the room, though the fields' switch is on");
+  const World::Guide& g = w.guide();
+  check(g.kind == World::GuideKind::Item && !g.routed && g.dx == 1 && g.tx == midCell(40) && g.left == 1,
+    "a card and no field: straight at the walled-in gem, not the card (" + describe(g) + ")");
+  Astray astray;
+  int seen = 0;
+  followArrow(w, [&] {
+    ++seen;
+    astray(w, w.guide().tx == midCell(40));
+    return false;
+  }, kFrames, true);
+  check(seen >= kFrames && astray.frames == 0 && cardCrates(w) == 1,
+    "and never at the card, the crate still shut, over " + std::to_string(seen) + " frames (" + astray.says(seen) + ")");
+}
+
+// Two cards in crates, one in shooting reach of the runner (block 24) and
+// one far behind (block 4), the gem behind the field: the arrow goes for
+// the nearer card, the cheaper. Followed (shooting), it opens that crate,
+// takes the card, walks through the field (down now, the card used up) and
+// takes the gem. The far card is left over and, the field down, of no use:
+// from then on the arrow leads to the exit, never back to the card, until
+// the runner is out.
+void checkCardLeftover(const Theme& theme, const Art& art)
+{
+  constexpr int kToGem = 900, kToExit = 600;
+  World w(cardRoom(24, [](int y, std::string& row) {
+    if (y == 13)
+      row[4] = 'k';
+  }), 0, theme, art);
+  guideOn(w);
+  const World::Guide g = w.guide();
+  check(g.kind == World::GuideKind::Item && g.tx == midCell(24) && g.left == 1,
+    "two cards: the arrow goes for the nearer (" + describe(g) + ")");
+  const int toGem = followArrow(w, [&] { return w.stats().gems == 1; }, kToGem, true);
+  check(toGem >= 0 && !w.map().forceFieldsOn() && !w.player().hasKey && cardCrates(w) + looseCards(w) == 1,
+    "following it: the near card, the field down, the gem; the far card left over (frames " + std::to_string(toGem) + ")");
+  if (toGem < 0)
+    return;
+  Astray astray;
+  const int out = followArrow(w, [&] {
+    if (w.state() != WorldState::Playing)
+      return true;
+    astray(w, w.guide().kind != World::GuideKind::Item);
+    return false;
+  }, kToExit, true);
+  check(out > 0 && astray.frames == 0,
+    "the field down, the leftover card is ignored: to the exit and out (" + astray.says(out) + ")");
 }
 
 // The card shut in too, behind a second field (block 10): nothing can be
@@ -823,11 +1038,14 @@ int main()
     checkGridStatics();
     checkRouterKept();
     checkRouterWrapClears();
+    checkRouterCardOnFoot();
     checkKeptGemRoom(gemRoom, theme, art);
     checkKeptForceField(theme, art);
     checkCardFirst(theme, art);
     checkCardNotFirst(theme, art);
     checkCardCrowFlies(theme, art);
+    checkCardNoField(theme, art);
+    checkCardLeftover(theme, art);
     checkKeptCampaign(theme, art);
 
     // Every campaign level and extra: something to point at from the start.

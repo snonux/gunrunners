@@ -158,6 +158,13 @@ bool CollisionMap::forceField(int cx, int cy) const
   return mForceFieldsOn && tileAt(cx, cy) == Tile::ForceField;
 }
 
+// A scan of the tiles (a byte each), cheap next to a guide search; the
+// tiles hold every block once, wrapped or turned as the map may be.
+bool CollisionMap::hasForceFields() const
+{
+  return mForceFieldsOn && std::find(mTiles.begin(), mTiles.end(), Tile::ForceField) != mTiles.end();
+}
+
 bool CollisionMap::onSolidGround(const CellBox& b) const
 {
   for (int x = b.left(); x <= b.right(); ++x)

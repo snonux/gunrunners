@@ -25,9 +25,11 @@ struct GuideTarget
   bool shoot = false;
   bool crate = false; // on the floor: shot crouched, from the same floor
   // The access card (listed while a force field is up and the card isn't
-  // held): routed to only when nothing else can be reached without it
-  // (GuideRouter::search goes on past it), and pointed at as the crow flies
-  // like any other target when nothing can be reached at all.
+  // held): routed to only when nothing else can be reached without it in
+  // the same way of moving (GuideRouter::search goes on past it; a card on
+  // foot still beats a target that needs a float, on purpose), and pointed
+  // at as the crow flies like any other target when nothing can be reached
+  // at all.
   bool key = false;
 };
 
@@ -166,8 +168,9 @@ public:
   // first, then floating where it must (a lift, a pulley, a door still
   // shut), then (or at once with `freeOnly`) through any open space. Each
   // way goes for the access card (GuideTarget::key) only when it reaches
-  // no other target. `grid` and `targets` are only used during the call
-  // (not kept).
+  // no other target, before the next way is tried: a card on foot beats a
+  // gem that needs a float (intended, see World::guideCard). `grid` and
+  // `targets` are only used during the call (not kept).
   GuideRoute route(const GuideGrid& grid, const std::vector<GuideTarget>& targets, const Start& start, const Moves& moves,
     bool freeOnly);
 
