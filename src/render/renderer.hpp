@@ -130,12 +130,17 @@ public:
   // black. grabCaptured() copies a piece of it (logical units) to a second
   // offscreen texture to draw from, null when there is no capture or the
   // piece leaves the picture. endCapture() puts the picture back on the
-  // screen, mirrored left to right if asked; false without a capture. One
-  // capture at a time, begun with the screen as the target; false when the
-  // renderer has no render targets or no texture that big for one, and the
-  // draws then go to the screen (see the read-back fallbacks below).
+  // screen with a plain copy, mirrored left to right if asked (flipped
+  // first, at scale 1, into a third offscreen texture: SDL2's software
+  // renderer misplaces a copy it flips and scales in a letterbox); false
+  // without a capture. One capture at a time, begun with the screen as the
+  // target; false when the renderer has no render targets or no texture that
+  // big for one, and the draws then go to the screen (see the read-back
+  // fallbacks below).
   bool beginCapture();
   bool capturing() const { return mCapturing; }
+  // Tests: the captures begun so far.
+  std::size_t capturesBegun() const { return mCapturesBegun; }
   const Texture* grabCaptured(float x, float y, float w, float h);
   bool endCapture(bool mirrorX);
   // Tests: beginCapture refuses as on a renderer without render targets, to
@@ -154,9 +159,9 @@ public:
   // the picture.
   bool drawLens(const SDL_FRect& piece, const SDL_FRect& dst, float solid);
   // MIRROR MODE without a capture: the picture on the screen read back from
-  // the GPU and drawn again flipped left to right, the slow way. For when
-  // beginCapture was refused, so the picture is mirrored whenever the
-  // controls are.
+  // the GPU, flipped left to right on the CPU and drawn again, the slow way.
+  // For when beginCapture was refused, so the picture is mirrored whenever
+  // the controls are.
   void mirrorReadBack();
 
   // The rasterized string, cached per (string, style). The reference stays
@@ -229,9 +234,12 @@ private:
   void viewCapture();
   bool pixelRectOf(const SDL_FRect& r, SDL_Rect& out) const;
   const Texture* readBackOval(const SDL_FRect& piece, float solid);
+  const Texture* flippedScene();
   Texture mScene;          // the capture's picture, at the output resolution
   Texture mGrab;           // grabCaptured's piece of it
+  Texture mMirrored;       // endCapture's copy of it flipped left to right
   bool mCapturing = false;
+  std::size_t mCapturesBegun = 0;
   bool mRefuseCaptures = false;
   float mCaptureSx = 1.0f; // logical units to the capture's pixels
   float mCaptureSy = 1.0f;

@@ -8,7 +8,8 @@
 // seat's ladder and the letter G waking the bonus entrance; Paintball's
 // paint. MIRROR MODE and BIG HEADS as drawn: the scene flipped under an
 // unflipped HUD, the lens round the runner's head, both together, and the
-// same read back from the screen when the renderer refuses the capture.
+// same read back from the screen when the renderer refuses the capture; a
+// capture begun only for them (none for a plain frame or a dying runner).
 // Then the bot clears Sweeps Week under each rule, takes the bonus entrance,
 // and clears Sweeps Week and Paintball with every runner.
 
@@ -165,12 +166,14 @@ int botPlay(World& w, int frames, Bot& bot)
 const char* const kVote = "@ vote c1 5 21 virus=15,19\n";
 
 // A 20 x 11 room, all of it in the picture: walls at x 0 and 19, the floor
-// on rows 9 and 10, the runner at (3, 8), a vote at block 5.
-std::string stage()
+// on rows 9 and 10, the runner at (3, 8), a vote at block 5. With `pit` the
+// floor has a bottomless pit at blocks 9..11.
+std::string stage(bool pit = false)
 {
   std::vector<std::string> map(11, std::string(20, '.'));
   for (int x = 0; x < 20; ++x)
-    map[9][std::size_t(x)] = map[10][std::size_t(x)] = '#';
+    if (!pit || x < 9 || x > 11)
+      map[9][std::size_t(x)] = map[10][std::size_t(x)] = '#';
   for (int y = 0; y < 11; ++y)
     map[std::size_t(y)][0] = map[std::size_t(y)][19] = '#';
   map[8][3] = 'P';
@@ -462,6 +465,40 @@ int main(int argc, char** argv)
       check(lens > 2000 && away == 0, "BIG HEADS: the lens round the runner's head, the rest as drawn");
       check(bothFlipped == 0, "MIRROR MODE with BIG HEADS: the lens mirrored with the scene");
       check(!renderer.capturing(), "the capture is over when the world is drawn");
+
+      // A capture begins only for a frame that needs one: under MIRROR
+      // MODE, or for BIG HEADS' lens (copied from it on the GPU; without
+      // SDL_RenderGeometry, SDL older than 2.0.18, the lens is read back
+      // anyway and begins none). None for a plain frame, nor for BIG HEADS
+      // while the runner dies in a pit: no lens then, as while hidden,
+      // somersaulting or on the ceiling.
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+      const std::size_t lensBegins = 1;
+#else
+      const std::size_t lensBegins = 0;
+#endif
+      auto begunBy = [&](const World& w) {
+        const std::size_t before = renderer.capturesBegun();
+        frameOf(w, renderer, surface);
+        return renderer.capturesBegun() - before;
+      };
+      auto begunFor = [&](unsigned rule) {
+        World w = make(stage());
+        vote(w, rule);
+        return begunBy(w);
+      };
+      World dying = make(stage(true));
+      vote(dying, kSwBigHeads);
+      Keys prevDying;
+      for (int i = 0; i < 200 && dying.player().state != PlayerState::Dying; ++i)
+        step(dying, right, prevDying);
+      const std::size_t begunPlain = begunFor(kSwDoubleGems), begunDying = begunBy(dying);
+      const std::size_t begunMirror = begunFor(kSwMirror), begunLens = begunFor(kSwBigHeads);
+      std::printf("     captures begun: plain %d, BIG HEADS dying %d, MIRROR MODE %d, BIG HEADS %d\n", int(begunPlain),
+        int(begunDying), int(begunMirror), int(begunLens));
+      check(dying.player().state == PlayerState::Dying && begunPlain == 0 && begunDying == 0,
+        "no capture without MIRROR MODE or BIG HEADS' lens (a plain frame, the runner dying)");
+      check(begunMirror == 1 && begunLens == lensBegins, "MIRROR MODE and BIG HEADS' lens begin one capture a frame");
 
       // A renderer that refuses the capture (no render targets, or no
       // texture that big) reads the picture back instead: MIRROR MODE still

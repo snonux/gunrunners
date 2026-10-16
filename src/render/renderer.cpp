@@ -167,34 +167,118 @@ std::size_t utf8Floor(const std::string& s, std::size_t bytes)
   return bytes;
 }
 
+// SDL2's API on top of SDL3 (sdl2-compat), which numbers its releases 2.x.50
+// and up; SDL2's own patch levels stay far below that. The two keep the
+// viewport and a logical size differently (see pictureOf).
+bool underSdl3()
+{
+  static const bool sdl3 = [] {
+    SDL_version v{};
+    SDL_GetVersion(&v);
+    return v.major == 2 && v.patch >= 50;
+  }();
+  return sdl3;
+}
+
 // The current viewport in output pixels (x, y: its offset, the letterbox
-// bar), and the scale to them from logical units. SDL2 folds a logical size
-// into the render scale, but sdl2-compat (SDL2 on top of SDL3) reports only
-// the scale set with SDL_RenderSetScale, so with a logical size the scale is
-// worked out from the output size the way SDL2 letterboxes: the largest
-// that fits both ways.
+// bar), and the scale to them from logical units, exact to the pixel: the
+// capture is made that size and the read-back fallbacks read there.
 struct Picture
 {
   int x = 0, y = 0, w = 0, h = 0;
   float sx = 1.0f, sy = 1.0f;
 };
 
-Picture pictureOf(SDL_Renderer* sdl)
+// SDL2 keeps the viewport in output pixels and hands it back in whole
+// logical units, rounded down: at 1366 x 768 for 1280 x 720 the 1365 pixel
+// picture reads 1279 units, 1364 pixels, and a 52 pixel bar at 1680 x 1050
+// reads 39 units, 51 pixels. At scale 1 it hands back the pixels. The scale
+// is the one SDL2 folds a logical size into.
+Picture sdl2Picture(SDL_Renderer* sdl)
 {
   Picture p;
-  SDL_Rect vp;
+  SDL_RenderGetScale(sdl, &p.sx, &p.sy);
+  SDL_RenderSetScale(sdl, 1.0f, 1.0f);
+  SDL_Rect vp{};
   SDL_RenderGetViewport(sdl, &vp);
+  SDL_RenderSetScale(sdl, p.sx, p.sy);
+  p.x = vp.x;
+  p.y = vp.y;
+  p.w = vp.w;
+  p.h = vp.h;
+  return p;
+}
+
+// sdl2-compat: SDL3 applies a logical size after the render scale, and the
+// viewport reads in logical units (its offset rounded to them), whatever the
+// scale; early sdl2-compat releases report only the scale set with
+// SDL_RenderSetScale. So with a logical size the picture is worked out the
+// way SDL3 letterboxes (its default; the game asks for no integer scale or
+// overscan): the side that fits sets the scale, the other side is rounded
+// down and centred, the offset rounded down as SDL3's pixel viewport is. The
+// scale per axis is SDL3's logical scale, the picture's pixels per unit.
+Picture sdl3Picture(SDL_Renderer* sdl)
+{
+  Picture p;
   int lw = 0, lh = 0, ow = 0, oh = 0;
   SDL_RenderGetLogicalSize(sdl, &lw, &lh);
-  if (lw > 0 && lh > 0 && SDL_GetRendererOutputSize(sdl, &ow, &oh) == 0)
-    p.sx = p.sy = std::min(float(ow) / float(lw), float(oh) / float(lh));
-  else
+  if (lw <= 0 || lh <= 0 || SDL_GetRendererOutputSize(sdl, &ow, &oh) != 0)
+  {
+    // No logical size: the viewport is in units of SDL_RenderSetScale's.
+    SDL_Rect vp{};
+    SDL_RenderGetViewport(sdl, &vp);
     SDL_RenderGetScale(sdl, &p.sx, &p.sy);
-  p.x = int(std::lround(float(vp.x) * p.sx));
-  p.y = int(std::lround(float(vp.y) * p.sy));
-  p.w = int(std::lround(float(vp.w) * p.sx));
-  p.h = int(std::lround(float(vp.h) * p.sy));
+    p.x = int(std::lround(float(vp.x) * p.sx));
+    p.y = int(std::lround(float(vp.y) * p.sy));
+    p.w = int(std::lround(float(vp.w) * p.sx));
+    p.h = int(std::lround(float(vp.h) * p.sy));
+    return p;
+  }
+  // Aspects within SDL3's tolerance: the whole output, stretched.
+  const float want = float(lw) / float(lh), real = float(ow) / float(oh);
+  const bool stretched = std::fabs(want - real) < 0.0001f;
+  p.w = ow;
+  p.h = oh;
+  if (!stretched && want > real)
+    p.h = int(std::floor(float(lh) * (float(ow) / float(lw))));
+  else if (!stretched)
+    p.w = int(std::floor(float(lw) * (float(oh) / float(lh))));
+  p.x = (ow - p.w) / 2;
+  p.y = (oh - p.h) / 2;
+  p.sx = float(p.w) / float(lw);
+  p.sy = float(p.h) / float(lh);
   return p;
+}
+
+Picture pictureOf(SDL_Renderer* sdl)
+{
+  return underSdl3() ? sdl3Picture(sdl) : sdl2Picture(sdl);
+}
+
+// `tex` over the whole viewport (the picture inside the letterbox) with a
+// copy at the scale where the viewport is whole output pixels: SDL2's at
+// scale 1. At the logical scale SDL2 sizes the copy from the viewport in
+// logical units, a column short at a scale like 16/15, and its software
+// renderer misplaces a flipped copy in a letterbox: it adds the viewport
+// offset (pixels) to the copy's rectangle (logical units) and then scales
+// the sum, 160 + 0 at 1.5 landing at 240. Under sdl2-compat SDL3 places the
+// copy over its logical viewport itself, in float. Flipped only as a
+// fallback (see Renderer::endCapture); exact on SDL2 at scale 1.
+bool coverViewport(SDL_Renderer* sdl, SDL_Texture* tex, bool flipX)
+{
+  SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_NONE);
+  const bool atScaleOne = !underSdl3();
+  float sx = 1.0f, sy = 1.0f;
+  if (atScaleOne)
+  {
+    SDL_RenderGetScale(sdl, &sx, &sy);
+    SDL_RenderSetScale(sdl, 1.0f, 1.0f);
+  }
+  const int rc = flipX ? SDL_RenderCopyEx(sdl, tex, nullptr, nullptr, 0.0, nullptr, SDL_FLIP_HORIZONTAL)
+                       : SDL_RenderCopy(sdl, tex, nullptr, nullptr);
+  if (atScaleOne)
+    SDL_RenderSetScale(sdl, sx, sy);
+  return rc == 0;
 }
 
 // The clip rectangle across a switch of render targets: SDL2 drops it (SDL3
@@ -617,6 +701,7 @@ bool Renderer::beginCapture()
   if (SDL_SetRenderTarget(mRenderer, mScene.get()) != 0)
     return false;
   mCapturing = true;
+  ++mCapturesBegun;
   mCaptureSx = p.sx;
   mCaptureSy = p.sy;
   viewCapture();
@@ -656,21 +741,46 @@ const Texture* Renderer::grabCaptured(float x, float y, float w, float h)
   return ok ? &mGrab : nullptr;
 }
 
+// MIRROR MODE's picture: the capture flipped left to right into mMirrored,
+// a target of its size, at scale 1, where every renderer flips a copy
+// exactly. Flipped and scaled in a letterbox at once, SDL2's software
+// renderer misplaces it (coverViewport), and SDL3's rounds the letterbox
+// offset down to whole logical units first: (int)(160 / 1.5) * 1.5 = 159,
+// a column left.
+// Called on the capture, left on mMirrored. Null when mMirrored cannot be
+// made or drawn into.
+const Texture* Renderer::flippedScene()
+{
+  if (!textureOfSize(mMirrored, SDL_TEXTUREACCESS_TARGET, mScene.w(), mScene.h()))
+    return nullptr;
+  // Put on the screen pixel for pixel, as the capture is.
+  SDL_SetTextureScaleMode(mMirrored.get(), SDL_ScaleModeNearest);
+  if (SDL_SetRenderTarget(mRenderer, mMirrored.get()) != 0)
+    return nullptr;
+  SDL_RenderSetViewport(mRenderer, nullptr);
+  SDL_RenderSetScale(mRenderer, 1.0f, 1.0f);
+  SDL_SetTextureBlendMode(mScene.get(), SDL_BLENDMODE_NONE);
+  const bool ok =
+    SDL_RenderCopyEx(mRenderer, mScene.get(), nullptr, nullptr, 0.0, nullptr, SDL_FLIP_HORIZONTAL) == 0;
+  return ok ? &mMirrored : nullptr;
+}
+
 bool Renderer::endCapture(bool mirrorX)
 {
   if (!mCapturing)
     return false;
   mCapturing = false;
+  // Mirrored offscreen first, so that the copy to the screen is a plain one
+  // (one extra copy of the picture on the GPU, only under MIRROR MODE).
+  const Texture* flipped = mirrorX ? flippedScene() : nullptr;
   if (SDL_SetRenderTarget(mRenderer, nullptr) != 0)
     return false;
   // The screen's own view is back (viewport, scale, clip): the picture over
-  // the whole viewport, replacing what is under it.
-  SDL_Rect vp;
-  SDL_RenderGetViewport(mRenderer, &vp);
-  const SDL_Rect dst{0, 0, vp.w, vp.h};
-  SDL_SetTextureBlendMode(mScene.get(), SDL_BLENDMODE_NONE);
-  return SDL_RenderCopyEx(mRenderer, mScene.get(), nullptr, &dst, 0.0, nullptr,
-           mirrorX ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE) == 0;
+  // the whole viewport, replacing what is under it. Without mMirrored the
+  // capture is flipped on the way, exact on SDL2 (coverViewport).
+  if (flipped)
+    return coverViewport(mRenderer, flipped->get(), false);
+  return coverViewport(mRenderer, mScene.get(), mirrorX);
 }
 
 void Renderer::dropCaptureTextures()
@@ -682,6 +792,7 @@ void Renderer::dropCaptureTextures()
   }
   mScene = Texture();
   mGrab = Texture();
+  mMirrored = Texture();
   mFlipped = Texture();
   mLensPiece = Texture();
 }
@@ -733,12 +844,16 @@ void Renderer::mirrorReadBack()
   std::vector<Uint32> px(std::size_t(p.w) * std::size_t(p.h));
   if (SDL_RenderReadPixels(mRenderer, &src, SDL_PIXELFORMAT_ARGB8888, px.data(), p.w * 4) != 0)
     return;
+  // Flipped here, while the pixels are at hand, and put back with a plain
+  // copy: SDL2's software renderer misplaces a flipped one in a letterbox.
+  for (int y = 0; y < p.h; ++y)
+  {
+    const auto row = px.begin() + std::ptrdiff_t(y) * p.w;
+    std::reverse(row, row + p.w);
+  }
   SDL_UpdateTexture(mFlipped.get(), nullptr, px.data(), p.w * 4);
-  SDL_SetTextureBlendMode(mFlipped.get(), SDL_BLENDMODE_NONE);
-  SDL_Rect vp;
-  SDL_RenderGetViewport(mRenderer, &vp);
-  const SDL_Rect dst{0, 0, vp.w, vp.h};
-  SDL_RenderCopyEx(mRenderer, mFlipped.get(), nullptr, &dst, 0.0, nullptr, SDL_FLIP_HORIZONTAL);
+  SDL_SetTextureScaleMode(mFlipped.get(), SDL_ScaleModeNearest);
+  coverViewport(mRenderer, mFlipped.get(), false);
 }
 
 const Texture& Renderer::text(const std::string& s, const TextStyle& st)

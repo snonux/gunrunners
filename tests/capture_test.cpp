@@ -5,10 +5,13 @@
 // logical size the capture works at the output resolution, is mirrored
 // inside the letterbox (against a frame drawn directly and flipped by hand),
 // letterbox bars left alone, and draws after it land in the letterbox again;
-// a clip rectangle survives a grab at a scale of 4/3. The read-back fallbacks for a
-// refused capture: the picture mirrored, the lens. And the misuse: ending or
-// grabbing without a capture, a second begin, a begin with another render
-// target set, grabs off the picture, a capture left open at the next frame.
+// a clip rectangle survives a grab at a scale of 4/3; at scales that are no
+// whole number (16/15, 1.3125) the capture covers the picture to the pixel,
+// mirrored too, and the read-back fallback reads it row for row. The
+// read-back fallbacks for a refused capture: the picture mirrored, the lens.
+// And the misuse: ending or grabbing without a capture, a second begin, a
+// begin with another render target set, grabs off the picture, a capture
+// left open at the next frame.
 
 #include "render/renderer.hpp"
 
@@ -198,18 +201,6 @@ Frame mirroredWithin(const Frame& f, int x0, int x1)
   return m;
 }
 
-// `got` is `want` moved `d` columns left, over columns x0 + 1..x1 - 2 (the
-// outermost column on either side is left out: a move brings in one from
-// outside).
-bool movedBy(const Frame& got, const Frame& want, int x0, int x1, int d)
-{
-  for (int y = 0; y < kScreenH; ++y)
-    for (int x = x0 + 1; x < x1 - 1; ++x)
-      if (at(got, x, y) != at(want, x + d, y))
-        return false;
-  return true;
-}
-
 // What testLogicalMirror draws: the capture's black over the picture, a
 // red block at its top left and a green bar lower down, right of centre.
 void letterboxScene(Renderer& r)
@@ -232,11 +223,13 @@ Frame capturedScene(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface, bool m
 
 // The capture against the scene drawn directly, inside the letterbox (the
 // picture is output columns 160..1119). Put back unmirrored it is that
-// frame exactly: the copy lands on the picture to the pixel. Mirrored it is
-// that frame flipped by hand within the picture. SDL3's software renderer
-// (under sdl2-compat) lands a copy it scales and flips at once one column
-// left, so the mirrored one may be off by that column; one not mirrored, or
-// at the wrong scale or offset, is off by far more.
+// frame exactly, and mirrored that frame flipped by hand within the
+// picture, exactly too: the capture is flipped at scale 1 into a texture of
+// its own and put on the screen with a plain copy. A copy flipped at the
+// letterbox's scale would not be: SDL2's software renderer adds the bar
+// (160 pixels) to the copy's rectangle in logical units and scales the sum,
+// putting the picture 80 columns right, and SDL3's rounds the bar down to
+// whole logical units first ((int)(160 / 1.5) * 1.5 = 159), a column left.
 void testLogicalMirror(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
 {
   SDL_RenderSetLogicalSize(sdl, 640, 480);
@@ -247,16 +240,8 @@ void testLogicalMirror(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
   const Frame flipped = capturedScene(r, sdl, surface, true);
   noLogicalSize(sdl);
   const Frame want = mirroredWithin(direct, 160, 1120);
-  int moved = 2;
-  for (int d = 1; d >= -1 && moved == 2; --d)
-    if (movedBy(flipped, want, 160, 1120, d))
-      moved = d;
-  if (moved == 2)
-    std::printf("     mirrored: no match within a column\n");
-  else
-    std::printf("     mirrored: off by %d column(s)\n", moved);
   check(plain == direct, "with a logical size an unmirrored capture is the picture as drawn");
-  check(want != direct && moved != 2, "with a logical size the picture is mirrored inside the letterbox");
+  check(want != direct && flipped == want, "with a logical size the picture is mirrored inside the letterbox, exactly");
 }
 
 // 640 x 480 letterboxed on the 1280 x 720 surface: 1.5x, bars of 160 px on
@@ -388,6 +373,94 @@ void testFadedOval(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
   check(black, "no oval without a texture or a size");
 }
 
+// Frames of any size: the pixel at (x, y) of one `w` pixels wide.
+Uint32 atOf(const Frame& f, int w, int x, int y)
+{
+  return f[std::size_t(y) * std::size_t(w) + std::size_t(x)];
+}
+
+// `f` (`w` pixels wide) with the picture `pic` flipped left to right within
+// it, the rest as it is.
+Frame mirroredIn(const Frame& f, int w, const SDL_Rect& pic)
+{
+  Frame m = f;
+  for (int y = pic.y; y < pic.y + pic.h; ++y)
+    for (int x = pic.x; x < pic.x + pic.w; ++x)
+      m[std::size_t(y) * std::size_t(w) + std::size_t(x)] = atOf(f, w, 2 * pic.x + pic.w - 1 - x, y);
+  return m;
+}
+
+// What testOddLetterbox draws over the whole 1280 x 720 picture: black, a
+// red block at the top left, a green bar right of centre, a white strip
+// along the bottom left.
+void oddScene(Renderer& r)
+{
+  r.fillRect(0.0f, 0.0f, 1280.0f, 720.0f, rgb(0, 0, 0));
+  r.fillRect(0.0f, 0.0f, 200.0f, 150.0f, rgb(255, 0, 0));
+  r.fillRect(800.0f, 500.0f, 300.0f, 60.0f, rgb(0, 255, 0));
+  r.fillRect(0.0f, 690.0f, 640.0f, 30.0f, rgb(255, 255, 255));
+}
+
+enum class Way
+{
+  Bars,     // the surface cleared, nothing drawn
+  Direct,   // the scene drawn on the screen
+  Captured, // through a capture
+  Mirrored, // through a capture, mirrored
+  ReadBack, // on the screen, mirrored by the read-back fallback
+};
+
+Frame oddFrame(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface, Way way)
+{
+  r.clear(rgb(30, 60, 90));
+  if (way == Way::Captured || way == Way::Mirrored)
+    r.beginCapture();
+  if (way != Way::Bars)
+    oddScene(r);
+  r.endCapture(way == Way::Mirrored); // nothing without a capture
+  if (way == Way::ReadBack)
+    r.mirrorReadBack();
+  return present(sdl, surface);
+}
+
+// 1280 x 720 on an ow x oh surface at a scale that is no whole number, its
+// picture `pic` in output pixels as SDL letterboxes it: the side that fits
+// sets the scale, the other is rounded down and centred. SDL2 hands the
+// viewport back in whole logical units, rounded down, so the picture taken
+// from them is a pixel short (1364 for 1365 columns at 16/15) or its bar a
+// row short (51 for 52 at 1.3125). The capture covers the picture to its
+// last column and row, as drawn; mirrored, and by the read-back fallback,
+// it is the picture flipped within itself, row for row. (Bars of an even
+// width: an odd one puts SDL3's picture half a pixel off the pixel grid, as
+// it centres in float, and a direct draw and a copy may round apart there.)
+void testOddLetterbox(int ow, int oh, const SDL_Rect& pic)
+{
+  SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, ow, oh, 32, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
+  {
+    Renderer r(sdl);
+    SDL_RenderSetLogicalSize(sdl, kScreenW, kScreenH);
+    const Frame bars = oddFrame(r, sdl, surface, Way::Bars), direct = oddFrame(r, sdl, surface, Way::Direct);
+    const Frame plain = oddFrame(r, sdl, surface, Way::Captured), mirrored = oddFrame(r, sdl, surface, Way::Mirrored);
+    const Frame readBack = oddFrame(r, sdl, surface, Way::ReadBack);
+    const Frame want = mirroredIn(direct, ow, pic);
+    const int right = pic.x + pic.w - 1, bottom = pic.y + pic.h - 1, midY = pic.y + pic.h / 2;
+    const bool edges = atOf(plain, ow, right, midY) != atOf(bars, ow, right, midY) &&
+      atOf(plain, ow, pic.x + 700, bottom) != atOf(bars, ow, pic.x + 700, bottom);
+    const bool barsKept = (pic.x == 0 || atOf(plain, ow, pic.x - 1, midY) == atOf(bars, ow, pic.x - 1, midY)) &&
+      (right + 1 >= ow || atOf(plain, ow, right + 1, midY) == atOf(bars, ow, right + 1, midY)) &&
+      (pic.y == 0 || atOf(plain, ow, pic.x + 700, pic.y - 1) == atOf(bars, ow, pic.x + 700, pic.y - 1)) &&
+      (bottom + 1 >= oh || atOf(plain, ow, pic.x + 700, bottom + 1) == atOf(bars, ow, pic.x + 700, bottom + 1));
+    std::printf("     %d x %d: picture %d,%d %dx%d\n", ow, oh, pic.x, pic.y, pic.w, pic.h);
+    check(plain == direct, "at a scale that is no whole number the capture is the picture as drawn");
+    check(edges && barsKept, "the capture covers the picture to its last column and row, the bars left alone");
+    check(want != direct && mirrored == want, "mirrored, it is the picture flipped within itself");
+    check(readBack == want, "the read-back fallback reads and mirrors the picture to the pixel");
+  }
+  SDL_DestroyRenderer(sdl);
+  SDL_FreeSurface(surface);
+}
+
 } // namespace
 
 int main()
@@ -409,6 +482,8 @@ int main()
   }
   SDL_DestroyRenderer(sdl);
   SDL_FreeSurface(surface);
+  testOddLetterbox(1367, 768, {1, 0, 1365, 768});   // 16/15, side bars of 1 column
+  testOddLetterbox(1680, 1049, {0, 52, 1680, 945}); // 1.3125, bars of 52 rows
   SDL_Quit();
   std::printf(gFailures == 0 ? "all capture tests passed\n" : "%d capture test(s) failed\n", gFailures);
   return gFailures == 0 ? 0 : 1;

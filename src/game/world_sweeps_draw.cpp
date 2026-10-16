@@ -22,7 +22,9 @@
 // (beginSweepsScene): BIG HEADS grabs the runner's head from it,
 // drawSweepsTop puts it back on the screen, mirrored for MIRROR MODE;
 // nothing is read back from the GPU. Only when the renderer refuses the
-// capture are the head and the mirrored picture read back from the screen.
+// capture are the head and the mirrored picture read back from the screen,
+// and the head always without SDL_RenderGeometry (SDL older than 2.0.18),
+// which the lens is faded with on the GPU.
 // The HUD (drawSweepsHud): the Applause Cannon's meter, the rule in force,
 // the ballot; Paintball's share painted.
 
@@ -1589,9 +1591,16 @@ bool World::sweepsHeadLens() const
 // most of the time, and its lens is off while the runner dies, hides,
 // somersaults or walks the ceiling. (A lens refused at the picture's edge
 // still costs the capture: that is known only when the head is placed.)
+// Without SDL_RenderGeometry (SDL older than 2.0.18) the lens is read back
+// whatever the target, so it begins no capture of its own.
 void World::beginSweepsScene(Renderer& r) const
 {
-  if (sweepsMirrored() || sweepsHeadLens())
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  const bool lensFromCapture = sweepsHeadLens();
+#else
+  const bool lensFromCapture = false;
+#endif
+  if (sweepsMirrored() || lensFromCapture)
     r.beginCapture();
 }
 
