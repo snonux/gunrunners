@@ -13,6 +13,7 @@
 #include <string>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
 
@@ -107,7 +108,6 @@ S3Config localConfig(int port)
   return config;
 }
 
-#ifndef GR_NO_CURL
 // While alive, no file of this process may grow past 0 bytes: every write
 // fails with EFBIG (SIGXFSZ is ignored so it does not kill the test), as in
 // tests/atomic_file_test.cpp. Sockets are not files, so the local server and
@@ -137,6 +137,8 @@ private:
 };
 
 namespace fs = std::filesystem;
+
+#ifndef GR_NO_CURL
 
 const std::string kBody = "gunrunners-save 1\nlevel LOCAL\nend\n";
 
@@ -223,7 +225,124 @@ void downloadsInstallAllOrNothing()
 #endif
 }
 
-} // namespace
+// The permission bits of path, or -1 when it cannot be stat'ed.
+int modeOf(const std::string& path)
+{
+  struct stat st;
+  return ::stat(path.c_str(), &st) == 0 ? int(st.st_mode & 07777) : -1;
+}
+
+// Files in dir whose name starts with prefix: a temp file a write left
+// behind ("cloud.txt.tmp.<pid>.<n>") would show up here.
+int filesStartingWith(const fs::path& dir, const std::string& prefix)
+{
+  int n = 0;
+  for (const auto& entry : fs::directory_iterator(dir))
+    n += entry.path().filename().string().rfind(prefix, 0) == 0 ? 1 : 0;
+  return n;
+}
+
+S3Config configWithSecret(const std::string& secret)
+{
+  S3Config config = localConfig(9);
+  config.secretKey = secret;
+  return config;
+}
+
+// cloud.txt holds the secret key, so it is 0600 whatever the umask (even
+// 0, where the default 0666 would leave it readable by everyone) and
+// whatever mode an older cloud.txt had.
+void configIsOwnerOnly(const fs::path& dir)
+{
+  const std::string path = (dir / "cloud.txt").string();
+  std::ofstream(path) << "old\n";
+  fs::permissions(path, fs::perms(0644));
+  const mode_t old = ::umask(0);
+  const bool saved = saveS3Config(dir.string(), configWithSecret("private"));
+  ::umask(old);
+  check(saved && loadS3Config(dir.string()).secretKey == "private", "cloud.txt is saved");
+  check(modeOf(path) == 0600, "cloud.txt is owner-only (0600), even with umask 0");
+  check(filesStartingWith(dir, "cloud.txt.tmp") == 0, "saving cloud.txt leaves no temp file");
+}
+
+// The old leak: cloud.txt was written through the fixed name cloud.txt.tmp
+// with O_CREAT|O_TRUNC, so a symlink planted there received the secret key
+// (and its target was chmodded). Now the symlink is not a temp name the
+// write uses: it and its target stay as they were, and with a dangling one
+// nothing is created at its target.
+void legacyTempSymlinkIgnored(const fs::path& dir)
+{
+  const std::string legacy = (dir / "cloud.txt.tmp").string();
+  const std::string victim = (dir / "victim.txt").string();
+  std::ofstream(victim) << "victim\n";
+  fs::permissions(victim, fs::perms(0644));
+  fs::create_symlink(victim, legacy);
+  check(saveS3Config(dir.string(), configWithSecret("linked")), "a symlink at cloud.txt.tmp: the save works");
+  check(read(victim) == "victim\n" && modeOf(victim) == 0644,
+    "...and its target does not receive the secret, nor a new mode");
+  check(fs::is_symlink(legacy) && !fs::is_symlink(dir / "cloud.txt") &&
+      loadS3Config(dir.string()).secretKey == "linked",
+    "...and it stays a symlink, with cloud.txt a file of its own");
+  fs::remove(legacy);
+  const fs::path nowhere = dir / "nowhere.txt";
+  fs::create_symlink(nowhere, legacy);
+  check(saveS3Config(dir.string(), configWithSecret("dangling")) &&
+      !fs::exists(fs::symlink_status(nowhere)),
+    "a dangling symlink at cloud.txt.tmp: nothing is created at its target");
+  fs::remove(legacy);
+}
+
+// A save that cannot be written (file size limit, like a full disk) reports
+// false and why, and keeps the old cloud.txt with its old secret.
+void failedConfigSaveKeepsOld(const fs::path& dir)
+{
+  check(saveS3Config(dir.string(), configWithSecret("kept")), "a config to keep is saved");
+  const std::string before = read((dir / "cloud.txt").string());
+  std::string error;
+  bool saved = true;
+  bool limited = false;
+  {
+    NoFileGrowth guard;
+    limited = guard.active();
+    saved = saveS3Config(dir.string(), configWithSecret("lost"), &error);
+  }
+  check(limited, "file size limit set");
+  check(!saved && error.find("cannot write") == 0, "a cloud.txt that cannot be written is an error");
+  check(read((dir / "cloud.txt").string()) == before && loadS3Config(dir.string()).secretKey == "kept",
+    "...and the old cloud.txt is kept");
+  check(filesStartingWith(dir, "cloud.txt.tmp") == 0, "...and no temp file is left");
+}
+
+// The dirty marker goes through the same write: a symlink at its old fixed
+// temp name is not followed, and the marker holds a token.
+void dirtyMarkerIgnoresSymlink(const fs::path& dir)
+{
+  const std::string save = (dir / "slot.sav").string();
+  const std::string victim = (dir / "marker-victim.txt").string();
+  std::ofstream(victim) << "victim\n";
+  fs::create_symlink(victim, save + ".cloud-dirty.tmp");
+  std::string error;
+  check(markS3Dirty(save, &error), "a symlink at .cloud-dirty.tmp: marking dirty works");
+  check(read(victim) == "victim\n", "...and its target does not receive the token");
+  check(!read(save + ".cloud-dirty").empty() && modeOf(save + ".cloud-dirty") == 0600,
+    "...and the marker holds a token, owner-only");
+  check(filesStartingWith(dir, "slot.sav.cloud-dirty.tmp.") == 0, "...and no temp file is left");
+}
+
+// cloud.txt and the dirty marker are written all or nothing, owner-only,
+// never through whatever sits at a temp name.
+void configWritesAreSafe()
+{
+  const fs::path dir = fs::temp_directory_path() / ("gunrunners_s3_cloud_txt_test_" + std::to_string(::getpid()));
+  fs::remove_all(dir);
+  fs::create_directories(dir);
+  configIsOwnerOnly(dir);
+  legacyTempSymlinkIgnored(dir);
+  failedConfigSaveKeepsOld(dir);
+  dirtyMarkerIgnoresSymlink(dir);
+  fs::remove_all(dir);
+}
+
 // What quitting the game does to a running sync: the S3Active check turns
 // false after ms milliseconds.
 S3Active cancelAfter(int ms)
@@ -434,6 +553,7 @@ int main()
       !loadS3Config(configDir.string()).enabled(),
     "cloud configuration can be disabled");
   std::filesystem::remove_all(configDir);
+  configWritesAreSafe();
   cancelTests();
 
   S3Config config;

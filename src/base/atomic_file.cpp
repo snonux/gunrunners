@@ -43,19 +43,21 @@ std::string tempName(const std::string& path)
     std::to_string(counter.fetch_add(1, std::memory_order_relaxed));
 }
 
-// Creates a new, empty temp file for path and returns its descriptor, with
-// its name in tmp, or -1 with errno set (tmp then holds the last name
-// tried). O_EXCL never opens what already exists at a name, a symlink
-// (dangling or not) included, and nothing found there is unlinked: it
-// belongs to someone else, so the next name is tried instead.
-int createTemp(const std::string& path, std::string& tmp)
+// Creates a new, empty temp file for path with mode (minus the umask) and
+// returns its descriptor, with its name in tmp, or -1 with errno set (tmp
+// then holds the last name tried). O_EXCL never opens what already exists
+// at a name, a symlink (dangling or not) included, and nothing found there
+// is unlinked: it belongs to someone else, so the next name is tried
+// instead. As the file is always new, mode is exactly what it gets: no
+// older file's looser permissions survive, so no fchmod is needed.
+int createTemp(const std::string& path, std::string& tmp, mode_t mode)
 {
   for (int attempt = 0; attempt < kTempAttempts; ++attempt)
   {
     tmp = tempName(path);
     int fd;
     do
-      fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0666);
+      fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, mode);
     while (fd < 0 && errno == EINTR);
     if (fd >= 0 || errno != EEXIST)
       return fd;
@@ -103,10 +105,10 @@ void syncParentDir(const std::string& path)
 
 } // namespace
 
-bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error)
+bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error, mode_t mode)
 {
   std::string tmp;
-  const int fd = createTemp(path, tmp);
+  const int fd = createTemp(path, tmp, mode);
   if (fd < 0)
   {
     // Nothing was created, so there is nothing of ours to clean up. errno

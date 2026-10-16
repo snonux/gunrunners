@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    cloud.txt holds the S3 secret key and stays on the device: it is never
+    backed up or moved to a new device. The game writes it through a temp
+    file named cloud.txt.tmp.<pid>.<n> (writeFileAtomic, created 0600 with
+    O_EXCL), and these rules take exact paths only, no wildcards, so no rule
+    can list those names. That is accepted: such a temp file lives only
+    between its creation and the rename over cloud.txt, a few system calls
+    apart, and is left behind only when the process is killed right there or
+    a failed write cannot unlink it. cloud.txt.tmp, the fixed temp name of
+    older builds, stays excluded for the leftovers those builds may have
+    left. Keep the same paths in backup_rules.xml.
+-->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="saves/cloud.txt" />

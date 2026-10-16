@@ -4,7 +4,8 @@
 // Before the fix a failed flush went unnoticed and an empty temp file was
 // renamed over profile.txt, wiping all campaign progress. Each write uses a
 // temp name of its own; whatever already sits at such a name (a leftover, a
-// symlink) is skipped, never written through or removed.
+// symlink) is skipped, never written through or removed. The file gets the
+// mode the caller asks for (0600 for cloud.txt) minus the umask.
 
 #include "base/atomic_file.hpp"
 #include "data/characters.hpp"
@@ -19,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 using namespace gr;
@@ -252,6 +254,55 @@ void refusedRenameCleansUp(const std::string& dir)
   check(error.find("cannot replace") == 0, "a refused rename says why: " + error);
 }
 
+// The permission bits of path, or -1 when it cannot be stat'ed.
+int modeOf(const std::string& path)
+{
+  struct stat st;
+  return ::stat(path.c_str(), &st) == 0 ? int(st.st_mode & 07777) : -1;
+}
+
+// Sets the process's umask while alive, so the expected modes below do not
+// depend on the umask the test runs with.
+class Umask
+{
+public:
+  explicit Umask(mode_t mask) : mOld(::umask(mask)) {}
+  ~Umask() { ::umask(mOld); }
+
+private:
+  mode_t mOld;
+};
+
+// The mode parameter: the default is 0666 minus the umask, as before it
+// existed; any other mode is given to the new file exactly (minus the
+// umask), and replacing a file gives it the new mode, not the old one's.
+void modeIsApplied(const std::string& dir)
+{
+  const std::string path = dir + "/mode.txt";
+  {
+    const Umask mask(022);
+    check(writeFileAtomic(path, "default\n") && modeOf(path) == 0644, "default mode: 0666 minus umask 022");
+    check(writeFileAtomic(path, "private\n", nullptr, 0600) && modeOf(path) == 0600,
+      "mode 0600 replaces a 0644 file with a 0600 one");
+    check(writeFileAtomic(path, "group\n", nullptr, 0640) && modeOf(path) == 0640 && slurp(path) == "group\n",
+      "mode 0640 is applied");
+    check(writeFileAtomic(path, "open\n", nullptr, 0666) && modeOf(path) == 0644,
+      "mode 0666 loosens a 0640 file to 0666 minus the umask");
+  }
+  {
+    const Umask mask(0);
+    check(writeFileAtomic(path, "private\n", nullptr, 0600) && modeOf(path) == 0600,
+      "mode 0600 with umask 0: still 0600");
+    check(writeFileAtomic(path, "all\n") && modeOf(path) == 0666, "default mode with umask 0: 0666");
+  }
+  {
+    const Umask mask(077);
+    check(writeFileAtomic(path, "masked\n", nullptr, 0644) && modeOf(path) == 0600,
+      "umask 077 takes the group and other bits of mode 0644");
+  }
+  check(tempsOf(path) == 0, "...and no temp file is left");
+}
+
 Profile progress()
 {
   Profile p;
@@ -362,6 +413,7 @@ void runAll(const std::string& d)
   danglingSymlinkAtTempNotFollowed(d);
   uncreatableTempKeepsOld(d);
   refusedRenameCleansUp(d);
+  modeIsApplied(d);
   profileSurvivesFailedSave(d + "/profile");
   runnersSurviveFailedSave(d + "/runners");
   savegameSurvivesFailedSave(d + "/saves");

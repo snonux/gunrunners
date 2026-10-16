@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <sys/types.h>
 
 namespace gr
 {
@@ -14,6 +15,15 @@ namespace gr
 // symlink planted at a temp name cannot redirect the write onto its target.
 // Every byte is written and fsync'ed, the file closed, and only then is it
 // renamed over path.
+//
+// The file gets mode (0666 by default) minus the process's umask, as with
+// open(O_CREAT): the temp file is always new, so it is created with exactly
+// these permissions, and the rename carries them over to path, whatever
+// mode the old file had. A file holding secrets passes 0600 (cloud.txt
+// with the S3 secret key), so it is never readable by others, not even for
+// the instant before the rename. A umask (or a default ACL on the
+// directory, which replaces the umask there) can only take bits away, never
+// add any.
 //
 // True: path holds the new data in full (with concurrent writers, the last
 // rename wins, never a mix), and since the data reached the disk before the
@@ -40,6 +50,7 @@ namespace gr
 // <temp>: File exists") when all of them are taken, e.g. when leftovers of
 // many crashes of a game that always runs as the same pid (pid 1 in a
 // container) pile up at the low counter values a new process starts with.
-bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error = nullptr);
+bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error = nullptr,
+  mode_t mode = 0666);
 
 } // namespace gr

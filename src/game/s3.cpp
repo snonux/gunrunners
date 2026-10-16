@@ -8,13 +8,10 @@
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
-#include <fcntl.h>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <unordered_map>
 
 #ifndef GR_NO_CURL
@@ -118,8 +115,6 @@ bool saveS3Config(const std::string& saveDir, const S3Config& config,
       *error = ec.message();
     return false;
   }
-  const std::string path = saveDir + "/cloud.txt";
-  const std::string temporary = path + ".tmp";
   std::ostringstream contents;
   contents << "endpoint=" << config.endpoint << '\n'
     << "bucket=" << config.bucket << '\n'
@@ -127,46 +122,20 @@ bool saveS3Config(const std::string& saveDir, const S3Config& config,
     << "prefix=" << config.prefix << '\n'
     << "access_key=" << config.accessKey << '\n'
     << "secret_key=" << config.secretKey << '\n';
-  const std::string data = contents.str();
-  {
-    const int fd = ::open(temporary.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
-    if (fd < 0)
-    {
-      if (error)
-        *error = "cannot write " + temporary;
-      return false;
-    }
-    // O_CREAT does not tighten an existing temp file's mode.
-    bool ok = ::fchmod(fd, 0600) == 0;
-    std::size_t written = 0;
-    while (ok && written < data.size())
-    {
-      const ssize_t n = ::write(fd, data.data() + written, data.size() - written);
-      if (n <= 0)
-        ok = false;
-      else
-        written += std::size_t(n);
-    }
-    if (::close(fd) != 0)
-      ok = false;
-    if (!ok)
-    {
-      fs::remove(temporary, ec);
-      if (error)
-        *error = "cannot securely write " + temporary;
-      return false;
-    }
-  }
-  fs::rename(temporary, path, ec);
-  if (ec)
-  {
-    const std::string message = ec.message();
-    fs::remove(temporary, ec);
-    if (error)
-      *error = "cannot replace cloud.txt: " + message;
-    return false;
-  }
-  return true;
+  // writeFileAtomic with mode 0600: the secret key goes to a new temp file
+  // of this write's own (O_EXCL, so a symlink planted at any temp name, the
+  // fixed "cloud.txt.tmp" of older builds included, is never written
+  // through), readable by the owner only from its first byte on, synced
+  // before the rename. A failed write keeps the old cloud.txt.
+  //
+  // The temp names are "cloud.txt.tmp.<pid>.<n>", which the exact paths of
+  // the Android backup rules cannot list (they take no wildcards; see
+  // android/app/src/main/res/xml/backup_rules.xml). That is accepted: a temp
+  // file exists only between its creation and the rename, a few system
+  // calls apart, and outlives them only when the process is killed right
+  // there or when a failed write's cleanup unlink fails too (see
+  // atomic_file.hpp).
+  return writeFileAtomic(saveDir + "/cloud.txt", contents.str(), error, 0600);
 }
 
 bool removeS3Config(const std::string& saveDir, std::string* error)
@@ -408,9 +377,7 @@ S3GetResult s3GetFile(const S3Config& config, const std::string& object,
   // writeFileAtomic, as profile.txt, runners.txt and the savegames use: a
   // temp file of this write's own, every byte written and synced before the
   // rename, the temp file removed (best effort) on any failure, so a full
-  // disk does not collect half-downloaded temp files. (saveS3Config and
-  // markS3Dirty in this file do not use it yet: they still write a
-  // fixed-name ".tmp" by hand with O_CREAT|O_TRUNC.) The caller still
+  // disk does not collect half-downloaded temp files. The caller still
   // validates path before installing it anywhere.
   if (!writeFileAtomic(path, body, error))
     return S3GetResult::Error;
@@ -418,6 +385,14 @@ S3GetResult s3GetFile(const S3Config& config, const std::string& object,
 #endif
 }
 
+// The marker holds a token unique to this call (steady clock time and a
+// counter), which syncS3File reads before an upload and compares before it
+// clears the marker, so a save marked dirty during the upload stays dirty.
+// writeFileAtomic replaces the marker all or nothing, so a reader sees the
+// old token or the new one, never a torn one, and its unique O_EXCL temp
+// names keep concurrent markers (another game process) and planted symlinks
+// out of each other's way. Mode 0600, as for cloud.txt: the marker is
+// private game state.
 bool markS3Dirty(const std::string& path, std::string* error)
 {
   namespace fs = std::filesystem;
@@ -425,23 +400,15 @@ bool markS3Dirty(const std::string& path, std::string* error)
   const fs::path save(path);
   if (save.has_parent_path())
     fs::create_directories(save.parent_path(), ec);
-  const std::string marker = path + ".cloud-dirty";
-  const std::string temporary = marker + ".tmp";
-  const int fd = ::open(temporary.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
   static std::atomic<unsigned long long> sequence{0};
   const std::string token = std::to_string(
     std::chrono::steady_clock::now().time_since_epoch().count()) + '-' +
     std::to_string(sequence.fetch_add(1, std::memory_order_relaxed));
-  const bool written = fd >= 0 && ::write(fd, token.data(), token.size()) == ssize_t(token.size());
-  if (fd >= 0 && ::close(fd) == 0 && written)
-  {
-    fs::rename(temporary, marker, ec);
-    if (!ec)
-      return true;
-  }
-  fs::remove(temporary, ec);
+  std::string why;
+  if (writeFileAtomic(path + ".cloud-dirty", token, &why, 0600))
+    return true;
   if (error)
-    *error = "cannot mark cloud save dirty";
+    *error = "cannot mark cloud save dirty: " + why;
   return false;
 }
 
