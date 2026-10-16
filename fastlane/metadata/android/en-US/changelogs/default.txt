@@ -1,1 +1,1 @@
-The GUIDE ARROW is now on from the start (switch it off under CONTROLS > ASSISTS AND OPTIONS), and it sits a little higher so it stays clear of the subtitles.
+New SETTINGS menu on the title screen and in the pause menu: DIFFICULTY, CONTROLS, ASSISTS, PLAY OPTIONS and FULLSCREEN in one place. Every setting takes effect at once, mid-level too: switch to HARD and the extra enemies join the level you are in. Gamepads now jump with A and fire with X (B, RB and RT still fire), and the on-screen buttons match: Jump in the corner, Fire beside it.
