@@ -1,9 +1,10 @@
 // Gunrunners web page: the turnable game box, the gameplay clips that play
-// while they are on screen, a lightbox for the screenshots and little
-// synthesized sound effects. No dependencies. Without JavaScript the page
-// still reads fine: the box stands at its resting angle, its turn controls
-// and the sound switch stay hidden, the clips have their own controls and
-// the screenshots link to the full-size files.
+// while they are on screen, a lightbox for the screenshots, the section
+// menu on phones and little synthesized sound effects. No dependencies.
+// Without JavaScript the page still reads fine: the box stands at its
+// resting angle, its turn controls, the menu button and the sound switch
+// stay hidden, the clips have their own controls and the screenshots link
+// to the full-size files.
 (function () {
   "use strict";
 
@@ -345,7 +346,7 @@
   var HOVER_SOUNDS = [
     [".box-stage", "whoosh"], [".runner", "boing"], [".boss", "zap"], [".logo", "glitch"],
     [".filmstrip", "tick"], [".episode, .video, .get-card, .cast-card, .shot-grid a", "blip"],
-    [".btn, .top nav a, .sound-toggle", "tick"],
+    [".btn, .top nav a, .sound-toggle, .menu-toggle", "tick"],
   ];
   var CLICK_SOUNDS = [["#flip", "whoosh"], [".btn:not(#flip)", "coin"]];
 
@@ -388,8 +389,32 @@
     bindSounds(sfx);
   }
 
+  // ---------- the section menu (phones and tablets) ----------
+  // Up to 1120px wide the header folds the section links into a drop-down
+  // (style.css); the button opens it, and a link, Escape or a tap
+  // anywhere else closes it again.
+  function setupMenu() {
+    var header = document.querySelector(".top");
+    var button = document.querySelector(".menu-toggle");
+    if (!header || !button) return;
+    button.hidden = false;
+    function setOpen(open) {
+      header.classList.toggle("menu-open", open);
+      button.setAttribute("aria-expanded", String(open));
+    }
+    button.addEventListener("click", function () { setOpen(!header.classList.contains("menu-open")); });
+    document.querySelectorAll(".nav-links a").forEach(function (a) {
+      a.addEventListener("click", function () { setOpen(false); });
+    });
+    document.addEventListener("click", function (e) { if (!header.contains(e.target)) setOpen(false); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && header.classList.contains("menu-open")) { setOpen(false); button.focus(); }
+    });
+  }
+
   setupBox();
   setupVideos();
   setupLightbox();
+  setupMenu();
   setupSound();
 })();

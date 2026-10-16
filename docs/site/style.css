@@ -90,9 +90,32 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .sound-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .sound-toggle { padding: 5px 8px; }
 }
-/* Below 960px the section links no longer fit on one line (with a classic
-   scrollbar): keep only "Get it" and the sound switch. */
-@media (max-width: 960px) { .top nav a:not(.nav-cta) { display: none; } }
+/* The section links sit in the nav on wide screens; up to 1120px they no
+   longer fit on one line (with a classic scrollbar) and fold into a
+   drop-down under the header, opened by the menu button (site.js). */
+.nav-links { display: contents; }
+.menu-toggle {
+  display: inline-flex; align-items: center; justify-content: center; padding: 5px 8px; border-radius: 999px;
+  border: 1.5px solid var(--cyan); background: transparent; color: var(--text); cursor: pointer;
+}
+.menu-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.menu-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.menu-toggle[hidden] { display: none; }
+@media (min-width: 1121px) { .menu-toggle { display: none; } }
+@media (max-width: 1120px) {
+  .top { gap: 10px; }
+  .nav-links {
+    display: none; position: absolute; top: 100%; left: 0; right: 0;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 24px;
+    padding: 6px clamp(16px, 4vw, 48px) 12px;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+  }
+  .top.menu-open .nav-links { display: grid; }
+  .top.menu-open .menu-toggle { background: rgba(47, 216, 255, 0.18); }
+  .nav-links a { padding: 10px 0; font-size: 18px; border-bottom: 1px solid rgba(58, 37, 99, 0.7); }
+}
+@media (max-width: 380px) { .brand { font-size: 20px; } }
 
 /* ---------- layout ---------- */
 main > section { padding: clamp(48px, 8vw, 96px) clamp(16px, 5vw, 64px); max-width: 1240px; margin: 0 auto; }
@@ -350,6 +373,8 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 .shot-grid a { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
 .shot-grid img { border-radius: 0; aspect-ratio: 16 / 9; object-fit: cover; width: 100%; transition: transform 0.25s ease; }
 .shot-grid a:hover img { transform: scale(1.04); }
+/* Two to a row on phones: one per row made a dozen screens of thumbnails. */
+@media (max-width: 600px) { .shot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .shot-grid a { border-radius: 8px; } }
 .lightbox { border: none; padding: 0; background: transparent; max-width: min(96vw, 1400px); max-height: 94vh; overflow: visible; }
 .lightbox::backdrop { background: rgba(5, 2, 12, 0.88); }
 .lightbox img { width: 100%; max-height: 94vh; object-fit: contain; border-radius: 10px; }
@@ -361,6 +386,8 @@ blockquote { margin: 18px 0; padding: 14px 18px; border-left: 3px solid var(--ho
 .get-card h3 { font-size: 27px; color: var(--cyan); }
 .get-card p { color: #d4c9f5; }
 .get-card p code { overflow-wrap: anywhere; }
+/* On phones the build commands wrap instead of running off the card. */
+@media (max-width: 600px) { .get-card pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; } }
 
 /* ---------- footer ---------- */
 footer { text-align: center; padding: 40px 16px 56px; color: var(--muted); border-top: 1px solid var(--line); }
@@ -426,6 +453,20 @@ main > section:not(.hero)::after {
     radial-gradient(60% 50% at 70% 40%, rgba(255, 63, 174, 0.25), transparent 70%),
     linear-gradient(180deg, rgba(20, 10, 38, 0.62), rgba(20, 10, 38, 0.74) 60%, var(--bg)),
     var(--scene) center bottom / cover no-repeat;
+}
+/* On phones and tablets the hero is a tall column (trailers, pitch, box),
+   and covering it would blow a strip of the picture up several times over
+   (giant blurred letters from the game's banner). There the picture keeps a
+   screenful's height at the top, its HUD pushed up out of sight, and fades
+   into the page under the trailers. */
+@media (max-width: 900px) {
+  .hero::before {
+    top: 0;
+    background:
+      radial-gradient(60% 30% at 70% 15%, rgba(255, 63, 174, 0.25), transparent 70%),
+      linear-gradient(180deg, rgba(20, 10, 38, 0.6), rgba(20, 10, 38, 0.78) 360px, var(--bg) 720px),
+      var(--scene) center -120px / auto 680px no-repeat var(--bg);
+  }
 }
 
 /* The synthwave floor under the hero: a magenta grid in perspective,

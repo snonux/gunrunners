@@ -44,16 +44,23 @@
 <header class="top">
   <a class="brand" href="#top"><span class="gr">GR</span> Gunrunners</a>
   <nav>
-    <a href="#trailers">Trailers</a>
-    <a href="#box">The box</a>
-    <a href="#videos">Gameplay</a>
-    <a href="#story">Story</a>
-    <a href="#runners">Runners</a>
-    <a href="#villains">Villains</a>
-    <a href="#episodes">Episodes</a>
-    <a href="#get">Get it</a>
+    <div class="nav-links" id="nav-links">
+      <a href="#trailers">Trailers</a>
+      <a href="#box">The box</a>
+      <a href="#videos">Gameplay</a>
+      <a href="#story">Story</a>
+      <a href="#runners">Runners</a>
+      <a href="#villains">Villains</a>
+      <a href="#episodes">Episodes</a>
+      <a href="#get">Get it</a>
+    </div>
     <a class="nav-cta" href="play/">Play now</a>
   </nav>
+  <!-- The section links as a drop-down on phones and tablets (site.js shows it). -->
+  <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="nav-links" title="Sections" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <span class="sr-only">Sections</span>
+  </button>
   <!-- Sound effects on/off (site.js shows it; without JavaScript there are none). -->
   <button type="button" class="sound-toggle" aria-pressed="true" title="Sound effects (they start after your first click)" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
