@@ -33,9 +33,10 @@ namespace gr
 // One needed before the worker gets to it is rendered by the caller
 // instead (see take()), or, by a caller that must not block, asked for
 // ahead of the rest (requestFirst()) and collected once done (takeReady()).
-// Such a caller learns from takeFailed() that the render threw, so it does
-// not wait (and ask again) forever; when it stops waiting, demote() moves a
-// request still queued behind the rest again.
+// Such a caller renews its request with renewFirst() on each miss, which
+// tells it when the render threw, so it does not wait (and ask again)
+// forever; when it stops waiting, demote() moves a request still queued
+// behind the rest again.
 //
 // Finished results nobody has taken yet are capped at `keepReady` (a track
 // is ~12 MB): past that stale ones go first, then the oldest, and an evicted
@@ -108,6 +109,27 @@ public:
   // finishes first.
   bool requestFirst(const std::string& id) { return enqueue(id, true); }
 
+  // For a caller still waiting on its requestFirst() of `id` (polling with
+  // takeReady(), see Audio::pollMusic): false when the render of `id` has
+  // failed since it was last requested, which is then reported once (as by
+  // takeFailed()) and nothing is queued; otherwise as requestFirst(), which
+  // keeps `id` at the front or queues it again after a markStale() or
+  // drop() cancelled it. The check and the renewal share one lock: done as
+  // takeFailed() then requestFirst(), a render failing in between was
+  // recorded and then forgotten by the new request, and retried forever.
+  bool renewFirst(const std::string& id)
+  {
+    {
+      std::lock_guard<std::mutex> lock(mMutex);
+      if (eraseFailedLocked(id))
+        return false;
+      if (!enqueueLocked(id, true))
+        return true;
+    }
+    mWake.notify_one();
+    return true;
+  }
+
   // Moves `id`, if it waits in the queue, to its back: whoever asked for it
   // first no longer waits for it (a music switch called off), and the
   // requests behind it, asked for in the order they are needed (a
@@ -126,16 +148,12 @@ public:
 
   // Whether the background render of `id` failed (threw, see renderSafely)
   // since `id` was last requested; true once, as the answer is cleared.
-  // A caller that polls with takeReady() and asks again on each miss
-  // checks this first, or it would have the render retried forever.
+  // A caller that polls with takeReady() and asks again on each miss uses
+  // renewFirst() instead, which checks this and asks again under one lock.
   bool takeFailed(const std::string& id)
   {
     std::lock_guard<std::mutex> lock(mMutex);
-    const auto it = std::find(mFailed.begin(), mFailed.end(), id);
-    if (it == mFailed.end())
-      return false;
-    mFailed.erase(it);
-    return true;
+    return eraseFailedLocked(id);
   }
 
   // Claims the result for `id`: a finished one is handed over, one in
@@ -245,35 +263,57 @@ private:
   };
 
   // request() and requestFirst(): queues `id` at the back or the front.
-  // Asking again is a new attempt, so an earlier failure is forgotten.
+  // Asking again is a new attempt, so an earlier failure is forgotten
+  // (renewFirst() looks at it first, under the same lock).
   bool enqueue(const std::string& id, bool first)
   {
     {
       std::lock_guard<std::mutex> lock(mMutex);
-      mFailed.erase(std::remove(mFailed.begin(), mFailed.end(), id), mFailed.end());
-      if (renderingLocked(id))
-      {
-        mCurrentKeep = Keep::Fresh;
+      eraseFailedLocked(id);
+      if (!enqueueLocked(id, first))
         return false;
-      }
-      if (auto it = readyLocked(id); it != mReady.end())
-      {
-        it->stale = false;
-        std::rotate(it, std::next(it), mReady.end());
-        return false;
-      }
-      if (auto q = queuedLocked(id); q != mQueue.end())
-      {
-        if (first)
-          std::rotate(mQueue.begin(), q, std::next(q));
-        return false;
-      }
-      if (first)
-        mQueue.push_front(id);
-      else
-        mQueue.push_back(id);
     }
     mWake.notify_one();
+    return true;
+  }
+
+  // Queues `id` at the back or the front unless it is rendering, finished
+  // or queued already, in which case it is only wanted again (see
+  // request()) or, `first`, moved to the front. Returns whether it was
+  // newly queued; the caller then wakes the worker, after the unlock.
+  bool enqueueLocked(const std::string& id, bool first)
+  {
+    if (renderingLocked(id))
+    {
+      mCurrentKeep = Keep::Fresh;
+      return false;
+    }
+    if (auto it = readyLocked(id); it != mReady.end())
+    {
+      it->stale = false;
+      std::rotate(it, std::next(it), mReady.end());
+      return false;
+    }
+    if (auto q = queuedLocked(id); q != mQueue.end())
+    {
+      if (first)
+        std::rotate(mQueue.begin(), q, std::next(q));
+      return false;
+    }
+    if (first)
+      mQueue.push_front(id);
+    else
+      mQueue.push_back(id);
+    return true;
+  }
+
+  // Forgets a failure recorded for `id`; returns whether there was one.
+  bool eraseFailedLocked(const std::string& id)
+  {
+    const auto it = std::find(mFailed.begin(), mFailed.end(), id);
+    if (it == mFailed.end())
+      return false;
+    mFailed.erase(it);
     return true;
   }
 
@@ -304,7 +344,7 @@ private:
   // so nothing here can throw: the id is swapped (not copied) into
   // mCurrent, the render and the store catch their own failures, and a
   // failure only costs the preload (the caller renders it when needed, or
-  // gives up on it, see takeFailed()).
+  // gives up on it, see renewFirst() and takeFailed()).
   void renderNextLocked(std::unique_lock<std::mutex>& lock)
   {
     mCurrent.swap(mQueue.front());

@@ -220,19 +220,19 @@ void Audio::pollMusic()
   Track* track = readyTrack(id);
   if (!track)
   {
-    if (mPreloads.takeFailed(id))
-    {
-      // Its render threw (logged by the queue; out of memory, most
-      // likely): asking again on every tick would retry it forever. The
-      // music playing goes on; a later playMusicNamed of it tries again.
-      std::fprintf(stderr, "music '%s' not played: its render failed\n", id.c_str());
-      mPending.cancel();
-      return;
-    }
     // Still queued or rendering, which this keeps at the front; or a level
     // start's markStale (or a drop) cancelled the request, which this
-    // renews, so a pending track is never forgotten.
-    mPreloads.requestFirst(id);
+    // renews, so a pending track is never forgotten. Unless its render
+    // threw (logged by the queue; out of memory, most likely): asking
+    // again on every tick would retry it forever. renewFirst checks that
+    // and renews under one lock, so a render failing just now is not
+    // forgotten by the renewal. The music playing goes on; a later
+    // playMusicNamed of it tries again.
+    if (!mPreloads.renewFirst(id))
+    {
+      std::fprintf(stderr, "music '%s' not played: its render failed\n", id.c_str());
+      mPending.cancel();
+    }
     return;
   }
   // The start frame is taken under the lock that starts it, so no frame

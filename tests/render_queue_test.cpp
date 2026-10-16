@@ -29,6 +29,9 @@
 //     and leaves one rendering or finished alone;
 //   - takeFailed() reports a render that threw, once; a new request or
 //     drop() forgets it;
+//   - renewFirst() (pollMusic's renewal) reports a failure recorded just
+//     before it, once, and queues nothing then; otherwise it renews as
+//     requestFirst() does, including a request a level start cancelled;
 //   - PendingMusic (src/audio/pending_music.hpp), the music switch
 //     Audio::playMusicNamed makes late: a track without a seek starts at
 //     0, one with a seek starts that far in plus the frames played since,
@@ -683,6 +686,46 @@ void testTakeFailed()
   check(!q.takeFailed("boom3"), "drop() forgets failures");
 }
 
+// What Audio::pollMusic does on each tick its pending track is not ready
+// yet. The render fails after the poll's miss (takeReady, and the
+// takeFailed that pollMusic used to ask) and before its renewal, the
+// window in which a requestFirst forgot the failure it had just been told
+// about, so the poller waited and asked again forever.
+void testRenewFirst()
+{
+  FakeRender fake;
+  fake.close();
+  Queue q(fake.fn(), 8);
+  q.requestFirst("boom");
+  check(fake.reached("boom"), "the worker is held on a render that will fail");
+  check(!q.takeReady("boom") && !q.takeFailed("boom"), "the poll misses it, and nothing failed yet");
+  q.request("ok");
+  fake.release();
+  check(waitUntil([&] { return q.ready("ok"); }), "the render fails before the renewal (the worker went on)");
+  check(!q.renewFirst("boom"), "a failure recorded just before the renewal is still reported");
+  check(q.queuedCount() == 0 && !q.ready("boom"), "and nothing is queued for it");
+  check(!q.takeFailed("boom"), "reported once");
+  check(fake.log() == Log{"boom", "ok"}, "the failed render was not tried again");
+
+  fake.close();
+  q.request("gate");
+  check(fake.reached("gate"), "the worker is held on another id");
+  q.request("b");
+  q.request("p");
+  check(q.renewFirst("p") && q.queuedCount() == 2, "without a failure a queued id is renewed, not added");
+  check(q.renewFirst("gate") && q.queuedCount() == 2, "and the id rendering is not queued again");
+  q.markStale();
+  check(q.queuedCount() == 0, "a level start cancels the requests");
+  check(q.renewFirst("p") && q.queuedCount() == 1, "a cancelled request is queued again by the renewal");
+  fake.release();
+  check(waitUntil([&] { return q.ready("p"); }), "and rendered");
+  check(fake.log() == Log{"boom", "ok", "gate", "p"}, "nothing else was rendered");
+
+  FakeRender fake2;
+  Queue q2(fake2.fn(), 4, false);
+  check(q2.renewFirst("x") && q2.queuedCount() == 1, "without threads it is only remembered");
+}
+
 void testPendingMusic()
 {
   PendingMusic p;
@@ -1296,6 +1339,7 @@ int main()
   testTakeReady();
   testDemote();
   testTakeFailed();
+  testRenewFirst();
   testPendingMusic();
   testAudioLastRequestWins();
   testAudioCancelPending();
