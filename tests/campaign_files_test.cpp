@@ -138,10 +138,20 @@ void titleWithoutTraining(Game& g)
   check(!g.listening() && !g.inLevel(), "title: back from CONTROLS");
 }
 
-// The EXTRAS card in WORLD SELECT (the third of the second row of four,
-// see worlds.cpp) and the first row of the list screen (flow.cpp).
-constexpr float kExtrasCardX = 790.0f, kExtrasCardY = 500.0f;
-constexpr float kFirstListRowY = 140.0f;
+// WORLD SELECT's grid, as worlds.cpp lays it out: cards 280x236, 20 apart,
+// four to a row, centred on the screen's width from y 126. The kEpisodes
+// episode cards (DEEP SPACE the last) come first, then EXTRAS: card 7, the
+// fourth of the second row. (790, 500), the third of that row, is DEEP SPACE,
+// which menu_taps_test.cpp taps. Taps hit a card's centre.
+constexpr float kCardW = 280.0f, kCardH = 236.0f, kCardGap = 20.0f, kGridY = 126.0f;
+constexpr int kColumns = 4;
+constexpr float kGridX = (float(kScreenW) - kColumns * kCardW - (kColumns - 1) * kCardGap) / 2.0f;
+constexpr int kExtrasCard = kEpisodes;
+constexpr float kExtrasCardX = kGridX + float(kExtrasCard % kColumns) * (kCardW + kCardGap) + kCardW / 2.0f;
+constexpr float kExtrasCardY = kGridY + float(kExtrasCard / kColumns) * (kCardH + kCardGap) + kCardH / 2.0f;
+// The list screen's first row (renderList() in flow.cpp): drawn at y 120,
+// its tap target 50 high from 6 above that; tapped at its middle.
+constexpr float kFirstListRowY = 120.0f - 6.0f + 50.0f / 2.0f;
 
 // The negative case: an extra level deleted after its lookup was kept is
 // still offered, and picking it fails (Game::readLevelFile's catch), which
