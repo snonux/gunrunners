@@ -1,0 +1,12 @@
+{
+  "name": "Gunrunners",
+  "short_name": "Gunrunners",
+  "description": "A free neon jump-n-shoot, in your browser.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#140a26",
+  "theme_color": "#140a26",
+  "icons": [{ "src": "../site/icon.png", "sizes": "64x64", "type": "image/png" }]
+}

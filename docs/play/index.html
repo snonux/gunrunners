@@ -2,11 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Play Gunrunners in your browser</title>
 <meta name="description" content="Play Gunrunners, a free neon jump-n-shoot, right in your browser. Also for Linux and Android.">
 <meta name="theme-color" content="#140a26">
 <link rel="icon" href="../site/icon.png">
+<!-- Added to a phone's home screen, the page opens full screen in landscape
+     (the only way on iPhones, whose Safari has no full screen for pages). -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="../site/icon.png">
 <!-- The game files next to this page (gunrunners.js, .wasm, .data) are built
      from the latest release by the Pages workflow (web/pages.yml); the
      workflow also fills in the version below. -->
@@ -47,11 +54,20 @@
   .what { margin: 0; color: var(--muted); min-height: 1.5em; }
   .note { margin: 18px 0 0; max-width: 560px; color: var(--muted); font-size: 14px; }
   .error { color: var(--hot); }
+  /* Full screen toggle: in the side bars a phone's wide screen leaves next
+     to the 16:9 game, else small over its top edge. */
+  #fullscreen { position: fixed; z-index: 10; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--cyan); border-radius: 12px;
+    background: rgba(20, 10, 38, 0.6); color: var(--text); cursor: pointer; touch-action: manipulation; }
+  #fullscreen[hidden] { display: none; }
+  #fullscreen svg { width: 24px; height: 24px; display: block; margin: auto; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
   .back { position: fixed; top: 10px; left: 12px; font-size: 14px; color: var(--muted); text-decoration: none; }
 </style>
 </head>
 <body>
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<button type="button" id="fullscreen" title="Full screen" aria-label="Full screen" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+</button>
 <div id="loader">
   <a class="back" href="../">&larr; gunrunners.snonux.foo</a>
   <h1 class="logo">GUNRUNNERS</h1>
@@ -86,6 +102,7 @@
 
     // The largest 16:9 box that fits the window, so clicks and taps land
     // where the game draws (the game letterboxes 1280x720 inside it).
+    var fsButton = document.getElementById('fullscreen');
     function fit() {
       var w = window.innerWidth, h = window.innerHeight;
       var cw = Math.min(w, h * 16 / 9), ch = cw * 9 / 16;
@@ -93,9 +110,51 @@
       canvas.style.height = ch + 'px';
       canvas.style.left = (w - cw) / 2 + 'px';
       canvas.style.top = (h - ch) / 2 + 'px';
+      // In the right-hand bar when there is room for it, else top centre.
+      var bar = (w - cw) / 2;
+      fsButton.style.left = (bar >= 56 ? w - bar / 2 - 22 : w / 2 - 22) + 'px';
+      fsButton.style.top = (bar >= 56 ? 12 : 6) + 'px';
     }
     window.addEventListener('resize', fit);
     fit();
+
+    // Full screen: the button toggles it; on a phone or tablet the first
+    // touch also enters it (browsers allow that only from a tap) and turns
+    // the screen to landscape where the browser lets a page do that.
+    var root = document.documentElement;
+    var canFull = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+    var touchDevice = navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches;
+    function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+    function enterFull() {
+      var req = root.requestFullscreen || root.webkitRequestFullscreen;
+      var done = req.call(root, { navigationUI: 'hide' });
+      Promise.resolve(done).then(function () {
+        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
+      }).catch(function () {});
+    }
+    function exitFull() { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    // The game's FULLSCREEN menu item comes here (src/main.cpp).
+    window.__fullscreen = { set: function (on) { if (!canFull || on === isFull()) return; if (on) enterFull(); else exitFull(); }, get: isFull };
+    function syncButton() {
+      fsButton.hidden = !canFull || (touchDevice && isFull());
+      fsButton.title = fsButton.ariaLabel = isFull() ? 'Leave full screen' : 'Full screen';
+      setTimeout(fit, 100);
+    }
+    if (canFull) {
+      fsButton.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (isFull()) exitFull(); else enterFull();
+        canvas.focus();
+      });
+      document.addEventListener('fullscreenchange', syncButton);
+      document.addEventListener('webkitfullscreenchange', syncButton);
+      if (touchDevice) {
+        window.addEventListener('touchend', function first() {
+          if (!isFull()) enterFull();
+        }, { once: true, capture: true });
+      }
+    }
+    syncButton();
 
     window.Module = {
       canvas: canvas,
@@ -119,6 +178,8 @@
         loader.hidden = false;
         fail('The game stopped with an error. Reload the page to try again.');
       },
+      setFullscreen: function (on) { window.__fullscreen.set(!!on); },
+      isFullscreen: function () { return window.__fullscreen.get() ? 1 : 0; },
       print: function (t) { console.log(t); },
       printErr: function (t) { console.warn(t); }
     };

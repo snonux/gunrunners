@@ -632,12 +632,22 @@ struct WindowedRun
     return options;
   }
 
+#ifdef __EMSCRIPTEN__
+  // In a browser the play page owns full screen (docs/play/index.html):
+  // the whole page goes full screen and keeps the game 16:9.
+  void applyFullscreen(bool on)
+  {
+    EM_ASM({ if (Module.setFullscreen) Module.setFullscreen($0); }, on);
+  }
+  bool isFullscreen() const { return EM_ASM_INT({ return Module.isFullscreen ? Module.isFullscreen() : 0; }) != 0; }
+#else
   void applyFullscreen(bool on)
   {
     SDL_SetWindowFullscreen(window, on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
     SDL_ShowCursor(on ? SDL_DISABLE : SDL_ENABLE);
   }
   bool isFullscreen() const { return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0; }
+#endif
   void toggleFullscreen()
   {
     const bool on = !isFullscreen();
@@ -667,6 +677,10 @@ struct WindowedRun
 
 bool WindowedRun::frame()
 {
+#ifdef __EMSCRIPTEN__
+  // The page's button (or the browser's Esc) may have changed full screen.
+  game.showFullscreen(isFullscreen());
+#endif
   SDL_Event ev;
   while (SDL_PollEvent(&ev))
   {
@@ -766,7 +780,13 @@ int runWindowed(const CliOptions& o)
   // letterboxed. The saved setting applies unless a flag overrides it. The
   // window is created fullscreen so it also works without a window manager.
   const std::string saveDir = o.game.saveDir.empty() ? defaultSaveDir() : o.game.saveDir;
+#ifdef __EMSCRIPTEN__
+  // A page may only go full screen from a tap or key press (the play page
+  // and the FULLSCREEN menu item do it then).
+  const bool startFullscreen = false;
+#else
   const bool startFullscreen = !o.windowed && (o.fullscreen || Profile::load(saveDir).fullscreen);
+#endif
   SDL_Window* window = SDL_CreateWindow(
     "Gunrunners",
     SDL_WINDOWPOS_CENTERED,
