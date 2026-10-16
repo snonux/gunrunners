@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <random>
 #include <sstream>
@@ -439,7 +440,10 @@ void loadCustomRunners(const std::string& dir)
 
 bool saveCustomRunners(const std::string& dir)
 {
-  makeDirs(dir);
+  // An error here is ignored: a directory that cannot be made shows up as
+  // the failed write below.
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
   // All or nothing, so a failed write keeps the old runners.txt.
   std::ostringstream o;
   o << "gunrunners-runners 1\n";

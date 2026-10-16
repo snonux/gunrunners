@@ -2,12 +2,14 @@
 #include "game/savegame.hpp"
 
 #include <arpa/inet.h>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <netinet/in.h>
 #include <string>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
@@ -103,40 +105,118 @@ S3Config localConfig(int port)
   return config;
 }
 
+#ifndef GR_NO_CURL
+// While alive, no file of this process may grow past 0 bytes: every write
+// fails with EFBIG (SIGXFSZ is ignored so it does not kill the test), as in
+// tests/atomic_file_test.cpp. Sockets are not files, so the local server and
+// curl still talk. Nothing may print in its scope, in case stdout is a file.
+class NoFileGrowth
+{
+public:
+  NoFileGrowth()
+  {
+    getrlimit(RLIMIT_FSIZE, &mOld);
+    mOldHandler = std::signal(SIGXFSZ, SIG_IGN);
+    rlimit none = mOld;
+    none.rlim_cur = 0;
+    mActive = setrlimit(RLIMIT_FSIZE, &none) == 0;
+  }
+  ~NoFileGrowth()
+  {
+    setrlimit(RLIMIT_FSIZE, &mOld);
+    std::signal(SIGXFSZ, mOldHandler);
+  }
+  bool active() const { return mActive; }
+
+private:
+  rlimit mOld{};
+  void (*mOldHandler)(int) = SIG_DFL;
+  bool mActive = false;
+};
+
+namespace fs = std::filesystem;
+
+const std::string kBody = "gunrunners-save 1\nlevel LOCAL\nend\n";
+
+// Files in dir other than the ones a test put there or downloaded: a temp
+// file a failed download left behind would show up here.
+int strayFiles(const fs::path& dir)
+{
+  int stray = 0;
+  for (const auto& entry : fs::directory_iterator(dir))
+  {
+    const std::string name = entry.path().filename().string();
+    stray += name == "good.sav" || name == "blocked.sav" || name == "full.sav" ? 0 : 1;
+  }
+  return stray;
+}
+
+void downloadLandsInFull(const fs::path& dir)
+{
+  const std::string good = (dir / "good.sav").string();
+  std::string error;
+  OneShotServer server(kBody);
+  check(server.port() > 0, "the local server for a good download listens");
+  check(s3GetFile(localConfig(server.port()), "good.sav", good, &error) == S3GetResult::Downloaded &&
+      read(good) == kBody,
+    "a download lands in full");
+}
+
+// A directory in the way: the body is written, the rename is refused.
+void refusedRenameIsError(const fs::path& dir)
+{
+  const std::string blocked = (dir / "blocked.sav").string();
+  fs::create_directories(blocked + "/inside");
+  std::string error;
+  {
+    OneShotServer server(kBody);
+    check(server.port() > 0, "the local server for a blocked download listens");
+    check(s3GetFile(localConfig(server.port()), "blocked.sav", blocked, &error) == S3GetResult::Error &&
+        error.find("cannot replace") == 0,
+      "a download that cannot be installed is a \"cannot replace\" error");
+  }
+  check(fs::is_directory(blocked + "/inside"), "a refused download keeps what was there");
+}
+
+// The old leak: a download whose body cannot be written (file size limit,
+// like a full disk) left its temp file behind. It must be an error, keep
+// the old file and leave no temp file.
+void failedWriteIsError(const fs::path& dir)
+{
+  const std::string full = (dir / "full.sav").string();
+  std::ofstream(full) << "old\n";
+  std::string error;
+  S3GetResult result = S3GetResult::Downloaded;
+  bool limited = false;
+  OneShotServer server(kBody);
+  check(server.port() > 0, "the local server for an unwritable download listens");
+  {
+    NoFileGrowth guard;
+    limited = guard.active();
+    result = s3GetFile(localConfig(server.port()), "full.sav", full, &error);
+  }
+  check(limited, "file size limit set");
+  check(result == S3GetResult::Error && error.find("cannot write") == 0,
+    "a download that cannot be written is a \"cannot write\" error");
+  check(read(full) == "old\n", "a download that cannot be written keeps the old file");
+}
+#endif
+
 // A download goes through the same all-or-nothing write as the saves: the
-// body lands in full, and a download that cannot be installed (here a
-// directory in the way) reports an error and leaves no temp file behind.
+// body lands in full, and a download that cannot be written or installed
+// reports an error and leaves no temp file behind.
 void downloadsInstallAllOrNothing()
 {
 #ifndef GR_NO_CURL
   ::setenv("no_proxy", "127.0.0.1", 1);
   ::setenv("NO_PROXY", "127.0.0.1", 1);
-  namespace fs = std::filesystem;
   const fs::path dir = fs::temp_directory_path() / ("gunrunners_s3_get_test_" + std::to_string(::getpid()));
   fs::remove_all(dir);
   fs::create_directories(dir);
-  const std::string body = "gunrunners-save 1\nlevel LOCAL\nend\n";
-  std::string error;
-  const std::string good = (dir / "good.sav").string();
-  {
-    OneShotServer server(body);
-    check(server.port() > 0 && s3GetFile(localConfig(server.port()), "good.sav", good, &error) ==
-        S3GetResult::Downloaded && read(good) == body,
-      "a download lands in full");
-  }
-  const std::string blocked = (dir / "blocked.sav").string();
-  fs::create_directories(blocked + "/inside");
-  {
-    OneShotServer server(body);
-    check(s3GetFile(localConfig(server.port()), "blocked.sav", blocked, &error) == S3GetResult::Error &&
-        !error.empty(),
-      "a download that cannot be installed is an error");
-  }
-  check(fs::is_directory(blocked + "/inside"), "a refused download keeps what was there");
-  int entries = 0;
-  for (const auto& entry : fs::directory_iterator(dir))
-    entries += entry.path().filename() == "good.sav" || entry.path().filename() == "blocked.sav" ? 0 : 1;
-  check(entries == 0, "a refused download leaves no temp file behind");
+  downloadLandsInFull(dir);
+  refusedRenameIsError(dir);
+  failedWriteIsError(dir);
+  check(strayFiles(dir) == 0, "failed downloads leave no temp file behind");
   fs::remove_all(dir);
 #endif
 }

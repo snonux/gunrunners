@@ -2,6 +2,7 @@
 
 #include "base/atomic_file.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -90,7 +91,10 @@ Profile Profile::load(const std::string& dir)
 
 bool Profile::save(const std::string& dir) const
 {
-  makeDirs(dir);
+  // An error here is ignored: a directory that cannot be made shows up as
+  // the failed write below.
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
   // Built in memory and written all or nothing: a failed write (disk full,
   // quota) must leave the old profile.txt and all its progress intact.
   std::ostringstream o;

@@ -1,10 +1,10 @@
 #include "base/atomic_file.hpp"
 
+#include <atomic>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
-#include <sys/stat.h>
 #include <unistd.h>
 
 namespace gr
@@ -13,28 +13,45 @@ namespace gr
 namespace
 {
 
+// How many taken temp names a write skips before it gives up. Only stale
+// leftovers whose pid matches ours (pid reuse) or planted files can take a
+// name, so a handful is plenty; the bound keeps a hostile directory from
+// spinning the write forever.
+constexpr int kTempAttempts = 64;
+
 void fail(std::string* error, const std::string& what, int err)
 {
   if (error)
     *error = what + ": " + std::strerror(err);
 }
 
-// Opens a new, empty temp file at tmp for writing, or returns -1 with errno
-// set. A non-directory already there is unlinked first: unlink removes a
-// symlink itself, never its target, and a leftover file is replaced rather
-// than truncated (which would also cut a file hard-linked to it). O_EXCL
-// then refuses anything that appears at tmp in between, a symlink included,
-// and a directory in the way, which is never removed.
-int createTemp(const std::string& tmp)
+// A temp name no other write uses: the pid tells game processes apart, the
+// counter the threads and successive writes of one process.
+std::string tempName(const std::string& path)
 {
-  struct stat st;
-  if (::lstat(tmp.c_str(), &st) == 0 && !S_ISDIR(st.st_mode) && ::unlink(tmp.c_str()) != 0)
-    return -1;
-  int fd;
-  do
-    fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0666);
-  while (fd < 0 && errno == EINTR);
-  return fd;
+  static std::atomic<unsigned long long> counter{0};
+  return path + ".tmp." + std::to_string(::getpid()) + "." +
+    std::to_string(counter.fetch_add(1, std::memory_order_relaxed));
+}
+
+// Creates a new, empty temp file for path and returns its descriptor, with
+// its name in tmp, or -1 with errno set (tmp then holds the last name
+// tried). O_EXCL never opens what already exists at a name, a symlink
+// (dangling or not) included, and nothing found there is unlinked: it
+// belongs to someone else, so the next name is tried instead.
+int createTemp(const std::string& path, std::string& tmp)
+{
+  for (int attempt = 0; attempt < kTempAttempts; ++attempt)
+  {
+    tmp = tempName(path);
+    int fd;
+    do
+      fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0666);
+    while (fd < 0 && errno == EINTR);
+    if (fd >= 0 || errno != EEXIST)
+      return fd;
+  }
+  return -1; // errno is EEXIST from the last attempt
 }
 
 // Writes all of data to fd and syncs it to the disk. False with errno set on
@@ -79,12 +96,14 @@ void syncParentDir(const std::string& path)
 
 bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error)
 {
-  const std::string tmp = path + ".tmp";
-  const int fd = createTemp(tmp);
+  std::string tmp;
+  const int fd = createTemp(path, tmp);
   if (fd < 0)
   {
-    // Nothing was created, so there is nothing of ours to clean up.
-    fail(error, "cannot write " + tmp, errno);
+    // Nothing was created, so there is nothing of ours to clean up. errno
+    // is saved before the strings below can change it.
+    const int err = errno;
+    fail(error, "cannot write " + tmp, err);
     return false;
   }
   // close() can report a deferred write error too (NFS, some FUSE file
@@ -104,24 +123,13 @@ bool writeFileAtomic(const std::string& path, const std::string& data, std::stri
   }
   if (::rename(tmp.c_str(), path.c_str()) != 0)
   {
-    fail(error, "cannot replace " + path, errno);
+    err = errno;
+    fail(error, "cannot replace " + path, err);
     ::unlink(tmp.c_str());
     return false;
   }
   syncParentDir(path);
   return true;
-}
-
-void makeDirs(const std::string& dir)
-{
-  std::string cur;
-  for (std::size_t i = 0; i < dir.size(); ++i)
-  {
-    cur += dir[i];
-    if (dir[i] == '/' && i > 0)
-      ::mkdir(cur.c_str(), 0755);
-  }
-  ::mkdir(dir.c_str(), 0755);
 }
 
 } // namespace gr

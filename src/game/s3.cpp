@@ -393,9 +393,12 @@ S3GetResult s3GetFile(const S3Config& config, const std::string& object,
   std::error_code ec;
   if (target.has_parent_path())
     fs::create_directories(target.parent_path(), ec);
-  // Same discipline as every save: path + ".tmp", every byte written and
-  // synced before the rename, the temp file removed on any failure, so a
-  // full disk does not collect half-downloaded temp files. The caller still
+  // writeFileAtomic, as profile.txt, runners.txt and the savegames use: a
+  // temp file of this write's own, every byte written and synced before the
+  // rename, the temp file removed on any failure, so a full disk does not
+  // collect half-downloaded temp files. (saveS3Config and markS3Dirty in
+  // this file do not use it yet: they still write a fixed-name ".tmp" by
+  // hand with O_CREAT|O_TRUNC.) The caller still
   // validates path before installing it anywhere.
   if (!writeFileAtomic(path, body, error))
     return S3GetResult::Error;
