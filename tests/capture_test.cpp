@@ -14,7 +14,13 @@
 // left open at the next frame. And telling sdl2-compat (SDL2's API on top of
 // SDL3, which letterboxes differently) from SDL2, also when the
 // SDL_LEGACY_VERSION hint makes both report the old 2.0.x numbering.
+// And render resets (af3): SDL_RENDER_TARGETS_RESET drops the capture's
+// textures, SDL_RENDER_DEVICE_RESET those, the text cache and the alpha
+// grid's texture too, and the game bakes its art and panels again; a frame
+// drawn after either matches one drawn before. Other events do nothing, and
+// a reset with nothing held, or with a capture open, is harmless.
 
+#include "frontend/game.hpp"
 #include "render/renderer.hpp"
 #include "render/renderer_detail.hpp"
 
@@ -22,6 +28,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <string>
 #include <vector>
 
 using namespace gr;
@@ -491,11 +499,152 @@ void testSdl2Compat()
   check(plain == hinted, "the SDL linked here is told apart the same under the legacy hint");
 }
 
+// The events behind RenderReset, also through SDL's queue as the game's
+// loop gets them; every other event is None.
+void testResetEvents()
+{
+  SDL_Event ev{};
+  ev.type = SDL_RENDER_TARGETS_RESET;
+  check(renderResetOf(ev) == RenderReset::Targets, "SDL_RENDER_TARGETS_RESET: the targets were lost");
+  ev.type = SDL_RENDER_DEVICE_RESET;
+  check(renderResetOf(ev) == RenderReset::Device, "SDL_RENDER_DEVICE_RESET: every texture was lost");
+  bool others = true;
+  const Uint32 otherTypes[] = {SDL_KEYDOWN, SDL_WINDOWEVENT, SDL_QUIT, SDL_APP_WILLENTERBACKGROUND, SDL_USEREVENT};
+  for (Uint32 type : otherTypes)
+  {
+    ev.type = type;
+    others = others && renderResetOf(ev) == RenderReset::None;
+  }
+  check(others, "other events are no render reset");
+
+  SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+  SDL_Event pushed{};
+  pushed.type = SDL_RENDER_DEVICE_RESET;
+  SDL_PushEvent(&pushed);
+  pushed.type = SDL_RENDER_TARGETS_RESET;
+  SDL_PushEvent(&pushed);
+  std::vector<RenderReset> got;
+  while (SDL_PollEvent(&ev))
+    got.push_back(renderResetOf(ev));
+  check(got == std::vector<RenderReset>{RenderReset::Device, RenderReset::Targets},
+    "pushed reset events come out of the queue as such");
+}
+
+// A frame with all the renderer's own textures in use: a mirrored capture
+// of the pattern with a grab drawn again, a string and an alpha grid.
+Frame resetScene(Renderer& r, SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  r.beginFrame();
+  r.clear(rgb(0, 0, 0));
+  r.beginCapture();
+  pattern(r);
+  if (const Texture* g = r.grabCaptured(100.0f, 150.0f, 200.0f, 100.0f))
+    r.draw(*g, 900.0f, 550.0f);
+  r.drawText("DEVICE RESET", 500.0f, 600.0f, TextStyle{});
+  r.drawAlphaGrid({0.0f, 0.5f, 1.0f, 0.25f, 0.75f, 0.0f}, 3, 2, 600.0f, 100.0f, 40.0f, 40.0f, rgb(255, 200, 0));
+  r.endCapture(true);
+  return present(sdl, surface);
+}
+
+// Renderer::recover: what each reset drops, and that the picture comes back.
+void testRecover(SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  noLogicalSize(sdl);
+  Renderer r(sdl);
+  // Nothing held yet: harmless.
+  r.recover(RenderReset::Targets);
+  r.recover(RenderReset::Device);
+  check(!r.holdsCaptureTextures() && r.textCacheSize() == 0, "a reset with nothing held is harmless");
+  const Frame want = resetScene(r, sdl, surface);
+  check(r.holdsCaptureTextures() && r.holdsGridTexture() && r.textCacheSize() == 1, "the scene holds every kind");
+
+  r.recover(RenderReset::None);
+  check(r.holdsCaptureTextures() && r.holdsGridTexture() && r.textCacheSize() == 1, "no reset drops nothing");
+
+  r.recover(RenderReset::Targets);
+  check(!r.holdsCaptureTextures(), "a targets reset drops the capture's textures");
+  check(r.holdsGridTexture() && r.textCacheSize() == 1, "a targets reset keeps the strings and the grid");
+  const std::size_t begun = r.capturesBegun();
+  check(resetScene(r, sdl, surface) == want && r.capturesBegun() == begun + 1,
+    "after a targets reset the capture is made again, the picture as before");
+
+  r.recover(RenderReset::Device);
+  check(!r.holdsCaptureTextures() && !r.holdsGridTexture() && r.textCacheSize() == 0,
+    "a device reset drops the capture's textures, the strings and the grid");
+  check(resetScene(r, sdl, surface) == want, "after a device reset the picture is as before");
+  check(r.holdsCaptureTextures() && r.holdsGridTexture() && r.textCacheSize() == 1,
+    "after a device reset all of it is made again");
+
+  // The read-back fallbacks' textures go too.
+  r.recover(RenderReset::Targets);
+  r.refuseCaptures(true);
+  r.clear(rgb(0, 0, 0));
+  pattern(r);
+  r.mirrorReadBack();
+  const bool readBackHeld = r.holdsCaptureTextures();
+  r.recover(RenderReset::Targets);
+  check(readBackHeld && !r.holdsCaptureTextures(), "a reset drops the read-back fallbacks' textures");
+  r.refuseCaptures(false);
+
+  // A capture open at a reset ends, unshown; the draws reach the screen.
+  r.clear(rgb(0, 0, 0));
+  r.beginCapture();
+  pattern(r);
+  r.recover(RenderReset::Device);
+  const bool ended = !r.capturing() && SDL_GetRenderTarget(sdl) == nullptr;
+  r.fillRect(0.0f, 0.0f, 10.0f, 10.0f, rgb(255, 255, 255));
+  const Frame after = present(sdl, surface);
+  check(ended && at(after, 5, 5) == 0xFFFFFFFFu && red(at(after, 100, 100)) == 0,
+    "a reset ends an open capture unshown, the draws after it reach the screen");
+}
+
+// Game::recoverTextures in a level: a device reset bakes the art again and
+// the frame drawn after it is the frame drawn before; a targets reset and
+// no reset leave the art and the strings alone.
+void testGameRecovers(SDL_Renderer* sdl, SDL_Surface* surface)
+{
+  noLogicalSize(sdl);
+  const std::string saves = "capture_test_saves";
+  std::filesystem::remove_all(saves);
+  {
+    Renderer r(sdl);
+    GameOptions o;
+    o.saveDir = saves;
+    o.skipMenu = true;
+    o.startLevel = 1;
+    o.noCutscenes = true;
+    Game g(o, r, nullptr);
+    for (int i = 0; i < 90; ++i)
+      g.tick(Input{});
+    g.render();
+    const Frame before = present(sdl, surface);
+    g.render();
+    check(g.world() != nullptr && present(sdl, surface) == before, "a level drawn twice is the same frame");
+    const SDL_Texture* vignette = g.art().vignette.get();
+    const std::size_t strings = r.textCacheSize();
+
+    g.recoverTextures(RenderReset::None);
+    g.recoverTextures(RenderReset::Targets);
+    check(g.art().vignette.get() == vignette && r.textCacheSize() == strings,
+      "a targets reset (or none) leaves the art and the strings alone");
+
+    g.recoverTextures(RenderReset::Device);
+    // Baked while the old textures still lived, so new ones are new handles.
+    check(g.art().vignette.get() != vignette && g.art().vignette, "a device reset bakes the art again");
+    check(r.textCacheSize() == 0, "a device reset empties the text cache");
+    g.render();
+    check(present(sdl, surface) == before, "after a device reset the level looks as before");
+    check(strings > 0 && r.textCacheSize() > 0, "the strings are rasterized again as drawn");
+  }
+  std::filesystem::remove_all(saves);
+}
+
 } // namespace
 
 int main()
 {
-  SDL_Init(0);
+  // The event queue for testResetEvents; no video needed.
+  SDL_Init(SDL_INIT_EVENTS);
   testSdl2Compat();
   SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
   SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
@@ -515,6 +664,15 @@ int main()
   SDL_FreeSurface(surface);
   testOddLetterbox(1367, 768, {1, 0, 1365, 768});   // 16/15, side bars of 1 column
   testOddLetterbox(1680, 1049, {0, 52, 1680, 945}); // 1.3125, bars of 52 rows
+  testResetEvents();
+  {
+    SDL_Surface* resetSurface = SDL_CreateRGBSurfaceWithFormat(0, kScreenW, kScreenH, 32, SDL_PIXELFORMAT_ARGB8888);
+    SDL_Renderer* resetSdl = SDL_CreateSoftwareRenderer(resetSurface);
+    testRecover(resetSdl, resetSurface);
+    testGameRecovers(resetSdl, resetSurface);
+    SDL_DestroyRenderer(resetSdl);
+    SDL_FreeSurface(resetSurface);
+  }
   SDL_Quit();
   std::printf(gFailures == 0 ? "all capture tests passed\n" : "%d capture test(s) failed\n", gFailures);
   return gFailures == 0 ? 0 : 1;

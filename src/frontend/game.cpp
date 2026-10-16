@@ -158,6 +158,27 @@ void Game::useTheme(int index)
   buildPanels();
 }
 
+void Game::recoverTextures(RenderReset lost)
+{
+  mRenderer.recover(lost);
+  if (lost != RenderReset::Device)
+    return;
+  // Every texture is dead. The art is baked again in place, as on a theme
+  // switch: worlds, the cutscene's clip kit and the runner editor keep
+  // their references to it. Its lazily baked runners and styled enemies
+  // start over empty and are baked again as they are drawn.
+  if (mArt)
+    *mArt = Art::build(mLook, mRenderer);
+  else
+    mArt = std::make_unique<Art>(Art::build(mLook, mRenderer));
+  buildPanels();
+  freeMap(); // an open map bakes itself again on its next render
+  if (mClipKit)
+    mClipKit->cache.clear(); // the clips bake theirs again on first use
+  if (mEditor)
+    mEditor->bakeTextures();
+}
+
 void Game::setMode(Mode m)
 {
   // A line can finish over the tally; anywhere else it stops.

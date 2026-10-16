@@ -661,6 +661,8 @@ struct WindowedRun
   // Events, the fixed 60 Hz ticks that are due, and one picture. False
   // once the game is over.
   bool frame();
+  // One SDL event: render resets, touch, keys, pads and window events.
+  void handleEvent(const SDL_Event& ev);
 
   // Milliseconds to sleep after a frame: until the next tick is due, with
   // or without vsync (see framePauseMs). The time since `last` includes the
@@ -689,6 +691,44 @@ struct WindowedRun
   bool running = true;
 };
 
+void WindowedRun::handleEvent(const SDL_Event& ev)
+{
+  // The GPU lost the render targets or every texture (a Direct3D device
+  // reset, an Android context loss): what was lost is made again before
+  // this frame draws. The SDL_Renderer itself survives.
+  if (const RenderReset lost = renderResetOf(ev); lost != RenderReset::None)
+  {
+    game.recoverTextures(lost);
+    if (touch && lost == RenderReset::Device)
+      touch->bakeTextures(renderer);
+    return;
+  }
+  if (touch)
+    touch->handleEvent(ev, window);
+  // Android may close a backgrounded app without warning.
+  if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
+    game.suspend();
+  if (captureBinding(game, ev) || captureText(game, ev))
+    return;
+  switch (controls.handleEvent(ev))
+  {
+    case Controls::Action::Quit:
+      running = false;
+      break;
+    case Controls::Action::CycleTheme:
+      game.cycleTheme();
+      break;
+    case Controls::Action::ToggleFullscreen:
+      toggleFullscreen();
+      break;
+    case Controls::Action::Pause:
+      game.pauseLevel();
+      break;
+    case Controls::Action::None:
+      break;
+  }
+}
+
 bool WindowedRun::frame()
 {
 #ifdef __EMSCRIPTEN__
@@ -697,43 +737,7 @@ bool WindowedRun::frame()
 #endif
   SDL_Event ev;
   while (SDL_PollEvent(&ev))
-  {
-    if (touch)
-      touch->handleEvent(ev, window);
-    // Android may close a backgrounded app without warning.
-    //
-    // Cloud syncs keep running here, on purpose. Going to the background is
-    // no quit, and an upload still running had better reach the cloud
-    // before Android may kill the process (a kill leaves the sync's temp
-    // files to the next start's removeCloudLeftovers). SDL_APP_TERMINATING
-    // comes from SDLActivity.onDestroy (nativeSendQuit) right behind an
-    // SDL_QUIT, which ends this loop after this very frame, so ~Game cancels
-    // them (cancelCloudSync, about 3 s at most) just as early. The onDestroy
-    // of SDL 2.32.10 (pinned in android/build-deps.sh) waits for the SDL
-    // thread with a plain Thread.join(), no time limit, so that wait is
-    // never cut short.
-    if (ev.type == SDL_APP_WILLENTERBACKGROUND || ev.type == SDL_APP_TERMINATING)
-      game.suspend();
-    if (captureBinding(game, ev) || captureText(game, ev))
-      continue;
-    switch (controls.handleEvent(ev))
-    {
-      case Controls::Action::Quit:
-        running = false;
-        break;
-      case Controls::Action::CycleTheme:
-        game.cycleTheme();
-        break;
-      case Controls::Action::ToggleFullscreen:
-        toggleFullscreen();
-        break;
-      case Controls::Action::Pause:
-        game.pauseLevel();
-        break;
-      case Controls::Action::None:
-        break;
-    }
-  }
+    handleEvent(ev);
 
   const Uint64 now = SDL_GetPerformanceCounter();
   accumulator += double(now - last) / freq;

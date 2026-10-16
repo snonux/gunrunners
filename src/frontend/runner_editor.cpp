@@ -55,9 +55,17 @@ RunnerEditor::RunnerEditor(const Renderer& renderer, const CharacterDef& start, 
     while (mPips[s] > kMinPips[s] && runnerPointsLeft(mPips[0], mPips[1], mPips[2]) < 0)
       --mPips[s];
   mVoice = std::max(0, voiceIndex(runnerVoice(start)));
-  mPanel = makePanel(renderer, 450, 590, rgba(8, 6, 22, 215), rgba(255, 255, 255, 70), 26);
-  mListPanel = makePanel(renderer, 770, 590, rgba(8, 6, 22, 215), rgba(255, 255, 255, 70), 26);
-  mKeysPanel = makePanel(renderer, 780, 470, rgba(8, 6, 22, 245), rgba(255, 255, 255, 110), 26);
+  bakeTextures();
+}
+
+void RunnerEditor::bakeTextures()
+{
+  mPanel = makePanel(mRenderer, 450, 590, rgba(8, 6, 22, 215), rgba(255, 255, 255, 70), 26);
+  mListPanel = makePanel(mRenderer, 770, 590, rgba(8, 6, 22, 215), rgba(255, 255, 255, 70), 26);
+  mKeysPanel = makePanel(mRenderer, 780, 470, rgba(8, 6, 22, 245), rgba(255, 255, 255, 110), 26);
+  // The preview poses are baked again as they are drawn (pose()).
+  mPreview.clear();
+  mPreviewKey.clear();
 }
 
 CharacterDef RunnerEditor::runner() const

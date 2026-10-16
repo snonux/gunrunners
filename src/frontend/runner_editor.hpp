@@ -55,6 +55,10 @@ public:
   bool isNew() const { return mIsNew; }
 
   void render(Renderer& r, const Art& art, const Theme& theme, int frame);
+  // Bakes the panels again and drops the preview poses (baked again when
+  // drawn): the constructor does, and Game after SDL_RENDER_DEVICE_RESET,
+  // which leaves every texture dead.
+  void bakeTextures();
 
 private:
   enum class Row

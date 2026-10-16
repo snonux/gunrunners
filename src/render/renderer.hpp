@@ -76,6 +76,24 @@ enum class Align
   Right,
 };
 
+// What the GPU lost, by the SDL event that says so. The SDL_Renderer itself
+// survives both; only textures need making again.
+//   - Targets (SDL_RENDER_TARGETS_RESET, Direct3D 9 after a lost device):
+//     SDL made the render-target textures again, empty; every other texture
+//     is kept (re-uploaded by SDL from its own copy).
+//   - Device (SDL_RENDER_DEVICE_RESET, a Direct3D 11 device removal, an
+//     Android EGL context loss): every SDL_Texture is left a dead handle,
+//     safe to destroy but drawing nothing (on Direct3D 11 a copy from one
+//     can even crash); each must be made again.
+enum class RenderReset
+{
+  None,
+  Targets,
+  Device,
+};
+// None for every other event.
+RenderReset renderResetOf(const SDL_Event& ev);
+
 // Thin layer over SDL_Renderer. In a window it is GPU accelerated; for
 // headless recording the same calls go to SDL's software renderer.
 class Renderer
@@ -126,11 +144,12 @@ public:
   // MIRROR MODE and BIG HEADS) without reading pixels back from the GPU,
   // which stalls its pipeline every frame. beginCapture() sends the draws
   // that follow to an offscreen texture the size of the picture in output
-  // pixels (made once, made again when the window changes size), cleared to
-  // black. grabCaptured() copies a piece of it (logical units) to a second
-  // offscreen texture to draw from, null when there is no capture or the
-  // piece leaves the picture. endCapture() puts the picture back on the
-  // screen with a plain copy, mirrored left to right if asked (flipped
+  // pixels (made once, made again when the window changes size or after a
+  // render reset, see recover), cleared to black. grabCaptured() copies a
+  // piece of it (logical units) to a second offscreen texture to draw from,
+  // null when there is no capture or the piece leaves the picture.
+  // endCapture() puts the picture back on the screen with a plain copy,
+  // mirrored left to right if asked (flipped
   // first, at scale 1, into a third offscreen texture: SDL2's software
   // renderer misplaces a copy it flips and scales in a letterbox); false
   // without a capture. One capture at a time, begun with the screen as the
@@ -146,10 +165,25 @@ public:
   // Tests: beginCapture refuses as on a renderer without render targets, to
   // reach the read-back fallbacks.
   void refuseCaptures(bool refuse) { mRefuseCaptures = refuse; }
-  // The capture's textures dropped, to be made again by the next capture
-  // (after SDL_RENDER_DEVICE_RESET has lost them); a capture open ends,
-  // unshown. Nothing calls it yet: device resets are not handled at all.
+  // The capture's textures dropped (and the read-back fallbacks'), to be
+  // made again by the next capture; a capture open ends, unshown. For
+  // recover(): they are drawn anew every frame, so nothing is lost.
   void dropCaptureTextures();
+  // Tests: whether any of those textures is held.
+  bool holdsCaptureTextures() const
+  {
+    return mScene || mGrab || mMirrored || mFlipped || mLensPiece;
+  }
+
+  // After a reset event (renderResetOf), what the renderer itself holds:
+  // Targets drops the capture's textures; Device drops them too, every
+  // cached string (rasterized again when next drawn) and drawAlphaGrid's
+  // texture. Textures made with createTexture belong to their owners (Art,
+  // the menus' panels, the touch controls), who must make them again on a
+  // Device reset. None does nothing.
+  void recover(RenderReset lost);
+  // Tests: whether drawAlphaGrid's texture is held.
+  bool holdsGridTexture() const { return mGrid != nullptr; }
 
   // BIG HEADS' lens: the picture drawn so far in `piece` (logical units)
   // drawn again over `dst`, faded out to an oval as drawFadedOval's `solid`.
@@ -199,9 +233,8 @@ public:
   // in the previous frame (it is likely on screen again).
   static constexpr std::size_t kTextCacheMax = 400;
   static constexpr std::size_t kTextCacheKeep = 300;
-  // Not handled: textures lost to a GPU device reset (an Android context
-  // loss) stay in the cache, unusable, until evicted. The wholesale flush
-  // this replaced re-made them now and then; device resets are task af3.
+  // A GPU device reset (an Android context loss) empties the cache at once
+  // (recover), its textures being dead from then on.
   // Introspection for tests; neither marks a string as used.
   std::size_t textCacheSize() const { return mTextCache.size(); }
   bool textCached(const std::string& s, const TextStyle& style) const;

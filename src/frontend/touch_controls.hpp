@@ -69,6 +69,9 @@ public:
   Input read();
   // Draws the overlay in the game's 1280x720 logical coordinates.
   void draw(Renderer& renderer) const;
+  // Bakes the overlay's textures (again): the constructor does, and the
+  // window code after SDL_RENDER_DEVICE_RESET, which leaves them dead.
+  void bakeTextures(Renderer& renderer);
 
   // The thumbs scheme (see above) or the Jump and Fire buttons.
   void setThumbs(bool on) { mThumbs = on; }

@@ -252,13 +252,18 @@ Texture bakeIcon(Renderer& renderer, float r, Color col, int icon)
 
 TouchControls::TouchControls(Renderer& renderer, bool visible)
   : mVisible(visible)
-  , mStick(bakeStick(renderer, false))
-  , mDpad(bakeStick(renderer, true))
-  , mNub(bakeNub(renderer))
-  , mOk(bakeIcon(renderer, kSpecs[kCorner].r, kGold, 4))
-  , mBack(bakeIcon(renderer, kSpecs[kInner].r, kPink, 5))
-  , mPadIcon(bakeIcon(renderer, kPauseR, kNeon, 7))
 {
+  bakeTextures(renderer);
+}
+
+void TouchControls::bakeTextures(Renderer& renderer)
+{
+  mStick = bakeStick(renderer, false);
+  mDpad = bakeStick(renderer, true);
+  mNub = bakeNub(renderer);
+  mOk = bakeIcon(renderer, kSpecs[kCorner].r, kGold, 4);
+  mBack = bakeIcon(renderer, kSpecs[kInner].r, kPink, 5);
+  mPadIcon = bakeIcon(renderer, kPauseR, kNeon, 7);
   mPlayIcons[kJump] = bakeIcon(renderer, kSpecs[kCorner].r, kNeon, 0);
   mPlayIcons[kFire] = bakeIcon(renderer, kSpecs[kInner].r, kPink, 1);
   mPlayIcons[kSwap] = bakeIcon(renderer, kSpecs[2].r, kNeon, 2);

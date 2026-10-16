@@ -877,6 +877,36 @@ void Renderer::dropCaptureTextures()
   mLensPiece = Texture();
 }
 
+RenderReset renderResetOf(const SDL_Event& ev)
+{
+  if (ev.type == SDL_RENDER_DEVICE_RESET)
+    return RenderReset::Device;
+  if (ev.type == SDL_RENDER_TARGETS_RESET)
+    return RenderReset::Targets;
+  return RenderReset::None;
+}
+
+void Renderer::recover(RenderReset lost)
+{
+  if (lost == RenderReset::None)
+    return;
+  // Targets: the capture's targets came back empty, which costs nothing (a
+  // capture clears its target and draws the picture anew every frame), but
+  // they are dropped and made again all the same, in case SDL could not
+  // remake one. The read-back fallbacks' streaming textures go with them;
+  // they are refilled on every use.
+  dropCaptureTextures();
+  if (lost != RenderReset::Device)
+    return;
+  // Every texture is dead: the strings are rasterized again when next
+  // drawn, the alpha grid's texture made again at the next drawAlphaGrid.
+  mTextCache.clear();
+  if (mGrid)
+    SDL_DestroyTexture(mGrid);
+  mGrid = nullptr;
+  mGridW = mGridH = 0;
+}
+
 bool Renderer::drawLens(const SDL_FRect& piece, const SDL_FRect& dst, float solid)
 {
 #if SDL_VERSION_ATLEAST(2, 0, 18)

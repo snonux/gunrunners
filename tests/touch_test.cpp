@@ -1,5 +1,6 @@
 // Drives the on-screen gamepad with fingers at known spots and checks the
-// Input it produces, in both layouts and at every size.
+// Input it produces, in both layouts and at every size. And its textures
+// baked again (after SDL_RENDER_DEVICE_RESET) draw it as before.
 
 #include "frontend/touch_controls.hpp"
 #include "render/renderer.hpp"
@@ -7,6 +8,7 @@
 #include <SDL.h>
 
 #include <cstdio>
+#include <vector>
 
 using namespace gr;
 
@@ -539,6 +541,40 @@ void visibility(Renderer& r)
   check(t.visible(), "Android's back key keeps it");
 }
 
+// Both layouts drawn, the surface's pixels once they reach it.
+std::vector<Uint32> overlayPixels(TouchControls& t, Renderer& r, SDL_Surface* surface)
+{
+  std::vector<Uint32> px;
+  for (Layout l : {Layout::Menu, Layout::Play})
+  {
+    t.configure(l, 1);
+    r.clear(rgb(0, 0, 0));
+    t.draw(r);
+    SDL_RenderPresent(r.sdl());
+    for (int y = 0; y < surface->h; ++y)
+    {
+      const auto* bytes = static_cast<const unsigned char*>(surface->pixels) + y * surface->pitch;
+      const auto* row = reinterpret_cast<const Uint32*>(bytes);
+      px.insert(px.end(), row, row + surface->w);
+    }
+  }
+  return px;
+}
+
+// bakeTextures (the window code's answer to SDL_RENDER_DEVICE_RESET) makes
+// the overlay's textures again, and it looks as it did.
+void rebaked(Renderer& r, SDL_Surface* surface)
+{
+  TouchControls t(r, true);
+  const std::vector<Uint32> before = overlayPixels(t, r, surface);
+  t.bakeTextures(r);
+  const std::vector<Uint32> after = overlayPixels(t, r, surface);
+  bool lit = false;
+  for (Uint32 p : before)
+    lit = lit || (p & 0xFFFFFFu) != 0;
+  check(lit && after == before, "the overlay baked again draws as before");
+}
+
 } // namespace
 
 int main()
@@ -558,6 +594,7 @@ int main()
     thumbs(r);
     tapToAim(r);
     visibility(r);
+    rebaked(r, surface);
     // Drawing both layouts at every size must not trip anything.
     TouchControls t(r, true);
     t.touch(1, 300.0f, 500.0f);
