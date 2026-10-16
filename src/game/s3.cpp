@@ -679,8 +679,8 @@ private:
 };
 
 // One syncS3File call: its request, the save it syncs, that save's mutex
-// (held by syncS3File's pathMutex pointer for the whole call) and the name
-// of its upload snapshot.
+// (kept alive by syncS3File's pathMutex pointer for the whole call) and
+// the name of its upload snapshot.
 struct SyncJob
 {
   const S3Config& config;

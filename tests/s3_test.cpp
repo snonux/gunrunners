@@ -2,9 +2,11 @@
 #include "game/savegame.hpp"
 #include "stall_server.hpp"
 
+#include <algorithm>
 #include <arpa/inet.h>
-#include <csignal>
+#include <cctype>
 #include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -12,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <mutex>
 #include <netinet/in.h>
 #include <string>
 #include <sys/resource.h>
@@ -19,6 +22,8 @@
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
+#include <vector>
 
 using namespace gr;
 
@@ -46,12 +51,33 @@ std::string read(const std::string& path)
   return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 }
 
-// A one-request HTTP server on 127.0.0.1 that answers any request with
-// 200 and body: enough for s3GetFile, which only signs the request.
-class OneShotServer
+// An HTTP server on 127.0.0.1 that answers its connections in turn with the
+// given replies, one each, then accepts no more: enough for s3GetFile and
+// s3PutFile, which only sign their requests. Each request opens a
+// connection of its own (every reply says Connection: close), so a sync's
+// download and upload are two connections. The server records each
+// request's method and body, so a test can see whether a sync uploaded
+// (a PUT) and which bytes.
+class ScriptedServer
 {
 public:
-  explicit OneShotServer(std::string body) : mBody(std::move(body))
+  struct Reply
+  {
+    int status;
+    std::string body;
+  };
+  struct Request
+  {
+    std::string method;
+    std::string body;
+  };
+
+  // One request, answered with 200 and body.
+  explicit ScriptedServer(std::string body)
+    : ScriptedServer(std::vector<Reply>{{200, std::move(body)}})
+  {
+  }
+  explicit ScriptedServer(std::vector<Reply> replies) : mReplies(std::move(replies))
   {
     mListen = ::socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in addr{};
@@ -64,7 +90,7 @@ public:
     mPort = ntohs(addr.sin_port);
     mThread = std::thread([this] { serve(); });
   }
-  ~OneShotServer()
+  ~ScriptedServer()
   {
     if (mThread.joinable())
     {
@@ -75,26 +101,74 @@ public:
       ::close(mListen);
   }
   int port() const { return mPort; }
+  // The requests answered so far, in order. Each is recorded before its
+  // reply is sent, so all of a finished sync's requests are here.
+  std::vector<Request> requests() const
+  {
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mRequests;
+  }
 
 private:
   void serve()
   {
-    const int fd = ::accept(mListen, nullptr, nullptr);
-    if (fd < 0)
-      return;
-    std::string request;
-    char buf[1024];
-    ssize_t n;
-    while (request.find("\r\n\r\n") == std::string::npos && (n = ::read(fd, buf, sizeof(buf))) > 0)
-      request.append(buf, std::size_t(n));
-    const std::string reply = "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(mBody.size()) +
-      "\r\nConnection: close\r\n\r\n" + mBody;
-    for (std::size_t sent = 0; sent < reply.size() && (n = ::write(fd, reply.data() + sent, reply.size() - sent)) > 0;)
-      sent += std::size_t(n);
-    ::close(fd);
+    for (const Reply& reply : mReplies)
+    {
+      const int fd = ::accept(mListen, nullptr, nullptr);
+      if (fd < 0)
+        return;
+      Request request = readRequest(fd);
+      {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mRequests.push_back(std::move(request));
+      }
+      writeAll(fd, "HTTP/1.1 " + std::to_string(reply.status) + (reply.status == 200 ? " OK" : " Error") +
+        "\r\nContent-Length: " + std::to_string(reply.body.size()) + "\r\nConnection: close\r\n\r\n" +
+        reply.body);
+      ::close(fd);
+    }
   }
 
-  std::string mBody;
+  static void writeAll(int fd, const std::string& data)
+  {
+    ssize_t n;
+    for (std::size_t sent = 0; sent < data.size() && (n = ::write(fd, data.data() + sent, data.size() - sent)) > 0;)
+      sent += std::size_t(n);
+  }
+
+  // Reads one request: its headers, then as many body bytes as its
+  // Content-Length says, after a 100 Continue should curl ask for one
+  // (it may, for a larger upload).
+  static Request readRequest(int fd)
+  {
+    std::string data;
+    char buf[1024];
+    ssize_t n = 0;
+    std::size_t end = std::string::npos;
+    while ((end = data.find("\r\n\r\n")) == std::string::npos && (n = ::read(fd, buf, sizeof(buf))) > 0)
+      data.append(buf, std::size_t(n));
+    if (end == std::string::npos)
+      return {};
+    std::string headers = data.substr(0, end + 2);
+    std::transform(headers.begin(), headers.end(), headers.begin(),
+      [](unsigned char c) { return char(std::tolower(c)); });
+    const std::string lengthField = "\r\ncontent-length:";
+    const std::size_t field = headers.find(lengthField);
+    const std::size_t length = field == std::string::npos ? 0 :
+      std::size_t(std::strtoull(headers.c_str() + field + lengthField.size(), nullptr, 10));
+    if (headers.find("\r\nexpect: 100-continue") != std::string::npos)
+      writeAll(fd, "HTTP/1.1 100 Continue\r\n\r\n");
+    Request request;
+    request.method = data.substr(0, data.find(' '));
+    request.body = data.substr(end + 4);
+    while (request.body.size() < length && (n = ::read(fd, buf, sizeof(buf))) > 0)
+      request.body.append(buf, std::size_t(n));
+    return request;
+  }
+
+  std::vector<Reply> mReplies;
+  mutable std::mutex mMutex;
+  std::vector<Request> mRequests;
   int mListen = -1;
   int mPort = 0;
   std::thread mThread;
@@ -163,7 +237,7 @@ void downloadLandsInFull(const fs::path& dir)
 {
   const std::string good = (dir / "good.sav").string();
   std::string error;
-  OneShotServer server(kBody);
+  ScriptedServer server(kBody);
   check(server.port() > 0, "the local server for a good download listens");
   check(s3GetFile(localConfig(server.port()), "good.sav", good, &error) == S3GetResult::Downloaded &&
       read(good) == kBody,
@@ -177,7 +251,7 @@ void refusedRenameIsError(const fs::path& dir)
   fs::create_directories(blocked + "/inside");
   std::string error;
   {
-    OneShotServer server(kBody);
+    ScriptedServer server(kBody);
     check(server.port() > 0, "the local server for a blocked download listens");
     check(s3GetFile(localConfig(server.port()), "blocked.sav", blocked, &error) == S3GetResult::Error &&
         error.find("cannot replace") == 0,
@@ -196,7 +270,7 @@ void failedWriteIsError(const fs::path& dir)
   std::string error;
   S3GetResult result = S3GetResult::Downloaded;
   bool limited = false;
-  OneShotServer server(kBody);
+  ScriptedServer server(kBody);
   check(server.port() > 0, "the local server for an unwritable download listens");
   {
     NoFileGrowth guard;
@@ -375,7 +449,7 @@ void failedSnapshotLeavesNoTemp(const fs::path& dir)
   const std::string save = (dir / "snap.sav").string();
   check(writeSave(local, save), "a newer local save, too big to snapshot under the limit");
   const std::string before = read(save);
-  OneShotServer server(cloudCopy);
+  ScriptedServer server(cloudCopy);
   check(server.port() > 0, "the local server for a failing snapshot listens");
   std::string error;
   S3SyncResult result = S3SyncResult::Uploaded;
@@ -399,7 +473,7 @@ void failedSnapshotLeavesNoTemp(const fs::path& dir)
 // later), so a kill during the upload leaves one file fewer. The upload's
 // first active check, at s3PutFile's start, is the first one after the
 // snapshot exists: there it counts the downloads left and cancels, so the
-// one-request server is enough.
+// server with a single reply (for the download) is enough.
 void downloadGoneBeforeUpload(const fs::path& dir)
 {
   SaveGame remote;
@@ -414,7 +488,7 @@ void downloadGoneBeforeUpload(const fs::path& dir)
   local.savedAt = "2026-01-02 10:00";
   const std::string save = (dir / "up.sav").string();
   check(writeSave(local, save), "a newer local save, to upload");
-  OneShotServer server(cloudCopy);
+  ScriptedServer server(cloudCopy);
   check(server.port() > 0, "the local server for an upload after a compare listens");
   int downloadsAtUpload = -1;
   const S3Active watch{[&dir, &downloadsAtUpload]() {
@@ -428,6 +502,144 @@ void downloadGoneBeforeUpload(const fs::path& dir)
   check(result == S3SyncResult::Error && downloadsAtUpload == 0,
     "a sync that uploads after comparing has removed its download when the upload starts");
   check(filesStartingWith(dir, "up.sav.cloud-") == 0, "...and leaves no file of its own");
+}
+
+// A valid save of level, saved at when.
+SaveGame saveAt(const std::string& when, const std::string& level)
+{
+  SaveGame save;
+  save.levelName = level;
+  save.savedAt = when;
+  save.hp = 3;
+  return save;
+}
+
+// The bytes writeSave writes for save (through a scratch file in dir).
+std::string saveBytes(const SaveGame& save, const fs::path& dir)
+{
+  const std::string scratch = (dir / "scratch.body").string();
+  if (!writeSave(save, scratch))
+    return {};
+  const std::string bytes = read(scratch);
+  fs::remove(scratch);
+  return bytes;
+}
+
+// One offline sync of a clean local save: dir/name holds local, and the
+// server answers the sync's requests with replies in turn.
+struct SyncRun
+{
+  S3SyncResult result = S3SyncResult::Error;
+  std::string error;
+  std::vector<ScriptedServer::Request> requests;
+  bool leftovers = true; // a "<name>.cloud-*" file is left in dir
+};
+
+SyncRun runSync(const fs::path& dir, const std::string& name, const SaveGame& local,
+  std::vector<ScriptedServer::Reply> replies)
+{
+  const std::string save = (dir / name).string();
+  SyncRun run;
+  if (!writeSave(local, save))
+    return run;
+  ScriptedServer server(std::move(replies));
+  if (server.port() == 0)
+    return run;
+  run.result = syncS3File(localConfig(server.port()), name, save, &run.error);
+  run.requests = server.requests();
+  run.leftovers = filesStartingWith(dir, name + ".cloud-") != 0;
+  return run;
+}
+
+// The sync only downloaded: one GET, no upload.
+bool onlyDownloaded(const SyncRun& run)
+{
+  return run.requests.size() == 1 && run.requests[0].method == "GET";
+}
+
+// The sync downloaded, then uploaded bytes.
+bool uploaded(const SyncRun& run, const std::string& bytes)
+{
+  return run.requests.size() == 2 && run.requests[0].method == "GET" &&
+    run.requests[1].method == "PUT" && run.requests[1].body == bytes;
+}
+
+// Saved at the same time with the same bytes: nothing to do, and no upload.
+void sameTimeEqualUnchanged(const fs::path& dir)
+{
+  const SaveGame local = saveAt("2026-01-01 10:00", "Alpha");
+  const std::string bytes = saveBytes(local, dir);
+  const SyncRun run = runSync(dir, "equal.sav", local, {{200, bytes}});
+  check(run.result == S3SyncResult::Unchanged && onlyDownloaded(run),
+    "same time, same bytes: the sync is Unchanged and uploads nothing");
+  check(read((dir / "equal.sav").string()) == bytes, "...and the local save stays");
+  check(!run.leftovers, "...and no .cloud-* file is left");
+}
+
+// Saved at the same time with different bytes: the greater bytes win, both
+// ways round, so two devices settle on the same save. Flipping the
+// comparison in compareSameTime fails both halves: the greater local save
+// would be replaced, the smaller one uploaded.
+void sameTimeGreaterBytesWin(const fs::path& dir)
+{
+  const SaveGame alpha = saveAt("2026-01-01 10:00", "Alpha");
+  const SaveGame bravo = saveAt("2026-01-01 10:00", "Bravo");
+  const std::string lowBytes = saveBytes(alpha, dir);
+  const std::string highBytes = saveBytes(bravo, dir);
+  check(!lowBytes.empty() && lowBytes < highBytes, "two saves of the same time, Alpha's bytes less than Bravo's");
+  const SyncRun up = runSync(dir, "greater.sav", bravo, {{200, lowBytes}, {200, ""}});
+  check(up.result == S3SyncResult::Uploaded && uploaded(up, highBytes),
+    "same time, local bytes greater: the local save is uploaded");
+  check(read((dir / "greater.sav").string()) == highBytes, "...and stays as it was");
+  check(!up.leftovers, "...and no .cloud-* file is left");
+  const SyncRun down = runSync(dir, "smaller.sav", alpha, {{200, highBytes}});
+  check(down.result == S3SyncResult::Downloaded && onlyDownloaded(down),
+    "same time, local bytes smaller: the cloud save is Downloaded, nothing uploaded");
+  check(read((dir / "smaller.sav").string()) == highBytes, "...and the local file now has the cloud's bytes");
+  check(!down.leftovers, "...and no .cloud-* file is left");
+}
+
+// The cloud has no save yet (404): the local one goes up.
+void missingCloudSaveUploads(const fs::path& dir)
+{
+  const SaveGame local = saveAt("2026-01-01 10:00", "Alpha");
+  const SyncRun run = runSync(dir, "first.sav", local, {{404, ""}, {200, ""}});
+  check(run.result == S3SyncResult::Uploaded && uploaded(run, saveBytes(local, dir)),
+    "no cloud save (404): the local save is uploaded");
+  check(!run.leftovers, "...and no .cloud-* file is left");
+}
+
+// A cloud object that is no valid save is an error, never installed, and
+// nothing is uploaded over it.
+void invalidCloudSaveIsError(const fs::path& dir)
+{
+  const SaveGame local = saveAt("2026-01-01 10:00", "Alpha");
+  const SyncRun run = runSync(dir, "invalid.sav", local, {{200, "not a save\n"}});
+  check(run.result == S3SyncResult::Error && run.error == "cloud object is not a valid Gunrunners save" &&
+      onlyDownloaded(run),
+    "an invalid cloud save is an error, and nothing is uploaded");
+  check(read((dir / "invalid.sav").string()) == saveBytes(local, dir), "...and the local save is untouched");
+  check(!run.leftovers, "...and no .cloud-* file is left");
+}
+
+// A clean local save newer than the cloud's goes up; one older is replaced
+// by the cloud's.
+void newerSaveWins(const fs::path& dir)
+{
+  const SaveGame older = saveAt("2026-01-01 10:00", "Alpha");
+  const SaveGame newer = saveAt("2026-01-02 10:00", "Alpha");
+  const std::string olderBytes = saveBytes(older, dir);
+  const std::string newerBytes = saveBytes(newer, dir);
+  const SyncRun up = runSync(dir, "newer.sav", newer, {{200, olderBytes}, {200, ""}});
+  check(up.result == S3SyncResult::Uploaded && uploaded(up, newerBytes),
+    "a clean local save newer than the cloud's is Uploaded");
+  check(read((dir / "newer.sav").string()) == newerBytes, "...and stays as it was");
+  check(!up.leftovers, "...and no .cloud-* file is left");
+  const SyncRun down = runSync(dir, "older.sav", older, {{200, newerBytes}});
+  check(down.result == S3SyncResult::Downloaded && onlyDownloaded(down) &&
+      read((dir / "older.sav").string()) == newerBytes,
+    "a clean local save older than the cloud's is replaced by it (Downloaded)");
+  check(!down.leftovers, "...and no .cloud-* file is left");
 }
 #endif
 
@@ -616,6 +828,27 @@ void leftoverTests()
   downloadGoneBeforeUpload(dir / "upload");
 #endif
   fs::remove_all(dir);
+}
+
+// How a sync of a clean local save settles with the cloud's
+// (downloadAndReconcile, reconcile, compareSameTime), against the local
+// server, which the Garage integration below otherwise covers only when
+// it is configured.
+void reconcileTests()
+{
+#ifndef GR_NO_CURL
+  ::setenv("no_proxy", "127.0.0.1", 1);
+  ::setenv("NO_PROXY", "127.0.0.1", 1);
+  const fs::path dir = fs::temp_directory_path() / ("gunrunners_s3_reconcile_test_" + std::to_string(::getpid()));
+  fs::remove_all(dir);
+  fs::create_directories(dir);
+  sameTimeEqualUnchanged(dir);
+  sameTimeGreaterBytesWin(dir);
+  missingCloudSaveUploads(dir);
+  invalidCloudSaveIsError(dir);
+  newerSaveWins(dir);
+  fs::remove_all(dir);
+#endif
 }
 
 // What quitting the game does to a running sync: the S3Active check turns
@@ -830,6 +1063,7 @@ int main()
   std::filesystem::remove_all(configDir);
   configWritesAreSafe();
   leftoverTests();
+  reconcileTests();
   cancelTests();
 
   S3Config config;

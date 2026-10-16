@@ -48,11 +48,12 @@ namespace gr
 // sweeps in game/s3.hpp remove some later: the game's start those of the
 // saves, their cloud dirty markers and cloud.txt, once old enough
 // (removeCloudLeftovers), and turning the cloud off those of cloud.txt, at
-// any age (removeS3Config); any other stays. A write that tries its name just skips it, as with any
-// taken name, but a write tries at most 64 names: it fails ("cannot write
-// <temp>: File exists") when all of them are taken, e.g. when leftovers of
-// many crashes of a game that always runs as the same pid (pid 1 in a
-// container) pile up at the low counter values a new process starts with.
+// any age (removeS3Config); any other stays. A write that tries its name
+// just skips it, as with any taken name, but a write tries at most 64
+// names: it fails ("cannot write <temp>: File exists") when all of them
+// are taken, e.g. when leftovers of many crashes of a game that always
+// runs as the same pid (pid 1 in a container) pile up at the low counter
+// values a new process starts with.
 bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error = nullptr,
   mode_t mode = 0666);
 
