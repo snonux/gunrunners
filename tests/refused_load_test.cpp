@@ -795,10 +795,11 @@ void playFirstExtra(Game& g)
 // F9 there. Saves that can't be played are refused, and the run plays on:
 // Level 1's with a box too many, the list level's own world naming Level
 // 1's file, and that world in a save without a file. Level 1's NORMAL save
-// loads, ends that run and brings Level 1's number. The list's level used to keep Level 1's file (still the
-// title's) as the file of the level loaded: Level 1's save passed for one of
-// the list's level, was not read again and was refused as from another
-// level, and the list level's own world loaded as Level 1.
+// loads, ends that run and brings Level 1's number. The list's level used
+// to keep Level 1's file (still the title's) as the file of the level
+// loaded: Level 1's save passed for one of the list's level, was not read
+// again and was refused as from another level, and the list level's own
+// world loaded as Level 1.
 void checkOwnSaveLoadsInListLevel(Renderer& renderer, const std::string& dir, void (*play)(Game&),
   const std::string& what)
 {
@@ -831,6 +832,7 @@ void checkOwnSaveLoadsInListLevel(Renderer& renderer, const std::string& dir, vo
 // number. The title keeps the channel's level, which has no file, so the
 // save reads its level again; the channel's level used to keep Level 1's
 // file (still the title's), and the save was refused as from another level.
+// A save of the channel's world without a file is refused there.
 void checkLoadAfterChannelRunEnds(Renderer& renderer, const std::string& dir)
 {
   const std::string what = "channel run over";
@@ -846,6 +848,7 @@ void checkLoadAfterChannelRunEnds(Renderer& renderer, const std::string& dir)
   run(g, 30);
   if (!check(g.inLevel() && g.world() && g.world()->level().name != one->levelName, what + ": CHANNEL 01 runs"))
     return;
+  const SaveGame channelOwn = withoutFile(g.world()->snapshot());
   for (int i = 0; i < 8000 && g.world(); ++i)
     g.tick({});
   if (!check(!g.world(), what + ": the bonus level runs out"))
@@ -857,6 +860,12 @@ void checkLoadAfterChannelRunEnds(Renderer& renderer, const std::string& dir)
   run(g, 30);
   press(g, &Input::back);
   run(g, 30);
+  // The title keeps the channel's level, which has no file: a save of its
+  // world without a file is refused there too (it would play on as a
+  // campaign level), and no level starts.
+  quickLoadOf(g, dir, channelOwn);
+  run(g, 30);
+  check(!g.inLevel() && !g.world(), what + ": F9 on the channel world's save without a file is refused");
   checkLoadsAs(g, dir, marked(*one), quickLoadOf, 1, what + ": F9 on Level 1's NORMAL save on the title");
 }
 

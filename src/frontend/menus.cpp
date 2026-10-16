@@ -509,10 +509,13 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   // Not read again (a save without a file, as a stand-alone level (--level)
   // writes, or one of the level loaded), the save is of the level being
   // played: inside a bonus level the one parked behind it, not the bonus.
-  // A Bonus Channel or EXTRAS level played on its own has no file and can't
-  // be saved in, so a save without one has no level to fit there (refused).
-  std::shared_ptr<const Level> level =
-    rereadLevel ? readLevel(s.levelFile, s.hard) : mBonusOnly ? nullptr : playing;
+  // A Bonus Channel or EXTRAS level has no file and can't be saved in, so a
+  // save without one has no level to fit there: refused, while its run goes
+  // on and after it (the title keeps that level). Campaign and training
+  // levels have a file; a stand-alone level is no campaign.
+  const std::string& playingFile = mMainLevel ? mMainLevelPath : mLevelPath;
+  std::shared_ptr<const Level> level = rereadLevel ? readLevel(s.levelFile, s.hard)
+    : campaign() && playingFile.empty() ? nullptr : playing;
   if (rereadLevel && !level)
   {
     sound(Sfx::Hurt); // readLevel said THAT LEVEL WOULD NOT LOAD
