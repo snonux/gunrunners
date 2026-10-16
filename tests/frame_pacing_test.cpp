@@ -196,12 +196,17 @@ void vsyncLoopCases()
 
 // A 50 Hz display that blocks every present (depth 0): the present, not
 // the sleep, sets the frame rate. Each frame lasts a 20 ms refresh, longer
-// than a tick, so a tick is nearly always due after the present: about 50 frames a
-// second with no sleep after nearly any of them, while the game still
-// ticks 60 times a second (2 ticks in every fifth frame or so).
+// than a tick, so a tick is nearly always due after the present: about 50
+// frames a second with no sleep after nearly any of them, while the game
+// still ticks 60 times a second (2 ticks in every fifth frame or so).
+// The frames take 4 ms so that a sleep which ignores the present misses
+// the next vblank: a loop that always sleeps a whole tick drops to 25
+// frames a second, one that counts only the time owed before the frame
+// (not its drawing and present) to about 45. With 2 ms frames both would
+// still reach the 20 ms vblank and pass the frame rate check.
 void vsync50LoopCases()
 {
-  const LoopStats s = steady({true, 0, 1.0 / 50.0}, 0.002);
+  const LoopStats s = steady({true, 0, 1.0 / 50.0}, 0.004);
   check(near50(s.fps()) && near60(s.tps()), "50 Hz vsync, depth 0: about 50 frames, 60 ticks a second");
   check(s.unslept >= s.frames * 95 / 100, "50 Hz vsync, depth 0: nearly every frame goes unslept");
   check(s.maxPauseMs <= kMaxPauseMs && s.maxTicksPerFrame <= 2, "...no sleep over one tick, at most 2 ticks in a frame");
