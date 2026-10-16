@@ -518,6 +518,11 @@ void Game::beginCampaignLevel(int number, bool fromNewGame)
   mWorld.reset();
   mBonusOnly = false;
   mLevelNumber = number;
+  // The last level's preloads that never played (a variant nobody
+  // triggered, a cutscene skipped) would hold ~12 MB each; this level
+  // queues its own below and in playLevelMusic.
+  if (mAudio)
+    mAudio->dropPreloads();
   if (number <= 0)
   {
     // The PoC's training stage.

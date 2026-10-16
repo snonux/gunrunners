@@ -1,11 +1,11 @@
 #pragma once
 
+#include "audio/render_queue.hpp"
 #include "game/sound_ids.hpp"
 
 #include <SDL.h>
 
 #include <array>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -44,9 +44,12 @@ public:
   // Music by the ids level headers and cutscenes use ("theme_synthwave",
   // "stop"); tracks are synthesized the first time they are needed.
   void playMusicNamed(const std::string& id);
-  // Starts synthesizing a named track in the background so a later
-  // playMusicNamed is instant.
+  // Queues a named track for the background renderer (one worker thread,
+  // oldest request first) so a later playMusicNamed is instant.
   void preloadMusic(const std::string& id);
+  // Forgets the preloads nobody played (a new level starts): queued ones
+  // are cancelled and finished ones freed. Played tracks stay cached.
+  void dropPreloads();
   // Jumps the music to this many seconds in (keeps the beat in sync with
   // the level's music clock after a pause).
   void seekMusic(double seconds);
@@ -90,9 +93,12 @@ private:
   std::array<std::vector<float>, std::size_t(Sfx::Count)> mSfx;
   std::array<Track, std::size_t(Music::Count)> mTracks;
   std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;
-  std::unordered_map<std::string, std::future<std::unique_ptr<Track>>> mPendingTracks;
   std::vector<std::string> mTrackOrder; // oldest first
   static constexpr std::size_t kKeepTracks = 10;
+  // Finished preloads not played yet, at ~12 MB each: room for one level's
+  // worth (its music, variants, the five '@' layers); older ones go first.
+  static constexpr std::size_t kKeepPreloads = 8;
+  RenderQueue<Track> mPreloads;
   std::unordered_map<std::string, std::vector<float>> mNamed;
   const Track* mTrack = nullptr; // what is playing
   std::string mTrackName;

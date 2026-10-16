@@ -19,10 +19,17 @@ constexpr float kSfxVolume = 0.8f;
 constexpr float kDuckedMusic = 0.4f;
 // The duck eases over about 80 ms each way, so the music never clicks.
 constexpr float kDuckStep = 1.0f / (0.08f * float(kAudioRate));
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+// A browser page without threads renders a track when it starts.
+constexpr bool kBackgroundRender = false;
+#else
+constexpr bool kBackgroundRender = true;
+#endif
 
 } // namespace
 
 Audio::Audio()
+  : mPreloads(&Audio::synthTrack, kKeepPreloads, kBackgroundRender)
 {
   for (int i = 0; i < int(Sfx::Count); ++i)
     mSfx[std::size_t(i)] = synth::makeSfx(Sfx(i));
@@ -147,16 +154,11 @@ Audio::Track* Audio::namedTrack(const std::string& id)
 {
   if (auto it = mNamedTracks.find(id); it != mNamedTracks.end())
     return it->second.get();
-  std::unique_ptr<Track> tr;
-  if (auto p = mPendingTracks.find(id); p != mPendingTracks.end())
-  {
-    tr = p->second.get();
-    mPendingTracks.erase(p);
-  }
-  else
-  {
+  // A preload is collected (waiting for it if the worker is on it now);
+  // otherwise, or when it is still queued, it is rendered here and now.
+  std::unique_ptr<Track> tr = mPreloads.take(id);
+  if (!tr)
     tr = synthTrack(id);
-  }
   Track* track = tr.get();
   std::lock_guard<std::mutex> lock(mMutex);
   mNamedTracks[id] = std::move(tr);
@@ -181,14 +183,15 @@ Audio::Track* Audio::namedTrack(const std::string& id)
 
 void Audio::preloadMusic(const std::string& id)
 {
-  if (id.empty() || id == "stop" || mNamedTracks.count(id) || mPendingTracks.count(id))
+  // The queue skips ids it already has queued, rendering or finished.
+  if (id.empty() || id == "stop" || mNamedTracks.count(id))
     return;
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-  // A browser page without threads renders the track when it starts.
-  mPendingTracks.emplace(id, std::async(std::launch::deferred, synthTrack, id));
-#else
-  mPendingTracks.emplace(id, std::async(std::launch::async, synthTrack, id));
-#endif
+  mPreloads.request(id);
+}
+
+void Audio::dropPreloads()
+{
+  mPreloads.drop();
 }
 
 void Audio::seekMusic(double seconds)

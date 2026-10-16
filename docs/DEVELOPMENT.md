@@ -181,7 +181,9 @@ dub in the sewers, a marimba and congas in the jungle, a slide guitar in the
 desert, a waltz on the accordion, a noir trumpet in the rain, big band,
 arena rock and more, up to a medley for the finale. Bonus levels, cutscenes
 and the lift's lounge cover in Chopper Down get their own tracks too. Tracks render
-in the background while a briefing plays.
+in the background while a briefing plays, one at a time on a single worker
+thread (`src/audio/render_queue.hpp`); a level's preloads that never play are
+dropped when the next level starts, and at most 8 finished ones wait at once.
 
 The instruments are synthesized too: FM bells and electric piano, a
 Karplus-Strong plucked string, marimba, kalimba, piano, organ, brass,
