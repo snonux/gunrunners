@@ -11,14 +11,25 @@
 // -fsanitize=address it also guards the memory safety directly. It also
 // checks that a runner out of play gets a single idle input without any
 // search, on a planner that has searched before.
-// Task oe3: the goal key (goalKeyHash) and the state hash it folds in were
-// int arithmetic that overflowed, undefined behaviour UBSan aborts on. They
-// are unsigned now; the test checks the key against a 64-bit reference
-// taken modulo 2^32 (normal and extreme inputs, which a wrapping int build
-// gave too) and that the inputs it should see change it. The real check is
-// a -fsanitize=address,undefined build with -fno-sanitize-recover=undefined
-// (and ASAN_OPTIONS=detect_leaks=0): there the big plan below also runs the
-// state hash, and any overflow left would abort the test.
+// Task oe3: the goal key (goalKeyHash) and the world state hash it folds in
+// (worldStateHash) were int arithmetic that overflowed, undefined behaviour
+// UBSan aborts on. Both return std::uint32_t now (a static_assert pins the
+// types). The test checks the key against a 64-bit reference taken modulo
+// 2^32 (normal and extreme inputs, which a wrapping int build gave too) and
+// that the inputs it should see change it; and that the state hash of level
+// 4 (04_blackout.txt, next to the level given) is the same for the same
+// world and changes with a breaker thrown or the sun door the planner
+// waits on. With a breaker on, the fold passes INT_MAX (the bases after
+// the breakers multiply to over 10^10).
+// What a plain build does not see: the int arithmetic wraps there in
+// practice, so a fold reverted to int inside worldStateHash or goalKeyHash
+// would give the same bits and pass. A -fsanitize=address,undefined build
+// with -fno-sanitize-recover=undefined (and ASAN_OPTIONS=detect_leaks=0)
+// catches that: the breaker-on state hash above, the big plan's state hashes
+// (only those of the level given and the states that run reaches) and the
+// goal key's extreme inputs would abort the test on a signed overflow.
+// Overflows elsewhere in the planner, or in states this test does not
+// reach, are not covered.
 
 #include "assets/art.hpp"
 #include "data/level.hpp"
@@ -36,6 +47,8 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace gr;
@@ -203,6 +216,45 @@ void checkKeyHash()
     "walls past 15 leave the key alone");
 }
 
+// Both hashes wrap in unsigned arithmetic (a signed return type would mean
+// the int fold, and its overflow, came back).
+static_assert(std::is_unsigned_v<decltype(goalKeyHash(0, 0, 0, false, 0, false, 0u))>,
+  "goalKeyHash is unsigned");
+static_assert(std::is_unsigned_v<decltype(worldStateHash(std::declval<const World&>(), -1))>,
+  "worldStateHash is unsigned");
+
+// The world state hash on level 4, whose breakers it folds in first: the
+// same for the same world, and changed by a breaker thrown (put in through
+// a save, on a fresh world each as World::restore wants) or by the sun door
+// the planner waits on. The breaker toggled is the last one, the fewest
+// factors of 2 from the end, so the change cannot be multiplied away
+// modulo 2^32.
+void checkStateHash(const std::string& levelPath, const Theme& theme, const Art& art)
+{
+  const auto level = std::make_shared<const Level>(Level::loadFile(levelPath));
+  World a(level, 0, theme, art);
+  World b(level, 0, theme, art);
+  const std::uint32_t base = worldStateHash(a, -1);
+  check(worldStateHash(a, -1) == base, "the state hash is the same on the same world");
+  check(worldStateHash(b, -1) == base, "and on another fresh world of the level");
+  check(worldStateHash(a, 0) != base, "the sun door the planner waits on changes the state hash");
+  check(worldStateHash(a, 0) == worldStateHash(b, 0), "the same sun door gives the same hash");
+
+  SaveGame save = a.snapshot();
+  check(!save.breakers.empty(), "level 4 has breakers");
+  if (save.breakers.empty())
+    return;
+  SaveGame lit = save;
+  lit.breakers.back().on = !lit.breakers.back().on;
+  World off(level, 0, theme, art);
+  World on(level, 0, theme, art);
+  check(off.restore(save) && on.restore(lit), "both saves restore");
+  check(on.breakers().back().on != off.breakers().back().on, "the breaker is thrown in one of them");
+  // One of them has a breaker on: its fold goes past INT_MAX (a sanitizer
+  // build would abort here on an int fold).
+  check(worldStateHash(on, -1) != worldStateHash(off, -1), "a breaker thrown changes the state hash");
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -220,6 +272,10 @@ int main(int argc, char** argv)
     const auto level = std::make_shared<const Level>(Level::loadFile(levelPath));
     checkBigPlan(level, theme, art, maxFrames);
     checkNoSearch(level, theme, art, maxFrames);
+    // Level 4 sits next to the level given (both in levels/).
+    const std::size_t slash = levelPath.find_last_of('/');
+    const std::string dir = slash == std::string::npos ? std::string() : levelPath.substr(0, slash + 1);
+    checkStateHash(dir + "04_blackout.txt", theme, art);
   }
   SDL_DestroyRenderer(sdl);
   SDL_FreeSurface(surface);

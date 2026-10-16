@@ -2698,6 +2698,135 @@ Input Planner::next(const World& world)
   return in;
 }
 
+// worldStateHash's parts, in the order the fold has always taken (changing
+// the order would change every hash, so it is kept). Each one carries on
+// the running hash: h * base + term, in std::uint32_t, which wraps modulo
+// 2^32 rather than overflowing int (task oe3). The bool and int terms
+// convert to unsigned, negative ones wrapping (well defined).
+namespace
+{
+
+// Switches, doors and pickups: levels 4 and 8-10, Golden Touch and level 17.
+std::uint32_t foldSwitchesAndDoors(std::uint32_t powered, const World& world)
+{
+  for (const auto& b : world.breakers())
+    powered = powered * 2 + b.on;
+  // Level 8: rope bridges that fell, logs that landed.
+  for (const auto& b : world.bridges())
+    powered = powered * 2 + b.down;
+  for (const auto& l : world.loads())
+    powered = powered * 3 + std::min(l.state, 2);
+  // Level 9: stone keys, the key door, secret walls a plate opened.
+  powered = powered * 5 + world.stoneKeysHeld();
+  for (const auto& d : world.keyDoors())
+    powered = powered * 2 + d.open;
+  for (const auto& d : world.secretDoors())
+    powered = powered * 2 + d.open;
+  // Level 10: sun doors.
+  for (const auto& d : world.sunDoors())
+    powered = powered * 2 + d.open;
+  // Golden Touch: statues set, doors opened or gilded.
+  if (world.golden())
+  {
+    for (const auto& e : world.enemies())
+      powered = powered * 2 + e.alive;
+    for (const auto& d : world.goldDoors())
+      powered = powered * 3 + (d.gold ? 2 : d.open > 0);
+    powered = powered * 2 + world.goldReached();
+  }
+  powered = powered * 5 + (world.green().grow ? world.green().size : 0);
+  // Level 17: lamps lit or out, plants there or not.
+  for (const auto& l : world.green().lamps)
+    powered = powered * 2 + l.lit;
+  for (const auto& pl : world.green().plants)
+    powered = powered * 2 + (pl.shown > 0);
+  return powered;
+}
+
+// Blocks that moved or broke: levels 23, 26, 27, 34-38, 40 and Throw Everything.
+std::uint32_t foldSetPieces(std::uint32_t powered, const World& world)
+{
+  // Level 23: the side, the levers, the ghosts pinned as platforms.
+  if (world.manor().on)
+  {
+    powered = powered * 2 + world.manor().side;
+    powered = powered * 17 + world.manor().step;
+    for (const auto& pl : world.manor().platforms)
+      powered = powered * 131u + unsigned(pl.bx * 97 + pl.by);
+  }
+  // Level 26: buildings broken, towers fallen.
+  for (const auto& b : world.city().buildings)
+    powered = powered * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u));
+  powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
+  powered = powered * 2 + world.fleet().hatchOpen; // Level 34: the bomb bay's hatch
+  powered = powered * 131u + unsigned(world.tower().rot); // Level 35: how far the tower has turned
+  // Level 36: where the metal crates rest (they are solid map blocks).
+  for (const auto& c : world.warehouse().crates)
+    powered = powered * 131u + unsigned(c.stamped ? c.x * 997 + c.y : 7);
+  // Level 37: who the runner is, shutters, cutting tables, the push rack.
+  const auto& wr = world.wardrobe();
+  powered = powered * 131u + unsigned(world.characterIndex() * 7 + (world.player().turbo > 0));
+  for (const auto& sh : wr.shutters)
+    powered = powered * 2 + sh.open;
+  for (const auto& t : wr.tables)
+    powered = powered * 131u + unsigned(t.row);
+  for (const auto& k : wr.pushRacks)
+    powered = powered * 131u + unsigned(k.x);
+  // Level 38: words struck (walls and doors gone), the bridge, Writer's Blocks sitting.
+  const auto& ws = world.writers();
+  for (const auto& wd : ws.words)
+    if (wd.target == WordTarget::Rect)
+      powered = powered * 2 + (wd.gone() ? 1 : 0);
+  powered = powered * 131u + unsigned(ws.bridge.typed);
+  for (const auto& b : ws.blocks)
+    powered = powered * 131u + unsigned(b.stampX * 97 + b.stampY + 1);
+  // Level 40: catwalk blocks a sandbag broke.
+  for (const auto& g : world.flyTower().gaps)
+    powered = powered * 131u + unsigned(g.bx * 97 + g.by + 1);
+  // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
+  for (const auto& [lx, ly] : world.warehouse().loose)
+    powered = powered * 131u + unsigned(lx * 97 + ly);
+  return powered;
+}
+
+// Machines, barrels, doors and crystals: levels 31, 22, 42, 19 and 46.
+std::uint32_t foldMechanisms(std::uint32_t powered, const World& world)
+{
+  // Level 31: machines powered (the generator's hatch, the lift).
+  for (const auto& m : world.storm().machines)
+    powered = powered * 2 + m.powered;
+  // Level 22: barrels blown (bridges down, rock gone).
+  for (const auto& b : world.west().barrels)
+    powered = powered * 2 + b.blown;
+  // Level 42: the ON AIR door and the switch's glass cover, open or shut.
+  for (int li : {world.finale().door, world.finale().cover})
+    powered = powered * 2 + (li >= 0 && !world.layers()[std::size_t(li)].solid);
+  // Level 19: which way each chamber is turned, and the gates.
+  for (const auto& z : world.grav().zones)
+    powered = powered * 2 + (z.dir == Grav::Up);
+  for (const auto& t : world.grav().gates)
+    powered = powered * 2 + t.open;
+  // Level 46: where the Swap Crystals are (a drifting one is anywhere on
+  // its path until swapped).
+  for (const auto& c : world.swapCrystals())
+    powered = powered * 131u + (c.gone ? 1u : (c.drifting ? 2u : unsigned(c.x * 977 + c.y + 3)));
+  return powered;
+}
+
+} // namespace
+
+// Moved out of Planner::plan unchanged (task oe3's review), so the hashes
+// and plans are bit-identical to the inline fold: the same terms in the
+// same order, pendingDoor (the planner's mPendingDoor, -1 for none) folded
+// in after the level 17 terms where the inline code had it.
+std::uint32_t worldStateHash(const World& world, int pendingDoor)
+{
+  std::uint32_t powered = foldSwitchesAndDoors(0, world);
+  powered = powered * 31 + pendingDoor + 1; // Level 10: the sun door the field takes as opening
+  powered = foldSetPieces(powered, world);
+  return foldMechanisms(powered, world);
+}
+
 // Every term goes through std::uint32_t, so the sum wraps modulo 2^32
 // instead of overflowing int (task oe3). The fields keep the weights the
 // int version had (kind 1000000, x 1000, the card 500000000, walls and the
@@ -2794,106 +2923,9 @@ void Planner::plan(const World& world)
     for (const auto& b : world.breakables())
       broken += b.broken;
     const bool sound = world.player().weapon == Weapon::Proto && world.player().proto == int(ProtoId::BassCannon);
-    // Everything else the field depends on, folded into one number. It is
-    // unsigned so it wraps modulo 2^32 (an int would overflow, undefined
-    // behaviour that UBSan aborts on, task oe3); the bits are the same as
-    // the old int arithmetic gave on a wrapping build, so the hashes and the
-    // plans did not change.
-    std::uint32_t powered = 0;
-    for (const auto& b : world.breakers())
-      powered = powered * 2 + b.on;
-    // Level 8: rope bridges that fell, logs that landed.
-    for (const auto& b : world.bridges())
-      powered = powered * 2 + b.down;
-    for (const auto& l : world.loads())
-      powered = powered * 3 + std::min(l.state, 2);
-    // Level 9: stone keys, the key door, secret walls a plate opened.
-    powered = powered * 5 + world.stoneKeysHeld();
-    for (const auto& d : world.keyDoors())
-      powered = powered * 2 + d.open;
-    for (const auto& d : world.secretDoors())
-      powered = powered * 2 + d.open;
-    // Level 10: sun doors, and the one the field takes as opening.
-    for (const auto& d : world.sunDoors())
-      powered = powered * 2 + d.open;
-    // Golden Touch: statues set, doors opened or gilded.
-    if (world.golden())
-    {
-      for (const auto& e : world.enemies())
-        powered = powered * 2 + e.alive;
-      for (const auto& d : world.goldDoors())
-        powered = powered * 3 + (d.gold ? 2 : d.open > 0);
-      powered = powered * 2 + world.goldReached();
-    }
-    powered = powered * 5 + (world.green().grow ? world.green().size : 0);
-    // Level 17: lamps lit or out, plants there or not.
-    for (const auto& l : world.green().lamps)
-      powered = powered * 2 + l.lit;
-    for (const auto& pl : world.green().plants)
-      powered = powered * 2 + (pl.shown > 0);
-    powered = powered * 31 + mPendingDoor + 1;
-    // Level 23: the side, the levers, the ghosts pinned as platforms.
-    if (world.manor().on)
-    {
-      powered = powered * 2 + world.manor().side;
-      powered = powered * 17 + world.manor().step;
-      for (const auto& pl : world.manor().platforms)
-        powered = powered * 131u + unsigned(pl.bx * 97 + pl.by);
-    }
-    // Level 26: buildings broken, towers fallen.
-    for (const auto& b : world.city().buildings)
-      powered = powered * 3u + (b.standing() ? 0u : (b.state == BuildingState::Lying ? 2u : 1u));
-    powered = powered * 3 + world.film().gagState; // Level 27's bonus: the ladder gag
-    powered = powered * 2 + world.fleet().hatchOpen; // Level 34: the bomb bay's hatch
-    powered = powered * 131u + unsigned(world.tower().rot); // Level 35: how far the tower has turned
-    // Level 36: where the metal crates rest (they are solid map blocks).
-    for (const auto& c : world.warehouse().crates)
-      powered = powered * 131u + unsigned(c.stamped ? c.x * 997 + c.y : 7);
-    // Level 37: who the runner is, shutters, cutting tables, the push rack.
-    {
-      const auto& wr = world.wardrobe();
-      powered = powered * 131u + unsigned(world.characterIndex() * 7 + (world.player().turbo > 0));
-      for (const auto& sh : wr.shutters)
-        powered = powered * 2 + sh.open;
-      for (const auto& t : wr.tables)
-        powered = powered * 131u + unsigned(t.row);
-      for (const auto& k : wr.pushRacks)
-        powered = powered * 131u + unsigned(k.x);
-    }
-    // Level 38: words struck (walls and doors gone), the bridge, Writer's Blocks sitting.
-    {
-      const auto& ws = world.writers();
-      for (const auto& wd : ws.words)
-        if (wd.target == WordTarget::Rect)
-          powered = powered * 2 + (wd.gone() ? 1 : 0);
-      powered = powered * 131u + unsigned(ws.bridge.typed);
-      for (const auto& b : ws.blocks)
-        powered = powered * 131u + unsigned(b.stampX * 97 + b.stampY + 1);
-    }
-    // Level 40: catwalk blocks a sandbag broke.
-    for (const auto& g : world.flyTower().gaps)
-      powered = powered * 131u + unsigned(g.bx * 97 + g.by + 1);
-    // Throw Everything: the loose blocks where they lie (thrown ones are new map blocks).
-    for (const auto& [lx, ly] : world.warehouse().loose)
-      powered = powered * 131u + unsigned(lx * 97 + ly);
-    // Level 31: machines powered (the generator's hatch, the lift).
-    for (const auto& m : world.storm().machines)
-      powered = powered * 2 + m.powered;
-    // Level 22: barrels blown (bridges down, rock gone).
-    for (const auto& b : world.west().barrels)
-      powered = powered * 2 + b.blown;
-    // Level 42: the ON AIR door and the switch's glass cover, open or shut.
-    for (int li : {world.finale().door, world.finale().cover})
-      powered = powered * 2 + (li >= 0 && !world.layers()[std::size_t(li)].solid);
-    // Level 19: which way each chamber is turned, and the gates.
-    for (const auto& z : world.grav().zones)
-      powered = powered * 2 + (z.dir == Grav::Up);
-    for (const auto& t : world.grav().gates)
-      powered = powered * 2 + t.open;
-    // Level 46: where the Swap Crystals are (a drifting one is anywhere on
-    // its path until swapped).
-    for (const auto& c : world.swapCrystals())
-      powered = powered * 131u + (c.gone ? 1u : (c.drifting ? 2u : unsigned(c.x * 977 + c.y + 3)));
+    // Everything else the field depends on (switches, doors, set pieces),
+    // folded into one unsigned number by worldStateHash.
+    const std::uint32_t powered = worldStateHash(world, mPendingDoor);
     const std::uint32_t keyHash =
       goalKeyHash(goal.kind, goal.x, goal.y, world.player().hasKey, broken, sound, powered);
     if (mDist.empty() || keyHash != mGoalKeyHash)
