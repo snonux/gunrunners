@@ -24,15 +24,18 @@ namespace gr
 // file system that cannot sync a file at all (EINVAL) gets no durability,
 // but the swap is still all or nothing.
 //
-// False: nothing was replaced. Path keeps its old content, the temp file
-// this call created (if any) is removed, nothing else is touched, and
-// *error, when error is given, says why: "cannot write <temp>: ..." when
-// the temp file could not be created or filled, "cannot replace <path>:
-// ..." when the rename was refused. The parent directory must exist already.
+// False: nothing was replaced. Path keeps its old content, nothing but the
+// temp file this call created (if any) is touched, and *error, when error
+// is given, says why: "cannot write <temp>: ..." when the temp file could
+// not be created or filled, "cannot replace <path>: ..." when the rename
+// was refused. The parent directory must exist already. The temp file is
+// unlinked, but that unlink's own result is not checked: should it fail
+// too (EIO, the file system remounted read-only), the temp file stays.
 //
-// Only a process killed between creating its temp file and the rename
-// leaves that file behind; nothing removes it later, but it never stands in
-// the way of a write.
+// So a temp file is left behind only by a process killed between creating
+// it and the rename, or by a failed write whose cleanup unlink failed as
+// well. Nothing removes it later, but it never stands in the way of a
+// write: a write that tries its name just skips it, as with any taken name.
 bool writeFileAtomic(const std::string& path, const std::string& data, std::string* error = nullptr);
 
 } // namespace gr

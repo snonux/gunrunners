@@ -16,7 +16,11 @@ namespace
 // How many taken temp names a write skips before it gives up. Only stale
 // leftovers whose pid matches ours (pid reuse) or planted files can take a
 // name, so a handful is plenty; the bound keeps a hostile directory from
-// spinning the write forever.
+// spinning the write forever. Processes that share a pid at the same time
+// (pid namespaces in containers, hosts sharing an NFS directory, the web
+// build, where getpid() is always 42) can pick the same name, but they are
+// still safe: O_EXCL lets only one of them create it, and the others skip
+// to their next counter value.
 constexpr int kTempAttempts = 64;
 
 void fail(std::string* error, const std::string& what, int err)
@@ -25,8 +29,9 @@ void fail(std::string* error, const std::string& what, int err)
     *error = what + ": " + std::strerror(err);
 }
 
-// A temp name no other write uses: the pid tells game processes apart, the
-// counter the threads and successive writes of one process.
+// A temp name no other write of this process uses: the pid tells game
+// processes apart (mostly, see kTempAttempts for processes sharing a pid),
+// the counter the threads and successive writes of one process.
 std::string tempName(const std::string& path)
 {
   static std::atomic<unsigned long long> counter{0};
@@ -118,6 +123,8 @@ bool writeFileAtomic(const std::string& path, const std::string& data, std::stri
   if (!ok)
   {
     fail(error, "cannot write " + tmp, err);
+    // Best effort, unchecked: if even this fails, the temp file stays
+    // behind, as the header says, and *error still names the first failure.
     ::unlink(tmp.c_str());
     return false;
   }
@@ -125,7 +132,7 @@ bool writeFileAtomic(const std::string& path, const std::string& data, std::stri
   {
     err = errno;
     fail(error, "cannot replace " + path, err);
-    ::unlink(tmp.c_str());
+    ::unlink(tmp.c_str()); // best effort, as above
     return false;
   }
   syncParentDir(path);
