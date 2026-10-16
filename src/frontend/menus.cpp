@@ -427,15 +427,20 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   // here refreshes them (only opening the slot menu and pollCloud do).
   // A save of the level being played keeps the runner it started with (for
   // SWAP RUNNER ON DEATH's start over); one from elsewhere starts with its own.
-  const bool sameLevel = mMode == Mode::Play && mWorld && !mMainWorld && mLevel && mLevel->name == s.levelName;
+  // Inside a bonus level the level being played is the one parked behind it.
+  const Level* playing = mMainWorld ? mMainLevel.get() : mLevel.get();
+  const bool sameLevel = mMode == Mode::Play && mWorld && playing && playing->name == s.levelName;
   // Campaign saves bring their level along, with (or without) the HARD
   // enemies they were played with: it is read again unless it is the one
-  // loaded, at the same difficulty. It is read aside, and the world is built
-  // aside too: until the save is known to fit, the run in progress (its
-  // world, level, number and file, the HARD setting, the level parked behind
-  // a bonus level) stays as it is, so a refused load carries on with it.
+  // loaded (that file, by that name), at the same difficulty. A bonus or
+  // EXTRAS level has no file (mLevelPath), so a save loaded in one always
+  // reads its level. The name is checked too: a level of another name could
+  // never take the save. It is read aside, and the world is built aside too:
+  // until the save is known to fit, the run in progress (its world, level,
+  // number and file, the HARD setting, the level parked behind a bonus
+  // level) stays as it is, so a refused load carries on with it.
   const bool rereadLevel = campaign() && !s.levelFile.empty() &&
-    (!mLevel || s.levelFile != mLevelPath || mLevel->hard != s.hard);
+    (!mLevel || s.levelFile != mLevelPath || mLevel->name != s.levelName || mLevel->hard != s.hard);
   std::shared_ptr<const Level> level = rereadLevel ? readLevel(s.levelFile, s.hard) : mLevel;
   if (rereadLevel && !level)
   {
@@ -446,18 +451,15 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   if (!world)
     return false;
   if (rereadLevel)
-    mLevel = std::move(level);
-  // A campaign save brings its level's number and file, also when its level
-  // is the one loaded and not read again: every way to the title (QUIT TO
-  // TITLE, the end of the story or of DEEP SPACE) keeps the last level but
-  // sets the number to 0, and a save of that level would otherwise play on
-  // as no campaign level (no clear recorded, no bonus level, Level 1 next).
-  // A stand-alone level (--level) stays without a number.
+    useLevel(std::move(level), s.levelFile);
+  // A campaign save brings its level's number, also when its level is the
+  // one loaded (its file too, then) and not read again: every way to the
+  // title (QUIT TO TITLE, the end of the story or of DEEP SPACE) keeps the
+  // last level but sets the number to 0, and a save of that level would
+  // otherwise play on as no campaign level (no clear recorded, no bonus
+  // level, Level 1 next). A stand-alone level (--level) stays without one.
   if (campaign() && !s.levelFile.empty())
-  {
-    mLevelPath = s.levelFile;
     mLevelNumber = savedLevelNumber(s);
-  }
   // A save brings its difficulty: the levels after it follow.
   if (campaign())
     setHard(s.hard);
@@ -496,10 +498,12 @@ void Game::startLoadedWorld(std::unique_ptr<World> world, int themeIndex, const 
   beginVoices();
   mBot = Bot{};
   mSubTick = 0;
-  // A load mid-bonus ends the bonus level: what was parked behind it goes,
-  // and a Bonus Channel or EXTRAS run is over.
+  // A load mid-bonus ends the bonus level: what was parked behind it goes
+  // (loadSave made the save's level the one played), and a Bonus Channel or
+  // EXTRAS run is over.
   mMainWorld.reset();
   mMainLevel.reset();
+  mMainLevelPath.clear();
   mBonusOnly = false;
   if (mMode != Mode::Play)
     setMode(Mode::Play);

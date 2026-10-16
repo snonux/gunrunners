@@ -121,6 +121,10 @@ void Game::goTitle()
   setMode(Mode::Title);
   if (mAudio)
     mAudio->playMusic(Music::Menu);
+  // Quit from inside a bonus level: the title keeps the level it was entered
+  // from, with that level's file, as after quitting that level itself (a save
+  // loaded on the title tells by them whether to read its level again).
+  restoreMainLevel();
 }
 
 #ifdef __EMSCRIPTEN__
@@ -457,9 +461,14 @@ bool Game::loadLevel(const std::string& path)
   auto level = readLevel(path, mHard);
   if (!level)
     return false;
-  mLevel = std::move(level);
-  mLevelPath = path;
+  useLevel(std::move(level), path);
   return true;
+}
+
+void Game::useLevel(std::shared_ptr<const Level> level, std::string path)
+{
+  mLevel = std::move(level);
+  mLevelPath = std::move(path);
 }
 
 void Game::setHard(bool hard)
@@ -674,8 +683,7 @@ void Game::afterCutscenes()
       break;
     case After::LeaveBonus:
       mWorld = std::move(mMainWorld);
-      mLevel = mMainLevel;
-      mMainLevel.reset();
+      restoreMainLevel();
       mBot = mMainBot;
       mVoice = mMainVoice;
       mSubTick = 0;
@@ -708,12 +716,24 @@ void Game::enterBonus()
     return;
   }
   auto level = std::make_shared<const Level>(Level::loadFile(path));
+  // The level and its file are parked with its world: no save names the
+  // bonus level, so a save loaded in it always reads its level again.
   mMainLevel = mLevel;
-  mLevel = std::move(level);
+  mMainLevelPath = mLevelPath;
+  useLevel(std::move(level), {});
   mMainWorld = std::move(mWorld);
   mMainBot = mBot;
   mMainVoice = mVoice;
   playCutscenes({"sting_break"}, After::EnterBonus);
+}
+
+void Game::restoreMainLevel()
+{
+  if (!mMainLevel)
+    return;
+  useLevel(std::move(mMainLevel), std::move(mMainLevelPath));
+  mMainLevel.reset();
+  mMainLevelPath.clear();
 }
 
 void Game::startBonusWorld()
@@ -980,17 +1000,20 @@ void Game::tickList(const Input& in)
 
 void Game::playBonusChannel(int level)
 {
-  const std::string path = bonusFile(dataDir(), level);
-  mLevelNumber = level;
+  std::shared_ptr<const Level> bonus;
   try
   {
-    mLevel = std::make_shared<const Level>(Level::loadFile(path));
+    bonus = std::make_shared<const Level>(Level::loadFile(bonusFile(dataDir(), level)));
   }
   catch (const std::exception&)
   {
     notice("THAT CHANNEL IS OFF THE AIR");
     return;
   }
+  // No save names a bonus level (see mLevelPath). The number is the level's
+  // whose bonus level it is: a star won goes to it.
+  useLevel(std::move(bonus), {});
+  mLevelNumber = level;
   applyLevelLook(episodeOfLevel(level), mLevel->themeKey);
   mBonusOnly = true;
   playCutscenes({"sting_break"}, After::EnterBonus);
@@ -1004,7 +1027,7 @@ void Game::playExtra(int index)
   auto level = readLevelFile(extraFile(dataDir(), index), mHard);
   if (!level)
     return;
-  mLevel = std::move(level);
+  useLevel(std::move(level), {}); // no save names an EXTRAS level
   mLevelNumber = 0;
   applyLevelLook(0, mLevel->themeKey);
   mBonusOnly = true;

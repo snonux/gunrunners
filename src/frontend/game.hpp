@@ -206,6 +206,10 @@ private:
   // readLevel at the HARD setting, made the level being played (mLevel,
   // mLevelPath); false, with the old level kept, if it won't load.
   bool loadLevel(const std::string& path);
+  // Makes level the level being played, read from path (see mLevelPath).
+  // mLevel only ever changes through here, with the file it came from, so a
+  // save being loaded can tell whether its level is the one loaded.
+  void useLevel(std::shared_ptr<const Level> level, std::string path);
   void applyLevelLook(int episode, const std::string& themeKey);
   void playLevelMusic();
   void playCutscenes(std::vector<std::string> names, After after);
@@ -215,6 +219,9 @@ private:
   void enterBonus();
   void startBonusWorld();
   void leaveBonus();
+  // The level parked behind a bonus level (and its file) is the one played
+  // again: the bonus level is over, or was quit to the title.
+  void restoreMainLevel();
   void recordClear();
   void tickArsenal(const Input& in);
   void renderArsenal();
@@ -352,14 +359,20 @@ private:
   // The campaign level being played (also while its bonus level runs, and
   // the level whose bonus level the Bonus Channel plays). 0 in a stand-alone
   // level, the training stage and EXTRAS, and on the title, which keeps the
-  // last level loaded (mLevel, mLevelPath): a save loaded there brings its
-  // number (loadSave).
+  // last level played (mLevel, mLevelPath; quit from a bonus level, the level
+  // it was entered from): a save loaded there brings its number (loadSave).
   int mLevelNumber = 0;
-  std::string mLevelPath;     // relative to the data dir in the campaign
+  // The file mLevel was read from, as a campaign save names it (relative to
+  // the data dir). Empty for a level no save names: a stand-alone level
+  // (--level), whose saves have no file, and a bonus level (in its level or
+  // on the Bonus Channel) or an EXTRAS level, which can't be saved in: a
+  // campaign save loaded there always reads its level again (loadSave).
+  std::string mLevelPath;
   bool mCampaign = false;
-  bool mBonusOnly = false;    // replaying a bonus level from the Bonus Channel
+  bool mBonusOnly = false;    // a Bonus Channel or EXTRAS level, played on its own
   std::unique_ptr<World> mMainWorld; // parked while its bonus level plays
-  std::shared_ptr<const Level> mMainLevel;
+  std::shared_ptr<const Level> mMainLevel; // its level and that level's file
+  std::string mMainLevelPath;
   Bot mMainBot;
   VoiceDirector mMainVoice; // the level's lines while its bonus level runs
   int mBonusScore = 0, mBonusGems = 0;

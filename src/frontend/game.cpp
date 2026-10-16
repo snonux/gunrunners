@@ -68,7 +68,7 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
     Level level = Level::loadFile(options.levelPath);
     if (mHard)
       addHardModeEnemies(level);
-    mLevel = std::make_shared<const Level>(std::move(level));
+    useLevel(std::make_shared<const Level>(std::move(level)), {}); // its saves name no file
     mMode = Mode::Select;
     if (mOptions.skipMenu)
     {

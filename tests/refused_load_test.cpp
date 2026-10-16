@@ -25,10 +25,22 @@
 // its level stays without a number (its TV has no signal). The 'campaign 0'
 // saves that bug wrote for a numbered level load with the number in its
 // file's name (in that level, on the title after it, in another level), and
-// the training stage's save stays level 0. Last, SWAP RUNNER
-// ON DEATH: after a load, a wiped-out level starts over with the runner it
-// started with (a save of the level played), with the save's runner (a save
-// from another level), and a refused load changes neither.
+// the training stage's save stays level 0. A save of Level 1 loads inside
+// Level 1's own bonus level (on NORMAL, and on HARD as the control): the
+// bonus level and the world parked behind it go, and a quick save then
+// records Level 1. It loads the same way after QUIT TO TITLE from inside the
+// bonus level, and in a level played on its own from a title list after QUIT
+// TO TITLE from Level 1 (the Bonus Channel's CHANNEL 01, an EXTRAS level).
+// The bonus level (or the list's level) used to pass for the one of Level 1's
+// file, so a NORMAL save of Level 1 was refused as from another level. The
+// negatives there: Level 1's save with a box too many, and the bonus (or
+// list) level's own world saved as Level 1's, are still refused and change
+// nothing (the bonus level plays on, and the world parked behind it comes
+// back with Level 1's file and number; on the title no level starts). Last,
+// SWAP RUNNER ON DEATH: after a load, a wiped-out level starts over with the
+// runner it started with (a save of the level played, also loaded in its
+// bonus level), with the save's runner (a save from another level), and a
+// refused load changes neither.
 
 #include "frontend/game.hpp"
 #include "game/profile.hpp"
@@ -285,6 +297,29 @@ void checkParkedWorldReturns(Game& g, const std::string& dir, const World* main,
     "bonus: ...and a quick save there is Level 1's, on NORMAL");
 }
 
+// F9 on a save that must be refused while a bonus level runs (inside its
+// level, or on its own from a title list): the same bonus world plays on,
+// HARD stays off, and a quick save is still refused there.
+void checkRefusedInBonusLevel(Game& g, const std::string& dir, const SaveGame& s, const std::string& what)
+{
+  run(g, 30);
+  const World* bonus = g.world();
+  if (!check(bonus != nullptr && g.inLevel(), what + ": the bonus level runs"))
+    return;
+  const int clock = bonus->clock();
+  check(writeSave(s, quickSavePath(dir)), what + ": written as the quick save");
+  press(g, &Input::quickLoad);
+  check(g.world() == bonus && g.world()->clock() >= clock, what + ": refused, the same bonus world");
+  run(g, 30);
+  // 32 ticks are 8 logic frames on; a bonus world built anew would be at 8 in all.
+  check(g.inLevel() && g.world() == bonus && g.world()->clock() >= clock + 5,
+    what + ": ...plays on (" + std::to_string(clock) + " -> " +
+      std::to_string(g.world() ? g.world()->clock() : -1) + ")");
+  check(!hardInProfile(dir), what + ": HARD stays off");
+  check(g.world() && g.world()->canSave() && !quickSave(g, dir),
+    what + ": no quick save while the bonus level runs (its world could save)");
+}
+
 // A refused load inside Level 1's bonus level: the bonus plays on, and the
 // world parked behind it is the one that comes back once its clock runs out.
 void checkRefusedInBonus(Renderer& renderer, const std::string& dir, const SaveGame& two)
@@ -295,21 +330,7 @@ void checkRefusedInBonus(Renderer& renderer, const std::string& dir, const SaveG
   if (!main)
     return;
   const int parkedClock = main->clock(); // it stands still while parked
-  run(g, 30);
-  const World* bonus = g.world();
-  if (!check(bonus != nullptr, "bonus: the bonus level runs"))
-    return;
-  const int clock = bonus->clock();
-  check(writeSave(withExtraBox(two), quickSavePath(dir)), "bonus: a save that does not fit as the quick save");
-  press(g, &Input::quickLoad);
-  check(g.world() == bonus && g.world()->clock() >= clock, "bonus: refused, the same bonus world");
-  run(g, 30);
-  // 32 ticks are 8 logic frames on; a bonus world built anew would be at 8 in all.
-  check(g.inLevel() && g.world() == bonus && g.world()->clock() >= clock + 5,
-    "bonus: ...plays on (" + std::to_string(clock) + " -> " + std::to_string(g.world() ? g.world()->clock() : -1) + ")");
-  check(!hardInProfile(dir), "bonus: HARD stays off");
-  check(g.world() && g.world()->canSave() && !quickSave(g, dir),
-    "bonus: no quick save while the bonus level runs (its world could save)");
+  checkRefusedInBonusLevel(g, dir, withExtraBox(two), "bonus: a save that does not fit");
   checkParkedWorldReturns(g, dir, main, parkedClock);
 }
 
@@ -330,6 +351,83 @@ void checkIntactLoadsInBonus(Renderer& renderer, const std::string& dir, const S
   const auto saved = quickSave(g, dir);
   check(saved && saved->levelNumber == 2 && saved->levelFile == two.levelFile && saved->hard,
     "bonus: ...and ends the bonus level: a quick save there is Level 2's");
+}
+
+// A copy of a save with a score no world starts with: the world that has it
+// is the one the save loaded, not one that was running or parked before.
+SaveGame marked(SaveGame s)
+{
+  s.score = 4242;
+  return s;
+}
+
+// A save of w (a bonus or EXTRAS level, where the game does not save) that
+// names Level 1's file and number, those of one. It fits w's level, but not
+// Level 1, the level of the file it names.
+SaveGame asLevelOne(const World& w, const SaveGame& one)
+{
+  SaveGame s = w.snapshot();
+  s.levelFile = one.levelFile;
+  s.levelNumber = one.levelNumber;
+  return s;
+}
+
+// F9 inside Level 1's bonus level on a save of Level 1 itself (on NORMAL, and
+// on HARD as the control): it loads, the bonus level and the world parked
+// behind it go, and a quick save then works and records Level 1. The bonus
+// level used to keep Level 1's file as the file of the level loaded: on
+// NORMAL the save passed for one of the bonus level, was not read again and
+// was refused as from another level; on HARD (bonus levels are never HARD)
+// its level was read again, and it loaded.
+void checkOwnSaveLoadsInBonus(Renderer& renderer, const std::string& dir, bool hard)
+{
+  const std::string what = std::string("own save in its bonus level (") + (hard ? "HARD" : "NORMAL") + ")";
+  Game g(campaignAt(dir, 1, hard), renderer, nullptr);
+  settle(g);
+  const auto one = quickSave(g, dir);
+  if (!check(one && one->levelNumber == 1 && one->hard == hard, what + ": Level 1 saves"))
+    return;
+  const World* main = enterBonus(g, dir);
+  if (!main)
+    return;
+  const World* bonus = g.world();
+  check(writeSave(marked(*one), quickSavePath(dir)), what + ": Level 1's save as the quick save");
+  press(g, &Input::quickLoad);
+  const World* w = g.world();
+  check(g.inLevel() && w && w != bonus && w != main && w->level().name == one->levelName &&
+      w->level().hard == hard && w->stats().score == 4242,
+    what + ": F9 loads it: Level 1 runs, from the save");
+  // (On HARD it is the option's, which the profile does not record.)
+  if (!hard)
+    check(!hardInProfile(dir), what + ": HARD stays off in the profile");
+  run(g, 120);
+  check(g.world() == w && g.inLevel(), what + ": ...and plays on");
+  const auto saved = quickSave(g, dir);
+  check(saved && saved->levelNumber == 1 && saved->levelFile == one->levelFile && saved->hard == hard,
+    what + ": ...the bonus level is over: a quick save there is Level 1's");
+}
+
+// The negatives inside Level 1's bonus level: saves of Level 1 that can't be
+// played are still refused, without touching anything. One has a box too
+// many. The other is the bonus world's own, naming Level 1's file: it used to
+// load (the bonus level passed for the level of that file) and play on as
+// Level 1. Each time the bonus plays on, and the world parked behind it comes
+// back when it ends, with Level 1's file and number.
+void checkOwnSaveRefusedInBonus(Renderer& renderer, const std::string& dir)
+{
+  Game g(campaignAt(dir, 1, false), renderer, nullptr);
+  settle(g);
+  const auto one = quickSave(g, dir);
+  if (!check(one.has_value(), "own save refused in bonus: Level 1 saves"))
+    return;
+  const World* main = enterBonus(g, dir);
+  if (!main || !g.world())
+    return;
+  const int parkedClock = main->clock(); // it stands still while parked
+  const SaveGame bonusSave = asLevelOne(*g.world(), *one);
+  checkRefusedInBonusLevel(g, dir, withExtraBox(*one), "own save refused in bonus: Level 1 with a box too many");
+  checkRefusedInBonusLevel(g, dir, bonusSave, "own save refused in bonus: the bonus world as Level 1");
+  checkParkedWorldReturns(g, dir, main, parkedClock);
 }
 
 GameOptions onTitle(const std::string& dir)
@@ -472,6 +570,92 @@ void checkTvAfterQuitToTitle(Renderer& renderer, const std::string& dir)
   check(g.inLevel() && g.world() && g.world()->level().name == tv->levelName,
     "quit to title: F9 on the TV save loads Level 1");
   check(upIntoBonus(g), "quit to title: ...and up there goes into Level 1's bonus level");
+}
+
+// QUIT TO TITLE from inside Level 1's bonus level: the title keeps Level 1,
+// the level the bonus level was entered from, with its file, as it does after
+// quitting Level 1 itself. It used to keep the bonus level with Level 1's
+// file: F9 on Level 1's NORMAL save was refused as from another level there,
+// and the bonus world's own save, naming Level 1's file, loaded as Level 1.
+void checkLoadsAfterQuitFromBonus(Renderer& renderer, const std::string& dir)
+{
+  Game g(campaignAt(dir, 1, false), renderer, nullptr);
+  settle(g);
+  const auto one = quickSave(g, dir);
+  if (!check(one.has_value(), "quit from bonus: Level 1 saves") || !enterBonus(g, dir) || !g.world())
+    return;
+  const SaveGame bonusSave = asLevelOne(*g.world(), *one);
+  if (!check(quitToTitle(g), "quit from bonus: QUIT TO TITLE ends the bonus level"))
+    return;
+  quickLoadOf(g, dir, bonusSave);
+  run(g, 30);
+  check(!g.inLevel() && !g.world(), "quit from bonus: F9 on the bonus world's save as Level 1 is refused");
+  checkLoadsAs(g, dir, marked(*one), quickLoadOf, 1, "quit from bonus: F9 on Level 1's NORMAL save");
+}
+
+// Level 1's bonus star in a fresh profile: the title has a BONUS CHANNEL,
+// with CHANNEL 01 on it.
+void bonusStarOn(const std::string& dir)
+{
+  std::filesystem::create_directories(dir);
+  Profile p;
+  p.stars.insert(1);
+  p.save(dir);
+}
+
+// On the title: BONUS CHANNEL (the fifth item while there is no CONTINUE),
+// then CHANNEL 01, Level 1's bonus level played on its own.
+void playChannelOne(Game& g)
+{
+  for (int i = 0; i < 4; ++i)
+    press(g, &Input::down); // WORLD SELECT, LOAD GAME, ARSENAL, BONUS CHANNEL
+  press(g, &Input::confirm);
+  run(g, 20); // a list takes a confirm after 15 ticks
+  press(g, &Input::confirm); // CHANNEL 01
+}
+
+// On the title: WORLD SELECT, the EXTRAS card (left of the first one, the
+// row wraps), and the first EXTRAS level, played on its own.
+void playFirstExtra(Game& g)
+{
+  press(g, &Input::down); // WORLD SELECT
+  press(g, &Input::confirm);
+  run(g, 20); // the cards take a confirm after 15 ticks
+  press(g, &Input::left); // EXTRAS
+  press(g, &Input::confirm);
+  run(g, 20);
+  press(g, &Input::confirm); // the first EXTRAS level
+}
+
+// QUIT TO TITLE from Level 1, a level played on its own from a title list
+// (play: Level 1's bonus level on the Bonus Channel, or an EXTRAS level), and
+// F9 there. Saves that can't be played are refused, and the run plays on:
+// Level 1's with a box too many, and the list level's own world naming
+// Level 1's file. Level 1's NORMAL save loads, ends that run and brings
+// Level 1's number. The list's level used to keep Level 1's file (still the
+// title's) as the file of the level loaded: Level 1's save passed for one of
+// the list's level, was not read again and was refused as from another
+// level, and the list level's own world loaded as Level 1.
+void checkOwnSaveLoadsInListLevel(Renderer& renderer, const std::string& dir, void (*play)(Game&),
+  const std::string& what)
+{
+  bonusStarOn(dir);
+  Game g(campaignAt(dir, 1, false), renderer, nullptr);
+  settle(g);
+  const auto one = quickSave(g, dir);
+  if (!check(one && one->levelNumber == 1 && !one->hard, what + ": Level 1 runs on NORMAL and saves") ||
+      !check(quitToTitle(g), what + ": QUIT TO TITLE ends Level 1") ||
+      !check(Profile::load(dir).reached <= 1, what + ": no CONTINUE on the title (no level past Level 1)"))
+    return;
+  play(g);
+  run(g, 30);
+  const World* w = g.world();
+  if (!check(g.inLevel() && w && w->level().name != one->levelName, what + ": its level runs, on its own"))
+    return;
+  const SaveGame own = asLevelOne(*w, *one);
+  checkRefusedInBonusLevel(g, dir, withExtraBox(*one), what + ": Level 1 with a box too many");
+  checkRefusedInBonusLevel(g, dir, own, what + ": its own world as Level 1");
+  checkLoadsAs(g, dir, marked(*one), quickLoadOf, 1, what + ": F9 on Level 1's NORMAL save");
 }
 
 // A level file (relative to the data dir) played on its own, as --level
@@ -631,6 +815,22 @@ void checkStartOverAfterRefusal(Renderer& renderer, const std::string& dir, cons
   check(r == 0, "swap death: ...and the level still starts over with Dash (" + std::to_string(r) + ")");
 }
 
+// Inside Level 1's bonus level, a save of Level 1 is one of the level being
+// played, as it is in Level 1 itself: it keeps the runner Level 1 started
+// with (Dash) for the start over. (The bonus level runs in Level 1's stead,
+// but the level being played is still Level 1, parked behind it.)
+void checkStartOverFromBonus(Renderer& renderer, const std::string& dir, const SaveGame& doomed)
+{
+  swapDeathOn(dir);
+  Game g(campaignAt(dir, 1, false), renderer, nullptr);
+  settle(g);
+  if (!enterBonus(g, dir))
+    return;
+  const int r = startOverRunner(g, dir, doomed);
+  check(r == 0, "swap death: a save of Level 1 loaded in its bonus level starts over with Dash (" +
+    std::to_string(r) + ")");
+}
+
 // Level 1 on NORMAL, and every load tried on it.
 void checkLoadsInLevelOne(Renderer& renderer, const std::string& saves, const SaveGame& two)
 {
@@ -670,15 +870,22 @@ int main()
       checkSlotLoads(renderer, saves + "/slots", *two);
       checkRefusedInBonus(renderer, saves + "/bonus", *two);
       checkIntactLoadsInBonus(renderer, saves + "/bonus_load", *two);
+      checkOwnSaveLoadsInBonus(renderer, saves + "/bonus_own", false);
+      checkOwnSaveLoadsInBonus(renderer, saves + "/bonus_own_hard", true);
+      checkOwnSaveRefusedInBonus(renderer, saves + "/bonus_own_refused");
       checkRefusedOnTitle(renderer, saves + "/title", *two);
       checkIntactLoadsOnTitle(renderer, saves + "/title_load", *two);
       checkLoadsAfterQuitToTitle(renderer, saves + "/quit", *two);
       checkTvAfterQuitToTitle(renderer, saves + "/quit_tv");
+      checkLoadsAfterQuitFromBonus(renderer, saves + "/quit_bonus");
+      checkOwnSaveLoadsInListLevel(renderer, saves + "/channel", playChannelOne, "bonus channel after a quit");
+      checkOwnSaveLoadsInListLevel(renderer, saves + "/extras", playFirstExtra, "extras after a quit");
       checkStandAloneKeepsNoNumber(renderer, saves + "/stand_alone");
       checkLevelZeroSaves(renderer, saves + "/level_zero");
       const SaveGame doomed = checkStartOverSameLevel(renderer, saves + "/swap_same");
       checkStartOverOtherLevel(renderer, saves + "/swap_other", doomed);
       checkStartOverAfterRefusal(renderer, saves + "/swap_refused", doomed, *two);
+      checkStartOverFromBonus(renderer, saves + "/swap_bonus", doomed);
     }
   }
   std::filesystem::remove_all(saves);

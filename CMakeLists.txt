@@ -342,6 +342,9 @@ add_test(NAME savegame COMMAND savegame_test ${CMAKE_SOURCE_DIR}/levels/level1.t
 # A campaign save that loads brings its level number: on the title after QUIT
 # TO TITLE too (also for the level just quit), and from an old 'campaign 0'
 # save of a numbered level; a stand-alone level (--level) stays without one.
+# A level's own save loads inside its bonus level (and on the title after
+# quitting from there), and in a Bonus Channel or EXTRAS level played after
+# QUIT TO TITLE from the level.
 add_executable(refused_load_test tests/refused_load_test.cpp)
 target_link_libraries(refused_load_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME refused_load COMMAND refused_load_test)
