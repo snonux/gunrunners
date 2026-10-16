@@ -212,7 +212,9 @@ Nothing is synthesized before the first frame. The effects (~3.5 s of CPU
 for all of them) render on a thread of their own once the sound device is
 open (`src/audio/sound_bank.hpp`), the menu's first, at low priority; one
 played before its turn is rendered by that play (a few ms, once), so a
-level's one-off warnings play even right after launch. The menu, fallback
+level's one-off warnings play even right after launch. Only an effect the
+worker is rendering at that very moment is skipped, that once (the play
+never waits for the worker; it is ready a few ms later). The menu, fallback
 level and victory tracks render when first played, like the levels' own,
 so the title's music follows a moment after the title. Headless recording
 and the browser build without threads render every effect on its first

@@ -71,8 +71,10 @@ public:
   // on its first play (a few ms, once). With a sound device and the
   // worker, the one the worker is rendering right now is skipped this
   // once instead of waited for, so it never blocks on the worker. Without
-  // them (headless recording, the browser build without threads) that
-  // wait happens, so a recording has every sound.
+  // them (headless recording, the browser build without threads) no
+  // worker renders effects, so there is nothing to wait for or skip:
+  // every effect is rendered by its first play, and a recording has
+  // every sound.
   void play(Sfx s, float volume = 1.0f);
   // The built-in tracks, played as the named tracks synth::makeNamedMusic
   // renders the same ("menu", "theme_synthwave", "victory"), so they too
@@ -180,7 +182,10 @@ private:
   // Indexed by Sfx; rendered ones never move, so a Voice plays from them.
   SoundBank<std::vector<float>> mSfx;
   std::unordered_map<std::string, std::unique_ptr<Track>> mNamedTracks;
-  std::vector<std::string> mTrackOrder; // least recently used first
+  // Least recently used first. Game thread only: cachedTrack rotates it
+  // without mMutex (keepTrack holds the lock for the tracks it frees, not
+  // for this), and the mixer never reads it.
+  std::vector<std::string> mTrackOrder;
   static constexpr std::size_t kKeepTracks = 10;
   // Finished preloads not played yet, at ~12 MB each (~100 MB at most).
   // A level's own track is claimed as it starts; what it preloads beyond
