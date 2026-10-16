@@ -16,10 +16,19 @@
 // level starts, and NEW GAME then plays on NORMAL). The intact Level 2 save
 // is the control each time: it loads, brings Level 2 with its HARD enemies
 // and switches HARD on (mid-bonus it also ends the bonus level, so a quick
-// save works again). Last, SWAP RUNNER ON DEATH: after a load, a wiped-out
-// level starts over with the runner it started with (a save of the level
-// played), with the save's runner (a save from another level), and a
-// refused load changes neither.
+// save works again). After QUIT TO TITLE, a campaign save loaded on the title
+// (F9 or LOAD GAME) brings its level number, also a save of the level just
+// quit at the same difficulty (its level is not read again, and the title
+// had set the number to 0): a quick save then records it, and Level 1's TV
+// leads into its bonus level. Saves of another level or difficulty are the
+// controls, and a stand-alone level (--level) that loads a campaign save of
+// its level stays without a number (its TV has no signal). The 'campaign 0'
+// saves that bug wrote for a numbered level load with the number in its
+// file's name (in that level, on the title after it, in another level), and
+// the training stage's save stays level 0. Last, SWAP RUNNER
+// ON DEATH: after a load, a wiped-out level starts over with the runner it
+// started with (a save of the level played), with the save's runner (a save
+// from another level), and a refused load changes neither.
 
 #include "frontend/game.hpp"
 #include "game/profile.hpp"
@@ -216,27 +225,43 @@ const Prop* bonusDoor(const World& w)
   return nullptr;
 }
 
-// Level 1's TV: a quick save puts the runner on it, and up goes in (as in
-// audit_test's B08). Returns the world parked behind the bonus level, or
-// nullptr if the way in failed.
-const World* enterBonus(Game& g, const std::string& dir)
+// A copy of a save of Level 1 (w's level) with the runner on its TV, as in
+// audit_test's B08; nullopt if the level has none.
+std::optional<SaveGame> onTv(SaveGame s, const World& w)
 {
-  const Prop* tv = g.world() ? bonusDoor(*g.world()) : nullptr;
+  const Prop* tv = bonusDoor(w);
   if (!tv)
-    return nullptr;
-  SaveGame s = g.world()->snapshot();
+    return std::nullopt;
   s.x = tv->x;
   s.y = tv->y + tv->h - 1;
-  writeSave(s, quickSavePath(dir));
-  press(g, &Input::quickLoad);
-  const World* main = g.world(); // the loaded world, at the TV
+  return s;
+}
+
+// Up on the TV the runner stands on: true if that led into another level
+// (the bonus level), false if the same world played on (NO SIGNAL).
+bool upIntoBonus(Game& g)
+{
+  const World* main = g.world();
   Input up;
   up.up = true;
   for (int i = 0; i < 60 && (!g.world() || g.world() == main); ++i)
     g.tick(g.world() == main ? up : Input{});
   run(g, 4);
   const World* bonus = g.world();
-  const bool in = main && bonus && bonus != main && bonus->level().name != main->level().name;
+  return main && bonus && bonus != main && bonus->level().name != main->level().name;
+}
+
+// Level 1's TV: a quick save puts the runner on it, and up goes in. Returns
+// the world parked behind the bonus level, or nullptr if the way in failed.
+const World* enterBonus(Game& g, const std::string& dir)
+{
+  const auto s = g.world() ? onTv(g.world()->snapshot(), *g.world()) : std::nullopt;
+  if (!s)
+    return nullptr;
+  writeSave(*s, quickSavePath(dir));
+  press(g, &Input::quickLoad);
+  const World* main = g.world(); // the loaded world, at the TV
+  const bool in = upIntoBonus(g);
   check(in, "bonus: Level 1's TV leads into its bonus level");
   return in ? main : nullptr;
 }
@@ -347,6 +372,179 @@ void checkIntactLoadsOnTitle(Renderer& renderer, const std::string& dir, const S
   const World* w = g.world();
   check(g.inLevel() && w && w->level().name == "STAGE 2 - GLASS CANYON" && w->level().hard &&
     hardInProfile(dir), "title: the intact save starts Level 2 on HARD");
+}
+
+// Pause > QUIT TO TITLE (up from RESUME wraps to QUIT GAME, then QUIT TO
+// TITLE), and long enough on the title for it to take a confirm. False if
+// a level still runs.
+bool quitToTitle(Game& g)
+{
+  press(g, &Input::pause);
+  press(g, &Input::up);
+  press(g, &Input::up);
+  press(g, &Input::confirm);
+  run(g, 30);
+  return !g.inLevel() && !g.world();
+}
+
+// The two ways to load a save on the title: F9 on it as the quick save (in
+// a level too), and LOAD GAME on it in slot 1 (the newest save: the slot
+// menu opens on it). LOAD GAME is the title's third item while no level past
+// Level 1 was reached (no CONTINUE).
+void quickLoadOf(Game& g, const std::string& dir, const SaveGame& s)
+{
+  writeSave(s, quickSavePath(dir));
+  press(g, &Input::quickLoad);
+}
+
+void loadGameOnTitle(Game& g, const std::string& dir, const SaveGame& s)
+{
+  writeSave(s, slotPath(dir, 0));
+  if (!check(Profile::load(dir).reached <= 1, "title: no CONTINUE (no level past Level 1 reached), LOAD GAME is third"))
+    return;
+  press(g, &Input::down); // WORLD SELECT
+  press(g, &Input::down); // LOAD GAME
+  press(g, &Input::confirm);
+  press(g, &Input::confirm); // slot 1
+}
+
+// A way to load a save: quickLoadOf or loadGameOnTitle.
+using Loader = void (*)(Game&, const std::string&, const SaveGame&);
+
+// Load s, and a quick save then: s's level runs, at s's difficulty, and the
+// quick save records level number and s's file.
+void checkLoadsAs(Game& g, const std::string& dir, const SaveGame& s, Loader load, int number,
+  const std::string& what)
+{
+  load(g, dir, s);
+  const World* w = g.world();
+  check(g.inLevel() && w && w->level().name == s.levelName && w->level().hard == s.hard,
+    what + ": its level runs, " + (s.hard ? "on HARD" : "on NORMAL"));
+  run(g, 30);
+  const auto saved = quickSave(g, dir);
+  check(saved && saved->levelNumber == number && saved->levelFile == s.levelFile && saved->hard == s.hard,
+    what + ": a quick save then records campaign " + std::to_string(number) + " " + s.levelFile + " (" +
+      (saved ? std::to_string(saved->levelNumber) + " " + saved->levelFile : "no save") + ")");
+}
+
+// QUIT TO TITLE, load s there, and a quick save then: s's level runs, at
+// s's difficulty, and the quick save records s's level number and file.
+void checkLoadAfterQuit(Game& g, const std::string& dir, const SaveGame& s, Loader load,
+  const std::string& what)
+{
+  if (check(quitToTitle(g), what + ": QUIT TO TITLE ends the level"))
+    checkLoadsAs(g, dir, s, load, s.levelNumber, what);
+}
+
+// Loads on the title after QUIT TO TITLE. The title keeps the level just quit
+// loaded but zeroes its number: a save of that level at the same difficulty,
+// which does not read its level again, used to play on as level 0 (its next
+// save said 'campaign 0', its clear was not recorded, Level 1 came next).
+// The saves of another level or difficulty (read again) are the controls.
+void checkLoadsAfterQuitToTitle(Renderer& renderer, const std::string& dir, const SaveGame& two)
+{
+  Game g(campaignAt(dir, 1, false), renderer, nullptr);
+  settle(g);
+  const auto one = quickSave(g, dir);
+  if (!check(one && one->levelNumber == 1 && !one->hard, "quit to title: Level 1 runs on NORMAL and saves"))
+    return;
+  checkLoadAfterQuit(g, dir, *one, quickLoadOf, "quit to title: F9 on Level 1, just quit");
+  checkLoadAfterQuit(g, dir, *one, loadGameOnTitle, "quit to title: LOAD GAME of Level 1, just quit");
+  checkLoadAfterQuit(g, dir, two, quickLoadOf, "quit to title: F9 on Level 2 (HARD) after Level 1");
+  checkLoadAfterQuit(g, dir, two, quickLoadOf, "quit to title: F9 on Level 2 (HARD), just quit");
+  checkLoadAfterQuit(g, dir, *one, loadGameOnTitle, "quit to title: LOAD GAME of Level 1 after Level 2 (HARD)");
+}
+
+// A save of Level 1 on its TV, loaded on the title right after quitting
+// Level 1: up goes into Level 1's bonus level (it used to have NO SIGNAL,
+// there being no bonus level for level 0).
+void checkTvAfterQuitToTitle(Renderer& renderer, const std::string& dir)
+{
+  Game g(campaignAt(dir, 1, false), renderer, nullptr);
+  settle(g);
+  const auto one = quickSave(g, dir);
+  const auto tv = one && g.world() ? onTv(*one, *g.world()) : std::nullopt;
+  if (!check(tv && tv->levelNumber == 1, "quit to title: a save of Level 1 on its TV"))
+    return;
+  if (!check(quitToTitle(g), "quit to title: QUIT TO TITLE ends Level 1"))
+    return;
+  quickLoadOf(g, dir, *tv);
+  check(g.inLevel() && g.world() && g.world()->level().name == tv->levelName,
+    "quit to title: F9 on the TV save loads Level 1");
+  check(upIntoBonus(g), "quit to title: ...and up there goes into Level 1's bonus level");
+}
+
+// A level file (relative to the data dir) played on its own, as --level
+// plays it, saving into dir.
+GameOptions standAlone(const std::string& dir, const std::string& file)
+{
+  std::filesystem::create_directories(dir);
+  GameOptions o;
+  o.saveDir = dir;
+  o.skipMenu = true;
+  o.noCutscenes = true;
+  o.levelPath = std::string(GR_DATA_DIR) + "/" + file;
+  return o;
+}
+
+// The negative: a stand-alone level (--level) loads a campaign save of its
+// level but stays stand-alone, without the save's level number: its TV has
+// no signal. With the number it would open Level 1's bonus level, and a
+// bonus star won there would go into the campaign's profile.
+void checkStandAloneKeepsNoNumber(Renderer& renderer, const std::string& dir)
+{
+  Game g(standAlone(dir, "levels/01_rooftop_run.txt"), renderer, nullptr);
+  settle(g);
+  // Level 1's campaign save (as doomedBolt makes one), on the TV.
+  SaveGame s = g.world() ? g.world()->snapshot() : SaveGame{};
+  s.levelFile = "levels/01_rooftop_run.txt";
+  s.levelNumber = 1;
+  s.score = 4242; // tells the loaded world from the one that started
+  const auto tv = g.world() ? onTv(s, *g.world()) : std::nullopt;
+  if (!check(tv.has_value(), "stand-alone: Level 1 runs on its own, with its TV"))
+    return;
+  quickLoadOf(g, dir, *tv);
+  const World* w = g.world();
+  if (!check(g.inLevel() && w && w->level().name == "STAGE 1 - ROOFTOP RUN" && w->stats().score == 4242,
+        "stand-alone: Level 1's campaign save, on its TV, loads"))
+    return;
+  check(!upIntoBonus(g) && g.world() == w, "stand-alone: ...but up there has no signal: no level number came along");
+}
+
+// The training stage's save as the campaign writes one ('campaign 0
+// levels/level1.txt'), made from the stage played on its own.
+std::optional<SaveGame> trainingStageSave(Renderer& renderer, const std::string& dir)
+{
+  Game g(standAlone(dir, "levels/level1.txt"), renderer, nullptr);
+  settle(g);
+  if (!g.world())
+    return std::nullopt;
+  SaveGame s = g.world()->snapshot();
+  s.levelFile = "levels/level1.txt";
+  s.levelNumber = 0;
+  return s;
+}
+
+// Saves the bug wrote (up to v0.7.0): 'campaign 0' with a numbered level's
+// file. They load with the number in the file's name, so the next save is
+// right again: in that level (not read again), on the title right after
+// quitting it, and in another level (read again). The training stage's save,
+// whose file has no number, stays 'campaign 0'.
+void checkLevelZeroSaves(Renderer& renderer, const std::string& dir)
+{
+  const auto training = trainingStageSave(renderer, dir + "/training");
+  Game g(campaignAt(dir, 2, false), renderer, nullptr);
+  settle(g);
+  auto zero = quickSave(g, dir);
+  if (!check(zero && zero->levelNumber == 2 && training, "level 0 saves: Level 2 and the training stage save"))
+    return;
+  zero->levelNumber = 0;
+  const std::string what = "level 0 saves: F9 on Level 2's 'campaign 0' save";
+  checkLoadsAs(g, dir, *zero, quickLoadOf, 2, what + " in Level 2");
+  if (check(quitToTitle(g), "level 0 saves: QUIT TO TITLE ends Level 2"))
+    checkLoadsAs(g, dir, *zero, quickLoadOf, 2, what + " on the title, Level 2 just quit");
+  checkLoadsAs(g, dir, *training, quickLoadOf, 0, "level 0 saves: F9 on the training stage's save in Level 2");
+  checkLoadsAs(g, dir, *zero, quickLoadOf, 2, what + " in the training stage");
 }
 
 // SWAP RUNNER ON DEATH on, in a fresh profile.
@@ -474,6 +672,10 @@ int main()
       checkIntactLoadsInBonus(renderer, saves + "/bonus_load", *two);
       checkRefusedOnTitle(renderer, saves + "/title", *two);
       checkIntactLoadsOnTitle(renderer, saves + "/title_load", *two);
+      checkLoadsAfterQuitToTitle(renderer, saves + "/quit", *two);
+      checkTvAfterQuitToTitle(renderer, saves + "/quit_tv");
+      checkStandAloneKeepsNoNumber(renderer, saves + "/stand_alone");
+      checkLevelZeroSaves(renderer, saves + "/level_zero");
       const SaveGame doomed = checkStartOverSameLevel(renderer, saves + "/swap_same");
       checkStartOverOtherLevel(renderer, saves + "/swap_other", doomed);
       checkStartOverAfterRefusal(renderer, saves + "/swap_refused", doomed, *two);

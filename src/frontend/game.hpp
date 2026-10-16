@@ -349,7 +349,12 @@ private:
 
   // Campaign.
   Profile mProfile;
-  int mLevelNumber = 0;       // campaign level being played, 0 = stand-alone
+  // The campaign level being played (also while its bonus level runs, and
+  // the level whose bonus level the Bonus Channel plays). 0 in a stand-alone
+  // level, the training stage and EXTRAS, and on the title, which keeps the
+  // last level loaded (mLevel, mLevelPath): a save loaded there brings its
+  // number (loadSave).
+  int mLevelNumber = 0;
   std::string mLevelPath;     // relative to the data dir in the campaign
   bool mCampaign = false;
   bool mBonusOnly = false;    // replaying a bonus level from the Bonus Channel

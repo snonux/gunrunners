@@ -4,6 +4,8 @@
 
 #include "frontend/game.hpp"
 
+#include "data/campaign.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -19,6 +21,16 @@ namespace
 {
 
 constexpr Color kInk = rgb(16, 12, 26);
+
+// The campaign level a save is from. Up to v0.7.0 a save loaded on the
+// title, of the level just quit, played on as level 0 (see loadSave), and
+// the saves made then say 'campaign 0' for a numbered level file: the number
+// in the file's name stands in, so the next save is right again. The
+// training stage (levels/level1.txt) has no number in its file and stays 0.
+int savedLevelNumber(const SaveGame& s)
+{
+  return s.levelNumber > 0 ? s.levelNumber : levelNumberOfFile(s.levelFile);
+}
 
 enum PauseItem
 {
@@ -434,10 +446,17 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   if (!world)
     return false;
   if (rereadLevel)
-  {
     mLevel = std::move(level);
+  // A campaign save brings its level's number and file, also when its level
+  // is the one loaded and not read again: every way to the title (QUIT TO
+  // TITLE, the end of the story or of DEEP SPACE) keeps the last level but
+  // sets the number to 0, and a save of that level would otherwise play on
+  // as no campaign level (no clear recorded, no bonus level, Level 1 next).
+  // A stand-alone level (--level) stays without a number.
+  if (campaign() && !s.levelFile.empty())
+  {
     mLevelPath = s.levelFile;
-    mLevelNumber = s.levelNumber;
+    mLevelNumber = savedLevelNumber(s);
   }
   // A save brings its difficulty: the levels after it follow.
   if (campaign())

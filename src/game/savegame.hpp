@@ -42,7 +42,9 @@ struct SaveGame
   };
 
   std::string levelName;
-  // Campaign: which level file, and its number (0 for a stand-alone level).
+  // Campaign: which level file, and its number (0 for the training stage).
+  // A stand-alone level writes no campaign line; an old "campaign 0" save of
+  // a numbered file is read with that file's number (Game::loadSave).
   std::string levelFile;
   int levelNumber = 0;
   bool hard = false; // played on HARD: the level has its extra enemies
