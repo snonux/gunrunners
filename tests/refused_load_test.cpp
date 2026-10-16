@@ -710,8 +710,8 @@ void checkLoadsAfterQuitFromBonus(Renderer& renderer, const std::string& dir)
 // world's own is refused, and Level 1's loads and names Level 1's file in
 // its next quick save. Both need the title to keep Level 1, with its file,
 // and not the bonus level (goTitle takes back the level parked behind it).
-// The number is not checked: the title set it to 0, and a save without a
-// file brings none.
+// The save brings no number, but it is Level 1's, so it takes Level 1's
+// (the title had set it to 0): the next quick save records number 1.
 void checkFileLessSavesAfterQuitFromBonus(Renderer& renderer, const std::string& dir)
 {
   const std::string what = "quit from bonus, file-less";
@@ -733,6 +733,7 @@ void checkFileLessSavesAfterQuitFromBonus(Renderer& renderer, const std::string&
   run(g, 30);
   const auto saved = quickSave(g, dir);
   check(saved && saved->levelFile == one->levelFile, what + ": ...and a quick save names Level 1's file");
+  check(saved && saved->levelNumber == 1, what + ": ...and Level 1's number");
 }
 
 // QUIT TO TITLE from inside Level 1's bonus level, F9 there on a save of
@@ -792,9 +793,9 @@ void playFirstExtra(Game& g)
 // QUIT TO TITLE from Level 1, a level played on its own from a title list
 // (play: Level 1's bonus level on the Bonus Channel, or an EXTRAS level), and
 // F9 there. Saves that can't be played are refused, and the run plays on:
-// Level 1's with a box too many, and the list level's own world naming
-// Level 1's file. Level 1's NORMAL save loads, ends that run and brings
-// Level 1's number. The list's level used to keep Level 1's file (still the
+// Level 1's with a box too many, the list level's own world naming Level
+// 1's file, and that world in a save without a file. Level 1's NORMAL save
+// loads, ends that run and brings Level 1's number. The list's level used to keep Level 1's file (still the
 // title's) as the file of the level loaded: Level 1's save passed for one of
 // the list's level, was not read again and was refused as from another
 // level, and the list level's own world loaded as Level 1.
@@ -815,8 +816,13 @@ void checkOwnSaveLoadsInListLevel(Renderer& renderer, const std::string& dir, vo
   if (!check(g.inLevel() && w && w->level().name != one->levelName, what + ": its level runs, on its own"))
     return;
   const SaveGame own = asLevelOne(*w, *one);
+  const SaveGame ownFileLess = withoutFile(w->snapshot());
   checkRefusedInBonusLevel(g, dir, withExtraBox(*one), what + ": Level 1 with a box too many");
   checkRefusedInBonusLevel(g, dir, own, what + ": its own world as Level 1");
+  // A save without a file has no level to fit on a level played on its own
+  // (it can't be saved in, and has no file): refused, not played on as a
+  // campaign level.
+  checkRefusedInBonusLevel(g, dir, ownFileLess, what + ": its own world without a file");
   checkLoadsAs(g, dir, marked(*one), quickLoadOf, 1, what + ": F9 on Level 1's NORMAL save");
 }
 

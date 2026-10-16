@@ -816,7 +816,11 @@ void Game::unparkMainLevel()
   mWorld = std::move(mMainWorld);
   useLevel(std::move(mMainLevel), std::move(mMainLevelPath));
   mBot = mMainBot;
+  // Parked while a line may have been playing: its audio was stopped since
+  // (the bonus level's sting, the title), so the copy must not count as
+  // speaking, or its next stop would cut off a line that is not its own.
   mVoice = mMainVoice;
+  mVoice.stop(nullptr);
   // A moved-from string is left unspecified: dropParkedLevel clears it.
   dropParkedLevel();
 }

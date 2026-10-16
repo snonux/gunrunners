@@ -509,7 +509,10 @@ bool Game::loadSave(SaveGame s, const std::string& message)
   // Not read again (a save without a file, as a stand-alone level (--level)
   // writes, or one of the level loaded), the save is of the level being
   // played: inside a bonus level the one parked behind it, not the bonus.
-  std::shared_ptr<const Level> level = rereadLevel ? readLevel(s.levelFile, s.hard) : playing;
+  // A Bonus Channel or EXTRAS level played on its own has no file and can't
+  // be saved in, so a save without one has no level to fit there (refused).
+  std::shared_ptr<const Level> level =
+    rereadLevel ? readLevel(s.levelFile, s.hard) : mBonusOnly ? nullptr : playing;
   if (rereadLevel && !level)
   {
     sound(Sfx::Hurt); // readLevel said THAT LEVEL WOULD NOT LOAD
@@ -542,7 +545,7 @@ void Game::useSaveLevel(std::shared_ptr<const Level> level, bool reread, const s
   // it (one without a file). That level, with its file, is played again;
   // startLoadedWorld drops the rest of what was parked.
   if (mMainLevel)
-    useLevel(mMainLevel, mMainLevelPath);
+    useLevel(std::move(level), mMainLevelPath); // level is mMainLevel here
 }
 
 void Game::takeSaveProgress(const SaveGame& s)
@@ -556,6 +559,12 @@ void Game::takeSaveProgress(const SaveGame& s)
   // one.
   if (campaign() && !s.levelFile.empty())
     mLevelNumber = savedLevelNumber(s);
+  // A save without a file (--level writes those) played on the campaign
+  // level loaded, or the one parked behind a bonus level (its file is
+  // mLevelPath by now), is that level's: it takes that level's number too,
+  // also on the title, where QUIT TO TITLE set it to 0.
+  else if (campaign() && !mLevelPath.empty())
+    mLevelNumber = levelNumberOfFile(mLevelPath);
   // A save brings its difficulty: the levels after it follow.
   if (campaign())
     setHard(s.hard);
