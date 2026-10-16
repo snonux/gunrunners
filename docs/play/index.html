@@ -20,8 +20,25 @@
   #loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; text-align: center;
     background: radial-gradient(ellipse at 50% 70%, #3a1660 0%, var(--bg) 70%); }
   #loader[hidden] { display: none; }
-  .logo { margin: 0; font: italic 900 clamp(40px, 10vw, 96px) "Exo 2", "DejaVu Sans", sans-serif; color: var(--gold); letter-spacing: 0.02em;
-    text-shadow: 0 4px 0 #1a0820, 0 0 30px rgba(255, 63, 174, 0.55); }
+  /* The website's logo (docs/site/style.css): sunset gradient, cyan
+     offset shadow, and a VHS glitch every few seconds. */
+  .logo { margin: 0; font: italic 900 clamp(40px, 10vw, 96px)/1 "Exo 2", "DejaVu Sans", sans-serif; letter-spacing: -0.01em;
+    background: linear-gradient(180deg, #fff6b0 0%, var(--sun) 40%, #ff5d6c 70%, var(--hot) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 22px rgba(255, 63, 174, 0.35));
+    animation: glitch 6s infinite; }
+  @keyframes glitch {
+    0%, 90%, 100% { transform: none; filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 22px rgba(255, 63, 174, 0.35)); }
+    91% { transform: translate(-4px, 1px) skewX(-10deg); filter: drop-shadow(-5px 0 0 var(--cyan)) drop-shadow(5px 0 0 var(--hot)); }
+    93% { transform: translate(5px, -2px) skewX(8deg); filter: drop-shadow(6px 0 0 var(--cyan)) drop-shadow(-6px 0 0 var(--hot)); }
+    95% { transform: translate(-2px, 0) skewX(-3deg); filter: drop-shadow(-3px 2px 0 var(--sun)) drop-shadow(3px -2px 0 var(--cyan)); }
+    97% { transform: none; filter: drop-shadow(4px 4px 0 #0aa9d6) drop-shadow(0 0 30px rgba(255, 63, 174, 0.7)); }
+  }
+  /* The website's faint CRT scanlines, over the loading screen only (not
+     over the game). */
+  #loader::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.13) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+  @media (prefers-reduced-motion: reduce) { .logo { animation: none; } }
   .bar { width: min(560px, 86vw); height: 22px; border: 2px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
   .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--hot), #ff6a5a 55%, var(--sun)); transition: width 0.15s linear; }
   .pct { font: italic 900 42px "Exo 2", "DejaVu Sans", sans-serif; color: var(--text); margin: 0; }
