@@ -4,8 +4,9 @@
 // scratch data directory with files that are missing, appear and disappear,
 // a directory named like a level file, and the real one under GR_DATA_DIR;
 // then the title screen over the scratch directory: TRAINING STAGE only
-// with levels/level1.txt, and a level1.txt added while the game runs shows
-// up once the title opens again.
+// with levels/level1.txt, an EXTRAS level deleted while its lookup was kept
+// fails to load and forgets the kept lookups, and a level1.txt added while
+// the game runs shows up once the title opens again.
 
 #include "data/campaign.hpp"
 #include "frontend/game.hpp"
@@ -137,6 +138,42 @@ void titleWithoutTraining(Game& g)
   check(!g.listening() && !g.inLevel(), "title: back from CONTROLS");
 }
 
+// The EXTRAS card in WORLD SELECT (the third of the second row of four,
+// see worlds.cpp) and the first row of the list screen (flow.cpp).
+constexpr float kExtrasCardX = 790.0f, kExtrasCardY = 500.0f;
+constexpr float kFirstListRowY = 140.0f;
+
+// The negative case: an extra level deleted after its lookup was kept is
+// still offered, and picking it fails (Game::readLevelFile's catch), which
+// forgets every kept lookup at once. extraFile() is asked again without the
+// title reopening, so an empty answer proves the failure path forgot them.
+// Starts and ends on the title.
+void deletedExtraForgets(Game& g, const std::string& dir)
+{
+  const std::string extra = dir + "/levels/extra_motor_pool.txt";
+  std::filesystem::copy_file(std::string(GR_DATA_DIR) + "/levels/extra_motor_pool.txt", extra,
+    std::filesystem::copy_options::overwrite_existing);
+  tap(g, 640.0f, titleItem(1));
+  run(g, 30);
+  check(g.worldSelect(), "extras: WORLD SELECT opens");
+  tap(g, kExtrasCardX, kExtrasCardY);
+  run(g, 30);
+  check(!g.worldSelect() && !g.inLevel(), "extras: the EXTRAS list opens");
+  check(extraFile(dir, 0) == extra, "extras: MOTOR POOL's lookup is kept");
+  std::filesystem::remove(extra);
+  check(extraFile(dir, 0) == extra, "extras: deleted, the kept lookup still says found");
+  tap(g, 640.0f, kFirstListRowY);
+  run(g, 5);
+  check(!g.inLevel(), "extras: the deleted level does not start");
+  check(extraFile(dir, 0).empty(), "extras: the failed load forgot the kept lookups (no title in between)");
+  run(g, 2, pressed(&Input::back));
+  run(g, 30);
+  check(g.worldSelect(), "extras: back to WORLD SELECT");
+  run(g, 2, pressed(&Input::back));
+  run(g, 30);
+  check(!g.worldSelect() && !g.inLevel(), "extras: back to the title");
+}
+
 // A level1.txt copied in while the title is open is not asked about again
 // until the title opens anew (there and back from WORLD SELECT); then the
 // fifth item is TRAINING STAGE: runner select, and a tap on the card plays.
@@ -176,6 +213,7 @@ void titleScreen(const std::string& dir)
     o.noCutscenes = true;
     Game g(o, renderer, nullptr);
     titleWithoutTraining(g);
+    deletedExtraForgets(g, dir);
     trainingAppears(g, dir);
   }
   SDL_DestroyRenderer(sdl);

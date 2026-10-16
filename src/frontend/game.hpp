@@ -206,7 +206,9 @@ private:
   void playBriefing(int number, bool fromNewGame);
   // A level file, with the HARD enemies when hard is set. It only reads
   // (mLevel stays), so a save being loaded can try its level aside. nullptr,
-  // after a notice, if it won't load. readLevelFile takes the file as it is
+  // after a notice, if it won't load; a failure also forgets the kept
+  // level-file lookups (forgetDataFiles), as the file may have been deleted
+  // since a menu looked it up. readLevelFile takes the file as it is
   // (one that already has the data dir in front); readLevel's path is
   // relative to the data dir unless absolute.
   std::shared_ptr<const Level> readLevelFile(const std::string& file, bool hard);

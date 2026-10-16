@@ -64,7 +64,9 @@ int levelNumberOfFile(const std::string& path);
 // the game runs show up there. A file deleted mid-run still counts as found
 // until then; loading it fails gracefully (a notice such as "THAT LEVEL
 // WOULD NOT LOAD", or NO SIGNAL for a bonus level) and forgets what was
-// kept too, so the menus stop offering it (frontend/flow.cpp).
+// kept too (frontend/flow.cpp), so a menu stops offering it the next time
+// it opens: WORLD SELECT's cards at once (drawn every frame), a list
+// already open (EXTRAS, the Bonus Channel) only once it is opened again.
 bool dataFileExists(const std::string& path);
 void forgetDataFiles();
 

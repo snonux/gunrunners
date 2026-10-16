@@ -455,7 +455,10 @@ std::shared_ptr<const Level> Game::readLevelFile(const std::string& file, bool h
   catch (const std::exception& e)
   {
     std::fprintf(stderr, "cannot load %s: %s\n", file.c_str(), e.what());
-    // It may have been deleted since its lookup was kept: ask the disk again.
+    // Missing or broken. A level picked from a menu may have been deleted
+    // since its lookup was kept (data/campaign.hpp), and a save may name a
+    // level that is gone: either way the kept lookups are forgotten, so the
+    // menus ask the disk again the next time they look.
     forgetDataFiles();
     notice("THAT LEVEL WOULD NOT LOAD");
     return nullptr;
@@ -1079,13 +1082,19 @@ void Game::pickListItem(std::string id)
 
 void Game::playBonusChannel(int level)
 {
+  const std::string path = bonusFile(dataDir(), level);
   std::shared_ptr<const Level> bonus;
   try
   {
-    bonus = std::make_shared<const Level>(Level::loadFile(bonusFile(dataDir(), level)));
+    bonus = std::make_shared<const Level>(Level::loadFile(path));
   }
-  catch (const std::exception&)
+  catch (const std::exception& e)
   {
+    // Deleted since its lookup was kept (data/campaign.hpp), or broken: ask
+    // the disk again, so the Bonus Channel stops offering a deleted one the
+    // next time it opens (the open list is not rebuilt).
+    std::fprintf(stderr, "cannot load %s: %s\n", path.c_str(), e.what());
+    forgetDataFiles();
     notice("THAT CHANNEL IS OFF THE AIR");
     return;
   }
