@@ -9,7 +9,9 @@
 // it says when it works its answer out must be what a search from scratch
 // (World::guideFresh) says, as the runner moves, things are taken, the
 // card is picked up and a force field goes down, on the test rooms and
-// along scripted runs through campaign levels.
+// along a scripted run through every campaign level. The grids it keeps
+// are built again whenever what they depend on changes (the map's tiles,
+// breakables opened, lava, the card), and would be wrong if they weren't.
 
 #include "assets/art.hpp"
 #include "data/campaign.hpp"
@@ -128,8 +130,13 @@ bool sameGrid(const GuideGrid& a, const GuideGrid& b)
 // The cached guide against one worked out from scratch, on the logic
 // frames it works its answer out (in between it keeps the last one).
 // Counts the frames compared and the ones that differ.
+// With `every` above 1 only one in that many of those frames is compared
+// (a search from scratch costs the whole map; the kept guide is still
+// asked every frame, so it changes as it would in play).
 struct Compare
 {
+  int every = 1;
+  int worked = 0; // frames the kept guide worked its answer out on
   int checked = 0;
   int differ = 0;
   std::string first;
@@ -137,6 +144,8 @@ struct Compare
   {
     const World::Guide& g = w.guide();
     if (g.frame != w.stats().frames || g.kind == World::GuideKind::None)
+      return;
+    if (worked++ % every != 0)
       return;
     const World::Guide fresh = w.guideFresh();
     ++checked;
@@ -195,6 +204,208 @@ int followArrow(World& w, const std::function<bool()>& done, int frames, bool sh
     w.update(in);
   }
   return done() ? frames : -1;
+}
+
+// ---- The grids kept between searches ----
+
+// The walled room with a wall 4 blocks high at block 20 of the corridor.
+std::shared_ptr<const Level> wallRoom()
+{
+  return load(room("", [](int y, std::string& row) {
+    if (y >= 10 && y <= 13)
+      row[20] = '#';
+  }));
+}
+
+// A map's revision changes with its tiles and its wrapping (not when a
+// block is set to what it is); copies keep it.
+void checkRevision()
+{
+  const auto level = wallRoom();
+  CollisionMap map(*level);
+  const CollisionMap copy = map;
+  const CollisionMap other(*level);
+  check(copy.revision() == map.revision(), "a copied map keeps its revision");
+  check(other.revision() != map.revision(), "two maps made apart never share one");
+  const std::uint64_t r0 = map.revision();
+  map.setBlock(20, 12, Tile::Solid);
+  check(map.revision() == r0, "setting a block to what it is leaves the revision");
+  map.setBlock(20, 12, Tile::Empty);
+  check(map.revision() != r0, "opening the wall changes the revision");
+  const std::uint64_t r1 = map.revision();
+  map.setWrap(true);
+  check(map.revision() != r1, "wrapping the map round changes the revision");
+}
+
+// `kept0` was built for `then`; the world is now as `now` says. Told
+// nothing changed (`then` again) the grid keeps what it had and is wrong:
+// what the key is for. With `now` it is built again and matches a grid
+// built from scratch.
+void checkRebuilt(const CollisionMap& map, const GuideGrid& kept0, const GuideStatics& then, const GuideStatics& now,
+  const std::string& what)
+{
+  GuideGrid fresh;
+  fresh.update(map, now, {}, true);
+  GuideGrid stale = kept0;
+  check(!stale.update(map, then, {}) && !sameGrid(stale, fresh), what + ": with the old key the grid is stale (it would be wrong)");
+  GuideGrid kept = kept0;
+  check(kept.update(map, now, {}) && sameGrid(kept, fresh), what + ": with the new key it is built again, as from scratch");
+}
+
+// The grids are kept while the key stays the same, and built again once
+// the map's tiles change (its revision).
+void checkGridKept()
+{
+  const auto level = wallRoom();
+  CollisionMap map(*level);
+  GuideStatics st;
+  st.mapRevision = map.revision();
+  GuideGrid kept;
+  check(kept.update(map, st, {}), "the first update builds the grids");
+  check(!kept.update(map, st, {}), "the same statics again: the grids are kept");
+  for (int y = 10; y <= 13; ++y)
+    map.setBlock(20, y, Tile::Empty);
+  GuideStatics now = st;
+  now.mapRevision = map.revision();
+  checkRebuilt(map, kept, st, now, "the wall taken out of the map");
+}
+
+// Platforms and floats move every frame: laid over the kept grids, as a
+// grid from scratch has them, and gone once they are.
+void checkGridPlatforms()
+{
+  const auto level = wallRoom();
+  CollisionMap map(*level);
+  GuideStatics st;
+  st.mapRevision = map.revision();
+  GuideGrid kept, fresh;
+  kept.update(map, st, {});
+  map.addPlatform({30, 20, 6, 2});
+  map.addFloat({44, 24, 4, 1});
+  const std::vector<std::array<int, 3>> decks{{8, 22, 6}};
+  check(!kept.update(map, st, decks), "platforms moving keep the grids");
+  fresh.update(map, st, decks, true);
+  check(sameGrid(kept, fresh), "and stand on them as a grid from scratch does");
+  check(kept.support(kept.cellAt(30, 19)) && kept.support(kept.cellAt(28, 19)) && !kept.support(kept.cellAt(27, 19)),
+    "the box stands on a platform where a column of it is over it");
+  map.clearPlatforms();
+  map.clearFloats();
+  kept.update(map, st, {});
+  fresh.update(map, st, {}, true);
+  check(sameGrid(kept, fresh) && !kept.support(kept.cellAt(30, 19)), "and not once they have gone");
+}
+
+// Breakables any shot opens and lava pools that burn are part of the key
+// too: a change to either builds the grids again.
+void checkGridStatics()
+{
+  const auto level = wallRoom();
+  const CollisionMap map(*level);
+  const int k = kCellsPerTile;
+  GuideStatics st;
+  st.mapRevision = map.revision();
+  GuideGrid kept;
+  kept.update(map, st, {});
+  const int wall = kept.cellAt(20 * k, 12 * k);
+  check(kept.blocked(wall), "the wall is in the way");
+  GuideStatics opened = st;
+  opened.open.push_back({20, 10, 20, 13});
+  checkRebuilt(map, kept, st, opened, "the wall a breakable a shot opens");
+  kept.update(map, opened, {});
+  check(!kept.blocked(wall), "and then it is not in the way");
+  GuideStatics burning = opened;
+  burning.lava.push_back({40 * k, 13 * k, 42 * k - 1, 14 * k - 1});
+  checkRebuilt(map, kept, opened, burning, "a lava pool that burns");
+  kept.update(map, burning, {});
+  check(kept.blocked(kept.cellAt(41 * k, 13 * k)), "and the lava is as bad as a wall");
+}
+
+// ---- The guide kept between searches against one from scratch ----
+
+void checkAgree(const Compare& cmp, int least, const std::string& what)
+{
+  check(cmp.checked >= least && cmp.differ == 0, what + ": kept and fresh agree on " + std::to_string(cmp.checked) +
+    " frames (" + std::to_string(cmp.differ) + " differ) " + cmp.first);
+}
+
+// While the runner moves, takes the gem and walks out.
+void checkKeptGemRoom(const std::shared_ptr<const Level>& gemRoom, const Theme& theme, const Art& art)
+{
+  World w(gemRoom, 0, theme, art);
+  guideOn(w);
+  Compare cmp;
+  const int f = followArrow(w, [&] { return w.state() != WorldState::Playing; }, 900, false, &cmp);
+  check(f >= 0 && w.stats().gems == 1, "the gem room by the arrow, comparing (frames " + std::to_string(f) + ")");
+  checkAgree(cmp, 21, "the gem room");
+}
+
+// A gem behind a force field: no way there until the card is held, then
+// through it; walking up to it takes the field down (the map changes).
+void checkKeptForceField(const Theme& theme, const Art& art)
+{
+  const auto fieldRoom = load(room("", [](int y, std::string& row) {
+    if (y >= 1 && y <= 13)
+      row[30] = 'D';
+    if (y == 13)
+      row[40] = 'g';
+  }));
+  World w(fieldRoom, 0, theme, art);
+  guideOn(w);
+  Compare cmp;
+  cmp(w);
+  check(!w.guide().routed && w.guide().dx == 1, "a gem behind a force field: straight at it, no route (" + describe(w.guide()) + ")");
+  w.cheat(Cheat::Card);
+  for (int f = 0; f < 6; ++f)
+  {
+    w.update(PlayerInput{});
+    cmp(w);
+  }
+  check(w.guide().routed && w.guide().walkable && w.guide().dx == 1,
+    "with the card: a route through the field (" + describe(w.guide()) + ")");
+  const int f = followArrow(w, [&] { return w.stats().gems == 1; }, 600, false, &cmp);
+  check(f >= 0 && !w.map().forceFieldsOn(), "following it takes the field down and the gem (frames " + std::to_string(f) + ")");
+  checkAgree(cmp, 11, "the force field");
+}
+
+// A scripted run of `frames` logic frames (walking right, then left;
+// climbing a while in the middle; jumping and shooting all along), the
+// kept guide compared with `cmp` on every frame.
+void scriptedRun(World& w, int frames, Compare& cmp)
+{
+  for (int f = 0; f < frames && w.state() == WorldState::Playing; ++f)
+  {
+    cmp(w);
+    PlayerInput in;
+    in.right = f < frames * 4 / 5;
+    in.left = !in.right;
+    in.up = f >= frames / 3 && f < frames * 2 / 3;
+    in.jump.pressed = in.jump.triggered = f % 17 == 0;
+    in.fire.pressed = true;
+    in.fire.triggered = f % 6 == 0;
+    w.update(in);
+    (void)w.takeSounds();
+  }
+}
+
+// Every campaign level, a scripted run each (lifts, bots and crates on the
+// move; wrapping, turning maps, slopes, lava, breakables, beat and timer
+// layers, doors and gravity where the level has them): kept and fresh
+// agree. Levels 1-6 run longer and compare every frame worked out; the
+// rest a shorter run, one frame in three, to keep the test quick.
+void checkKeptCampaign(const Theme& theme, const Art& art)
+{
+  for (int n = 1; n <= kAllLevels; ++n)
+  {
+    const bool longRun = n <= 6;
+    const auto level = std::make_shared<const Level>(Level::loadFile(levelFile(GR_DATA_DIR, n)));
+    World w(level, n % 3, theme, art);
+    guideOn(w);
+    w.cheat(Cheat::God);
+    Compare cmp;
+    cmp.every = longRun ? 1 : 3;
+    scriptedRun(w, longRun ? 150 : 60, cmp);
+    checkAgree(cmp, longRun ? 51 : 1, level->slug);
+  }
 }
 
 } // namespace
@@ -344,122 +555,14 @@ int main()
       check(w.guide().kind == World::GuideKind::None, "a bonus level: no arrow (" + describe(w.guide()) + ")");
     }
 
-    // The grids kept between searches: a map's revision changes with its
-    // tiles (not when a block is set to what it is), copies keep it, and a
-    // kept grid matches one built from scratch once brought up to date.
-    {
-      const auto wallRoom = load(room("", [](int y, std::string& row) {
-        if (y >= 10 && y <= 13)
-          row[20] = '#';
-      }));
-      CollisionMap map(*wallRoom);
-      const CollisionMap copy = map;
-      const CollisionMap other(*wallRoom);
-      check(copy.revision() == map.revision(), "a copied map keeps its revision");
-      check(other.revision() != map.revision(), "two maps made apart never share one");
-      const std::uint64_t r0 = map.revision();
-      map.setBlock(20, 12, Tile::Solid);
-      check(map.revision() == r0, "setting a block to what it is leaves the revision");
-      GuideGrid::Statics st;
-      st.mapRevision = map.revision();
-      GuideGrid kept;
-      check(kept.update(map, st, {}), "the first update builds the grids");
-      check(!kept.update(map, st, {}), "the same statics again: the grids are kept");
-      for (int y = 10; y <= 13; ++y)
-        map.setBlock(20, y, Tile::Empty);
-      check(map.revision() != r0, "opening the wall changes the revision");
-      GuideGrid fresh;
-      GuideGrid::Statics now = st;
-      now.mapRevision = map.revision();
-      fresh.update(map, now, {}, true);
-      // Told nothing changed, the grid keeps the wall: what the revision is for.
-      GuideGrid stale = kept;
-      check(!stale.update(map, st, {}) && !sameGrid(stale, fresh), "with the old revision the grid is stale (it would be wrong)");
-      check(kept.update(map, now, {}) && sameGrid(kept, fresh), "with the new one it is built again, as from scratch");
-      // Platforms and floats move every frame: laid over the kept grids.
-      map.addPlatform({30, 20, 6, 2});
-      map.addFloat({44, 24, 4, 1});
-      const std::vector<std::array<int, 3>> decks{{8, 22, 6}};
-      check(!kept.update(map, now, decks), "platforms moving keep the grids");
-      fresh.update(map, now, decks, true);
-      check(sameGrid(kept, fresh), "and stand on them as a grid from scratch does");
-      check(kept.support(kept.cellAt(30, 19)) && kept.support(kept.cellAt(28, 19)) && !kept.support(kept.cellAt(27, 19)),
-        "the box stands on a platform where a column of it is over it");
-      map.clearPlatforms();
-      map.clearFloats();
-      kept.update(map, now, {});
-      fresh.update(map, now, {}, true);
-      check(sameGrid(kept, fresh) && !kept.support(kept.cellAt(30, 19)), "and not once they have gone");
-      map.setWrap(true);
-      check(map.revision() != now.mapRevision, "wrapping the map round changes the revision");
-    }
-
-    // The kept guide says what one worked out from scratch says, while the
-    // runner moves, takes the gem and walks out.
-    {
-      World w(gemRoom, 0, theme, art);
-      guideOn(w);
-      Compare cmp;
-      const int f = followArrow(w, [&] { return w.state() != WorldState::Playing; }, 900, false, &cmp);
-      check(f >= 0 && w.stats().gems == 1, "the gem room by the arrow, comparing (frames " + std::to_string(f) + ")");
-      check(cmp.checked > 20 && cmp.differ == 0, "the gem room: kept and fresh agree on " + std::to_string(cmp.checked) +
-        " frames (" + std::to_string(cmp.differ) + " differ) " + cmp.first);
-    }
-
-    // A gem behind a force field: no way there until the card is held, then
-    // through it; walking up to it takes the field down (the map changes).
-    {
-      const auto fieldRoom = load(room("", [](int y, std::string& row) {
-        if (y >= 1 && y <= 13)
-          row[30] = 'D';
-        if (y == 13)
-          row[40] = 'g';
-      }));
-      World w(fieldRoom, 0, theme, art);
-      guideOn(w);
-      Compare cmp;
-      cmp(w);
-      check(!w.guide().routed && w.guide().dx == 1, "a gem behind a force field: straight at it, no route (" + describe(w.guide()) + ")");
-      w.cheat(Cheat::Card);
-      for (int f = 0; f < 6; ++f)
-      {
-        w.update(PlayerInput{});
-        cmp(w);
-      }
-      check(w.guide().routed && w.guide().walkable && w.guide().dx == 1,
-        "with the card: a route through the field (" + describe(w.guide()) + ")");
-      const int f = followArrow(w, [&] { return w.stats().gems == 1; }, 600, false, &cmp);
-      check(f >= 0 && !w.map().forceFieldsOn(), "following it takes the field down and the gem (frames " + std::to_string(f) + ")");
-      check(cmp.checked > 10 && cmp.differ == 0, "the force field: kept and fresh agree on " + std::to_string(cmp.checked) +
-        " frames (" + std::to_string(cmp.differ) + " differ) " + cmp.first);
-    }
-
-    // Campaign levels, a scripted run each (walking both ways, jumping,
-    // climbing, shooting; lifts, bots and crates on the move): kept and fresh
-    // agree on every frame the guide is worked out.
-    for (int n = 1; n <= 6; ++n)
-    {
-      const auto level = std::make_shared<const Level>(Level::loadFile(levelFile(GR_DATA_DIR, n)));
-      World w(level, n % 3, theme, art);
-      guideOn(w);
-      w.cheat(Cheat::God);
-      Compare cmp;
-      for (int f = 0; f < 150 && w.state() == WorldState::Playing; ++f)
-      {
-        cmp(w);
-        PlayerInput in;
-        in.right = (f / 40) % 4 != 3;
-        in.left = !in.right;
-        in.up = (f / 50) % 3 == 1;
-        in.jump.pressed = in.jump.triggered = f % 17 == 0;
-        in.fire.pressed = true;
-        in.fire.triggered = f % 6 == 0;
-        w.update(in);
-        (void)w.takeSounds();
-      }
-      check(cmp.checked > 50 && cmp.differ == 0, level->slug + ": kept and fresh agree on " + std::to_string(cmp.checked) +
-        " frames (" + std::to_string(cmp.differ) + " differ) " + cmp.first);
-    }
+    // The grids and the guide kept between searches.
+    checkRevision();
+    checkGridKept();
+    checkGridPlatforms();
+    checkGridStatics();
+    checkKeptGemRoom(gemRoom, theme, art);
+    checkKeptForceField(theme, art);
+    checkKeptCampaign(theme, art);
 
     // Every campaign level and extra: something to point at from the start.
     std::vector<std::string> files;

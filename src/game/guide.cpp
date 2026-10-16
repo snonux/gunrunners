@@ -16,9 +16,14 @@
 // and clearing arrays of cells times states for each of up to six searches
 // cost up to 118 ms a frame on the bigger levels). So the grids that only
 // the map decides are kept while it stays the same, the tests a step makes
-// (the standing box, ladders, pipes) are read from them, a state counts as
-// reached only when stamped by this search, and the access card's goals
-// are noted during a search instead of searching all over again for them.
+// (the standing box, ladders, pipes) are read from them, and a state counts
+// as reached only when stamped by this search.
+//
+// The access card (GuideTarget::key) is not routed to: markGoals skips its
+// targets, so no search ever ends at it, and with a force field up and no
+// card the arrow only routes to what is on this side of the field (or
+// points as the crow flies, which skips the card too). A known open issue,
+// kept as it was when the search was moved here.
 
 #include "game/guide.hpp"
 
@@ -198,10 +203,22 @@ bool GuideGrid::ladderBelow(int x, int y) const
 GuideRoute GuideRouter::route(const GuideGrid& grid, const std::vector<GuideTarget>& targets, const Start& start,
   const Moves& moves, bool freeOnly)
 {
+  // The grid and the targets are only borrowed for this call (the targets
+  // are a vector local to World::guide()): forgotten again before it
+  // returns, so the router kept in the cache never points at them.
   mGrid = &grid;
   mTargets = &targets;
   mMoves = moves;
-  markGoals(targets);
+  GuideRoute r = routeFrom(start, freeOnly);
+  mGrid = nullptr;
+  mTargets = nullptr;
+  return r;
+}
+
+// route() with the grid and the targets in hand.
+GuideRoute GuideRouter::routeFrom(const Start& start, bool freeOnly)
+{
+  markGoals(*mTargets);
   GuideRoute r;
   int found = -1;
   if (!freeOnly)
@@ -225,7 +242,8 @@ GuideRoute GuideRouter::route(const GuideGrid& grid, const std::vector<GuideTarg
 
 // Goal cells: where the box touches a target (a bot or a crate: close
 // enough to shoot it, beside it rather than in it, so the shot hits).
-// The first target over a cell has it.
+// The first target over a cell has it. The access card's targets get no
+// goal cells (a known open issue: the card is never routed to).
 void GuideRouter::markGoals(const std::vector<GuideTarget>& targets)
 {
   const GuideGrid& g = *mGrid;
@@ -261,18 +279,15 @@ void GuideRouter::markGoals(const std::vector<GuideTarget>& targets)
 }
 
 // In the runner's own moves (with floating where it must when `hybrid`).
-// The access card is only gone for when nothing else is in reach.
 int GuideRouter::searchArcs(int s0, bool hybrid)
 {
   mHybrid = hybrid;
-  const int found = search(kStates, s0, [this](int s, const auto& push) { expandArcs(s, push); });
-  return found >= 0 ? found : mKeyFound;
+  return search(kStates, s0, [this](int s, const auto& push) { expandArcs(s, push); });
 }
 
 int GuideRouter::searchFree(int s0)
 {
-  const int found = search(1, s0, [this](int s, const auto& push) { expandFree(s, push); });
-  return found >= 0 ? found : mKeyFound;
+  return search(1, s0, [this](int s, const auto& push) { expandFree(s, push); });
 }
 
 // A goal state the route may end in: shooting needs the ground under you
@@ -294,11 +309,9 @@ void GuideRouter::visit(int ns, int from, int c)
 }
 
 // Cheapest first, a state at a time: P states per cell, expand(s, push)
-// offers the next ones. Returns the goal state reached, -1 for none; mPrev
-// links each state to the one before it. A goal for the access card is
-// noted (mKeyFound, the first one reached) and searched past: that is the
-// state a search that allowed the card would have stopped at, as nothing
-// else was reached before it.
+// offers the next ones. Returns the first goal state reached (markGoals: a
+// cell of any target but the access card's), -1 for none; mPrev links each
+// state to the one before it.
 template <class Expand> int GuideRouter::search(int P, int s0, const Expand& expand)
 {
   begin(std::size_t(mGrid->width()) * std::size_t(mGrid->height()) * std::size_t(P));
@@ -315,12 +328,7 @@ template <class Expand> int GuideRouter::search(int P, int s0, const Expand& exp
       if (mCost[std::size_t(s)] != c)
         continue; // reached cheaper since
       if (mGoal[std::size_t(s / P)] != 0 && arrived(s, P))
-      {
-        if (!(*mTargets)[std::size_t(mGoal[std::size_t(s / P)] - 1)].key)
-          return s;
-        if (mKeyFound < 0)
-          mKeyFound = s;
-      }
+        return s;
       // P states per cell: two facings of each phase (P == 1: just cells).
       expand(s, [&](int cell, int phase, int step, int face = 1) {
         if (cell < 0)
@@ -337,7 +345,9 @@ template <class Expand> int GuideRouter::search(int P, int s0, const Expand& exp
 }
 
 // A new search over `states` states: a new stamp, so nothing reached before
-// counts, and empty buckets.
+// counts, and empty buckets. The stamp is a byte (see mSeen): every 255th
+// search it wraps round and mSeen is cleared once, a memset of a byte a
+// state, which costs far less than a search.
 void GuideRouter::begin(std::size_t states)
 {
   if (mSeen.size() < states)
@@ -354,7 +364,6 @@ void GuideRouter::begin(std::size_t states)
   for (auto& q : mBuckets)
     q.clear();
   mPending = 0;
-  mKeyFound = -1;
 }
 
 // The route, start to goal (mPrev runs goal to start).

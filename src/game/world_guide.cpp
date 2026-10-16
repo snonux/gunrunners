@@ -292,7 +292,8 @@ void guideAlong(const Arrow& a, const GuideRoute& r, const GuideTarget& t)
     a.toward(float(a.g.tx) + 0.5f, float(a.g.ty) + 0.5f);
 }
 
-// Nothing found a way: the nearest target as the crow flies.
+// Nothing found a way: the nearest target as the crow flies (not the
+// access card's: it is skipped here as in the search, a known open issue).
 void guideCrowFlies(const Arrow& a, const std::vector<GuideTarget>& targets)
 {
   const int W = a.grid.width(), H = a.grid.height();
@@ -416,7 +417,8 @@ World::Guide World::guideFresh() const
 }
 
 // What is still missing for 100% (`left` of them), then the exit, and the
-// access card when a force field is up.
+// access card when a force field is up (listed, but skipped by the search
+// and by guideCrowFlies: see guideCard).
 std::vector<GuideTarget> World::guideTargets(int& left) const
 {
   std::vector<GuideTarget> targets;
@@ -480,8 +482,12 @@ void World::guideMissing(std::vector<GuideTarget>& targets) const
   }
 }
 
-// A force field in the way: the access card first (the route tries without
-// it before it goes for it).
+// A force field up and no card held: the card's targets (GuideTarget::key).
+// The arrow does not go for the card yet: GuideRouter::markGoals gives
+// them no goal cells and guideCrowFlies passes over them, so with the card
+// still to fetch it routes only to what is on this side of the field, else
+// points at the nearest other target as the crow flies. A known open issue;
+// the targets are kept for when the card is routed to.
 void World::guideCard(std::vector<GuideTarget>& targets) const
 {
   if (!mMap.forceFieldsOn() || mPlayer.hasKey || targets.empty())

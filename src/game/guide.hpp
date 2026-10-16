@@ -24,7 +24,11 @@ struct GuideTarget
   CellBox thing; // what the arrow is for
   bool shoot = false;
   bool crate = false; // on the floor: shot crouched, from the same floor
-  bool key = false;   // the access card: only when nothing else can be reached
+  // The access card (listed while a force field is up and the card isn't
+  // held). Skipped for now: no goal cells (GuideRouter::markGoals) and not
+  // pointed at as the crow flies, so the card is never routed to (a known
+  // open issue).
+  bool key = false;
 };
 
 // All that the guide's cached grids depend on besides the map's own tiles.
@@ -88,8 +92,11 @@ public:
   bool ladder(int c) const { return mLadder[std::size_t(c)] != 0; }
   bool pipe(int c) const { return mPipe[std::size_t(c)] != 0; }
   bool support(int c) const { return mSupport[std::size_t(c)] != 0; } // the box here stands on something
-  // A ladder at (x, y), wrapped like the map's own cells are: rows above or
-  // below the map only on a map that wraps top to bottom.
+  // A ladder at (x, y), as the search read it from the map before the grids
+  // were kept: x must be a column of the map (the caller wraps it), else
+  // none; a row at or below the bottom never has one, even on a map that
+  // wraps top to bottom; a row above the top wraps round to the bottom
+  // only on such a map.
   bool ladderBelow(int x, int y) const;
 
 private:
@@ -120,9 +127,9 @@ struct GuideRoute
 };
 
 // Cheapest-first over what the runner can do a logic frame at a time, as
-// player.cpp does it (see world_guide.cpp). The search's scratch arrays
-// are kept between searches: a state counts as reached only when stamped
-// in this search, so nothing is cleared for the next one.
+// player.cpp does it (see guide.cpp). The search's scratch arrays are kept
+// between searches: a state counts as reached only when stamped in this
+// search, so nothing is cleared for the next one.
 class GuideRouter
 {
 public:
@@ -153,13 +160,12 @@ public:
   // The route to the cheapest target from `start`: the runner's own moves
   // first, then floating where it must (a lift, a pulley, a door still
   // shut), then (or at once with `freeOnly`) through any open space.
+  // `grid` and `targets` are only used during the call (not kept).
   GuideRoute route(const GuideGrid& grid, const std::vector<GuideTarget>& targets, const Start& start, const Moves& moves,
     bool freeOnly);
 
-  // The goal cells of the last route(): 1 + the target index, 0 for none.
-  const std::vector<int>& goals() const { return mGoal; }
-
 private:
+  GuideRoute routeFrom(const Start& start, bool freeOnly);
   void markGoals(const std::vector<GuideTarget>& targets);
   int searchArcs(int s0, bool hybrid);
   int searchFree(int s0);
@@ -208,19 +214,25 @@ private:
   }
   bool supportAt(int c) const { return mGrid->support(c); }
 
+  // The grid and the targets of the route() under way; null in between.
   const GuideGrid* mGrid = nullptr;
   const std::vector<GuideTarget>* mTargets = nullptr;
   Moves mMoves;
   bool mHybrid = false;
-  std::vector<int> mGoal;
+  std::vector<int> mGoal; // per cell: 1 + the index of the target it is a goal of, 0 for none
   // The search: the cost and the state before it of every state reached,
   // valid where mSeen holds this search's stamp; buckets of costs mod 32.
+  // 9 bytes a state, cells * kStates states: about 15 MB on the biggest
+  // map (extra_motor_pool, 56,000 cells), held by the World that shows the
+  // arrow (copies start without; guideFresh makes its own for the test).
+  // The search before kept 8 bytes a state per thread and cleared them for
+  // every search; the stamp is a byte rather than a word so that clearing
+  // nothing costs one byte a state more, not four.
   std::vector<int> mCost, mPrev;
-  std::vector<std::uint32_t> mSeen;
-  std::uint32_t mStamp = 0;
+  std::vector<std::uint8_t> mSeen;
+  std::uint8_t mStamp = 0;
   std::array<std::vector<int>, 32> mBuckets;
   int mPending = 0;
-  int mKeyFound = -1; // the first goal state reached for the access card (taken only when nothing else is)
 };
 
 // The guide's grids and search scratch, kept by the World between frames
