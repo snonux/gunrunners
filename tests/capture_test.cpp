@@ -976,13 +976,15 @@ void testWindowRenderer(SDL_Window* window, const std::string& saves)
 
 // A window without a screen: SDL's dummy video driver, which draws with its
 // software renderer (asked for by name, so no GL driver is tried first).
-// Last of the tests, as the hints stay set until SDL_Quit.
+// Last of the tests, as the selected drivers are left in place.
 void testWindow()
 {
   check(backendUsesGl("opengl") && backendUsesGl("opengles2") && backendUsesGl("opengles") &&
       !backendUsesGl("software") && !backendUsesGl("direct3d11") && !backendUsesGl("metal") && !backendUsesGl(""),
     "only the OpenGL backends own a GL context");
-  SDL_SetHintWithPriority(SDL_HINT_VIDEODRIVER, "dummy", SDL_HINT_OVERRIDE);
+  // SDL_HINT_VIDEODRIVER is absent from Ubuntu 22.04's SDL2 headers; the
+  // environment variable also selects the driver on those older releases.
+  SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
   SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "software", SDL_HINT_OVERRIDE);
   const bool video = SDL_InitSubSystem(SDL_INIT_VIDEO) == 0;
   SDL_Window* window = video
