@@ -81,21 +81,21 @@ bool Game::refitDifficulty()
     return true; // bonus levels have no extras
   // In a bonus level the level parked behind it changes.
   if (mMainWorld)
-    return refitWorld(mMainWorld, mMainLevel);
-  return refitWorld(mWorld, mLevel);
+    return refitWorld(mMainWorld, mMainLevel, mMainLevelPath);
+  return refitWorld(mWorld, mLevel, mLevelPath);
 }
 
-bool Game::refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level>& level)
+bool Game::refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level>& level, const std::string& path)
 {
   // Between levels the next one simply loads with the new difficulty.
-  if (!world || !level || level->hard == mHard || mLevelPath.empty())
+  if (!world || !level || level->hard == mHard || path.empty())
     return true;
   if (!world->canSave())
     return false;
   std::shared_ptr<const Level> next;
   try
   {
-    const std::string full = mLevelPath[0] == '/' ? mLevelPath : dataDir() + "/" + mLevelPath;
+    const std::string full = path[0] == '/' ? path : dataDir() + "/" + path;
     Level lv = Level::loadFile(full);
     if (mHard)
       addHardModeEnemies(lv);
@@ -103,7 +103,7 @@ bool Game::refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level
   }
   catch (const std::exception& e)
   {
-    std::fprintf(stderr, "cannot reload %s: %s\n", mLevelPath.c_str(), e.what());
+    std::fprintf(stderr, "cannot reload %s: %s\n", path.c_str(), e.what());
     return true; // the level carries on as it was
   }
   if (next->name != level->name)
@@ -113,7 +113,7 @@ bool Game::refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level
   // A save of the level as it is, with the extras put in or taken out.
   if (!fresh->restore(world->snapshotFor(*fresh)))
   {
-    std::fprintf(stderr, "difficulty change: the save did not fit %s\n", mLevelPath.c_str());
+    std::fprintf(stderr, "difficulty change: the save did not fit %s\n", path.c_str());
     return true;
   }
   fresh->settleView(); // the pause menu draws it before it ticks

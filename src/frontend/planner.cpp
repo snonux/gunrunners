@@ -3127,7 +3127,8 @@ std::uint64_t keyProps(std::uint64_t k, const World& w)
                    (std::uint64_t(v.pump) << 24));
   if (p.state == PlayerState::Swing)
     k = mix(k, std::uint64_t(p.vine) | (std::uint64_t(p.vineAt) << 8));
-  return mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4));
+  return mix(k, std::uint64_t(p.fling + 4) | (std::uint64_t(p.vineArc) << 4) | (std::uint64_t(p.airJumped) << 5) |
+                  (std::uint64_t(p.airArc) << 6));
 }
 
 // Levels 45 and 46: the hive's tubes, the Swap Crystals.

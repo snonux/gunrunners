@@ -1042,6 +1042,44 @@ void checkStartOverFromBonus(Renderer& renderer, const std::string& dir, const S
     std::to_string(r) + ")");
 }
 
+// A difficulty change in the bonus level uses the parked campaign level's
+// file. The bonus itself still plays without saves; the campaign resumes
+// with its clock, file and number, and the newly selected enemies.
+void checkDifficultyInBonus(Renderer& renderer, const std::string& dir, bool hard)
+{
+  Game g(campaignAt(dir, 1, hard), renderer, nullptr);
+  settle(g);
+  const World* main = enterBonus(g, dir);
+  if (!check(main && g.world(), "bonus difficulty: the campaign is parked behind its bonus level"))
+    return;
+  const int clock = main->clock();
+  const std::size_t enemies = main->enemies().size();
+  const World* bonus = g.world();
+  const std::string name = main->level().name;
+  press(g, &Input::pause);
+  for (int i = 0; i < 3; ++i)
+    press(g, &Input::up); // QUIT GAME, QUIT TO TITLE, SETTINGS
+  press(g, &Input::confirm);
+  press(g, &Input::confirm); // DIFFICULTY
+  check(hardInProfile(dir) == !hard, "bonus difficulty: the setting switches");
+  check(g.world() == bonus, "bonus difficulty: the bonus world stays");
+  press(g, &Input::back); // to pause
+  press(g, &Input::back); // resume
+  check(!quickSave(g, dir), "bonus difficulty: saves of the bonus are still refused");
+  for (int i = 0; i < 8000 && g.world() && g.world()->level().name != name; ++i)
+    g.tick({});
+  run(g, 120);
+  const World* back = g.world();
+  check(g.inLevel() && back && back->level().name == name && back->clock() >= clock + 20,
+    "bonus difficulty: the campaign resumes with its clock");
+  check(back && back->level().hard == !hard &&
+      (hard ? back->enemies().size() < enemies : back->enemies().size() > enemies),
+    "bonus difficulty: the parked campaign gains or loses the HARD enemies");
+  const auto saved = quickSave(g, dir);
+  check(saved && saved->levelNumber == 1 && saved->levelFile == "levels/01_rooftop_run.txt" && saved->hard == !hard,
+    "bonus difficulty: the resumed save has Level 1's file, number and new difficulty");
+}
+
 // Level 1 on NORMAL, and every load tried on it.
 void checkLoadsInLevelOne(Renderer& renderer, const std::string& saves, const SaveGame& two)
 {
@@ -1071,6 +1109,8 @@ int main()
   SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
   {
     Renderer renderer(sdl);
+    checkDifficultyInBonus(renderer, saves + "/difficulty_hard", false);
+    checkDifficultyInBonus(renderer, saves + "/difficulty_normal", true);
     const std::optional<SaveGame> two = hardLevelTwoSave(renderer, saves);
     check(two && two->levelNumber == 2 && two->levelFile == "levels/02_glass_canyon.txt" && two->hard,
       "a HARD quick save of Level 2");

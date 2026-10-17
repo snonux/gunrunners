@@ -333,6 +333,8 @@ GuideRouter::Start guideStart(const Player& p, const GuideGrid& grid)
     start.phase = GuideRouter::kOnLadder;
   else if (p.state == PlayerState::Pipe)
     start.phase = GuideRouter::kOnPipe;
+  else if (p.state == PlayerState::Jumping && p.airArc)
+    start.phase = GuideRouter::kFall; // a double jump is not modelled: plan from a fall (the arrow never asks for one)
   else if (p.state == PlayerState::Jumping)
     start.phase = std::clamp(p.frames, 1, 8);
   else if (p.state == PlayerState::Falling)

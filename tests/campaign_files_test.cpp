@@ -117,23 +117,27 @@ Input pressed(bool Input::*button)
 
 // The title screen's items for a fresh profile, 44 apart from NEW GAME:
 // NEW GAME, WORLD SELECT, LOAD GAME, ARSENAL, then TRAINING STAGE if
-// levels/level1.txt is there, else CONTROLS.
+// levels/level1.txt is there, else SETTINGS.
 float titleItem(int i)
 {
   return 252.0f + 44.0f * float(i);
 }
 
 // Game::titleItems() over a data directory without levels/level1.txt: the
-// fifth item is CONTROLS (a second tap on a cell listens for a key).
+// fifth item is SETTINGS, with CONTROLS on its second row (a second tap on
+// a controls cell listens for a key).
 void titleWithoutTraining(Game& g)
 {
   run(g, 30);
   tap(g, 640.0f, titleItem(4));
+  tap(g, 640.0f, 243.0f + 46.0f + 15.0f); // SETTINGS > CONTROLS
   tap(g, 770.0f, 205.0f);
   tap(g, 770.0f, 205.0f);
-  check(g.listening(), "title: no level1.txt, no TRAINING STAGE (the fifth item is CONTROLS)");
+  check(g.listening(), "title: no level1.txt, no TRAINING STAGE (the fifth item is SETTINGS, then CONTROLS)");
   tap(g, 300.0f, 650.0f); // stop listening
-  run(g, 2, pressed(&Input::back));
+  run(g, 2, pressed(&Input::back)); // to SETTINGS
+  run(g, 2);
+  run(g, 2, pressed(&Input::back)); // to the title
   run(g, 30);
   check(!g.listening() && !g.inLevel(), "title: back from CONTROLS");
 }

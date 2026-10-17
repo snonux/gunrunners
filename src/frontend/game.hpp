@@ -290,13 +290,12 @@ private:
   std::vector<int> worldLevels(int episode) const;
   // Why a WORLD SELECT card is shut, empty when it is open.
   std::string worldLock(int card) const;
-  // A Bonus Channel or EXTRAS pick into mLevel; false (with a notice) if it would not load.
-  bool loadListedLevel(const std::string& path, bool hard, const char* failNotice);
   void tickList(const Input& in);
   // From the lists, played on their own and back to the list after: a
   // level's bonus level (the Bonus Channel) and an EXTRAS level.
   void playBonusChannel(int level);
   void playExtra(int index);
+  // What the list screen's confirm does with the item under the cursor.
   void pickListItem(std::string id);
   void renderList();
   void renderContinued();
@@ -419,7 +418,7 @@ private:
   // itself. False while it can't be saved (a fight or a ride): mRefitHard
   // then tries again every frame until it can.
   bool refitDifficulty();
-  bool refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level>& level);
+  bool refitWorld(std::unique_ptr<World>& world, std::shared_ptr<const Level>& level, const std::string& path);
   bool mRefitHard = false;
   int mSlowCount = 0;       // GAME SPEED 75%: every fourth logic frame is skipped
   bool mHeldFrame = false;  // the last logic frame was skipped: draw the newest state

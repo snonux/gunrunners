@@ -1051,29 +1051,6 @@ void Game::openList(ListKind kind)
     mAudio->playMusic(Music::Menu);
 }
 
-// Loads a level picked from a list (the Bonus Channel, the EXTRAS) into
-// mLevel, with HARD's extra enemies if hard. A file that would not load puts
-// up failNotice and makes the menus ask the disk again (data/campaign.hpp),
-// so they stop offering a level file deleted while the game runs.
-bool Game::loadListedLevel(const std::string& path, bool hard, const char* failNotice)
-{
-  try
-  {
-    Level level = Level::loadFile(path);
-    if (hard)
-      addHardModeEnemies(level);
-    mLevel = std::make_shared<const Level>(std::move(level));
-    return true;
-  }
-  catch (const std::exception& e)
-  {
-    std::fprintf(stderr, "cannot load %s: %s\n", path.c_str(), e.what());
-    forgetDataFiles();
-    notice(failNotice);
-    return false;
-  }
-}
-
 void Game::tickList(const Input& in)
 {
   auto edge = [&](bool Input::*f) { return in.*f && !(mPrev.*f); };
