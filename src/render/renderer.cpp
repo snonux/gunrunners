@@ -74,7 +74,9 @@ bool pathInk(cairo_t* cr, const std::string& str, double x, double stroke, doubl
 {
   double y0 = 0.0, y1 = 0.0;
   cairo_new_path(cr);
-  cairo_move_to(cr, x, 0.0);
+  // Cairo 1.18.0 can cull glyph paths far outside the 1x1 probe surface.
+  // Measure at the origin, then translate the bounds instead of the path.
+  cairo_move_to(cr, 0.0, 0.0);
   cairo_text_path(cr, str.c_str());
   if (stroke > 0.0)
   {
@@ -84,7 +86,13 @@ bool pathInk(cairo_t* cr, const std::string& str, double x, double stroke, doubl
   else
     cairo_fill_extents(cr, &left, &y0, &right, &y1);
   cairo_new_path(cr);
-  return right > left;
+  const bool inked = right > left;
+  if (inked)
+  {
+    left += x;
+    right += x;
+  }
+  return inked;
 }
 
 // Where a prefix of whole characters lies in its whole string's texture,

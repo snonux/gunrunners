@@ -313,11 +313,13 @@ double nextFillLeft(const TextStyle& st, std::size_t bytes)
   cairo_text_extents_t ext;
   cairo_text_extents(cr, kLine.substr(0, bytes).c_str(), &ext);
   cairo_new_path(cr);
-  cairo_move_to(cr, ext.x_advance, 0.0);
+  // Cairo 1.18.0 drops glyph paths far outside this tiny probe. Keep the
+  // glyph at the origin and add the prefix advance after measuring it.
+  cairo_move_to(cr, 0.0, 0.0);
   cairo_text_path(cr, kLine.substr(bytes, 1).c_str());
   double x0 = 0.0, y0 = 0.0, x1 = 0.0, y1 = 0.0;
   cairo_fill_extents(cr, &x0, &y0, &x1, &y1);
-  return x0;
+  return ext.x_advance + x0;
 }
 
 // The cut never shows the next letter's fill: from the column its fill
@@ -391,7 +393,9 @@ void checkSpaceCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::
 void revealMatchesSubstring(Renderer& r, SDL_Surface* surface)
 {
   const Pixels full = shot(r, surface, [&] { r.drawText(kLine, kX, kY, kStyle); });
-  for (const std::size_t bytes : {4, 9, 12, 20, 5, 15})
+  // Longer prefixes place the next glyph far outside the 1x1 measuring
+  // surface: their caps must still hide its fill on older Cairo versions.
+  for (const std::size_t bytes : {4, 9, 12, 17, 18, 20, 21, 22, 23, 24, 28, 29, 38, 5, 15})
     checkCut(r, surface, kStyle, bytes, full);
   const Pixels fullItalic = shot(r, surface, [&] { r.drawText(kLine, kX, kY, kItalic); });
   for (const std::size_t bytes : {4, 9, 5, 15})
