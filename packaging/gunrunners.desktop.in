@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Gunrunners
+GenericName=Platform Game
+Comment=Run, jump and shoot through a neon TV adventure
+Exec="@CMAKE_INSTALL_FULL_BINDIR@/gunrunners"
+TryExec=@CMAKE_INSTALL_FULL_BINDIR@/gunrunners
+Icon=gunrunners
+Terminal=false
+Categories=Game;ActionGame;
+Keywords=platformer;arcade;action;retro;
+StartupWMClass=gunrunners

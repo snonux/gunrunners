@@ -23,6 +23,29 @@ cmake --build build -j
 Or use `./build.sh` (`-t` also runs the tests, `-r` starts the game, `-d`
 makes a debug build, `-c` starts from a clean build directory).
 
+The Makefile wraps CMake: `make` builds the game, `make run` starts it
+(`ARGS="--windowed"` passes options), and `make test` builds all tests and
+runs CTest. `make deps-fedora` installs Fedora's build dependencies with dnf.
+`make install` builds and installs into `~/.local`, including a GNOME desktop
+entry and the app icon. The game finds its installed levels, cutscenes and
+voices relative to the executable. Saves keep their usual location.
+
+Override `PREFIX`, `BUILDDIR`, `JOBS` or `CMAKE_FLAGS` as needed. For example,
+`make install PREFIX=/usr/local` targets a system prefix (installation needs
+write access); `make install DESTDIR=/tmp/gunrunners-stage` stages the same
+layout under a temporary root. CMake also supports direct installation:
+
+```sh
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+cmake --build build --target gunrunners -j
+cmake --install build
+```
+
+`make uninstall` removes the files in that build directory's last install
+manifest, preserving player saves. Keep the build directory until uninstalling,
+and use the same `PREFIX` and `DESTDIR` overrides to refresh the right desktop
+and icon caches. A direct CMake install does not refresh those caches.
+
 ## Command-line flags
 
 Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the

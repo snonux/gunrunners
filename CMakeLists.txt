@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.10.0 LANGUAGES C CXX)
+project(Gunrunners VERSION 0.10.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -271,6 +271,20 @@ target_link_libraries(gunrunners PRIVATE gunrunners_core SDL2::SDL2)
 if(TARGET SDL2::SDL2main)
   target_link_libraries(gunrunners PRIVATE SDL2::SDL2main)
 endif()
+
+include(GNUInstallDirs)
+# Resolve the installed data relative to the executable, so a prefix can be
+# relocated and launching from GNOME does not depend on the working directory.
+file(RELATIVE_PATH GR_INSTALLED_DATA_RELATIVE "${CMAKE_INSTALL_FULL_BINDIR}"
+  "${CMAKE_INSTALL_FULL_DATADIR}/gunrunners")
+target_compile_definitions(gunrunners PRIVATE GR_INSTALLED_DATA_RELATIVE="${GR_INSTALLED_DATA_RELATIVE}")
+configure_file(packaging/gunrunners.desktop.in gunrunners.desktop @ONLY)
+install(TARGETS gunrunners RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(DIRECTORY levels cutscenes fonts voices DESTINATION "${CMAKE_INSTALL_DATADIR}/gunrunners")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/gunrunners.desktop" DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+install(FILES fastlane/metadata/android/en-US/images/icon.png
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps" RENAME gunrunners.png)
+install(FILES LICENSE README.md DESTINATION "${CMAKE_INSTALL_DOCDIR}")
 
 # Walks every level for places the runner can't get to (tools/navcheck).
 add_executable(navcheck tools/navcheck/navcheck.cpp)

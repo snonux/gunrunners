@@ -179,6 +179,26 @@ sudo dnf install gcc-c++ cmake SDL2-devel cairo-devel libcurl-devel             
 
 After that, `./build/gunrunners` starts the game.
 
+**Fedora desktop installation:** from this checkout, run:
+
+```sh
+make deps-fedora   # install build dependencies with dnf (needs sudo)
+make install      # build and install into ~/.local; no sudo needed
+```
+
+Search for **Gunrunners** in the GNOME application launcher. The executable,
+game data and icon are installed together, so the checkout can be moved or
+removed afterwards. `~/.local/bin/gunrunners` also starts it from a terminal.
+Run `make install` again after updating the source. `make uninstall` removes
+the last installation from this build directory and keeps your saves.
+
+`make` builds the game, `make run` starts it, and `make test` builds and runs
+the tests. Override `PREFIX` to install elsewhere, for example
+`make install PREFIX=/opt/gunrunners` into a writable directory. A prefix
+outside `~/.local` needs its `share` directory in `XDG_DATA_DIRS` for GNOME
+to discover the launcher. See [developer notes](docs/DEVELOPMENT.md#building)
+for staging and custom build directories.
+
 ## Touch controls (Android)
 
 In a level your left thumb moves and your right thumb shoots. The bottom

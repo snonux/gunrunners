@@ -273,14 +273,17 @@ bool fileExists(const std::string& p)
   return bool(f);
 }
 
-// Levels next to the binary (an unpacked release), in or above the current
-// directory (the source tree), else where it was built from.
+// Levels next to the binary (an unpacked release), in the installed data
+// directory, in or above the current directory, else where it was built from.
 std::string defaultDataDir()
 {
   std::vector<std::string> dirs = {".", ".."};
   if (char* base = SDL_GetBasePath())
   {
     dirs.insert(dirs.begin(), {base, std::string(base) + ".."});
+#ifdef GR_INSTALLED_DATA_RELATIVE
+    dirs.insert(dirs.begin() + 2, std::string(base) + GR_INSTALLED_DATA_RELATIVE);
+#endif
     SDL_free(base);
   }
   for (const std::string& d : dirs)
