@@ -1899,6 +1899,7 @@ struct Options
   int layers = 9;      // level 4: 0 bass, 1 pad, 2 drums, 3 arpeggio, 4 lead
   int intro = -1;      // bars before the lead comes in (-1 = a quarter of the loop)
   bool cover = false;  // the elevator's lounge cover
+  TuneBars* tuneBars = nullptr; // for tests: where the tune plays
 };
 
 struct Stereo
@@ -1938,6 +1939,11 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
   const Theory th{st.key, scaleOf(st.mode)};
   const auto& prog = progression(st.prog);
   const int intro = opt.intro >= 0 ? opt.intro : bars / 4;
+  if (opt.tuneBars)
+  {
+    opt.tuneBars->metal = metal.on;
+    opt.tuneBars->bars.assign(std::size_t(bars), false);
+  }
   const bool sevenths = (st.extras & kSevenths) != 0;
 
   // Step time with swing: off-beat eighths lean late.
@@ -2215,7 +2221,7 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
     }
   }
 
-  // Lead, then the second voice answers with the opening phrases.
+  // Lead, then the second voice answers.
   if (opt.layers >= 4 && st.lead != Inst::None)
   {
     const auto tune = seedName == "theme_synthwave" ? levelOneTune() : compose(seed * 2654435761u + 17u, prog, spb, st.density);
@@ -2233,12 +2239,28 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
         play(bus, inst, Tone{t0, dur, double(note), prevNote, 0.85f},
              Send{level * leadLevel(inst), 0.08f, 0.3f, st.echo * 0.7f}, seed + std::uint32_t(m.bar * 64 + m.step));
         prevNote = note;
+        if (opt.tuneBars)
+          opt.tuneBars->bars[std::size_t(bar)] = true;
       }
     };
-    const int leadEnd = std::min(bars, intro + 8);
-    voice(st.lead, intro, leadEnd, 0, 1.0f);
-    if (leadEnd < bars)
-      voice(st.lead2 != Inst::None ? st.lead2 : st.lead, leadEnd, bars, 0, 0.85f);
+    if (metal.on)
+    {
+      // Duke mode: the tune takes at most half the loop (Paul: a melody all
+      // the time gets annoying). The lead guitar plays its first half, the
+      // signature instrument answers with the second, and the riff carries
+      // the rest alone.
+      const int tuneEnd = std::min(bars, intro + std::min(8, bars / 2));
+      const int answer = intro + (tuneEnd - intro) / 2;
+      voice(st.lead, intro, answer, 0, 1.0f);
+      voice(st.lead2 != Inst::None ? st.lead2 : st.lead, answer, tuneEnd, answer - intro, 0.85f);
+    }
+    else
+    {
+      const int leadEnd = std::min(bars, intro + 8);
+      voice(st.lead, intro, leadEnd, 0, 1.0f);
+      if (leadEnd < bars)
+        voice(st.lead2 != Inst::None ? st.lead2 : st.lead, leadEnd, bars, 0, 0.85f);
+    }
   }
 
   effects(bus, st, stepSec, seed);
@@ -2554,6 +2576,16 @@ Stereo halcyonJingle()
 }
 
 } // namespace
+
+TuneBars styledTuneBars(const std::string& id)
+{
+  TuneBars out;
+  Options opt;
+  opt.tuneBars = &out;
+  const Style* known = findStyle(id);
+  render(known ? *known : derivedStyle(id), id, opt);
+  return out;
+}
 
 MusicTrack makeStyledMusic(const std::string& id)
 {

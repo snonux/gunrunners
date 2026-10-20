@@ -25,5 +25,13 @@ std::vector<float> makeVoiceBlip(const std::string& speaker);
 MusicTrack makeNamedMusic(const std::string& id);
 // Level soundtracks (music.cpp): each id has its own arrangement.
 MusicTrack makeStyledMusic(const std::string& id);
+// For tests: which bars of a level soundtrack's loop carry its tune, and
+// whether it plays in Duke mode (renders the track to find out).
+struct TuneBars
+{
+  bool metal = false;
+  std::vector<bool> bars;
+};
+TuneBars styledTuneBars(const std::string& id);
 
 } // namespace gr::synth

@@ -617,6 +617,10 @@ set_tests_properties(title_shout PROPERTIES PASS_REGULAR_EXPRESSION "voice: titl
 add_executable(title_music_test tests/title_music_test.cpp)
 target_link_libraries(title_music_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME title_music COMMAND title_music_test)
+# The level music's tune plays in at most half of each loop.
+add_executable(melody_share_test tests/melody_share_test.cpp)
+target_link_libraries(melody_share_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME melody_share COMMAND melody_share_test ${CMAKE_SOURCE_DIR}/levels)
 # HARD: the extra enemies every campaign level gets (data/hard_mode.cpp).
 add_executable(hard_mode_test tests/hard_mode_test.cpp)
 target_link_libraries(hard_mode_test PRIVATE gunrunners_core SDL2::SDL2)
