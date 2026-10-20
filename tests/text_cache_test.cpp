@@ -225,10 +225,12 @@ constexpr int kSliver = 2;
 // (whether its scan converter covers a pixel row in one go depends on every
 // edge in that row), so the whole line's texture and the part's own differ
 // by a level or two along the tops of the letters, wherever the cut is.
-// Upright edges come out the same: plain text is compared exactly. A lost
+// Upright edges come out the same, give or take one step of rounding (a
+// pixman built for another CPU blends an edge pixel one step apart). A lost
 // or extra column of ink is far more than this, and the ink's last column
 // is compared on its own.
 constexpr int kItalicNoise = 4;
+constexpr int kPlainNoise = 1;
 
 // An evicted string drawn again is rasterized again, to the same pixels.
 void evictedStringReturns(Renderer& r, SDL_Surface* surface)
@@ -347,7 +349,7 @@ void checkNextCapped(const Pixels& p, const Pixels& full, int sw, const TextStyl
 void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_t bytes, const Pixels& full)
 {
   const int sw = surface->w;
-  const int noise = st.italic ? kItalicNoise : 0;
+  const int noise = st.italic ? kItalicNoise : kPlainNoise;
   const std::string part = kLine.substr(0, bytes);
   const std::string what = std::string(st.italic ? "italic " : "") + "\"" + part + "\": ";
   check(kLine[bytes - 1] != ' ', what + "a cut after a letter");
@@ -375,7 +377,7 @@ void checkCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_
 void checkSpaceCut(Renderer& r, SDL_Surface* surface, const TextStyle& st, std::size_t bytes, const Pixels& full)
 {
   const int sw = surface->w;
-  const int noise = st.italic ? kItalicNoise : 0;
+  const int noise = st.italic ? kItalicNoise : kPlainNoise;
   const std::string part = kLine.substr(0, bytes);
   const std::string what = std::string(st.italic ? "italic " : "") + "\"" + part + "\": ";
   check(kLine[bytes - 1] == ' ' && kLine[bytes - 2] != ' ', what + "a cut after a letter and a space");
