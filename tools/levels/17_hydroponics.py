@@ -199,4 +199,5 @@ put(8, 6, "3")                # letter N
 put(106, 3, "X")
 gem((74, 12), (79, 9), (84, 6), (89, 3), (92, 3), (95, 3), (98, 3), (101, 3), (104, 3), (102, 1))  # none past the exit
 
+L.header["tip"] = "SHOOT A SWITCH TO LIGHT ITS GROW LAMPS: THE PLANTS UNDER THEM GROW INTO STEPS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "17_hydroponics.txt")

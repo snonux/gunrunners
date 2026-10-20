@@ -142,4 +142,5 @@ L.at("layer", None, None, "station", rect=(270, 14, 279, 23), tile="#", driver="
 L.at("arrival", 244, 11, layer="station")
 L.put(276, 13, "X")
 
+L.header["tip"] = "RUN TO THE ENGINE. GANTRIES: HOLD DOWN UNDER LOW ONES, JUMP TALL ONES, GET INTO A CAR FOR THE TALLEST"  # HINTS: the level's first 12 seconds
 L.write(__file__, "06_maglev_express.txt")

@@ -202,4 +202,5 @@ L.put(5, 4, "B")                       # before the exit on the way in
 L.on(16, 7, "m")
 L.at("deco", kind="text", x=35, y=5, w=16, h=2, text="HALCYON HELIPAD")
 
+L.header["tip"] = "CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES"  # HINTS: the level's first 12 seconds
 L.write(__file__, "02_glass_canyon.txt")

@@ -161,4 +161,5 @@ put(186, 5, "X")
 put(188, 43, "Q")
 gem((179, 38), (179, 32), (179, 26), (179, 20), (179, 14), (181, 5))
 
+L.header["tip"] = "SPRAY THE CHRONO MISTER ON BUDS AND SEEDS: BUDS OPEN INTO PLATFORMS, SEEDS GROW INTO LADDERS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "25_tiny_kingdom.txt")

@@ -137,4 +137,11 @@ L.on(54, 58, "$")
 L.on(44, 58, "m")
 L.on(47, 58, "m")
 
+# --- Tips (HINTS) --------------------------------------------------------------------
+L.hint(79, 39, 118, 44, "THE LASERS SWEEP ONLY IN THE CHORUS: WAIT UNTIL THEY STOP, THEN RUN ON")
+L.hint(60, 32, 78, 37, "WALK ONTO THE NEXT GLOWING PAD AND STAND STILL: THE BEAT LAUNCHES YOU UP AGAIN")
+L.hint(53, 25, 67, 30, "WALK ONTO THE NEXT GLOWING PAD AND STAND STILL: THE BEAT LAUNCHES YOU UP AGAIN")
+L.hint(44, 18, 72, 23, "THE EXIT IS BEHIND THE DJ DECKS ON THE LEFT", after=20)
+
+L.header["tip"] = "SUBWOOFER PADS THROW YOU UP ON EVERY BAR: STAND STILL ON ONE. THE EXIT IS AT THE DJ BOOTH"  # HINTS: the level's first 12 seconds
 L.write(__file__, "03_club_laserdisc.txt")

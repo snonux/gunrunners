@@ -193,4 +193,5 @@ put(64, 10, "m")
 put(62, 10, "3")                         # letter N
 put(43, 10, "X")
 
+L.header["tip"] = "BREACH CHARGES BLOW PANELS OPEN: HOLD A RAIL OR A LADDER WHILE THE AIR VENTS OUT"  # HINTS: the level's first 12 seconds
 L.write(__file__, "15_hangar_bay.txt")

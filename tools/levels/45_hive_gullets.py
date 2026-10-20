@@ -135,4 +135,5 @@ L.put(126, 10, "3")
 gem((138, 10), (133, 10), (122, 10), (119, 10))
 on(115, 14, "X")
 
+L.header["tip"] = "STEP INTO A MOUTH TO RIDE ITS GULLET TUBE. SHOOT A VALVE TO PICK THE BRANCH"  # HINTS: the level's first 12 seconds
 L.write(__file__, "45_hive_gullets.txt")

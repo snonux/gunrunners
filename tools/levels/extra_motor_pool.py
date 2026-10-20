@@ -84,4 +84,5 @@ L.on(326, 26, "X")
 for x in (288, 294, 304, 314):
     L.put(x, 20, "g")
 
+L.header["tip"] = "PRESS {USE} BY A VEHICLE TO GET IN, {USE} AGAIN TO GET OUT. ONE VEHICLE PER STRETCH"  # HINTS: the level's first 12 seconds
 L.write(__file__, "extra_motor_pool.txt")

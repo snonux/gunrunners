@@ -186,4 +186,5 @@ put(186, 10, "Q")
 put(197, 21, "X")
 gem((180, 20), (183, 20), (185, 10), (187, 10), (191, 20), (195, 16))
 
+L.header["tip"] = "SHOOT A FUSE TO LIGHT IT: IT BURNS TO ITS TNT BARREL AND BLOWS THE WAY OPEN"  # HINTS: the level's first 12 seconds
 L.write(__file__, "22_dry_gulch.txt")

@@ -285,6 +285,15 @@ MoveResult CollisionMap::moveVertically(int x, int& bottomY, int w, int h, int a
     const CellBox b = boxAt(x, bottomY, w, h);
     if ((step > 0 && onSolidGround(b)) || (step < 0 && touchingCeiling(b)))
       return i > 0 ? MoveResult::MovedPartially : MoveResult::Failed;
+    if (step < 0 && !mNoPassUp.empty() && !ladder(b.left() + 1, b.top() - 1))
+      for (int cx = b.left(); cx <= b.right(); ++cx)
+      {
+        const int tx = floorDiv(cx, kCellsPerTile), ty = floorDiv(b.top() - 1, kCellsPerTile);
+        const bool blocked = (tx >= 0 && ty >= 0 && tx < mW && ty < mH && mNoPassUp[std::size_t(ty * mW + tx)]) ||
+          (mNoPassUpPlatforms && platformAt(cx, b.top() - 1) >= 0);
+        if (blocked)
+          return i > 0 ? MoveResult::MovedPartially : MoveResult::Failed;
+      }
     bottomY += step;
   }
   return MoveResult::Completed;

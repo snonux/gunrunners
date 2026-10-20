@@ -143,4 +143,5 @@ put(209, 35, "X")
 L.at("prize", 216, 35, kind="buddy_sketch", score=25000)
 put(218, 35, "Q")
 
+L.header["tip"] = "HOLD THE WAY YOU RUN OFF A LEDGE AND YOU KEEP RUNNING ON AIR. LET GO AND YOU FALL"  # HINTS: the level's first 12 seconds
 L.write(__file__, "28_toon_town_throwdown.txt")

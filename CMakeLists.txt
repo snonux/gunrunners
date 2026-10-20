@@ -103,6 +103,7 @@ add_library(gunrunners_core STATIC
   src/game/world_guns.cpp
   src/game/world_platforms.cpp
   src/game/world_club.cpp
+  src/game/world_hints.cpp
   src/game/world_actors.cpp
   src/game/world_dark.cpp
   src/game/world_sludge.cpp

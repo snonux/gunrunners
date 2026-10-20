@@ -205,4 +205,5 @@ for x, y, act, d in [
         (15, 21, "go", 1), (27, 21, "type", 1), (92, 21, "go", 1), (112, 21, "go", 1), (130, 21, "go", 1)]:
     L.at("step", x, y, act=act, dir=d)
 
+L.header["tip"] = "SHOOT A WORD WITH THE RED PEN TO STRIKE IT OUT: THE THING IT NAMES IS GONE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "38_writers_room.txt")

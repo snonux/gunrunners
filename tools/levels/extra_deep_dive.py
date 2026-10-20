@@ -54,4 +54,5 @@ L.on(180, 12, "h")
 L.on(184, 12, "c")
 L.on(194, 12, "X")
 
+L.header["tip"] = "SWIM INTO THE SUBMARINE AND PRESS {USE}. TORPEDOES BREAK THE CORAL"  # HINTS: the level's first 12 seconds
 L.write(__file__, "extra_deep_dive.txt")

@@ -189,4 +189,6 @@ put(167, 39, "X")
 
 n = sum(row.count("g") for row in L.grid)
 assert n == 48, n
+
+L.header["tip"] = "THE AUDIENCE VOTES ON A RULE AT EVERY CHECKPOINT: PLAY IN STYLE AND THEY VOTE KINDER"  # HINTS: the level's first 12 seconds
 L.write(__file__, "41_sweeps_week.txt")

@@ -208,4 +208,5 @@ on(88, 6, "Q")
 on(65, 6, "m")
 gem((47, 5), (53, 4), (56, 5), (60, 4), (70, 5), (74, 4), (78, 5), (82, 4))  # none behind the stone sun
 
+L.header["tip"] = "SHOOT A MIRROR STATUE TO TURN IT. SEND THE SUNBEAM TO THE SUN DOORS TO OPEN THEM"  # HINTS: the level's first 12 seconds
 L.write(__file__, "10_sun_mirrors.txt")

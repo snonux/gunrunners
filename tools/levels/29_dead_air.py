@@ -160,4 +160,5 @@ L.at("duck", 158, 41, costume="test_bars")
 L.at("tunein", None, None, x=150)
 gem((138, 40), (144, 40), (149, 40), (150, 40), (154, 39), (159, 40))
 
+L.header["tip"] = "ONLY BARS OF THE SIGNAL COLOUR ARE SOLID: SHOOT A DIAL TO CHANGE THE COLOUR"  # HINTS: the level's first 12 seconds
 L.write(__file__, "29_dead_air.txt")

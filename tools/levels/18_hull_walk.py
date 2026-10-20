@@ -138,4 +138,5 @@ put(184, 29, "m")
 put(196, 29, "X")
 gem((167, 28), (170, 27), (180, 27), (187, 28), (192, 28), (194, 28))
 
+L.header["tip"] = "LOW GRAVITY: YOUR JUMPS GO MUCH HIGHER. DON'T FALL OFF THE HULL INTO SPACE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "18_hull_walk.txt")

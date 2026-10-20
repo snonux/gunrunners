@@ -149,4 +149,5 @@ put(164, 10, "h")
 put(176, 10, "X")
 put(178, 10, "Q")
 
+L.header["tip"] = "THE BELTS CARRY YOU: SHOOT THE BELL OF A STATION TO TURN ITS BELTS AROUND"  # HINTS: the level's first 12 seconds
 L.write(__file__, "24_too_many_cooks.txt")

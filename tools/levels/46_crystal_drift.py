@@ -148,4 +148,5 @@ on(200, 23, "h")
 gem((201, 20), (208, 19), (212, 20))
 on(215, 23, "X")
 
+L.header["tip"] = "SHOOT A CRYSTAL TO SWAP PLACES WITH IT: THAT IS HOW YOU CROSS THE GAPS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "46_crystal_drift.txt")

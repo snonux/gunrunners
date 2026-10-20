@@ -1448,6 +1448,7 @@ void World::draw(Renderer& r, int frame, float alpha) const
   drawAirHud(r, frame);
   drawClubHud(r, frame);
   drawTideHud(r, frame);
+  drawHints(r, frame);
 }
 
 void World::drawTiles(Renderer& r, float camX, float camY, int frame) const

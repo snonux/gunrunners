@@ -177,4 +177,5 @@ L.at("liftcage", rect=(4, 101, 8, 105))
 put(6, 105, "X")
 gem((76, 105), (60, 105), (44, 105), (24, 105))
 
+L.header["tip"] = "HIDE IN A LEAD BOOTH WHEN THE CORE PULSES. SHUT THE THREE VALVES ON THE CORE FLOOR"  # HINTS: the level's first 12 seconds
 L.write(__file__, "20_reactor_core.txt")

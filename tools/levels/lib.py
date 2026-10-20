@@ -10,7 +10,7 @@ import os
 import sys
 
 HEADER_ORDER = ("name", "episode", "theme", "music", "weapon", "par", "flags",
-                "respawn_ammo", "rules", "timer", "goal")
+                "respawn_ammo", "rules", "timer", "goal", "tip")
 
 
 def _fmt(v):
@@ -32,6 +32,7 @@ class Level:
         self.grid = [["." for _ in range(w)] for _ in range(h)]
         self.header = header
         self.entities = []
+        self.auto_tips = True  # tips.py: a tip next to every gadget (not in bonus levels)
 
     # --- map ---------------------------------------------------------------
     def put(self, x, y, c):
@@ -79,6 +80,13 @@ class Level:
         self.entities.append(" ".join(parts))
         return self
 
+    def hint(self, x0, y0, x1, y1, text, after=None, until=None):
+        """A tip shown at the bottom of the screen while the runner is in the
+        rect (blocks, inclusive); `after` seconds in it first, `until=card`
+        only while a force field is up and the card not held. {JUMP}, {FIRE}
+        and {USE} name the player's buttons."""
+        return self.at("hint", rect=(x0, y0, x1, y1), text=text, after=after, until=until)
+
     # --- output ------------------------------------------------------------
     def text(self, source):
         out = []
@@ -100,6 +108,9 @@ class Level:
         root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(script_file))))
         path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "levels", out_name)
         src = "tools/levels/" + os.path.basename(script_file)
+        if self.auto_tips and "rules" not in self.header:
+            from tips import auto_tips
+            self.entities += auto_tips(self.entities, self.header.get("theme", ""))
         with open(path, "w") as f:
             f.write(self.text(src))
         print("wrote", path)

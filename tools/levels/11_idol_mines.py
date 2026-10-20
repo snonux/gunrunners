@@ -220,4 +220,5 @@ on(216, 6, "X")
 on(214, 6, "m")
 gem((209, 22), (210, 19), (209, 16), (210, 13), (209, 10), (210, 7))
 
+L.header["tip"] = "JUMP INTO A CART TO RIDE. {JUMP} HOPS, DOWN DUCKS UNDER LOW BEAMS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "11_idol_mines.txt")

@@ -136,4 +136,5 @@ put(216, 26, "X")
 L.at("lizard", 209, 29, arena=(191, 10, 219, 36), door=(191, 20, 191, 29), piers=(191, 199, 208, 212),
      drops=[(195, 29), (211, 29)], turbo=(210, 29), dish=(214, 26))
 
+L.header["tip"] = "YOU ARE THE MONSTER: STOMP THROUGH THE CITY, WALK INTO BUILDINGS TO BREAK THEM"  # HINTS: the level's first 12 seconds
 L.write(__file__, "26_kaiju_tonight.txt")

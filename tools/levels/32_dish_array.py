@@ -148,4 +148,5 @@ put(211, 17, "Q")
 L.at("duck", 211, 17, costume="sunglasses")
 gem((186, 35), (187, 35), (190, 33), (191, 33), (206, 17), (207, 17), (209, 17), (210, 17))
 
+L.header["tip"] = "THE BIG DISHES TURN EVERY FEW SECONDS: RIDE THEIR RIMS UP, AND MIND THE GROAN BEFORE A TURN"  # HINTS: the level's first 12 seconds
 L.write(__file__, "32_dish_array.txt")

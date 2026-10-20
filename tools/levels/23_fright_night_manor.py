@@ -216,4 +216,5 @@ L.at("exitside", side="mirror")
 L.at("botroute", steps="mi1:mirror,mi2:real,mi3:mirror,lever_cellar,mi7:real,mi8:mirror,lever_attic,"
      "bm_a:mirror,bm_b:real,bm_c:mirror,bm_d:real,bm_e:mirror")
 
+L.header["tip"] = "PRESS UP AT A MIRROR TO STEP INTO THE REFLECTED MANOR: SOME WAYS ARE ONLY OPEN THERE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "23_fright_night_manor.txt")

@@ -147,4 +147,5 @@ L.on(159, 10, "c")
 L.put(165, 9, "X")                          # drops in after the fight
 L.at("boss", None, None, "black_halo", rect=(160, 0, 189, 11), deck=10, exit=(165, 9))
 
+L.header["tip"] = "A GUNSHIP HUNTS YOU WITH ITS SEARCHLIGHT: KEEP MOVING AND HIDE UNDER COVER WHEN IT BEEPS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "07_chopper_down.txt")

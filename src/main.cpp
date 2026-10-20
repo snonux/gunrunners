@@ -54,8 +54,10 @@ struct CliOptions
   bool fullscreen = false;
   bool windowed = false;
   bool touch = false; // on-screen gamepad (always on Android)
-  // Headless: scripted button presses, tick -> buttons held for 3 ticks.
-  std::vector<std::pair<long, Input>> presses;
+  // Headless: scripted button presses, ticks [from, to) -> buttons held
+  // (a single tick holds them for 3 ticks).
+  struct Press { long from, to; Input in; };
+  std::vector<Press> presses;
   // Headless: scripted taps (tick -> x, y) and drags (tick -> dx, dy).
   std::vector<std::pair<long, SDL_FPoint>> taps, drags;
   // Headless (with --touch): a finger on the on-screen controls at a tick,
@@ -87,8 +89,10 @@ bool parsePoints(const std::string& spec, std::vector<std::pair<long, SDL_FPoint
   return true;
 }
 
-// "120:pause,140:down+confirm" -> presses. Used to test menus headlessly.
-bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& out)
+// "120:pause,140:down+confirm,200-260:right" -> presses (a range holds the
+// buttons from its first tick up to its last). Used to test menus headlessly
+// and to play a level by hand, tick by tick.
+bool parsePresses(const std::string& spec, std::vector<CliOptions::Press>& out)
 {
   std::stringstream ss(spec);
   std::string item;
@@ -130,7 +134,11 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       }
       else return false;
     }
-    out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
+    const std::string when = item.substr(0, colon);
+    const auto dash = when.find('-');
+    const long from = std::atol(when.substr(0, dash).c_str());
+    const long to = dash == std::string::npos ? from + 3 : std::atol(when.substr(dash + 1).c_str()) + 1;
+    out.push_back({from, to, in});
   }
   return true;
 }
@@ -173,7 +181,8 @@ void printUsage()
     "  --s3-prefix PATH     optional object-key prefix\n"
     "  --s3-access-key KEY  S3 access key (or AWS_ACCESS_KEY_ID)\n"
     "  --s3-secret-key KEY  S3 secret key (or AWS_SECRET_ACCESS_KEY)\n"
-    "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
+    "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down,\n"
+    "                       400-460:right+jump (a range holds them)\n"
     "                       (left right up down jump fire confirm pause back swap\n"
     "                       quicksave quickload use; touch: aimleft aimright upjump;\n"
     "                       the right stick: stickDEG, e.g. stick45 up and right)\n"
@@ -535,9 +544,9 @@ int runHeadless(const CliOptions& o)
     while (o.maxFrames < 0 || frames < o.maxFrames)
     {
       Input scripted;
-      for (const auto& [at, in] : o.presses)
-        if (frames >= at && frames < at + 3)
-          scripted = scripted | in;
+      for (const auto& press : o.presses)
+        if (frames >= press.from && frames < press.to)
+          scripted = scripted | press.in;
       for (const auto& [at, p] : o.taps)
         if (frames == at)
         {

@@ -189,4 +189,5 @@ L.on(287, 22, "T")              # Turbo, on the pad
 L.on(295, 22, "m")
 L.on(292, 22, "X")
 
+L.header["tip"] = "FLY THE SHIP RIGHT AND THROUGH THE BEACONS, THEN DOWN TO THE LANDING PAD"  # HINTS: the level's first 12 seconds
 L.write(__file__, "43_starfall.txt")

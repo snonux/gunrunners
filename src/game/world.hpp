@@ -1634,10 +1634,11 @@ int beatOfFrame(int frame);      // 0..3
 int beatStartFrame(int beat);    // first frame of beat 0..3 within the bar
 int framesIntoBeat(int frame);   // 0.. within the current beat
 // Level 3's 16-bar phrases (480 frames): bars 0-7 verse, 8-13 chorus,
-// 14-15 riser; the drop is a triple hit on beat 1 of bars 0, 1 and 2.
-constexpr int kPhraseFrames = 480;
+// 14-15 riser. Its launch pads fire on beat 1 of every bar.
+constexpr int kBarFrames = 30;
+constexpr int kPhraseFrames = 16 * kBarFrames;
 int phraseBar(int frame);        // 0..15
-int dropHit(int frame);          // 1..3 on a drop hit, else 0
+bool padDrop(int frame);         // beat 1 of a bar: launch pads fire
 
 struct Bonus
 {
@@ -1856,6 +1857,7 @@ public:
     bool calm = false;           // reduced effects: no screen shake, no flashes of light
     bool swapOnDeath = false;    // a runner who dies is out for the level; all down starts it over
     bool guide = false;          // the guide arrow: the way to every item and bot left, then the exit
+    bool hints = false;          // tips on how to get on, and the way to the exit when stuck (world_hints.cpp)
   };
   void setPlayOptions(const PlayOptions& o)
   {
@@ -1913,6 +1915,13 @@ public:
   }
   // How the USE action is labelled in prompts ("E / LB").
   void setUseLabel(const std::string& s) { mUseLabel = s; }
+  // HINTS (world_hints.cpp): the player's jump and fire buttons for the
+  // tips, the tip shown now ("" none), and whether the runner has made no
+  // progress for a minute (the guide arrow then points to the exit).
+  void setActionLabels(const std::string& jump, const std::string& fire);
+  const std::string& hintText() const { return mHintText; }
+  bool stuck() const;
+  void addHintZone(const CellBox& rect, const std::string& text, int afterSeconds, const std::string& until = {});
   const std::vector<Sea>& seas() const { return mSeas; }
   bool inSea(int cx, int cy) const;
   int seaSurface(int cx) const; // top row of the deep water in this column, -1 for none
@@ -2189,6 +2198,13 @@ private:
   void updateLayers(bool force);
   bool layerWantsSolid(const Layer& l, int frame) const;
   void applyLayer(Layer& l, bool solid);
+public:
+  // Checks only (navcheck --no-jump-through): a runner going up can't pass
+  // blinking layers (beat and timer ones) or moving platforms from below,
+  // and with `oneWays` one-way blocks neither; a ladder still climbs
+  // through. What is then out of reach needs a jump up through one.
+  void forbidJumpThrough(bool oneWays);
+private:
   void updateProps(const PlayerInput& input);
   void updateBonusRules(const PlayerInput& input);
   void drawLayers(Renderer& r, float camX, float camY, int frame) const;
@@ -2226,6 +2242,19 @@ private:
   PlayerInput beatStepInput(const PlayerInput& in);
   void drawClub(Renderer& r, float camX, float camY, int frame) const;
   void drawClubHud(Renderer& r, int frame) const;
+  // world_hints.cpp: the tip line
+  struct HintZone
+  {
+    CellBox rect;
+    std::string text;
+    int after = 0;     // logic frames in the rect before it shows
+    int inside = 0;    // logic frames the runner has been in it
+    bool card = false; // until=card: only while a force field is up and the card not held
+  };
+  void updateHints();
+  void drawHints(Renderer& r, int frame) const;
+  void noteProgress();
+  std::string hintWords(std::string text) const;
   // Level 4 (world_dark.cpp).
   bool setupDarkEntity(const EntityDef& e);
   bool darkAt(int cx, int cy) const;     // in a sector that is (still) dark here
@@ -3891,6 +3920,13 @@ private:
   bool mUpHeld = false;    // up was held last frame (boarding wants a fresh press)
   int mRunDir = 0;         // running this way (double tap and hold): 2 cells a frame
   std::string mUseLabel = "USE";
+  std::string mJumpLabel = "JUMP", mFireLabel = "FIRE";
+  std::vector<HintZone> mHintZones;
+  std::string mHintText;
+  int mHintFieldTicks = 0; // a force field bumped without the card
+  bool mHintPipeDone = false, mHintCrawlDone = false, mHintPadDone = false;
+  int mProgressAt = 0;                // logic frame of the last progress
+  std::vector<std::uint8_t> mVisited; // squares of the map seen
   std::vector<Particle> mParticles;
   std::vector<FloatingText> mTexts;
   std::vector<Flash> mFlashes;

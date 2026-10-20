@@ -1,6 +1,8 @@
 // Level 3, Club Laserdisc (SPEC 03): the music runs in 16-bar phrases and
-// the club moves with it. Subwoofer pads bump you on every beat and launch
-// you on the drop; laser fans sweep during the chorus; the Bass Cannon
+// the club moves with it. Subwoofer pads bump you on every beat; a launch
+// pad (`fire=` 1-3) throws you up on the first beat of every bar, so a
+// runner never waits more than a bar (2 s) on one, and its four lamps count
+// the beats down; laser fans sweep during the chorus; the Bass Cannon
 // fires a wall of sound. Also the club's residents (Bouncer, Disco Drone,
 // Glow Raver) and the Step on the Beat bonus rule.
 
@@ -43,11 +45,7 @@ bool fanBeams(const LaserFan& f, int frame, float out[3], bool& live)
 
 int phraseBar(int frame) { return ((frame % kPhraseFrames) + kPhraseFrames) % kPhraseFrames / 30; }
 
-int dropHit(int frame)
-{
-  const int f = ((frame % kPhraseFrames) + kPhraseFrames) % kPhraseFrames;
-  return f == 0 ? 1 : (f == 30 ? 2 : (f == 60 ? 3 : 0));
-}
+bool padDrop(int frame) { return ((frame % kBarFrames) + kBarFrames) % kBarFrames == 0; }
 
 int World::jumpHeight() const
 {
@@ -76,9 +74,8 @@ int World::framesToNextLaunch() const
   const int i = padUnder(p.box());
   if (i < 0 || mPads[std::size_t(i)].fire <= 0)
     return -1;
-  const int hitAt = (mPads[std::size_t(i)].fire - 1) * 30;
-  const int f = mStats.frames % kPhraseFrames;
-  return ((hitAt - f) % kPhraseFrames + kPhraseFrames) % kPhraseFrames;
+  const int f = mStats.frames % kBarFrames;
+  return (kBarFrames - f) % kBarFrames;
 }
 
 // --- Launches -----------------------------------------------------------------
@@ -121,14 +118,14 @@ void World::updateClub()
   auto& p = mPlayer;
   if (!mPads.empty())
   {
-    const int hit = dropHit(f);
+    const bool hit = padDrop(f);
     const bool grounded = p.state == PlayerState::OnGround && mLaunch == 0;
     const int under = grounded ? padUnder(p.box()) : -1;
     if (under >= 0)
     {
       const Pad& pad = mPads[std::size_t(under)];
       const Vec2 c{(float(pad.x) + float(pad.w) * 0.5f) * kCellSize, float(pad.y) * kCellSize};
-      if (hit > 0 && pad.fire == hit)
+      if (hit && pad.fire > 0)
       {
         startLaunch(jumpHeight() * pad.launchX10 / 10);
         burst(c, rgb(200, 120, 255), rgb(255, 255, 255), 24, 2.6f);
@@ -142,13 +139,13 @@ void World::updateClub()
         mLaunchBump = pad.bump;
       }
     }
-    if (hit > 0)
+    if (hit)
       for (auto& e : mEnemies)
       {
         if (!e.alive || (e.kind != EnemyKind::Walker && e.kind != EnemyKind::Bouncer))
           continue;
         const int i = padUnder(e.box());
-        if (i < 0 || mPads[std::size_t(i)].fire != hit)
+        if (i < 0 || mPads[std::size_t(i)].fire <= 0)
           continue;
         // Into the ceiling for all their HP.
         burst(cellCenter(e.box()), rgb(200, 120, 255), rgb(255, 255, 255), 20, 3.0f);
@@ -541,8 +538,6 @@ PlayerInput World::beatStepInput(const PlayerInput& in)
 void World::drawClub(Renderer& r, float camX, float camY, int frame) const
 {
   const int f = mStats.frames;
-  const int bar = phraseBar(f);
-  const bool riser = bar >= 14;
   const float beatPulse = 1.0f - float(framesIntoBeat(f)) / 8.0f;
 
   // The dance floor: lit tiles that change on every beat.
@@ -574,13 +569,23 @@ void World::drawClub(Renderer& r, float camX, float camY, int frame) const
     r.fillRect(x + 6.0f, y - 2.0f, w - 12.0f, 14.0f, rgb(60, 50, 80));
     r.fillRect(x + w * 0.3f, y, w * 0.4f, 10.0f, rgb(110, 90, 140));
     const Color glow = pad.fire > 0 ? rgb(200, 110, 255) : rgb(0, 220, 255);
-    drawGlow(r, mArt, x + w * 0.5f, y, w * 0.45f, glow, (riser && pad.fire > 0 ? 0.8f : 0.25f) + 0.3f * beatPulse);
-    // Chain pads count their own hit: 1, 2 or 3 lamps.
-    for (int i = 0; i < pad.fire && pad.fire > 0; ++i)
+    if (pad.fire <= 0)
     {
-      const bool lit = riser || (f % kPhraseFrames) < pad.fire * 30;
-      r.fillRect(x + 10.0f + float(i) * 18.0f, y + 6.0f, 10.0f, 6.0f, lit ? rgb(255, 230, 90) : rgb(70, 60, 50));
+      drawGlow(r, mArt, x + w * 0.5f, y, w * 0.45f, glow, 0.25f + 0.3f * beatPulse);
+      continue;
     }
+    // A launch pad: its glow swells through the bar, four lamps count the
+    // beats to the drop, and an arrow over it points up.
+    const int beat = beatOfFrame(f); // 0..3
+    drawGlow(r, mArt, x + w * 0.5f, y, w * 0.5f, glow, 0.35f + 0.15f * float(beat) + 0.3f * beatPulse);
+    for (int i = 0; i < 4; ++i)
+      r.fillRect(x + 8.0f + float(i) * (w - 16.0f) / 4.0f, y + 6.0f, (w - 16.0f) / 4.0f - 6.0f, 6.0f,
+        i <= beat ? rgb(255, 230, 90) : rgb(70, 60, 50));
+    const float bob = 6.0f * std::sin(float(frame) * 0.2f);
+    const float ax = x + w * 0.5f, ay = y - 70.0f + bob;
+    r.drawLine(ax, ay - 26.0f, ax, ay + 10.0f, 6.0f, withAlpha(glow, 220));
+    r.drawLine(ax - 14.0f, ay - 12.0f, ax, ay - 26.0f, 6.0f, withAlpha(glow, 220));
+    r.drawLine(ax + 14.0f, ay - 12.0f, ax, ay - 26.0f, 6.0f, withAlpha(glow, 220));
   }
 
   // Laser fans.
@@ -649,15 +654,18 @@ void World::drawClub(Renderer& r, float camX, float camY, int frame) const
 
 void World::drawClubHud(Renderer& r, int frame) const
 {
-  bool chain = false;
-  for (const auto& pad : mPads)
-    chain = chain || pad.fire > 0;
-  if (!chain || mState != WorldState::Playing)
+  // Standing on a launch pad: the beats to the drop, big.
+  if (mState != WorldState::Playing || (mLaunch > 0 && mLaunchBump == 0))
     return;
-  const int bar = phraseBar(mStats.frames);
-  if (bar < 14)
+  // On it, or bumped up off it by a beat.
+  CellBox b = mPlayer.box();
+  int i = -1;
+  for (int dy = 0; dy <= 3 && i < 0; ++dy, ++b.y)
+    i = padUnder(b);
+  if (i < 0 || mPads[std::size_t(i)].fire <= 0)
     return;
-  const char* text = bar == 14 ? "DROP IN 2" : "DROP IN 1";
+  const int beatsLeft = 4 - beatOfFrame(mStats.frames);
+  const std::string text = "STAY ON THE PAD - LAUNCH IN " + std::to_string(beatsLeft);
   const float pulse = 0.7f + 0.3f * float((frame / 4) % 2);
   r.drawText(text, float(kScreenW) * 0.5f, 104.0f, {34.0f, rgb(220, 150, 255), rgb(20, 10, 30), true}, Align::Center,
     pulse);

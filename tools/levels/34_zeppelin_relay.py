@@ -147,4 +147,5 @@ L.at("duck", 230, 20, costume="aviator_goggles")
 put(236, 20, "X")
 gem((227, 20), (229, 20), (232, 20), (234, 20))
 
+L.header["tip"] = "JUMP FROM SHIP TO SHIP. THE GRAPPLE GUN CATCHES RINGS: {FIRE} WITH UP HELD SHOOTS IT UP"  # HINTS: the level's first 12 seconds
 L.write(__file__, "34_zeppelin_relay.txt")

@@ -240,4 +240,5 @@ torch(130, 4)
 gem((93, 8), (94, 8), (98, 11), (100, 11), (104, 8), (108, 11), (110, 11), (113, 8), (114, 8), (118, 11),
     (120, 11), (124, 8))
 
+L.header["tip"] = "FIND THE THREE STONE KEYS IN THE WINGS. THE TRAPS HURT ENEMIES TOO - LURE THEM IN"  # HINTS: the level's first 12 seconds
 L.write(__file__, "09_hall_of_traps.txt")

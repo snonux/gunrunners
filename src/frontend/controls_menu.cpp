@@ -43,6 +43,7 @@ const AssistRow kAssistRows[] = {
   {0, "assist.damage", "HALF DAMAGE", "Hits take half the hearts."},
   {0, "assist.slow", "GAME SPEED 75%", "Everything moves slower (not in levels that keep time with the music)."},
   {0, "assist.guide", "GUIDE ARROW", "A blinking arrow points to every item and bot left, then the exit (not in bonus levels)."},
+  {0, "assist.hints", "HINTS", "Tips on how to get on; stuck for a minute, an arrow shows the way to the exit."},
   {0, "opt.swapdeath", "SWAP RUNNER ON DEATH", "A runner who dies is out for the level; lose them all and it starts over."},
   {1, "opt.holdfire", "HOLD TO FIRE", "Holding fire keeps shooting (rapid fire is still faster)."},
   {1, "opt.downjump", "DOWN + JUMP LEAVES A RIDE", "Off: only USE gets you out of a vehicle."},
@@ -330,9 +331,10 @@ void Game::renderControls()
 
 bool Game::assistOn(const char* key) const
 {
-  // Subtitles and the guide arrow are on until switched off; everything
-  // else starts off.
-  return playOption(key, std::string(key) == "opt.subtitles" || std::string(key) == "assist.guide");
+  // Subtitles, the guide arrow and the hints are on until switched off;
+  // everything else starts off.
+  const std::string k = key;
+  return playOption(key, k == "opt.subtitles" || k == "assist.guide" || k == "assist.hints");
 }
 
 bool Game::playOption(const char* key, bool fallback) const
@@ -352,6 +354,7 @@ World::PlayOptions Game::playOptions() const
   o.calm = playOption("opt.calm");
   o.swapOnDeath = playOption("opt.swapdeath");
   o.guide = assistOn("assist.guide");
+  o.hints = assistOn("assist.hints");
   return o;
 }
 

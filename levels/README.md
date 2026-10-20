@@ -23,6 +23,7 @@ music=theme_synthwave        ; synthesized track id
 weapon=pulse_pistol          ; the prototype in the W boxes
 par=300                      ; par time in seconds (a tally bonus)
 flags=                       ; e.g. clouds (one-way platforms drawn as clouds)
+tip=STAND ON A GONDOLA: ...  ; HINTS: shown for the level's first 12 seconds
 [map]
 ...one row of characters per block row...
 [entities]
@@ -120,12 +121,13 @@ quoted; `;` at the start of a line or after a space starts a comment (`path=1,2;
 
 | Kind | Keys | What it is |
 |------|------|------------|
+| `hint` | `rect=x0,y0,x1,y1` (blocks), `text=""`, `after=S`, `until=card` | HINTS (SETTINGS > ASSISTS, on by default): while the runner's middle is in the rect the tip shows at the bottom of the screen; with `after=` only once they have been in it S seconds (for a player stuck there); `until=card` only while a force field is up and the access card not held. `{JUMP}`, `{FIRE}` and `{USE}` become the player's own buttons. The first zone the runner is in wins. Campaign scripts add one round every gadget that is used in a way you can't see (`tools/levels/tips.py`; `L.auto_tips = False` turns that off); `L.hint()` adds one by hand. The game adds its own: a force field bumped without the card, a pipe overhead, a crawlspace ahead, a launch pad near by, and after a minute with no progress (no new part of the map, nothing picked up, scored or shot) the guide arrow points the way on to the exit, even with GUIDE ARROW off |
 | `layer` | `id`, `rect`, `driver=beat\|timer\|switch\|script\|lit`, `beats=1,2,3`, `period/on/off/phase`, `style=sign`, `color` | a switchable block of solid tiles; `beat` signs are solid on the listed beats of the 120 BPM music clock and buzz for 8 frames before going dark; `lit` ones are always solid and only light up |
 | enemy keys (`chrome_cop`, `glass_crawler`, `squeegee_drone`, ...) | `carrier=1`, `dir=r`; riders: `rect` (the rail), `start=r` | an enemy from the table in `src/data/enemies.cpp`; clingers stick to the wall or ceiling next to them |
 | `platform` | `id`, `w` (blocks), `mode=pulley\|loop\|pingpong`, `path=x,y;x,y`, `speed=n/d`; pulley: `pair`, `drop`, `slack`, `rehome`, `brake=1`, `start` | a moving one-way platform; the row given is its top. Pulley pairs share a cable: the heavier side sinks half a cell a frame after `slack` frames of creaking (Rocco weighs 2, enemies their table weight) |
 | `hatch` | `tile==` | a solid trapdoor that turns into ladder (or `=`) once you have stood on its row |
 | `breakable` | `rect`, `hp`, `by=any\|explosion\|heavy\|sound`, `look=glass\|ball\|speaker` | blocks that shatter when shot; `sound` ones only break to the Bass Cannon |
-| `pad` | `id`, `w` (blocks), `bump` (cells), `launch=2.5j`, `fire=0..3` | a subwoofer in the floor row given: bumps you on every beat, and on drop hit `fire` (beat 1 of bars 1-3 of the 16-bar phrase) launches you `launch` times your jump; a jump on the beat from it goes 2 cells higher |
+| `pad` | `id`, `w` (blocks), `bump` (cells), `launch=2.5j`, `fire=0..3` | a subwoofer in the floor row given: bumps you on every beat, and a pad with `fire` > 0 launches you `launch` times your jump on beat 1 of every bar (its four lamps count the beats down; the HUD says STAY ON THE PAD); a jump on the beat from it goes 2 cells higher |
 | `laserfan` | `arc=a0,a1` (degrees, 270 is down), `len` (blocks) | three beams that sweep the arc once a bar during the chorus (bars 9-14), with harmless preview beams in bar 8 |
 | `virus` | `skin=spiked_drink` | a Virus pickup; the spiked drink passes for a health box |
 | `spawner` | `enemy`, `onto` (a platform id) | brings in a new enemy while that platform is home and empty |
@@ -486,4 +488,16 @@ one-way blue, where the runner went green, missed things red. Anything it
 lists is a level bug (or a move the search doesn't know: then prove it with
 a test, as `grav_test` does for Level 19's closet). `ctest -R
 'ladders|reflections'` checks the ladder rules on every level.
+
+A blinking or moving platform is jumped onto from the side, never up through
+from below (Paul's rule; glass one-way blocks may be jumped through). Check it
+with
+
+```
+build/navcheck --no-jump-through layers levels/*.txt
+```
+
+which stops a jump going up through a beat or timer layer or a moving
+platform as if it were a ceiling; anything it lists then needs such a jump.
+`--no-jump-through all` treats one-way blocks the same way.
 

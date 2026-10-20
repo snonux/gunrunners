@@ -207,6 +207,16 @@ void Game::prepareWorld(World& world) const
   if (!pad.empty())
     label += " / " + padName(pad[0]);
   world.setUseLabel(label);
+  // The tips name the player's own jump and fire buttons.
+  auto actLabel = [this](Act a) {
+    const auto& k = mBindings.keys[std::size_t(a)];
+    std::string s = keyName(k[0] > 0 ? k[0] : k[1]);
+    const auto& pad = mBindings.pad[std::size_t(a)];
+    if (!pad.empty())
+      s += " / " + padName(pad[0]);
+    return s;
+  };
+  world.setActionLabels(mOptions.touch ? "JUMP" : actLabel(Act::Jump), mOptions.touch ? "FIRE" : actLabel(Act::Fire));
   world.setPlayOptions(playOptions());
   // Level 41: QUACK MODE is on the ballot once every duck of levels 1-40 is found.
   bool quack = true;

@@ -109,4 +109,5 @@ gem((113, G - 5), (120, G - 5), (134, G - 5), (117, G - 8), (130, G - 8))
 L.at("hive_mother", 141, G - 1, arena=(110, 12, 148, G - 1), door=(109, G - 3, 109, G - 1))
 on(144, G, "X")                 # the hatch in her throne
 
+L.header["tip"] = "SHOOT HER CROWN WHEN IT GLOWS, THE SACS ON HER FLANKS WHEN SHE BREATHES IN"  # HINTS: the level's first 12 seconds
 L.write(__file__, "49_hive_mother.txt")

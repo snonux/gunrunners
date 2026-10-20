@@ -455,6 +455,7 @@ void World::updateFrame(const PlayerInput& input)
       if (mReactor.moving)
         updateMovingWorld(input);
       updatePlayerInteractions();
+      updateHints();
       if (mReactor.moving)
         updateSpawners();
       if (mPlayer.state == PlayerState::OnGround && mPlayer.cart < 0 && mPlayer.vehicle < 0 &&
@@ -1727,6 +1728,7 @@ void World::explodeAt(int cx, int cy, int radius, int damage)
 
 void World::damageEnemy(Enemy& e, int damage)
 {
+  noteProgress();
   if (!e.alive)
     return;
   if (e.kind == EnemyKind::Scarabs)
@@ -2044,6 +2046,8 @@ void World::infect()
 void World::addScore(int points, Vec2 at)
 {
   mStats.score += points;
+  if (points > 0)
+    noteProgress();
   if (mSimulation)
     return;
   FloatingText t;

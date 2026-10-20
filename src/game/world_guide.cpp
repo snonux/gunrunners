@@ -383,7 +383,7 @@ void debugRoute(const GuideRoute& r, const std::vector<GuideTarget>& targets, in
 
 bool World::guideOn() const
 {
-  if (!mPlay.guide || !mLevel->rules.empty() || mManor.split.on)
+  if (!(mPlay.guide || stuck()) || !mLevel->rules.empty() || mManor.split.on)
     return false; // bonus levels have rules; Both Sides splits the screen
   if (mState != WorldState::Playing)
     return false;
@@ -426,7 +426,8 @@ World::Guide World::guideFresh() const
 std::vector<GuideTarget> World::guideTargets(int& left) const
 {
   std::vector<GuideTarget> targets;
-  guideMissing(targets);
+  if (!stuck()) // stuck (world_hints.cpp): straight on to the exit
+    guideMissing(targets);
   left = int(targets.size());
   if (targets.empty() && mLevel->hasExit)
   {

@@ -172,4 +172,5 @@ L.at("deco", 181, 30, kind="42")
 put(187, 33, "X")
 gem((168, 31), (170, 31), (172, 31), (176, 30), (179, 30), (183, 28), (185, 28), (186, 31))
 
+L.header["tip"] = "THE FLOOR IS ICE: YOU SPEED UP AND SLIDE. LET GO EARLY TO STOP AT AN EDGE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "16_cryo_labs.txt")

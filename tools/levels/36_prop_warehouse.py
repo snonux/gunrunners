@@ -185,4 +185,5 @@ for x, y, act, arg, n in [
         (98, 49, "lever", "L3", 0), (110, 49, "lever", "L4", 0), (120, 49, "lever", "L5", 0)]:
     L.at("step", x, y, act=act, arg=arg, n=n)
 
+L.header["tip"] = "HOLD {FIRE} AT A METAL CRATE TO PULL IT WITH THE MAGNET GUN, TAP {FIRE} TO PUSH IT"  # HINTS: the level's first 12 seconds
 L.write(__file__, "36_prop_warehouse.txt")

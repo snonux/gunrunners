@@ -8,7 +8,15 @@
 // and the level's prototype, so only the geometry and the level's own
 // mechanics decide; the bot plays without them.
 //
-//   navcheck [--character N,M,...] [--map DIR] [--max-nodes N] LEVEL...
+//   navcheck [--character N,M,...] [--map DIR] [--max-nodes N]
+//            [--no-jump-through layers|all] LEVEL...
+//
+// --no-jump-through: a jump can't pass up through blinking layers and
+// moving platforms (layers), or through those and one-way blocks too (all),
+// so what it lists then needs a jump straight up through one. Paul's rule:
+// a blinking or moving platform is jumped onto from the side, never up
+// through (glass one-way blocks may be jumped through), so every level
+// passes `--no-jump-through layers`.
 //
 // With several runners a place counts as reached if any of them gets
 // there (runners can be swapped mid-level). The default is Rocco (the
@@ -606,6 +614,7 @@ int main(int argc, char** argv)
   std::vector<int> characters = {1, 2}; // Rocco (the lowest jump) and Nova (the highest)
   int maxNodes = 300000;
   bool withBot = true;
+  int noJumpThrough = 0; // 1: blinking layers, 2: also one-way blocks and moving platforms
   std::string mapDir;
   std::vector<std::string> files;
   for (int i = 1; i < argc; ++i)
@@ -620,6 +629,8 @@ int main(int argc, char** argv)
     }
     else if (a == "--map" && i + 1 < argc)
       mapDir = argv[++i];
+    else if (a == "--no-jump-through" && i + 1 < argc)
+      noJumpThrough = std::string(argv[++i]) == "all" ? 2 : 1;
     else if (a == "--no-bot")
       withBot = false;
     else if (a == "--max-nodes" && i + 1 < argc)
@@ -640,10 +651,14 @@ int main(int argc, char** argv)
       const auto t0 = std::chrono::steady_clock::now();
       auto level = std::make_shared<const Level>(Level::loadFile(file));
       World w(level, characters.front(), theme, art);
+      if (noJumpThrough)
+        w.forbidJumpThrough(noJumpThrough == 2);
       Result r = explore(w, maxNodes, withBot);
       for (std::size_t c = 1; c < characters.size(); ++c)
       {
         World other(level, characters[c], theme, art);
+        if (noJumpThrough)
+          other.forbidJumpThrough(noJumpThrough == 2);
         const Result more = explore(other, maxNodes, withBot);
         for (std::size_t i = 0; i < r.cov.size(); ++i)
           r.cov[i] |= more.cov[i];

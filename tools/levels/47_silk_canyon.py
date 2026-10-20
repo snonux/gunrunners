@@ -168,4 +168,5 @@ gem((71, 46), (74, 46))
 # The way on: off the ledge's west edge, down to the last west alcove.
 line(61, LEDGE - 2, 27, L6 - 3)
 
+L.header["tip"] = "JUMP INTO A SILK LINE TO SLIDE DOWN IT. SHOOT SPIDERS BEFORE THEY CUT YOUR LINE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "47_silk_canyon.txt")

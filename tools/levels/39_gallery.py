@@ -174,4 +174,5 @@ for x, y, act, kw in [
         (68, 35, "pan", {"arg": "35", "lo": 85, "hi": 94}), (100, 35, "go", {}), (120, 35, "go", {})]:
     L.at("step", x, y, act=act, **kw)
 
+L.header["tip"] = "PRESS UP IN FRONT OF A MONITOR TO HOP TO THE ONE IT SHOWS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "39_gallery.txt")

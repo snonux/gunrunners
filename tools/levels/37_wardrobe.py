@@ -179,4 +179,5 @@ for x, y, act, arg in [
         (142, 41, "booth", "nova")]:
     L.at("step", x, y, act=act, arg=arg)
 
+L.header["tip"] = "PRESS UP IN A BOOTH TO BECOME THE RUNNER ON ITS SIGN. HEAVY PLATES NEED ROCCO"  # HINTS: the level's first 12 seconds
 L.write(__file__, "37_wardrobe.txt")

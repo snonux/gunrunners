@@ -144,4 +144,5 @@ L.col(225, TOP, G - 1, "H")
 on(230, TOP, "g")
 on(235, TOP, "X")
 
+L.header["tip"] = "PRESS {USE} BY A BOUNDER TO RIDE IT OVER THE THORNS. HOLD {JUMP} FOR A BIG HOP"  # HINTS: the level's first 12 seconds
 L.write(__file__, "48_bounder_plains.txt")

@@ -394,6 +394,11 @@ void World::setupEntities()
       continue;
     if (setupOrbitEntity(e))
       continue;
+    if (e.kind == "hint" && hasRect)
+    {
+      addHintZone(rectCells, e.str("text"), e.num("after", 0), e.str("until"));
+      continue;
+    }
     if (e.kind == "deco" || e.kind == "billboard")
     {
       Prop pr;
@@ -589,6 +594,23 @@ void World::applyLayer(Layer& l, bool solid)
   for (int ty = l.y0; ty <= l.y1; ++ty)
     for (int tx = l.x0; tx <= l.x1; ++tx)
       mMap.setBlock(tx, ty, solid ? l.tile : Tile::Empty);
+}
+
+void World::forbidJumpThrough(bool oneWays)
+{
+  const int W = mMap.widthBlocks(), H = mMap.heightBlocks();
+  std::vector<std::uint8_t> blocks(std::size_t(W * H), 0);
+  for (const auto& l : mLayers)
+    if (l.driver == LayerDriver::Beat || l.driver == LayerDriver::Timer)
+      for (int ty = std::max(0, l.y0); ty <= std::min(H - 1, l.y1); ++ty)
+        for (int tx = std::max(0, l.x0); tx <= std::min(W - 1, l.x1); ++tx)
+          blocks[std::size_t(ty * W + tx)] = 1;
+  if (oneWays)
+    for (int ty = 0; ty < H; ++ty)
+      for (int tx = 0; tx < W; ++tx)
+        if (mMap.block(tx, ty) == Tile::Platform)
+          blocks[std::size_t(ty * W + tx)] = 1;
+  mMap.setNoPassUp(std::move(blocks), true);
 }
 
 void World::updateLayers(bool force)

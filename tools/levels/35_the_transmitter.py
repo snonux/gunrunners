@@ -169,4 +169,5 @@ L.at("route", None, None, path=[
     (24, 54), (32, 54), (39, 54), (44, 51), (48, 48), (56, 45), (59, 42), (1, 42), (5, 39), (7, 39),
     (12, 30), (19, 30), (22, 27), (30, 24), (36, 22), (43, 22), (46, 8)])
 
+L.header["tip"] = "THE TOWER TURNS AROUND YOU: CLIMB THE LADDERS AND LEDGES TO THE TOP DECK"  # HINTS: the level's first 12 seconds
 L.write(__file__, "35_the_transmitter.txt")

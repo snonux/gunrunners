@@ -149,4 +149,5 @@ L.at("deco", 26, 58, kind="42", art="pressure_gauge", text="42 FATHOMS", w=1, h=
 put(12, 63, "X")
 gem((70, 55), (56, 59), (45, 59), (36, 63), (24, 63), (18, 63))
 
+L.header["tip"] = "UNDER WATER EVERY {JUMP} IS A SWIM STROKE: THREE STROKES, THEN TOUCH GROUND OR AN AIR POCKET"  # HINTS: the level's first 12 seconds
 L.write(__file__, "30_fiber_trench.txt")

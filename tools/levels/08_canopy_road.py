@@ -200,4 +200,5 @@ L.on(206, 34, "X")
 gem((183, 21), (186, 24), (189, 26), (192, 29), (195, 31), (198, 33), (201, 32), (203, 32), (182, 20),
     (188, 22))
 
+L.header["tip"] = "JUMP INTO A VINE TO GRAB IT, HOLD THE WAY IT SWINGS, JUMP OFF AT THE END OF A BIG SWING"  # HINTS: the level's first 12 seconds
 L.write(__file__, "08_canopy_road.txt")

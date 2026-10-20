@@ -173,4 +173,5 @@ on(192, 40, "m")
 on(196, 40, "X")
 gem((172, 34), (176, 34), (180, 34), (184, 34), (189, 38), (194, 38))
 
+L.header["tip"] = "THE STONES SINK INTO THE LAVA UNDER YOU: KEEP MOVING FROM STONE TO STONE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "12_lava_heart.txt")

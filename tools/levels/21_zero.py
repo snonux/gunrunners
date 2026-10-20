@@ -151,4 +151,5 @@ L.at("lattice_turret", 157, 29, "ALT1", rail=(152, 162))
 L.at("lattice_turret", 183, 29, "ALT2", rail=(178, 187))
 put(184, 39, "X")
 
+L.header["tip"] = "THE MONITORS SHOW WHERE THE WALLS MOVE NEXT: WATCH THEM AND RUN RIGHT"  # HINTS: the level's first 12 seconds
 L.write(__file__, "21_zero.txt")

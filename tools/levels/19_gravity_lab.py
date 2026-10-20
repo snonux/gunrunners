@@ -175,4 +175,5 @@ put(114, 21, "m")
 put(110, 2, "3")                                  # letter N
 put(120, 2, "X")
 
+L.header["tip"] = "PRESS UP AT A GRAVITY SWITCH, OR SHOOT IT, TO TURN THE CHAMBER'S GRAVITY OVER"  # HINTS: the level's first 12 seconds
 L.write(__file__, "19_gravity_lab.txt")

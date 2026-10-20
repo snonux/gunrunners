@@ -188,4 +188,5 @@ gem((70, 31), (78, 27), (74, 20), (68, 17), (74, 12), (88, 11))
 L.at("lightning", None, None, "z6", zone=(63, 0, 99, 37), period=60, damage=2, cycle="flight3,flight2,flight1",
      phase=10)
 
+L.header["tip"] = "LIGHTNING STRIKES THE HIGHEST METAL AFTER IT GLOWS: STEP OFF THE METAL WHEN IT GLOWS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "31_storm_relay.txt")

@@ -115,20 +115,20 @@ L.put(119, 15, "W")
 L.at("chrome_cop", 121, 15)
 L.put(124, 15, "T")
 
-# 9. Sign tower (x125-135): pairs A (beats 1,2) and B (beats 3,4).
+# 9. Sign stairs (x125-135): neon signs climbing to the right, each one up
+# and over from the last. A climb never rests on a sign that blinks: these
+# are always solid and always lit (blinking signs are for crossing, as over
+# the dip and the spike pit).
 L.ground(125, 135, 16)
-sign("a1", 126, 14, 128, 14, beats="1,2", color="cyan")
-sign("b1", 130, 12, 132, 12, beats="3,4", color="pink")
-sign("a2", 126, 10, 128, 10, beats="1,2", color="cyan")
-sign("b2", 130, 8, 132, 8, beats="3,4", color="pink")
-sign("a3", 126, 6, 128, 6, beats="1,2", color="cyan")
-L.row(134, 135, 12, "#")
-L.row(133, 135, 8, "=")
-L.put(134, 7, "3")
-L.fill(121, 123, 3, 4, "#")
-L.put(122, 2, "C")
-L.at("deco", kind=42, x=121, y=4, w=3, h=1, text="TANK 42")
-L.at("deco", kind="text", x=133, y=9, w=3, h=2, text="DUKE'S BURGERS - CLOSED SINCE 1993")
+stairs = [("a1", 126, 14, 127, "cyan"), ("b1", 128, 12, 129, "pink"), ("a2", 130, 10, 131, "cyan"),
+          ("b2", 132, 8, 133, "pink")]
+for sid, x0, row, x1, color in stairs:
+    L.at("layer", None, None, sid, rect=(x0, row, x1, row), driver="lit", beats="1,2,3,4", style="sign", color=color)
+L.put(133, 7, "3")
+L.fill(140, 142, 5, 5, "#")                 # a water tank on the top roof
+L.put(141, 4, "C")
+L.at("deco", kind=42, x=140, y=5, w=3, h=1, text="TANK 42")
+L.at("deco", kind="text", x=133, y=10, w=3, h=2, text="DUKE'S BURGERS - CLOSED SINCE 1993")
 
 # 10. Top roof (x136-148).
 L.ground(136, 148, 6)
@@ -157,7 +157,14 @@ L.ground(175, 189, 6)
 L.on(185, 6, "X")
 L.put(188, 5, "*")
 
+# Tips (HINTS): the signs, the card, the stairs, the way out of the U.
+L.hint(19, 18, 31, 25, "NEON SIGNS ARE SOLID ONLY WHILE THEY GLOW - THEY GO DARK ON EVERY 4TH BEAT. CROSS WHILE THEY ARE LIT")
+L.hint(100, 10, 113, 15, "THE FORCE FIELD AHEAD NEEDS THE ACCESS CARD: SHOOT THE WHITE BOX TO GET IT", until="card")
+L.hint(124, 8, 135, 15, "JUMP FROM SIGN TO SIGN, UP AND TO THE RIGHT, TO THE ROOF")
+L.hint(161, 6, 162, 9, "TO GET OUT OF THE U, STAND ON ITS FLOOR: IT GOES DARK ON THE 4TH BEAT AND DROPS YOU DOWN", after=3)
+
 # Easter egg: hold up at the start and a tiny UFO crosses the sunset.
 L.at("deco", kind="ufo_flyby", x=0, y=26, w=7, h=4)
 
+L.header["tip"] = "HEAD RIGHT OVER THE ROOFS. NEON SIGNS ARE ONLY SOLID WHILE THEY GLOW"  # HINTS: the level's first 12 seconds
 L.write(__file__, "01_rooftop_run.txt")

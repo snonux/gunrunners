@@ -71,6 +71,17 @@ public:
   const std::vector<CellBox>& floats() const { return mFloats; }
   bool floatTop(int cx, int cy) const;
 
+  // Checks only (navcheck --no-jump-through): blocks that a runner going up
+  // can't pass from below, as if they were a ceiling, though they are one
+  // way or blink; with `platforms`, moving platforms too. A ladder still
+  // climbs through them. Empty and false (the game): nothing extra stops a
+  // jump.
+  void setNoPassUp(std::vector<std::uint8_t> blocks, bool platforms)
+  {
+    mNoPassUp = std::move(blocks);
+    mNoPassUpPlatforms = platforms;
+  }
+
   // Level 38's red strings: one-way slopes, the top row of each cell column
   // (-1: none). Walking along one follows it a cell up or down.
   void setSlopes(std::vector<int> tops)
@@ -166,6 +177,8 @@ private:
   std::vector<CellBox> mPlatforms;
   std::vector<CellBox> mFloats;
   std::vector<int> mSlopes;
+  std::vector<std::uint8_t> mNoPassUp;
+  bool mNoPassUpPlatforms = false;
   bool mForceFieldsOn = true;
   bool mWrap = false;
   bool mWrapX = false;

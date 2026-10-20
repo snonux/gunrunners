@@ -153,4 +153,5 @@ L.at("door", 54, 22, "dA", h=4, open="bA")
 L.at("door", 104, 22, "dB", h=4, open="bB")
 L.at("door", 154, 22, "dC", h=4, open="bC", opentime=240)
 
+L.header["tip"] = "EVERY DARK SECTOR HAS A BREAKER: PRESS UP AT IT. THE EXIT NEEDS THE LAST ONE ON"  # HINTS: the level's first 12 seconds
 L.write(__file__, "04_blackout.txt")

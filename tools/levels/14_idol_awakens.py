@@ -136,4 +136,5 @@ L.put(168, 21, "C")
 L.put(170, 29, "X")                  # the exit, in the idol's mouth once it falls
 gem((155, 27), (158, 25), (162, 27), (177, 27), (181, 25), (185, 27))
 
+L.header["tip"] = "EVERY GEM MAKES THE IDOL GOLEM TOUGHER: HOLD UP AT AN OFFERING ALTAR TO GIVE GEMS BACK"  # HINTS: the level's first 12 seconds
 L.write(__file__, "14_idol_awakens.txt")

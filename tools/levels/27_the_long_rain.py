@@ -150,4 +150,5 @@ put(189, 19, "Q")
 put(187, 19, "X")
 gem((170, 35), (174, 33), (168, 25), (173, 22), (178, 18), (183, 18))
 
+L.header["tip"] = "STAY IN THE SHADOWS: IF A FLASHLIGHT SEES YOU, THE WHISTLE BLOWS AND GOONS COME OUT"  # HINTS: the level's first 12 seconds
 L.write(__file__, "27_the_long_rain.txt")

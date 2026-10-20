@@ -1511,7 +1511,19 @@ void World::updatePlayerInteractions()
   if (p.vehicle < 0 && !mTrench.bubble && mMap.overlapsHazard(hit))
     hurtPlayer(1); // a vehicle minds the spikes itself (world_vehicle.cpp); a bubble pops (world_trench.cpp)
 
-  // Force fields: walking up to one with the access card switches it off.
+  // Force fields: walking up to one with the access card switches it off;
+  // without it, a tip says where the card is (world_hints.cpp).
+  if (!p.hasKey && mMap.forceFieldsOn() && mMap.hasForceFields())
+  {
+    const CellBox reach{p.box().x - 1, p.box().y, p.box().w + 2, p.box().h};
+    for (int y = reach.top(); y <= reach.bottom() && mHintFieldTicks < 2; ++y)
+      for (int x = reach.left(); x <= reach.right(); ++x)
+        if (mMap.forceField(x, y))
+        {
+          mHintFieldTicks = 15 * 4;
+          break;
+        }
+  }
   if (p.hasKey && mMap.forceFieldsOn())
   {
     CellBox reach = p.box();

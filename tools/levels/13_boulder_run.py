@@ -176,4 +176,5 @@ L.put(262, 28, "X")
 L.put(264, 28, "m")
 gem((224, 20), (228, 20), (232, 20), (236, 21), (240, 21), (244, 22), (248, 22), (252, 22), (258, 27), (260, 27))
 
+L.header["tip"] = "A BOULDER ROLLS AFTER YOU: RUN RIGHT AND DUCK INTO THE ALCOVES TO LET IT PASS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "13_boulder_run.txt")

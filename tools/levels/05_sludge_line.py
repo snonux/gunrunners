@@ -154,4 +154,5 @@ L.at("devnull", 82, 31)
 L.at("raft", 148, 36, w=3)
 L.at("bubble", 140, 16, hp=1)                # the candid camera's bubble
 
+L.header["tip"] = "THE SLUDGE RISES AND FALLS ON A CLOCK: WAIT UP HIGH WHILE IT IS UP, RUN WHEN IT DROPS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "05_sludge_line.txt")

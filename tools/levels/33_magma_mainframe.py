@@ -218,4 +218,5 @@ L.at("duck", 56, 27, costume="heat_suit")
 put(54, 11, "X")
 gem((24, 27), (36, 27), (40, 27), (48, 11), (50, 11), (52, 11))
 
+L.header["tip"] = "THE LAVA RISES BEHIND YOU: KEEP CLIMBING. EVERY CHECKPOINT STOPS IT FOR A WHILE"  # HINTS: the level's first 12 seconds
 L.write(__file__, "33_magma_mainframe.txt")

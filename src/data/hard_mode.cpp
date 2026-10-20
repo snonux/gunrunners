@@ -125,7 +125,7 @@ bool copiedKey(const std::string& key) { return key == "dir" || key == "look" ||
 bool harmlessRect(const std::string& kind)
 {
   static const std::set<std::string> kHarmless = {
-    "deco", "dark", "billboard", "narrate", "rain", "manordeco", "sector", "unlit", "shadow", "cover"};
+    "deco", "dark", "billboard", "narrate", "rain", "manordeco", "sector", "unlit", "shadow", "cover", "hint"};
   return kHarmless.count(kind) != 0;
 }
 

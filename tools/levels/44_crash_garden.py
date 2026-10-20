@@ -144,4 +144,5 @@ on(167, 8, "m")
 on(175, 8, "X")
 gem((152, 5), (162, 5), (168, 5), (172, 5))
 
+L.header["tip"] = "JUMP INTO GOO HOLDING TOWARD IT TO STICK. {JUMP} KICKS YOU UP AND OFF: CLIMB THE CHIMNEYS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "44_crash_garden.txt")

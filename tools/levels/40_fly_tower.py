@@ -195,4 +195,5 @@ for x, y, act, kw in [
         [(x + 1, row - 1, "go", {}) for x, row in LEDGES] + [(40, 21, "go", {})]:
     L.at("step", x, y, act=act, **kw)
 
+L.header["tip"] = "THE CUES LOOP: WATCH THE CUE BOARD AND MOVE BETWEEN THE PYRO BLASTS"  # HINTS: the level's first 12 seconds
 L.write(__file__, "40_fly_tower.txt")

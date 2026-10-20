@@ -193,4 +193,6 @@ step(100, 39, "hop", arg=(107, 39))
 
 n = sum(row.count("g") for row in L.grid)
 assert n == 38, n
+
+L.header["tip"] = "EVERY SET WAGON BRINGS BACK AN OLD LEVEL'S TRICK FOR A WHILE: CROSS IT, THEN GO ON"  # HINTS: the level's first 12 seconds
 L.write(__file__, "42_live_finale.txt")
