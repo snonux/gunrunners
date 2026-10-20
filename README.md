@@ -206,13 +206,14 @@ left of the screen is a stick: put your thumb down there and slide it
 to walk or turn (a short flick to one side, then back that way and hold,
 runs), down to crouch, up (or a quick flick up) to jump, up and
 over for a jump to the side. On a ladder, up climbs. Tap anywhere else to
-shoot at that spot: tap an enemy above your runner and the runner shoots
-up at it, tap one beside it and the runner turns and shoots that way, tap
-low beside it and the runner crouches and shoots low. Shots go where the
-weapons can: up, left, right, or crouched to the side (straight down only
-from a hang bar or the jetpack). The fire mark in the bottom right corner
-shoots the way the runner faces; hold a finger down to keep firing, and a
-quick flick while it is down re-aims (up, down, left or right). Next weapon (the pistol), Switch runner, Use (get in or out of a vehicle),
+shoot exactly at that spot, at any angle: the blaster, laser, rockets and
+flamer fire straight along the line from your runner's gun to your finger
+(the runner turns to face it, and a red crosshair marks the spot). Hold
+the finger down to keep firing and slide it to sweep the aim. Prototype
+guns, vehicles and the levels that turn your runner round shoot the
+nearest way they can instead: up, left, right, or crouched to the side.
+The fire mark in the bottom right corner shoots the way the runner faces,
+and a quick flick from it re-aims (up, down, left or right). Next weapon (the pistol), Switch runner, Use (get in or out of a vehicle),
 the Map and Pause sit in a row along the top, out of both thumbs' way. If
 you'd rather have the classic buttons, TOUCH in SETTINGS > CONTROLS (THUMB ZONES or
 CLASSIC BUTTONS) switches to Jump (the big corner
@@ -243,6 +244,7 @@ changes them (see below):
 | Down (S) | stick or d-pad down | crouch, aim down from a hang bar; hold to look down |
 | X / Ctrl | A (bottom face button) | jump (tap for a short hop), press again in mid-air to double jump, down+jump drops from a hang bar |
 | Z / Space | X (left face button) or B, RB, right trigger | fire; with the flamethrower, down+fire is a jetpack |
+| | right stick | aim at any angle and fire while pushed (blaster, laser, rockets, flamer; other guns snap to up, ahead or low) |
 | C | Y | switch to the next runner, right where you stand |
 | R | right stick click (RS) | switch to a random runner (never the one you are playing) |
 | Q | left trigger (left stick click on Android) | switch to the next gun you carry |

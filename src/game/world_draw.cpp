@@ -1154,8 +1154,14 @@ void World::draw(Renderer& r, int frame, float alpha) const
   // Projectiles.
   for (const auto& pr : mProjectiles)
   {
-    const float cx = lerpCells(pr.prevX, pr.x, alpha) + float(pr.w) * kCellPx * 0.5f - camX;
+    float cx = lerpCells(pr.prevX, pr.x, alpha) + float(pr.w) * kCellPx * 0.5f - camX;
     float cy = lerpCells(pr.prevY, pr.y, alpha) + float(pr.h) * kCellPx * 0.5f - camY;
+    if (pr.aimed)
+    {
+      // Free aim: smoothly along the line it flies.
+      cx = (pr.pfx + (pr.fx - pr.pfx) * alpha + float(pr.w) * 0.5f) * kCellPx - camX;
+      cy = (pr.pfy + (pr.fy - pr.pfy) * alpha + float(pr.h) * 0.5f) * kCellPx - camY;
+    }
     if (mZero.on && drawZeroShot(r, mArt, pr, cx, cy, frame))
       continue; // an Echo's shot or the Phase Rifle's (world_zero_draw.cpp)
     if (mSignal.on && drawSignalShot(r, mArt, pr, cx, cy, frame))
@@ -1393,11 +1399,15 @@ void World::draw(Renderer& r, int frame, float alpha) const
         break;
       }
     }
-    if (pr.kind != ShotKind::Enemy && pr.dy == 0)
+    if (pr.aimed)
+      o.angle = std::atan2(pr.vy, pr.vx) * 57.2958f; // along the aim
+    if (pr.kind != ShotKind::Enemy && (pr.dy == 0 || pr.aimed))
       cy -= 6.0f; // line up with the gun barrel
     drawGlow(r, mArt, cx, cy, 44, glow, 0.7f);
     r.draw(*tex, cx, cy, o);
   }
+
+  drawAim(r, camX, camY, frame, alpha);
 
   for (const auto& f : mFlashes)
   {
@@ -1868,6 +1878,13 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
   {
     float mx = 0.0f, my = 0.0f;
     muzzleAt(p.muzzleStance, mx, my);
+    if (p.muzzleAimed)
+    {
+      // Free aim: at the end of the gun, along the aim (as fireAimed starts the shot).
+      const float lift = p.visual == PlayerVisual::Crouching ? 1.5f : 2.5f;
+      mx = x + p.muzzleUx * 1.9f * kCellPx;
+      my = y - lift * kCellPx + p.muzzleUy * 1.9f * kCellPx - 6.0f;
+    }
     Color c = rgb(255, 220, 120);
     if (p.weapon == Weapon::Laser)
       c = rgb(120, 240, 255);
@@ -1877,6 +1894,46 @@ void World::drawPlayer(Renderer& r, float camX, float camY, int frame, float alp
     drawGlow(r, mArt, mx, my, 44, c, a);
     drawGlow(r, mArt, mx, my, 16, rgb(255, 255, 255), a);
   }
+}
+
+void World::drawAim(Renderer& r, float camX, float camY, int frame, float alpha) const
+{
+  // Free aim: a sight line from the gun and a crosshair on the aimed spot
+  // (a few blocks out for the right stick's way).
+  const auto& p = mPlayer;
+  float px = 0.0f, py = 0.0f, ux = 0.0f, uy = 0.0f, dist = 0.0f;
+  if (p.hidden || p.state == PlayerState::Dying || p.state == PlayerState::Teleporting || p.vehicle >= 0 ||
+      !aimLine(px, py, ux, uy, &dist))
+    return;
+  if (dist <= 0.0f)
+    dist = 7.0f;
+  // At the in-between position the runner is drawn at.
+  px += (lerpCells(p.prevX, p.x, alpha) - float(p.x) * kCellPx) / kCellPx;
+  py += (lerpCells(p.prevY, p.y, alpha) - float(p.y) * kCellPx) / kCellPx;
+  const float sx = px * kCellPx - camX, sy = py * kCellPx - camY - 6.0f;
+  const Color sight = rgb(255, 70, 70);
+  for (float d = 2.6f; d < dist - 0.7f; d += 0.9f)
+  {
+    const float a = 0.5f * (1.0f - 0.6f * d / dist);
+    r.fillRect(sx + ux * d * kCellPx - 2.0f, sy + uy * d * kCellPx - 2.0f, 4.0f, 4.0f, withAlpha(sight, int(255.0f * a)),
+      Blend::Add);
+  }
+  const float cx = sx + ux * dist * kCellPx, cy = sy + uy * dist * kCellPx;
+  const float rr = 13.0f + 1.5f * std::sin(float(frame) * 0.3f);
+  const Color ring = withAlpha(rgb(255, 120, 110), 220);
+  for (int k = 0; k < 16; ++k)
+  {
+    const float a0 = float(k) * 0.3927f, a1 = a0 + 0.3927f;
+    r.drawLine(cx + rr * std::cos(a0), cy + rr * std::sin(a0), cx + rr * std::cos(a1), cy + rr * std::sin(a1), 2.5f, ring,
+      Blend::Add);
+  }
+  for (int k = 0; k < 4; ++k)
+  {
+    const float a = float(k) * 1.5708f, c = std::cos(a), s = std::sin(a);
+    r.drawLine(cx + c * (rr - 5.0f), cy + s * (rr - 5.0f), cx + c * (rr + 6.0f), cy + s * (rr + 6.0f), 2.5f, ring,
+      Blend::Add);
+  }
+  r.fillRect(cx - 2.0f, cy - 2.0f, 4.0f, 4.0f, rgb(255, 230, 220), Blend::Add);
 }
 
 void World::drawHud(Renderer& r, int frame) const

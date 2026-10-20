@@ -310,6 +310,8 @@ void World::update(const PlayerInput& input)
     ~Tidy() { w.tidySpares(); }
   } tidy{*this};
   mFireHeld = input.fire.pressed;
+  mAim = input.aim;
+  mAimHold = input.aimHold;
   // Overclock: three logic frames for every one.
   if (mMagma.overclock)
   {
@@ -374,6 +376,8 @@ void World::updateFrame(const PlayerInput& input)
   {
     pr.prevX = pr.x;
     pr.prevY = pr.y;
+    pr.pfx = pr.fx;
+    pr.pfy = pr.fy;
   }
   for (auto& v : mVehicles)
   {
@@ -1680,7 +1684,7 @@ void World::updateProjectiles()
     const bool comesBack = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::Boomerang);
     // Level 46: a shot up keeps going a while past the top of the view, at
     // the crystals hovering up there.
-    const bool upAtCrystals = (mSpace.crystals && pr.dy < 0 && !pr.precise) ||
+    const bool upAtCrystals = (mSpace.crystals && pr.dy < 0 && (!pr.precise || pr.aimed)) ||
       (pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::SilkShooter)); // and on down at the rock
     // Harpoons and Tesla rods fly on past the edge of the view to stick.
     const bool harpoon = pr.kind == ShotKind::Proto && pr.proto == int(ProtoId::HarpoonLine);

@@ -122,6 +122,12 @@ bool parsePresses(const std::string& spec, std::vector<std::pair<long, Input>>& 
       else if (b == "aimleft") in.aimLeft = true;
       else if (b == "aimright") in.aimRight = true;
       else if (b == "upjump") in.up = in.jump = in.upJump = true;
+      else if (b.rfind("stick", 0) == 0 && b.size() > 5)
+      {
+        // The right stick pushed at this angle (degrees, 0 right, 90 up).
+        const float a = float(std::atof(b.c_str() + 5)) * 0.0174533f;
+        aimStick(in, std::cos(a), -std::sin(a));
+      }
       else return false;
     }
     out.emplace_back(std::atol(item.substr(0, colon).c_str()), in);
@@ -169,7 +175,8 @@ void printUsage()
     "  --s3-secret-key KEY  S3 secret key (or AWS_SECRET_ACCESS_KEY)\n"
     "  --press LIST         headless: scripted presses, e.g. 300:pause,320:down\n"
     "                       (left right up down jump fire confirm pause back swap\n"
-    "                       quicksave quickload use; touch: aimleft aimright upjump)\n"
+    "                       quicksave quickload use; touch: aimleft aimright upjump;\n"
+    "                       the right stick: stickDEG, e.g. stick45 up and right)\n"
     "  --tap LIST           headless: taps on the 1280x720 screen, e.g. 120:640x300\n"
     "  --drag LIST          headless: finger drags by dx x dy, e.g. 200:0x-120\n"
     "  --finger LIST        headless + --touch: a finger on the touch controls,\n"
@@ -180,7 +187,7 @@ void printUsage()
     "      (save, load, quit), T cycle theme, F5 quick save, F9 quick load,\n"
     "      F11 or Alt+Enter fullscreen\n"
     "Gamepad: stick/d-pad move, A jump, X/B/RB/RT fire, Y switch runner, LB vehicle,\n"
-    "      Start pause menu, Back map\n"
+    "      Start pause menu, Back map; the right stick aims at any angle and fires\n"
     "SETTINGS on the title screen or in the pause menu: difficulty, controls\n"
     "(rebind keys and buttons), assists and play options");
 }

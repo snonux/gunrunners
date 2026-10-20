@@ -428,10 +428,19 @@ void Game::tickPlay(const Input& raw)
   const auto& player = mWorld->player();
   if (in.upJump && player.state == PlayerState::Ladder && !in.left && !in.right)
     in.jump = false;
-  // A shot aimed left or right turns the runner that way first, unless the
-  // stick is steering (turning on the spot takes one logic frame).
-  if (in.fire && (in.aimLeft || in.aimRight) && !in.left && !in.right && player.facing != (in.aimLeft ? -1 : 1))
-    (in.aimLeft ? in.left : in.right) = true;
+  // Free aim (the right stick, a touch): plain guns shoot along it at any
+  // angle and turn the runner themselves. The other guns get it snapped:
+  // up looks up, low crouches, and a shot aimed left or right turns the
+  // runner that way first, unless the stick is steering (turning on the
+  // spot takes one logic frame).
+  const bool freeAim = in.aim.on && mWorld->aimsFreely();
+  if (!freeAim)
+  {
+    in.up = in.up || in.aimUp;
+    in.down = in.down || in.aimDown;
+    if (in.fire && (in.aimLeft || in.aimRight) && !in.left && !in.right && player.facing != (in.aimLeft ? -1 : 1))
+      (in.aimLeft ? in.left : in.right) = true;
+  }
   // Running: a short tap of a way, then that way again and held. Only the
   // player's own presses count (the bot's steps would read as taps).
   mRun.update(raw.left == raw.right ? 0 : (raw.left ? -1 : 1));
@@ -443,6 +452,21 @@ void Game::tickPlay(const Input& raw)
   mLatched.jump.pressed = in.jump;
   mLatched.fire.pressed = in.fire;
   mLatched.use.pressed = in.use;
+  // The aim stays latched with a quick tap's shot until a logic frame
+  // fires it; a touch spot goes from logical pixels to cells.
+  if (freeAim)
+  {
+    const float cell = float(kCellSize) * kPixelScale;
+    mLatched.aim = in.aim;
+    if (in.aim.spot)
+    {
+      mLatched.aim.x /= cell;
+      mLatched.aim.y /= cell;
+    }
+  }
+  else if (!mLatched.fire.triggered || in.fire)
+    mLatched.aim = Aim{};
+  mLatched.aimHold = freeAim && in.aimFire;
   if (in.use && !mPrevLogicInput.use)
     mLatched.use.triggered = true;
   if (in.jump && !mPrevLogicInput.jump)

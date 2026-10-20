@@ -182,6 +182,9 @@ struct Player
   int recoil = 0;
   int muzzleTicks = 0; // 60 Hz
   Stance muzzleStance = Stance::Regular;
+  // A free-aimed shot's flash: at the end of the gun along the aim.
+  bool muzzleAimed = false;
+  float muzzleUx = 0.0f, muzzleUy = 0.0f;
 
   static constexpr int kWidth = 3;
   static constexpr int kHeight = 5;
@@ -291,6 +294,8 @@ struct Projectile
   // unit step, `speed` steps per frame.
   bool precise = false;
   float fx = 0.0f, fy = 0.0f, vx = 0.0f, vy = 0.0f;
+  bool aimed = false;          // a free-aimed shot: drawn along its flight, smoothly
+  float pfx = 0.0f, pfy = 0.0f; // precise shots: fx, fy a frame ago
   float gy = 0.0f;   // precise shots: added to vy every frame (lobbed glowsticks)
   bool flare = false; // sticks where it hits and lights up the dark
   bool lob = false;  // leaves a puddle where it lands
@@ -1671,6 +1676,11 @@ public:
   const WorldStats& stats() const { return mStats; }
   std::vector<Bonus> bonuses() const;
   const Player& player() const { return mPlayer; }
+  // Free aim (input.hpp's Aim): the plain guns (blaster, laser, rockets,
+  // flames) shoot along it at any angle. Prototypes, vehicles and levels
+  // that turn the runner round (gravity, planetoids, the turntable, top
+  // down) keep the shots up, ahead and low.
+  bool aimsFreely() const;
   const CharacterDef& character() const { return mCharacter; }
   const std::vector<Enemy>& enemies() const { return mEnemies; }
   const std::vector<ItemBox>& boxes() const { return mBoxes; }
@@ -2134,6 +2144,12 @@ private:
   bool tryAttachToClimbable();
   bool canFire() const;
   void fireShot();
+  // Free aim: where the gun pivots (cells) and the unit way the aim goes,
+  // and how far off the aimed spot is (a direction: 0). False if there is
+  // no aim to shoot along now.
+  bool aimLine(float& px, float& py, float& ux, float& uy, float* dist = nullptr) const;
+  void fireAimed(ShotKind kind, float px, float py, float ux, float uy);
+  void drawAim(Renderer& r, float camX, float camY, int frame, float alpha) const;
   void jump();
   void jumpFromLadder(int mvX);
   void startFalling();
@@ -3847,6 +3863,8 @@ private:
   void drawGuide(Renderer& r, float camX, float camY, int frame) const;
   int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
   bool mFireHeld = false; // in the latest logic frame (no weapon switch while firing)
+  Aim mAim;               // free aim in the latest logic frame (cells)
+  bool mAimHold = false;  // the right stick held: fire repeats like hold to fire
   int mJumpBuffer = 0;   // jump help: frames a jump pressed in the air still counts on landing
   int mDamageCarry = 0;  // low damage: half a heart not yet taken
   bool mDeathRush = false; // quick retry asked for: the death scene ends early

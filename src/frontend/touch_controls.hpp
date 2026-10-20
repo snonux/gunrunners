@@ -40,8 +40,9 @@ namespace gr
 // The thumbs scheme (the default) drops the Jump and Fire buttons. The left
 // thumb walks and turns with the stick in the bottom left, down crouches,
 // up (or a flick up) jumps. Anywhere else, a touch shoots at the spot it
-// lands on, snapped to the shots a runner has (up, left, right, or
-// crouched to one side); a flick while it is down re-aims. Switch runner,
+// lands on: plain guns shoot exactly at it, at any angle, the rest get
+// the shot snapped to the ones they have (up, left, right, or crouched to
+// one side). Sliding the finger keeps aiming at it; a flick re-aims. Switch runner,
 // Use (vehicles), Map and Pause sit in a row along the top, away from both
 // thumbs. The buttons scheme keeps Jump and Fire buttons and the swipes
 // above, and a touch on an empty spot of the right half shoots at it too.
@@ -191,6 +192,7 @@ private:
   Input held() const;
   Input aimed() const; // fire, aimed the way the right thumb last flicked
   void aimFlick(Finger& f);
+  void aimFollow(float x, float y);
   bool moved() const;
   Circle place(Circle c, int element) const;
   void editPress(Finger& f);
@@ -223,6 +225,9 @@ private:
   bool mThumbs = true;
   bool mThumbsUsed = false; // till the first touch in a level, a hint shows how it goes
   int mAim = kAimAhead;
+  // A touch aims at its spot exactly (not the fire mark's shot ahead).
+  bool mExact = false;
+  float mAimPtX = 0.0f, mAimPtY = 0.0f;
   float mRunnerX = 0.0f, mRunnerY = 0.0f;
   bool mRunnerKnown = false;
   bool mMenuPadChanged = false;

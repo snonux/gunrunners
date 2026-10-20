@@ -7,6 +7,7 @@
 #include "game/world.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
@@ -945,9 +946,10 @@ void World::updateShooting(const Button& fire)
     mHoldFireWait = 0;
   if (fire.triggered || (fire.pressed && hasRapidFire && (!p.rapidFiredLastFrame || p.turbo > 0)))
     fireShot();
-  else if (mPlay.holdFire && fire.pressed && !hasRapidFire && ++mHoldFireWait >= kHoldFireFrames)
+  else if ((mPlay.holdFire || mAimHold) && fire.pressed && !hasRapidFire && ++mHoldFireWait >= kHoldFireFrames)
   {
-    // Hold to fire: a shot every few frames, slower than the rapid fire pickup.
+    // Hold to fire (and the right stick held): a shot every few frames,
+    // slower than the rapid fire pickup.
     mHoldFireWait = 0;
     fireShot();
   }
@@ -970,7 +972,8 @@ void World::fireShot()
 {
   auto& p = mPlayer;
   const int s = int(p.stance);
-  const auto& off = p.facing > 0 ? kShotOffsetRight[s] : kShotOffsetLeft[s];
+  std::array<int, 2> off = {(p.facing > 0 ? kShotOffsetRight : kShotOffsetLeft)[s][0],
+    (p.facing > 0 ? kShotOffsetRight : kShotOffsetLeft)[s][1]};
   int dx = p.facing, dy = 0;
   if (p.stance == Stance::Up)
   {
@@ -1004,7 +1007,20 @@ void World::fireShot()
       break;
   }
   growShot(); // Growth Spurt: every shot is a size down
-  if (p.weapon == Weapon::Proto)
+  float px = 0.0f, py = 0.0f, ux = 0.0f, uy = 0.0f;
+  const bool aimed = p.weapon != Weapon::Proto && aimLine(px, py, ux, uy);
+  if (aimed)
+  {
+    // Free aim: along the aim, at any angle, the runner turned to it.
+    if (std::fabs(ux) > 0.2f)
+      p.facing = ux < 0.0f ? -1 : 1;
+    fireAimed(kind, px, py, ux, uy);
+    const Projectile& pr = mProjectiles.back();
+    dx = pr.dx;
+    dy = pr.dy;
+    off = {pr.x - p.x, pr.y - p.y};
+  }
+  else if (p.weapon == Weapon::Proto)
   {
     fireProto(p.x + off[0], p.y + off[1], dx, dy);
     sound = ProtoId(p.proto) == ProtoId::Silencer ? Sfx::Puff
@@ -1022,6 +1038,9 @@ void World::fireShot()
   p.recoil = 1;
   p.muzzleTicks = 6;
   p.muzzleStance = p.stance;
+  p.muzzleAimed = aimed;
+  p.muzzleUx = ux;
+  p.muzzleUy = uy;
   if (mWest.on)
   {
     // Level 22: the saloon piano and High Noon's false starts (world_west.cpp).
@@ -1046,6 +1065,64 @@ void World::fireShot()
     p.proto = -1;
     showMessage("OUT OF AMMO - BACK TO THE BLASTER");
   }
+}
+
+bool World::aimsFreely() const
+{
+  const auto& p = mPlayer;
+  return p.weapon != Weapon::Proto && p.vehicle < 0 && p.tube < 0 && p.grav == Grav::Down && !mTop.on && !mOrbit.on &&
+    !mTurn.on && !mInk.on && !mWarehouse.throwAll;
+}
+
+// The gun pivots at the runner's middle, at its height (lower crouched);
+// aimed straight ahead, a shot starts exactly where a plain one does.
+constexpr float kAimPivot = 2.5f;        // cells above the feet standing
+constexpr float kAimPivotCrouched = 1.5f;
+constexpr float kAimReach = 2.5f;        // cells from the pivot to the shot's middle
+
+bool World::aimLine(float& px, float& py, float& ux, float& uy, float* dist) const
+{
+  const auto& p = mPlayer;
+  if (!mAim.on || !aimsFreely())
+    return false;
+  px = float(p.x) + float(Player::kWidth) * 0.5f;
+  py = float(p.y + 1) - (p.visual == PlayerVisual::Crouching ? kAimPivotCrouched : kAimPivot);
+  float vx = mAim.x, vy = mAim.y;
+  if (mAim.spot)
+  {
+    // A spot: measured from the runner's middle (Game::runnerOnScreen),
+    // aimed at from the pivot, so the shot's line goes through it.
+    vx = float(p.x) + float(Player::kWidth) * 0.5f + mAim.x - px;
+    vy = float(p.y + 1) - float(p.height()) * 0.5f + mAim.y - py;
+  }
+  const float len = std::sqrt(vx * vx + vy * vy);
+  if (len < (mAim.spot ? 0.75f : 0.01f))
+    return false; // on the runner itself: shoot ahead as usual
+  ux = vx / len;
+  uy = vy / len;
+  if (dist)
+    *dist = mAim.spot ? len : 0.0f;
+  return true;
+}
+
+void World::fireAimed(ShotKind kind, float px, float py, float ux, float uy)
+{
+  // Built as a shot straight ahead (its size, speed, damage), then sent
+  // along the aim: its middle starts kAimReach out from the pivot and
+  // moves a cell a step, `speed` steps a frame.
+  auto sgn = [](float v) { return v < 0.0f ? -1 : (v > 0.0f ? 1 : 0); };
+  const int dx = sgn(std::round(ux * 2.0f)), dy = sgn(std::round(uy * 2.0f));
+  spawnProjectile(kind, 0, 0, ux < 0.0f ? -1 : 1, 0);
+  Projectile& pr = mProjectiles.back();
+  pr.dx = dx;
+  pr.dy = dy;
+  pr.precise = pr.aimed = true;
+  pr.vx = ux;
+  pr.vy = uy;
+  pr.fx = pr.pfx = px + ux * kAimReach - float(pr.w) * 0.5f;
+  pr.fy = pr.pfy = py + uy * kAimReach - float(pr.h) * 0.5f;
+  pr.x = pr.prevX = int(std::floor(pr.fx));
+  pr.y = pr.prevY = int(std::floor(pr.fy));
 }
 
 void World::jump()

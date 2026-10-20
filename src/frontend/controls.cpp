@@ -1,6 +1,7 @@
 #include "frontend/controls.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace gr
 {
@@ -12,6 +13,8 @@ namespace
 // runner, and diagonals still count as up/down plus left/right.
 constexpr Sint16 kStickThreshold = 16000;
 constexpr Sint16 kTriggerThreshold = 12000;
+// The right stick aims (and fires) once pushed this far, any way round.
+constexpr float kAimThreshold = 14000.0f;
 
 // Android reports a pad's Back/Select (and some pads' B) as the system back
 // key, so there it does what the phone's back key does: pause in a level,
@@ -205,6 +208,13 @@ Input Controls::readPad(SDL_GameController* pad, bool menus) const
   in.back = button(SDL_CONTROLLER_BUTTON_B);
   if (kBackIsBackKey && button(SDL_CONTROLLER_BUTTON_BACK))
     in.pause = in.back = true;
+  // The right stick aims at any angle and shoots while pushed (twin-stick):
+  // plain guns fire along it, the rest the nearest way they can shoot.
+  const float ax = float(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX));
+  const float ay = float(SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY));
+  const float len = std::hypot(ax, ay);
+  if (!menus && len > kAimThreshold)
+    aimStick(in, ax / len, ay / len);
   if (menus)
   {
     in.left = in.left || button(SDL_CONTROLLER_BUTTON_DPAD_LEFT);

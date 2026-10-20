@@ -508,14 +508,33 @@ void TouchControls::aimFlick(Finger& f)
   f.st = mNow;
 }
 
+void TouchControls::aimFollow(float x, float y)
+{
+  // An exact aim follows the finger, wherever the runner has gone since.
+  if (!mExact)
+    return;
+  mAimPtX = x;
+  mAimPtY = y;
+  mAim = aimAt(x, y);
+}
+
 Input TouchControls::aimed() const
 {
   Input in;
   in.fire = true;
-  in.up = mAim == kAimUp;
-  in.down = mAim == kAimDown || mAim == kAimDownLeft || mAim == kAimDownRight;
-  in.aimLeft = mAim == kAimLeft || mAim == kAimDownLeft;
-  in.aimRight = mAim == kAimRight || mAim == kAimDownRight;
+  // The shot snapped to up, crouched or a side (for the guns that only
+  // shoot so); with an exact aim, worked out afresh from where the runner is.
+  const int aim = mExact ? aimAt(mAimPtX, mAimPtY) : mAim;
+  in.aimUp = aim == kAimUp;
+  in.aimDown = aim == kAimDown || aim == kAimDownLeft || aim == kAimDownRight;
+  in.aimLeft = aim == kAimLeft || aim == kAimDownLeft;
+  in.aimRight = aim == kAimRight || aim == kAimDownRight;
+  if (mExact && mRunnerKnown)
+  {
+    in.aim.on = in.aim.spot = true;
+    in.aim.x = mAimPtX - mRunnerX;
+    in.aim.y = mAimPtY - mRunnerY;
+  }
   return in;
 }
 
@@ -688,7 +707,10 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
       f.downAt = mNow;
       // The fire mark is the right thumb's home: a touch there shoots the
       // way the runner faces.
-      mAim = mThumbs && onFireMark(x, y) ? int(kAimAhead) : aimAt(x, y);
+      mExact = mRunnerKnown && !(mThumbs && onFireMark(x, y));
+      mAimPtX = x;
+      mAimPtY = y;
+      mAim = mExact ? aimAt(x, y) : int(kAimAhead);
     }
   }
   mFingers.push_back(f);
@@ -736,6 +758,7 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
     else if (f.shooter && mThumbs)
     {
       aimFlick(f);
+      aimFollow(x, y);
     }
     else if (f.shooter)
     {
@@ -743,6 +766,8 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
       swipe(f);
       if (f.swiped && !f.firing)
         f.shooter = false;
+      else
+        aimFollow(x, y);
     }
     else if (!f.stick)
     {
@@ -1054,7 +1079,8 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
       o.blend = Blend::Add;
       renderer.draw(mNub, sx + f.x, sy + f.y, o);
     }
-    if (shooting && mRunnerKnown && mAim != kAimAhead)
+    // (An exact aim needs none: the shot goes to the mark.)
+    if (shooting && mRunnerKnown && mAim != kAimAhead && !mExact)
     {
       static const float kDir[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
       const bool down = mAim == kAimDown || mAim == kAimDownLeft || mAim == kAimDownRight;

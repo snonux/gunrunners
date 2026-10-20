@@ -364,27 +364,28 @@ void thumbs(Renderer& r)
   t.touch(4, 900.0f, 500.0f, 3000);
   t.slide(4, 900.0f, 420.0f, 3030);
   in = t.read();
-  check(in.fire && in.up && !in.jump && t.aim() == TouchControls::kAimUp, "thumbs: a flick up fires upwards");
+  check(in.fire && in.aimUp && !in.jump && t.aim() == TouchControls::kAimUp, "thumbs: a flick up fires upwards");
   t.advance(3500);
   in = t.read();
-  check(in.fire && in.up, "thumbs: ...and keeps aiming up");
+  check(in.fire && in.aimUp, "thumbs: ...and keeps aiming up");
   t.slide(4, 900.0f, 420.0f, 3600);
   t.slide(4, 820.0f, 420.0f, 3650);
   in = t.read();
   check(!in.fire && t.aim() == TouchControls::kAimLeft, "thumbs: a flick left lets go of fire for a tick");
   in = t.read();
-  check(in.fire && in.aimLeft && !in.up && !in.left, "thumbs: ...then fires left");
+  check(in.fire && in.aimLeft && !in.aimUp && !in.left, "thumbs: ...then fires left");
   t.release(4);
 
   t.touch(5, 1000.0f, 300.0f, 5000);
   t.advance(5060);
   in = t.read();
-  check(in.fire && !in.aimLeft && !in.up, "thumbs: each touch aims afresh (ahead, with no runner to aim from)");
+  check(in.fire && !in.aimLeft && !in.aimUp && !in.aim.on,
+    "thumbs: each touch aims afresh (ahead, with no runner to aim from)");
   t.release(5);
   t.touch(6, 1000.0f, 300.0f, 6000);
   t.slide(6, 1000.0f, 380.0f, 6040);
   in = t.read();
-  check(in.fire && in.down && t.aim() == TouchControls::kAimDown, "thumbs: a flick down fires low");
+  check(in.fire && in.aimDown && t.aim() == TouchControls::kAimDown, "thumbs: a flick down fires low");
   t.release(6);
   t.read();
 
@@ -443,8 +444,9 @@ void thumbs(Renderer& r)
   t.release(16);
 }
 
-// Tap to aim: a touch shoots at the spot it lands on, snapped to the shots
-// a runner has.
+// Tap to aim: a touch shoots exactly at the spot it lands on (Input::aim,
+// measured from the runner), and snapped to the shots a runner has for the
+// guns that only shoot up, ahead or low.
 void tapToAim(Renderer& r)
 {
   TouchControls t(r, true);
@@ -478,7 +480,7 @@ void tapToAim(Renderer& r)
   t.touch(2, 640.0f, 150.0f, ms);
   t.advance(ms + 60);
   Input in = t.read();
-  check(in.fire && in.up && !in.jump, "aim: a shot up holds up, not jump");
+  check(in.fire && in.aimUp && !in.up && !in.jump, "aim: a shot up is aimed up (the game looks up), not a jump");
   t.release(2);
   t.read();
   t.touch(3, 1000.0f, 330.0f, ms + 1000);
@@ -486,6 +488,29 @@ void tapToAim(Renderer& r)
   in = t.read();
   check(in.fire && in.aimRight && !in.right, "aim: a shot right turns the runner, it does not walk");
   t.release(3);
+  t.read();
+  // Exact: the spot from the runner's middle, which follows the finger and
+  // the runner.
+  t.touch(3, 900.0f, 250.0f, ms + 1500);
+  t.advance(ms + 1560);
+  in = t.read();
+  check(in.fire && in.aim.on && in.aim.spot && in.aim.x == 260.0f && in.aim.y == -150.0f && in.aimRight && !in.aimUp,
+    "aim: a touch aims exactly at its spot");
+  t.slide(3, 880.0f, 260.0f, ms + 1700);
+  t.slide(3, 500.0f, 300.0f, ms + 1900);
+  in = t.read();
+  check(in.fire && in.aim.on && in.aim.x == -140.0f && in.aim.y == -100.0f && in.aimLeft,
+    "aim: sliding the finger keeps aiming at it");
+  t.setRunner(700.0f, 400.0f, true);
+  in = t.read();
+  check(in.aim.on && in.aim.x == -200.0f && in.aim.y == -100.0f, "aim: ...from wherever the runner is now");
+  t.setRunner(640.0f, 400.0f, true);
+  t.release(3);
+  t.read();
+  t.touch(3, 1000.0f, 330.0f, ms + 1950);
+  t.release(3);
+  in = t.read();
+  check(in.fire && in.aim.on && in.aim.x == 360.0f, "aim: a quick tap still aims exactly");
   t.read();
   t.touch(4, 175.0f, 600.0f, ms + 2000);
   t.slide(4, 255.0f, 600.0f, ms + 2010);
@@ -506,7 +531,8 @@ void tapToAim(Renderer& r)
   t.setRunner(640.0f, 400.0f, true);
   t.touch(6, 1160.0f, 580.0f, ms + 4000);
   t.advance(ms + 4060);
-  check(t.read().fire && t.aim() == TouchControls::kAimAhead, "aim: the fire mark shoots ahead");
+  in = t.read();
+  check(in.fire && t.aim() == TouchControls::kAimAhead && !in.aim.on, "aim: the fire mark shoots ahead");
   t.release(6);
   t.read();
 
@@ -517,7 +543,8 @@ void tapToAim(Renderer& r)
   t.touch(6, 800.0f, 150.0f, ms + 4000);
   t.advance(ms + 4060);
   in = t.read();
-  check(in.fire && in.up, "aim (buttons): a tap above shoots up");
+  check(in.fire && in.aimUp && in.aim.on && in.aim.spot && in.aim.x == 160.0f && in.aim.y == -250.0f,
+    "aim (buttons): a tap above shoots up, exactly at it");
   t.release(6);
   t.read();
   t.touch(7, 800.0f, 300.0f, ms + 5000);
@@ -556,8 +583,8 @@ void grabPixels(Renderer& r, SDL_Surface* surface, std::vector<Uint32>& px)
   }
 }
 
-// Both layouts drawn, then in a level a shooting thumb aimed up, down to the
-// left and down to the right, which shows all four aim arrows.
+// Both layouts drawn, then in a level a shooting thumb on the fire mark
+// flicked up, down, left and right, which shows all four aim arrows.
 std::vector<Uint32> overlayPixels(TouchControls& t, Renderer& r, SDL_Surface* surface)
 {
   std::vector<Uint32> px;
@@ -570,9 +597,11 @@ std::vector<Uint32> overlayPixels(TouchControls& t, Renderer& r, SDL_Surface* su
   }
   t.setRunner(640.0f, 400.0f, true);
   Uint32 ms = 0;
-  for (const SDL_FPoint at : {SDL_FPoint{640.0f, 150.0f}, SDL_FPoint{560.0f, 690.0f}, SDL_FPoint{800.0f, 660.0f}})
+  for (const SDL_FPoint by : {SDL_FPoint{0.0f, -90.0f}, SDL_FPoint{0.0f, 90.0f}, SDL_FPoint{-90.0f, 0.0f},
+         SDL_FPoint{90.0f, 0.0f}})
   {
-    t.touch(1, at.x, at.y, ms);
+    t.touch(1, 1160.0f, 580.0f, ms);
+    t.slide(1, 1160.0f + by.x, 580.0f + by.y, ms + 20);
     t.advance(ms + 60);
     t.read();
     r.clear(rgb(0, 0, 0));
