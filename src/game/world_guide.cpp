@@ -578,11 +578,49 @@ World::Guide World::routeGuide(GuideCache& cache, const std::vector<GuideTarget>
   return g;
 }
 
-void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
+World::GuideShow World::guideShow(float camX, float camY) const
 {
   const Guide& g = guide();
-  if (g.kind == GuideKind::None || (g.dx == 0 && g.dy == 0))
+  if (g.kind == GuideKind::None)
+  {
+    mGuideSeenLeft = -1;
+    return {};
+  }
+  // Something taken (or the exit up next) starts the count again; the arrow
+  // flicking between things close by (a bot, the crate by it) doesn't.
+  if (g.left != mGuideSeenLeft || (g.kind == GuideKind::Exit) != (mGuideSeenKind == GuideKind::Exit))
+  {
+    mGuideSeen = 0;
+    mGuideSeenAt = mStats.frames;
+  }
+  mGuideSeenKind = g.kind;
+  mGuideSeenLeft = g.left;
+  const float tx = (float(g.tx) + 0.5f) * kCellPx - camX;
+  const float ty = (float(g.ty) + 0.5f) * kCellPx - camY;
+  const bool onScreen = tx >= 0.0f && tx <= float(kScreenW) && ty >= 0.0f && ty <= float(kScreenH);
+  GuideShow show;
+  if (!onScreen)
+  {
+    mGuideSeenAt = mStats.frames;
+    show.edge = g.dx != 0 || g.dy != 0;
+    return show;
+  }
+  // Logic frames only (drawn twice a frame, or paused, it doesn't count).
+  mGuideSeen += std::max(0, mStats.frames - mGuideSeenAt);
+  mGuideSeenAt = mStats.frames;
+  if (mGuideSeen < kGuideSeenFrames)
+    return show; // in sight: leave it to the player for a while
+  show.edge = g.dx != 0 || g.dy != 0;
+  show.marker = true;
+  return show;
+}
+
+void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
+{
+  const GuideShow show = guideShow(camX, camY);
+  if (!show.edge && !show.marker)
     return;
+  const Guide& g = guide();
   // Blinks: on for 26 of every 40 render frames, fading in and out.
   const int phase = frame % 40;
   if (phase >= 26)
@@ -593,9 +631,30 @@ void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
   const CellBox b = mPlayer.box();
   const float cx = (float(b.left()) + float(b.w) * 0.5f) * kCellPx - camX;
   const float cy = (float(b.top()) + float(b.h) * 0.5f) * kCellPx - camY;
+  const float bob = 6.0f * std::sin(float(frame) * 0.25f);
+  if (show.edge)
+    drawGuideEdge(r, g, c, cx, cy, bob, fade);
+  if (!show.marker)
+    return;
+
+  // The target itself, after a while on screen: a small arrow over it.
+  const float tx = (float(g.tx) + 0.5f) * kCellPx - camX;
+  const float ty = (float(g.ty) + 0.5f) * kCellPx - camY;
+  const float dist = std::hypot(tx - cx, ty - cy);
+  if (dist < 120.0f)
+    return; // right there
+  DrawOpts m;
+  m.tint = c;
+  m.alpha = fade;
+  m.scale = 0.6f;
+  m.angle = 90.0f; // pointing down at it
+  r.draw(mArt.guideArrow, tx, ty - 56.0f - bob, m);
+}
+
+void World::drawGuideEdge(Renderer& r, const Guide& g, Color c, float cx, float cy, float bob, float fade) const
+{
   const float len = std::sqrt(float(g.dx * g.dx + g.dy * g.dy));
   const float ux = float(g.dx) / len, uy = float(g.dy) / len;
-  const float bob = 6.0f * std::sin(float(frame) * 0.25f);
   // At the screen's border the way it points: where a line from the runner
   // that way meets a frame inset from the edges: below the HUD panels and
   // the TURBO / VIRUS bars, above the message line and a boss's bar, out of
@@ -635,21 +694,6 @@ void World::drawGuide(Renderer& r, float camX, float camY, int frame) const
     const float lx = ax - ux * 70.0f, ly = ay - uy * 50.0f - 8.0f;
     r.drawText("EXIT", lx, ly, {16.0f, c, rgb(10, 8, 20), true}, Align::Center, fade);
   }
-
-  // The target itself, when it is on screen: a small arrow over it.
-  const float tx = (float(g.tx) + 0.5f) * kCellPx - camX;
-  const float ty = (float(g.ty) + 0.5f) * kCellPx - camY;
-  if (tx < 0.0f || tx > float(kScreenW) || ty < 0.0f || ty > float(kScreenH))
-    return;
-  const float dist = std::hypot(tx - cx, ty - cy);
-  if (dist < 120.0f)
-    return; // right there
-  DrawOpts m;
-  m.tint = c;
-  m.alpha = fade;
-  m.scale = 0.6f;
-  m.angle = 90.0f; // pointing down at it
-  r.draw(mArt.guideArrow, tx, ty - 56.0f - bob, m);
 }
 
 } // namespace gr

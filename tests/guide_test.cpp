@@ -951,6 +951,35 @@ int main()
       check(w.guide().kind == World::GuideKind::None, "no arrow while leaving");
     }
 
+    // In sight, the gem is left to the player for 10 seconds; out of sight
+    // (the camera far off) only the arrow at the screen's edge shows.
+    {
+      World w(gemRoom, 0, theme, art);
+      guideOn(w);
+      // The camera on the target (32 px cells), or far off.
+      const auto inSight = [](const World& v) {
+        return v.guideShow(float(v.guide().tx) * 32.0f - 640.0f, float(v.guide().ty) * 32.0f - 360.0f);
+      };
+      World::GuideShow show = w.guideShow(-1e6f, 0.0f);
+      check(show.edge && !show.marker, "the gem off the screen: just the edge arrow");
+      show = inSight(w);
+      check(!show.edge && !show.marker, "the gem in sight: no arrows at first");
+      int f = 0;
+      for (; f < 400 && !(show.edge && show.marker); ++f)
+      {
+        w.update(PlayerInput{});
+        show = inSight(w);
+        show = inSight(w); // drawn twice in a frame: counts once
+      }
+      check(f == World::kGuideSeenFrames, "in sight and not taken: both arrows after 10 seconds (frames " + std::to_string(f) + ")");
+      show = w.guideShow(-1e6f, 0.0f);
+      check(show.edge && !show.marker, "out of sight again: just the edge arrow");
+      followArrow(w, [&] { return w.stats().gems == 1; }, 300);
+      w.update(PlayerInput{});
+      show = inSight(w);
+      check(w.guide().kind == World::GuideKind::Exit && !show.edge && !show.marker, "the exit in sight next: the count starts again");
+    }
+
     // The gem sits on a shelf over the runner's head; the only way up is a
     // ladder behind them. The arrow points back to the ladder, not up.
     const auto shelfRoom = load(room(

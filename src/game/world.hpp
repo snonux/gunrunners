@@ -1884,6 +1884,18 @@ public:
   };
   bool guideOn() const;
   const Guide& guide() const;
+  // What of the guide is drawn with the camera at (camX, camY) (pixels):
+  // a target off the screen gets the arrow at the screen's edge only; one on
+  // the screen gets nothing until targets have been on it for
+  // kGuideSeenFrames with nothing taken, then the edge arrow and the marker
+  // over it. Called when drawn: counts the logic frames seen.
+  static constexpr int kGuideSeenFrames = 10 * 15; // 10 seconds
+  struct GuideShow
+  {
+    bool edge = false;   // the arrow at the screen's edge
+    bool marker = false; // the small arrow over the target
+  };
+  GuideShow guideShow(float camX, float camY) const;
   // The guide worked out now from scratch: no grids kept from before, no
   // waiting for the runner to move. What guide() says on the frame it works
   // its answer out must be the same (guide_test checks).
@@ -3854,6 +3866,13 @@ private:
   mutable Guide mGuide;
   mutable int mGuideAt = -1000;
   mutable GuideCacheSlot mGuideCache;
+  // How long the guide's target has been on the screen since the last thing
+  // was taken (guideShow): the logic frames counted, the last one counted,
+  // and the target's kind and count of things left it was counted for.
+  mutable int mGuideSeen = 0;
+  mutable int mGuideSeenAt = -1;
+  mutable GuideKind mGuideSeenKind = GuideKind::None;
+  mutable int mGuideSeenLeft = -1;
   std::vector<GuideTarget> guideTargets(int& left) const;
   void guideMissing(std::vector<GuideTarget>& targets) const;
   void guideCard(std::vector<GuideTarget>& targets) const;
@@ -3861,6 +3880,7 @@ private:
   GuideStatics guideStatics() const;
   Guide routeGuide(GuideCache& cache, const std::vector<GuideTarget>& targets, int left, bool fresh) const;
   void drawGuide(Renderer& r, float camX, float camY, int frame) const;
+  void drawGuideEdge(Renderer& r, const Guide& g, Color c, float cx, float cy, float bob, float fade) const;
   int mHoldFireWait = 0; // logic frames fire has been held since the last shot (hold to fire)
   bool mFireHeld = false; // in the latest logic frame (no weapon switch while firing)
   Aim mAim;               // free aim in the latest logic frame (cells)
