@@ -165,6 +165,26 @@ const std::array<CharacterDef, kDefaultRunners>& defaults()
   return kDefaults;
 }
 
+// Snonux plays everything maxed out: the most hearts the HUD holds, a
+// 10-cell jump (a cell over Nova), the biggest double jump, every gun full
+// with endless rapid fire, and running a cell a frame faster than anyone
+// (walking stays at one, for the careful steps).
+const CharacterDef& snonux()
+{
+  static const CharacterDef kSnonux = [] {
+    CharacterDef d = builtIn(kSnonuxId, "SNONUX", "THE LEGEND", 12, {2, 2, 2, 1, 1, 1, 1, 0}, Weapon::Rocket, 32, 0,
+      kMaxPips, kMaxPips, kMaxPips, kSnonuxArt, parts(0, 2, 0, 0, 4, 0, 1, 3, 2, 9, 2, 2));
+    d.voice = "dash";
+    d.fullArsenal = true;
+    d.endlessRapidFire = true;
+    d.speedBonus = 1;
+    return d;
+  }();
+  return kSnonux;
+}
+
+bool gSnonux = false;
+
 std::vector<CharacterDef>& customs()
 {
   static std::vector<CharacterDef> list;
@@ -258,9 +278,14 @@ int maxAmmo(Weapon w)
   return w == Weapon::Flame ? 64 : 32;
 }
 
+bool snonuxUnlocked() { return gSnonux; }
+void setSnonuxUnlocked(bool on) { gSnonux = on; }
+bool isSnonuxCode(const std::string& name) { return cleanName(name) == snonux().name; }
+int builtInRunners() { return kDefaultRunners + (gSnonux ? 1 : 0); }
+
 int characterCount()
 {
-  return kDefaultRunners + int(customs().size());
+  return builtInRunners() + int(customs().size());
 }
 
 const CharacterDef& characterByIndex(int index)
@@ -269,7 +294,9 @@ const CharacterDef& characterByIndex(int index)
   const int i = ((index % n) + n) % n;
   if (i < kDefaultRunners)
     return defaults()[std::size_t(i)];
-  return customs()[std::size_t(i - kDefaultRunners)];
+  if (i < builtInRunners())
+    return snonux();
+  return customs()[std::size_t(i - builtInRunners())];
 }
 
 int runnerIndexById(const std::string& id)
@@ -375,11 +402,11 @@ int putCustomRunner(const CharacterDef& def)
     {
       list[i] = def;
       list[i].custom = true;
-      return kDefaultRunners + int(i);
+      return builtInRunners() + int(i);
     }
   list.push_back(def);
   list.back().custom = true;
-  return kDefaultRunners + int(list.size()) - 1;
+  return builtInRunners() + int(list.size()) - 1;
 }
 
 void removeCustomRunner(const std::string& id)
@@ -392,6 +419,8 @@ void clearCustomRunners() { customs().clear(); }
 
 std::string encodeRunner(const CharacterDef& d)
 {
+  if (d.id == kSnonuxId)
+    return kSnonuxId; // built in: savegames just name him
   const auto& p = d.parts;
   std::ostringstream o;
   o << "v2 " << d.id << ' ' << int(d.startWeapon) << ' ' << d.healthPips << ' ' << d.jumpPips << ' ' << d.powerPips
@@ -455,6 +484,8 @@ bool saveCustomRunners(const std::string& dir)
 
 CharacterDef savedRunner(int index, const std::string& encoded)
 {
+  if (encoded == kSnonuxId)
+    return snonux();
   CharacterDef d;
   if (!encoded.empty() && decodeRunner(encoded, d))
     return d;
@@ -463,6 +494,12 @@ CharacterDef savedRunner(int index, const std::string& encoded)
 
 int resolveSavedRunner(int index, const std::string& encoded)
 {
+  if (encoded == kSnonuxId)
+  {
+    // A save with him in it was made after the code was entered.
+    setSnonuxUnlocked(true);
+    return kDefaultRunners;
+  }
   if (encoded.empty())
     return index >= 0 && index < kDefaultRunners ? index : 0;
   CharacterDef d;

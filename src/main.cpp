@@ -149,7 +149,9 @@ void printUsage()
     "Usage: gunrunners [options]\n"
     "  --theme N            0 = Neon Overdrive, 1 = Lost Temple, 2 = Station Zero\n"
     "  --character N        0 Dash, 1 Rocco, 2 Nova, 3 Jade, 4 Skye, 5 Bolt,\n"
-    "                       6 and up your own runners (runners.txt)\n"
+    "                       6 and up your own runners (runners.txt); with Snonux\n"
+    "                       unlocked he is 6 and your own runners follow\n"
+    "  --snonux             unlock Snonux, the secret runner, for this run\n"
     "  --level PATH         play just this level file (default: the campaign)\n"
     "  --start N            campaign: start at level N (with --skip-menu)\n"
     "  --skip-menu          start straight in the level (after its briefing)\n"
@@ -333,6 +335,8 @@ bool parseArgs(int argc, char** argv, CliOptions& o)
       o.game.noCutscenes = true;
     else if (a == "--hard")
       o.game.hard = true;
+    else if (a == "--snonux")
+      o.game.snonux = true;
     else if (a == "--cutscene")
       o.game.cutscene = next();
     else if (a == "--data-dir")

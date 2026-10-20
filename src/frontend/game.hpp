@@ -49,6 +49,7 @@ struct GameOptions
   bool window = false;  // a real window (not headless): offer FULLSCREEN
   bool touch = false;   // on-screen gamepad: offer its TOUCH PAD size
   bool voiceLog = false; // print the runners' lines as they trigger and play
+  bool snonux = false;   // Snonux, the secret runner, unlocked for this run
 };
 
 // Top-level mode management, the equivalent of RigelEngine's
@@ -212,6 +213,8 @@ private:
   // The editor's SAVE and DELETE: change the roster, write runners.txt and
   // tell the player how that went (a failed write says so, not the usual).
   void saveEditedRunner();
+  // A runner named SNONUX: the cheat code for the secret runner.
+  void unlockSnonux();
   void deleteEditedRunner();
   void renderEditor();
   void renderPlayOverlay();

@@ -71,6 +71,9 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
   mOptions.s3 = startupCloud(saveDir(), mOptions.s3);
   beginCloudRefresh();
   loadCustomRunners(saveDir());
+  if (mCampaign)
+    mProfile = Profile::load(saveDir());
+  setSnonuxUnlocked(mOptions.snonux || mProfile.snonux);
   mCursor = std::clamp(mCursor, 0, characterCount() - 1);
   mSelectScroll = float(mCursor);
   buildPanels();
@@ -98,7 +101,6 @@ Game::Game(const GameOptions& options, Renderer& renderer, Audio* audio)
     }
     return;
   }
-  mProfile = Profile::load(saveDir());
   mBindings = Bindings::fromProfile(mProfile.controls);
   mHard = mOptions.hard || playOption("opt.hard");
   if (!mOptions.cutscene.empty())

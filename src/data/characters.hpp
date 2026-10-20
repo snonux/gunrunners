@@ -72,8 +72,8 @@ struct CharacterDef
   int startAmmo = 0;
   int startRapidFire = 0; // logic frames of rapid fire at the start of a level
   int healthPips = 3, jumpPips = 3, powerPips = 3;
-  // Dash, Rocco and Nova keep their hand-tuned art (0-2); everyone else is
-  // drawn from parts (-1).
+  // Dash, Rocco and Nova keep their hand-tuned art (0-2), Snonux his own
+  // (kSnonuxArt); everyone else is drawn from parts (-1).
   int art = -1;
   RunnerParts parts;
   bool custom = false;
@@ -83,9 +83,15 @@ struct CharacterDef
   // A custom runner brought back by a savegame after it was deleted: it is
   // playable but not written back to runners.txt.
   bool transient = false;
+  // Snonux's perks: every gun full at the start of a level, rapid fire that
+  // never runs out, and extra cells a frame when running (and in Turbo).
+  bool fullArsenal = false;
+  bool endlessRapidFire = false;
+  int speedBonus = 0;
 };
 
 constexpr int kDefaultRunners = 6;
+constexpr int kSnonuxArt = 3; // CharacterDef::art: Snonux's Golden Legend look
 
 // The voices a runner can speak with: the built-in runners' own, recorded
 // in voices/<id>/. Custom runners pick one in the runner editor.
@@ -106,6 +112,17 @@ constexpr int kMaxPips = 5;
 // more JUMP pips the runner has (3 cells at 2 pips up to 6 at 5).
 const std::array<int, 8>& doubleJumpArc(int jumpPips);
 int doubleJumpCells(int jumpPips);
+
+// Snonux, the secret runner: hidden until a runner is named SNONUX in the
+// runner editor (the cheat code), then built in for good (Profile::snonux).
+// Unlocked, he is index kDefaultRunners and the custom runners follow him.
+constexpr const char* kSnonuxId = "snonux";
+bool snonuxUnlocked();
+void setSnonuxUnlocked(bool on);
+// The name that unlocks him, as the editor cleans names up (any case).
+bool isSnonuxCode(const std::string& name);
+// kDefaultRunners, plus Snonux once he is unlocked.
+int builtInRunners();
 
 // Built-in runners followed by the custom ones. characterByIndex wraps.
 int characterCount();

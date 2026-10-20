@@ -40,6 +40,17 @@ World::World(std::shared_ptr<const Level> level, int characterIndex, const Theme
   p.ammo = mCharacter.startAmmo;
   p.spareCount = p.weapon != Weapon::Normal ? 1 : 0; // the blaster (Player::Spare's default)
   p.rapidFire = mCharacter.startRapidFire;
+  if (mCharacter.fullArsenal)
+  {
+    // Snonux: the other guns, full, behind the one in hand and the blaster.
+    int n = p.spareCount;
+    for (const Weapon w : {Weapon::Laser, Weapon::Flame, Weapon::Rocket})
+      if (w != p.weapon && n < int(p.spares.size()))
+        p.spares[std::size_t(n++)] = Player::Spare{w, -1, maxAmmo(w)};
+    p.spareCount = n;
+  }
+  if (mCharacter.endlessRapidFire)
+    p.rapidFire = 700; // a full pickup, kept topped up (World::updatePlayer)
   mLevelProto = protoIndex(mLevel->weapon);
   mLayerMask.assign(std::size_t(mLevel->width * mLevel->height), 0);
   mExplored = std::make_shared<std::vector<std::uint8_t>>(std::size_t(mLevel->width * mLevel->height), 0);

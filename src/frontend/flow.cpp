@@ -110,6 +110,7 @@ bool Game::saveProfile()
 {
   if (!campaign())
     return true;
+  mProfile.snonux = mProfile.snonux || snonuxUnlocked(); // a savegame with him in it unlocks him too
   return mProfile.save(saveDir());
 }
 

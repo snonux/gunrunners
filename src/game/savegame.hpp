@@ -51,7 +51,8 @@ struct SaveGame
   std::string savedAt; // local time, "YYYY-MM-DD HH:MM"
   int character = 0;
   // A custom runner's look and stats (encodeRunner), so the save still
-  // loads after the runner was edited or deleted. Empty for the built-in.
+  // loads after the runner was edited or deleted. Empty for the built-in
+  // runners, "snonux" for Snonux (loading it unlocks him).
   std::string runner;
   int theme = 0;
 

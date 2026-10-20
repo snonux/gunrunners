@@ -75,7 +75,9 @@ void World::updatePlayer(const PlayerInput& raw)
 {
   auto& p = mPlayer;
 
-  if (p.rapidFire > 0)
+  if (mCharacter.endlessRapidFire)
+    p.rapidFire = kTemporaryItemFrames; // Snonux's never runs out
+  else if (p.rapidFire > 0)
   {
     --p.rapidFire;
     if (p.rapidFire == kItemAboutToExpire)
@@ -728,14 +730,14 @@ int World::horizontalSteps() const
 {
   const auto& p = mPlayer;
   if (p.turbo > 0)
-    return 2;
+    return 2 + mCharacter.speedBonus;
   if (p.virus > 0 || (!mFluids.empty() && wading()) || (!mWater.empty() && inWater()) || mGreen.slow > 0)
     return p.oddFrame ? 0 : 1; // infected, wading through sludge or a stream, or through spores
   if (p.weapon == Weapon::Proto && ProtoId(p.proto) == ProtoId::JadeBow && p.charge > 0)
     return p.oddFrame ? 0 : 1; // drawing the Jade Bow
   if (mReactor.raise > 0)
     return p.oddFrame ? 0 : 1; // behind the Deflector Bracer's shield
-  return mRunDir != 0 ? 2 : 1;
+  return mRunDir != 0 ? 2 + mCharacter.speedBonus : 1; // Snonux runs a cell a frame faster
 }
 
 namespace

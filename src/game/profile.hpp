@@ -24,6 +24,7 @@ struct Profile
   int reached = 1;                 // highest level started
   int spaceReached = 0;            // highest DEEP SPACE level started (43..49), 0 none
   bool duckMode = false;           // all 42 ducks: quack mode is available
+  bool snonux = false;             // the secret runner's code was entered
   bool fullscreen = false;         // the window covers the screen, no borders
   int touchSize = 1;               // on-screen gamepad: 0 small, 1 medium, 2 large
   // Rebound keys and pad buttons, the on-screen gamepad's layout: named

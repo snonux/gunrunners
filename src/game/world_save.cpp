@@ -33,8 +33,8 @@ SaveGame World::snapshot() const
   s.levelName = mLevel->name;
   s.hard = mLevel->hard;
   s.character = mCharacterIndex;
-  if (mCharacter.custom)
-    s.runner = encodeRunner(mCharacter);
+  if (mCharacter.custom || mCharacter.id == kSnonuxId)
+    s.runner = encodeRunner(mCharacter); // Snonux by name: loading the save unlocks him
 
   const auto& p = mPlayer;
   s.x = mSafeX;

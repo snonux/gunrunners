@@ -22,7 +22,7 @@ constexpr float kCardH = 440.0f;
 constexpr float kCardStep = 370.0f;
 constexpr float kCardY = 180.0f;
 
-int customCount() { return characterCount() - kDefaultRunners; }
+int customCount() { return characterCount() - builtInRunners(); }
 
 // Writes runners.txt; a failure is logged, and the caller warns the player.
 bool storeRunners(const std::string& dir)
@@ -170,9 +170,25 @@ void Game::openEditor(int index)
 void Game::saveEditedRunner()
 {
   const CharacterDef def = mEditor->runner();
+  if (isSnonuxCode(def.name))
+  {
+    unlockSnonux(); // the code is not kept as a runner of its own
+    return;
+  }
   mCursor = putCustomRunner(def);
   notice(storeRunners(saveDir()) ? def.name + " IS READY TO RUN" : "COULD NOT SAVE THE RUNNERS");
   sound(Sfx::Checkpoint);
+}
+
+void Game::unlockSnonux()
+{
+  const bool fresh = !snonuxUnlocked();
+  setSnonuxUnlocked(true);
+  mProfile.snonux = true;
+  saveProfile();
+  mCursor = kDefaultRunners;
+  notice(fresh ? "SECRET RUNNER UNLOCKED - SNONUX, THE LEGEND" : "SNONUX IS ALREADY ON THE TEAM");
+  sound(Sfx::TurboOn);
 }
 
 // A failed write keeps the runner in the old runners.txt, so it comes back

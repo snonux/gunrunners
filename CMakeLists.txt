@@ -610,6 +610,9 @@ add_test(NAME crawl COMMAND crawl_test)
 add_executable(double_jump_test tests/double_jump_test.cpp)
 target_link_libraries(double_jump_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME double_jump COMMAND double_jump_test)
+add_executable(snonux_test tests/snonux_test.cpp)
+target_link_libraries(snonux_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME snonux COMMAND snonux_test)
 
 # The announcer shouts GUNRUNNERS as the title banner lands.
 add_test(NAME title_shout COMMAND gunrunners --headless --voice-log --frames 30)

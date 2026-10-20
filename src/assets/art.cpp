@@ -115,6 +115,10 @@ struct Look
   Color mouth = rgb(200, 70, 110);
   // A bandana: light, shaded and the knot's tails.
   Color band = rgb(240, 70, 70), bandShade = rgb(170, 24, 30), bandTail = rgb(214, 40, 44);
+  // Snonux's Golden Legend gear (snonuxLook): a cape in `cape`, a golden
+  // aura and a star on the chest. Everyone else goes without.
+  bool legend = false;
+  Color cape = rgb(206, 30, 56);
 };
 
 // Dash, Rocco and Nova, exactly as they were first drawn.
@@ -226,8 +230,39 @@ Look lookFromParts(const RunnerParts& p, Weapon gun)
   return L;
 }
 
+// Snonux, the secret runner, as the Golden Legend: gold armour, a star on
+// the chest, a red cape, platinum hair and a golden aura.
+Look snonuxLook()
+{
+  Look L{};
+  L.skin = rgb(246, 200, 160);
+  L.skinShade = rgb(214, 156, 118);
+  L.hair = rgb(250, 236, 190);
+  L.hairShade = darken(L.hair, 0.42f);
+  L.top = rgb(240, 190, 60);
+  L.topShade = darken(L.top, 0.38f);
+  L.pants = rgb(48, 40, 90);
+  L.pantsShade = darken(L.pants, 0.38f);
+  L.boots = rgb(240, 190, 60);
+  L.gun = rgb(240, 190, 60);
+  L.gunLight = rgb(255, 246, 200);
+  L.accent = rgb(255, 230, 120);
+  L.torsoW = 27.0;
+  L.headR = 12.5;
+  L.hairStyle = Hair::Spiky;
+  L.outfit = Outfit::Harness;
+  L.legend = true;
+  L.gunLen = 24.0;
+  L.gunH = 10.0;
+  L.mouthX0 = 5.0, L.mouthY0 = 6.0, L.mouthX1 = 8.5, L.mouthY1 = 5.2, L.mouthW = 1.4;
+  L.mouth = rgb(170, 80, 80);
+  return L;
+}
+
 Look lookOf(const CharacterDef& def)
 {
+  if (def.art == kSnonuxArt)
+    return snonuxLook();
   return def.art >= 0 ? lookFor(def.art) : lookFromParts(def.parts, def.startWeapon);
 }
 
@@ -728,6 +763,48 @@ void drawOutfit(cairo_t* cr, const Look& L, double tx, double ty, double tw, dou
   }
 }
 
+void starPath(cairo_t* cr, double cx, double cy, double outer, double inner)
+{
+  for (int i = 0; i < 10; ++i)
+  {
+    const double a = -kPi / 2.0 + kPi * double(i) / 5.0, rad = i % 2 == 0 ? outer : inner;
+    if (i == 0)
+      cairo_move_to(cr, cx + std::cos(a) * rad, cy + std::sin(a) * rad);
+    else
+      cairo_line_to(cr, cx + std::cos(a) * rad, cy + std::sin(a) * rad);
+  }
+  cairo_close_path(cr);
+}
+
+// Snonux's golden aura and cape, behind everything else.
+void drawLegendBehind(cairo_t* cr, const Look& L, const Pose& P, double bsx, double bsy)
+{
+  const double s = P.hairSwing;
+  radialGlow(cr, 32.0 + P.lean * 0.5, 50.0 + P.bob, 62.0, L.accent, 0.55);
+  for (const auto& sp : {std::array<double, 3>{6.0, 14.0, 3.2}, {60.0, 30.0, 2.6}, {2.0, 70.0, 2.2}, {64.0, 82.0, 3.0}})
+  {
+    starPath(cr, sp[0], sp[1] + P.bob, sp[2], sp[2] * 0.4);
+    setColor(cr, rgba(255, 250, 220, 230));
+    cairo_fill(cr);
+  }
+  // The cape: from both shoulders, fanning out behind the legs.
+  const double y0 = bsy - 7.0, bottom = 88.0 + P.bob * 0.4;
+  cairo_move_to(cr, bsx + 10.0, y0);
+  cairo_curve_to(cr, bsx - 6.0, y0 - 2.0, bsx - 14.0 + s * 0.5, y0 + 24.0, bsx - 28.0 + s * 1.4, bottom);
+  cairo_curve_to(cr, bsx - 18.0 + s, bottom + 2.0, bsx - 12.0 + s * 0.8, bottom - 4.0, bsx - 4.0 + s * 0.6, bottom + 1.0);
+  cairo_curve_to(cr, bsx + 2.0 + s * 0.3, bottom - 3.0, bsx + 8.0, bottom - 2.0, bsx + 12.0, bottom - 6.0);
+  cairo_line_to(cr, bsx + 12.0, y0 + 4.0);
+  cairo_close_path(cr);
+  fillGradientOutline(cr, y0, bottom, lighten(L.cape, 0.15f), darken(L.cape, 0.45f), kInk, kLine);
+}
+
+// The star on Snonux's chest, below the aiming arm.
+void drawLegendStar(cairo_t* cr, const Look& L, double tx, double ty, double tw)
+{
+  starPath(cr, tx + tw * 0.36, ty + 20.0, 7.0, 3.0);
+  fillGradientOutline(cr, ty + 13.0, ty + 27.0, rgb(255, 255, 255), L.cape, kInk, 1.4);
+}
+
 void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
 {
   const double hipX = 31.0 + P.lean * 0.3, hipY = 58.0 + P.bob;
@@ -739,6 +816,8 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
   const double bsx = 29.0 + lean, bsy = 37.0 + P.bob; // back shoulder
   const double fsx = 34.0 + lean, fsy = 36.0 + P.bob; // front shoulder
 
+  if (L.legend)
+    drawLegendBehind(cr, L, P, bsx, bsy);
   // Ponytails, braids and the like sit behind everything.
   drawBackHair(cr, L, hcx, hcy, r, P.hairSwing);
 
@@ -776,6 +855,8 @@ void drawCharacter(cairo_t* cr, const Look& L, const Pose& P)
   roundedRect(cr, tx, ty, tw, th, 7.0);
   fillGradientOutline(cr, ty, ty + th, lighten(L.top, 0.15f), L.topShade, kInk, kLine);
   drawOutfit(cr, L, tx, ty, tw, th);
+  if (L.legend)
+    drawLegendStar(cr, L, tx, ty, tw);
   roundedRect(cr, tx - 1.0, ty + th - 7.0, tw + 2.0, 6.0, 2.0);
   fillOutline(cr, darken(L.pantsShade, 0.35f), kInk, 1.6);
   roundedRect(cr, tx + tw * 0.6, ty + th - 6.5, 4.0, 5.0, 1.0);

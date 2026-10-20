@@ -2187,7 +2187,7 @@ private:
   void startTurbo();
   void infect();
   const std::array<int, 8>& baseJumpArc() const;
-  int horizontalSteps() const; // cells per frame: 2 in turbo or running, 0 or 1 when infected
+  int horizontalSteps() const; // cells per frame: 2 in turbo or running (Snonux 3), 0 or 1 when infected
   void killPlayer();
   void respawnPlayer();
   void updatePlayerInteractions();
