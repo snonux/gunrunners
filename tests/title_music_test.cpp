@@ -5,8 +5,9 @@
 //     diner's radio, theme_diner, still plays);
 //   - it is as loud as Level 1's metal theme (within 2 dB), so the music
 //     does not jump in volume from the title into a level;
-//   - the first 4 bars (riff only, under the GUNRUNNERS shout) are quieter
-//     than the bars after them, where the lead guitar comes in.
+//   - it is riff only (Paul, 2026-10-20: "without high melody"): no lead
+//     guitar comes in after the first 4 bars, so they are as loud as the
+//     rest (within 1 dB) and the energy above 2 kHz does not rise either.
 
 #include "audio/synth.hpp"
 
@@ -39,6 +40,24 @@ double rmsDb(const synth::MusicTrack& t, double from, double to)
   return 10.0 * std::log10(sum / double(std::max<std::size_t>(1, 2 * (b - a))) + 1e-12);
 }
 
+// The same above about 2 kHz (left channel through a two-pole high-pass).
+double highDb(const synth::MusicTrack& t, double from, double to)
+{
+  const double k = std::exp(-2.0 * 3.141592653589793 * 2000.0 / kAudioRate);
+  double lp1 = 0.0, lp2 = 0.0, sum = 0.0;
+  const std::size_t a = std::size_t(from * kAudioRate);
+  const std::size_t b = std::min(t.left.size(), std::size_t(to * kAudioRate));
+  for (std::size_t i = 0; i < b; ++i)
+  {
+    lp1 = t.left[i] + (lp1 - t.left[i]) * k;
+    lp2 = lp1 + (lp2 - lp1) * k;
+    const double hi = t.left[i] - lp2;
+    if (i >= a)
+      sum += hi * hi;
+  }
+  return 10.0 * std::log10(sum / double(std::max<std::size_t>(1, b - a)) + 1e-12);
+}
+
 } // namespace
 
 int main()
@@ -62,9 +81,13 @@ int main()
   check(std::fabs(menuDb - levelDb) < 2.0, "as loud as Level 1's metal theme (within 2 dB)");
 
   const double introDb = rmsDb(menu, 0.0, 4.0 * bar);
-  const double hookDb = rmsDb(menu, 4.0 * bar, 12.0 * bar);
-  std::printf("intro %.1f dB, hook %.1f dB\n", introDb, hookDb);
-  check(introDb < hookDb - 1.0, "the riff intro under the shout is quieter than the hook");
+  const double restDb = rmsDb(menu, 4.0 * bar, 16.0 * bar);
+  std::printf("first 4 bars %.1f dB, the rest %.1f dB\n", introDb, restDb);
+  check(std::fabs(introDb - restDb) < 1.0, "no lead melody comes in after the intro");
+  const double introHigh = highDb(menu, 0.0, 4.0 * bar);
+  const double restHigh = highDb(menu, 4.0 * bar, 16.0 * bar);
+  std::printf("above 2 kHz: first 4 bars %.1f dB, the rest %.1f dB\n", introHigh, restHigh);
+  check(restHigh < introHigh + 1.0, "nothing high comes in after the intro");
 
   std::printf(gFailures ? "%d FAILED\n" : "all passed\n", gFailures);
   return gFailures ? 1 : 0;

@@ -1380,8 +1380,9 @@ struct Style
 // clang-format off
 const Style kStyles[] = {
   // id                         bpm  m key mode         pr groove            bass pattern       bass             pad              comp              arp              arp pattern      lead             lead2            dn swing rev  echo extras             bars
-  // The title menu's anthem, Duke mode like the levels (see titleTune).
-  {"theme_title",              132, 4, 4, Mode::Minor, 25, Groove::Driving,  BassPat::Octaves,  Inst::PickBass,  Inst::Brass,     Comp::Sustain,    Inst::None,      ArpPat::None,    Inst::LeadGtr,   Inst::LeadGtr,   1, 0.0f, 0.25f, 0.2f, 0, 16},
+  // The title menu's anthem, Duke mode like the levels: riff only, no
+  // lead melody (see metalize).
+  {"theme_title",              132, 4, 4, Mode::Minor, 25, Groove::Driving,  BassPat::Octaves,  Inst::PickBass,  Inst::Brass,     Comp::Sustain,    Inst::None,      ArpPat::None,    Inst::None,      Inst::None,      1, 0.0f, 0.25f, 0.2f, 0, 16},
   {"theme_synthwave",          120, 4, 9, Mode::Minor, 24, Groove::Four,     BassPat::Octaves,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Square,    ArpPat::Up16,    Inst::Saw,       Inst::Bell,      1, 0.0f, 0.25f, 0.3f, 0, 16},
   {"theme_airy",                92, 4, 5, Mode::Lydian, 21, Groove::Airy,    BassPat::Roots,    Inst::SubBass,   Inst::Choir,     Comp::Sustain,    Inst::Kalimba,   ArpPat::Sparse,  Inst::Flute,     Inst::Bell,      0, 0.0f, 0.5f, 0.35f, 0, 16},
   {"theme_clubhouse",          120, 4, 6, Mode::Minor,  2, Groove::House,    BassPat::Funk,     Inst::SynthBass, Inst::Organ,     Comp::Stabs,      Inst::Saw,       ArpPat::Trance,  Inst::Square,    Inst::Pluck,     2, 0.0f, 0.25f, 0.25f, kRiser, 16},
@@ -1849,6 +1850,12 @@ Metal metalize(Style& st, const std::string& id)
                                                                     : Inst::LeadGtr;
   st.lead = Inst::LeadGtr;
   st.lead2 = sig;
+  if (id == "theme_title")
+  {
+    // The title's anthem is riff only: no lead guitar melody on top.
+    st.lead = Inst::None;
+    st.lead2 = Inst::None;
+  }
   st.bass = Inst::PickBass;
   if (st.pad != Inst::Organ && st.pad != Inst::Choir && st.pad != Inst::Strings && st.pad != Inst::Brass && st.pad != Inst::Pad)
     st.pad = Inst::None;
@@ -1882,19 +1889,6 @@ const std::vector<MelNote>& levelOneTune()
     72, -1, 71, 67, -1, 0, 67, 69,    71, -1, 74, -1, 71, -1, 67, -1,
     76, -1, 74, 72, -1, 71, 72, 76,   77, -1, 81, -1, 79, 77, 76, -1,
     74, -1, 72, 74, -1, 77, 76, -1,   76, -1, -1, -1, 0, 0, 0, 0};
-  static const std::vector<MelNote> tune = eighthsTune(kMel);
-  return tune;
-}
-
-// The title menu's anthem (Em C D Em | Am C D D): the hook twice, then it
-// climbs to the top B and falls back into the loop.
-const std::vector<MelNote>& titleTune()
-{
-  static const int kMel[64] = {
-    76, -1, -1, 74, 76, -1, 79, -1,   76, -1, 74, 72, -1, 71, -1, -1,
-    74, -1, -1, 72, 74, -1, 78, -1,   76, -1, -1, -1, 71, -1, 67, 71,
-    69, -1, 72, -1, 76, -1, 81, -1,   79, -1, 76, -1, 72, -1, 76, -1,
-    78, -1, 74, -1, 78, -1, 81, -1,   83, -1, -1, -1, 81, 79, 78, -1};
   static const std::vector<MelNote> tune = eighthsTune(kMel);
   return tune;
 }
@@ -2224,9 +2218,7 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
   // Lead, then the second voice answers with the opening phrases.
   if (opt.layers >= 4 && st.lead != Inst::None)
   {
-    const auto tune = seedName == "theme_synthwave" ? levelOneTune()
-      : seedName == "theme_title"                  ? titleTune()
-                                                   : compose(seed * 2654435761u + 17u, prog, spb, st.density);
+    const auto tune = seedName == "theme_synthwave" ? levelOneTune() : compose(seed * 2654435761u + 17u, prog, spb, st.density);
     auto voice = [&](Inst inst, int fromBar, int toBar, int phraseFrom, float level) {
       const int centre = leadCentre(inst);
       double prevNote = 0.0;
