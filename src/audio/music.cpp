@@ -1334,6 +1334,7 @@ const std::vector<int>& progression(int i)
     {0, 0, 4, 4},             // 22 i i V V
     {0, 5, 1, 4},             // 23 I vi ii V
     {0, 5, 2, 6, 0, 5, 3, 4}, // 24 Level 1's theme: Am F C G | Am F Dm E
+    {0, 5, 6, 0, 3, 5, 6, 6}, // 25 the title's anthem: Em C D Em | Am C D D
   };
   return kProgs[std::size_t(i) % kProgs.size()];
 }
@@ -1379,6 +1380,8 @@ struct Style
 // clang-format off
 const Style kStyles[] = {
   // id                         bpm  m key mode         pr groove            bass pattern       bass             pad              comp              arp              arp pattern      lead             lead2            dn swing rev  echo extras             bars
+  // The title menu's anthem, Duke mode like the levels (see titleTune).
+  {"theme_title",              132, 4, 4, Mode::Minor, 25, Groove::Driving,  BassPat::Octaves,  Inst::PickBass,  Inst::Brass,     Comp::Sustain,    Inst::None,      ArpPat::None,    Inst::LeadGtr,   Inst::LeadGtr,   1, 0.0f, 0.25f, 0.2f, 0, 16},
   {"theme_synthwave",          120, 4, 9, Mode::Minor, 24, Groove::Four,     BassPat::Octaves,  Inst::SynthBass, Inst::Pad,       Comp::Sustain,    Inst::Square,    ArpPat::Up16,    Inst::Saw,       Inst::Bell,      1, 0.0f, 0.25f, 0.3f, 0, 16},
   {"theme_airy",                92, 4, 5, Mode::Lydian, 21, Groove::Airy,    BassPat::Roots,    Inst::SubBass,   Inst::Choir,     Comp::Sustain,    Inst::Kalimba,   ArpPat::Sparse,  Inst::Flute,     Inst::Bell,      0, 0.0f, 0.5f, 0.35f, 0, 16},
   {"theme_clubhouse",          120, 4, 6, Mode::Minor,  2, Groove::House,    BassPat::Funk,     Inst::SynthBass, Inst::Organ,     Comp::Stabs,      Inst::Saw,       ArpPat::Trance,  Inst::Square,    Inst::Pluck,     2, 0.0f, 0.25f, 0.25f, kRiser, 16},
@@ -1821,6 +1824,11 @@ Metal metalize(Style& st, const std::string& id)
   }
   if (id == "theme_synthwave")
     m.riff = "PppPppR-PppPpp5-";
+  else if (id == "theme_title")
+  {
+    m.riff = "P.pPP.pPR-3-P.x-";
+    m.chorus = "R---R-p.R---5-3-";
+  }
 
   // Every fourth bar turns round with chords that suit the mode.
   static const char* kDark[] = {"y-R-", "6-y-"};
@@ -1850,7 +1858,23 @@ Metal metalize(Style& st, const std::string& id)
   return m;
 }
 
-// Level 1's theme, the game's own tune, in eighths (0 rest, -1 hold).
+// Eight bars of a hand-written tune in eighths (0 rest, -1 hold).
+std::vector<MelNote> eighthsTune(const int (&mel)[64])
+{
+  std::vector<MelNote> out;
+  for (int i = 0; i < 64; ++i)
+  {
+    if (mel[i] <= 0)
+      continue;
+    int len = 1;
+    while (i + len < 64 && mel[i + len] == -1)
+      ++len;
+    out.push_back({i / 8, (i % 8) * 2, len * 2, 0, mel[i]});
+  }
+  return out;
+}
+
+// Level 1's theme, the game's own tune.
 const std::vector<MelNote>& levelOneTune()
 {
   static const int kMel[64] = {
@@ -1858,19 +1882,20 @@ const std::vector<MelNote>& levelOneTune()
     72, -1, 71, 67, -1, 0, 67, 69,    71, -1, 74, -1, 71, -1, 67, -1,
     76, -1, 74, 72, -1, 71, 72, 76,   77, -1, 81, -1, 79, 77, 76, -1,
     74, -1, 72, 74, -1, 77, 76, -1,   76, -1, -1, -1, 0, 0, 0, 0};
-  static const std::vector<MelNote> tune = [] {
-    std::vector<MelNote> out;
-    for (int i = 0; i < 64; ++i)
-    {
-      if (kMel[i] <= 0)
-        continue;
-      int len = 1;
-      while (i + len < 64 && kMel[i + len] == -1)
-        ++len;
-      out.push_back({i / 8, (i % 8) * 2, len * 2, 0, kMel[i]});
-    }
-    return out;
-  }();
+  static const std::vector<MelNote> tune = eighthsTune(kMel);
+  return tune;
+}
+
+// The title menu's anthem (Em C D Em | Am C D D): the hook twice, then it
+// climbs to the top B and falls back into the loop.
+const std::vector<MelNote>& titleTune()
+{
+  static const int kMel[64] = {
+    76, -1, -1, 74, 76, -1, 79, -1,   76, -1, 74, 72, -1, 71, -1, -1,
+    74, -1, -1, 72, 74, -1, 78, -1,   76, -1, -1, -1, 71, -1, 67, 71,
+    69, -1, 72, -1, 76, -1, 81, -1,   79, -1, 76, -1, 72, -1, 76, -1,
+    78, -1, 74, -1, 78, -1, 81, -1,   83, -1, -1, -1, 81, 79, 78, -1};
+  static const std::vector<MelNote> tune = eighthsTune(kMel);
   return tune;
 }
 
@@ -2199,7 +2224,9 @@ Stereo render(const Style& styleIn, const std::string& seedName, const Options& 
   // Lead, then the second voice answers with the opening phrases.
   if (opt.layers >= 4 && st.lead != Inst::None)
   {
-    const auto tune = seedName == "theme_synthwave" ? levelOneTune() : compose(seed * 2654435761u + 17u, prog, spb, st.density);
+    const auto tune = seedName == "theme_synthwave" ? levelOneTune()
+      : seedName == "theme_title"                  ? titleTune()
+                                                   : compose(seed * 2654435761u + 17u, prog, spb, st.density);
     auto voice = [&](Inst inst, int fromBar, int toBar, int phraseFrom, float level) {
       const int centre = leadCentre(inst);
       double prevNote = 0.0;

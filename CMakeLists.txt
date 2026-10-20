@@ -610,6 +610,10 @@ add_test(NAME double_jump COMMAND double_jump_test)
 # The announcer shouts GUNRUNNERS as the title banner lands.
 add_test(NAME title_shout COMMAND gunrunners --headless --voice-log --frames 30)
 set_tests_properties(title_shout PROPERTIES PASS_REGULAR_EXPRESSION "voice: title shout frame [0-9]+ [1-9][.][0-9]+s")
+# The title menu's Duke mode anthem (theme_title).
+add_executable(title_music_test tests/title_music_test.cpp)
+target_link_libraries(title_music_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME title_music COMMAND title_music_test)
 # HARD: the extra enemies every campaign level gets (data/hard_mode.cpp).
 add_executable(hard_mode_test tests/hard_mode_test.cpp)
 target_link_libraries(hard_mode_test PRIVATE gunrunners_core SDL2::SDL2)

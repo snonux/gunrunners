@@ -6924,26 +6924,33 @@ Mixdown renderSong(const Song& s)
   return m;
 }
 
-} // namespace
-
-MusicTrack makeMusic(Music m)
+// The calm synthwave loop the menus played before the title's anthem; the
+// diner's radio still plays it.
+MusicTrack calmMenuLoop()
 {
   // A minor synthwave: Am F C G | Am F Dm E
   const std::vector<std::array<int, 3>> chords = {
     {57, 60, 64}, {53, 57, 60}, {48, 52, 55}, {55, 59, 62},
     {57, 60, 64}, {53, 57, 60}, {50, 53, 57}, {52, 56, 59}};
+  Song s{96.0, 8, chords, false, false, {}};
+  auto mix = renderSong(s);
+  MusicTrack out;
+  out.left = std::move(mix.left);
+  out.right = std::move(mix.right);
+  out.loops = true;
+  return out;
+}
+
+} // namespace
+
+MusicTrack makeMusic(Music m)
+{
   MusicTrack out;
   switch (m)
   {
     case Music::Menu:
-    {
-      Song s{96.0, 8, chords, false, false, {}};
-      auto mix = renderSong(s);
-      out.left = std::move(mix.left);
-      out.right = std::move(mix.right);
-      out.loops = true;
-      break;
-    }
+      // The title menu's anthem, in Duke mode like the levels.
+      return makeStyledMusic("theme_title");
     case Music::Level:
       // Level 1's theme, arranged in Duke mode with the level soundtracks.
       return makeStyledMusic("theme_synthwave");
@@ -7015,8 +7022,10 @@ MusicTrack makeNamedMusic(const std::string& id)
   }
   if (id.empty() || id == "theme_synthwave")
     return makeMusic(Music::Level);
-  if (id == "theme_diner" || id == "menu")
+  if (id == "menu")
     return makeMusic(Music::Menu);
+  if (id == "theme_diner")
+    return calmMenuLoop();
   if (id == "victory")
     return makeMusic(Music::Victory);
   return makeStyledMusic(id);

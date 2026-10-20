@@ -443,7 +443,7 @@ on the rooftops, a house track in the club, dub in the sewers, marimba and
 congas in the jungle, a slide guitar in the desert, a waltz on the
 accordion, a noir trumpet in the rain, big band, arena rock and more, up to
 a medley for the finale. Bonus levels and cutscenes get their own tracks
-too. All of it, sound effects included, is synthesized by the game: no
+too, and the title menu opens with a 90s guitar-metal anthem of its own. All of it, sound effects included, is synthesized by the game: no
 samples.
 
 ## More
