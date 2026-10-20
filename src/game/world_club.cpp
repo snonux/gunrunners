@@ -652,17 +652,22 @@ void World::drawClub(Renderer& r, float camX, float camY, int frame) const
   (void)frame;
 }
 
-void World::drawClubHud(Renderer& r, int frame) const
+bool World::onLaunchPad() const
 {
-  // Standing on a launch pad: the beats to the drop, big.
   if (mState != WorldState::Playing || (mLaunch > 0 && mLaunchBump == 0))
-    return;
+    return false;
   // On it, or bumped up off it by a beat.
   CellBox b = mPlayer.box();
   int i = -1;
   for (int dy = 0; dy <= 3 && i < 0; ++dy, ++b.y)
     i = padUnder(b);
-  if (i < 0 || mPads[std::size_t(i)].fire <= 0)
+  return i >= 0 && mPads[std::size_t(i)].fire > 0;
+}
+
+void World::drawClubHud(Renderer& r, int frame) const
+{
+  // Standing on a launch pad: the beats to the drop, big.
+  if (!onLaunchPad())
     return;
   const int beatsLeft = 4 - beatOfFrame(mStats.frames);
   const std::string text = "STAY ON THE PAD - LAUNCH IN " + std::to_string(beatsLeft);

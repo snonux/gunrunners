@@ -116,7 +116,7 @@ def _tip(kind, keys, theme):
     if kind == "panel" and keys.get("bonus") != "1":
         return "A BREACH CHARGE BLOWS THE PANEL OPEN: HOLD A RAIL OR A LADDER WHILE IT VENTS"
     if kind == "platform" and keys.get("mode") == "pulley" and "pair" in keys:
-        return "STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES"
+        return "STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES. JUMP ACROSS TO THE RISEN ONE - IT WAITS A MOMENT - AND ON UP"
     if kind == "platform" and keys.get("mode") == "sink":
         return "THE STONES SINK UNDER YOU: KEEP MOVING"
     if kind == "door" and theme == "broadcast_mast":

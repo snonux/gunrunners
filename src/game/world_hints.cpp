@@ -103,6 +103,13 @@ void World::updateHints()
   if (mLaunch > 0 && mLaunchBump == 0)
     mHintPadDone = true;
 
+  // Keep the tip clear of the runner: up top while they are low on the screen.
+  const float feetY = float((b.bottom() + 1) * kCellSize - mCamera.y()) * kPixelScale;
+  if (feetY > float(kScreenH) * 0.6f)
+    mHintTop = true;
+  else if (feetY < float(kScreenH) * 0.45f)
+    mHintTop = false;
+
   mHintText.clear();
   if (!mPlay.hints || p.state == PlayerState::Dying || p.state == PlayerState::Teleporting)
     return;
@@ -168,8 +175,8 @@ void World::updateHints()
     return;
   }
 
-  // Level 3: a launch pad on this floor, near by.
-  if (!mHintPadDone)
+  // Level 3: a launch pad on this floor, near by (on it, the HUD counts down).
+  if (!mHintPadDone && !onLaunchPad())
     for (const auto& pad : mPads)
       if (pad.fire > 0 && std::abs(pad.y - (b.bottom() + 1)) <= 2 && std::abs(pad.x + pad.w / 2 - cx) <= 24)
       {
@@ -183,9 +190,10 @@ void World::drawHints(Renderer& r, int frame) const
   if (mHintText.empty() || mState != WorldState::Playing || vehicleInReach() >= 0)
     return;
   // Narrow enough to stay clear of the touch stick and buttons in the
-  // bottom corners, and just over the voice subtitles (y 594).
+  // bottom corners, and just over the voice subtitles (y 594); up top it
+  // hangs under the HUD (and under the launch pad countdown).
   const TextStyle style{22.0f, rgb(255, 236, 120), kHudInk, true};
-  constexpr float kMaxW = 480.0f, kBottom = 586.0f;
+  constexpr float kMaxW = 480.0f, kBottom = 586.0f, kTop = 84.0f;
   std::vector<std::string> lines;
   std::string line, word;
   auto fits = [&](const std::string& s) { return float(r.text(s, style).w()) <= kMaxW; };
@@ -215,7 +223,8 @@ void World::drawHints(Renderer& r, int frame) const
     textW = std::max(textW, float(r.text(l, style).w()));
   const float lineH = 30.0f;
   const float w = textW + 96.0f, h = lineH * float(lines.size()) + 14.0f;
-  const float x = float(kScreenW) * 0.5f - w * 0.5f, y = kBottom - h;
+  const float top = onLaunchPad() ? kTop + 60.0f : kTop;
+  const float x = float(kScreenW) * 0.5f - w * 0.5f, y = mHintTop ? top : kBottom - h;
   const float pulse = 0.75f + 0.25f * std::sin(float(frame) * 0.12f);
   r.fillRect(x, y, w, h, rgba(10, 8, 20, 200));
   r.fillRect(x, y, 8.0f, h, withAlpha(rgb(255, 214, 64), int(255 * pulse)));

@@ -2241,6 +2241,7 @@ private:
   void shotAtProps(const CellBox& b);
   PlayerInput beatStepInput(const PlayerInput& in);
   void drawClub(Renderer& r, float camX, float camY, int frame) const;
+  bool onLaunchPad() const; // standing on (or bumped up off) a pad that launches
   void drawClubHud(Renderer& r, int frame) const;
   // world_hints.cpp: the tip line
   struct HintZone
@@ -3925,6 +3926,7 @@ private:
   std::string mHintText;
   int mHintFieldTicks = 0; // a force field bumped without the card
   bool mHintPipeDone = false, mHintCrawlDone = false, mHintPadDone = false;
+  bool mHintTop = false; // the runner is low on the screen: the tip goes up top
   int mProgressAt = 0;                // logic frame of the last progress
   std::vector<std::uint8_t> mVisited; // squares of the map seen
   std::vector<Particle> mParticles;

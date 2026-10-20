@@ -22,6 +22,8 @@ constexpr float kTilePx = kCellPx * float(kCellsPerTile);
 
 int sgn(int v) { return (v > 0) - (v < 0); }
 
+constexpr int kGondolaHold = 24; // frames a risen gondola waits under a runner who lands on it
+
 } // namespace
 
 // --- Setup -------------------------------------------------------------------
@@ -286,7 +288,14 @@ void World::updatePlatforms()
       // The cable creaks and both gondolas shudder before they move.
       a.balance = bal;
       a.slackLeft = a.slack;
-      if (bal != 0)
+      // The runner has just landed on the risen gondola: it holds a while
+      // before it starts down, so there is time to jump on from it (Paul:
+      // a platform you jump onto never moves away under you at once).
+      const Platform& sinking = bal > 0 ? a : b;
+      const bool hold = (bal > 0 ? onA : onB) && sinking.y < sinking.homeY;
+      if (hold)
+        a.slackLeft += kGondolaHold;
+      if (bal != 0 && !hold)
       {
         a.shudder = b.shudder = a.slack;
         if (isOnScreen(a.box(), 4) || isOnScreen(b.box(), 4))
@@ -296,7 +305,10 @@ void World::updatePlatforms()
     a.idle = (onA || onB || bal != 0) ? 0 : a.idle + 1;
     int dir = 0; // +1: A sinks, B rises
     if (a.slackLeft > 0)
-      --a.slackLeft;
+    {
+      if (--a.slackLeft == a.slack && bal != 0)
+        a.shudder = b.shudder = a.slack; // the hold is over: the cable creaks
+    }
     else if (bal != 0)
       dir = (++a.moveTick % 2 == 0) ? bal : 0; // half a cell per frame
     else if (!a.braked && a.idle >= a.rehome && a.y != a.startY)

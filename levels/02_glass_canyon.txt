@@ -45,7 +45,7 @@ tip=CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER
 #............................H.............................#
 #............................H.............................#
 #............................H...........................c.#
-###################......########################==========#
+#################################################==========#
 #..........................#.H#............................#
 #..........................#.H#............................#
 #..........................#.H#...................=====....#
@@ -105,7 +105,7 @@ tip=CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER
 #............................H.............................#
 #............................H.............................#
 #.....T......................H.......................c.....#
-###################......##########===============##########
+###################################===============##########
 #..........................#.H#............................#
 #..........................#.H#............................#
 #..........................#.H#.......g.....=====..........#
@@ -132,7 +132,7 @@ tip=CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER
 #............................H.............................#
 #............................H.............................#
 #.................c..........H.............................#
-#==============######################......#################
+#==============#############################################
 #..........................#.H#............................#
 #..........................#.H#............................#
 #........=====.............#.H#............................#
@@ -154,9 +154,9 @@ tip=CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER
 #............g...............H.............................#
 #............................H.............................#
 #.*P.........................H.............................#
-#####......#################################################
-#####......#################################################
-#####......#################################################
+############################################################
+############################################################
+############################################################
 ############################################################
 [entities]
 @ hatch 28 124 tile==
@@ -167,24 +167,24 @@ tip=CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER
 @ hatch 29 66
 @ hatch 28 37 tile==
 @ hatch 29 37
-@ platform g1a 5 146 mode=pulley w=3 pair=g1b drop=2 slack=8 rehome=30
-@ platform g1b 8 146 mode=pulley w=3
-@ platform g2a 11 135 mode=pulley w=3 pair=g2b drop=2 slack=8 rehome=30
-@ platform g2b 8 135 mode=pulley w=3
-@ platform g3a 37 124 mode=pulley w=3 pair=g3b drop=2 slack=8 rehome=30
-@ platform g3b 40 124 mode=pulley w=3
-@ platform g4a 46 108 mode=pulley w=3 pair=g4b drop=2 slack=8 rehome=30
-@ platform g4b 43 108 mode=pulley w=3
+@ platform g1a 5 144 mode=pulley w=3 pair=g1b drop=1 slack=8 rehome=30
+@ platform g1b 8 144 mode=pulley w=3
+@ platform g2a 11 133 mode=pulley w=3 pair=g2b drop=1 slack=8 rehome=30
+@ platform g2b 8 133 mode=pulley w=3
+@ platform g3a 37 122 mode=pulley w=3 pair=g3b drop=1 slack=8 rehome=30
+@ platform g3b 40 122 mode=pulley w=3
+@ platform g4a 46 106 mode=pulley w=3 pair=g4b drop=1 slack=8 rehome=30
+@ platform g4b 43 106 mode=pulley w=3
 @ glass_crawler 58 117
 @ glass_crawler 58 104
 @ glass_crawler 31 110
 @ deco kind=42 x=51 y=111 w=3 h=2 text="uptime: 42 days"
-@ platform g5a 22 97 mode=pulley w=3 pair=g5b drop=2 slack=8 rehome=30
-@ platform g5b 19 97 mode=pulley w=3
-@ platform g6a 9 86 mode=pulley w=3 pair=g6b drop=2 slack=8 rehome=30
-@ platform g6b 12 86 mode=pulley w=3
-@ platform g7a 14 74 mode=pulley w=3 pair=g7b drop=2 slack=8 rehome=30
-@ platform g7b 11 74 mode=pulley w=3
+@ platform g5a 22 95 mode=pulley w=3 pair=g5b drop=1 slack=8 rehome=30
+@ platform g5b 19 95 mode=pulley w=3
+@ platform g6a 9 84 mode=pulley w=3 pair=g6b drop=1 slack=8 rehome=30
+@ platform g6b 12 84 mode=pulley w=3
+@ platform g7a 14 72 mode=pulley w=3 pair=g7b drop=1 slack=8 rehome=30
+@ platform g7b 11 72 mode=pulley w=3
 @ squeegee_drone sq1 rect=2,90,26,91
 @ squeegee_drone sq2 rect=2,79,26,80 start=r
 @ glass_crawler 26 88
@@ -195,15 +195,15 @@ tip=CLIMB THE TOWER TO THE HELIPAD. STAND ON A GONDOLA: IT SINKS AND ITS PARTNER
 @ spawner 38 45 enemy=chrome_cop onto=g8b
 @ breakable rect=48,53,48,56 hp=2 by=any
 @ glass_crawler 58 60
-@ platform g9a 22 37 mode=pulley w=3 pair=g9b drop=2 slack=8 rehome=30
-@ platform g9b 19 37 mode=pulley w=3
+@ platform g9a 22 35 mode=pulley w=3 pair=g9b drop=1 slack=8 rehome=30
+@ platform g9b 19 35 mode=pulley w=3
 @ deco kind=reflection rect=1,18,9,20
-@ platform g10a 10 21 mode=pulley w=3 pair=g10b drop=2 slack=8 rehome=30
-@ platform g10b 13 21 mode=pulley w=3
+@ platform g10a 10 19 mode=pulley w=3 pair=g10b drop=1 slack=8 rehome=30
+@ platform g10b 13 19 mode=pulley w=3
 @ penthouse_sniper 25 23
 @ penthouse_sniper 2 10 dir=r
 @ squeegee_drone sq3 rect=5,26,26,27
 @ deco kind=text x=35 y=5 w=16 h=2 text="HALCYON HELIPAD"
-@ hint rect=2,142,10,148 text="STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES"
-@ hint rect=8,131,16,137 text="STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES"
-@ hint rect=34,120,42,126 text="STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES"
+@ hint rect=2,140,10,146 text="STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES. JUMP ACROSS TO THE RISEN ONE - IT WAITS A MOMENT - AND ON UP"
+@ hint rect=8,129,16,135 text="STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES. JUMP ACROSS TO THE RISEN ONE - IT WAITS A MOMENT - AND ON UP"
+@ hint rect=34,118,42,124 text="STAND ON A GONDOLA: IT SINKS AND ITS PARTNER RISES. JUMP ACROSS TO THE RISEN ONE - IT WAITS A MOMENT - AND ON UP"

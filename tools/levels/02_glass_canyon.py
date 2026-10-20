@@ -34,8 +34,16 @@ def ladder(x, y0, y1):
     L.col(x, y0, y1, "H")
 
 
-def pair(pid, ax, bx, home, drop=2, **keys):
-    """A pulley pair: gondolas 3 blocks wide, top surface on row `home`."""
+def pair(pid, ax, bx, home, drop=None, **keys):
+    """A pulley pair: gondolas 3 blocks wide, top surface on row `home`.
+
+    The everyday pair hangs two blocks up and moves a block each way:
+    standing on one takes it a block down and its partner a block up, an
+    easy jump across for every runner, and the next ledge is an easy jump
+    on, two blocks over the risen one (which also waits a moment under a
+    runner who lands on it). `drop=` keeps the old ride."""
+    if drop is None:
+        home, drop = home - 2, 1
     L.at("platform", ax, home, pid + "a", mode="pulley", w=3, pair=pid + "b", drop=drop, slack=8,
          rehome=keys.pop("rehome", 30), **keys)
     L.at("platform", bx, home, pid + "b", mode="pulley", w=3)
@@ -78,7 +86,6 @@ for name in ("C1", "C2", "C3", "C4"):
 # --- 1. Ground floor (left), rows 146-124 ----------------------------------
 L.on(3, 146, "P")
 L.put(2, 145, "*")
-hole(5, 10, 146, 148)                 # g1's shafts
 pair("g1", 5, 8, 146)
 frame(22, 25, 142)                    # n1: Nova's shortcut
 ledge(11, 18, 141)                    # L1
@@ -94,7 +101,6 @@ gems((13, 143), (19, 139), (20, 136), (5, 128))
 
 # --- 2. Staircase (right), rows 124-97 --------------------------------------
 L.on(18, 124, "c")
-hole(37, 42, 124, 124)                # g3 sits in the slab
 pair("g3", 37, 40, 124)
 ledge(43, 50, 119)                    # L3
 L.on(47, 119, "W")
@@ -114,7 +120,6 @@ gems((41, 120), (51, 117), (52, 114), (45, 104), (38, 100))
 # --- 3. Squeegees (left), rows 97-66 -----------------------------------------
 L.on(53, 97, "c")
 L.on(6, 97, "T")
-hole(19, 24, 97, 97)                  # g5 sits in the slab
 pair("g5", 22, 19, 97)
 ledge(11, 18, 93)                     # L5
 L.on(16, 93, "W")
@@ -169,7 +174,6 @@ gems((44, 62), (52, 44), (57, 41))
 
 # --- 5. Sniper floors (left), rows 37-7 --------------------------------------
 L.on(57, 37, "c")
-hole(19, 24, 37, 37)                  # g9 sits in the slab
 pair("g9", 22, 19, 37)
 ledge(11, 18, 32)                     # L9
 frame(3, 9, 29)                       # w14
