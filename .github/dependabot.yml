@@ -1,0 +1,8 @@
+# Keep the SHA-pinned GitHub Actions in .github/workflows current: Dependabot
+# opens a weekly PR bumping each pin and its trailing "# vX.Y.Z" comment.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
