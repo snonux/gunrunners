@@ -1,1 +1,1 @@
-Cutscenes no longer end on the first button press: a press (or a tap) moves on to the next line or scene. To skip a whole cutscene, press three times quickly or hold a button for a second; a hint at the bottom says so.
+Aim while jumping or falling: hold a direction to shoot up, down or diagonally. Touch and right-stick aiming still work at any angle in the air. Prototype guns can shoot up or down during jumps too.
