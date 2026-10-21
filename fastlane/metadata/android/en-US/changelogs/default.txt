@@ -1,1 +1,1 @@
-Aim while jumping or falling: hold a direction to shoot up, down or diagonally. Touch and right-stick aiming still work at any angle in the air. Prototype guns can shoot up or down during jumps too.
+Fixed getting stuck below the neon stairs in Rooftop Run. A recovery ladder on the right lets every runner climb back onto the roof after a missed jump, with a hint showing the way out.
