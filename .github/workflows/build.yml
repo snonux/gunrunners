@@ -50,7 +50,7 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
           android/build.sh release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gunrunners-debug-signed.apk
           path: android/app/build/outputs/apk/release/app-release.apk
