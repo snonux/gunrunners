@@ -312,8 +312,9 @@ game remembers your choice.
 ## The campaign
 
 A new game plays the opening movie, then each level's briefing, the level,
-the tally and, after an episode's last level, its ending. Any button skips
-a cutscene. The title screen also has WORLD SELECT, RERUNS (cutscenes you
+the tally and, after an episode's last level, its ending. In a cutscene
+any button (or a tap) moves on to the next line or scene; three quick
+presses, or a button held for a second, skip the whole cutscene. The title screen also has WORLD SELECT, RERUNS (cutscenes you
 have seen) and the TRAINING STAGE, a free-play level for trying the controls.
 
 - **World select.** One card per episode, plus DEEP SPACE and EXTRAS; pick

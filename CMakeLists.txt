@@ -331,6 +331,9 @@ set_tests_properties(voices_hotkey PROPERTIES PASS_REGULAR_EXPRESSION "voice: sa
 add_executable(cutscene_voices_test tests/cutscene_voices_test.cpp)
 target_link_libraries(cutscene_voices_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME cutscene_voices COMMAND cutscene_voices_test ${CMAKE_SOURCE_DIR})
+add_executable(cutscene_skip_test tests/cutscene_skip_test.cpp)
+target_link_libraries(cutscene_skip_test PRIVATE gunrunners_core SDL2::SDL2)
+add_test(NAME cutscene_skip COMMAND cutscene_skip_test)
 # The background renderers behind the music preloads (src/audio/render_queue.hpp)
 # and the sound effects (src/audio/sound_bank.hpp).
 add_executable(render_queue_test tests/render_queue_test.cpp)

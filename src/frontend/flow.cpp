@@ -702,6 +702,7 @@ void Game::nextCutscene()
   mCutQueue.pop_front();
   mCutscene = std::make_unique<CutscenePlayer>(Cutscene::load(cutsceneFile(dataDir(), name)), mAudio);
   mCutscene->setVoices(&mCutsceneVoices, voiceVolume(), playOption("opt.subtitles", true));
+  mCutscene->setTouchHints(mOptions.touch);
   if (!mClipKit)
     mClipKit.reset(new ClipKit{mRenderer, *mArt, theme(), mLevelNumber, {}, {}});
   mClipKit->level = mLevelNumber;

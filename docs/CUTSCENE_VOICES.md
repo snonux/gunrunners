@@ -25,7 +25,9 @@ a voice of their own:
 
 A spoken line is heard to the end: the scene holds the frame before the
 next `say` or `voice`, before a `fade=out` and before the shot ends until
-the line is over. Pressing a button on a panel cuts the line. The music
+the line is over. Pressing a button cuts the line and moves on to the
+next one (or the next shot); three quick presses or a held button skip the
+cutscene. The music
 ducks under every line, the typing blips stay quiet under a spoken one,
 and the ASSISTS options apply: RUNNER VOICES sets the volume (OFF leaves
 subtitles only, as before) and SUBTITLES OFF hides the box under a spoken

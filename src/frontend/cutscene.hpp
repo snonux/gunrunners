@@ -85,9 +85,17 @@ public:
   bool speaking() const { return mSpeakTicks > 0; }
   const std::string& subtitle() const { return mLine; } // empty: no box
   const std::string& name() const { return mCutscene.name; }
+  // The skip hint speaks of taps (touch) or presses and holds.
+  void setTouchHints(bool touch) { mTouchHints = touch; }
+  // A press moves on one beat (the next line, or the next shot); a few
+  // quick presses, or a held button, skip the whole cutscene.
+  static constexpr int kSkipPresses = 3;
+  static constexpr int kSkipGapTicks = 30; // between the quick presses
+  static constexpr int kSkipHoldTicks = 60;
 
 private:
-  void enterFrame();
+  void enterFrame(bool quiet = false);
+  void nextBeat();
   void nextShot();
   void finish();
   int totalFrames() const;
@@ -107,6 +115,15 @@ private:
   int mShotTicks = 0;
   int mTicks = 0;
   std::vector<bool> mFired;
+
+  // Skipping: quick presses so far, ticks since the last press, how long
+  // the button pressed last has been held, and how long the hint shows.
+  int mPresses = 0;
+  int mSincePress = 0;
+  int mHeldTicks = 0;
+  bool mHolding = false;
+  int mHintTicks = 0;
+  bool mTouchHints = false;
 
   // Speech: the clip of each cue (by shot, then cue), loaded up front.
   std::vector<std::vector<std::shared_ptr<const std::vector<float>>>> mClips;

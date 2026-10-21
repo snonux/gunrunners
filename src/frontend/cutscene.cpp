@@ -287,7 +287,34 @@ void CutscenePlayer::finish()
   stopSpeaking();
 }
 
-void CutscenePlayer::enterFrame()
+void CutscenePlayer::nextBeat()
+{
+  stopSpeaking(); // the player has heard enough of it
+  // The next frame of this shot with a line on it; none left: the next shot.
+  const auto& s = mCutscene.shots[std::size_t(mShot)];
+  int target = -1;
+  for (const auto& c : s.cues)
+    if (c.frame > mFrame && (c.key == "say" || c.key == "voice") && (target < 0 || c.frame < target))
+      target = c.frame;
+  const int total = totalFrames();
+  if (target < 0 || (total >= 0 && target >= total))
+  {
+    nextShot();
+    return;
+  }
+  // The frames in between go by quietly: music and fades keep up, but no
+  // sound effects, flashes or waits for a button.
+  while (mFrame + 1 < target)
+  {
+    ++mFrame;
+    enterFrame(true);
+  }
+  ++mFrame;
+  mFrameMs = 0.0f;
+  enterFrame();
+}
+
+void CutscenePlayer::enterFrame(bool quiet)
 {
   const auto& s = mCutscene.shots[std::size_t(mShot)];
   mFrameLength = float(mDelay);
@@ -297,6 +324,8 @@ void CutscenePlayer::enterFrame()
     if (mFired[i] || c.frame != mFrame)
       continue;
     mFired[i] = true;
+    if (quiet && c.key != "stopsound" && c.key != "music" && c.key != "delay" && c.key != "fade")
+      continue;
     if (c.key == "sound")
     {
       if (mAudio)
@@ -334,6 +363,8 @@ void CutscenePlayer::enterFrame()
       mFadeTo = dir == "in" ? 0.0f : 1.0f;
       if (mFadeLen <= 0.0f)
         mFadeLen = 1.0f;
+      if (quiet)
+        mFadeMs = mFadeLen; // already over
     }
     else if (c.key == "flash")
     {
@@ -362,15 +393,40 @@ bool CutscenePlayer::tick(const Input& in, const Input& prev)
   ++mTicks;
   ++mShotTicks;
   auto edge = [&](bool Input::*f) { return in.*f && !(prev.*f); };
-  const bool advance = edge(&Input::confirm) || edge(&Input::jump) || edge(&Input::fire);
-  const bool skip = edge(&Input::back) || edge(&Input::pause);
+  const bool press = mTicks > 4 && (edge(&Input::confirm) || edge(&Input::jump) || edge(&Input::fire) ||
+                                    edge(&Input::back) || edge(&Input::pause));
+  const bool held = in.confirm || in.jump || in.fire || in.back || in.pause;
 
-  if (skip && mTicks > 4)
+  // Any button moves on one beat. A few quick presses in a row, or one
+  // held down, skip the cutscene (a button held since before it began
+  // doesn't count).
+  ++mSincePress;
+  if (mHintTicks > 0)
+    --mHintTicks;
+  if (press)
+  {
+    mPresses = mSincePress <= kSkipGapTicks ? mPresses + 1 : 1;
+    mSincePress = 0;
+    mHolding = true;
+    mHeldTicks = 0;
+    mHintTicks = 150;
+    if (mPresses >= kSkipPresses)
+    {
+      finish();
+      return false;
+    }
+  }
+  else if (mSincePress > kSkipGapTicks)
+  {
+    mPresses = 0;
+  }
+  mHolding = mHolding && held;
+  if (mHolding && ++mHeldTicks >= kSkipHoldTicks)
   {
     finish();
     return false;
   }
-  if (advance && mTicks > 4)
+  if (press)
   {
     if (mWaiting)
     {
@@ -384,10 +440,12 @@ bool CutscenePlayer::tick(const Input& in, const Input& prev)
       }
       mFrameMs = mFrameLength; // move on now
     }
-    else
+    else if (mCutscene.shots[std::size_t(mShot)].clip != "credits")
     {
-      finish();
-      return false;
+      // The credits roll on: only a skip cuts them short.
+      nextBeat();
+      if (mDone)
+        return false;
     }
   }
 
@@ -483,6 +541,19 @@ void CutscenePlayer::render(ClipKit& kit)
   }
   if (mWaiting && (mTicks / 20) % 2 == 0)
     r.drawText("PRESS A BUTTON", float(kScreenW) - 40.0f, float(kScreenH) - 34.0f, {16.0f, rgb(200, 200, 220)}, Align::Right);
+  if (mHintTicks > 0)
+  {
+    // After a press: how to skip, with the presses and the hold so far.
+    const bool once = mPresses == kSkipPresses - 1 && mSincePress <= kSkipGapTicks;
+    const char* hint = once ? "ONCE MORE TO SKIP" : (mTouchHints ? "TAP 3x FAST TO SKIP" : "PRESS 3x FAST OR HOLD TO SKIP");
+    r.drawText(hint, 40.0f, float(kScreenH) - 34.0f, {16.0f, rgb(200, 200, 220)});
+    if (mHolding && mHeldTicks > 6)
+    {
+      const float w = 200.0f * float(mHeldTicks) / float(kSkipHoldTicks);
+      r.fillRect(40.0f, float(kScreenH) - 10.0f, 200.0f, 4.0f, rgba(255, 255, 255, 60));
+      r.fillRect(40.0f, float(kScreenH) - 10.0f, w, 4.0f, kit.theme.accentA);
+    }
+  }
 
   if (mFlashMs > 0.0f)
     r.fillRect(0, 0, float(kScreenW), float(kScreenH), rgba(255, 255, 255, int(255.0f * mFlashMs / std::max(1.0f, mFlashLen))));
