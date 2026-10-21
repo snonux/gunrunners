@@ -2199,10 +2199,11 @@ private:
   bool layerWantsSolid(const Layer& l, int frame) const;
   void applyLayer(Layer& l, bool solid);
 public:
-  // Checks only (navcheck --no-jump-through): a runner going up can't pass
-  // blinking layers (beat and timer ones) or moving platforms from below,
-  // and with `oneWays` one-way blocks neither; a ladder still climbs
-  // through. What is then out of reach needs a jump up through one.
+  // Checks only (navcheck --no-jump-through): blinking layers (beat and
+  // timer ones) never go dark, and a runner going up can't pass them or
+  // moving platforms from below (with `oneWays`, one-way blocks neither);
+  // a ladder still climbs through. What is then out of reach needs a
+  // blinking block to vanish first, or a jump up through a platform.
   void forbidJumpThrough(bool oneWays);
 private:
   void updateProps(const PlayerInput& input);
@@ -3608,6 +3609,7 @@ private:
   std::vector<Item> mItems;
   std::vector<Checkpoint> mCheckpoints;
   std::vector<Layer> mLayers;
+  bool mBlinkersStay = false; // forbidJumpThrough: beat and timer layers stay solid
   std::vector<std::uint8_t> mLayerMask; // per block: 1 if a layer draws it
   // Per block: 1 once explored. Shared by copies; simulations have none.
   std::shared_ptr<std::vector<std::uint8_t>> mExplored;

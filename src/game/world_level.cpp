@@ -564,6 +564,8 @@ void World::setupEntities()
 
 bool World::layerWantsSolid(const Layer& l, int frame) const
 {
+  if (mBlinkersStay && (l.driver == LayerDriver::Beat || l.driver == LayerDriver::Timer))
+    return true;
   switch (l.driver)
   {
     case LayerDriver::Beat:
@@ -611,6 +613,8 @@ void World::forbidJumpThrough(bool oneWays)
         if (mMap.block(tx, ty) == Tile::Platform)
           blocks[std::size_t(ty * W + tx)] = 1;
   mMap.setNoPassUp(std::move(blocks), true);
+  mBlinkersStay = true;
+  updateLayers(true);
 }
 
 void World::updateLayers(bool force)
