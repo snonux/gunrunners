@@ -546,12 +546,14 @@ void CutscenePlayer::render(ClipKit& kit)
     // After a press: how to skip, with the presses and the hold so far.
     const bool once = mPresses == kSkipPresses - 1 && mSincePress <= kSkipGapTicks;
     const char* hint = once ? "ONCE MORE TO SKIP" : (mTouchHints ? "TAP 3x FAST TO SKIP" : "PRESS 3x FAST OR HOLD TO SKIP");
-    r.drawText(hint, 40.0f, float(kScreenH) - 34.0f, {16.0f, rgb(200, 200, 220)});
+    // In the middle of the bar: the corners have the touch buttons.
+    const float cx = float(kScreenW) * 0.5f;
+    r.drawText(hint, cx, float(kScreenH) - 34.0f, {16.0f, rgb(200, 200, 220)}, Align::Center);
     if (mHolding && mHeldTicks > 6)
     {
       const float w = 200.0f * float(mHeldTicks) / float(kSkipHoldTicks);
-      r.fillRect(40.0f, float(kScreenH) - 10.0f, 200.0f, 4.0f, rgba(255, 255, 255, 60));
-      r.fillRect(40.0f, float(kScreenH) - 10.0f, w, 4.0f, kit.theme.accentA);
+      r.fillRect(cx - 100.0f, float(kScreenH) - 10.0f, 200.0f, 4.0f, rgba(255, 255, 255, 60));
+      r.fillRect(cx - 100.0f, float(kScreenH) - 10.0f, w, 4.0f, kit.theme.accentA);
     }
   }
 
