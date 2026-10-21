@@ -52,7 +52,8 @@ Useful flags: `--theme N`, `--character N`, `--skip-menu`, `--autoplay` (the
 bot plays), `--start N` (campaign level N), `--no-cutscenes`,
 `--cutscene NAME` (play one cutscene), `--level PATH` (just this level
 file), `--fullscreen` / `--windowed` (override the saved fullscreen setting
-for one run), `--no-audio`, `--cheats`, `--save-dir PATH`, `--trace`
+for one run), `--no-audio`, `--cheats`, `--snonux` (the secret runner,
+unlocked for one run), `--save-dir PATH`, `--trace`
 (prints the player state every logic frame), `--press LIST` (scripted
 button presses for headless menu tests). Run `--help` for all of them.
 

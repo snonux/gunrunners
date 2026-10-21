@@ -438,6 +438,29 @@ start. Cheating has a price, as it should: a level you cheated in pays no
 tally bonuses, and its score, time, Bonus Star and Arsenal entry are not
 recorded in your profile. Savegames remember that you cheated.
 
+### The secret runner: SNONUX
+
+On the runner select screen, pick **NEW RUNNER** and name the runner
+**SNONUX** (any case; type it, or spell it on the editor's letter grid
+with a pad or by touch), then **SAVE RUNNER**. No new runner is made:
+instead a chime plays, *SECRET RUNNER UNLOCKED* shows, and **SNONUX, THE
+LEGEND** joins the team after the six built-in runners, the game's author
+as a golden hero with a red cape. He stays unlocked for good (the profile
+remembers him, and loading a savegame he is in unlocks him too), and he
+can be switched to, picked by RANDOM RUNNER and swapped in on death like
+everyone else.
+
+| | SNONUX |
+|---|---|
+| Hearts | 12, the most there are |
+| Jump | 10 cells (Nova: 9), and the biggest double jump |
+| Guns | rockets in hand, the laser and the flamer full as spares, and the blaster |
+| Rapid fire | all the time, it never runs out |
+| Speed | walks like everyone else, runs a cell a frame faster than anyone |
+
+Playing as SNONUX is not cheating: records, bonuses and Bonus Stars count.
+`--snonux` unlocks him for one run (`--character 6` then picks him).
+
 ## Sound and music
 
 Every level has its own soundtrack, each in a style of its own: synthwave
