@@ -497,7 +497,9 @@ with
 build/navcheck --no-jump-through layers levels/*.txt
 ```
 
-which stops a jump going up through a beat or timer layer or a moving
-platform as if it were a ceiling; anything it lists then needs such a jump.
+which keeps beat and timer layers solid all the time and stops a jump going
+up through them or a moving platform as if they were a ceiling; anything it
+lists then needs a blinking block to vanish first, or such a jump (the
+Negative Space bonus is the one exception: swapping blocks are its rule).
 `--no-jump-through all` treats one-way blocks the same way.
 

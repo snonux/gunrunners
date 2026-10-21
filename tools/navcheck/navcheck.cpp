@@ -11,9 +11,10 @@
 //   navcheck [--character N,M,...] [--map DIR] [--max-nodes N]
 //            [--no-jump-through layers|all] LEVEL...
 //
-// --no-jump-through: a jump can't pass up through blinking layers and
-// moving platforms (layers), or through those and one-way blocks too (all),
-// so what it lists then needs a jump straight up through one. Paul's rule:
+// --no-jump-through: blinking layers never go dark, and a jump can't pass
+// up through them and moving platforms (layers), or through those and
+// one-way blocks too (all), so what it lists then needs a blinking block
+// to vanish first or a jump straight up through one. Paul's rule:
 // a blinking or moving platform is jumped onto from the side, never up
 // through (glass one-way blocks may be jumped through), so every level
 // passes `--no-jump-through layers`.
