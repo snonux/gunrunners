@@ -125,6 +125,10 @@ stairs = [("a1", 126, 14, 127, "cyan"), ("b1", 128, 12, 129, "pink"), ("a2", 130
 for sid, x0, row, x1, color in stairs:
     L.at("layer", None, None, sid, rect=(x0, row, x1, row), driver="lit", beats="1,2,3,4", style="sign", color=color)
 L.put(133, 7, "3")
+# A missed stair jump can land below the signs, where the lowest sign
+# blocks the way back left. Keep a climbable escape beside the tall roof.
+# Column 134 stays clear for the runner hanging to the ladder's left.
+L.col(135, 6, 15, "H")
 L.fill(140, 142, 5, 5, "#")                 # a water tank on the top roof
 L.put(141, 4, "C")
 L.at("deco", kind=42, x=140, y=5, w=3, h=1, text="TANK 42")
@@ -160,6 +164,7 @@ L.put(188, 5, "*")
 # Tips (HINTS): the signs, the card, the stairs, the way out of the U.
 L.hint(19, 18, 31, 25, "NEON SIGNS ARE SOLID ONLY WHILE THEY GLOW - THEY GO DARK ON EVERY 4TH BEAT. CROSS WHILE THEY ARE LIT")
 L.hint(100, 10, 113, 15, "THE FORCE FIELD AHEAD NEEDS THE ACCESS CARD: SHOOT THE WHITE BOX TO GET IT", until="card")
+L.hint(128, 13, 135, 15, "FELL BELOW THE SIGNS? CLIMB THE LADDER ON THE RIGHT AND JUMP RIGHT ONTO THE ROOF")
 L.hint(124, 8, 135, 15, "JUMP FROM SIGN TO SIGN, UP AND TO THE RIGHT, TO THE ROOF")
 L.hint(161, 6, 162, 9, "TO GET OUT OF THE U, STAND ON ITS FLOOR: IT GOES DARK ON THE 4TH BEAT AND DROPS YOU DOWN", after=3)
 

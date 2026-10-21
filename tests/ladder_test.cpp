@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <dirent.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace gr;
@@ -194,6 +195,40 @@ int main(int argc, char** argv)
         check(standing && bottom, what);
         std::snprintf(what, sizeof what, "runner %d: back up the ladder and out onto the floor", c);
         check(top && p.state == PlayerState::OnGround && p.y == 23 && p.box().left() >= 22, what);
+      }
+    }
+    {
+      // Rooftop Run: miss the sign stairs on their right, drop to the
+      // lower floor, then walk underneath them. The first low sign blocks
+      // retreat to the left; the ladder beside the roof must provide a
+      // way out without double jumping, shooting or changing runners.
+      Level level = Level::loadFile(std::string(argv[1]) + "/01_rooftop_run.txt");
+      level.startTx = 134;
+      level.startTy = 7;
+      const auto rooftop = std::make_shared<const Level>(std::move(level));
+      for (int c = 0; c < kDefaultRunners; ++c)
+      {
+        World w(rooftop, c, theme, art);
+        Keys prev;
+        hold(w, Keys{}, 30, prev);
+        const bool fellBelow = w.player().state == PlayerState::OnGround && w.player().y == 31;
+        Keys left, right;
+        left.left = true;
+        right.right = true;
+        hold(w, left, 30, prev);
+        const bool underStairs = w.player().x == 256 && w.player().y == 31;
+        hold(w, right, 30, prev);
+        hold(w, up, 60, prev);
+        const bool climbed = w.player().state == PlayerState::Ladder && w.player().box().top() == 12;
+        hold(w, jumpRight, 8, prev);
+        hold(w, Keys{}, 20, prev);
+        char what[128];
+        std::snprintf(what, sizeof what, "runner %d: falls below the sign stairs and walks underneath", c);
+        check(fellBelow && underStairs, what);
+        std::snprintf(what, sizeof what, "runner %d: climbs out from below the sign stairs onto the roof", c);
+        check(climbed && w.player().state == PlayerState::OnGround && w.player().y == 11 &&
+            w.player().box().left() >= 272 && w.stats().deaths == 0,
+          what);
       }
     }
     {
