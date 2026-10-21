@@ -60,7 +60,7 @@ jobs:
           cp -r docs _site
           cp game/web/build/gunrunners.{js,wasm,data} _site/play/
           sed -i "s/@VERSION@/${{ steps.game.outputs.tag }}/" _site/play/index.html
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
