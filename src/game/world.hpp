@@ -1849,6 +1849,7 @@ public:
   // counts as a cheat.
   struct PlayOptions
   {
+    bool airAim = false;         // people aim with direction keys while jumping or falling
     bool holdFire = false;       // holding fire keeps shooting (slower than rapid fire)
     bool downJumpLeaves = false; // down + jump climbs out of a vehicle, as well as USE
     bool jumpHelp = false;       // a jump pressed just before landing still jumps; longer ledge grace
@@ -2159,7 +2160,7 @@ private:
   void updateJumpMovement(int mvX, bool jumpPressed);
   void doubleJump();
   void updateHorizontalMovementInAir(int mvX);
-  void updateShooting(const Button& fire);
+  void updateShooting(const PlayerInput& in);
   void updateDeathAnimation();
   MoveResult moveVerticallyInAir(int amount, bool& attached);
   bool tryAttachToClimbable();

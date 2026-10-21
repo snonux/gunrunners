@@ -275,6 +275,13 @@ everything you can set: DIFFICULTY (NORMAL or HARD, see Hard mode below),
 CONTROLS, ASSISTS, PLAY OPTIONS and (in a window) FULLSCREEN. Every one of
 them takes effect at once, mid-level too, without restarting anything.
 
+While jumping or falling, hold a direction and fire to shoot that way:
+up or down for vertical shots, or combine either with left/right for a
+diagonal (blaster, laser, rockets and flamer). With no direction held you
+shoot ahead. Touch and right-stick aim still work at any angle in the air;
+prototype guns keep their firing patterns and can shoot up or down.
+Down+fire with the flamer still activates its jetpack.
+
 **Changing the controls.** Pick SETTINGS, then CONTROLS. Each action has two keyboard keys and a gamepad button: choose
 a cell with the arrows (or the d-pad), press Enter (or A), then press the
 new key or button. Esc cancels. A key or button can only do one thing, so

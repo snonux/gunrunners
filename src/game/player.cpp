@@ -147,6 +147,11 @@ void World::updatePlayer(const PlayerInput& raw)
   }
   const int mvX = in.left ? -1 : (in.right ? 1 : 0);
   const int mvY = in.up ? -1 : (in.down ? 1 : 0);
+  // Special airborne movement (bounce, launch, bungee) can skip the usual
+  // stance reset in updatePlayerMovement. Never carry a prototype's air
+  // aim into the next tick after its direction is released or it lands.
+  if (mPlay.airAim && p.weapon == Weapon::Proto)
+    p.stance = Stance::Regular;
   // Running starts on the ground and carries through jumps for as long as
   // the way stays held; letting go or turning walks again.
   if (!in.run || mvX == 0 || (mRunDir != 0 && mvX != mRunDir))
@@ -169,7 +174,7 @@ void World::updatePlayer(const PlayerInput& raw)
   {
     // Bounce House: every surface is a trampoline (world_jungle.cpp).
     updateBounce(mvX, mvY, in);
-    updateShooting(in.fire);
+    updateShooting(in);
     return;
   }
 
@@ -219,7 +224,7 @@ void World::updatePlayer(const PlayerInput& raw)
     if (p.state == PlayerState::Swing)
     {
       updateSilkRide(mvX, mvY, in);
-      updateShooting(in.fire);
+      updateShooting(in);
       return;
     }
     p.silk = -1;
@@ -227,21 +232,21 @@ void World::updatePlayer(const PlayerInput& raw)
   // Deep water (world_sea.cpp): swim, unless a jump is carrying you out.
   if (!mSeas.empty() && p.state != PlayerState::Jumping && p.cart < 0 && mLaunch == 0 && updateSwim(mvX, mvY, in))
   {
-    updateShooting(in.fire);
+    updateShooting(in);
     return;
   }
   if (p.cart >= 0)
   {
     // Level 11: riding a mine cart (world_mine.cpp).
     updateRide(mvX, mvY, in);
-    updateShooting(in.fire);
+    updateShooting(in);
     return;
   }
   if (mCryo.held >= 0)
   {
     // In a Lab Arm's claw (world_cryo.cpp moves the runner).
     setVisual(PlayerVisual::Falling);
-    updateShooting(in.fire);
+    updateShooting(in);
     return;
   }
   // Level 28: the "uh-oh" sign after an air-run, a bonk (world_toon.cpp).
@@ -257,7 +262,7 @@ void World::updatePlayer(const PlayerInput& raw)
   if (mStorm.bungee)
   {
     updateBungeeRide(mvX, in);
-    updateShooting(in.fire);
+    updateShooting(in);
     return;
   }
   if (mLaunch > 0)
@@ -292,7 +297,7 @@ void World::updatePlayer(const PlayerInput& raw)
     p.kick = 0;
     p.kickArc = false;
   }
-  updateShooting(in.fire);
+  updateShooting(in);
 
   if (p.visual == PlayerVisual::ClimbingLadder && p.y != previousY)
     ++p.climbFrame;
@@ -925,9 +930,29 @@ bool World::tryAttachToClimbable()
   return true;
 }
 
-void World::updateShooting(const Button& fire)
+void World::updateShooting(const PlayerInput& in)
 {
   auto& p = mPlayer;
+  const Button& fire = in.fire;
+  // Direction keys aim in the air without changing the jump animation or
+  // movement. An explicit touch/right-stick aim always takes precedence.
+  // Rebuild each tick so releasing a direction or landing clears the aim.
+  mAim = in.aim;
+  if (mPlay.airAim && (p.state == PlayerState::Jumping || p.state == PlayerState::Falling))
+  {
+    const int x = int(in.right) - int(in.left);
+    const int y = int(in.down) - int(in.up);
+    if (!mAim.on && aimsFreely() && (x != 0 || y != 0))
+    {
+      mAim.on = true;
+      mAim.x = float(x);
+      mAim.y = float(y);
+    }
+    // Prototypes retain their own firing patterns, with vertical shots
+    // available in the air just as they are from a hang bar.
+    if (p.weapon == Weapon::Proto && y != 0)
+      p.stance = y < 0 ? Stance::Up : Stance::Down;
+  }
   if (mInk.on)
     return; // the Inkwell: fire draws (world_toon.cpp)
   if (mWarehouse.throwAll)

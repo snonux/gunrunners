@@ -346,6 +346,7 @@ bool Game::playOption(const char* key, bool fallback) const
 World::PlayOptions Game::playOptions() const
 {
   World::PlayOptions o;
+  o.airAim = !mOptions.autoplay;
   o.holdFire = playOption("opt.holdfire");
   o.downJumpLeaves = playOption("opt.downjump");
   o.jumpHelp = playOption("assist.jump");

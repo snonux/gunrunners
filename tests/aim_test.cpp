@@ -226,6 +226,149 @@ int main()
       check(shots == 1, "the fire button held fires once (" + std::to_string(shots) + ")");
     }
 
+    // Direction controls aim throughout a jump, including a double jump
+    // somersault and the falling half. Exercise actual movement and shots.
+    for (bool falling : {false, true})
+    {
+      for (int y = -1; y <= 1; ++y)
+      {
+        for (int x = -1; x <= 1; ++x)
+        {
+          World w(room(""), 0, theme, art);
+          World::PlayOptions options;
+          options.airAim = true;
+          w.setPlayOptions(options);
+          w.setDoubleJump(true);
+          for (int i = 0; i < 3; ++i)
+            w.update({});
+          PlayerInput in;
+          in.jump = {true, true};
+          w.update(in);
+          in.jump.triggered = false;
+          w.update(in);
+          if (falling)
+          {
+            for (int i = 0; i < 20 && w.player().state != PlayerState::Falling; ++i)
+              w.update(in);
+            check(w.player().state == PlayerState::Falling, "falling before the aimed shot");
+          }
+          else
+          {
+            // A second jump always somersaults, even with no movement.
+            in.jump = {};
+            w.update(in);
+            in.jump = {true, true};
+            w.update(in);
+            in.jump.triggered = false;
+          }
+          in.left = x < 0;
+          in.right = x > 0;
+          in.up = y < 0;
+          in.down = y > 0;
+          in.fire = {true, true};
+          w.update(in);
+          const Projectile* shot = lastShot(w);
+          const std::string label = std::string(falling ? "falling" : "double jumping") +
+            " direction (" + std::to_string(x) + "," + std::to_string(y) + ")";
+          check(w.player().state == (falling ? PlayerState::Falling : PlayerState::Jumping),
+            label + " stays airborne");
+          if (x == 0 && y == 0)
+            check(shot && !shot->aimed && shot->dx == w.player().facing && shot->dy == 0,
+              label + " shoots ahead without aim");
+          else
+          {
+            const float len = std::hypot(float(x), float(y));
+            check(shot && shot->aimed && std::fabs(shot->vx - float(x) / len) < 1e-4f &&
+                std::fabs(shot->vy - float(y) / len) < 1e-4f,
+              label + " shoots along the held direction");
+          }
+        }
+      }
+    }
+
+    // Explicit aim wins over movement; releasing keys clears directional
+    // aim, landing restores the ground stance, and bots keep old controls.
+    for (bool enabled : {false, true})
+    {
+      World w(room(""), 0, theme, art);
+      World::PlayOptions options;
+      options.airAim = enabled;
+      w.setPlayOptions(options);
+      for (int i = 0; i < 3; ++i)
+        w.update({});
+      PlayerInput in;
+      in.jump = {true, true};
+      w.update(in);
+      in.jump.triggered = false;
+      in.up = true;
+      in.fire = {true, true};
+      w.update(in);
+      const Projectile* shot = lastShot(w);
+      check(shot && (enabled ? shot->aimed && shot->vy < -0.99f : !shot->aimed && shot->dy == 0),
+        enabled ? "up shoots up during the first jump" : "bot controls retain the old airborne shot");
+      in.right = true;
+      in.aim = way(-0.6f, -0.8f);
+      w.update(in);
+      shot = lastShot(w);
+      check(shot && shot->aimed && std::fabs(shot->vx + 0.6f) < 1e-4f &&
+          std::fabs(shot->vy + 0.8f) < 1e-4f,
+        "explicit aim overrides the held movement directions in the air");
+      in = {};
+      in.fire = {true, true};
+      w.update(in);
+      shot = lastShot(w);
+      check(shot && !shot->aimed && shot->dy == 0, "releasing directions restores the ahead shot");
+      in.left = in.right = in.up = in.down = true;
+      w.update(in);
+      shot = lastShot(w);
+      check(shot && !shot->aimed && shot->dy == 0, "opposing directions cancel while aiming in the air");
+      in = {};
+      in.fire = {true, true};
+      for (int i = 0; i < 30 && w.player().state != PlayerState::OnGround; ++i)
+        w.update({});
+      check(w.player().state == PlayerState::OnGround, "landed after aiming in the air");
+      in.down = true;
+      w.update(in);
+      shot = lastShot(w);
+      check(shot && !shot->aimed && shot->dy == 0 && w.player().visual == PlayerVisual::Crouching,
+        "down on the ground crouches and shoots level again");
+      in.down = false;
+      in.up = true;
+      in.right = true;
+      w.update(in);
+      shot = lastShot(w);
+      check(shot && !shot->aimed && shot->dx == 0 && shot->dy == -1,
+        "up and right on the ground retain the vertical stance shot");
+    }
+
+    // Bounce House bypasses ordinary movement's stance reset. Releasing
+    // vertical prototype aim must still restore the ahead shot.
+    for (bool right : {false, true})
+    {
+      World w(room("", "weapon=pulse_pistol\nrules=bounce\n"), 0, theme, art);
+      World::PlayOptions options;
+      options.airAim = true;
+      w.setPlayOptions(options);
+      for (int i = 0; i < 3; ++i)
+        w.update({});
+      check(w.cheat(Cheat::Ammo) && w.player().weapon == Weapon::Proto, "equip prototype in Bounce House");
+      PlayerInput in;
+      in.up = true;
+      in.fire = {true, true};
+      w.update(in);
+      const Projectile* shot = lastShot(w);
+      check(shot && shot->dy == -1, "prototype aims upward during a bounce");
+      w.update({}); // release fire and aim, then clear the pistol cooldown
+      w.cheat(Cheat::Ammo);
+      in.up = false;
+      in.right = right;
+      w.update(in);
+      shot = lastShot(w);
+      check(shot && shot->dy == 0 && shot->dx == w.player().facing,
+        right ? "horizontal input after upward prototype aim shoots ahead" :
+                "releasing upward prototype aim during a bounce shoots ahead");
+    }
+
     // A prototype keeps its own shots.
     {
       World w(room("", "weapon=pulse_pistol\n", 'W'), 0, theme, art);
@@ -245,6 +388,25 @@ int main()
         d.step(true, way(0.6f, -0.8f));
         const Projectile* s = lastShot(w);
         check(!s || !s->aimed, "...its shot is not a free-aimed one");
+        World::PlayOptions options;
+        options.airAim = true;
+        w.setPlayOptions(options);
+        for (int y : {-1, 1})
+        {
+          for (int i = 0; i < 30; ++i)
+            w.update({});
+          PlayerInput in;
+          in.jump = {true, true};
+          w.update(in);
+          in.jump.triggered = false;
+          in.up = y < 0;
+          in.down = y > 0;
+          in.fire = {true, true};
+          w.update(in);
+          s = lastShot(w);
+          check(w.player().state == PlayerState::Jumping && s && !s->aimed && s->dx == 0 && s->dy == y,
+            y < 0 ? "prototype shoots up during a jump" : "prototype shoots down during a jump");
+        }
       }
     }
   }
