@@ -88,12 +88,12 @@ void vehicleButton(Renderer& r)
       use();
       check(world.riding(), "vehicle: touch boards a real tank at every size and scheme");
       t.setVehicle(true, world.canLeaveVehicle());
-      check(std::string(t.vehicleLabel()) == "EXIT", "vehicle: riding changes the label to EXIT");
+      check(std::string(t.vehicleLabel()).empty(), "vehicle: riding leaves the steering wheel without an EXIT label");
       t.draw(r);
       use();
       check(!world.riding(), "vehicle: the same touch button exits the tank");
       t.setVehicle(true, false);
-      check(std::string(t.vehicleLabel()) == "EXIT", "vehicle: a blocked exit still identifies the exit button");
+      check(std::string(t.vehicleLabel()).empty(), "vehicle: a blocked exit also keeps the button free of an EXIT label");
       t.draw(r);
       t.configure(Layout::Menu, size);
       t.touch(2, x, 120);
@@ -112,6 +112,60 @@ void largeMenuCorners(Renderer& r)
   t.touch(2, 108, 656);
   t.release(2);
   check(t.menuPad() && t.takeTaps().empty(), "small setting: menu pad toggle still has a large target");
+}
+
+void navigationTaps(Renderer& r)
+{
+  const std::vector<SDL_FRect> navigation = {
+    {24, 300, 152, 88}, {1104, 300, 152, 88},
+    {500, 610, 152, 68}, {680, 610, 152, 68}};
+  for (int size = 0; size < 3; ++size)
+    for (bool pad : {false, true})
+    {
+      TouchControls t(r, true);
+      t.configure(Layout::Menu, size);
+      t.setMenuPad(pad);
+      t.setMenuNavigation(navigation);
+      for (SDL_FPoint point : {SDL_FPoint{100, 380}, {1180, 380}, {600, 640}, {756, 640}, {820, 640}})
+      {
+        // SDL finger events, as on Android, including the lower button edges
+        // which the large pad used to take as direction/OK/BACK presses.
+        SDL_Event event{};
+        event.type = SDL_FINGERDOWN;
+        event.tfinger.fingerId = 1;
+        event.tfinger.x = point.x / float(kScreenW);
+        event.tfinger.y = point.y / float(kScreenH);
+        t.handleEvent(event, nullptr);
+        event.type = SDL_FINGERUP;
+        t.handleEvent(event, nullptr);
+        const Input in = t.read();
+        const auto taps = t.takeTaps();
+        check(taps.size() == 1 && std::abs(taps[0].x - point.x) < 0.01f &&
+          std::abs(taps[0].y - point.y) < 0.01f,
+          "navigation: a real finger event taps the visible button at every size/pad setting");
+        check(!in.left && !in.right && !in.up && !in.down && !in.confirm && !in.back,
+          "navigation: the optional pad cannot steal the button tap");
+      }
+      t.touch(2, 988, 628);
+      t.release(2);
+      const Input back = t.read();
+      const auto backTaps = t.takeTaps();
+      check(pad ? back.back && backTaps.empty() : !back.back && backTaps.size() == 1,
+        "navigation: editor page buttons leave the menu pad BACK usable");
+      t.setMenuNavigation({});
+      t.touch(2, 988, 628);
+      t.release(2);
+      check(pad ? t.read().back : t.takeTaps().size() == 1,
+        "navigation: clearing targets restores the usual menu pad behaviour");
+      t.read();
+      t.takeTaps();
+      t.setMenuNavigation(navigation);
+      t.setThumbs(false);
+      t.configure(Layout::Play, size);
+      t.touch(3, kPlayFireX, kPlayFireY);
+      t.release(3);
+      check(t.read().fire && t.takeTaps().empty(), "navigation: menu targets cannot intercept play controls");
+    }
 }
 
 void menuLayout(Renderer& r)
@@ -742,6 +796,7 @@ int main()
     Renderer r(sdl);
     vehicleButton(r);
     largeMenuCorners(r);
+    navigationTaps(r);
     menuLayout(r);
     directTouch(r);
     playLayout(r);

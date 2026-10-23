@@ -5,6 +5,7 @@
 // themselves for a fresh profile.
 
 #include "frontend/game.hpp"
+#include "frontend/touch_controls.hpp"
 
 #include <SDL.h>
 
@@ -40,6 +41,22 @@ void tap(Game& g, float x, float y)
   run(g, 2);
 }
 
+// Through the actual overlay too, with the large optional menu pad enabled.
+void fingerTap(Game& g, TouchControls& touch, float x, float y)
+{
+  touch.configure(TouchControls::Layout::Menu, 2);
+  touch.setMenuPad(true);
+  touch.setMenuNavigation(g.touchNavigationTargets());
+  touch.touch(1, x, y);
+  touch.release(1);
+  for (const auto& point : touch.takeTaps())
+    g.tapAt(point.x, point.y);
+  const Input in = touch.read();
+  check(!in.confirm && !in.back && !in.up && !in.down,
+    "navigation: a finger reaches the menu, never the overlay pad");
+  run(g, 2, in);
+}
+
 Input pressed(bool Input::*button)
 {
   Input in;
@@ -73,12 +90,14 @@ int main()
     o.touch = true;
     o.noCutscenes = true;
     Game g(o, renderer, nullptr);
+    TouchControls touch(renderer, true);
     run(g, 30);
 
     // Large title rows have pages; the disabled first-page PREV does nothing.
-    tap(g, 100.0f, 340.0f);
-    tap(g, 1180.0f, 340.0f); // NEXT
-    tap(g, 100.0f, 340.0f); // PREV
+    fingerTap(g, touch, 100, 380);
+    fingerTap(g, touch, 1180, 380); // NEXT
+    fingerTap(g, touch, 1180, 380); // disabled NEXT
+    fingerTap(g, touch, 100, 380); // PREV
 
     // WORLD SELECT: a locked episode stays shut, DEEP SPACE lists its first
     // level, BACK goes up a screen at a time.
@@ -165,9 +184,16 @@ int main()
     g.tapAt(640.0f, titleItem(1));
     run(g, 5);
     check(!g.inLevel(), "a tap on a screen that has gone is ignored");
+    fingerTap(g, touch, 1180, 380); // Rocco
+    fingerTap(g, touch, 100, 380); // Dash
+    fingerTap(g, touch, 1180, 380); // Rocco again, without any swiping
+    check(!g.inLevel() && !g.wantsText(), "select: PREV/NEXT only choose a runner");
     tap(g, 640.0f, 655.0f);
     run(g, 12);
     check(!g.wantsText(), "editor: open, not naming yet");
+    fingerTap(g, touch, 820, 660); // NEXT, clear of the pad's BACK button
+    fingerTap(g, touch, 600, 660); // PREV
+    check(!g.inLevel() && !g.wantsText(), "editor: finger taps page without leaving or naming");
     tap(g, 700.0f, 108.0f);
     check(g.wantsText(), "editor: a tap on NAME opens the keyboard");
     tap(g, 300.0f + 8.5f * 68.0f, 280.0f + 4.5f * 64.0f);
@@ -180,6 +206,7 @@ int main()
     tap(g, 640.0f, 400.0f);
     run(g, 5);
     check(g.inLevel(), "select: a tap on the chosen card starts the level");
+    check(g.world() && g.world()->characterIndex() == 1, "select: NEXT/PREV taps picked Rocco");
 
     // Pause, SAVE GAME, then slot 2: picked by one tap, saved by a second.
     run(g, 60);
@@ -259,9 +286,26 @@ int main()
       run(g, 2, pressed(&Input::confirm));
       run(g, 2);
       check(!g.inLevel(), "change runner menu open");
+      fingerTap(g, touch, 1180, 380);
+      fingerTap(g, touch, 100, 380);
+      fingerTap(g, touch, 1180, 380);
+      check(!g.inLevel(), "change runner: PREV/NEXT do not confirm a swap");
+      tap(g, 640, 300);
+      check(g.inLevel() && g.world()->characterIndex() == (before + 1) % characterCount(),
+        "change runner: PREV/NEXT select the runner confirmed by tapping the middle");
+      const int beforeRandom = g.world()->characterIndex();
+      run(g, 2, pressed(&Input::pause));
+      run(g, 2);
+      for (int i = 0; i < 5; ++i)
+      {
+        run(g, 2, pressed(&Input::down));
+        run(g, 2);
+      }
+      run(g, 2, pressed(&Input::confirm));
+      run(g, 2);
       tap(g, 640.0f, 514.0f);
       check(g.inLevel(), "change runner: a tap on RANDOM RUNNER goes back to the level");
-      check(g.world()->characterIndex() != before, "...as another runner");
+      check(g.world()->characterIndex() != beforeRandom, "...as another runner");
     }
   }
   std::filesystem::remove_all(saves);

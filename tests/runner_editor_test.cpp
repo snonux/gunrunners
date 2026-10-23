@@ -118,7 +118,7 @@ int main()
     // when paging past either end. SAVE and DELETE stay on the last page.
     RunnerEditor touch(renderer, characterByIndex(index), false);
     touch.setTouchHints(true);
-    check(!touch.tapAt(650, 640).ok, "touch: disabled PREV does not act");
+    check(!touch.tapAt(576, 640).ok, "touch: disabled PREV does not act");
     auto name = touch.tapAt(700, 140);
     press(touch, name.ok);
     check(touch.naming(), "touch: a tap low in the NAME row opens naming");
@@ -126,16 +126,16 @@ int main()
     auto done = touch.tapAt(878, 590);
     press(touch, done.ok);
     check(!touch.naming(), "touch: enlarged DONE key closes naming");
-    touch.tapAt(1050, 640);
-    touch.tapAt(1050, 640);
-    check(!touch.tapAt(1050, 640).ok, "touch: disabled NEXT on the last page does not act");
+    touch.tapAt(756, 640);
+    touch.tapAt(756, 640);
+    check(!touch.tapAt(756, 640).ok, "touch: disabled NEXT on the last page does not act");
     check(!touch.tapAt(700, 600).ok, "touch: blank rows do not activate a hidden action");
     auto save = touch.tapAt(700, 95 + 3 * 64 + 40);
     check(press(touch, save.ok) == Result::Save, "touch: SAVE is reachable on the last page");
     auto del = touch.tapAt(700, 95 + 4 * 64 + 40);
     check(press(touch, del.ok) == Result::None, "touch: DELETE asks before deleting");
-    touch.tapAt(650, 640); // paging away cancels the confirmation
-    touch.tapAt(1050, 640);
+    touch.tapAt(576, 640); // paging away cancels the confirmation
+    touch.tapAt(756, 640);
     del = touch.tapAt(700, 95 + 4 * 64 + 40);
     check(press(touch, del.ok) == Result::None, "touch: paging cancels DELETE confirmation");
     check(press(touch, del.ok) == Result::Delete, "touch: a second DELETE confirms");

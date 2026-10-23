@@ -141,6 +141,8 @@ public:
   // pans). Each screen marks its tap targets as it draws itself.
   void tapAt(float x, float y);
   void dragBy(float dx, float dy);
+  // Visible navigation buttons take priority over the optional menu pad.
+  std::vector<SDL_FRect> touchNavigationTargets() const;
   // The on-screen menu pad (d-pad, OK, BACK in menus), kept in the profile.
   bool menuPad() const;
   void setMenuPad(bool on);
@@ -321,6 +323,7 @@ private:
   void tapPress(bool Input::*button);
   // Large touch rows page around the cursor; returns the first visible row.
   int menuPage(int count, int& cursor, int rows);
+  void menuStepButtons(std::function<void(int)> step, bool previous = true, bool next = true);
   Input takeTapInput();
 
   // menus.cpp: pause menu, savegame slots, runner switching.
@@ -505,6 +508,7 @@ private:
   // Direct touch: the targets, the screen they were drawn for, the presses
   // they made for the next tick, and drag distance not yet turned into steps.
   std::vector<TapTarget> mTapTargets;
+  std::vector<SDL_FRect> mNavigationTargets;
   int mTapScreen = -1;
   Input mTapInput;
   float mDragX = 0.0f, mDragY = 0.0f;

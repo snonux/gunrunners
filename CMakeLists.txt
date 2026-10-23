@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.11.4 LANGUAGES C CXX)
+project(Gunrunners VERSION 0.11.5 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -299,7 +299,7 @@ enable_testing()
 add_executable(touch_test tests/touch_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(touch_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME touch_controls COMMAND touch_test)
-add_executable(menu_taps_test tests/menu_taps_test.cpp)
+add_executable(menu_taps_test tests/menu_taps_test.cpp src/frontend/touch_controls.cpp)
 target_link_libraries(menu_taps_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME menu_taps COMMAND menu_taps_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 # The menus' level-file lookups ask the disk once per path (data/campaign.cpp),

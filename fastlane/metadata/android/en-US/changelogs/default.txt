@@ -1,1 +1,1 @@
-Touch menus have larger buttons, with PREV and NEXT pages for long lists and the runner editor. The vehicle button now says RIDE or EXIT, making it clear how to get in and out. A hint explains when you need to land or make room before exiting.
+Tap the labelled PREV and NEXT buttons to choose runners and page through menus, without swiping. The menu pad no longer intercepts these taps, and editor page buttons sit clear of BACK. Removed the EXIT label from the vehicle button; tap the steering wheel to get out.

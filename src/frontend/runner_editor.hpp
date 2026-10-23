@@ -39,6 +39,7 @@ public:
     int side = 0;
   };
   Tap tapAt(float x, float y);
+  std::vector<SDL_FRect> navigationTargets() const;
   // The help lines talk about taps instead of keys.
   void setTouchHints(bool on) { mTouchHints = on; }
   // Typing on a real keyboard while the name is being entered.

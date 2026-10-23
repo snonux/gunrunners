@@ -231,6 +231,13 @@ RunnerEditor::Result RunnerEditor::tick(bool ok, bool cancel, int dir, int side)
   }
 }
 
+std::vector<SDL_FRect> RunnerEditor::navigationTargets() const
+{
+  if (!mTouchHints || mNaming)
+    return {};
+  return {{500, 610, 152, 68}, {680, 610, 152, 68}};
+}
+
 RunnerEditor::Tap RunnerEditor::tapAt(float x, float y)
 {
   Tap tap;
@@ -247,9 +254,13 @@ RunnerEditor::Tap RunnerEditor::tapAt(float x, float y)
   }
   const auto list = rows();
   const int first = mTouchHints ? mCursor / kTouchRows * kTouchRows : 0;
-  if (mTouchHints && y >= 610 && y < 678 && x >= 500 && x < 1242)
+  const auto navigation = navigationTargets();
+  for (std::size_t button = 0; button < navigation.size(); ++button)
   {
-    const int next = first + (x < 871 ? -kTouchRows : kTouchRows);
+    const SDL_FRect& rect = navigation[button];
+    if (x < rect.x || x >= rect.x + rect.w || y < rect.y || y >= rect.y + rect.h)
+      continue;
+    const int next = first + (button == 0 ? -kTouchRows : kTouchRows);
     if (next >= 0 && next < int(list.size()))
     {
       mCursor = next;
@@ -507,12 +518,13 @@ void RunnerEditor::render(Renderer& r, const Art& art, const Theme& t, int frame
 
   if (mTouchHints && !mNaming)
   {
+    const auto navigation = navigationTargets();
     for (int side : {-1, 1})
     {
       const bool enabled = side < 0 ? first > 0 : first + kTouchRows < int(list.size());
-      const float x = side < 0 ? 500.0f : 880.0f;
-      r.fillRect(x, 610, 362, 68, withAlpha(t.accentA, enabled ? 60 : 15));
-      r.drawText(side < 0 ? "< PREV" : "NEXT >", x + 181, 628,
+      const SDL_FRect& rect = navigation[side < 0 ? 0 : 1];
+      r.fillRect(rect.x, rect.y, rect.w, rect.h, withAlpha(t.accentA, enabled ? 60 : 15));
+      r.drawText(side < 0 ? "< PREV" : "NEXT >", rect.x + rect.w * 0.5f, rect.y + 18,
         {24.0f, enabled ? t.accentA : rgb(100, 98, 120), kInk, true}, Align::Center);
     }
   }

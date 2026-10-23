@@ -80,13 +80,13 @@ public:
   // The thumbs scheme (see above) or the Jump and Fire buttons.
   void setThumbs(bool on) { mThumbs = on; }
   bool thumbs() const { return mThumbs; }
-  // The USE button names the action at the vehicle: board or exit.
+  // Label boarding on foot; keep just the steering wheel while riding.
   void setVehicle(bool riding, bool canLeave)
   {
     mRiding = riding;
     mCanLeave = canLeave;
   }
-  const char* vehicleLabel() const { return mRiding ? "EXIT" : "RIDE"; }
+  const char* vehicleLabel() const { return mRiding ? "" : "RIDE"; }
   // Where the shooting thumb aims: ahead (the way the runner faces), up,
   // down (crouched), left, right, or crouched to the left or right.
   enum Aim
@@ -124,6 +124,8 @@ public:
   void setMenuPad(bool on) { mMenuPad = on; }
   bool menuPad() const { return mMenuPad; }
   bool takeMenuPadChange();
+  // Navigation drawn by the game must receive taps even over the menu pad.
+  void setMenuNavigation(const std::vector<SDL_FRect>& targets) { mMenuNavigation = targets; }
 
   // Where the player moved the controls in a level (the profile keeps it):
   // x, y offsets for the stick, then jump, fire, switch, pause, map, use
@@ -240,6 +242,7 @@ private:
   float mRunnerX = 0.0f, mRunnerY = 0.0f;
   bool mRunnerKnown = false;
   bool mMenuPadChanged = false;
+  std::vector<SDL_FRect> mMenuNavigation;
   std::vector<SDL_FPoint> mTaps;
   SDL_FPoint mDrag{0.0f, 0.0f};
 

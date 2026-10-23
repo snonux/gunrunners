@@ -272,6 +272,7 @@ void Game::renderEditor()
   if (!mEditor)
     return;
   mEditor->render(mRenderer, *mArt, theme(), mFrame);
+  mNavigationTargets = mEditor->navigationTargets();
   tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float x, float y) {
     const auto tap = mEditor->tapAt(x, y);
     if (tap.ok)
@@ -363,7 +364,14 @@ void Game::renderSelect()
         r.fillRect(x + 128 + float(k) * 38, sy + 5, 32, 13, k < pips[s] ? t.accentB : rgba(255, 255, 255, 40));
     }
   }
-  if (cards > 3)
+  if (mOptions.touch && cards > 1)
+  {
+    menuStepButtons([this](int side) {
+      mSelectFocus = SelectFocus::Cards;
+      tapPress(side < 0 ? &Input::left : &Input::right);
+    });
+  }
+  else if (cards > 3)
   {
     const float a = 0.6f + 0.3f * std::sin(float(mFrame) * 0.1f);
     r.drawText("<", 26, 370, {48.0f, t.accentA, kInk, true}, Align::Center, a);
@@ -394,6 +402,10 @@ void Game::renderSelect()
       {20.0f, focus ? t.accentA : t.hudText, kInk, true}, Align::Center);
   }
 
+  if (mOptions.touch)
+    r.drawText("TAP PREV / NEXT to choose   TAP the middle runner to play   BACK to leave", cx, 698,
+      {16.0f, rgb(210, 210, 228), kInk}, Align::Center);
+
   if (campaign())
   {
     // NORMAL or HARD (more enemies in every level), reached with up.
@@ -419,7 +431,8 @@ void Game::renderSelect()
   });
   r.drawText("LOAD GAME", 1140, 134, {20.0f, load ? t.accentA : t.hudText, kInk, true}, Align::Center);
 
-  r.drawText(keysHint(), cx, 696, {14.0f, rgb(210, 210, 228), kInk}, Align::Center);
+  if (!mOptions.touch)
+    r.drawText(keysHint(), cx, 696, {14.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 
 } // namespace gr

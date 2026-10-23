@@ -215,6 +215,7 @@ void syncTouch(TouchControls& touch, Game& game)
   else
     touch.setLayout(game.touchLayout());
   touch.setThumbs(game.touchThumbs());
+  touch.setMenuNavigation(game.touchNavigationTargets());
   const World* world = game.inLevel() ? game.world() : nullptr;
   touch.setVehicle(world && world->riding(), !world || world->canLeaveVehicle());
   float rx = 0.0f, ry = 0.0f;
@@ -741,7 +742,13 @@ void WindowedRun::handleEvent(const SDL_Event& ev)
     return;
   }
   if (touch)
+  {
+    // Use the navigation from the last frame drawn, including a menu that
+    // has just opened since the overlay was last synchronized.
+    if (ev.type == SDL_FINGERDOWN)
+      touch->setMenuNavigation(game.touchNavigationTargets());
     touch->handleEvent(ev, window);
+  }
   // Android may close a backgrounded app without warning.
   //
   // Cloud syncs keep running here, on purpose. Going to the background is

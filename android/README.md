@@ -106,7 +106,9 @@ app's private storage and the keys are not drawn back to the screen.
   map a drag pans and a tap zooms. A tap is checked against the screen that
   was drawn, so a tap meant for a screen that has just gone does nothing.
   Touch menus use larger rows and PREV / NEXT page buttons rather than
-  shrinking long lists; the runner editor pages its rows too.
+  shrinking long lists; the runner editor pages its rows too. Runner select
+  and CHANGE RUNNER have labelled PREV / NEXT buttons. These navigation
+  buttons receive taps even when the optional menu pad overlaps them.
   BACK and the menu pad toggle keep large targets even at the SMALL setting.
   BACK sits in the top left corner (it never fires or pauses).
   The pad button in the bottom left corner switches on the old menu pad

@@ -952,6 +952,8 @@ void Game::renderMenu()
       const std::string under = i == current ? "PLAYING" : out ? "DOWN" : weaponName(def.startWeapon);
       r.drawText(under, x, 396, {15.0f, out ? rgb(220, 110, 110) : rgb(190, 188, 214)}, Align::Center);
     }
+    if (touch && n > 1)
+      menuStepButtons([this](int side) { tapPress(side < 0 ? &Input::left : &Input::right); });
     char count[32];
     std::snprintf(count, sizeof(count), "< %d / %d >", mRunnerCursor + 1, n);
     r.drawText(count, 640, 424, {18.0f, t.accentB, kInk, true}, Align::Center);
@@ -972,7 +974,7 @@ void Game::renderMenu()
       }
       r.drawText(random, 640, 504, {20.0f, t.accentB, kInk, true}, Align::Center);
     }
-    r.drawText(touch ? "TAP the middle runner to swap   BACK to leave"
+    r.drawText(touch ? "PREV / NEXT choose   TAP the middle runner to swap   BACK to leave"
                      : "LEFT/RIGHT choose   ENTER / A swap   ESC / B back",
       640, 560, hint, Align::Center);
     return;

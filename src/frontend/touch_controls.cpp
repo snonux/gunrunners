@@ -647,6 +647,16 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
   }
   if (mLayout == Layout::Menu)
   {
+    for (const auto& rect : mMenuNavigation)
+      if (x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h)
+      {
+        f.stick = false;
+        f.pointer = true;
+        f.px = x;
+        f.py = y;
+        mFingers.push_back(f);
+        return;
+      }
     // The pad button switches the menu pad; the finger does nothing more.
     const Circle t = padToggle();
     if (std::hypot(x - t.x, y - t.y) < t.r * 1.4f)
@@ -1040,7 +1050,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     o.cull = false;
     const Texture& t = play ? mPlayIcons[std::size_t(b)] : (b == kJump ? mOk : mBack);
     renderer.draw(t, sx + c.x, sy + c.y, o);
-    if (play && b == kUse)
+    if (play && b == kUse && *vehicleLabel())
     {
       // Keep the label with the button, including when the player moves it.
       // Below the top row, clear of the HUD; above a control near the bottom.
