@@ -55,9 +55,10 @@ constexpr float kPauseFromRight = 56.0f;
 constexpr float kPauseY = 120.0f;
 constexpr float kPauseR = 36.0f;
 constexpr float kMapFromRight = 150.0f;
-// Menus without the menu pad: a small BACK in the top left corner and the
+// Menus without the menu pad: BACK in the top left corner and the
 // pad button in the bottom left, this far from the corners.
-constexpr float kCornerInset = 56.0f;
+constexpr float kCornerInset = 64.0f;
+constexpr float kMenuRadius = 48.0f;
 // A menu touch that moves less than this is a tap; further, a drag.
 constexpr float kTapSlop = 18.0f;
 // Thumbs: a touch on the right waits this long for a flick before it
@@ -346,14 +347,18 @@ bool TouchControls::menuPadShown() const
 
 TouchControls::Circle TouchControls::padToggle() const
 {
-  return {mLeft + kCornerInset * mScale, mBottom - kCornerInset * mScale, kPauseR * mScale};
+  const float scale = std::max(1.0f, mScale);
+  return {mLeft + kCornerInset * scale, mBottom - kCornerInset * scale, kMenuRadius * scale};
 }
 
 TouchControls::Circle TouchControls::button(int b) const
 {
-  // Menus without the menu pad keep a small BACK, out of the way.
+  // Menu BACK stays large even when the play controls are set to SMALL.
   if (b == kFire && mLayout == Layout::Menu && !mEditing && !mMenuPad)
-    return {mLeft + kCornerInset * mScale, mTop + kCornerInset * mScale, kPauseR * mScale};
+  {
+    const float scale = std::max(1.0f, mScale);
+    return {mLeft + kCornerInset * scale, mTop + kCornerInset * scale, kMenuRadius * scale};
+  }
   // The row along the top: Pause, Map, then (thumbs) Switch runner, Use and
   // Next weapon.
   const bool topSwap = b == kSwap && mThumbs && (mLayout == Layout::Play || mEditing);
@@ -1024,7 +1029,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
       continue;
     const Circle c = button(b);
     const bool held = buttonHeld(b) || grabbed(1 + b);
-    // The radius each icon was baked for (the menus' small BACK is smaller).
+    // The radius each icon was baked for (menu BACK has its own radius).
     const float baked = !play ? kSpecs[b == kJump ? kCorner : kInner].r
       : b == kPause || b == kMap || b == kUse || b == kWeapon ? kPauseR
       : b == kSwap             ? kSpecs[2].r
@@ -1035,7 +1040,20 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     o.cull = false;
     const Texture& t = play ? mPlayIcons[std::size_t(b)] : (b == kJump ? mOk : mBack);
     renderer.draw(t, sx + c.x, sy + c.y, o);
+    if (play && b == kUse)
+    {
+      // Keep the label with the button, including when the player moves it.
+      // Below the top row, clear of the HUD; above a control near the bottom.
+      const float below = c.y + c.r + 6.0f;
+      const float y = below + 30.0f > mBottom ? c.y - c.r - 30.0f : below;
+      renderer.drawText(vehicleLabel(), sx + c.x, sy + y,
+        {24.0f, kGold, rgb(16, 12, 26), true}, Align::Center, 1.0f);
+    }
   }
+
+  if (mLayout == Layout::Play && !mEditing && mRiding && !mCanLeave)
+    renderer.drawText("LAND / MAKE ROOM TO EXIT", sx + 640, sy + 178,
+      {24.0f, kGold, rgb(16, 12, 26), true}, Align::Center);
 
   // Thumbs: a fire mark in the right thumb's corner shows where it aims,
   // and until the first touch a hint says how the thumbs work.
@@ -1104,7 +1122,7 @@ void TouchControls::drawAt(Renderer& renderer, float sx, float sy) const
     const Circle c = padToggle();
     DrawOpts o;
     o.alpha = mMenuPad ? 0.9f : 0.5f;
-    o.scale = scale;
+    o.scale = c.r / (kPauseR * kBakeScale);
     o.cull = false;
     renderer.draw(mPadIcon, sx + c.x, sy + c.y, o);
   }

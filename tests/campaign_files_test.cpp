@@ -115,12 +115,12 @@ Input pressed(bool Input::*button)
   return in;
 }
 
-// The title screen's items for a fresh profile, 44 apart from NEW GAME:
+// The title screen's items for a fresh profile, 64 apart from NEW GAME:
 // NEW GAME, WORLD SELECT, LOAD GAME, ARSENAL, then TRAINING STAGE if
 // levels/level1.txt is there, else SETTINGS.
 float titleItem(int i)
 {
-  return 252.0f + 44.0f * float(i);
+  return 252.0f + 64.0f * float(i);
 }
 
 // Game::titleItems() over a data directory without levels/level1.txt: the
@@ -130,7 +130,7 @@ void titleWithoutTraining(Game& g)
 {
   run(g, 30);
   tap(g, 640.0f, titleItem(4));
-  tap(g, 640.0f, 243.0f + 46.0f + 15.0f); // SETTINGS > CONTROLS
+  tap(g, 640.0f, 232.0f + 64.0f + 15.0f); // SETTINGS > CONTROLS
   tap(g, 770.0f, 205.0f);
   tap(g, 770.0f, 205.0f);
   check(g.listening(), "title: no level1.txt, no TRAINING STAGE (the fifth item is SETTINGS, then CONTROLS)");
@@ -154,8 +154,8 @@ constexpr int kExtrasCard = kEpisodes;
 constexpr float kExtrasCardX = kGridX + float(kExtrasCard % kColumns) * (kCardW + kCardGap) + kCardW / 2.0f;
 constexpr float kExtrasCardY = kGridY + float(kExtrasCard / kColumns) * (kCardH + kCardGap) + kCardH / 2.0f;
 // The list screen's first row (renderList() in flow.cpp): drawn at y 120,
-// its tap target 50 high from 6 above that; tapped at its middle.
-constexpr float kFirstListRowY = 120.0f - 6.0f + 50.0f / 2.0f;
+// its tap target 68 high from 6 above that; tapped at its middle.
+constexpr float kFirstListRowY = 120.0f - 6.0f + 68.0f / 2.0f;
 
 // The negative case: an extra level deleted after its lookup was kept is
 // still offered, and picking it fails (Game::readLevelFile's catch), which

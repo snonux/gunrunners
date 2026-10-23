@@ -382,8 +382,11 @@ void Game::renderSelect()
   if (mCursor < characterCount())
   {
     const bool focus = mSelectFocus == SelectFocus::Action;
-    r.draw(focus ? mActionButtonFocus : mActionButton, cx - 130, 634);
-    tapTarget(cx - 130, 628, 260, 56, [this](float, float) {
+    if (mOptions.touch)
+      r.fillRect(cx - 140, 628, 280, 68, withAlpha(t.accentA, focus ? 70 : 25));
+    else
+      r.draw(focus ? mActionButtonFocus : mActionButton, cx - 130, 634);
+    tapTarget(cx - 130, 628, 260, mOptions.touch ? 68.0f : 56.0f, [this](float, float) {
       mSelectFocus = SelectFocus::Action;
       tapPress(&Input::confirm);
     });
@@ -396,7 +399,7 @@ void Game::renderSelect()
     // NORMAL or HARD (more enemies in every level), reached with up.
     const bool focus = mSelectFocus == SelectFocus::Difficulty;
     r.draw(focus ? mLoadButtonFocus : mLoadButton, 1030, 124);
-    tapTarget(1030, 118, 220, 58, [this](float, float) {
+    tapTarget(1030, 112, 220, mOptions.touch ? 68.0f : 64.0f, [this](float, float) {
       mSelectFocus = SelectFocus::Difficulty;
       tapPress(&Input::confirm);
     });
@@ -410,7 +413,7 @@ void Game::renderSelect()
   // LOAD GAME button, reached with up.
   const bool load = mSelectFocus == SelectFocus::Load;
   r.draw(load ? mLoadButtonFocus : mLoadButton, 1030, 124);
-  tapTarget(1030, 118, 220, 58, [this](float, float) {
+  tapTarget(1030, 112, 220, mOptions.touch ? 68.0f : 64.0f, [this](float, float) {
     mSelectFocus = SelectFocus::Load;
     tapPress(&Input::confirm);
   });

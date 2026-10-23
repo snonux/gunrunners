@@ -851,17 +851,19 @@ void Game::renderMenu()
   {
     r.draw(mMenuPanel, 380, 120);
     r.drawText("CHEATS", 640, 140, {44.0f, t.accentB, kInk, true}, Align::Center);
-    const float step = 38.0f;
-    for (int i = 0; i < int(Cheat::Count); ++i)
+    const float step = touch ? 64.0f : 38.0f;
+    const int first = menuPage(int(Cheat::Count), mCheatCursor, 5);
+    const int end = touch ? std::min(int(Cheat::Count), first + 5) : int(Cheat::Count);
+    for (int i = first; i < end; ++i)
     {
       const bool sel = i == mCheatCursor;
-      const float y = 208.0f + float(i) * step;
+      const float y = 208.0f + float(i - first) * step;
       tapTarget(400, y - 6, 480, step, [this, i](float, float) {
         mCheatCursor = i;
         tapPress(&Input::confirm);
       });
-      if (sel)
-        r.fillRect(420, y - 4, 440, step - 4, withAlpha(t.accentB, 60));
+      if (sel || touch)
+        r.fillRect(420, y - 4, 440, step - 4, withAlpha(t.accentB, sel ? 60 : 20));
       std::string label = kCheatLabels[i];
       if (Cheat(i) == Cheat::God && mWorld)
         label += mWorld->godMode() ? "  [ON]" : "  [OFF]";
@@ -877,28 +879,31 @@ void Game::renderMenu()
     r.draw(mMenuPanel, 380, 120);
     r.drawText("PAUSED", 640, 140, {48.0f, t.accentA, kInk, true}, Align::Center);
     const auto items = pauseItems();
-    // Up to eleven items share the panel: the more there are, the closer.
+    // Page the touch menu; compact the keyboard list to fit the panel.
     const int n = int(items.size());
-    const float step = n > 1 ? std::min(50.0f, 324.0f / float(n - 1)) : 50.0f;
+    const float step = touch ? 64.0f : n > 1 ? std::min(50.0f, 324.0f / float(n - 1)) : 50.0f;
     const float size = step < 40.0f ? 24.0f : 28.0f;
-    for (int i = 0; i < n; ++i)
+    const int first = menuPage(n, mMenuCursor, 6);
+    const int end = touch ? std::min(n, first + 6) : n;
+    for (int i = first; i < end; ++i)
     {
       const bool sel = i == mMenuCursor;
-      const float y = 206.0f + float(i) * step;
+      const float y = 206.0f + float(i - first) * step;
       tapTarget(400, y + 15 - step * 0.5f, 480, step, [this, i](float, float) {
         mMenuCursor = i;
         tapPress(&Input::confirm);
       });
-      if (sel)
+      if (sel || touch)
       {
-        r.fillRect(420, y - 6, 440, std::min(42.0f, step - 2.0f), withAlpha(t.accentA, 60));
-        drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
+        r.fillRect(420, touch ? y + 17 - step * 0.5f : y - 6, 440, touch ? step - 4 : std::min(42.0f, step - 2.0f), withAlpha(t.accentA, sel ? 60 : 20));
+        if (sel)
+          drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
       }
       const int item = items[std::size_t(i)];
       r.drawText(kPauseLabels[item], 640, y, {size, sel ? t.accentA : t.hudText, kInk, sel},
         Align::Center);
     }
-    r.drawText(touch ? "TAP to choose   BACK to resume" : "UP/DOWN choose   ENTER / A select   ESC / B resume", 640, 566,
+    r.drawText(touch ? "TAP to choose   BACK to resume" : "UP/DOWN choose   ENTER / A select   ESC / B resume", 640, touch ? 626.0f : 566.0f,
       hint, Align::Center);
     return;
   }
@@ -955,7 +960,7 @@ void Game::renderMenu()
     // hotkey works here too, and touch has no hotkey, so it is a button.
     if (n > 1)
     {
-      tapTarget(500, 494, 280, 40, [this](float, float) { tapPress(&Input::randomRunner); });
+      tapTarget(480, touch ? 480.0f : 494.0f, 320, touch ? 72.0f : 40.0f, [this](float, float) { tapPress(&Input::randomRunner); });
       std::string random = "? RANDOM RUNNER";
       if (!touch)
       {

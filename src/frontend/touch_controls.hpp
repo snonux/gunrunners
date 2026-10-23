@@ -20,7 +20,7 @@ namespace gr
 //   left of it), Y (Switch runner, above it), Start and Back.
 // - In menus, cutscenes and tallies: direct touch. A tap on an item picks
 //   it and a drag scrolls (the game gets them from takeTaps / takeDrag);
-//   a small BACK sits in the top left corner. The pad button in the bottom
+//   BACK sits in the top left corner. The pad button in the bottom
 //   left corner brings back the menu pad (a fixed d-pad, OK and BACK) for
 //   those who'd rather steer the menus like a gamepad.
 //
@@ -80,6 +80,13 @@ public:
   // The thumbs scheme (see above) or the Jump and Fire buttons.
   void setThumbs(bool on) { mThumbs = on; }
   bool thumbs() const { return mThumbs; }
+  // The USE button names the action at the vehicle: board or exit.
+  void setVehicle(bool riding, bool canLeave)
+  {
+    mRiding = riding;
+    mCanLeave = canLeave;
+  }
+  const char* vehicleLabel() const { return mRiding ? "EXIT" : "RIDE"; }
   // Where the shooting thumb aims: ahead (the way the runner faces), up,
   // down (crouched), left, right, or crouched to the left or right.
   enum Aim
@@ -223,6 +230,8 @@ private:
   bool mLayoutChanged = false;
   bool mMenuPad = false;
   bool mThumbs = true;
+  bool mRiding = false;
+  bool mCanLeave = true;
   bool mThumbsUsed = false; // till the first touch in a level, a hint shows how it goes
   int mAim = kAimAhead;
   // A touch aims at its spot exactly (not the fire mark's shot ahead).

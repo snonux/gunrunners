@@ -18,6 +18,8 @@ constexpr int kKeyChars = 40;
 constexpr int kKeySpace = 40, kKeyDelete = 41, kKeyDone = 42;
 constexpr float kRowY = 84.0f;
 constexpr float kRowH = 27.0f;
+constexpr int kTouchRows = 8;
+constexpr float kTouchRowH = 64.0f;
 const Weapon kGuns[4] = {Weapon::Normal, Weapon::Laser, Weapon::Rocket, Weapon::Flame};
 
 int wrap(int v, int n) { return ((v % n) + n) % n; }
@@ -235,7 +237,7 @@ RunnerEditor::Tap RunnerEditor::tapAt(float x, float y)
   if (mNaming)
   {
     // The key grid as renderNaming draws it.
-    const float gx = 300.0f, gy = 280.0f, cw = 68.0f, ch = 50.0f;
+    const float gx = 300.0f, gy = 280.0f, cw = 68.0f, ch = mTouchHints ? 64.0f : 50.0f;
     const int col = int(std::floor((x - gx) / cw)), row = int(std::floor((y - gy) / ch));
     if (col < 0 || col >= kKeyCols || row < 0 || row > 4)
       return tap;
@@ -244,7 +246,22 @@ RunnerEditor::Tap RunnerEditor::tapAt(float x, float y)
     return tap;
   }
   const auto list = rows();
-  const int i = int(std::floor((y - (kRowY + 11.0f)) / kRowH));
+  const int first = mTouchHints ? mCursor / kTouchRows * kTouchRows : 0;
+  if (mTouchHints && y >= 610 && y < 678 && x >= 500 && x < 1242)
+  {
+    const int next = first + (x < 871 ? -kTouchRows : kTouchRows);
+    if (next >= 0 && next < int(list.size()))
+    {
+      mCursor = next;
+      mConfirmDelete = false;
+    }
+    return tap;
+  }
+  const float rowH = mTouchHints ? kTouchRowH : kRowH;
+  const int slot = int(std::floor((y - (kRowY + 11.0f)) / rowH));
+  if (mTouchHints && (slot < 0 || slot >= kTouchRows))
+    return tap;
+  const int i = first + slot;
   if (x < 500.0f || x > 1242.0f || i < 0 || i >= int(list.size()))
     return tap;
   const Row row = list[std::size_t(i)];
@@ -429,22 +446,25 @@ void RunnerEditor::render(Renderer& r, const Art& art, const Theme& t, int frame
   // The rows.
   r.draw(mListPanel, 486, 84);
   const auto list = rows();
-  for (int i = 0; i < int(list.size()); ++i)
+  const int first = mTouchHints ? mCursor / kTouchRows * kTouchRows : 0;
+  const int end = mTouchHints ? std::min(int(list.size()), first + kTouchRows) : int(list.size());
+  const float rowH = mTouchHints ? kTouchRowH : kRowH;
+  for (int i = first; i < end; ++i)
   {
     const Row row = list[std::size_t(i)];
     const bool sel = i == mCursor && !mNaming;
-    const float y = kRowY + 14.0f + float(i) * kRowH;
-    if (sel)
-      r.fillRect(500, y - 3, 742, kRowH - 2, withAlpha(t.accentA, 60));
+    const float y = kRowY + 14.0f + float(i - first) * rowH;
+    if (sel || mTouchHints)
+      r.fillRect(500, y - 3, 742, rowH - 2, withAlpha(t.accentA, sel ? 60 : 20));
     const bool action = row == Row::Randomize || row == Row::Save || row == Row::Delete;
     const Color labelColor = sel ? t.accentA : (action ? t.accentB : t.hudText);
     if (action)
     {
-      r.drawText(rowLabel(row), 871, y, {19.0f, row == Row::Delete && mConfirmDelete ? rgb(255, 90, 90) : labelColor,
+      r.drawText(rowLabel(row), 871, y, {mTouchHints ? 24.0f : 19.0f, row == Row::Delete && mConfirmDelete ? rgb(255, 90, 90) : labelColor,
         kInk, sel}, Align::Center);
       continue;
     }
-    r.drawText(rowLabel(row), 516, y, {18.0f, labelColor, kInk, sel});
+    r.drawText(rowLabel(row), 516, y, {mTouchHints ? 24.0f : 18.0f, labelColor, kInk, sel});
     const float vx = 990.0f;
     if (sel && row != Row::Name)
     {
@@ -482,9 +502,20 @@ void RunnerEditor::render(Renderer& r, const Art& art, const Theme& t, int frame
     std::string value = rowValue(row);
     if (row == Row::Name && sel)
       value += mTouchHints ? "   (TAP TO TYPE)" : "   (ENTER / A TO TYPE)";
-    r.drawText(value, vx, y, {18.0f, sel ? rgb(255, 255, 255) : rgb(205, 205, 222), kInk}, Align::Center);
+    r.drawText(value, vx, y, {mTouchHints ? 22.0f : 18.0f, sel ? rgb(255, 255, 255) : rgb(205, 205, 222), kInk}, Align::Center);
   }
 
+  if (mTouchHints && !mNaming)
+  {
+    for (int side : {-1, 1})
+    {
+      const bool enabled = side < 0 ? first > 0 : first + kTouchRows < int(list.size());
+      const float x = side < 0 ? 500.0f : 880.0f;
+      r.fillRect(x, 610, 362, 68, withAlpha(t.accentA, enabled ? 60 : 15));
+      r.drawText(side < 0 ? "< PREV" : "NEXT >", x + 181, 628,
+        {24.0f, enabled ? t.accentA : rgb(100, 98, 120), kInk, true}, Align::Center);
+    }
+  }
   r.drawText(mTouchHints ? "TAP the left or right of a value to change it   BACK leaves without saving"
                          : "UP/DOWN choose   LEFT/RIGHT change   ENTER / A select   ESC / B back without saving",
     640, 690,
@@ -504,7 +535,7 @@ void RunnerEditor::renderNaming(Renderer& r, const Theme& t)
     shown += '_';
   r.drawText(shown, 640, 210, {36.0f, rgb(255, 255, 255), kInk, true}, Align::Center);
 
-  const float gx = 300.0f, gy = 280.0f, cw = 68.0f, ch = 50.0f;
+  const float gx = 300.0f, gy = 280.0f, cw = 68.0f, ch = mTouchHints ? 64.0f : 50.0f;
   for (int i = 0; i < kKeyChars; ++i)
   {
     const float x = gx + float(i % kKeyCols) * cw, y = gy + float(i / kKeyCols) * ch;
@@ -526,7 +557,7 @@ void RunnerEditor::renderNaming(Renderer& r, const Theme& t)
   }
   r.drawText(mTouchHints ? "TAP the letters, then DONE"
                          : "Type on the keyboard, or pick letters with the arrows / d-pad.   ENTER done   ESC / B done",
-    640, 556,
+    640, mTouchHints ? 622.0f : 556.0f,
     {15.0f, rgb(210, 210, 228), kInk}, Align::Center);
 }
 

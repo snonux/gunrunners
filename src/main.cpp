@@ -215,6 +215,8 @@ void syncTouch(TouchControls& touch, Game& game)
   else
     touch.setLayout(game.touchLayout());
   touch.setThumbs(game.touchThumbs());
+  const World* world = game.inLevel() ? game.world() : nullptr;
+  touch.setVehicle(world && world->riding(), !world || world->canLeaveVehicle());
   float rx = 0.0f, ry = 0.0f;
   const bool known = game.runnerOnScreen(rx, ry);
   touch.setRunner(rx, ry, known);

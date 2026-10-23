@@ -47,15 +47,15 @@ Input pressed(bool Input::*button)
   return in;
 }
 
-// The title screen's items for a fresh profile, 44 apart from NEW GAME.
+// The title screen's items for a fresh profile, 64 apart from NEW GAME.
 float titleItem(int i)
 {
-  return 252.0f + 44.0f * float(i);
+  return 252.0f + 64.0f * float(i);
 }
 
 // CONTROLS, the second row of SETTINGS (DIFFICULTY, CONTROLS, ASSISTS, PLAY
 // OPTIONS, BACK), at its middle.
-constexpr float kSettingsControls = 243.0f + 46.0f + 15.0f;
+constexpr float kSettingsControls = 232.0f + 64.0f + 15.0f;
 
 } // namespace
 
@@ -74,6 +74,11 @@ int main()
     o.noCutscenes = true;
     Game g(o, renderer, nullptr);
     run(g, 30);
+
+    // Large title rows have pages; the disabled first-page PREV does nothing.
+    tap(g, 100.0f, 340.0f);
+    tap(g, 1180.0f, 340.0f); // NEXT
+    tap(g, 100.0f, 340.0f); // PREV
 
     // WORLD SELECT: a locked episode stays shut, DEEP SPACE lists its first
     // level, BACK goes up a screen at a time.
@@ -108,8 +113,46 @@ int main()
     check(g.listening(), "controls: a second tap listens for a key");
     tap(g, 300.0f, 650.0f);
     check(!g.listening(), "controls: a tap while listening gives up");
+    // Every touch setting remains reachable through large paged rows.
+    tap(g, 1180.0f, 340.0f);
+    tap(g, 1180.0f, 340.0f);
+    tap(g, 640.0f, 196.0f + 3 * 64.0f + 40.0f);
+    check(!g.touchThumbs(), "controls: a tap near the bottom of the scheme row switches scheme");
+    tap(g, 640.0f, 196.0f + 3 * 64.0f + 40.0f);
+    check(g.touchThumbs(), "controls: the scheme switches back");
+    tap(g, 640.0f, 196.0f + 4 * 64.0f + 40.0f);
+    check(g.touchSize() == 2, "controls: TOUCH PAD size is reachable on page three");
+    tap(g, 640.0f, 196.0f + 5 * 64.0f + 40.0f);
+    check(g.touchEditing(), "controls: EDIT TOUCH LAYOUT opens from page three");
+    run(g, 2, pressed(&Input::back));
+    run(g, 2);
+    tap(g, 1180.0f, 340.0f);
+    tap(g, 1180.0f, 340.0f); // disabled NEXT on the last page
+    tap(g, 640.0f, 230.0f); // RESET TO DEFAULTS
+    check(g.touchSize() == 1 && g.touchThumbs(), "controls: last-page reset restores touch defaults");
+    for (int i = 0; i < 3; ++i)
+      tap(g, 100.0f, 340.0f);
     run(g, 2, pressed(&Input::back)); // to SETTINGS
     run(g, 2);
+    // ASSISTS and PLAY OPTIONS keep their last option and BACK reachable.
+    tap(g, 640.0f, 232.0f + 2 * 64.0f + 15.0f);
+    tap(g, 1180.0f, 340.0f);
+    tap(g, 640.0f, 230.0f); // SWAP RUNNER ON DEATH, selected by paging
+    check(Profile::load(saves).controls["opt.swapdeath"] == std::vector<int>{1},
+      "assists: last-page option changes the saved preference");
+    tap(g, 640.0f, 230.0f); // restore it
+    tap(g, 640.0f, 310.0f);
+    tap(g, 640.0f, 310.0f); // BACK to settings
+    tap(g, 640.0f, 232.0f + 3 * 64.0f + 15.0f);
+    tap(g, 640.0f, 230.0f); // HOLD TO FIRE
+    check(Profile::load(saves).controls["opt.holdfire"] == std::vector<int>{1},
+      "play options: large first row changes the saved preference");
+    tap(g, 640.0f, 230.0f); // restore it
+    tap(g, 1180.0f, 340.0f);
+    tap(g, 640.0f, 500.0f); // blank space cannot activate an option
+    check(Profile::load(saves).controls["opt.holdfire"] == std::vector<int>{0},
+      "play options: blank last-page rows do nothing");
+    tap(g, 640.0f, 230.0f); // BACK to settings
     run(g, 2, pressed(&Input::back)); // to the title screen
     run(g, 2);
 
@@ -127,7 +170,7 @@ int main()
     check(!g.wantsText(), "editor: open, not naming yet");
     tap(g, 700.0f, 108.0f);
     check(g.wantsText(), "editor: a tap on NAME opens the keyboard");
-    tap(g, 300.0f + 8.5f * 68.0f, 505.0f);
+    tap(g, 300.0f + 8.5f * 68.0f, 280.0f + 4.5f * 64.0f);
     check(!g.wantsText(), "editor: a tap on DONE closes it");
     run(g, 2, pressed(&Input::back));
     run(g, 25);
@@ -143,7 +186,7 @@ int main()
     run(g, 2, pressed(&Input::pause));
     run(g, 2);
     check(!g.inLevel(), "pause menu open");
-    tap(g, 640.0f, 206.0f + 40.5f + 15.0f);
+    tap(g, 640.0f, 206.0f + 64.0f + 15.0f);
     tap(g, 640.0f, 296.0f);
     check(!std::filesystem::exists(saves + "/slot2.sav"), "slots: one tap only picks a slot to save over");
     tap(g, 640.0f, 296.0f);
@@ -166,6 +209,7 @@ int main()
     run(g, 2);
     run(g, 2, pressed(&Input::back)); // to the pause menu
     run(g, 2);
+    tap(g, 100.0f, 340.0f); // PREV returns to the first page
     tap(g, 640.0f, 206.0f + 15.0f);
     check(g.inLevel(), "pause: a tap on RESUME goes back to the level");
 

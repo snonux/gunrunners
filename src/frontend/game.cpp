@@ -208,7 +208,7 @@ void Game::prepareWorld(World& world) const
   const auto& pad = mBindings.pad[std::size_t(Act::Use)];
   if (!pad.empty())
     label += " / " + padName(pad[0]);
-  world.setUseLabel(label);
+  world.setUseLabel(mOptions.touch ? "TAP RIDE / EXIT" : label);
   // The tips name the player's own jump and fire buttons.
   auto actLabel = [this](Act a) {
     const auto& k = mBindings.keys[std::size_t(a)];

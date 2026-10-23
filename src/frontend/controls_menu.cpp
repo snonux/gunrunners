@@ -249,16 +249,19 @@ void Game::renderControls()
 
   const auto rows = controlRows();
   // The rows share the panel down to the help line, closer as more come.
-  const float step = std::min(30.0f, std::floor(360.0f / float(std::max<std::size_t>(rows.size(), 2) - 1)));
-  const float textSize = step < 22.0f ? 18.0f : 20.0f;
+  const float step = mOptions.touch ? 64.0f : std::min(30.0f, std::floor(360.0f / float(std::max<std::size_t>(rows.size(), 2) - 1)));
+  const float textSize = mOptions.touch ? 24.0f : step < 22.0f ? 18.0f : 20.0f;
+  const int first = mListening ? (mOptions.touch ? mControlsCursor / 6 * 6 : 0)
+    : menuPage(int(rows.size()), mControlsCursor, 6);
+  const int end = mOptions.touch ? std::min(int(rows.size()), first + 6) : int(rows.size());
   // While it listens, a tap anywhere gives up (like BACK).
   if (mListening)
     tapTarget(0, 0, float(kScreenW), float(kScreenH), [this](float, float) { tapPress(&Input::back); });
-  for (int i = 0; i < int(rows.size()); ++i)
+  for (int i = first; i < end; ++i)
   {
     const ControlRow& row = rows[std::size_t(i)];
     const bool sel = i == mControlsCursor;
-    const float y = 196.0f + float(i) * step + (row.kind == RowKind::Action ? 0.0f : 10.0f);
+    const float y = 196.0f + float(i - first) * step + (!mOptions.touch && row.kind != RowKind::Action ? 10.0f : 0.0f);
     if (!mListening && row.kind != RowKind::Action)
     {
       tapTarget(400, y - 4, 480, step, [this, i](float, float) {
@@ -276,7 +279,7 @@ void Game::renderControls()
         mControlsCursor = i;
       });
       for (int c = 0; c <= kPadColumn; ++c)
-        tapTarget(colX[c] - 88, y - 4, 176, step, [this, i, c](float, float) {
+        tapTarget(colX[c] - 80, y - 4, 160, step, [this, i, c](float, float) {
           if (mControlsCursor == i && mControlsColumn == c)
           {
             tapPress(&Input::confirm);
@@ -291,8 +294,8 @@ void Game::renderControls()
     const TextStyle chosen{textSize, t.accentA, kInk, true};
     if (row.kind != RowKind::Action)
     {
-      if (sel)
-        r.fillRect(400, y - 3, 480, step - 4, withAlpha(t.accentA, 60));
+      if (sel || mOptions.touch)
+        r.fillRect(400, y - 3, 480, step - 4, withAlpha(t.accentA, sel ? 60 : 20));
       const std::string label = row.kind == RowKind::TouchScheme
         ? (touchThumbs() ? "TOUCH: THUMB ZONES" : "TOUCH: CLASSIC BUTTONS")
         : row.kind == RowKind::TouchSize                      ? touchSizeLabel()
@@ -305,8 +308,8 @@ void Game::renderControls()
     for (int c = 0; c <= kPadColumn; ++c)
     {
       const bool cell = sel && c == mControlsColumn;
-      if (cell)
-        r.fillRect(colX[c] - 88, y - 3, 176, step - 4, withAlpha(t.accentA, mListening ? 140 : 60));
+      if (cell || mOptions.touch)
+        r.fillRect(colX[c] - 80, y - 3, 160, step - 4, withAlpha(t.accentA, cell ? (mListening ? 140 : 60) : 20));
       std::string text = c < kPadColumn ? keyName(mBindings.keys[std::size_t(row.act)][std::size_t(c)])
                                         : padNames(mBindings.pad[std::size_t(row.act)]);
       if (cell && mListening)
@@ -325,7 +328,7 @@ void Game::renderControls()
     if (mOptions.touch)
       help += " (or TAP)";
   }
-  r.drawText(help, 640, rows.size() > 15 ? 601.0f : rows.size() > 13 ? 596.0f : 584.0f, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
+  r.drawText(help, 640, mOptions.touch ? 626.0f : rows.size() > 15 ? 601.0f : rows.size() > 13 ? 596.0f : 584.0f, {mListening ? 20.0f : 16.0f, mListening ? t.accentA : rgb(190, 188, 214), kInk},
     Align::Center);
 }
 
@@ -409,11 +412,13 @@ void Game::renderAssists()
                                 : "How the game plays, sounds and looks.",
     640, 168, {16.0f, t.accentB, kInk}, Align::Center);
   // The rows close up as more options join, so BACK stays above the help line.
-  const float step = std::min(56.0f, 360.0f / float(count));
-  for (int i = 0; i <= count; ++i)
+  const float step = mOptions.touch ? 76.0f : std::min(56.0f, 360.0f / float(count));
+  const int first = menuPage(count + 1, mAssistCursor, 5);
+  const int end = mOptions.touch ? std::min(count + 1, first + 5) : count + 1;
+  for (int i = first; i < end; ++i)
   {
     const bool sel = i == mAssistCursor;
-    const float y = 196.0f + float(i) * step + (i == count ? 6.0f : 0.0f);
+    const float y = 196.0f + float(i - first) * step + (!mOptions.touch && i == count ? 6.0f : 0.0f);
     tapTarget(300, y - 6, 680, step - 6, [this, i](float, float) {
       if (mAssistCursor != i)
       {
@@ -423,8 +428,8 @@ void Game::renderAssists()
       }
       tapPress(&Input::confirm);
     });
-    if (sel)
-      r.fillRect(300, y - 2, 680, step - 1, withAlpha(t.accentA, 60)); // the row and its help line
+    if (sel || mOptions.touch)
+      r.fillRect(300, y - 2, 680, step - 1, withAlpha(t.accentA, sel ? 60 : 20)); // the row and its help line
     const TextStyle plain{22.0f, t.hudText, kInk};
     const TextStyle chosen{22.0f, t.accentA, kInk, true};
     if (i == count)
@@ -447,7 +452,7 @@ void Game::renderAssists()
   }
   r.drawText(mOptions.touch ? "TAP a row to pick it, TAP it again to switch it   BACK to leave"
                             : "UP/DOWN choose   ENTER / A switch   ESC / B back",
-    640, count > 8 ? 596.0f : 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
+    640, mOptions.touch ? 626.0f : count > 8 ? 596.0f : 584.0f, {16.0f, rgb(190, 188, 214), kInk}, Align::Center);
 }
 
 } // namespace gr

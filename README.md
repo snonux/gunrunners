@@ -220,10 +220,13 @@ CLASSIC BUTTONS) switches to Jump (the big corner
 button) and Fire left of it, laid out like a gamepad's A and X, with swipes on the right half (up jumps, down
 switches runner) and a tap on an empty spot there shooting at it; a touch near a button presses the nearest one, a thumb
 that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb
-in, and Use to climb out. Menus take your finger directly: tap
+in, or tap the steering wheel labelled **RIDE**. While riding, that same
+button says **EXIT**: tap it to climb out. If the exit is blocked, land or
+move somewhere with room beside the vehicle. Menus take your finger directly: tap
 an item to pick it, drag to scroll a list, tap a card on runner select to
 turn to it and tap it again to run, drag the map to pan it and tap it to
-zoom. BACK is the small arrow in the top left corner. If you'd rather steer
+zoom. Long menus have large **PREV / NEXT** buttons so their rows stay easy
+to tap; the runner editor has them below its rows. BACK is the arrow in the top left corner. If you'd rather steer
 menus like a gamepad, the pad button in the bottom left corner brings back
 a d-pad with OK and BACK. SETTINGS > CONTROLS (from the title screen or the pause menu) sets the size
 (TOUCH PAD: small, medium or large) and has EDIT TOUCH LAYOUT, where you

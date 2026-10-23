@@ -105,7 +105,10 @@ app's private storage and the keys are not drawn back to the screen.
   scrolling); on runner select a sideways drag turns the carousel; in the
   map a drag pans and a tap zooms. A tap is checked against the screen that
   was drawn, so a tap meant for a screen that has just gone does nothing.
-  A small BACK sits in the top left corner (it never fires or pauses).
+  Touch menus use larger rows and PREV / NEXT page buttons rather than
+  shrinking long lists; the runner editor pages its rows too.
+  BACK and the menu pad toggle keep large targets even at the SMALL setting.
+  BACK sits in the top left corner (it never fires or pauses).
   The pad button in the bottom left corner switches on the old menu pad
   (a d-pad, OK and BACK; touches away from it still tap); the choice is
   saved in the profile as `touch.menupad`. `tests/menu_taps_test.cpp`

@@ -180,8 +180,8 @@ void Game::renderSettings()
   r.drawText("SETTINGS", 640, 140, {48.0f, t.accentA, kInk, true}, Align::Center);
   const auto items = settingsItems();
   const int n = int(items.size());
-  const float step = 46.0f;
-  const float top = 220.0f + (6 - float(n)) * step * 0.5f;
+  const float step = mOptions.touch ? 64.0f : 46.0f;
+  const float top = (mOptions.touch ? 200.0f : 220.0f) + (6 - float(n)) * step * 0.5f;
   for (int i = 0; i < n; ++i)
   {
     const bool sel = i == mSettingsCursor;
@@ -191,10 +191,11 @@ void Game::renderSettings()
       mSettingsCursor = i;
       tapPress(&Input::confirm);
     });
-    if (sel)
+    if (sel || mOptions.touch)
     {
-      r.fillRect(420, y - 6, 440, step - 6, withAlpha(t.accentA, 60));
-      drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
+      r.fillRect(420, mOptions.touch ? y + 17 - step * 0.5f : y - 6, 440, step - 6, withAlpha(t.accentA, sel ? 60 : 20));
+      if (sel)
+        drawGlow(r, *mArt, 640, y + 15, 160, t.accentA, 0.25f);
     }
     std::string label;
     Color color = sel ? t.accentA : t.hudText;
@@ -226,9 +227,9 @@ void Game::renderSettings()
   }
   const int sel = items[std::size_t(std::clamp(mSettingsCursor, 0, n - 1))];
   const TextStyle hint{16.0f, rgb(190, 188, 214), kInk};
-  r.drawText(kSettingsHelp[sel], 640, 528, {16.0f, t.accentB, kInk}, Align::Center);
+  r.drawText(kSettingsHelp[sel], 640, mOptions.touch ? 602.0f : 528.0f, {16.0f, t.accentB, kInk}, Align::Center);
   r.drawText(mOptions.touch ? "TAP to choose   BACK to leave" : "UP/DOWN choose   ENTER / A select   ESC / B back", 640,
-    566, hint, Align::Center);
+    mOptions.touch ? 640.0f : 566.0f, hint, Align::Center);
 }
 
 } // namespace gr

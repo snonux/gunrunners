@@ -5,12 +5,15 @@
 // before the reset; left out of the recovery, it is caught drawing those.
 
 #include "frontend/touch_controls.hpp"
+#include "game/world.hpp"
 #include "render/renderer.hpp"
 
 #include <SDL.h>
 
 #include <cstdio>
 #include <initializer_list>
+#include <memory>
+#include <string>
 #include <vector>
 
 using namespace gr;
@@ -42,6 +45,75 @@ constexpr float kPauseX = 1224.0f, kPauseY = 120.0f;
 constexpr float kMapX = 1130.0f, kMapY = 120.0f;
 
 // The menu pad: shown when the player switched it on.
+void vehicleButton(Renderer& r)
+{
+  const Theme& theme = themeByIndex(0);
+  const Art art = Art::build(theme, r);
+  std::string map = "name=TOUCH VEHICLE\n[map]\n";
+  for (int y = 0; y < 16; ++y)
+  {
+    std::string row(64, y == 0 || y >= 14 ? '#' : '.');
+    row.front() = row.back() = '#';
+    if (y == 13)
+    {
+      row[2] = 'P';
+      row[60] = 'X';
+    }
+    map += row + "\n";
+  }
+  map += "[entities]\n@ tank 3 13\n";
+  const auto level = std::make_shared<const Level>(Level::parse(map));
+  for (bool thumbs : {false, true})
+    for (int size = 0; size < 3; ++size)
+    {
+      World world(level, 0, theme, art);
+      TouchControls t(r, true);
+      t.configure(Layout::Play, size);
+      t.setThumbs(thumbs);
+      world.update({});
+      t.setVehicle(false, false);
+      check(std::string(t.vehicleLabel()) == "RIDE", "vehicle: boarding is labelled RIDE");
+      const float scale = 0.8f + float(size) * 0.2f;
+      const float x = 1280.0f - (thumbs ? 338.0f : 244.0f) * scale;
+      auto use = [&]() {
+        t.touch(1, x, 120);
+        t.release(1);
+        const Input in = t.read();
+        check(in.use && !in.fire && !in.jump && !in.swap, "vehicle: labelled button only presses USE");
+        PlayerInput p;
+        p.use = {in.use, in.use};
+        world.update(p);
+        world.update({});
+      };
+      use();
+      check(world.riding(), "vehicle: touch boards a real tank at every size and scheme");
+      t.setVehicle(true, world.canLeaveVehicle());
+      check(std::string(t.vehicleLabel()) == "EXIT", "vehicle: riding changes the label to EXIT");
+      t.draw(r);
+      use();
+      check(!world.riding(), "vehicle: the same touch button exits the tank");
+      t.setVehicle(true, false);
+      check(std::string(t.vehicleLabel()) == "EXIT", "vehicle: a blocked exit still identifies the exit button");
+      t.draw(r);
+      t.configure(Layout::Menu, size);
+      t.touch(2, x, 120);
+      t.release(2);
+      check(!t.read().use, "vehicle: a menu tap cannot board or exit");
+    }
+}
+
+void largeMenuCorners(Renderer& r)
+{
+  TouchControls t(r, true);
+  t.configure(Layout::Menu, 0);
+  t.touch(1, 108, 64);
+  t.release(1);
+  check(t.read().back && t.takeTaps().empty(), "small setting: BACK still has a large target");
+  t.touch(2, 108, 656);
+  t.release(2);
+  check(t.menuPad() && t.takeTaps().empty(), "small setting: menu pad toggle still has a large target");
+}
+
 void menuLayout(Renderer& r)
 {
   TouchControls t(r, true);
@@ -668,6 +740,8 @@ int main()
   SDL_Renderer* sdl = SDL_CreateSoftwareRenderer(surface);
   {
     Renderer r(sdl);
+    vehicleButton(r);
+    largeMenuCorners(r);
     menuLayout(r);
     directTouch(r);
     playLayout(r);

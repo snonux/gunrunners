@@ -319,6 +319,8 @@ private:
   void tapTarget(float x, float y, float w, float h, std::function<void(float, float)> act);
   // A press for the next tick, made by a tap or a drag step.
   void tapPress(bool Input::*button);
+  // Large touch rows page around the cursor; returns the first visible row.
+  int menuPage(int count, int& cursor, int rows);
   Input takeTapInput();
 
   // menus.cpp: pause menu, savegame slots, runner switching.

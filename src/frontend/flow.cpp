@@ -312,22 +312,25 @@ void Game::renderTitle()
   r.drawText("42 LEVELS  -  42 PROTOTYPES  -  ONE SHOW", cx, 186, {22.0f, t.hudText, kInk}, Align::Center);
 
   const auto items = titleItems();
-  // All unlocked items plus settings still fit above the status line.
+  // Touch uses pages so unlocked items never squeeze the rows.
   const bool crowded = items.size() > 9;
   const float top = crowded ? 218.0f : 236.0f;
-  const float step = items.size() > 12 ? 31.0f : (items.size() > 11 ? 34.5f : (crowded ? 38.0f : 44.0f));
-  for (std::size_t i = 0; i < items.size(); ++i)
+  const float step = mOptions.touch ? 64.0f : items.size() > 12 ? 31.0f : (items.size() > 11 ? 34.5f : (crowded ? 38.0f : 44.0f));
+  const int first = menuPage(int(items.size()), mTitleCursor, 6);
+  const int end = mOptions.touch ? std::min(int(items.size()), first + 6) : int(items.size());
+  for (int i = first; i < end; ++i)
   {
-    const bool sel = int(i) == mTitleCursor;
-    const float y = top + float(i) * step;
+    const bool sel = i == mTitleCursor;
+    const float y = (mOptions.touch ? 236.0f : top) + float(i - first) * step;
     tapTarget(cx - 220, y + 16 - step * 0.5f, 440, step, [this, i](float, float) {
       mTitleCursor = int(i);
       tapPress(&Input::confirm);
     });
-    if (sel)
+    if (sel || mOptions.touch)
     {
-      r.fillRect(cx - 200, y - 4, 400, 40, withAlpha(t.accentA, 60));
-      drawGlow(r, *mArt, cx, y + 16, 170, t.accentA, 0.22f);
+      r.fillRect(cx - 200, mOptions.touch ? y + 18 - step * 0.5f : y - 4, 400, mOptions.touch ? step - 4 : 40.0f, withAlpha(t.accentA, sel ? 60 : 20));
+      if (sel)
+        drawGlow(r, *mArt, cx, y + 16, 170, t.accentA, 0.22f);
     }
     r.drawText(items[i], cx, y, {28.0f, sel ? t.accentA : t.hudText, kInk, sel}, Align::Center);
   }
@@ -438,13 +441,14 @@ void Game::renderCloud()
   const std::string items[3] = {"PASTE CONFIG FROM CLIPBOARD", "DISABLE CLOUD SAVES", "BACK"};
   for (int i = 0; i < 3; ++i)
   {
-    const float y = 410.0f + float(i) * 65.0f;
+    const float step = mOptions.touch ? 76.0f : 65.0f;
+    const float y = (mOptions.touch ? 400.0f : 410.0f) + float(i) * step;
     const bool selected = i == mCloudCursor;
-    tapTarget(350, y - 10, 580, 54, [this, i](float, float) {
+    tapTarget(350, y - 10, 580, mOptions.touch ? 72.0f : 54.0f, [this, i](float, float) {
       mCloudCursor = i;
       tapPress(&Input::confirm);
     });
-    r.fillRect(350, y - 8, 580, 48,
+    r.fillRect(350, y - 8, 580, mOptions.touch ? 68.0f : 48.0f,
       selected ? withAlpha(t.accentA, 65) : rgba(255, 255, 255, 16));
     r.drawText(items[i], 640, y, {24.0f, selected ? t.accentA : t.hudText, kInk, selected}, Align::Center);
   }
@@ -940,7 +944,7 @@ void Game::renderArsenal()
   r.drawText(buf, 640, 92, {18.0f, t.hudText, kInk}, Align::Center);
 
   // One row per episode, one cell per level.
-  const float gx = 186.0f, gy = 124.0f, cw = 82.0f, ch = 74.0f * 6.0f / float(kEpisodes);
+  const float gx = 186.0f, gy = 124.0f, cw = 82.0f, ch = mOptions.touch ? 70.0f : 74.0f * 6.0f / float(kEpisodes);
   for (int i = 0; i < kProtoCount; ++i)
   {
     const auto& def = protoDef(i);
@@ -1169,18 +1173,20 @@ void Game::renderList()
     r.drawText("NOTHING HERE YET", 640, 320, {28.0f, t.hudText, kInk}, Align::Center);
     return;
   }
-  // Ten rows, scrolled to keep the cursor in view.
-  const int rows = 10;
-  const int first = std::clamp(mListCursor - rows / 2, 0, std::max(0, int(mListItems.size()) - rows));
+  // Touch pages keep rows large; keyboard scrolling follows the cursor.
+  const int rows = mOptions.touch ? 7 : 10;
+  const float step = mOptions.touch ? 68.0f : 50.0f;
+  const int first = mOptions.touch ? menuPage(int(mListItems.size()), mListCursor, rows)
+    : std::clamp(mListCursor - rows / 2, 0, std::max(0, int(mListItems.size()) - rows));
   for (int i = first; i < std::min(int(mListItems.size()), first + rows); ++i)
   {
     const bool sel = i == mListCursor;
-    const float y = 120.0f + float(i - first) * 50.0f;
-    tapTarget(240, y - 6, 800, 50, [this, i](float, float) {
+    const float y = 120.0f + float(i - first) * step;
+    tapTarget(240, y - 6, 800, step, [this, i](float, float) {
       mListCursor = i;
       tapPress(&Input::confirm);
     });
-    r.fillRect(240, y - 4, 800, 44, sel ? withAlpha(t.accentA, 70) : rgba(255, 255, 255, 16));
+    r.fillRect(240, y - 4, 800, step - 6, sel ? withAlpha(t.accentA, 70) : rgba(255, 255, 255, 16));
     r.drawText(mListItems[std::size_t(i)].second, 270, y + 4, {24.0f, sel ? t.accentA : t.hudText, kInk, sel});
   }
   r.drawText(mOptions.touch ? "TAP to play   DRAG to scroll   BACK to leave" : "UP/DOWN choose   ENTER / A play   ESC / B back", 640, 676, {15.0f, rgb(200, 200, 220), kInk},

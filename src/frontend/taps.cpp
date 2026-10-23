@@ -38,6 +38,30 @@ void Game::tapTarget(float x, float y, float w, float h, std::function<void(floa
   mTapTargets.push_back({x, y, w, h, std::move(act)});
 }
 
+int Game::menuPage(int count, int& cursor, int rows)
+{
+  if (!mOptions.touch || count <= rows)
+    return 0;
+  const int first = cursor / rows * rows;
+  for (int side : {-1, 1})
+  {
+    const bool enabled = side < 0 ? first > 0 : first + rows < count;
+    const float x = side < 0 ? 24.0f : 1104.0f;
+    const Color color = enabled ? theme().accentA : rgb(100, 98, 120);
+    mRenderer.fillRect(x, 300, 152, 88, withAlpha(color, 60));
+    mRenderer.drawText(side < 0 ? "< PREV" : "NEXT >", x + 76, 326,
+      {24.0f, color, rgb(16, 12, 26), true}, Align::Center);
+    if (enabled)
+      tapTarget(x, 300, 152, 88, [this, &cursor, first, rows, side](float, float) {
+        cursor = first + side * rows;
+        sound(Sfx::MenuMove);
+      });
+  }
+  mRenderer.drawText(std::to_string(first / rows + 1) + " / " + std::to_string((count + rows - 1) / rows),
+    1180, 408, {22.0f, theme().hudText, rgb(16, 12, 26)}, Align::Center);
+  return first;
+}
+
 void Game::tapPress(bool Input::*button)
 {
   mTapInput.*button = true;
