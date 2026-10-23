@@ -95,6 +95,8 @@ android {
 // levels/, cutscenes/ and fonts/ go into the APK as assets, with a manifest
 // listing them: Android can't list APK assets from native code, and the game
 // copies them to internal storage on start (src/frontend/android_data.cpp).
+// bundled-data/ must differ from the extracted data/: SDL reads internal
+// storage before APK assets, so matching paths would retain stale files.
 // voices/ goes in too but stays out of the manifest: the game reads each
 // line straight from the APK when it is said (src/frontend/voices.cpp).
 def syncGameData = tasks.register('syncGameData') {
@@ -111,10 +113,10 @@ def syncGameData = tasks.register('syncGameData') {
         ['levels', 'cutscenes', 'fonts'].each { dir ->
             project.copy {
                 from "${gameData}/${dir}"
-                into new File(out, "data/${dir}")
+                into new File(out, "bundled-data/${dir}")
                 include '*.txt', '*.ttf'
             }
-            new File(out, "data/${dir}").eachFile { f -> files << "${dir}/${f.name}" }
+            new File(out, "bundled-data/${dir}").eachFile { f -> files << "${dir}/${f.name}" }
         }
         project.copy {
             from "${gameData}/voices"
@@ -123,10 +125,10 @@ def syncGameData = tasks.register('syncGameData') {
         }
         project.copy {
             from "${rootDir}/deps/cacert.pem"
-            into new File(out, 'data')
+            into new File(out, 'bundled-data')
         }
         files << 'cacert.pem'
-        new File(out, 'data/manifest.txt').text = files.sort().join('\n') + '\n'
+        new File(out, 'bundled-data/manifest.txt').text = files.sort().join('\n') + '\n'
     }
 }
 tasks.named('preBuild') { dependsOn syncGameData }

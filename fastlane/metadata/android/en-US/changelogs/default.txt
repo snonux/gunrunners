@@ -1,1 +1,1 @@
-PREV and NEXT now respond on press, so finger drift cannot turn a button tap into a swipe. Fixed touch alignment on wide screens, including controls in the sidebars. Double-tap the vehicle you are riding to get out, or use the steering-wheel button.
+Fixed Android updates keeping old level files. The recovery ladder beside Rooftop Run's neon stairs now appears after updating, without clearing app data or losing saves. Level files, fonts and certificates refresh from the installed APK on startup.

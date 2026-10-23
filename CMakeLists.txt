@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.11.6 LANGUAGES C CXX)
+project(Gunrunners VERSION 0.11.7 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -444,6 +444,11 @@ add_test(NAME hive_tubes COMMAND hive_test)
 add_executable(ladder_test tests/ladder_test.cpp)
 target_link_libraries(ladder_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME ladders COMMAND ladder_test ${CMAKE_SOURCE_DIR}/levels)
+
+# Exercise Android's data refresh on the host with SDL's Android file lookup.
+add_executable(android_data_test tests/android_data_test.cpp src/frontend/android_data.cpp)
+target_include_directories(android_data_test PRIVATE tests/android_data_stubs src)
+add_test(NAME android_data COMMAND android_data_test ${CMAKE_CURRENT_BINARY_DIR}/android-data-test ${CMAKE_SOURCE_DIR}/levels)
 add_executable(reflection_test tests/reflection_test.cpp)
 target_link_libraries(reflection_test PRIVATE gunrunners_core SDL2::SDL2)
 add_test(NAME reflections COMMAND reflection_test)

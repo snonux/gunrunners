@@ -13,10 +13,14 @@ namespace gr
 namespace
 {
 
-// SDL_RWFromFile with a relative path reads from the APK's assets.
+// SDL_RWFromFile checks internal storage BEFORE the APK. Keep the source
+// namespace distinct from the extracted data/ directory, or an upgrade
+// reads the old extracted files and copies them back over themselves.
+constexpr const char* kAssetRoot = "bundled-data/";
+
 bool readAsset(const std::string& path, std::vector<char>& out)
 {
-  SDL_RWops* rw = SDL_RWFromFile(path.c_str(), "rb");
+  SDL_RWops* rw = SDL_RWFromFile((kAssetRoot + path).c_str(), "rb");
   if (!rw)
     return false;
   const Sint64 size = SDL_RWsize(rw);
@@ -49,9 +53,9 @@ std::string prepareAndroidData()
   }
   const std::filesystem::path root = std::filesystem::path(internal) / "data";
   std::vector<char> manifest;
-  if (!readAsset("data/manifest.txt", manifest))
+  if (!readAsset("manifest.txt", manifest))
   {
-    SDL_Log("no data/manifest.txt in the APK: %s", SDL_GetError());
+    SDL_Log("no bundled-data/manifest.txt in the APK: %s", SDL_GetError());
     return {};
   }
   std::istringstream lines(std::string(manifest.begin(), manifest.end()));
@@ -62,7 +66,7 @@ std::string prepareAndroidData()
   {
     if (name.empty())
       continue;
-    if (!readAsset("data/" + name, data) || !writeFile(root / name, data))
+    if (!readAsset(name, data) || !writeFile(root / name, data))
     {
       SDL_Log("cannot unpack %s", name.c_str());
       return {};

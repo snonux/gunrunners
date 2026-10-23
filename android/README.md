@@ -36,6 +36,12 @@ debug key; see "Releasing".
 | Input | keyboard, gamepads | on-screen gamepad, Bluetooth/USB gamepads (the same SDL GameController code), the back key |
 | Leaving the app | | the pause menu opens over a running level and the profile is saved (`Game::suspend`), since Android may close a background app |
 
+The APK keeps files to unpack under `bundled-data/`, while their extracted
+copies go under `files/data/`. These paths must stay distinct: SDL2 checks
+internal storage before APK assets. Reusing `data/` for both would copy old
+extracted files over themselves after an update. Startup refreshes the data
+without changing `files/saves/`; clearing app data is unnecessary.
+
 Cloud saves use the same S3-compatible backend on both platforms. On Android,
 copy the six-line configuration block documented in
 [`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md), open CLOUD SAVES on the title

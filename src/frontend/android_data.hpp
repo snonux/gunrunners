@@ -6,8 +6,8 @@ namespace gr
 {
 
 // Android only. The game reads levels/ and cutscenes/ with plain file I/O,
-// but on Android they ship inside the APK, so they are copied to the app's
-// internal storage on every start (a few hundred KB; always fresh after an
+// but on Android they ship in the APK's bundled-data/ directory and are
+// copied to internal storage on every start (always fresh after an
 // update). Returns that data directory, or "" on failure.
 std::string prepareAndroidData();
 
