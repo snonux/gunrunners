@@ -221,12 +221,13 @@ button) and Fire left of it, laid out like a gamepad's A and X, with swipes on t
 switches runner) and a tap on an empty spot there shooting at it; a touch near a button presses the nearest one, a thumb
 that drifts keeps its button, and sliding onto another switches to it. Push the stick up beside a vehicle to climb
 in, or tap the steering wheel labelled **RIDE**. While riding,
-tap that same steering-wheel button to climb out. If the exit is blocked, land or
+tap that same steering-wheel button or double-tap the vehicle itself to climb out. If the exit is blocked, land or
 move somewhere with room beside the vehicle. Menus take your finger directly: tap
 an item to pick it, drag to scroll a list, tap a card on runner select to
 turn to it and tap it again to run, drag the map to pan it and tap it to
 zoom. Long menus have large **PREV / NEXT** buttons so their rows stay easy
-to tap; the runner editor has them below its rows. Runner select and CHANGE
+to tap; they respond as soon as you press, so a little finger movement does not
+cancel them. The runner editor has them below its rows. Runner select and CHANGE
 RUNNER also have **PREV / NEXT** buttons, so you can choose runners without
 swiping. BACK is the arrow in the top left corner. If you'd rather steer
 menus like a gamepad, the pad button in the bottom left corner brings back

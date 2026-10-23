@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Gunrunners VERSION 0.11.5 LANGUAGES C CXX)
+project(Gunrunners VERSION 0.11.6 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -231,6 +231,7 @@ add_library(gunrunners_core STATIC
   src/frontend/game.cpp
   src/frontend/menus.cpp
   src/frontend/taps.cpp
+  src/frontend/touch_events.cpp
   src/frontend/select.cpp
   src/frontend/runner_editor.cpp
   src/frontend/controls_menu.cpp

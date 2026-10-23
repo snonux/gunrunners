@@ -85,8 +85,12 @@ public:
   {
     mRiding = riding;
     mCanLeave = canLeave;
+    if (!riding)
+      mVehicleTapPending = false;
   }
   const char* vehicleLabel() const { return mRiding ? "" : "RIDE"; }
+  // The ridden vehicle's drawn bounds; -1 clears the double-tap gesture.
+  void setVehicleTarget(SDL_FRect bounds, int vehicle);
   // Where the shooting thumb aims: ahead (the way the runner faces), up,
   // down (crouched), left, right, or crouched to the left or right.
   enum Aim
@@ -181,6 +185,9 @@ private:
     bool swiped;    // made a swipe: keeps its button from now on
     // Menus: a finger on neither the pad nor a button points at the menu.
     bool pointer = false;
+    bool consumed = false; // a button/gesture already acted; ignore motion/release
+    bool vehicleTap = false; // a short, still tap on the ridden vehicle
+    int vehicle = -1; // the vehicle that was tapped, before any world update
     bool dragging = false; // moved too far to be a tap (or was used up)
     float px = 0.0f, py = 0.0f; // where the drag was last reported
     // Thumbs: a touch on the right half shoots. It waits a moment for a
@@ -195,7 +202,7 @@ private:
 
   void press(SDL_FingerID id, float x, float y);
   void move(SDL_FingerID id, float x, float y);
-  void lift(SDL_FingerID id);
+  void lift(SDL_FingerID id, bool vehicleTap = true);
   void swipe(Finger& f);
   void drawAt(Renderer& renderer, float sx, float sy) const;
   Input held() const;
@@ -234,6 +241,11 @@ private:
   bool mThumbs = true;
   bool mRiding = false;
   bool mCanLeave = true;
+  SDL_FRect mVehicleBounds{};
+  int mVehicleTarget = -1;
+  bool mVehicleTapPending = false;
+  Uint32 mLastVehicleTap = 0;
+  SDL_FPoint mVehicleTapPoint{};
   bool mThumbsUsed = false; // till the first touch in a level, a hint shows how it goes
   int mAim = kAimAhead;
   // A touch aims at its spot exactly (not the fire mark's shot ahead).

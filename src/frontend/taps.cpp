@@ -168,6 +168,21 @@ bool Game::runnerOnScreen(float& x, float& y) const
   return x > -cell && x < float(kScreenW) + cell && y > -cell && y < float(kScreenH) + cell;
 }
 
+int Game::vehicleOnScreen(SDL_FRect& bounds) const
+{
+  if (!inLevel() || !mWorld || mWorld->state() != WorldState::Playing || !mWorld->riding())
+    return -1;
+  const auto& v = *mWorld->riding();
+  const float alpha = renderAlpha();
+  const float cell = float(kCellSize) * kPixelScale;
+  const auto& cam = mWorld->camera();
+  bounds = {(float(v.prevX) + float(v.x - v.prevX) * alpha) * cell - cam.renderX() * kPixelScale,
+    (float(v.prevY) + float(v.y - v.prevY) * alpha + 1 - float(v.h)) * cell - cam.renderY() * kPixelScale,
+    float(v.w) * cell, float(v.h) * cell};
+  return bounds.x + bounds.w > 0 && bounds.x < kScreenW && bounds.y + bounds.h > 0 && bounds.y < kScreenH
+    ? mWorld->player().vehicle : -1;
+}
+
 bool Game::menuPad() const
 {
   auto it = mProfile.controls.find("touch.menupad");

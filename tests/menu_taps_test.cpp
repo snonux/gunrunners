@@ -11,6 +11,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 using namespace gr;
@@ -306,6 +307,62 @@ int main()
       tap(g, 640.0f, 514.0f);
       check(g.inLevel(), "change runner: a tap on RANDOM RUNNER goes back to the level");
       check(g.world()->characterIndex() != beforeRandom, "...as another runner");
+    }
+
+    // Double-tap the actual tank drawn by a real Game, using the same target
+    // bounds and Input path as syncTouch and the windowed loop.
+    const std::string vehicleFile = saves + "/vehicle.txt";
+    {
+      std::ofstream file(vehicleFile);
+      file << "name=DOUBLE TAP TEST\ntheme=neon_rooftops\n[map]\n";
+      for (int y = 0; y < 16; ++y)
+      {
+        std::string row(64, y == 0 || y >= 14 ? '#' : '.');
+        row.front() = row.back() = '#';
+        if (y == 13)
+        {
+          row[2] = 'P';
+          row[60] = 'X';
+        }
+        file << row << '\n';
+      }
+      file << "[entities]\n@ tank 3 13\n";
+    }
+    GameOptions vehicleOptions = o;
+    vehicleOptions.levelPath = std::filesystem::absolute(vehicleFile).string();
+    vehicleOptions.skipMenu = true;
+    vehicleOptions.saveDir = saves + "/vehicle_saves";
+    for (bool thumbs : {false, true})
+    {
+      Game vehicle(vehicleOptions, renderer, nullptr);
+      run(vehicle, 20);
+      run(vehicle, 4, pressed(&Input::use));
+      run(vehicle, 4);
+      check(vehicle.world()->riding(), "double-tap: a real Game boards the tank");
+      SDL_FRect bounds{};
+      const int target = vehicle.vehicleOnScreen(bounds);
+      check(target >= 0 && bounds.w > 0 && bounds.h > 0, "double-tap: the drawn vehicle supplies a touch target");
+      if (target < 0)
+        continue;
+      TouchControls controls(renderer, true);
+      controls.configure(TouchControls::Layout::Play, 1);
+      controls.setThumbs(thumbs);
+      controls.setVehicle(true, vehicle.world()->canLeaveVehicle());
+      controls.setVehicleTarget(bounds, target);
+      const float x = bounds.x + bounds.w * 0.5f, y = bounds.y + bounds.h * 0.5f;
+      controls.touch(1, x, y, 1000);
+      controls.release(1);
+      const Input first = controls.read();
+      check(!first.use, "double-tap: one tap does not get out");
+      run(vehicle, 4, first);
+      controls.touch(1, x + 8, y + 6, 1200);
+      controls.release(1);
+      const Input second = controls.read();
+      check(second.use, "double-tap: the second tap produces USE");
+      run(vehicle, 4, second);
+      run(vehicle, 4);
+      check(!vehicle.world()->riding(), "double-tap: the runner actually gets out of the tank");
+      check(vehicle.vehicleOnScreen(bounds) < 0, "double-tap: leaving removes the vehicle's target");
     }
   }
   std::filesystem::remove_all(saves);

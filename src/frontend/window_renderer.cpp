@@ -48,6 +48,14 @@ WindowRenderer::~WindowRenderer()
     SDL_DestroyRenderer(mSdl);
 }
 
+bool WindowRenderer::pollEvent(SDL_Event& event)
+{
+  if (!SDL_PollEvent(&event))
+    return false;
+  mTouchEvents.restore(event);
+  return true;
+}
+
 void WindowRenderer::make()
 {
   mSdl = mMake ? mMake(mWindow) : nullptr;

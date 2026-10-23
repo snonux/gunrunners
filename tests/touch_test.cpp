@@ -5,11 +5,14 @@
 // before the reset; left out of the recovery, it is caught drawing those.
 
 #include "frontend/touch_controls.hpp"
+#include "frontend/window_renderer.hpp"
 #include "game/world.hpp"
 #include "render/renderer.hpp"
 
 #include <SDL.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <initializer_list>
 #include <memory>
@@ -166,6 +169,221 @@ void navigationTaps(Renderer& r)
       t.release(3);
       check(t.read().fire && t.takeTaps().empty(), "navigation: menu targets cannot intercept play controls");
     }
+}
+
+void vehicleDoubleTaps(Renderer& r)
+{
+  for (bool thumbs : {false, true})
+  {
+    TouchControls t(r, true);
+    t.configure(Layout::Play, 1);
+    t.setThumbs(thumbs);
+    t.setVehicle(true, true);
+    t.setVehicleTarget({600, 300, 240, 160}, 0);
+    auto tap = [&](float x, float y, Uint32 time) {
+      t.touch(1, x, y, time);
+      t.release(1);
+      return t.read();
+    };
+    check(!tap(700, 360, 0).use && !tap(700, 360, 800).use,
+      "vehicle: slow taps do not exit");
+    check(!tap(900, 300, 1000).use && !tap(900, 300, 1200).use,
+      "vehicle: double-tapping outside the vehicle does not exit");
+    t.touch(1, 700, 360, 2000);
+    t.slide(1, 760, 360, 2050);
+    t.release(1);
+    t.read();
+    check(!tap(700, 360, 2200).use, "vehicle: a steering/aim drag is not the first tap of a double-tap");
+    t.touch(1, 700, 360, 3000);
+    t.advance(3400);
+    t.release(1);
+    t.read();
+    check(!tap(700, 360, 3500).use, "vehicle: holding to shoot is not a double-tap");
+    tap(700, 360, 4000);
+    tap(900, 300, 4100);
+    check(!tap(700, 360, 4200).use, "vehicle: another touch between the taps cancels the gesture");
+    tap(700, 320, 5000);
+    check(!tap(820, 440, 5200).use, "vehicle: taps far apart on the body do not exit");
+    tap(700, 360, 6000);
+    t.setVehicleTarget({600, 300, 240, 160}, 1);
+    check(!tap(700, 360, 6200).use, "vehicle: changing vehicle cancels the first tap");
+    tap(700, 360, 7000);
+    t.configure(Layout::Menu, 1);
+    check(!tap(700, 360, 7200).use, "vehicle: menu taps never complete an exit gesture");
+    t.takeTaps();
+    t.configure(Layout::Play, 1);
+    check(!tap(700, 360, 7400).use, "vehicle: closing a menu starts with no pending double-tap");
+    tap(700, 360, 8000);
+    const Input exit = tap(708, 366, 8200);
+    check(exit.use && !exit.fire && !exit.jump && !exit.swap,
+      "vehicle: two nearby taps request one exit without firing/jumping on the second");
+    check(!t.read().use, "vehicle: the double-tap exit is one press");
+    t.touch(1, 700, 360, 8500);
+    t.setVehicleTarget({600, 300, 240, 160}, 2);
+    t.release(1);
+    t.read();
+    check(!tap(700, 360, 8700).use, "vehicle: changing vehicle while a finger is down cancels its tap");
+    t.setVehicle(false, false);
+    t.setVehicleTarget({}, -1);
+    check(!tap(700, 360, 9000).use && !tap(700, 360, 9200).use,
+      "vehicle: double-tapping on foot cannot board a parked vehicle");
+    t.setVehicle(true, true);
+    t.setVehicleTarget({1100, 520, 140, 150}, 0);
+    t.setThumbs(true);
+    check(!tap(kPlayJumpX, kPlayJumpY, 10000).use && !tap(kPlayJumpX, kPlayJumpY, 10200).use,
+      "vehicle: the visible fire mark is always a fire control, not a vehicle double-tap");
+    t.setThumbs(thumbs);
+    t.setVehicleTarget({600, 300, 240, 160}, 3);
+    SDL_Event event{};
+    event.type = SDL_FINGERDOWN;
+    event.tfinger.fingerId = 1;
+    event.tfinger.timestamp = 11000;
+    event.tfinger.x = 700.0f / kScreenW;
+    event.tfinger.y = 360.0f / kScreenH;
+    t.handleEvent(event, nullptr);
+    event.type = SDL_FINGERUP;
+    event.tfinger.timestamp = 11100;
+    event.tfinger.x = 800.0f / kScreenW;
+    t.handleEvent(event, nullptr);
+    t.read();
+    check(!tap(700, 360, 11200).use, "vehicle: movement reported only on lift still cancels a tap");
+  }
+}
+
+void navigationDrift(Renderer& r)
+{
+  TouchControls t(r, true);
+  t.configure(Layout::Menu, 2);
+  t.setMenuPad(true);
+  t.setMenuNavigation({{24, 300, 152, 88}, {1104, 300, 152, 88}});
+  t.touch(1, 100, 340);
+  check(t.takeTaps().size() == 1, "navigation: button responds on press, before lifting");
+  t.slide(1, 130, 360, 100); // more than the list's 18-unit tap slop
+  t.slide(1, 1180, 350, 200); // even crossing to NEXT must not press it
+  t.slide(1, 988, 628, 300); // nor the menu pad's BACK
+  t.release(1);
+  const SDL_FPoint drag = t.takeDrag();
+  const Input in = t.read();
+  check(t.takeTaps().empty(), "navigation: drift, holding and release never repeat a press");
+  check(drag.x == 0 && drag.y == 0 && !in.back && !in.confirm && !in.up && !in.down,
+    "navigation: a held button cannot become scrolling or a pad press");
+  t.touch(2, 640, 260);
+  t.slide(2, 640, 180);
+  t.release(2);
+  check(t.takeTaps().empty() && t.takeDrag().y == -80,
+    "navigation: dragging the list still scrolls instead of clicking");
+}
+
+// Test the same native SDL event-watch path as Android, including its
+// logical-size conversion. Direct calls to handleEvent cannot exercise it.
+void queuedNavigation()
+{
+  SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
+  if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
+  {
+    check(false, "queued touch: dummy video initializes");
+    return;
+  }
+  for (SDL_Point screen : {SDL_Point{1280, 720}, {1600, 720}, {2400, 1080}, {1280, 960}})
+  {
+    SDL_Window* window = SDL_CreateWindow("touch test", 0, 0, screen.x, screen.y, SDL_WINDOW_HIDDEN);
+    auto windowRenderer = window ? std::make_unique<WindowRenderer>(window) : nullptr;
+    SDL_Renderer* sdl = windowRenderer ? windowRenderer->sdl() : nullptr;
+    if (!sdl)
+    {
+      check(false, "queued touch: window renderer created");
+      windowRenderer.reset();
+      if (window)
+        SDL_DestroyWindow(window);
+      continue;
+    }
+    {
+      Renderer renderer(sdl);
+      const float scale = std::min(float(screen.x) / kScreenW, float(screen.y) / kScreenH);
+      const float barX = (float(screen.x) - kScreenW * scale) * 0.5f;
+      const float barY = (float(screen.y) - kScreenH * scale) * 0.5f;
+      auto push = [&](Uint32 type, float x, float y) {
+        SDL_Event event{};
+        event.type = type;
+        event.tfinger.touchId = 1;
+        event.tfinger.fingerId = 1;
+        event.tfinger.windowID = SDL_GetWindowID(window);
+        event.tfinger.x = (barX + x * scale) / float(screen.x);
+        event.tfinger.y = (barY + y * scale) / float(screen.y);
+        check(SDL_PushEvent(&event) == 1, "queued touch: event enters SDL's queue");
+      };
+      for (int size = 0; size < 3; ++size)
+        for (bool pad : {false, true})
+        {
+          TouchControls touch(renderer, true);
+          touch.configure(Layout::Menu, size);
+          // Deliberately leave the initial 16:9 bounds: the first queued
+          // event must learn this window's actual output size itself.
+          touch.setMenuPad(pad);
+          touch.setMenuNavigation({{24, 300, 152, 88}, {1104, 300, 152, 88}});
+          for (SDL_FPoint point : {SDL_FPoint{100, 340}, {1180, 340}})
+          {
+            push(SDL_FINGERDOWN, point.x, point.y);
+            push(SDL_FINGERMOTION, point.x + 25, point.y + 20);
+            push(SDL_FINGERUP, point.x + 25, point.y + 20);
+            int taps = 0;
+            SDL_Event event;
+            while (windowRenderer->pollEvent(event))
+            {
+              if (event.type == SDL_FINGERDOWN)
+                check(std::abs(event.tfinger.x - (barX + point.x * scale) / screen.x) < 0.0001f &&
+                  std::abs(event.tfinger.y - (barY + point.y * scale) / screen.y) < 0.0001f,
+                  "queued touch: WindowRenderer preserves physical finger coordinates");
+              touch.handleEvent(event, window);
+              for (const auto& tap : touch.takeTaps())
+              {
+                ++taps;
+                check(std::abs(tap.x - point.x) < 0.1f && std::abs(tap.y - point.y) < 0.1f,
+                  "queued touch: the physical button maps to the drawn button at every aspect ratio");
+              }
+            }
+            const SDL_FPoint drag = touch.takeDrag();
+            const Input in = touch.read();
+            check(taps == 1 && drag.x == 0 && drag.y == 0 && !in.confirm && !in.back,
+              "queued touch: jitter gives one navigation press, no swipe or overlay action");
+          }
+          // The original coordinates are also needed for BACK in the bars:
+          // SDL2 clamps those touches to the picture's edge before polling.
+          touch.setMenuPad(false);
+          const float corner = 64.0f * std::max(1.0f, 0.8f + float(size) * 0.2f);
+          const float x = -barX / scale + corner, y = -barY / scale + corner;
+          push(SDL_FINGERDOWN, x, y);
+          push(SDL_FINGERUP, x, y);
+          SDL_Event event;
+          while (windowRenderer->pollEvent(event))
+          {
+            touch.handleEvent(event, window);
+          }
+          check(touch.read().back && touch.takeTaps().empty(),
+            "queued touch: BACK in the letterbox bars keeps its physical touch position");
+          touch.configure(Layout::Play, size);
+          touch.setThumbs(pad);
+          touch.setVehicle(true, true);
+          touch.setVehicleTarget({600, 300, 240, 160}, 0);
+          auto poll = [&] {
+            SDL_Event input;
+            while (windowRenderer->pollEvent(input))
+            {
+              touch.handleEvent(input, window);
+            }
+            return touch.read();
+          };
+          push(SDL_FINGERDOWN, 700, 360);
+          push(SDL_FINGERUP, 700, 360);
+          check(!poll().use, "queued touch: one tap on the vehicle never exits");
+          push(SDL_FINGERDOWN, 708, 366);
+          push(SDL_FINGERUP, 708, 366);
+          check(poll().use, "queued touch: double-tap exits in both control schemes and every screen shape");
+        }
+    }
+    windowRenderer.reset();
+    SDL_DestroyWindow(window);
+  }
 }
 
 void menuLayout(Renderer& r)
@@ -797,6 +1015,8 @@ int main()
     vehicleButton(r);
     largeMenuCorners(r);
     navigationTaps(r);
+    navigationDrift(r);
+    vehicleDoubleTaps(r);
     menuLayout(r);
     directTouch(r);
     playLayout(r);
@@ -820,6 +1040,7 @@ int main()
   SDL_DestroyRenderer(sdl);
   SDL_FreeSurface(surface);
   rebaked();
+  queuedNavigation();
   SDL_Quit();
   std::printf("%s\n", gFailures ? "FAILED" : "all passed");
   return gFailures ? 1 : 0;

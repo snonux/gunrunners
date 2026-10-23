@@ -153,6 +153,8 @@ public:
   // Where the runner is on the screen (the middle of its body), for a touch
   // that shoots at the spot it lands on; false outside a level.
   bool runnerOnScreen(float& x, float& y) const;
+  // The ridden vehicle, in the same interpolated screen position as its art.
+  int vehicleOnScreen(SDL_FRect& bounds) const;
   // The level being played (the bonus level while one runs), for tests.
   const World* world() const { return mWorld.get(); }
   // The current theme's art, for tests.

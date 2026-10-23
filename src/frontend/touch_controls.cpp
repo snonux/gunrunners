@@ -61,6 +61,10 @@ constexpr float kCornerInset = 64.0f;
 constexpr float kMenuRadius = 48.0f;
 // A menu touch that moves less than this is a tap; further, a drag.
 constexpr float kTapSlop = 18.0f;
+constexpr Uint32 kVehicleTapMs = 250;
+constexpr Uint32 kVehicleDoubleTapMs = 350;
+constexpr float kVehicleTapSlop = 36.0f;
+constexpr float kVehicleDoubleTapSlop = 80.0f;
 // Thumbs: a touch on the right waits this long for a flick before it
 // fires; a flick is this far (at medium size) within kSwipeMs.
 constexpr Uint32 kAimWindowMs = 50;
@@ -296,13 +300,25 @@ void TouchControls::configure(Layout layout, int size)
 {
   // A finger pointing at a menu that just went away taps nothing.
   if (layout != mLayout)
+  {
+    mVehicleTapPending = false;
     for (auto& f : mFingers)
     {
       f.dragging = true;
       f.shooter = f.firing = false;
+      f.vehicleTap = false;
     }
+  }
   mLayout = layout;
   mScale = kSizes[std::clamp(size, 0, 2)];
+}
+
+void TouchControls::setVehicleTarget(SDL_FRect bounds, int vehicle)
+{
+  if (vehicle != mVehicleTarget || vehicle < 0)
+    mVehicleTapPending = false;
+  mVehicleTarget = vehicle;
+  mVehicleBounds = bounds;
 }
 
 void TouchControls::setScreen(int pixelW, int pixelH)
@@ -603,6 +619,15 @@ void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
     case SDL_FINGERMOTION:
     case SDL_FINGERUP:
     {
+      // Input can arrive before the next frame after a window resize or
+      // Android resume. Use the current output size for this event too.
+      if (window)
+        if (SDL_Renderer* renderer = SDL_GetRenderer(window))
+        {
+          int w = 0, h = 0;
+          SDL_GetRendererOutputSize(renderer, &w, &h);
+          setScreen(w, h);
+        }
       // Finger positions are 0..1 of the whole screen, bars included.
       const float lx = mLeft + ev.tfinger.x * (mRight - mLeft);
       const float ly = mTop + ev.tfinger.y * (mBottom - mTop);
@@ -612,7 +637,10 @@ void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
       else if (ev.type == SDL_FINGERMOTION)
         move(ev.tfinger.fingerId, lx, ly);
       else
+      {
+        move(ev.tfinger.fingerId, lx, ly);
         lift(ev.tfinger.fingerId);
+      }
       break;
     }
     case SDL_KEYDOWN:
@@ -636,7 +664,7 @@ void TouchControls::handleEvent(const SDL_Event& ev, SDL_Window* window)
 void TouchControls::press(SDL_FingerID id, float x, float y)
 {
   mVisible = true;
-  lift(id);
+  lift(id, false);
   Finger f{id, x, y, x < float(kScreenW) * 0.5f, 0.0f, 0.0f, -1, x, y, mNow, false, false};
   if (mEditing)
   {
@@ -651,9 +679,10 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
       if (x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h)
       {
         f.stick = false;
-        f.pointer = true;
-        f.px = x;
-        f.py = y;
+        f.consumed = true;
+        // A button answers on press. A little drift must not turn it into
+        // list scrolling, and holding/sliding it must not repeat the action.
+        mTaps.push_back({x, y});
         mFingers.push_back(f);
         return;
       }
@@ -688,6 +717,24 @@ void TouchControls::press(SDL_FingerID id, float x, float y)
     mTapped = mTapped | held();
     return;
   }
+  const bool onVehicle = mRiding && mVehicleTarget >= 0 &&
+    x >= mVehicleBounds.x - 16 && x < mVehicleBounds.x + mVehicleBounds.w + 16 &&
+    y >= mVehicleBounds.y - 16 && y < mVehicleBounds.y + mVehicleBounds.h + 16;
+  f.vehicleTap = onVehicle && buttonFor(x, y) < 0 && !(mThumbs && onFireMark(x, y));
+  f.downAt = mNow;
+  f.vehicle = mVehicleTarget;
+  if (f.vehicleTap && mVehicleTapPending && mNow - mLastVehicleTap <= kVehicleDoubleTapMs &&
+      std::hypot(x - mVehicleTapPoint.x, y - mVehicleTapPoint.y) <= kVehicleDoubleTapSlop)
+  {
+    mVehicleTapPending = false;
+    f.consumed = true;
+    f.stick = false;
+    mTapped.use = true;
+    mFingers.push_back(f);
+    return;
+  }
+  // An intervening touch elsewhere must not complete a double-tap.
+  mVehicleTapPending = false;
   // Thumbs: the stick has its zone in the bottom left; the rest of the
   // left half shoots too.
   if (f.stick && mThumbs && mLayout == Layout::Play && !inStickZone(x, y))
@@ -740,6 +787,10 @@ void TouchControls::move(SDL_FingerID id, float x, float y)
       continue;
     f.x = x;
     f.y = y;
+    if (f.consumed)
+      continue;
+    if (f.vehicleTap && std::hypot(x - f.sx, y - f.sy) > kVehicleTapSlop)
+      f.vehicleTap = false;
     if (f.pointer)
     {
       // Past the slop a tap becomes a drag, reported from where it started.
@@ -828,10 +879,17 @@ void TouchControls::swipe(Finger& f)
   f.st = mNow;
 }
 
-void TouchControls::lift(SDL_FingerID id)
+void TouchControls::lift(SDL_FingerID id, bool vehicleTap)
 {
   for (const auto& f : mFingers)
   {
+    if (f.id == id && vehicleTap && f.vehicleTap && f.vehicle == mVehicleTarget && !f.consumed && mRiding &&
+        mLayout == Layout::Play && mNow - f.downAt <= kVehicleTapMs)
+    {
+      mVehicleTapPending = true;
+      mLastVehicleTap = mNow;
+      mVehicleTapPoint = {f.sx, f.sy};
+    }
     if (f.id == id && f.pointer && !f.dragging && mLayout == Layout::Menu)
       mTaps.push_back({f.sx, f.sy});
     // A quick tap (or flick) on the right that no read() saw fire: a shot.

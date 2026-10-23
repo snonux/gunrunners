@@ -108,7 +108,11 @@ app's private storage and the keys are not drawn back to the screen.
   Touch menus use larger rows and PREV / NEXT page buttons rather than
   shrinking long lists; the runner editor pages its rows too. Runner select
   and CHANGE RUNNER have labelled PREV / NEXT buttons. These navigation
-  buttons receive taps even when the optional menu pad overlaps them.
+  buttons receive taps even when the optional menu pad overlaps them, act on
+  finger-down, and keep that finger from turning into a list drag.
+  The windowed loop preserves raw SDL finger coordinates before the renderer's
+  logical-size event watch changes them (`frontend/touch_events`), so wide-screen
+  letterboxing is accounted for once, and controls in the bars still work.
   BACK and the menu pad toggle keep large targets even at the SMALL setting.
   BACK sits in the top left corner (it never fires or pauses).
   The pad button in the bottom left corner switches on the old menu pad
@@ -116,6 +120,11 @@ app's private storage and the keys are not drawn back to the screen.
   saved in the profile as `touch.menupad`. `tests/menu_taps_test.cpp`
   drives the whole game by taps; `--tap 120:640x300` and
   `--drag 200:0x-120` script them headlessly.
+- **Vehicles:** tap the steering wheel to get out, or double-tap the ridden
+  vehicle itself. Two nearby short taps within 350 ms request the same USE
+  action; a drag, a held shot or a menu tap does not complete the gesture.
+  Single taps retain their movement and shooting behaviour. The normal landing
+  and exit-space rules still apply.
 - **CONTROLS** (in SETTINGS, on the title screen and in the pause menu) has TOUCH PAD:
   SMALL / MEDIUM / LARGE and EDIT TOUCH LAYOUT. The layout editor shows the
   play controls over the dimmed screen: drag the stick, Jump, Fire, Switch

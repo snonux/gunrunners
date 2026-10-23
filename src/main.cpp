@@ -218,6 +218,9 @@ void syncTouch(TouchControls& touch, Game& game)
   touch.setMenuNavigation(game.touchNavigationTargets());
   const World* world = game.inLevel() ? game.world() : nullptr;
   touch.setVehicle(world && world->riding(), !world || world->canLeaveVehicle());
+  SDL_FRect vehicleBounds{};
+  const int vehicle = game.vehicleOnScreen(vehicleBounds);
+  touch.setVehicleTarget(vehicleBounds, vehicle);
   float rx = 0.0f, ry = 0.0f;
   const bool known = game.runnerOnScreen(rx, ry);
   touch.setRunner(rx, ry, known);
@@ -851,7 +854,7 @@ bool WindowedRun::frame()
   game.showFullscreen(isFullscreen());
 #endif
   SDL_Event ev;
-  while (SDL_PollEvent(&ev))
+  while (sdlRenderer.pollEvent(ev))
     handleEvent(ev);
   // Quit, or a device reset that left no renderer (answerReset): no ticks,
   // and above all no picture, as there may be no renderer to draw with and

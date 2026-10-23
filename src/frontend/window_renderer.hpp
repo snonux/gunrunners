@@ -2,6 +2,7 @@
 
 #include "frontend/game.hpp"
 #include "frontend/touch_controls.hpp"
+#include "frontend/touch_events.hpp"
 #include "render/renderer.hpp"
 
 #include <SDL.h>
@@ -46,6 +47,9 @@ public:
   WindowRenderer& operator=(const WindowRenderer&) = delete;
 
   SDL_Renderer* sdl() const { return mSdl; }
+  // Poll with the original physical finger coordinates restored, before
+  // the renderer's logical-size filter can offset or clamp them.
+  bool pollEvent(SDL_Event& event);
   // SDL's own message from the last make that failed, taken right when it
   // failed (anything SDL does afterwards may set another); empty after one
   // that worked.
@@ -68,6 +72,7 @@ private:
   // mSdl made with mMake, and mError set from SDL_GetError if that failed.
   void make();
 
+  TouchEvents mTouchEvents; // installed before make() creates an SDL_Renderer
   SDL_Window* mWindow;
   Make mMake;
   SDL_Renderer* mSdl = nullptr;
