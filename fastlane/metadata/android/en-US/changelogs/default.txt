@@ -1,1 +1,1 @@
-Fixed getting stuck below the neon stairs in Rooftop Run. A recovery ladder on the right lets every runner climb back onto the roof after a missed jump, with a hint showing the way out.
+Touch menus have larger buttons, with PREV and NEXT pages for long lists and the runner editor. The vehicle button now says RIDE or EXIT, making it clear how to get in and out. A hint explains when you need to land or make room before exiting.
